@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add button card input label -y)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
