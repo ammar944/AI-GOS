@@ -25,8 +25,8 @@ export interface ChatCompletionResponse {
 
 // Model identifiers for OpenRouter
 export const MODELS = {
-  GEMINI_FLASH: "google/gemini-flash-1.5",
-  PERPLEXITY_SONAR: "perplexity/llama-3.1-sonar-large-128k-online",
+  GEMINI_FLASH: "google/gemini-3-flash-preview",
+  PERPLEXITY_SONAR: "perplexity/sonar-pro-search",
   GPT_4O: "openai/gpt-4o",
   CLAUDE_SONNET: "anthropic/claude-3.5-sonnet",
 } as const;
@@ -81,9 +81,17 @@ export class OpenRouterClient {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      let errorMessage = response.statusText;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorData.message || errorText;
+      } catch {
+        errorMessage = errorText || response.statusText;
+      }
+      console.error(`OpenRouter API error [${response.status}]:`, errorMessage);
       throw new Error(
-        `OpenRouter API error: ${response.status} - ${errorData.error?.message || response.statusText}`
+        `OpenRouter API error: ${response.status} - ${errorMessage}`
       );
     }
 
