@@ -117,7 +117,7 @@ export class OpenRouterClient {
       if (index === 0 && msg.role === "system") {
         return {
           ...msg,
-          content: `${msg.content}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code blocks, no explanation.`,
+          content: `${msg.content}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code blocks, no explanation text before or after the JSON.`,
         };
       }
       return msg;
@@ -128,27 +128,60 @@ export class OpenRouterClient {
       messages: messagesWithJSON,
     });
 
-    // Clean the response - remove markdown code blocks if present
-    let cleanContent = response.content.trim();
-    if (cleanContent.startsWith("```json")) {
-      cleanContent = cleanContent.slice(7);
-    } else if (cleanContent.startsWith("```")) {
-      cleanContent = cleanContent.slice(3);
+    const extractedJSON = this.extractJSON(response.content);
+
+    if (!extractedJSON) {
+      console.error("Failed to extract JSON from response:", response.content.slice(0, 500));
+      throw new Error(`Failed to parse JSON response: ${response.content.slice(0, 200)}...`);
     }
-    if (cleanContent.endsWith("```")) {
-      cleanContent = cleanContent.slice(0, -3);
-    }
-    cleanContent = cleanContent.trim();
 
     try {
-      const data = JSON.parse(cleanContent) as T;
+      const data = JSON.parse(extractedJSON) as T;
       return {
         data,
         usage: response.usage,
         cost: response.cost,
       };
+    } catch (e) {
+      console.error("JSON parse error:", e, "Content:", extractedJSON.slice(0, 500));
+      throw new Error(`Failed to parse JSON response: ${extractedJSON.slice(0, 200)}...`);
+    }
+  }
+
+  private extractJSON(content: string): string | null {
+    // Strategy 1: Try parsing the whole content directly
+    const trimmed = content.trim();
+    if (this.isValidJSON(trimmed)) {
+      return trimmed;
+    }
+
+    // Strategy 2: Extract from markdown code blocks
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch && this.isValidJSON(codeBlockMatch[1].trim())) {
+      return codeBlockMatch[1].trim();
+    }
+
+    // Strategy 3: Find JSON object by matching braces
+    const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonObjectMatch && this.isValidJSON(jsonObjectMatch[0])) {
+      return jsonObjectMatch[0];
+    }
+
+    // Strategy 4: Find JSON array by matching brackets
+    const jsonArrayMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonArrayMatch && this.isValidJSON(jsonArrayMatch[0])) {
+      return jsonArrayMatch[0];
+    }
+
+    return null;
+  }
+
+  private isValidJSON(str: string): boolean {
+    try {
+      JSON.parse(str);
+      return true;
     } catch {
-      throw new Error(`Failed to parse JSON response: ${cleanContent.slice(0, 200)}...`);
+      return false;
     }
   }
 }
