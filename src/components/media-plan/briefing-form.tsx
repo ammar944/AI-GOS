@@ -86,7 +86,7 @@ export function BriefingForm({ initialData, onSubmit, onBack }: BriefingFormProp
                 id="budget"
                 type="number"
                 min="1"
-                step="100"
+                step="any"
                 placeholder="5000"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
