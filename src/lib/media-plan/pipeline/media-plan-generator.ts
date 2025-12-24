@@ -3,6 +3,7 @@
 // Now enhanced with optional Strategic Blueprint context for more accurate plans
 
 import { createOpenRouterClient, MODELS, TimeoutError, type ChatMessage } from "@/lib/openrouter/client";
+import { CircuitBreaker, CircuitOpenError } from "@/lib/openrouter/circuit-breaker";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import {
@@ -36,6 +37,17 @@ const SECTION_TIMEOUT_MS = 45000;
 /** Threshold for logging slow sections (30 seconds) */
 const SLOW_SECTION_THRESHOLD_MS = 30000;
 
+// =============================================================================
+// Circuit Breaker for AI Calls
+// =============================================================================
+
+/** Circuit breaker to prevent cascading failures during AI generation */
+const aiCircuitBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  resetTimeout: 60000, // 1 minute
+  name: "MediaPlanAI",
+});
+
 export type MediaPlanProgressCallback = (progress: MediaPlanProgress) => void;
 
 export interface MediaPlanGeneratorOptions {
@@ -60,6 +72,10 @@ export interface MediaPlanGeneratorResult {
     slowSections: string[];
     /** Average time per section in milliseconds */
     averageSectionTime: number;
+    /** Whether circuit breaker was tripped during generation */
+    circuitBreakerTripped: boolean;
+    /** Categorized failure reason if generation failed */
+    failureReason?: "timeout" | "circuit_open" | "validation" | "api_error" | "unknown";
   };
 }
 
@@ -542,16 +558,18 @@ export async function generateMediaPlan(
         // Get the schema for this section (cast to unknown for dynamic lookup)
         const schema = MEDIA_PLAN_SECTION_SCHEMAS[section] as z.ZodType<unknown>;
 
-        // Use Claude Sonnet with schema validation for type-safe responses
-        const response = await client.chatJSONValidated(
-          {
-            model: MODELS.CLAUDE_SONNET,
-            messages,
-            temperature: 0.4,
-            maxTokens: 4096,
-            timeout: SECTION_TIMEOUT_MS,
-          },
-          schema
+        // Use Claude Sonnet with schema validation, protected by circuit breaker
+        const response = await aiCircuitBreaker.execute(() =>
+          client.chatJSONValidated(
+            {
+              model: MODELS.CLAUDE_SONNET,
+              messages,
+              temperature: 0.4,
+              maxTokens: 4096,
+              timeout: SECTION_TIMEOUT_MS,
+            },
+            schema
+          )
         );
 
         // @ts-expect-error - Dynamic assignment
@@ -570,14 +588,50 @@ export async function generateMediaPlan(
 
         updateProgress(section, `Completed ${MEDIA_PLAN_SECTION_LABELS[section]}`);
       } catch (sectionError) {
-        // Section generation failed
-        const errorMessage = sectionError instanceof Error ? sectionError.message : "Unknown error";
-        console.error(`Section ${section} failed:`, errorMessage);
+        // Determine error type, message, and failure reason
+        const isCircuitOpen = sectionError instanceof CircuitOpenError;
+        const isTimeout = sectionError instanceof TimeoutError;
+        const isValidation = sectionError instanceof Error &&
+          (sectionError.message.includes("validation") ||
+           sectionError.message.includes("parse") ||
+           sectionError.message.includes("schema"));
+
+        let errorMessage: string;
+        let userMessage: string;
+        let failureReason: "timeout" | "circuit_open" | "validation" | "api_error" | "unknown";
+
+        if (isCircuitOpen) {
+          errorMessage = sectionError.message;
+          userMessage = "Service temporarily unavailable, please retry later";
+          failureReason = "circuit_open";
+          console.log(`[Generator] Circuit breaker open - returning partial result`);
+        } else if (isTimeout) {
+          errorMessage = sectionError.message;
+          userMessage = `Section timed out after ${(sectionError as TimeoutError).timeout}ms`;
+          failureReason = "timeout";
+        } else if (isValidation) {
+          errorMessage = sectionError.message;
+          userMessage = "AI response failed validation";
+          failureReason = "validation";
+        } else {
+          errorMessage = sectionError instanceof Error ? sectionError.message : "Unknown error";
+          userMessage = errorMessage;
+          // Check if it looks like an API error
+          failureReason = errorMessage.includes("API") || errorMessage.includes("status")
+            ? "api_error"
+            : "unknown";
+        }
+
+        // Wrap error with context and preserve cause chain
+        const wrappedError = new Error(`Section ${section} failed: ${errorMessage}`);
+        wrappedError.cause = sectionError;
+        console.error(`[Generator] ${wrappedError.message}`);
 
         // Check if we have enough sections for a useful partial result (3+ sections)
-        if (completedSections.length >= 3) {
+        // Also return partial immediately if circuit breaker is open
+        if (completedSections.length >= 3 || isCircuitOpen) {
           // Return partial result
-          updateProgress(section, `Failed at ${MEDIA_PLAN_SECTION_LABELS[section]} - returning partial result`, errorMessage);
+          updateProgress(section, `Failed at ${MEDIA_PLAN_SECTION_LABELS[section]} - returning partial result`, userMessage);
 
           const timingValues = Object.values(sectionTimings);
           const avgTime = timingValues.length > 0
@@ -588,7 +642,7 @@ export async function generateMediaPlan(
             success: false,
             partialPlan: { ...partialOutput },
             failedSection: section,
-            error: `Generation stopped at ${MEDIA_PLAN_SECTION_LABELS[section]}: ${errorMessage}`,
+            error: `Generation stopped at ${MEDIA_PLAN_SECTION_LABELS[section]}: ${userMessage}`,
             metadata: {
               totalTime: Date.now() - startTime,
               totalCost,
@@ -596,12 +650,14 @@ export async function generateMediaPlan(
               completedSections: [...completedSections],
               slowSections: [...slowSections],
               averageSectionTime: avgTime,
+              circuitBreakerTripped: isCircuitOpen,
+              failureReason,
             },
           };
         }
 
-        // Too early for partial result - propagate error
-        throw sectionError;
+        // Too early for partial result - propagate error with cause chain
+        throw wrappedError;
       }
     }
 
@@ -653,10 +709,27 @@ export async function generateMediaPlan(
         completedSections: [...completedSections],
         slowSections: [...slowSections],
         averageSectionTime,
+        circuitBreakerTripped: false,
       },
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    const isCircuitOpen = error instanceof CircuitOpenError;
+    const isTimeout = error instanceof TimeoutError;
+
+    // Determine failure reason from error type
+    let failureReason: "timeout" | "circuit_open" | "validation" | "api_error" | "unknown";
+    if (isCircuitOpen) {
+      failureReason = "circuit_open";
+    } else if (isTimeout) {
+      failureReason = "timeout";
+    } else if (errorMessage.includes("validation") || errorMessage.includes("parse")) {
+      failureReason = "validation";
+    } else if (errorMessage.includes("API") || errorMessage.includes("status")) {
+      failureReason = "api_error";
+    } else {
+      failureReason = "unknown";
+    }
 
     const failedSection = MEDIA_PLAN_SECTION_ORDER.find(
       (section) => !completedSections.includes(section)
@@ -680,6 +753,8 @@ export async function generateMediaPlan(
         completedSections: [...completedSections],
         slowSections: [...slowSections],
         averageSectionTime: avgTime,
+        circuitBreakerTripped: isCircuitOpen,
+        failureReason,
       },
     };
   }
