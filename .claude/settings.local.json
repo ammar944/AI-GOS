@@ -16,7 +16,10 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(gh pr list:*)",
       "WebFetch(domain:openrouter.ai)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npx tsc:*)",
+      "Bash(wc:*)",
+      "Skill(gsd:plan-phase)"
     ]
   }
 }

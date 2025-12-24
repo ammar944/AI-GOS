@@ -1,0 +1,11 @@
+// Onboarding Components
+export { OnboardingWizard } from "./onboarding-wizard";
+export { StepBusinessBasics } from "./step-business-basics";
+export { StepICP } from "./step-icp";
+export { StepProductOffer } from "./step-product-offer";
+export { StepMarketCompetition } from "./step-market-competition";
+export { StepCustomerJourney } from "./step-customer-journey";
+export { StepBrandPositioning } from "./step-brand-positioning";
+export { StepAssetsProof } from "./step-assets-proof";
+export { StepBudgetTargets } from "./step-budget-targets";
+export { StepCompliance } from "./step-compliance";

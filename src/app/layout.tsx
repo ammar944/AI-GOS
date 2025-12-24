@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
+const inter = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -13,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI-GOS | AI-Powered Marketing Research",
-  description: "AI-powered marketing research platform for generating comprehensive reports",
+  title: "SaaSLaunch | AI-Powered Marketing Platform",
+  description: "Launch your SaaS with AI-powered marketing research, media planning, and strategic insights. Generate comprehensive blueprints in under 60 seconds.",
+  keywords: ["SaaS", "marketing", "AI", "media planning", "go-to-market", "strategy"],
 };
 
 export default function RootLayout({
@@ -23,9 +25,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
+        suppressHydrationWarning
       >
         {children}
       </body>

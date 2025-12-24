@@ -3,6 +3,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================
+   SaaSLaunch Design System
+   ============================================ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -44,82 +48,662 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* SaaSLaunch Brand Colors */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-light: var(--brand-navy-light);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-light: var(--brand-blue-light);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-periwinkle: var(--brand-periwinkle);
 }
+
+/* ============================================
+   SaaSLaunch Color Palette (OKLCH)
+
+   Primary Background (deep navy): #0a0e27
+   Accent Blue (bright/electric): #3b82f6 / #2563eb
+   Cloud gradient: #93c5fd -> #3b82f6
+   Text "saas": Pure white #ffffff
+   Text "launch": Light periwinkle #93c5fd / #a5b4fc
+   ============================================ */
 
 :root {
   --radius: 0.625rem;
+
+  /* SaaSLaunch Brand Colors */
+  --brand-navy: oklch(0.15 0.04 265);          /* #0a0e27 deep navy */
+  --brand-navy-light: oklch(0.20 0.04 265);    /* Slightly lighter navy */
+  --brand-blue: oklch(0.62 0.19 255);          /* #3b82f6 electric blue */
+  --brand-blue-light: oklch(0.70 0.15 255);    /* Lighter blue for hover */
+  --brand-sky: oklch(0.80 0.12 240);           /* #93c5fd sky blue */
+  --brand-periwinkle: oklch(0.75 0.10 270);    /* #a5b4fc periwinkle */
+
+  /* Light mode fallback (rarely used - dark is primary) */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.15 0.04 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
+  --card-foreground: oklch(0.15 0.04 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --popover-foreground: oklch(0.15 0.04 265);
+  --primary: oklch(0.62 0.19 255);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.01 265);
+  --secondary-foreground: oklch(0.15 0.04 265);
+  --muted: oklch(0.95 0.01 265);
+  --muted-foreground: oklch(0.50 0.03 265);
+  --accent: oklch(0.95 0.02 255);
+  --accent-foreground: oklch(0.15 0.04 265);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.90 0.01 265);
+  --input: oklch(0.90 0.01 265);
+  --ring: oklch(0.62 0.19 255);
+  --chart-1: oklch(0.62 0.19 255);
+  --chart-2: oklch(0.70 0.15 180);
+  --chart-3: oklch(0.75 0.10 270);
+  --chart-4: oklch(0.80 0.15 85);
+  --chart-5: oklch(0.65 0.20 25);
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.15 0.04 265);
+  --sidebar-primary: oklch(0.62 0.19 255);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.95 0.02 255);
+  --sidebar-accent-foreground: oklch(0.15 0.04 265);
+  --sidebar-border: oklch(0.90 0.01 265);
+  --sidebar-ring: oklch(0.62 0.19 255);
 }
 
+/* ============================================
+   Dark Theme (Primary Theme for SaaSLaunch)
+   ============================================ */
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  /* Deep navy background - NOT pure black */
+  --background: oklch(0.15 0.04 265);          /* #0a0e27 */
+  --foreground: oklch(0.98 0 0);               /* Near white */
+
+  /* Card with subtle blue tint */
+  --card: oklch(0.18 0.04 265);                /* Slightly lighter navy */
+  --card-foreground: oklch(0.98 0 0);
+
+  /* Popover */
+  --popover: oklch(0.18 0.04 265);
+  --popover-foreground: oklch(0.98 0 0);
+
+  /* Primary - Electric Blue */
+  --primary: oklch(0.62 0.19 255);             /* #3b82f6 */
+  --primary-foreground: oklch(1 0 0);          /* Pure white */
+
+  /* Secondary - Muted navy */
+  --secondary: oklch(0.22 0.04 265);
+  --secondary-foreground: oklch(0.90 0.02 255);
+
+  /* Muted - Subdued elements */
+  --muted: oklch(0.22 0.04 265);
+  --muted-foreground: oklch(0.65 0.04 265);
+
+  /* Accent - Blue tinted */
+  --accent: oklch(0.25 0.06 260);
+  --accent-foreground: oklch(0.90 0.02 255);
+
+  /* Destructive - Vibrant red */
+  --destructive: oklch(0.65 0.22 25);
+
+  /* Borders - Subtle with blue tint */
+  --border: oklch(0.30 0.04 265);
+  --input: oklch(0.25 0.04 265);
+
+  /* Ring - Electric blue for focus states */
+  --ring: oklch(0.62 0.19 255);
+
+  /* Charts - Vibrant palette */
+  --chart-1: oklch(0.62 0.19 255);             /* Electric blue */
+  --chart-2: oklch(0.80 0.12 240);             /* Sky blue */
+  --chart-3: oklch(0.75 0.10 270);             /* Periwinkle */
+  --chart-4: oklch(0.70 0.18 180);             /* Teal */
+  --chart-5: oklch(0.65 0.22 320);             /* Purple */
+
+  /* Sidebar */
+  --sidebar: oklch(0.12 0.04 265);             /* Darker navy */
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.62 0.19 255);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.22 0.05 260);
+  --sidebar-accent-foreground: oklch(0.90 0.02 255);
+  --sidebar-border: oklch(0.25 0.04 265);
+  --sidebar-ring: oklch(0.62 0.19 255);
 }
 
+/* ============================================
+   Base Styles
+   ============================================ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar for dark theme */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: oklch(0.18 0.04 265);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: oklch(0.35 0.05 260);
+    border-radius: 4px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.45 0.06 260);
+  }
+}
+
+/* ============================================
+   SaaSLaunch Gradient Utilities
+   ============================================ */
+@layer utilities {
+  /* Primary gradient - Electric blue */
+  .gradient-primary {
+    background: linear-gradient(135deg, oklch(0.62 0.19 255), oklch(0.55 0.22 260));
+  }
+
+  /* Cloud gradient - Sky to electric blue */
+  .gradient-cloud {
+    background: linear-gradient(135deg, oklch(0.80 0.12 240), oklch(0.62 0.19 255));
+  }
+
+  /* Accent gradient - Periwinkle to blue */
+  .gradient-accent {
+    background: linear-gradient(135deg, oklch(0.75 0.10 270), oklch(0.62 0.19 255));
+  }
+
+  /* Hero gradient - Multi-stop blue */
+  .gradient-hero {
+    background: linear-gradient(
+      135deg,
+      oklch(0.80 0.12 240) 0%,
+      oklch(0.70 0.15 250) 50%,
+      oklch(0.62 0.19 255) 100%
+    );
+  }
+
+  /* Radial glow gradient */
+  .gradient-glow {
+    background: radial-gradient(
+      ellipse at center,
+      oklch(0.62 0.19 255 / 0.3) 0%,
+      transparent 70%
+    );
+  }
+
+  /* Gradient text - for "launch" styling */
+  .text-gradient {
+    background: linear-gradient(135deg, oklch(0.80 0.12 240), oklch(0.75 0.10 270));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Gradient text - primary blue */
+  .text-gradient-primary {
+    background: linear-gradient(135deg, oklch(0.62 0.19 255), oklch(0.55 0.22 260));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glow effects */
+  .glow-sm {
+    box-shadow: 0 0 15px oklch(0.62 0.19 255 / 0.3);
+  }
+
+  .glow-md {
+    box-shadow: 0 0 25px oklch(0.62 0.19 255 / 0.4);
+  }
+
+  .glow-lg {
+    box-shadow: 0 0 40px oklch(0.62 0.19 255 / 0.5);
+  }
+
+  .glow-primary {
+    box-shadow:
+      0 0 20px oklch(0.62 0.19 255 / 0.4),
+      0 0 40px oklch(0.62 0.19 255 / 0.2),
+      0 0 60px oklch(0.62 0.19 255 / 0.1);
+  }
+
+  /* Text glow */
+  .text-glow {
+    text-shadow: 0 0 20px oklch(0.62 0.19 255 / 0.5);
+  }
+
+  /* Border glow for interactive elements */
+  .border-glow {
+    box-shadow:
+      0 0 0 1px oklch(0.62 0.19 255 / 0.5),
+      0 0 15px oklch(0.62 0.19 255 / 0.2);
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    background: oklch(0.18 0.04 265 / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid oklch(0.62 0.19 255 / 0.1);
+  }
+
+  .glass-strong {
+    background: oklch(0.15 0.04 265 / 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid oklch(0.62 0.19 255 / 0.2);
+  }
+
+  /* Decorative patterns */
+  .pattern-grid {
+    background-image:
+      linear-gradient(oklch(0.62 0.19 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.62 0.19 255 / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .pattern-dots {
+    background-image: radial-gradient(oklch(0.62 0.19 255 / 0.15) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .pattern-dashed {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 19px,
+        oklch(0.62 0.19 255 / 0.1) 19px,
+        oklch(0.62 0.19 255 / 0.1) 20px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 19px,
+        oklch(0.62 0.19 255 / 0.1) 19px,
+        oklch(0.62 0.19 255 / 0.1) 20px
+      );
+  }
+}
+
+/* ============================================
+   Blob Decorative Elements
+   ============================================ */
+@layer utilities {
+  .blob {
+    border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+    filter: blur(40px);
+    opacity: 0.6;
+  }
+
+  .blob-primary {
+    background: oklch(0.62 0.19 255);
+  }
+
+  .blob-sky {
+    background: oklch(0.80 0.12 240);
+  }
+
+  .blob-periwinkle {
+    background: oklch(0.75 0.10 270);
+  }
+}
+
+/* ============================================
+   Animation Utilities
+   ============================================ */
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-float-delayed {
+    animation: float 6s ease-in-out infinite;
+    animation-delay: -3s;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 8s ease infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(2deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px oklch(0.62 0.19 255 / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 40px oklch(0.62 0.19 255 / 0.6);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ============================================
+   Component-specific Enhancements
+   ============================================ */
+
+/* Enhanced focus states for inputs */
+.dark input:focus-visible,
+.dark textarea:focus-visible,
+.dark select:focus-visible {
+  border-color: oklch(0.62 0.19 255);
+  box-shadow:
+    0 0 0 3px oklch(0.62 0.19 255 / 0.2),
+    0 0 20px oklch(0.62 0.19 255 / 0.1);
+}
+
+/* Enhanced button hover states */
+.dark button[data-variant="default"]:hover {
+  box-shadow: 0 0 20px oklch(0.62 0.19 255 / 0.4);
+}
+
+/* Card hover enhancement */
+.dark [data-slot="card"]:hover {
+  border-color: oklch(0.62 0.19 255 / 0.3);
+}
+
+/* ============================================
+   PDF Export Styles
+   Fallback colors for html2canvas compatibility
+   html2canvas does NOT support oklch(), lab(), or other modern color functions
+   ============================================ */
+.pdf-export {
+  /* Override ALL CSS custom properties with hex values */
+  --background: #ffffff !important;
+  --foreground: #1e293b !important;
+  --card: #ffffff !important;
+  --card-foreground: #1e293b !important;
+  --popover: #ffffff !important;
+  --popover-foreground: #1e293b !important;
+  --primary: #3b82f6 !important;
+  --primary-foreground: #ffffff !important;
+  --secondary: #f1f5f9 !important;
+  --secondary-foreground: #1e293b !important;
+  --muted: #f1f5f9 !important;
+  --muted-foreground: #64748b !important;
+  --accent: #f1f5f9 !important;
+  --accent-foreground: #1e293b !important;
+  --destructive: #ef4444 !important;
+  --border: #e2e8f0 !important;
+  --input: #e2e8f0 !important;
+  --ring: #3b82f6 !important;
+  --chart-1: #3b82f6 !important;
+  --chart-2: #22c55e !important;
+  --chart-3: #a855f7 !important;
+  --chart-4: #f59e0b !important;
+  --chart-5: #ef4444 !important;
+
+  /* Brand colors */
+  --brand-navy: #0a0e27 !important;
+  --brand-navy-light: #1e293b !important;
+  --brand-blue: #3b82f6 !important;
+  --brand-blue-light: #60a5fa !important;
+  --brand-sky: #93c5fd !important;
+  --brand-periwinkle: #a5b4fc !important;
+
+  /* Legacy fallback properties */
+  --pdf-primary: #3b82f6;
+  --pdf-primary-light: #60a5fa;
+  --pdf-foreground: #1e293b;
+  --pdf-muted: #64748b;
+  --pdf-border: #e2e8f0;
+  --pdf-background: #ffffff;
+  --pdf-success: #22c55e;
+  --pdf-warning: #f59e0b;
+  --pdf-error: #ef4444;
+
+  /* Force white background */
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+.pdf-export,
+.pdf-export * {
+  /* Override oklch colors with hex fallbacks */
+  color: #1e293b !important;
+}
+
+.pdf-export .text-primary {
+  color: #3b82f6 !important;
+}
+
+.pdf-export .text-muted-foreground {
+  color: #64748b !important;
+}
+
+.pdf-export .text-foreground {
+  color: #1e293b !important;
+}
+
+.pdf-export .bg-primary {
+  background-color: #3b82f6 !important;
+}
+
+.pdf-export .bg-primary\/5 {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+.pdf-export .bg-primary\/10 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.pdf-export .border-primary\/20 {
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+.pdf-export .border-primary\/30 {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.pdf-export .bg-muted\/30 {
+  background-color: rgba(100, 116, 139, 0.1) !important;
+}
+
+.pdf-export .border {
+  border-color: #e2e8f0 !important;
+}
+
+.pdf-export .bg-red-500\/10 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.pdf-export .border-red-500\/20,
+.pdf-export .border-red-500\/30 {
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.pdf-export .text-red-700 {
+  color: #b91c1c !important;
+}
+
+.pdf-export .bg-green-500\/10 {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+.pdf-export .border-green-500\/20 {
+  border-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+.pdf-export .text-green-600 {
+  color: #16a34a !important;
+}
+
+.pdf-export .bg-blue-500\/5 {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+.pdf-export .border-blue-500\/30 {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.pdf-export .bg-yellow-500\/5 {
+  background-color: rgba(245, 158, 11, 0.05) !important;
+}
+
+.pdf-export .border-yellow-500\/30 {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.pdf-export .bg-orange-500\/5 {
+  background-color: rgba(249, 115, 22, 0.05) !important;
+}
+
+.pdf-export .border-orange-500\/50 {
+  border-color: rgba(249, 115, 22, 0.5) !important;
+}
+
+/* Badge styles for PDF */
+.pdf-export [data-slot="badge"] {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.pdf-export [data-slot="badge"][data-variant="secondary"] {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+.pdf-export [data-slot="badge"][data-variant="outline"] {
+  background-color: transparent !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+.pdf-export [data-slot="badge"][data-variant="destructive"] {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+/* Progress bar for PDF */
+.pdf-export [role="progressbar"] > div {
+  background-color: #3b82f6 !important;
+}
+
+/* Ensure white background */
+.pdf-export {
+  background-color: #ffffff !important;
+}
+
+/* Override bg-card for PDF */
+.pdf-export .bg-card {
+  background-color: #ffffff !important;
+}
+
+.pdf-export .text-card-foreground {
+  color: #1e293b !important;
+}
+
+/* Dark mode color overrides for PDF - green status colors */
+.pdf-export .bg-green-500\/20 {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+}
+
+.pdf-export .text-green-400 {
+  color: #16a34a !important;
+}
+
+.pdf-export .border-green-500\/30 {
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+/* Yellow status colors */
+.pdf-export .bg-yellow-500\/20 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+.pdf-export .text-yellow-400 {
+  color: #d97706 !important;
+}
+
+.pdf-export .border-yellow-500\/30 {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Orange status colors */
+.pdf-export .bg-orange-500\/20 {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+}
+
+.pdf-export .text-orange-400 {
+  color: #ea580c !important;
+}
+
+.pdf-export .border-orange-500\/30 {
+  border-color: rgba(249, 115, 22, 0.3) !important;
+}
+
+/* Red status colors */
+.pdf-export .bg-red-500\/20 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.pdf-export .text-red-400 {
+  color: #dc2626 !important;
+}
+
+.pdf-export .border-red-500\/30 {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Blue section colors */
+.pdf-export .bg-blue-500\/10 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.pdf-export .text-blue-400 {
+  color: #2563eb !important;
+}
+
+/* Purple section colors */
+.pdf-export .bg-purple-500\/10 {
+  background-color: rgba(168, 85, 247, 0.1) !important;
+}
+
+.pdf-export .text-purple-400 {
+  color: #9333ea !important;
+}
+
+.pdf-export .border-purple-500\/30 {
+  border-color: rgba(168, 85, 247, 0.3) !important;
 }
