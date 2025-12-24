@@ -1,6 +1,8 @@
 // OpenRouter API Client
 // Uses OpenAI-compatible API format
 
+import { z } from "zod";
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -117,6 +119,140 @@ export class OpenRouterClient {
       },
       cost: estimateCost(model, promptTokens, completionTokens),
     };
+  }
+
+  /**
+   * Make a chat completion request and validate the JSON response against a Zod schema.
+   * Provides type-safe responses with clear validation error messages.
+   *
+   * @param options - Chat completion options
+   * @param schema - Zod schema to validate the response against
+   * @param retries - Number of retries on validation failure (default: 2)
+   * @returns Validated and typed data with usage stats
+   */
+  async chatJSONValidated<T>(
+    options: ChatCompletionOptions,
+    schema: z.ZodType<T>,
+    retries: number = 2
+  ): Promise<{
+    data: T;
+    usage: ChatCompletionResponse["usage"];
+    cost: number;
+    validationErrors?: string[];
+  }> {
+    let lastValidationErrors: string[] = [];
+    let totalCost = 0;
+    let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        // Build messages with JSON instruction (and validation errors on retry)
+        let messagesWithContext = this.buildJSONMessages(options.messages, attempt);
+
+        // On retry after validation failure, include the validation errors to help AI fix
+        if (attempt > 0 && lastValidationErrors.length > 0) {
+          const errorContext = `\n\nPREVIOUS RESPONSE VALIDATION FAILED. Please fix these errors:\n${lastValidationErrors.join("\n")}\n\nGenerate a corrected JSON response:`;
+          messagesWithContext = messagesWithContext.map((msg, index) => {
+            if (index === messagesWithContext.length - 1) {
+              return { ...msg, content: msg.content + errorContext };
+            }
+            return msg;
+          });
+        }
+
+        const response = await this.chat({
+          ...options,
+          messages: messagesWithContext,
+          jsonMode: true,
+          temperature: attempt > 0 ? 0.3 : (options.temperature ?? 0.5),
+        });
+
+        totalCost += response.cost;
+        totalUsage = {
+          promptTokens: totalUsage.promptTokens + response.usage.promptTokens,
+          completionTokens: totalUsage.completionTokens + response.usage.completionTokens,
+          totalTokens: totalUsage.totalTokens + response.usage.totalTokens,
+        };
+
+        const extractedJSON = this.extractJSON(response.content);
+
+        if (!extractedJSON) {
+          console.error(`Attempt ${attempt + 1}: Failed to extract JSON from response`);
+          lastValidationErrors = ["Failed to extract valid JSON from response"];
+          continue;
+        }
+
+        let parsedData: unknown;
+        try {
+          parsedData = JSON.parse(extractedJSON);
+        } catch (e) {
+          console.error(`Attempt ${attempt + 1}: JSON parse error:`, e);
+          lastValidationErrors = [`JSON parse error: ${e instanceof Error ? e.message : "Unknown error"}`];
+          continue;
+        }
+
+        // Validate against Zod schema
+        const validationResult = schema.safeParse(parsedData);
+
+        if (!validationResult.success) {
+          // Format Zod errors into clear messages
+          lastValidationErrors = this.formatZodErrors(validationResult.error);
+          console.error(`Attempt ${attempt + 1}: Validation failed:`, lastValidationErrors);
+          continue;
+        }
+
+        // Success!
+        return {
+          data: validationResult.data,
+          usage: totalUsage,
+          cost: totalCost,
+        };
+      } catch (e) {
+        console.error(`Attempt ${attempt + 1}: API error:`, e);
+        // Don't retry on API errors (rate limits, etc.)
+        if (e instanceof Error && e.message.includes("API error")) {
+          throw e;
+        }
+        lastValidationErrors = [`API error: ${e instanceof Error ? e.message : "Unknown error"}`];
+      }
+    }
+
+    // All retries exhausted
+    throw new Error(
+      `Validation failed after ${retries + 1} attempts. Errors:\n${lastValidationErrors.join("\n")}`
+    );
+  }
+
+  /**
+   * Format Zod validation errors into human-readable messages
+   */
+  private formatZodErrors(error: z.ZodError): string[] {
+    return error.issues.map((issue) => {
+      const path = issue.path.join(".");
+      const pathPrefix = path ? `Field '${path}'` : "Root";
+
+      // Zod v4 uses different issue codes and structure
+      switch (issue.code) {
+        case "invalid_type":
+          // Zod v4 uses 'input' not 'received'
+          return `${pathPrefix}: expected ${issue.expected}, got ${typeof issue.input}`;
+        case "invalid_value":
+          // Zod v4 merged invalid_enum_value into invalid_value
+          if ("values" in issue) {
+            return `${pathPrefix}: invalid value, expected one of: ${(issue.values as string[]).join(", ")}`;
+          }
+          return `${pathPrefix}: invalid value`;
+        case "too_small":
+          return `${pathPrefix}: too small (minimum: ${issue.minimum})`;
+        case "too_big":
+          return `${pathPrefix}: too large (maximum: ${issue.maximum})`;
+        case "invalid_format":
+          // Zod v4 uses invalid_format instead of invalid_string
+          return `${pathPrefix}: invalid format`;
+        default:
+          return `${pathPrefix}: ${issue.message}`;
+      }
+    });
   }
 
   async chatJSON<T>(
