@@ -1,0 +1,13 @@
+{
+  "project_name": "ai-gos",
+  "created": "2025-12-24",
+  "current_milestone": 1,
+  "milestones": [
+    {
+      "id": 1,
+      "name": "Stabilization",
+      "description": "Harden AI pipeline for reliable generation and Vercel deployment",
+      "status": "active"
+    }
+  ]
+}
