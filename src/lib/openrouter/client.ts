@@ -3,6 +3,97 @@
 
 import { z } from "zod";
 
+// =============================================================================
+// Custom Error Classes
+// =============================================================================
+
+/**
+ * Error thrown when a request times out.
+ * Distinguishable from other abort reasons.
+ */
+export class TimeoutError extends Error {
+  name = "TimeoutError" as const;
+  timeout: number;
+
+  constructor(timeout: number, message?: string) {
+    super(message || `Request timed out after ${timeout}ms`);
+    this.timeout = timeout;
+  }
+}
+
+/**
+ * Error thrown when API returns an error response.
+ * Includes status code for retry classification.
+ */
+export class APIError extends Error {
+  name = "APIError" as const;
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Sleep for a specified duration
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Calculate exponential backoff delay with jitter
+ * @param attempt - Current attempt number (0-indexed)
+ * @param baseDelay - Base delay in ms (default: 1000)
+ * @param maxDelay - Maximum delay in ms (default: 10000)
+ * @returns Delay in milliseconds
+ */
+function calculateBackoff(
+  attempt: number,
+  baseDelay: number = 1000,
+  maxDelay: number = 10000
+): number {
+  // Exponential: baseDelay * 2^attempt
+  const exponentialDelay = baseDelay * Math.pow(2, attempt);
+  // Add random jitter (0-500ms) to prevent thundering herd
+  const jitter = Math.random() * 500;
+  // Cap at maxDelay
+  return Math.min(exponentialDelay + jitter, maxDelay);
+}
+
+/**
+ * Determine if an error is retryable
+ */
+function isRetryableError(error: unknown): boolean {
+  // TimeoutError is always retryable
+  if (error instanceof TimeoutError) {
+    return true;
+  }
+
+  // APIError - check status code
+  if (error instanceof APIError) {
+    // 429 Too Many Requests - retryable
+    if (error.status === 429) return true;
+    // 5xx Server Errors - retryable
+    if (error.status >= 500 && error.status < 600) return true;
+    // 4xx Client Errors (except 429) - not retryable
+    if (error.status >= 400 && error.status < 500) return false;
+  }
+
+  // Validation errors (from JSON parsing) - retryable (AI might fix)
+  if (error instanceof Error && error.message.includes("parse")) {
+    return true;
+  }
+
+  // Default: not retryable
+  return false;
+}
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -14,7 +105,11 @@ export interface ChatCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean; // Enable strict JSON output
+  timeout?: number; // Request timeout in ms (default: 45000)
 }
+
+// Default timeout for API requests (45 seconds)
+const DEFAULT_TIMEOUT_MS = 45000;
 
 export interface ChatCompletionResponse {
   content: string;
@@ -65,7 +160,14 @@ export class OpenRouterClient {
   }
 
   async chat(options: ChatCompletionOptions): Promise<ChatCompletionResponse> {
-    const { model, messages, temperature = 0.7, maxTokens = 4096, jsonMode = false } = options;
+    const {
+      model,
+      messages,
+      temperature = 0.7,
+      maxTokens = 4096,
+      jsonMode = false,
+      timeout = DEFAULT_TIMEOUT_MS
+    } = options;
 
     const requestBody: Record<string, unknown> = {
       model,
@@ -79,16 +181,35 @@ export class OpenRouterClient {
       requestBody.response_format = { type: "json_object" };
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "AI-GOS Media Plan Generator",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Set up timeout with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-Title": "AI-GOS Media Plan Generator",
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      // Check if this was a timeout abort
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new TimeoutError(timeout);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -100,7 +221,8 @@ export class OpenRouterClient {
         errorMessage = errorText || response.statusText;
       }
       console.error(`OpenRouter API error [${response.status}]:`, errorMessage);
-      throw new Error(
+      throw new APIError(
+        response.status,
         `OpenRouter API error: ${response.status} - ${errorMessage}`
       );
     }
@@ -141,10 +263,18 @@ export class OpenRouterClient {
     validationErrors?: string[];
   }> {
     let lastValidationErrors: string[] = [];
+    let lastError: Error | null = null;
     let totalCost = 0;
     let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
     for (let attempt = 0; attempt <= retries; attempt++) {
+      // Apply exponential backoff before retry (not on first attempt)
+      if (attempt > 0) {
+        const backoffDelay = calculateBackoff(attempt - 1);
+        console.log(`[Retry] Attempt ${attempt + 1}/${retries + 1}, waiting ${Math.round(backoffDelay)}ms`);
+        await sleep(backoffDelay);
+      }
+
       try {
         // Build messages with JSON instruction (and validation errors on retry)
         let messagesWithContext = this.buildJSONMessages(options.messages, attempt);
@@ -208,17 +338,28 @@ export class OpenRouterClient {
           cost: totalCost,
         };
       } catch (e) {
-        console.error(`Attempt ${attempt + 1}: API error:`, e);
-        // Don't retry on API errors (rate limits, etc.)
-        if (e instanceof Error && e.message.includes("API error")) {
+        console.error(`Attempt ${attempt + 1}: Error:`, e);
+        lastError = e instanceof Error ? e : new Error("Unknown error");
+
+        // Check if error is retryable
+        if (!isRetryableError(e)) {
+          console.error(`[Retry] Non-retryable error, stopping retries`);
           throw e;
         }
-        lastValidationErrors = [`API error: ${e instanceof Error ? e.message : "Unknown error"}`];
+
+        // For 429 errors, use longer backoff
+        if (e instanceof APIError && e.status === 429) {
+          const longerBackoff = calculateBackoff(attempt, 5000, 30000);
+          console.log(`[Retry] Rate limited (429), waiting ${Math.round(longerBackoff)}ms`);
+          await sleep(longerBackoff);
+        }
+
+        lastValidationErrors = [`Error: ${e instanceof Error ? e.message : "Unknown error"}`];
       }
     }
 
     // All retries exhausted
-    throw new Error(
+    throw lastError || new Error(
       `Validation failed after ${retries + 1} attempts. Errors:\n${lastValidationErrors.join("\n")}`
     );
   }
@@ -264,6 +405,13 @@ export class OpenRouterClient {
     let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
     for (let attempt = 0; attempt <= retries; attempt++) {
+      // Apply exponential backoff before retry (not on first attempt)
+      if (attempt > 0) {
+        const backoffDelay = calculateBackoff(attempt - 1);
+        console.log(`[Retry] Attempt ${attempt + 1}/${retries + 1}, waiting ${Math.round(backoffDelay)}ms`);
+        await sleep(backoffDelay);
+      }
+
       try {
         // Build messages with strong JSON instruction
         const messagesWithJSON = this.buildJSONMessages(options.messages, attempt);
@@ -303,11 +451,20 @@ export class OpenRouterClient {
           continue;
         }
       } catch (e) {
-        console.error(`Attempt ${attempt + 1}: API error:`, e);
+        console.error(`Attempt ${attempt + 1}: Error:`, e);
         lastError = e instanceof Error ? e : new Error("Unknown error");
-        // Don't retry on API errors (rate limits, etc.)
-        if (e instanceof Error && e.message.includes("API error")) {
+
+        // Check if error is retryable
+        if (!isRetryableError(e)) {
+          console.error(`[Retry] Non-retryable error, stopping retries`);
           throw e;
+        }
+
+        // For 429 errors, use longer backoff
+        if (e instanceof APIError && e.status === 429) {
+          const longerBackoff = calculateBackoff(attempt, 5000, 30000);
+          console.log(`[Retry] Rate limited (429), waiting ${Math.round(longerBackoff)}ms`);
+          await sleep(longerBackoff);
         }
       }
     }

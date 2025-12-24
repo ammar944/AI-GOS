@@ -2,7 +2,7 @@
 // Generates comprehensive 11-section Media Plan from onboarding data
 // Now enhanced with optional Strategic Blueprint context for more accurate plans
 
-import { createOpenRouterClient, MODELS, type ChatMessage } from "@/lib/openrouter/client";
+import { createOpenRouterClient, MODELS, TimeoutError, type ChatMessage } from "@/lib/openrouter/client";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import {
@@ -26,6 +26,16 @@ import {
 import { MEDIA_PLAN_SECTION_SCHEMAS } from "../schemas";
 import { z } from "zod";
 
+// =============================================================================
+// Timing Configuration
+// =============================================================================
+
+/** Timeout for each section's AI call (45 seconds) */
+const SECTION_TIMEOUT_MS = 45000;
+
+/** Threshold for logging slow sections (30 seconds) */
+const SLOW_SECTION_THRESHOLD_MS = 30000;
+
 export type MediaPlanProgressCallback = (progress: MediaPlanProgress) => void;
 
 export interface MediaPlanGeneratorOptions {
@@ -46,6 +56,10 @@ export interface MediaPlanGeneratorResult {
     totalCost: number;
     sectionTimings: Record<string, number>;
     completedSections: MediaPlanSection[];
+    /** Sections that exceeded the slow threshold */
+    slowSections: string[];
+    /** Average time per section in milliseconds */
+    averageSectionTime: number;
   };
 }
 
@@ -479,6 +493,7 @@ export async function generateMediaPlan(
   const { onProgress, abortSignal, strategicBlueprint } = options;
   const startTime = Date.now();
   const sectionTimings: Record<string, number> = {};
+  const slowSections: string[] = [];
   let totalCost = 0;
 
   const completedSections: MediaPlanSection[] = [];
@@ -534,6 +549,7 @@ export async function generateMediaPlan(
             messages,
             temperature: 0.4,
             maxTokens: 4096,
+            timeout: SECTION_TIMEOUT_MS,
           },
           schema
         );
@@ -541,8 +557,16 @@ export async function generateMediaPlan(
         // @ts-expect-error - Dynamic assignment
         partialOutput[section] = response.data;
         totalCost += response.cost;
-        sectionTimings[section] = Date.now() - sectionStart;
+
+        const sectionTime = Date.now() - sectionStart;
+        sectionTimings[section] = sectionTime;
         completedSections.push(section);
+
+        // Log slow sections
+        if (sectionTime > SLOW_SECTION_THRESHOLD_MS) {
+          slowSections.push(section);
+          console.warn(`[Slow Section] ${section} took ${sectionTime}ms (threshold: ${SLOW_SECTION_THRESHOLD_MS}ms)`);
+        }
 
         updateProgress(section, `Completed ${MEDIA_PLAN_SECTION_LABELS[section]}`);
       } catch (sectionError) {
@@ -555,6 +579,11 @@ export async function generateMediaPlan(
           // Return partial result
           updateProgress(section, `Failed at ${MEDIA_PLAN_SECTION_LABELS[section]} - returning partial result`, errorMessage);
 
+          const timingValues = Object.values(sectionTimings);
+          const avgTime = timingValues.length > 0
+            ? Math.round(timingValues.reduce((a, b) => a + b, 0) / timingValues.length)
+            : 0;
+
           return {
             success: false,
             partialPlan: { ...partialOutput },
@@ -565,6 +594,8 @@ export async function generateMediaPlan(
               totalCost,
               sectionTimings,
               completedSections: [...completedSections],
+              slowSections: [...slowSections],
+              averageSectionTime: avgTime,
             },
           };
         }
@@ -598,6 +629,18 @@ export async function generateMediaPlan(
       },
     };
 
+    // Calculate average section time
+    const timingValues = Object.values(sectionTimings);
+    const averageSectionTime = timingValues.length > 0
+      ? Math.round(timingValues.reduce((a, b) => a + b, 0) / timingValues.length)
+      : 0;
+
+    // Log generation summary
+    console.log(`[Generator] Complete: ${completedSections.length}/${MEDIA_PLAN_SECTION_ORDER.length} sections, ${totalTime}ms, ${totalCost.toFixed(4)} USD`);
+    if (slowSections.length > 0) {
+      console.log(`[Generator] Slow sections: ${slowSections.join(", ")}`);
+    }
+
     updateProgress(null, "Media Plan generation complete!");
 
     return {
@@ -608,6 +651,8 @@ export async function generateMediaPlan(
         totalCost,
         sectionTimings,
         completedSections: [...completedSections],
+        slowSections: [...slowSections],
+        averageSectionTime,
       },
     };
   } catch (error) {
@@ -619,6 +664,11 @@ export async function generateMediaPlan(
 
     updateProgress(failedSection ?? null, `Error: ${errorMessage}`, errorMessage);
 
+    const timingValues = Object.values(sectionTimings);
+    const avgTime = timingValues.length > 0
+      ? Math.round(timingValues.reduce((a, b) => a + b, 0) / timingValues.length)
+      : 0;
+
     return {
       success: false,
       failedSection,
@@ -628,6 +678,8 @@ export async function generateMediaPlan(
         totalCost,
         sectionTimings,
         completedSections: [...completedSections],
+        slowSections: [...slowSections],
+        averageSectionTime: avgTime,
       },
     };
   }
