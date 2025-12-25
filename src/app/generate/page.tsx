@@ -5,16 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   Loader2,
   CheckCircle2,
-  XCircle,
-  ArrowLeft,
   ArrowRight,
-  Download,
   RotateCcw,
   Clock,
   Coins,
   Wand2,
   FileSearch,
-  FileText,
   AlertCircle,
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
@@ -23,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput, StrategicBlueprintProgress } from "@/lib/strategic-blueprint/output-types";
@@ -48,7 +45,7 @@ export default function GeneratePage() {
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData | null>(null);
   const [strategicBlueprint, setStrategicBlueprint] = useState<StrategicBlueprintOutput | null>(null);
   const [blueprintProgress, setBlueprintProgress] = useState<StrategicBlueprintProgress | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ParsedApiError | null>(null);
   const [blueprintMeta, setBlueprintMeta] = useState<{ totalTime: number; totalCost: number } | null>(null);
   const [wizardKey, setWizardKey] = useState(0);
   const [initialData, setInitialData] = useState<OnboardingFormData | undefined>(undefined);
@@ -117,12 +114,16 @@ export default function GeneratePage() {
         });
         setPageState("complete");
       } else {
-        setError(result.error || "Failed to generate Strategic Blueprint");
+        // Parse structured error from API response
+        setError(parseApiError(result));
         setPageState("error");
       }
     } catch (err) {
       console.error("Blueprint generation error:", err);
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setError({
+        message: err instanceof Error ? err.message : "An unexpected error occurred",
+        retryable: true,
+      });
       setPageState("error");
     }
   }, []);
@@ -311,43 +312,15 @@ export default function GeneratePage() {
   }
 
   // Error State
-  if (pageState === "error") {
+  if (pageState === "error" && error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center">
         <div className="container mx-auto px-4 py-8 max-w-lg">
-          <Card className="border-2 border-destructive/20">
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center gap-6 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-                  <XCircle className="h-8 w-8 text-destructive" />
-                </div>
-
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">Generation Failed</h2>
-                  <p className="text-muted-foreground">
-                    We encountered an error while generating your Strategic Blueprint
-                  </p>
-                </div>
-
-                {error && (
-                  <div className="w-full rounded-lg bg-destructive/5 p-4 text-left">
-                    <p className="text-sm text-destructive font-mono">{error}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3 w-full">
-                  <Button variant="outline" className="flex-1" onClick={handleStartOver}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Start Over
-                  </Button>
-                  <Button className="flex-1" onClick={handleRetryBlueprint}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Retry
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ApiErrorDisplay
+            error={error}
+            onRetry={handleRetryBlueprint}
+            onGoBack={handleStartOver}
+          />
         </div>
       </div>
     );
