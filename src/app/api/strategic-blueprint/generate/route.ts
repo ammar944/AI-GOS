@@ -5,8 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { generateStrategicBlueprint } from "@/lib/strategic-blueprint/pipeline/strategic-blueprint-generator";
 
-// Increase timeout for long-running generation
-export const maxDuration = 300; // 5 minutes
+// Vercel Pro tier allows up to 300 seconds (5 minutes) for serverless functions
+// Required for 5-section strategic blueprint generation with AI model calls
+export const maxDuration = 300;
 
 interface GenerateRequest {
   onboardingData: OnboardingFormData;

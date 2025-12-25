@@ -4,8 +4,9 @@ import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import { generateMediaPlan } from "@/lib/media-plan/pipeline/media-plan-generator";
 
-// Increase timeout for long-running generation (11 sections)
-export const maxDuration = 300; // 5 minutes max
+// Vercel Pro tier allows up to 300 seconds (5 minutes) for serverless functions
+// Required for 11-section media plan generation with per-section 45s timeout + retries
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {

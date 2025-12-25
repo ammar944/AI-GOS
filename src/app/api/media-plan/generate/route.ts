@@ -11,6 +11,10 @@ import type {
   SalesCycleLength,
 } from "@/lib/media-plan/types";
 
+// Vercel Pro tier allows up to 300 seconds (5 minutes) for serverless functions
+// This accommodates the multi-stage AI pipeline with retries
+export const maxDuration = 300;
+
 // Timeout for the entire pipeline (60 seconds as per MVP requirements)
 const PIPELINE_TIMEOUT = 60000;
 
