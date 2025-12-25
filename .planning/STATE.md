@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2025-12-25
-**Current Phase:** 3 - Vercel Deployment Compatibility (COMPLETE)
-**Current Plan:** 03-01 (completed)
+**Current Phase:** 4 - Error Reporting and Recovery (IN PROGRESS)
+**Current Plan:** 04-01 (completed)
 
 ## Position
 
@@ -17,15 +17,17 @@ Milestone 1: Stabilization
 │   └── 02-02-PLAN.md: Circuit Breaker ✓ DONE
 ├── Phase 3: Vercel Deployment Compatibility ✓ COMPLETE
 │   └── 03-01-PLAN.md: Deployment Config & Health Check ✓ DONE
-└── Phase 4: Error Reporting and Recovery (next)
+└── Phase 4: Error Reporting and Recovery (in progress)
+    ├── 04-01-PLAN.md: Structured Error Responses ✓ DONE
+    └── 04-02-PLAN.md: Frontend Error Display (next)
 ```
 
-Phase: 3 of 4 (Complete - ready for Phase 4)
-Plan: 1 of 1 in current phase (all complete)
-Status: Phase complete
-Last activity: 2025-12-25 - Completed 03-01-PLAN.md
+Phase: 4 of 4 (Error Reporting)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2025-12-25 - Completed 04-01-PLAN.md
 
-Progress: ██████░░░░ 60% (6/10 estimated plans)
+Progress: ███████░░░ 70% (7/10 estimated plans)
 
 ## Decisions
 
@@ -44,6 +46,8 @@ Progress: ██████░░░░ 60% (6/10 estimated plans)
 | 2025-12-25 | 02-02 | 1 minute reset timeout | Give API time to recover |
 | 2025-12-25 | 03-01 | Health endpoint returns 200 for ok/degraded | Allow monitoring while degraded |
 | 2025-12-25 | 03-01 | Env validation doesn't throw | App starts and reports health vs crash |
+| 2025-12-25 | 04-01 | Automatic retryability by code | TIMEOUT/RATE_LIMITED/CIRCUIT_OPEN = true |
+| 2025-12-25 | 04-01 | HTTP status by error type | 400/502/503/500 based on ErrorCode |
 
 ## Deferred Issues
 
@@ -64,7 +68,7 @@ None currently.
 ## Session Continuity
 
 Last session: 2025-12-25
-Stopped at: Completed 03-01-PLAN.md (Phase 3 complete)
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
 
 ---

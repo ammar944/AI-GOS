@@ -3,12 +3,22 @@ import { NextResponse } from "next/server";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import { generateMediaPlan } from "@/lib/media-plan/pipeline/media-plan-generator";
+import {
+  createErrorResponse,
+  ErrorCode,
+  mapFailureReasonToCode,
+  getHttpStatusForCode,
+} from "@/lib/errors";
+import { createLogContext, logError, logInfo } from "@/lib/logger";
 
 // Vercel Pro tier allows up to 300 seconds (5 minutes) for serverless functions
 // Required for 11-section media plan generation with per-section 45s timeout + retries
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
+  const logContext = createLogContext("/api/media-plan/full-plan", "POST");
+
   try {
     const body = await request.json();
     const onboardingData = body.onboardingData as OnboardingFormData;
@@ -16,65 +26,108 @@ export async function POST(request: Request) {
 
     // Validate required fields
     if (!onboardingData) {
-      return NextResponse.json(
-        { success: false, error: "Onboarding data is required" },
-        { status: 400 }
+      const errorResponse = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "Onboarding data is required"
       );
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Validate business basics
     if (!onboardingData.businessBasics?.businessName?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Business name is required" },
-        { status: 400 }
+      const errorResponse = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "Business name is required"
       );
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Validate ICP
     if (!onboardingData.icp?.primaryIcpDescription?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "ICP description is required" },
-        { status: 400 }
+      const errorResponse = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "ICP description is required"
       );
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Validate product/offer
     if (!onboardingData.productOffer?.productDescription?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Product description is required" },
-        { status: 400 }
+      const errorResponse = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "Product description is required"
       );
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Validate budget
     if (!onboardingData.budgetTargets?.monthlyAdBudget || onboardingData.budgetTargets.monthlyAdBudget <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Valid monthly ad budget is required" },
-        { status: 400 }
+      const errorResponse = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "Valid monthly ad budget is required"
       );
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Generate the full media plan (with optional strategic blueprint context)
     const result = await generateMediaPlan(onboardingData, { strategicBlueprint });
+    const duration = Date.now() - startTime;
 
     if (result.success && result.mediaPlan) {
+      logInfo(
+        { ...logContext, duration, metadata: { sectionsCompleted: result.metadata.completedSections.length } },
+        "Media plan generation completed successfully"
+      );
+
       return NextResponse.json({
         success: true,
         mediaPlan: result.mediaPlan,
         metadata: result.metadata,
       });
     } else {
-      return NextResponse.json(
-        { success: false, error: result.error || "Failed to generate media plan" },
-        { status: 500 }
+      // Map the failure reason to an error code
+      const errorCode = mapFailureReasonToCode(result.metadata.failureReason);
+      const httpStatus = getHttpStatusForCode(errorCode);
+
+      logError(
+        {
+          ...logContext,
+          duration,
+          errorCode,
+          section: result.failedSection,
+          metadata: {
+            completedSections: result.metadata.completedSections,
+            failureReason: result.metadata.failureReason,
+          },
+        },
+        result.error || "Failed to generate media plan"
       );
+
+      const errorResponse = createErrorResponse(
+        errorCode,
+        result.error || "Failed to generate media plan",
+        {
+          section: result.failedSection,
+          completedSections: result.metadata.completedSections,
+        }
+      );
+
+      return NextResponse.json(errorResponse, { status: httpStatus });
     }
   } catch (error) {
-    console.error("Media plan generation error:", error);
+    const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
+
+    logError(
+      { ...logContext, duration, errorCode: ErrorCode.INTERNAL_ERROR },
+      error instanceof Error ? error : errorMessage
     );
+
+    const errorResponse = createErrorResponse(
+      ErrorCode.INTERNAL_ERROR,
+      errorMessage
+    );
+
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
