@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2025-12-25
-**Current Phase:** 2 - Timeout and Retry Logic (COMPLETE)
-**Current Plan:** 02-02 (completed)
+**Current Phase:** 3 - Vercel Deployment Compatibility (COMPLETE)
+**Current Plan:** 03-01 (completed)
 
 ## Position
 
@@ -15,16 +15,17 @@ Milestone 1: Stabilization
 ├── Phase 2: Timeout and Retry Logic ✓ COMPLETE
 │   ├── 02-01-PLAN.md: Timeout & Exponential Backoff ✓ DONE
 │   └── 02-02-PLAN.md: Circuit Breaker ✓ DONE
-├── Phase 3: Vercel Deployment Compatibility (next)
-└── Phase 4: Error Reporting and Recovery (planned)
+├── Phase 3: Vercel Deployment Compatibility ✓ COMPLETE
+│   └── 03-01-PLAN.md: Deployment Config & Health Check ✓ DONE
+└── Phase 4: Error Reporting and Recovery (next)
 ```
 
-Phase: 2 of 4 (Complete - ready for Phase 3)
-Plan: 2 of 2 in current phase (all complete)
+Phase: 3 of 4 (Complete - ready for Phase 4)
+Plan: 1 of 1 in current phase (all complete)
 Status: Phase complete
-Last activity: 2025-12-25 - Completed 02-02-PLAN.md
+Last activity: 2025-12-25 - Completed 03-01-PLAN.md
 
-Progress: █████░░░░░ 50% (5/10 estimated plans)
+Progress: ██████░░░░ 60% (6/10 estimated plans)
 
 ## Decisions
 
@@ -41,6 +42,8 @@ Progress: █████░░░░░ 50% (5/10 estimated plans)
 | 2025-12-25 | 02-02 | Module-level circuit breaker | Shared state across all generations |
 | 2025-12-25 | 02-02 | 3 failure threshold | Balance between too sensitive/tolerant |
 | 2025-12-25 | 02-02 | 1 minute reset timeout | Give API time to recover |
+| 2025-12-25 | 03-01 | Health endpoint returns 200 for ok/degraded | Allow monitoring while degraded |
+| 2025-12-25 | 03-01 | Env validation doesn't throw | App starts and reports health vs crash |
 
 ## Deferred Issues
 
@@ -61,7 +64,7 @@ None currently.
 ## Session Continuity
 
 Last session: 2025-12-25
-Stopped at: Completed 02-02-PLAN.md (Phase 2 complete)
+Stopped at: Completed 03-01-PLAN.md (Phase 3 complete)
 Resume file: None
 
 ---
