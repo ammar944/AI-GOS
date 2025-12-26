@@ -1,12 +1,18 @@
 {
   "project_name": "ai-gos",
   "created": "2025-12-24",
-  "current_milestone": 1,
+  "current_milestone": 2,
   "milestones": [
     {
       "id": 1,
       "name": "Stabilization",
       "description": "Harden AI pipeline for reliable generation and Vercel deployment",
+      "status": "complete"
+    },
+    {
+      "id": 2,
+      "name": "Validation Gate",
+      "description": "Add user validation gate after strategic research before media plan generation",
       "status": "active"
     }
   ]

@@ -1,8 +1,17 @@
 # Roadmap
 
-## Milestone 1: Stabilization
+## Milestones
 
-**Goal:** Harden AI pipeline for reliable generation and Vercel deployment
+- ✅ **v1.0 Stabilization** - Phases 1-4 (shipped 2025-12-26)
+- 🚧 **v1.1 Validation Gate** - Phases 5-7 (in progress)
+- 📋 **v1.2 Persistence** - Planned
+- 📋 **v1.3 Export** - Planned
+- 📋 **v1.4 Testing** - Planned
+
+## Phases
+
+<details>
+<summary>✅ v1.0 Stabilization (Phases 1-4) - SHIPPED 2025-12-26</summary>
 
 ### Phase 1: Robust JSON Response Handling ✓ COMPLETE
 **Priority:** Critical | **Effort:** Medium | **Completed:** 2025-12-24
@@ -66,24 +75,74 @@ Better error visibility and graceful degradation.
 
 **Success:** Users see clear error messages and can retry
 
+</details>
+
 ---
 
-## Future Milestones
+### 🚧 v1.1 Validation Gate (In Progress)
 
-### Milestone 2: Persistence
+**Milestone Goal:** Add user validation gate after strategic research before media plan generation, allowing users to review, edit, and approve research before proceeding.
+
+#### Phase 5: Strategic Research Review UI
+**Goal**: Display strategic research output in reviewable format with section cards
+**Depends on**: Milestone 1 complete
+**Research**: Unlikely (internal React patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 05-01: TBD (run /gsd:plan-phase 5 to break down)
+
+#### Phase 6: Inline Edit Capability
+**Goal**: Enable click-to-edit on text fields with save/discard functionality
+**Depends on**: Phase 5
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 06-01: TBD
+
+#### Phase 7: Approval Flow
+**Goal**: Add approve/edit mode toggle, store user edits, feed approved data to media plan pipeline
+**Depends on**: Phase 6
+**Research**: Unlikely (internal state management)
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: TBD
+
+---
+
+### 📋 Future Milestones
+
+#### v1.2 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
 
-### Milestone 3: Export
+#### v1.3 Export
 - PDF export for media plans
 - Branded PDF templates
 
-### Milestone 4: Testing
+#### v1.4 Testing
 - Vitest setup
 - Unit tests for JSON extraction
 - Integration tests for pipeline stages
 
 ---
 
+## Progress
+
+| Phase | Milestone | Plans | Status | Completed |
+|-------|-----------|-------|--------|-----------|
+| 1. JSON Handling | v1.0 | 3/3 | Complete | 2025-12-24 |
+| 2. Timeout/Retry | v1.0 | 2/2 | Complete | 2025-12-25 |
+| 3. Vercel Deploy | v1.0 | 1/1 | Complete | 2025-12-25 |
+| 4. Error Reporting | v1.0 | 2/2 | Complete | 2025-12-26 |
+| 5. Research Review UI | v1.1 | 0/? | Not started | - |
+| 6. Inline Edit | v1.1 | 0/? | Not started | - |
+| 7. Approval Flow | v1.1 | 0/? | Not started | - |
+
+---
+
 *Created: 2025-12-24*
+*Updated: 2025-12-26*
