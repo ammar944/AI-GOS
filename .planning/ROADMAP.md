@@ -98,10 +98,11 @@ Plans:
 **Goal**: Enable click-to-edit on text fields with save/discard functionality
 **Depends on**: Phase 5
 **Research**: Unlikely (internal patterns)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 06-01: TBD
+- [x] 06-01: EditableText Component Foundation (EditableText + EditableList components)
+- [ ] 06-02: Section Integration & Edit State (integrate into renderers, wire state)
 
 #### Phase 7: Approval Flow
 **Goal**: Add approve/edit mode toggle, store user edits, feed approved data to media plan pipeline
@@ -141,7 +142,7 @@ Plans:
 | 3. Vercel Deploy | v1.0 | 1/1 | Complete | 2025-12-25 |
 | 4. Error Reporting | v1.0 | 2/2 | Complete | 2025-12-26 |
 | 5. Research Review UI | v1.1 | 2/2 | Complete | 2025-12-26 |
-| 6. Inline Edit | v1.1 | 0/? | Not started | - |
+| 6. Inline Edit | v1.1 | 1/2 | In progress | - |
 | 7. Approval Flow | v1.1 | 0/? | Not started | - |
 
 ---
