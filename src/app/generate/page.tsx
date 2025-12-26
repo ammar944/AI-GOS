@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/strategic-blueprint-display";
+import { StrategicResearchReview } from "@/components/strategic-research";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -36,6 +37,7 @@ import {
 type PageState =
   | "onboarding"
   | "generating-blueprint"
+  | "review-blueprint"
   | "complete"
   | "error";
 
@@ -67,7 +69,8 @@ export default function GeneratePage() {
     if (saved.strategicBlueprint) setStrategicBlueprint(saved.strategicBlueprint);
 
     if (saved.state?.currentStage === "blueprint-complete" && saved.strategicBlueprint) {
-      setPageState("complete");
+      // Resume to review step so user can review before proceeding
+      setPageState("review-blueprint");
     }
     setShowResumePrompt(false);
   }, []);
@@ -112,7 +115,7 @@ export default function GeneratePage() {
           totalTime: result.metadata?.totalTime || 0,
           totalCost: result.metadata?.totalCost || 0,
         });
-        setPageState("complete");
+        setPageState("review-blueprint");
       } else {
         // Parse structured error from API response
         setError(parseApiError(result));
@@ -151,6 +154,10 @@ export default function GeneratePage() {
       handleOnboardingComplete(onboardingData);
     }
   }, [onboardingData, handleOnboardingComplete]);
+
+  const handleReviewComplete = useCallback(() => {
+    setPageState("complete");
+  }, []);
 
   // Resume Prompt
   if (showResumePrompt) {
@@ -321,6 +328,50 @@ export default function GeneratePage() {
             onRetry={handleRetryBlueprint}
             onGoBack={handleStartOver}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // Review Blueprint State
+  if (pageState === "review-blueprint" && strategicBlueprint) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <div className="container mx-auto px-4 py-8 md:py-12">
+          {/* Stage Indicator */}
+          <div className="mx-auto max-w-5xl mb-8">
+            <div className="flex items-center justify-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white text-sm font-medium">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <span className="text-sm text-muted-foreground">Onboarding</span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                  2
+                </div>
+                <span className="text-sm font-medium">Review Research</span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2 opacity-50">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
+                  3
+                </div>
+                <span className="text-sm">Complete</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Review Component */}
+          <div className="mx-auto max-w-5xl">
+            <StrategicResearchReview
+              strategicBlueprint={strategicBlueprint}
+              onComplete={handleReviewComplete}
+              onRegenerate={handleRegenerateBlueprint}
+            />
+          </div>
         </div>
       </div>
     );
