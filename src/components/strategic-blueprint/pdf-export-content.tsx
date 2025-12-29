@@ -1,27 +1,32 @@
 "use client";
 
 import { forwardRef } from "react";
-import {
-  TrendingUp,
-  Users,
-  Package,
-  Swords,
-  Lightbulb,
-  Check,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Brain,
-  MessageSquare,
-  Target,
-  Shield,
-} from "lucide-react";
 import type {
   StrategicBlueprintOutput,
   ValidationStatus,
   RiskRating,
   OfferRecommendation,
 } from "@/lib/strategic-blueprint/output-types";
+
+// =============================================================================
+// Simple text icons (no SVG, no emoji - clean and professional)
+// =============================================================================
+
+const icons = {
+  trendingUp: "",
+  users: "",
+  package: "",
+  swords: "",
+  lightbulb: "",
+  check: "✓",
+  alertTriangle: "!",
+  checkCircle: "✓",
+  xCircle: "✗",
+  brain: "",
+  messageSquare: "",
+  target: "",
+  shield: "",
+};
 
 // =============================================================================
 // Print-Friendly Color Definitions (inline styles for html2canvas compatibility)
@@ -249,14 +254,10 @@ function Badge({ children, variant }: { children: React.ReactNode; variant: Vali
   );
 }
 
-function ListItem({ children, icon }: { children: React.ReactNode; icon?: "check" | "alert" | "x" }) {
-  const iconColor = icon === "check" ? printColors.green : icon === "alert" ? printColors.orange : printColors.red;
+function ListItem({ children }: { children: React.ReactNode }) {
   return (
     <div style={styles.listItem}>
-      {icon === "check" && <Check style={{ width: 16, height: 16, color: iconColor, flexShrink: 0, marginTop: 2 }} />}
-      {icon === "alert" && <AlertTriangle style={{ width: 16, height: 16, color: iconColor, flexShrink: 0, marginTop: 2 }} />}
-      {icon === "x" && <XCircle style={{ width: 16, height: 16, color: iconColor, flexShrink: 0, marginTop: 2 }} />}
-      {!icon && <Check style={{ width: 16, height: 16, color: printColors.green, flexShrink: 0, marginTop: 2 }} />}
+      <span style={{ flexShrink: 0 }}>•</span>
       <span>{children}</span>
     </div>
   );
@@ -265,11 +266,10 @@ function ListItem({ children, icon }: { children: React.ReactNode; icon?: "check
 function BoolCheck({ value, label }: { value: boolean; label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      {value ? (
-        <CheckCircle2 style={{ width: 16, height: 16, color: printColors.green }} />
-      ) : (
-        <XCircle style={{ width: 16, height: 16, color: printColors.red }} />
-      )}
+      <span style={{
+        color: value ? printColors.green : printColors.red,
+        fontWeight: 600
+      }}>{value ? "Yes" : "No"}</span>
       <span style={{ color: value ? printColors.text : printColors.mutedText }}>{label}</span>
     </div>
   );
@@ -301,12 +301,11 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-function Section({ title, icon, children, number }: { title: string; icon: React.ReactNode; children: React.ReactNode; number: number }) {
+function Section({ title, children, number }: { title: string; children: React.ReactNode; number: number }) {
   return (
     <div style={styles.section}>
       <div style={styles.sectionHeader}>
         <div style={styles.sectionNumber}>{number}</div>
-        <span style={{ color: printColors.primary }}>{icon}</span>
         <span style={styles.sectionTitle}>{title}</span>
       </div>
       {children}
@@ -345,7 +344,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
         </div>
 
         {/* Section 1: Industry & Market Overview */}
-        <Section title="Industry & Market Overview" icon={<TrendingUp style={{ width: 20, height: 20 }} />} number={1}>
+        <Section title="Industry & Market Overview" number={1}>
           <SubSection title="Category Snapshot">
             <div style={styles.grid3}>
               <div style={styles.card}>
@@ -378,31 +377,22 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           <SubSection title="Market Dynamics">
             <div style={styles.grid2}>
               <div>
-                <div style={{ fontWeight: 500, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <TrendingUp style={{ width: 16, height: 16, color: printColors.green }} />
-                  Demand Drivers
-                </div>
+                <div style={{ fontWeight: 500, marginBottom: 8 }}>Demand Drivers</div>
                 {safeArray(industryMarketOverview?.marketDynamics?.demandDrivers).map((item, i) => (
                   <ListItem key={i}>{item}</ListItem>
                 ))}
               </div>
               <div>
-                <div style={{ fontWeight: 500, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <Target style={{ width: 16, height: 16, color: printColors.blue }} />
-                  Buying Triggers
-                </div>
+                <div style={{ fontWeight: 500, marginBottom: 8 }}>Buying Triggers</div>
                 {safeArray(industryMarketOverview?.marketDynamics?.buyingTriggers).map((item, i) => (
                   <ListItem key={i}>{item}</ListItem>
                 ))}
               </div>
             </div>
             <div style={{ marginTop: 16 }}>
-              <div style={{ fontWeight: 500, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <Shield style={{ width: 16, height: 16, color: printColors.orange }} />
-                Barriers to Purchase
-              </div>
+              <div style={{ fontWeight: 500, marginBottom: 8 }}>Barriers to Purchase</div>
               {safeArray(industryMarketOverview?.marketDynamics?.barriersToPurchase).map((item, i) => (
-                <ListItem key={i} icon="alert">{item}</ListItem>
+                <ListItem key={i}>{item}</ListItem>
               ))}
             </div>
           </SubSection>
@@ -428,10 +418,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
             <div style={styles.grid2}>
               {(industryMarketOverview?.psychologicalDrivers?.drivers || []).map((driver, i) => (
                 <div key={i} style={{ ...styles.card, borderLeft: `4px solid ${printColors.primary}` }}>
-                  <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <Brain style={{ width: 16, height: 16, color: printColors.primary }} />
-                    {safeRender(driver?.driver)}
-                  </div>
+                  <div style={{ fontWeight: 500, marginBottom: 4 }}>{safeRender(driver?.driver)}</div>
                   <div style={{ fontSize: 13, color: printColors.mutedText }}>{safeRender(driver?.description)}</div>
                 </div>
               ))}
@@ -441,11 +428,8 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           <SubSection title="Audience Objections">
             {(industryMarketOverview?.audienceObjections?.objections || []).map((obj, i) => (
               <div key={i} style={{ ...styles.card, marginBottom: 12 }}>
-                <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                  <MessageSquare style={{ width: 16, height: 16, color: printColors.orange }} />
-                  &quot;{safeRender(obj?.objection)}&quot;
-                </div>
-                <div style={{ fontSize: 13, color: printColors.mutedText, marginTop: 8, marginLeft: 24 }}>
+                <div style={{ fontWeight: 500 }}>&quot;{safeRender(obj?.objection)}&quot;</div>
+                <div style={{ fontSize: 13, color: printColors.mutedText, marginTop: 8 }}>
                   <strong>Response:</strong> {safeRender(obj?.howToAddress)}
                 </div>
               </div>
@@ -468,7 +452,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
         </Section>
 
         {/* Section 2: ICP Analysis & Validation */}
-        <Section title="ICP Analysis & Validation" icon={<Users style={{ width: 20, height: 20 }} />} number={2}>
+        <Section title="ICP Analysis & Validation" number={2}>
           {/* Status Banner */}
           <div style={{
             ...styles.statusBanner,
@@ -476,10 +460,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
             borderColor: printColors[icpAnalysisValidation?.finalVerdict?.status as ValidationStatus || "workable"]?.border,
             color: printColors[icpAnalysisValidation?.finalVerdict?.status as ValidationStatus || "workable"]?.text,
           }}>
-            <div style={{ fontWeight: 600, fontSize: 16, display: "flex", alignItems: "center", gap: 8 }}>
-              {icpAnalysisValidation?.finalVerdict?.status === "validated" && <CheckCircle2 style={{ width: 20, height: 20 }} />}
-              {icpAnalysisValidation?.finalVerdict?.status === "workable" && <AlertTriangle style={{ width: 20, height: 20 }} />}
-              {icpAnalysisValidation?.finalVerdict?.status === "invalid" && <XCircle style={{ width: 20, height: 20 }} />}
+            <div style={{ fontWeight: 600, fontSize: 16 }}>
               ICP Status: {safeRender(icpAnalysisValidation?.finalVerdict?.status)?.toUpperCase()}
             </div>
             <div style={{ marginTop: 8 }}>{safeRender(icpAnalysisValidation?.finalVerdict?.reasoning)}</div>
@@ -540,7 +521,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
         </Section>
 
         {/* Section 3: Offer Analysis & Viability */}
-        <Section title="Offer Analysis & Viability" icon={<Package style={{ width: 20, height: 20 }} />} number={3}>
+        <Section title="Offer Analysis & Viability" number={3}>
           {/* Recommendation Banner */}
           <div style={{
             ...styles.statusBanner,
@@ -609,7 +590,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
         </Section>
 
         {/* Section 4: Competitor Analysis */}
-        <Section title="Competitor Analysis" icon={<Swords style={{ width: 20, height: 20 }} />} number={4}>
+        <Section title="Competitor Analysis" number={4}>
           <SubSection title="Competitor Snapshots">
             {(competitorAnalysis?.competitors || []).map((comp, i) => (
               <div key={i} style={{ ...styles.card, marginBottom: 16, border: "1px solid #e5e7eb" }}>
@@ -680,7 +661,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
         </Section>
 
         {/* Section 5: Cross-Analysis Synthesis */}
-        <Section title="Cross-Analysis Synthesis" icon={<Lightbulb style={{ width: 20, height: 20 }} />} number={5}>
+        <Section title="Cross-Analysis Synthesis" number={5}>
           <SubSection title="Key Strategic Insights">
             {(crossAnalysisSynthesis?.keyInsights || []).map((insight, i) => (
               <div key={i} style={{ ...styles.card, borderLeft: `4px solid ${printColors.primary}`, marginBottom: 12 }}>
@@ -742,7 +723,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           {crossAnalysisSynthesis?.potentialBlockers && crossAnalysisSynthesis.potentialBlockers.length > 0 && (
             <SubSection title="Potential Blockers">
               {safeArray(crossAnalysisSynthesis.potentialBlockers).map((item, i) => (
-                <ListItem key={i} icon="alert">{item}</ListItem>
+                <ListItem key={i}>{item}</ListItem>
               ))}
             </SubSection>
           )}

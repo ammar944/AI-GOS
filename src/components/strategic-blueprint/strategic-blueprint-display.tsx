@@ -204,35 +204,47 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPDF = useCallback(async () => {
+    console.log("=== PDF Export Started ===");
     setIsExporting(true);
 
     try {
+      console.log("Loading libraries...");
       // Dynamically import html2canvas and jsPDF
       const [html2canvasModule, jspdfModule] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
+      console.log("Libraries loaded");
       const html2canvas = html2canvasModule.default;
       const { jsPDF } = jspdfModule;
 
       const date = new Date().toISOString().split("T")[0];
+      console.log("Creating container...");
       const filename = `Strategic-Blueprint-${date}.pdf`;
 
       // Create a temporary container for the PDF content
+      // Use 'all: initial' to reset all inherited styles and prevent Tailwind color parsing issues
       const container = document.createElement("div");
-      container.style.position = "absolute";
-      container.style.left = "-9999px";
-      container.style.top = "0";
-      container.style.width = "850px";
+      container.style.cssText = `
+        all: initial;
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        width: 850px;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #1f2937;
+        background: #ffffff;
+      `;
       document.body.appendChild(container);
 
       // Render the PdfExportContent component into the container
       const root = createRoot(container);
       await new Promise<void>((resolve) => {
         root.render(<PdfExportContent strategicBlueprint={strategicBlueprint} />);
-        // Give React time to render
-        setTimeout(resolve, 100);
+        // Give React more time to render the complex component
+        setTimeout(resolve, 500);
       });
+      console.log("React render complete");
 
       // Get the rendered content
       const content = container.firstElementChild as HTMLElement;
@@ -240,16 +252,30 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
         throw new Error("Failed to render PDF content");
       }
 
+      // Debug: Log content dimensions
+      console.log("PDF content dimensions:", content.offsetWidth, content.offsetHeight);
+      console.log("PDF content innerHTML length:", content.innerHTML.length);
+
       // Capture the content with html2canvas
-      // Note: html2canvas may log warnings about unsupported color functions (oklch, lab) from Tailwind CSS 4
-      // These warnings are non-fatal - the PDF will still render correctly using inline styles
+      // Use onclone to strip Tailwind's oklch/lab colors that html2canvas can't parse
       const canvas = await html2canvas(content, {
-        scale: 2, // Higher resolution for better quality
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
-        windowWidth: 794, // A4 width at 96 DPI
+        windowWidth: 794,
+        onclone: (clonedDoc, element) => {
+          // Remove all stylesheets to prevent color parsing errors
+          clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => el.remove());
+
+          // Ensure the cloned element has proper base styles
+          element.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+          element.style.color = '#1f2937';
+        },
       });
+
+      // Debug: Log canvas dimensions
+      console.log("Canvas dimensions:", canvas.width, canvas.height);
 
       // Clean up the temporary container
       root.unmount();
@@ -257,6 +283,7 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
 
       // Create PDF from canvas
       const imgData = canvas.toDataURL("image/png");
+      console.log("Image data length:", imgData.length);
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -290,9 +317,11 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
 
       pdf.save(filename);
     } catch (error) {
-      console.error("PDF export failed:", error);
-      // Show error to user (you could add a toast notification here)
-      alert("PDF export failed. Please try again.");
+      console.error("=== PDF Export Error ===");
+      console.error("Error:", error);
+      console.error("Stack:", error instanceof Error ? error.stack : "No stack");
+      // Show error to user
+      alert(`PDF export failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsExporting(false);
     }
