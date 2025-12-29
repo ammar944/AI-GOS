@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2025-12-29
-**Current Phase:** Ready for v1.2
-**Current Plan:** None active
+**Current Phase:** 8 (PDF Export Enhancement) - COMPLETE
+**Current Plan:** 1 of 1 complete
 
 ## Position
 
@@ -18,16 +18,16 @@ Milestone 2: Validation Gate (v1.1) COMPLETE (archived)
 ├── Phase 6: Inline Edit Capability DONE
 └── Phase 7: Approval Flow DONE
 
-Milestone 3: PDF Export (v1.2) PLANNED
-└── Phases TBD
+Milestone 3: PDF Export (v1.2) IN PROGRESS
+└── Phase 8: PDF Export Enhancement DONE
 ```
 
-Phase: v1.1 complete, v1.2 not started
-Plan: None active
-Status: Between milestones
-Last activity: 2025-12-29 - Archived v1.1 milestone
+Phase: 8 of 8 (PDF Export Enhancement)
+Plan: 1 of 1 in current phase
+Status: Phase complete, milestone ready to ship
+Last activity: 2025-12-29 - Completed 08-01-PLAN.md
 
-Progress: v1.0 + v1.1 shipped
+Progress: ██████████ 100% (1/1 plan in v1.2)
 
 ## Decisions
 
@@ -61,6 +61,9 @@ Progress: v1.0 + v1.1 shipped
 | 2025-12-26 | 06-01 | Hover-visible remove button | Cleaner UI, less visual clutter |
 | 2025-12-29 | 07-01 | approvalMetadata as separate field | Clean separation from generation metadata |
 | 2025-12-29 | 07-01 | Dynamic button label for edits | Clear UX signal when edits will be applied |
+| 2025-12-29 | 08-01 | HTML-to-canvas PDF generation | Exact visual match with review UI |
+| 2025-12-29 | 08-01 | Inline styles for PDF component | Avoid CSS variable parsing issues with html2canvas |
+| 2025-12-29 | 08-01 | Scale 2x for canvas capture | High-quality PDF output |
 
 ## Deferred Issues
 
@@ -82,14 +85,14 @@ None.
 
 - v1.0 Stabilization: 4 phases (Phase 1-4) - SHIPPED 2025-12-26
 - v1.1 Validation Gate: 3 phases (Phase 5-7) - SHIPPED 2025-12-29
-- v1.2 PDF Export: Planned
+- v1.2 PDF Export: 1 phase (Phase 8) - Ready to ship
 
 ## Session Continuity
 
 Last session: 2025-12-29
-Stopped at: Archived v1.1 milestone
+Stopped at: Completed 08-01-PLAN.md - v1.2 ready to ship
 Resume file: None
 
 ---
 
-*v1.1 Validation Gate shipped. Ready for v1.2 PDF Export.*
+*v1.2 PDF Export phase complete. Ready to ship milestone.*

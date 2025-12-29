@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useState } from "react";
+import { createRoot } from "react-dom/client";
 import {
   TrendingUp,
   Users,
@@ -25,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { PdfExportContent } from "./pdf-export-content";
 import type {
   StrategicBlueprintOutput,
   StrategicBlueprintSection,
@@ -202,194 +204,96 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPDF = useCallback(async () => {
-    if (!documentRef.current) return;
-
     setIsExporting(true);
 
     try {
-      // Use jsPDF directly instead of html2pdf to avoid html2canvas color parsing issues
-      const { jsPDF } = await import("jspdf");
+      // Dynamically import html2canvas and jsPDF
+      const [html2canvasModule, jspdfModule] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const html2canvas = html2canvasModule.default;
+      const { jsPDF } = jspdfModule;
 
       const date = new Date().toISOString().split("T")[0];
       const filename = `Strategic-Blueprint-${date}.pdf`;
 
-      const doc = new jsPDF({
+      // Create a temporary container for the PDF content
+      const container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      document.body.appendChild(container);
+
+      // Render the PdfExportContent component into the container
+      const root = createRoot(container);
+      await new Promise<void>((resolve) => {
+        root.render(<PdfExportContent strategicBlueprint={strategicBlueprint} />);
+        // Give React time to render
+        setTimeout(resolve, 100);
+      });
+
+      // Get the rendered content
+      const content = container.firstElementChild as HTMLElement;
+      if (!content) {
+        throw new Error("Failed to render PDF content");
+      }
+
+      // Capture the content with html2canvas
+      const canvas = await html2canvas(content, {
+        scale: 2, // Higher resolution for better quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 794, // A4 width at 96 DPI
+      });
+
+      // Clean up the temporary container
+      root.unmount();
+      document.body.removeChild(container);
+
+      // Create PDF from canvas
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-      let yPos = margin;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-      const addNewPageIfNeeded = (requiredHeight: number) => {
-        if (yPos + requiredHeight > pageHeight - margin) {
-          doc.addPage();
-          yPos = margin;
+      // Calculate image dimensions to fit page width
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+      // Add pages as needed
+      let heightLeft = imgHeight;
+      let position = 0;
+      let pageNumber = 0;
+
+      while (heightLeft > 0) {
+        if (pageNumber > 0) {
+          pdf.addPage();
         }
-      };
 
-      // Helper to add text with word wrap
-      const addText = (text: string, fontSize: number, isBold = false, color: [number, number, number] = [30, 41, 59]) => {
-        doc.setFontSize(fontSize);
-        doc.setFont("helvetica", isBold ? "bold" : "normal");
-        doc.setTextColor(...color);
-        const lines = doc.splitTextToSize(text, contentWidth);
-        const lineHeight = fontSize * 0.4;
-        addNewPageIfNeeded(lines.length * lineHeight);
-        doc.text(lines, margin, yPos);
-        yPos += lines.length * lineHeight + 2;
-      };
+        // Add image with offset for current page position
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
 
-      // Helper to add a section header
-      const addSectionHeader = (title: string) => {
-        addNewPageIfNeeded(15);
-        yPos += 5;
-        doc.setFillColor(59, 130, 246);
-        doc.rect(margin, yPos - 5, contentWidth, 10, "F");
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(255, 255, 255);
-        doc.text(title, margin + 3, yPos + 1);
-        yPos += 12;
-      };
-
-      // Helper to add bullet points
-      const addBulletList = (items: string[], fontSize = 10) => {
-        doc.setFontSize(fontSize);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(30, 41, 59);
-        items.forEach((item) => {
-          const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 5);
-          const lineHeight = fontSize * 0.4;
-          addNewPageIfNeeded(lines.length * lineHeight + 2);
-          doc.text(lines, margin + 3, yPos);
-          yPos += lines.length * lineHeight + 1;
-        });
-        yPos += 2;
-      };
-
-      // Title
-      doc.setFillColor(10, 14, 39);
-      doc.rect(0, 0, pageWidth, 35, "F");
-      doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-      doc.text("Strategic Blueprint", margin, 22);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(200, 200, 200);
-      doc.text(`Generated: ${new Date(metadata.generatedAt).toLocaleDateString()}`, margin, 30);
-      yPos = 45;
-
-      // Section 1: Industry & Market Overview
-      const market = industryMarketOverview;
-      addSectionHeader("1. Industry & Market Overview");
-
-      addText(`Category: ${market.categorySnapshot.category}`, 11, true);
-      addText(`Market Maturity: ${market.categorySnapshot.marketMaturity} | Awareness: ${market.categorySnapshot.awarenessLevel} | Buying: ${market.categorySnapshot.buyingBehavior}`, 10);
-      addText(`Sales Cycle: ${market.categorySnapshot.averageSalesCycle} | Seasonality: ${market.categorySnapshot.seasonality}`, 10);
-      yPos += 3;
-
-      addText("Primary Pain Points:", 11, true);
-      addBulletList(market.painPoints.primary.slice(0, 5));
-
-      addText("Demand Drivers:", 11, true);
-      addBulletList(market.marketDynamics.demandDrivers.slice(0, 4));
-
-      addText("Messaging Opportunities:", 11, true);
-      addBulletList(market.messagingOpportunities.opportunities.slice(0, 4));
-
-      // Section 2: ICP Analysis
-      const icp = icpAnalysisValidation;
-      addSectionHeader("2. ICP Analysis & Validation");
-
-      const statusColor: [number, number, number] = icp.finalVerdict.status === "validated" ? [22, 163, 74] : icp.finalVerdict.status === "workable" ? [202, 138, 4] : [220, 38, 38];
-      addText(`Status: ${icp.finalVerdict.status.toUpperCase()}`, 12, true, statusColor);
-      addText(icp.finalVerdict.reasoning, 10);
-      yPos += 2;
-
-      addText(`Pain-Solution Fit: ${icp.painSolutionFit.fitAssessment}`, 11, true);
-      addText(`Primary Pain: ${icp.painSolutionFit.primaryPain}`, 10);
-      addText(`Solution: ${icp.painSolutionFit.offerComponentSolvingIt}`, 10);
-      yPos += 2;
-
-      addText("Recommendations:", 11, true);
-      addBulletList(icp.finalVerdict.recommendations);
-
-      // Section 3: Offer Analysis
-      const offer = offerAnalysisViability;
-      addSectionHeader("3. Offer Analysis & Viability");
-
-      const recColor: [number, number, number] = offer.recommendation.status === "proceed" ? [22, 163, 74] : [202, 138, 4];
-      addText(`Recommendation: ${offer.recommendation.status.replace(/_/g, " ").toUpperCase()}`, 12, true, recColor);
-      addText(`Overall Score: ${offer.offerStrength.overallScore}/10`, 11, true);
-
-      addText("Strength Scores:", 11, true);
-      addText(`Pain Relevance: ${offer.offerStrength.painRelevance} | Urgency: ${offer.offerStrength.urgency} | Differentiation: ${offer.offerStrength.differentiation}`, 10);
-      addText(`Tangibility: ${offer.offerStrength.tangibility} | Proof: ${offer.offerStrength.proof} | Pricing: ${offer.offerStrength.pricingLogic}`, 10);
-      yPos += 2;
-
-      if (offer.redFlags.length > 0) {
-        addText("Red Flags:", 11, true, [220, 38, 38]);
-        addBulletList(offer.redFlags.map(f => f.replace(/_/g, " ")));
+        heightLeft -= pageHeight;
+        position -= pageHeight;
+        pageNumber++;
       }
 
-      addText("Action Items:", 11, true);
-      addBulletList(offer.recommendation.actionItems);
-
-      // Section 4: Competitor Analysis
-      const comp = competitorAnalysis;
-      addSectionHeader("4. Competitor Analysis");
-
-      comp.competitors.slice(0, 3).forEach((c, i) => {
-        addText(`${i + 1}. ${c.name}`, 11, true);
-        addText(`Positioning: ${c.positioning}`, 10);
-        addText(`Price: ${c.price} | Platforms: ${c.adPlatforms.join(", ")}`, 10);
-        yPos += 2;
-      });
-
-      addText("Gaps & Opportunities:", 11, true);
-      addBulletList(comp.gapsAndOpportunities.messagingOpportunities.slice(0, 3));
-
-      // Section 5: Cross-Analysis Synthesis
-      const synth = crossAnalysisSynthesis;
-      addSectionHeader("5. Strategic Synthesis");
-
-      addText("Recommended Positioning:", 11, true);
-      addText(synth.recommendedPositioning, 10);
-      yPos += 2;
-
-      addText("Primary Messaging Angles:", 11, true);
-      addBulletList(synth.primaryMessagingAngles.slice(0, 4));
-
-      addText("Recommended Platforms:", 11, true);
-      synth.recommendedPlatforms.forEach((p) => {
-        addText(`• ${p.platform} (${p.priority}): ${p.reasoning}`, 10);
-      });
-      yPos += 2;
-
-      addText("Critical Success Factors:", 11, true);
-      addBulletList(synth.criticalSuccessFactors.slice(0, 4));
-
-      addText("Next Steps:", 11, true);
-      addBulletList(synth.nextSteps.slice(0, 4));
-
-      // Footer on last page
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text("Generated by SaaSLaunch AI", margin, pageHeight - 10);
-
-      doc.save(filename);
+      pdf.save(filename);
     } catch (error) {
       console.error("PDF export failed:", error);
+      // Show error to user (you could add a toast notification here)
+      alert("PDF export failed. Please try again.");
     } finally {
       setIsExporting(false);
     }
-  }, [metadata, industryMarketOverview, icpAnalysisValidation, offerAnalysisViability, competitorAnalysis, crossAnalysisSynthesis]);
+  }, [strategicBlueprint]);
 
   return (
     <div className="w-full">

@@ -4,7 +4,7 @@
 
 - [v1.0 Stabilization](milestones/v1.0-ROADMAP.md) (Phases 1-4) - SHIPPED 2025-12-26
 - [v1.1 Validation Gate](milestones/v1.1-ROADMAP.md) (Phases 5-7) - SHIPPED 2025-12-29
-- **v1.2 PDF Export** - Planned
+- 🚧 **v1.2 PDF Export** - Phase 8 (in progress)
 - v1.3 Persistence - Planned
 - v1.4 Testing - Planned
 
@@ -113,14 +113,18 @@ Plans:
 
 ---
 
-### v1.2 PDF Export (Next)
+### 🚧 v1.2 PDF Export (In Progress)
 
 Fix the PDF generation button to display strategic research in the same format as the review UI.
 
-**Scope:**
-- Match strategic research review layout in PDF output
-- Use same section card styling and content renderers
-- Branded PDF template with proper formatting
+#### Phase 8: PDF Export Enhancement ✓ COMPLETE
+**Goal**: HTML-to-canvas PDF generation with full visual styling
+**Depends on**: v1.1 complete
+**Plans**: 1
+**Completed**: 2025-12-29
+
+Plans:
+- [x] 08-01: HTML-to-Canvas PDF Generation (PdfExportContent + html2canvas capture)
 
 ---
 
@@ -149,6 +153,7 @@ Fix the PDF generation button to display strategic research in the same format a
 | 5. Research Review UI | v1.1 | 2/2 | Complete | 2025-12-26 |
 | 6. Inline Edit | v1.1 | 2/2 | Complete | 2025-12-29 |
 | 7. Approval Flow | v1.1 | 1/1 | Complete | 2025-12-29 |
+| 8. PDF Export Enhancement | v1.2 | 1/1 | Complete | 2025-12-29 |
 
 ---
 
