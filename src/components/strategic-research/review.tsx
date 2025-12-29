@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { CheckCircle2, RotateCcw, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,46 @@ export interface StrategicResearchReviewProps {
   strategicBlueprint: StrategicBlueprintOutput;
   onComplete: () => void;
   onRegenerate: () => void;
+  onEdit?: (sectionKey: string, fieldPath: string, newValue: unknown) => void;
+}
+
+// Helper to deep-merge edits at a field path into an object
+function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
+  const parts = path.split(".");
+  if (parts.length === 0) return value;
+
+  // Clone the object
+  const result: Record<string, unknown> = { ...(obj as Record<string, unknown>) };
+  let current = result;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    const nextKey = parts[i + 1];
+
+    // Check if next key is a number (array index)
+    if (/^\d+$/.test(nextKey)) {
+      // Current is an array
+      const arr = Array.isArray(current[key]) ? [...(current[key] as unknown[])] : [];
+      current[key] = arr;
+      current = arr as unknown as Record<string, unknown>;
+    } else {
+      // Current is an object
+      current[key] = { ...(current[key] as Record<string, unknown>) };
+      current = current[key] as Record<string, unknown>;
+    }
+  }
+
+  const lastKey = parts[parts.length - 1];
+  current[lastKey] = value;
+
+  return result;
 }
 
 export function StrategicResearchReview({
   strategicBlueprint,
   onComplete,
   onRegenerate,
+  onEdit,
 }: StrategicResearchReviewProps) {
   // Track which sections are expanded (allow multiple)
   const [expandedSections, setExpandedSections] = useState<Set<StrategicBlueprintSection>>(
@@ -32,6 +66,12 @@ export function StrategicResearchReview({
   const [reviewedSections, setReviewedSections] = useState<Set<StrategicBlueprintSection>>(
     new Set()
   );
+
+  // Track which section is currently being edited (only one at a time)
+  const [editingSection, setEditingSection] = useState<StrategicBlueprintSection | null>(null);
+
+  // Track pending edits per section: { sectionKey: { fieldPath: newValue, ... } }
+  const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, unknown>>>({});
 
   // Refs for scrolling to next section
   const sectionRefs = useRef<Map<StrategicBlueprintSection, HTMLDivElement | null>>(new Map());
@@ -87,6 +127,59 @@ export function StrategicResearchReview({
     sectionRefs.current.set(sectionKey, element);
   }, []);
 
+  // Toggle edit mode for a section
+  const handleToggleEdit = useCallback((sectionKey: StrategicBlueprintSection) => {
+    setEditingSection((prev) => (prev === sectionKey ? null : sectionKey));
+  }, []);
+
+  // Handle field change within a section
+  const handleFieldChange = useCallback(
+    (sectionKey: StrategicBlueprintSection, fieldPath: string, newValue: unknown) => {
+      setPendingEdits((prev) => ({
+        ...prev,
+        [sectionKey]: {
+          ...(prev[sectionKey] || {}),
+          [fieldPath]: newValue,
+        },
+      }));
+
+      // Notify parent if callback provided
+      if (onEdit) {
+        onEdit(sectionKey, fieldPath, newValue);
+      }
+    },
+    [onEdit]
+  );
+
+  // Check if a section has pending edits
+  const sectionHasEdits = useCallback(
+    (sectionKey: StrategicBlueprintSection): boolean => {
+      const sectionEdits = pendingEdits[sectionKey];
+      return sectionEdits ? Object.keys(sectionEdits).length > 0 : false;
+    },
+    [pendingEdits]
+  );
+
+  // Get merged section data (original + pending edits)
+  const getMergedSectionData = useMemo(() => {
+    return (sectionKey: StrategicBlueprintSection): unknown => {
+      const originalData = strategicBlueprint[sectionKey] as unknown;
+      const sectionEdits = pendingEdits[sectionKey];
+
+      if (!sectionEdits || Object.keys(sectionEdits).length === 0) {
+        return originalData;
+      }
+
+      // Apply each edit to the original data
+      let mergedData: unknown = originalData;
+      for (const [fieldPath, newValue] of Object.entries(sectionEdits)) {
+        mergedData = setFieldAtPath(mergedData, fieldPath, newValue);
+      }
+
+      return mergedData;
+    };
+  }, [strategicBlueprint, pendingEdits]);
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
@@ -126,11 +219,15 @@ export function StrategicResearchReview({
           >
             <SectionCard
               sectionKey={sectionKey}
-              sectionData={strategicBlueprint[sectionKey]}
+              sectionData={getMergedSectionData(sectionKey)}
               isExpanded={expandedSections.has(sectionKey)}
               isReviewed={reviewedSections.has(sectionKey)}
+              isEditing={editingSection === sectionKey}
+              hasEdits={sectionHasEdits(sectionKey)}
               onToggleExpand={() => handleToggleExpand(sectionKey)}
               onMarkReviewed={() => handleMarkReviewed(sectionKey)}
+              onToggleEdit={() => handleToggleEdit(sectionKey)}
+              onFieldChange={(fieldPath, newValue) => handleFieldChange(sectionKey, fieldPath, newValue)}
             />
           </div>
         ))}

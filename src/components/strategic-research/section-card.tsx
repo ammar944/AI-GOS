@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, Pencil, Check } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,12 @@ export interface SectionCardProps {
   sectionData: unknown;
   isExpanded: boolean;
   isReviewed: boolean;
+  isEditing: boolean;
+  hasEdits: boolean;
   onToggleExpand: () => void;
   onMarkReviewed: () => void;
+  onToggleEdit: () => void;
+  onFieldChange: (fieldPath: string, newValue: unknown) => void;
 }
 
 export function SectionCard({
@@ -48,8 +52,12 @@ export function SectionCard({
   sectionData,
   isExpanded,
   isReviewed,
+  isEditing,
+  hasEdits,
   onToggleExpand,
   onMarkReviewed,
+  onToggleEdit,
+  onFieldChange,
 }: SectionCardProps) {
   const sectionNumber = STRATEGIC_BLUEPRINT_SECTION_ORDER.indexOf(sectionKey) + 1;
   const sectionIcon = SECTION_ICONS[sectionKey];
@@ -59,7 +67,8 @@ export function SectionCard({
     <Card
       className={cn(
         "transition-all duration-300",
-        isReviewed && "border-green-500/50 bg-green-500/5"
+        isReviewed && "border-green-500/50 bg-green-500/5",
+        isEditing && "border-blue-500/50 ring-1 ring-blue-500/20"
       )}
     >
       <CardHeader className="pb-0">
@@ -78,12 +87,43 @@ export function SectionCard({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Edited badge */}
+            {hasEdits && (
+              <Badge variant="outline" className="gap-1 border-blue-500/50 text-blue-500">
+                <Pencil className="h-3 w-3" />
+                Edited
+              </Badge>
+            )}
             {/* Reviewed badge */}
             {isReviewed && (
               <Badge variant="success" className="gap-1">
                 <CheckCircle2 className="h-3 w-3" />
                 Reviewed
               </Badge>
+            )}
+            {/* Edit/Done button - only show when expanded */}
+            {isExpanded && (
+              <Button
+                variant={isEditing ? "default" : "outline"}
+                size="sm"
+                onClick={onToggleEdit}
+                className={cn(
+                  "gap-1.5",
+                  isEditing && "bg-blue-500 hover:bg-blue-600"
+                )}
+              >
+                {isEditing ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Done
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </>
+                )}
+              </Button>
             )}
             {/* Expand/collapse button */}
             <Button
@@ -110,11 +150,16 @@ export function SectionCard({
         )}
       >
         <CardContent className="pt-6">
-          <SectionContentRenderer sectionKey={sectionKey} data={sectionData} />
+          <SectionContentRenderer
+            sectionKey={sectionKey}
+            data={sectionData}
+            isEditing={isEditing}
+            onFieldChange={onFieldChange}
+          />
         </CardContent>
 
         {/* Footer with Mark as Reviewed button */}
-        {!isReviewed && (
+        {!isReviewed && !isEditing && (
           <CardFooter className="border-t pt-4">
             <Button
               variant="outline"

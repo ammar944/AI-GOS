@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { EditableText, EditableList } from "./editable";
 import type {
   StrategicBlueprintSection,
   IndustryMarketOverview,
@@ -139,10 +140,23 @@ const OFFER_RECOMMENDATION_COLORS: Record<OfferRecommendation, string> = {
 };
 
 // =============================================================================
+// Shared Props Interface for Editable Content
+// =============================================================================
+
+interface EditableContentProps {
+  isEditing?: boolean;
+  onFieldChange?: (fieldPath: string, newValue: unknown) => void;
+}
+
+// =============================================================================
 // Section 1: Industry & Market Overview Content
 // =============================================================================
 
-function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
+interface IndustryMarketContentProps extends EditableContentProps {
+  data: IndustryMarketOverview;
+}
+
+function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarketContentProps) {
   return (
     <div className="space-y-6">
       {/* Category Snapshot */}
@@ -150,7 +164,16 @@ function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground uppercase">Category</p>
-            <p className="font-medium">{safeRender(data?.categorySnapshot?.category)}</p>
+            <p className="font-medium">
+              {isEditing && onFieldChange ? (
+                <EditableText
+                  value={safeRender(data?.categorySnapshot?.category)}
+                  onSave={(v) => onFieldChange("categorySnapshot.category", v)}
+                />
+              ) : (
+                safeRender(data?.categorySnapshot?.category)
+              )}
+            </p>
           </div>
           <div className="p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground uppercase">Market Maturity</p>
@@ -187,22 +210,38 @@ function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
               <TrendingUp className="h-4 w-4 text-green-600" />
               Demand Drivers
             </h4>
-            <ul className="space-y-1">
-              {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.marketDynamics?.demandDrivers)}
+                onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
             <h4 className="font-medium mb-2 flex items-center gap-2">
               <Target className="h-4 w-4 text-blue-600" />
               Buying Triggers
             </h4>
-            <ul className="space-y-1">
-              {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.marketDynamics?.buyingTriggers)}
+                onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
         <div className="mt-4">
@@ -210,14 +249,22 @@ function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
             <Shield className="h-4 w-4 text-orange-600" />
             Barriers to Purchase
           </h4>
-          <ul className="space-y-1">
-            {safeArray(data?.marketDynamics?.barriersToPurchase).map((item, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.marketDynamics?.barriersToPurchase)}
+              onSave={(v) => onFieldChange("marketDynamics.barriersToPurchase", v)}
+              renderPrefix={() => <AlertTriangle className="h-4 w-4 text-orange-500" />}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {safeArray(data?.marketDynamics?.barriersToPurchase).map((item, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </SubSection>
 
@@ -226,19 +273,35 @@ function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <h4 className="font-medium mb-2 text-red-600">Primary Pain Points</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.painPoints?.primary).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.painPoints?.primary)}
+                onSave={(v) => onFieldChange("painPoints.primary", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.painPoints?.primary).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
             <h4 className="font-medium mb-2 text-orange-600">Secondary Pain Points</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.painPoints?.secondary).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.painPoints?.secondary)}
+                onSave={(v) => onFieldChange("painPoints.secondary", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.painPoints?.secondary).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </SubSection>
@@ -284,11 +347,19 @@ function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
         </div>
         <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
           <h4 className="font-medium mb-2">Key Recommendations</h4>
-          <ul className="space-y-1">
-            {safeArray(data?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
-              <ListItem key={i}>{item}</ListItem>
-            ))}
-          </ul>
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
+              onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
+              renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {safeArray(data?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
+                <ListItem key={i}>{item}</ListItem>
+              ))}
+            </ul>
+          )}
         </div>
       </SubSection>
     </div>
@@ -299,7 +370,11 @@ function IndustryMarketContent({ data }: { data: IndustryMarketOverview }) {
 // Section 2: ICP Analysis & Validation Content
 // =============================================================================
 
-function ICPAnalysisContent({ data }: { data: ICPAnalysisValidation }) {
+interface ICPAnalysisContentProps extends EditableContentProps {
+  data: ICPAnalysisValidation;
+}
+
+function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisContentProps) {
   return (
     <div className="space-y-6">
       {/* Final Verdict Banner */}
@@ -313,7 +388,17 @@ function ICPAnalysisContent({ data }: { data: ICPAnalysisValidation }) {
           {data?.finalVerdict?.status === "invalid" && <XCircle className="h-5 w-5" />}
           ICP Status: {safeRender(data?.finalVerdict?.status)?.toUpperCase()}
         </div>
-        <p className="mt-2">{safeRender(data?.finalVerdict?.reasoning)}</p>
+        <div className="mt-2">
+          {isEditing && onFieldChange ? (
+            <EditableText
+              value={safeRender(data?.finalVerdict?.reasoning)}
+              onSave={(v) => onFieldChange("finalVerdict.reasoning", v)}
+              multiline
+            />
+          ) : (
+            <p>{safeRender(data?.finalVerdict?.reasoning)}</p>
+          )}
+        </div>
       </div>
 
       {/* Coherence Check */}
@@ -333,11 +418,29 @@ function ICPAnalysisContent({ data }: { data: ICPAnalysisValidation }) {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Primary Pain</p>
-              <p className="font-medium">{safeRender(data?.painSolutionFit?.primaryPain)}</p>
+              <p className="font-medium">
+                {isEditing && onFieldChange ? (
+                  <EditableText
+                    value={safeRender(data?.painSolutionFit?.primaryPain)}
+                    onSave={(v) => onFieldChange("painSolutionFit.primaryPain", v)}
+                  />
+                ) : (
+                  safeRender(data?.painSolutionFit?.primaryPain)
+                )}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Offer Component Solving It</p>
-              <p className="font-medium">{safeRender(data?.painSolutionFit?.offerComponentSolvingIt)}</p>
+              <p className="font-medium">
+                {isEditing && onFieldChange ? (
+                  <EditableText
+                    value={safeRender(data?.painSolutionFit?.offerComponentSolvingIt)}
+                    onSave={(v) => onFieldChange("painSolutionFit.offerComponentSolvingIt", v)}
+                  />
+                ) : (
+                  safeRender(data?.painSolutionFit?.offerComponentSolvingIt)
+                )}
+              </p>
             </div>
           </div>
           <div className="mt-4">
@@ -398,13 +501,21 @@ function ICPAnalysisContent({ data }: { data: ICPAnalysisValidation }) {
       </SubSection>
 
       {/* Recommendations */}
-      {data?.finalVerdict?.recommendations && (
+      {(data?.finalVerdict?.recommendations || isEditing) && (
         <SubSection title="Recommendations">
-          <ul className="space-y-1">
-            {safeArray(data.finalVerdict.recommendations).map((item, i) => (
-              <ListItem key={i}>{item}</ListItem>
-            ))}
-          </ul>
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.finalVerdict?.recommendations)}
+              onSave={(v) => onFieldChange("finalVerdict.recommendations", v)}
+              renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {safeArray(data?.finalVerdict?.recommendations).map((item, i) => (
+                <ListItem key={i}>{item}</ListItem>
+              ))}
+            </ul>
+          )}
         </SubSection>
       )}
     </div>
@@ -415,7 +526,11 @@ function ICPAnalysisContent({ data }: { data: ICPAnalysisValidation }) {
 // Section 3: Offer Analysis & Viability Content
 // =============================================================================
 
-function OfferAnalysisContent({ data }: { data: OfferAnalysisViability }) {
+interface OfferAnalysisContentProps extends EditableContentProps {
+  data: OfferAnalysisViability;
+}
+
+function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisContentProps) {
   return (
     <div className="space-y-6">
       {/* Recommendation Banner */}
@@ -426,7 +541,17 @@ function OfferAnalysisContent({ data }: { data: OfferAnalysisViability }) {
         <div className="font-medium text-lg capitalize">
           Recommendation: {safeRender(data?.recommendation?.status)?.replace(/_/g, " ")}
         </div>
-        <p className="mt-2">{safeRender(data?.recommendation?.reasoning)}</p>
+        <div className="mt-2">
+          {isEditing && onFieldChange ? (
+            <EditableText
+              value={safeRender(data?.recommendation?.reasoning)}
+              onSave={(v) => onFieldChange("recommendation.reasoning", v)}
+              multiline
+            />
+          ) : (
+            <p>{safeRender(data?.recommendation?.reasoning)}</p>
+          )}
+        </div>
       </div>
 
       {/* Offer Clarity */}
@@ -484,11 +609,19 @@ function OfferAnalysisContent({ data }: { data: OfferAnalysisViability }) {
 
       {/* Action Items */}
       <SubSection title="Action Items">
-        <ul className="space-y-1">
-          {safeArray(data?.recommendation?.actionItems).map((item, i) => (
-            <ListItem key={i}>{item}</ListItem>
-          ))}
-        </ul>
+        {isEditing && onFieldChange ? (
+          <EditableList
+            items={safeArray(data?.recommendation?.actionItems)}
+            onSave={(v) => onFieldChange("recommendation.actionItems", v)}
+            renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+          />
+        ) : (
+          <ul className="space-y-1">
+            {safeArray(data?.recommendation?.actionItems).map((item, i) => (
+              <ListItem key={i}>{item}</ListItem>
+            ))}
+          </ul>
+        )}
       </SubSection>
     </div>
   );
@@ -498,7 +631,11 @@ function OfferAnalysisContent({ data }: { data: OfferAnalysisViability }) {
 // Section 4: Competitor Analysis Content
 // =============================================================================
 
-function CompetitorAnalysisContent({ data }: { data: CompetitorAnalysis }) {
+interface CompetitorAnalysisContentProps extends EditableContentProps {
+  data: CompetitorAnalysis;
+}
+
+function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: CompetitorAnalysisContentProps) {
   return (
     <div className="space-y-6">
       {/* Competitor Snapshots */}
@@ -506,16 +643,48 @@ function CompetitorAnalysisContent({ data }: { data: CompetitorAnalysis }) {
         <div className="space-y-4">
           {(data?.competitors || []).map((comp, i) => (
             <div key={i} className="p-4 bg-muted/30 rounded-lg border">
-              <h4 className="font-semibold text-lg">{safeRender(comp?.name)}</h4>
-              <p className="text-sm text-muted-foreground mb-3">{safeRender(comp?.positioning)}</p>
+              <h4 className="font-semibold text-lg">
+                {isEditing && onFieldChange ? (
+                  <EditableText
+                    value={safeRender(comp?.name)}
+                    onSave={(v) => onFieldChange(`competitors.${i}.name`, v)}
+                  />
+                ) : (
+                  safeRender(comp?.name)
+                )}
+              </h4>
+              <div className="text-sm text-muted-foreground mb-3">
+                {isEditing && onFieldChange ? (
+                  <EditableText
+                    value={safeRender(comp?.positioning)}
+                    onSave={(v) => onFieldChange(`competitors.${i}.positioning`, v)}
+                  />
+                ) : (
+                  safeRender(comp?.positioning)
+                )}
+              </div>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Offer</p>
-                  <p>{safeRender(comp?.offer)}</p>
+                  {isEditing && onFieldChange ? (
+                    <EditableText
+                      value={safeRender(comp?.offer)}
+                      onSave={(v) => onFieldChange(`competitors.${i}.offer`, v)}
+                    />
+                  ) : (
+                    <p>{safeRender(comp?.offer)}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Price</p>
-                  <p>{safeRender(comp?.price)}</p>
+                  {isEditing && onFieldChange ? (
+                    <EditableText
+                      value={safeRender(comp?.price)}
+                      onSave={(v) => onFieldChange(`competitors.${i}.price`, v)}
+                    />
+                  ) : (
+                    <p>{safeRender(comp?.price)}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Platforms</p>
@@ -533,19 +702,37 @@ function CompetitorAnalysisContent({ data }: { data: CompetitorAnalysis }) {
               <div className="grid md:grid-cols-2 gap-4 mt-3">
                 <div>
                   <p className="text-sm font-medium text-green-600">Strengths</p>
-                  <ul className="text-sm space-y-1">
-                    {safeArray(comp?.strengths).map((s, j) => (
-                      <li key={j}>+ {s}</li>
-                    ))}
-                  </ul>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(comp?.strengths)}
+                      onSave={(v) => onFieldChange(`competitors.${i}.strengths`, v)}
+                      renderPrefix={() => <span className="text-green-600">+</span>}
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="text-sm space-y-1">
+                      {safeArray(comp?.strengths).map((s, j) => (
+                        <li key={j}>+ {s}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-red-600">Weaknesses</p>
-                  <ul className="text-sm space-y-1">
-                    {safeArray(comp?.weaknesses).map((w, j) => (
-                      <li key={j}>- {w}</li>
-                    ))}
-                  </ul>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(comp?.weaknesses)}
+                      onSave={(v) => onFieldChange(`competitors.${i}.weaknesses`, v)}
+                      renderPrefix={() => <span className="text-red-600">-</span>}
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="text-sm space-y-1">
+                      {safeArray(comp?.weaknesses).map((w, j) => (
+                        <li key={j}>- {w}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             </div>
@@ -660,27 +847,54 @@ function CompetitorAnalysisContent({ data }: { data: CompetitorAnalysis }) {
         <div className="grid md:grid-cols-3 gap-4">
           <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/30">
             <h4 className="font-medium text-green-400 mb-2">Messaging Opportunities</h4>
-            <ul className="text-sm space-y-1">
-              {safeArray(data?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.gapsAndOpportunities?.messagingOpportunities)}
+                onSave={(v) => onFieldChange("gapsAndOpportunities.messagingOpportunities", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                className="text-sm"
+              />
+            ) : (
+              <ul className="text-sm space-y-1">
+                {safeArray(data?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
             <h4 className="font-medium text-blue-400 mb-2">Creative Opportunities</h4>
-            <ul className="text-sm space-y-1">
-              {safeArray(data?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.gapsAndOpportunities?.creativeOpportunities)}
+                onSave={(v) => onFieldChange("gapsAndOpportunities.creativeOpportunities", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                className="text-sm"
+              />
+            ) : (
+              <ul className="text-sm space-y-1">
+                {safeArray(data?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/30">
             <h4 className="font-medium text-purple-400 mb-2">Funnel Opportunities</h4>
-            <ul className="text-sm space-y-1">
-              {safeArray(data?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.gapsAndOpportunities?.funnelOpportunities)}
+                onSave={(v) => onFieldChange("gapsAndOpportunities.funnelOpportunities", v)}
+                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                className="text-sm"
+              />
+            ) : (
+              <ul className="text-sm space-y-1">
+                {safeArray(data?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </SubSection>
@@ -692,7 +906,11 @@ function CompetitorAnalysisContent({ data }: { data: CompetitorAnalysis }) {
 // Section 5: Cross-Analysis Synthesis Content
 // =============================================================================
 
-function CrossAnalysisContent({ data }: { data: CrossAnalysisSynthesis }) {
+interface CrossAnalysisContentProps extends EditableContentProps {
+  data: CrossAnalysisSynthesis;
+}
+
+function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisContentProps) {
   return (
     <div className="space-y-6">
       {/* Key Insights */}
@@ -719,17 +937,33 @@ function CrossAnalysisContent({ data }: { data: CrossAnalysisSynthesis }) {
       {/* Recommended Positioning */}
       <SubSection title="Recommended Positioning">
         <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-          <p className="text-lg">{safeRender(data?.recommendedPositioning)}</p>
+          {isEditing && onFieldChange ? (
+            <EditableText
+              value={safeRender(data?.recommendedPositioning)}
+              onSave={(v) => onFieldChange("recommendedPositioning", v)}
+              multiline
+              className="text-lg"
+            />
+          ) : (
+            <p className="text-lg">{safeRender(data?.recommendedPositioning)}</p>
+          )}
         </div>
       </SubSection>
 
       {/* Primary Messaging Angles */}
       <SubSection title="Primary Messaging Angles">
-        <div className="flex flex-wrap gap-2">
-          {safeArray(data?.primaryMessagingAngles).map((angle, i) => (
-            <Badge key={i} variant="outline" className="text-base py-1 px-3">{angle}</Badge>
-          ))}
-        </div>
+        {isEditing && onFieldChange ? (
+          <EditableList
+            items={safeArray(data?.primaryMessagingAngles)}
+            onSave={(v) => onFieldChange("primaryMessagingAngles", v)}
+          />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {safeArray(data?.primaryMessagingAngles).map((angle, i) => (
+              <Badge key={i} variant="outline" className="text-base py-1 px-3">{angle}</Badge>
+            ))}
+          </div>
+        )}
       </SubSection>
 
       {/* Recommended Platforms */}
@@ -754,39 +988,67 @@ function CrossAnalysisContent({ data }: { data: CrossAnalysisSynthesis }) {
 
       {/* Critical Success Factors */}
       <SubSection title="Critical Success Factors">
-        <ul className="space-y-1">
-          {safeArray(data?.criticalSuccessFactors).map((item, i) => (
-            <ListItem key={i}>{item}</ListItem>
-          ))}
-        </ul>
+        {isEditing && onFieldChange ? (
+          <EditableList
+            items={safeArray(data?.criticalSuccessFactors)}
+            onSave={(v) => onFieldChange("criticalSuccessFactors", v)}
+            renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+          />
+        ) : (
+          <ul className="space-y-1">
+            {safeArray(data?.criticalSuccessFactors).map((item, i) => (
+              <ListItem key={i}>{item}</ListItem>
+            ))}
+          </ul>
+        )}
       </SubSection>
 
       {/* Potential Blockers */}
-      {data?.potentialBlockers && data.potentialBlockers.length > 0 && (
+      {(data?.potentialBlockers && data.potentialBlockers.length > 0) || isEditing ? (
         <SubSection title="Potential Blockers">
-          <ul className="space-y-1">
-            {safeArray(data.potentialBlockers).map((item, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.potentialBlockers)}
+              onSave={(v) => onFieldChange("potentialBlockers", v)}
+              renderPrefix={() => <AlertTriangle className="h-4 w-4 text-orange-500" />}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {safeArray(data?.potentialBlockers).map((item, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </SubSection>
-      )}
+      ) : null}
 
       {/* Next Steps */}
       <SubSection title="Recommended Next Steps">
-        <ol className="space-y-2">
-          {safeArray(data?.nextSteps).map((item, i) => (
-            <li key={i} className="flex items-start gap-3">
+        {isEditing && onFieldChange ? (
+          <EditableList
+            items={safeArray(data?.nextSteps)}
+            onSave={(v) => onFieldChange("nextSteps", v)}
+            renderPrefix={(index) => (
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
-                {i + 1}
+                {index + 1}
               </span>
-              <span className="pt-0.5">{item}</span>
-            </li>
-          ))}
-        </ol>
+            )}
+          />
+        ) : (
+          <ol className="space-y-2">
+            {safeArray(data?.nextSteps).map((item, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
+                  {i + 1}
+                </span>
+                <span className="pt-0.5">{item}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </SubSection>
     </div>
   );
@@ -796,24 +1058,30 @@ function CrossAnalysisContent({ data }: { data: CrossAnalysisSynthesis }) {
 // Main Section Content Renderer
 // =============================================================================
 
+export interface SectionContentRendererProps {
+  sectionKey: StrategicBlueprintSection;
+  data: unknown;
+  isEditing?: boolean;
+  onFieldChange?: (fieldPath: string, newValue: unknown) => void;
+}
+
 export function SectionContentRenderer({
   sectionKey,
   data,
-}: {
-  sectionKey: StrategicBlueprintSection;
-  data: unknown;
-}) {
+  isEditing,
+  onFieldChange,
+}: SectionContentRendererProps) {
   switch (sectionKey) {
     case "industryMarketOverview":
-      return <IndustryMarketContent data={data as IndustryMarketOverview} />;
+      return <IndustryMarketContent data={data as IndustryMarketOverview} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "icpAnalysisValidation":
-      return <ICPAnalysisContent data={data as ICPAnalysisValidation} />;
+      return <ICPAnalysisContent data={data as ICPAnalysisValidation} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "offerAnalysisViability":
-      return <OfferAnalysisContent data={data as OfferAnalysisViability} />;
+      return <OfferAnalysisContent data={data as OfferAnalysisViability} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "competitorAnalysis":
-      return <CompetitorAnalysisContent data={data as CompetitorAnalysis} />;
+      return <CompetitorAnalysisContent data={data as CompetitorAnalysis} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "crossAnalysisSynthesis":
-      return <CrossAnalysisContent data={data as CrossAnalysisSynthesis} />;
+      return <CrossAnalysisContent data={data as CrossAnalysisSynthesis} isEditing={isEditing} onFieldChange={onFieldChange} />;
     default:
       return <div className="text-muted-foreground">Unknown section type</div>;
   }
