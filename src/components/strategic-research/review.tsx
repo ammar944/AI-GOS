@@ -11,10 +11,11 @@ import type {
   StrategicBlueprintSection,
 } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
+import { createApprovedBlueprint } from "@/lib/strategic-blueprint/approval";
 
 export interface StrategicResearchReviewProps {
   strategicBlueprint: StrategicBlueprintOutput;
-  onComplete: () => void;
+  onApprove: (approvedBlueprint: StrategicBlueprintOutput) => void;
   onRegenerate: () => void;
   onEdit?: (sectionKey: string, fieldPath: string, newValue: unknown) => void;
 }
@@ -53,7 +54,7 @@ function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
 
 export function StrategicResearchReview({
   strategicBlueprint,
-  onComplete,
+  onApprove,
   onRegenerate,
   onEdit,
 }: StrategicResearchReviewProps) {
@@ -180,6 +181,19 @@ export function StrategicResearchReview({
     };
   }, [strategicBlueprint, pendingEdits]);
 
+  // Check if there are any pending edits across all sections
+  const hasPendingEdits = useMemo(() => {
+    return Object.values(pendingEdits).some(
+      (sectionEdits) => sectionEdits && Object.keys(sectionEdits).length > 0
+    );
+  }, [pendingEdits]);
+
+  // Handle approval - merge edits and call onApprove
+  const handleApprove = useCallback(() => {
+    const approvedBlueprint = createApprovedBlueprint(strategicBlueprint, pendingEdits);
+    onApprove(approvedBlueprint);
+  }, [strategicBlueprint, pendingEdits, onApprove]);
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
@@ -254,11 +268,11 @@ export function StrategicResearchReview({
                 Regenerate
               </Button>
               <Button
-                onClick={onComplete}
+                onClick={handleApprove}
                 disabled={!allReviewed}
                 className="gap-2"
               >
-                Continue
+                {hasPendingEdits ? "Approve & Continue" : "Continue"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>

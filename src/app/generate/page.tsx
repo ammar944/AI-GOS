@@ -155,7 +155,12 @@ export default function GeneratePage() {
     }
   }, [onboardingData, handleOnboardingComplete]);
 
-  const handleReviewComplete = useCallback(() => {
+  const handleApprove = useCallback((approvedBlueprint: StrategicBlueprintOutput) => {
+    // Save approved blueprint to localStorage
+    saveStrategicBlueprint(approvedBlueprint);
+    // Update state with approved blueprint
+    setStrategicBlueprint(approvedBlueprint);
+    // Transition to complete state
     setPageState("complete");
   }, []);
 
@@ -368,7 +373,7 @@ export default function GeneratePage() {
           <div className="mx-auto max-w-5xl">
             <StrategicResearchReview
               strategicBlueprint={strategicBlueprint}
-              onComplete={handleReviewComplete}
+              onApprove={handleApprove}
               onRegenerate={handleRegenerateBlueprint}
             />
           </div>
