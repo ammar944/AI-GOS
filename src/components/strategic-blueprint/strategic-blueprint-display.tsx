@@ -219,33 +219,12 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
       const filename = `Strategic-Blueprint-${date}.pdf`;
 
       // Create a temporary container for the PDF content
-      // Use an iframe to completely isolate from Tailwind's CSS color functions (oklch, lab)
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "absolute";
-      iframe.style.left = "-9999px";
-      iframe.style.top = "0";
-      iframe.style.width = "850px";
-      iframe.style.height = "1px";
-      iframe.style.border = "none";
-      document.body.appendChild(iframe);
-
-      // Wait for iframe to be ready
-      await new Promise<void>((resolve) => {
-        iframe.onload = () => resolve();
-        // Trigger load for about:blank
-        iframe.src = "about:blank";
-      });
-
-      const iframeDoc = iframe.contentDocument;
-      if (!iframeDoc) {
-        throw new Error("Failed to create isolated document");
-      }
-
-      // Create container inside iframe (completely isolated from main document styles)
-      const container = iframeDoc.createElement("div");
-      iframeDoc.body.appendChild(container);
-      iframeDoc.body.style.margin = "0";
-      iframeDoc.body.style.padding = "0";
+      const container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      container.style.width = "850px";
+      document.body.appendChild(container);
 
       // Render the PdfExportContent component into the container
       const root = createRoot(container);
@@ -262,27 +241,19 @@ export function StrategicBlueprintDisplay({ strategicBlueprint }: StrategicBluep
       }
 
       // Capture the content with html2canvas
-      // Note: We need to handle modern CSS color functions (oklch, lab) that html2canvas doesn't support
+      // Note: html2canvas may log warnings about unsupported color functions (oklch, lab) from Tailwind CSS 4
+      // These warnings are non-fatal - the PDF will still render correctly using inline styles
       const canvas = await html2canvas(content, {
         scale: 2, // Higher resolution for better quality
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
         windowWidth: 794, // A4 width at 96 DPI
-        ignoreElements: (element) => {
-          // Ignore elements that might have unsupported CSS
-          return element.tagName === 'STYLE' || element.tagName === 'LINK';
-        },
-        onclone: (clonedDoc) => {
-          // Remove all stylesheets to avoid color parsing issues
-          const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          styles.forEach(style => style.remove());
-        },
       });
 
-      // Clean up the temporary iframe
+      // Clean up the temporary container
       root.unmount();
-      document.body.removeChild(iframe);
+      document.body.removeChild(container);
 
       // Create PDF from canvas
       const imgData = canvas.toDataURL("image/png");
