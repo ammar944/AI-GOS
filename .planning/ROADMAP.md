@@ -2,18 +2,18 @@
 
 ## Milestones
 
-- ✅ **v1.0 Stabilization** - Phases 1-4 (shipped 2025-12-26)
-- 🚧 **v1.1 Validation Gate** - Phases 5-7 (in progress)
-- 📋 **v1.2 Persistence** - Planned
-- 📋 **v1.3 Export** - Planned
-- 📋 **v1.4 Testing** - Planned
+- [v1.0 Stabilization](milestones/v1.0-ROADMAP.md) (Phases 1-4) - SHIPPED 2025-12-26
+- [v1.1 Validation Gate](milestones/v1.1-ROADMAP.md) (Phases 5-7) - SHIPPED 2025-12-29
+- **v1.2 PDF Export** - Planned
+- v1.3 Persistence - Planned
+- v1.4 Testing - Planned
 
 ## Phases
 
 <details>
-<summary>✅ v1.0 Stabilization (Phases 1-4) - SHIPPED 2025-12-26</summary>
+<summary>v1.0 Stabilization (Phases 1-4) - SHIPPED 2025-12-26</summary>
 
-### Phase 1: Robust JSON Response Handling ✓ COMPLETE
+### Phase 1: Robust JSON Response Handling COMPLETE
 **Priority:** Critical | **Effort:** Medium | **Completed:** 2025-12-24
 
 Fix JSON parsing failures by improving extraction and adding validation.
@@ -29,7 +29,7 @@ Fix JSON parsing failures by improving extraction and adding validation.
 
 ---
 
-### Phase 2: Timeout and Retry Logic ✓ COMPLETE
+### Phase 2: Timeout and Retry Logic COMPLETE
 **Priority:** Critical | **Effort:** Medium | **Completed:** 2025-12-25
 
 Add per-section timeouts and intelligent retry logic.
@@ -45,7 +45,7 @@ Add per-section timeouts and intelligent retry logic.
 
 ---
 
-### Phase 3: Vercel Deployment Compatibility ✓ COMPLETE
+### Phase 3: Vercel Deployment Compatibility COMPLETE
 **Priority:** High | **Effort:** Low | **Completed:** 2025-12-25
 
 Ensure all routes work within Vercel function limits.
@@ -61,7 +61,7 @@ Ensure all routes work within Vercel function limits.
 
 ---
 
-### Phase 4: Error Reporting and Recovery ✓ COMPLETE
+### Phase 4: Error Reporting and Recovery COMPLETE
 **Priority:** Medium | **Effort:** Low | **Completed:** 2025-12-26
 
 Better error visibility and graceful degradation.
@@ -77,16 +77,12 @@ Better error visibility and graceful degradation.
 
 </details>
 
----
+<details>
+<summary>v1.1 Validation Gate (Phases 5-7) - SHIPPED 2025-12-29</summary>
 
-### ✅ v1.1 Validation Gate (Complete)
-
-**Milestone Goal:** Add user validation gate after strategic research before media plan generation, allowing users to review, edit, and approve research before proceeding.
-
-#### Phase 5: Strategic Research Review UI ✓ COMPLETE
+### Phase 5: Strategic Research Review UI COMPLETE
 **Goal**: Display strategic research output in reviewable format with section cards
 **Depends on**: Milestone 1 complete
-**Research**: Unlikely (internal React patterns)
 **Plans**: 2
 **Completed**: 2025-12-26
 
@@ -94,10 +90,9 @@ Plans:
 - [x] 05-01: Review Card Foundation (SectionCard component + content renderers)
 - [x] 05-02: Review UI and Integration (StrategicResearchReview + /generate page)
 
-#### Phase 6: Inline Edit Capability ✓ COMPLETE
+### Phase 6: Inline Edit Capability COMPLETE
 **Goal**: Enable click-to-edit on text fields with save/discard functionality
 **Depends on**: Phase 5
-**Research**: Unlikely (internal patterns)
 **Plans**: 2
 **Completed**: 2025-12-29
 
@@ -105,28 +100,36 @@ Plans:
 - [x] 06-01: EditableText Component Foundation (EditableText + EditableList components)
 - [x] 06-02: Section Integration & Edit State (integrate into renderers, wire state)
 
-#### Phase 7: Approval Flow ✓ COMPLETE
+### Phase 7: Approval Flow COMPLETE
 **Goal**: Add approve/edit mode toggle, store user edits, feed approved data to media plan pipeline
 **Depends on**: Phase 6
-**Research**: Unlikely (internal state management)
 **Plans**: 1
 **Completed**: 2025-12-29
 
 Plans:
 - [x] 07-01: Approval Flow (createApprovedBlueprint helper, localStorage persistence)
 
+</details>
+
 ---
 
-### 📋 Future Milestones
+### v1.2 PDF Export (Next)
 
-#### v1.2 Persistence
+Fix the PDF generation button to display strategic research in the same format as the review UI.
+
+**Scope:**
+- Match strategic research review layout in PDF output
+- Use same section card styling and content renderers
+- Branded PDF template with proper formatting
+
+---
+
+### Future Milestones
+
+#### v1.3 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
-
-#### v1.3 Export
-- PDF export for media plans
-- Branded PDF templates
 
 #### v1.4 Testing
 - Vitest setup
@@ -150,4 +153,4 @@ Plans:
 ---
 
 *Created: 2025-12-24*
-*Updated: 2025-12-29 (Milestone v1.1 complete)*
+*Updated: 2025-12-29 (v1.1 archived)*
