@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
-import { CheckCircle2, RotateCcw, ArrowRight } from "lucide-react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { CheckCircle2, RotateCcw, ArrowRight, Undo2, Redo2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -74,6 +80,14 @@ export function StrategicResearchReview({
   // Track pending edits per section: { sectionKey: { fieldPath: newValue, ... } }
   const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, unknown>>>({});
 
+  // Undo/Redo history
+  const [editHistory, setEditHistory] = useState<Record<string, Record<string, unknown>>[]>([]);
+  const [futureEdits, setFutureEdits] = useState<Record<string, Record<string, unknown>>[]>([]);
+
+  // Track if we can undo/redo
+  const canUndo = editHistory.length > 0;
+  const canRedo = futureEdits.length > 0;
+
   // Refs for scrolling to next section
   const sectionRefs = useRef<Map<StrategicBlueprintSection, HTMLDivElement | null>>(new Map());
 
@@ -136,13 +150,21 @@ export function StrategicResearchReview({
   // Handle field change within a section
   const handleFieldChange = useCallback(
     (sectionKey: StrategicBlueprintSection, fieldPath: string, newValue: unknown) => {
-      setPendingEdits((prev) => ({
-        ...prev,
-        [sectionKey]: {
-          ...(prev[sectionKey] || {}),
-          [fieldPath]: newValue,
-        },
-      }));
+      // Save current state to history before making the change
+      setPendingEdits((prev) => {
+        // Push current state to history
+        setEditHistory((history) => [...history, prev]);
+        // Clear future edits (new change invalidates redo stack)
+        setFutureEdits([]);
+
+        return {
+          ...prev,
+          [sectionKey]: {
+            ...(prev[sectionKey] || {}),
+            [fieldPath]: newValue,
+          },
+        };
+      });
 
       // Notify parent if callback provided
       if (onEdit) {
@@ -151,6 +173,63 @@ export function StrategicResearchReview({
     },
     [onEdit]
   );
+
+  // Undo the last edit
+  const handleUndo = useCallback(() => {
+    if (!canUndo) return;
+
+    setEditHistory((history) => {
+      const newHistory = [...history];
+      const previousState = newHistory.pop();
+
+      if (previousState !== undefined) {
+        // Push current state to future for redo
+        setFutureEdits((future) => [...future, pendingEdits]);
+        // Restore previous state
+        setPendingEdits(previousState);
+      }
+
+      return newHistory;
+    });
+  }, [canUndo, pendingEdits]);
+
+  // Redo the last undone edit
+  const handleRedo = useCallback(() => {
+    if (!canRedo) return;
+
+    setFutureEdits((future) => {
+      const newFuture = [...future];
+      const nextState = newFuture.pop();
+
+      if (nextState !== undefined) {
+        // Push current state to history for undo
+        setEditHistory((history) => [...history, pendingEdits]);
+        // Restore next state
+        setPendingEdits(nextState);
+      }
+
+      return newFuture;
+    });
+  }, [canRedo, pendingEdits]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+Z (undo) or Ctrl+Shift+Z / Ctrl+Y (redo)
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key === "z" && !event.shiftKey) {
+          event.preventDefault();
+          handleUndo();
+        } else if ((event.key === "z" && event.shiftKey) || event.key === "y") {
+          event.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Check if a section has pending edits
   const sectionHasEdits = useCallback(
@@ -247,38 +326,100 @@ export function StrategicResearchReview({
         ))}
       </div>
 
-      {/* Action Bar */}
-      <Card className="sticky bottom-4 border-2 shadow-lg">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted-foreground">
-              {allReviewed ? (
-                <span className="flex items-center gap-2 text-green-600 font-medium">
-                  <CheckCircle2 className="h-4 w-4" />
-                  All sections reviewed
-                </span>
-              ) : (
-                `Review all ${5 - reviewedSections.size} remaining section${5 - reviewedSections.size === 1 ? "" : "s"} to continue`
-              )}
-            </div>
+      {/* Floating Action Bar - centered on mobile, right-aligned on desktop */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-50 pb-[env(safe-area-inset-bottom)]">
+        <Card className="border shadow-xl bg-background/95 backdrop-blur-sm">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex items-center gap-3 sm:gap-4">
+              {/* Compact progress indicator */}
+              <div className="flex items-center gap-2">
+                {allReviewed ? (
+                  <span className="flex items-center gap-1.5 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">Done</span>
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{reviewedSections.size}</span>
+                    <span className="mx-0.5">/</span>
+                    <span>5</span>
+                  </span>
+                )}
+              </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={onRegenerate}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Regenerate
-              </Button>
-              <Button
-                onClick={handleApprove}
-                disabled={!allReviewed}
-                className="gap-2"
-              >
-                {hasPendingEdits ? "Approve & Continue" : "Continue"}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              {/* Divider */}
+              <div className="h-6 w-px bg-border" />
+
+              {/* Undo/Redo buttons - only show when there's history */}
+              {(canUndo || canRedo) && (
+                <TooltipProvider delayDuration={300}>
+                  <div className="flex items-center gap-0.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleUndo}
+                          disabled={!canUndo}
+                        >
+                          <Undo2 className="h-4 w-4" />
+                          <span className="sr-only">Undo (Ctrl+Z)</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Undo (Ctrl+Z)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleRedo}
+                          disabled={!canRedo}
+                        >
+                          <Redo2 className="h-4 w-4" />
+                          <span className="sr-only">Redo (Ctrl+Shift+Z)</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Redo (Ctrl+Shift+Z)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
+              )}
+
+              {/* Divider before main actions (only when undo/redo visible) */}
+              {(canUndo || canRedo) && <div className="h-6 w-px bg-border" />}
+
+              {/* Action buttons - larger touch targets on mobile */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3"
+                  onClick={onRegenerate}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:ml-2">Regenerate</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleApprove}
+                  disabled={!allReviewed}
+                  className="h-9 sm:h-8 gap-1.5 px-3"
+                >
+                  <span>{hasPendingEdits ? "Approve" : "Continue"}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
