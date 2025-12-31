@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { CheckCircle2, RotateCcw, ArrowRight, Undo2, Redo2 } from "lucide-react";
+import { CheckCircle2, CheckCheck, RotateCcw, ArrowRight, Undo2, Redo2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -136,6 +136,11 @@ export function StrategicResearchReview({
       }, 100);
     }
   }, [reviewedSections]);
+
+  // Approve all sections at once
+  const handleApproveAll = useCallback(() => {
+    setReviewedSections(new Set(STRATEGIC_BLUEPRINT_SECTION_ORDER));
+  }, []);
 
   // Set ref for a section
   const setSectionRef = useCallback((sectionKey: StrategicBlueprintSection, element: HTMLDivElement | null) => {
@@ -397,6 +402,26 @@ export function StrategicResearchReview({
 
               {/* Action buttons - larger touch targets on mobile */}
               <div className="flex items-center gap-1.5 sm:gap-2">
+                {!allReviewed && (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3"
+                          onClick={handleApproveAll}
+                        >
+                          <CheckCheck className="h-4 w-4" />
+                          <span className="sr-only sm:not-sr-only sm:ml-2">Approve All</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Mark all sections as reviewed</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

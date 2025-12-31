@@ -12,6 +12,9 @@ import {
   Wand2,
   FileSearch,
   AlertCircle,
+  Share2,
+  Link2,
+  Check,
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/strategic-blueprint-display";
@@ -52,6 +55,12 @@ export default function GeneratePage() {
   const [wizardKey, setWizardKey] = useState(0);
   const [initialData, setInitialData] = useState<OnboardingFormData | undefined>(undefined);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+
+  // Share state
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   // Check for saved progress on mount
   useEffect(() => {
@@ -162,7 +171,59 @@ export default function GeneratePage() {
     setStrategicBlueprint(approvedBlueprint);
     // Transition to complete state
     setPageState("complete");
+    // Reset share state when approving new blueprint
+    setShareUrl(null);
+    setShareError(null);
   }, []);
+
+  // Share blueprint
+  const handleShare = useCallback(async () => {
+    if (!strategicBlueprint) return;
+
+    setIsSharing(true);
+    setShareError(null);
+
+    try {
+      const response = await fetch("/api/blueprints", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blueprint: strategicBlueprint }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShareUrl(result.shareUrl);
+      } else {
+        setShareError(result.error?.message || "Failed to create share link");
+      }
+    } catch (err) {
+      setShareError("Failed to create share link");
+    } finally {
+      setIsSharing(false);
+    }
+  }, [strategicBlueprint]);
+
+  // Copy share link to clipboard
+  const handleCopyLink = useCallback(async () => {
+    if (!shareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+  }, [shareUrl]);
 
   // Resume Prompt
   if (showResumePrompt) {
@@ -418,6 +479,29 @@ export default function GeneratePage() {
                       </>
                     )}
                     <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShare}
+                        disabled={isSharing || !!shareUrl}
+                      >
+                        {isSharing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Link...
+                          </>
+                        ) : shareUrl ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Link Created
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Share
+                          </>
+                        )}
+                      </Button>
                       <Button variant="outline" size="sm" onClick={handleRegenerateBlueprint}>
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Regenerate
@@ -439,6 +523,44 @@ export default function GeneratePage() {
                     </Badge>
                   </div>
                 </div>
+
+                {/* Share Link Display */}
+                {shareUrl && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Link2 className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">Shareable Link</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={shareUrl}
+                        className="flex-1 px-3 py-2 text-sm bg-background border rounded-md"
+                      />
+                      <Button size="sm" onClick={handleCopyLink}>
+                        {shareCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Copied
+                          </>
+                        ) : (
+                          "Copy"
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Anyone with this link can view this blueprint
+                    </p>
+                  </div>
+                )}
+
+                {/* Share Error Display */}
+                {shareError && (
+                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm text-destructive">{shareError}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
