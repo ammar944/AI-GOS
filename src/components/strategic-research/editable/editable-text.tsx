@@ -82,8 +82,15 @@ export function EditableText({
       <span
         onClick={handleClick}
         className={cn(
-          "cursor-text rounded px-1 py-0.5 -mx-1 transition-colors",
-          "hover:bg-muted/50",
+          // Base styles
+          "cursor-text rounded px-1.5 py-0.5 -mx-1 transition-all duration-150",
+          // Editable indicator - subtle dashed underline
+          "border-b border-dashed border-muted-foreground/40",
+          // Hover state - background appears, border becomes solid
+          "hover:bg-muted/50 hover:border-solid hover:border-muted-foreground/50",
+          // Focus state for keyboard navigation
+          "focus:outline-none focus:bg-muted/50 focus:border-solid focus:border-muted-foreground/50",
+          // Empty placeholder styling
           !value && "text-muted-foreground italic",
           className
         )}
