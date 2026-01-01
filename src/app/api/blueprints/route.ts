@@ -60,8 +60,14 @@ export async function POST(
       );
     }
 
-    // Build the share URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    // Build the share URL - use Vercel's auto-set URLs in production
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+        : null) ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+      request.nextUrl.origin;
     const shareUrl = `${baseUrl}/shared/${data.share_token}`;
 
     return NextResponse.json({
