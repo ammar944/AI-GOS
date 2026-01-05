@@ -203,6 +203,22 @@ export function hasWebSearch(model: string): boolean {
   return WEB_SEARCH_MODELS.has(model);
 }
 
+/** Models that support JSON mode (response_format) */
+const JSON_MODE_MODELS: Set<string> = new Set([
+  MODELS.GEMINI_FLASH,
+  MODELS.GPT_4O,
+  MODELS.CLAUDE_SONNET,
+  MODELS.CLAUDE_OPUS,
+  MODELS.O3_MINI,
+  MODELS.GEMINI_25_FLASH,
+  // Note: Perplexity models do NOT support response_format
+]);
+
+/** Check if a model supports JSON mode (response_format) */
+export function supportsJSONMode(model: string): boolean {
+  return JSON_MODE_MODELS.has(model);
+}
+
 /**
  * Extract normalized citations from an OpenRouter response.
  * Prefers structured search_results over legacy citations array.
@@ -281,8 +297,8 @@ export class OpenRouterClient {
       max_tokens: maxTokens,
     };
 
-    // Enable JSON mode for supported models (Claude, GPT-4, Gemini)
-    if (jsonMode) {
+    // Enable JSON mode only for supported models (NOT Perplexity)
+    if (jsonMode && supportsJSONMode(model)) {
       requestBody.response_format = { type: "json_object" };
     }
 
