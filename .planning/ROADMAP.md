@@ -4,9 +4,10 @@
 
 - [v1.0 Stabilization](milestones/v1.0-ROADMAP.md) (Phases 1-4) - SHIPPED 2025-12-26
 - [v1.1 Validation Gate](milestones/v1.1-ROADMAP.md) (Phases 5-7) - SHIPPED 2025-12-29
-- 🚧 **v1.2 PDF Export** - Phase 8 (in progress)
-- v1.3 Persistence - Planned
-- v1.4 Testing - Planned
+- ✅ **v1.2 PDF Export** - Phase 8 - SHIPPED 2025-12-29
+- 🚧 **v1.3 Multi-Agent Research** - Phases 9-14 (in progress)
+- v1.4 Persistence - Planned
+- v1.5 Testing - Planned
 
 ## Phases
 
@@ -113,11 +114,10 @@ Plans:
 
 ---
 
-### 🚧 v1.2 PDF Export (In Progress)
+<details>
+<summary>v1.2 PDF Export (Phase 8) - SHIPPED 2025-12-29</summary>
 
-Fix the PDF generation button to display strategic research in the same format as the review UI.
-
-#### Phase 8: PDF Export Enhancement ✓ COMPLETE
+### Phase 8: PDF Export Enhancement COMPLETE
 **Goal**: HTML-to-canvas PDF generation with full visual styling
 **Depends on**: v1.1 complete
 **Plans**: 1
@@ -126,16 +126,82 @@ Fix the PDF generation button to display strategic research in the same format a
 Plans:
 - [x] 08-01: HTML-to-Canvas PDF Generation (PdfExportContent + html2canvas capture)
 
+</details>
+
+---
+
+### 🚧 v1.3 Multi-Agent Research (In Progress)
+
+Transform from single-model to multi-agent research pipeline. Integrate Perplexity, OpenAI o3, Google Gemini, and Claude Opus through OpenRouter for real-time market intelligence with citations.
+
+**Milestone Goal:** Real-time, verified, and cited strategic blueprints using specialized research agents per section.
+
+#### Phase 9: OpenRouter Multi-Model Support
+**Goal**: Add Perplexity, OpenAI o3, Gemini, Claude Opus models to OpenRouter client
+**Depends on**: v1.2 complete
+**Research**: Likely (OpenRouter API patterns for different model providers)
+**Research topics**: Perplexity search API via OpenRouter, o3 deep research, Gemini thinking mode
+**Plans**: TBD
+
+Plans:
+- [ ] 09-01: TBD (run /gsd:plan-phase 9 to break down)
+
+#### Phase 10: Research Agent Infrastructure
+**Goal**: Create research agent abstraction with citation extraction and multi-step pipelines
+**Depends on**: Phase 9
+**Research**: Likely (citation extraction patterns, structured output from research models)
+**Research topics**: Perplexity citation format, extracting sources from research responses
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: TBD
+
+#### Phase 11: Section 4 Competitor Analysis Enhancement
+**Goal**: Competitor Analysis with Perplexity + o3 Deep Research for real-time competitor intel
+**Depends on**: Phase 10
+**Research**: Unlikely (applying infrastructure from Phase 10)
+**Plans**: TBD
+
+Plans:
+- [ ] 11-01: TBD
+
+#### Phase 12: Section 1 Industry Market Enhancement
+**Goal**: Industry Market with Perplexity Deep Research + citations for real-time market data
+**Depends on**: Phase 11
+**Research**: Unlikely (applying established patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD
+
+#### Phase 13: Sections 2-3 Enhancement
+**Goal**: ICP Analysis + Offer Analysis with research agents for verified data
+**Depends on**: Phase 12
+**Research**: Unlikely (applying established patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: TBD
+
+#### Phase 14: Citations UI & Cost Tracking
+**Goal**: Display inline citations and sources section in review UI, per-agent cost tracking
+**Depends on**: Phase 13
+**Research**: Unlikely (UI patterns established in v1.1)
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: TBD
+
 ---
 
 ### Future Milestones
 
-#### v1.3 Persistence
+#### v1.4 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
 
-#### v1.4 Testing
+#### v1.5 Testing
 - Vitest setup
 - Unit tests for JSON extraction
 - Integration tests for pipeline stages
@@ -154,8 +220,14 @@ Plans:
 | 6. Inline Edit | v1.1 | 2/2 | Complete | 2025-12-29 |
 | 7. Approval Flow | v1.1 | 1/1 | Complete | 2025-12-29 |
 | 8. PDF Export Enhancement | v1.2 | 1/1 | Complete | 2025-12-29 |
+| 9. OpenRouter Multi-Model | v1.3 | 0/? | Not started | - |
+| 10. Research Agent Infra | v1.3 | 0/? | Not started | - |
+| 11. Section 4 Enhancement | v1.3 | 0/? | Not started | - |
+| 12. Section 1 Enhancement | v1.3 | 0/? | Not started | - |
+| 13. Sections 2-3 Enhancement | v1.3 | 0/? | Not started | - |
+| 14. Citations UI & Cost | v1.3 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2025-12-29 (v1.1 archived)*
+*Updated: 2025-01-05 (v1.3 Multi-Agent Research milestone created)*
