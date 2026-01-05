@@ -420,3 +420,31 @@ export const STRATEGIC_BLUEPRINT_SECTION_LABELS: Record<StrategicBlueprintSectio
   competitorAnalysis: "Competitor Analysis",
   crossAnalysisSynthesis: "Cross-Analysis Synthesis",
 };
+
+// =============================================================================
+// Citation Types (for research agent responses)
+// =============================================================================
+
+/** A citation from a research model response */
+export interface Citation {
+  /** Source URL */
+  url: string;
+  /** Source title (from search_results) */
+  title?: string;
+  /** Publication/last updated date */
+  date?: string;
+  /** Brief excerpt from the source */
+  snippet?: string;
+}
+
+/** Section output with citations */
+export interface CitedSectionOutput<T> {
+  /** The section data */
+  data: T;
+  /** Citations used to generate this section */
+  citations: Citation[];
+  /** Model that generated this section */
+  model: string;
+  /** Cost of this section's generation */
+  cost: number;
+}

@@ -150,10 +150,11 @@ Plans:
 **Depends on**: Phase 9
 **Research**: Likely (citation extraction patterns, structured output from research models)
 **Research topics**: Perplexity citation format, extracting sources from research responses
-**Plans**: TBD
+**Plans**: 1/2
 
 Plans:
-- [ ] 10-01: TBD
+- [x] 10-01: Citation Types & OpenRouter Extension
+- [ ] 10-02: Research Agent Abstraction
 
 #### Phase 11: Section 4 Competitor Analysis Enhancement
 **Goal**: Competitor Analysis with Perplexity + o3 Deep Research for real-time competitor intel
@@ -220,7 +221,7 @@ Plans:
 | 7. Approval Flow | v1.1 | 1/1 | Complete | 2025-12-29 |
 | 8. PDF Export Enhancement | v1.2 | 1/1 | Complete | 2025-12-29 |
 | 9. OpenRouter Multi-Model | v1.3 | 1/1 | Complete | 2026-01-05 |
-| 10. Research Agent Infra | v1.3 | 0/? | Not started | - |
+| 10. Research Agent Infra | v1.3 | 1/2 | In progress | - |
 | 11. Section 4 Enhancement | v1.3 | 0/? | Not started | - |
 | 12. Section 1 Enhancement | v1.3 | 0/? | Not started | - |
 | 13. Sections 2-3 Enhancement | v1.3 | 0/? | Not started | - |

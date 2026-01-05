@@ -2,6 +2,7 @@
 // Uses OpenAI-compatible API format
 
 import { z } from "zod";
+import type { Citation } from "@/lib/strategic-blueprint/output-types";
 
 // =============================================================================
 // Custom Error Classes
@@ -126,6 +127,14 @@ export interface ChatCompletionOptions {
 // Default timeout for API requests (45 seconds)
 const DEFAULT_TIMEOUT_MS = 45000;
 
+/** Search result from Perplexity API (structured citation) */
+export interface PerplexitySearchResult {
+  title: string;
+  url: string;
+  date?: string;
+  snippet?: string;
+}
+
 export interface ChatCompletionResponse {
   content: string;
   usage: {
@@ -134,6 +143,10 @@ export interface ChatCompletionResponse {
     totalTokens: number;
   };
   cost: number;
+  /** Citation URLs from Perplexity (legacy format) */
+  citations?: string[];
+  /** Structured search results from Perplexity (new format) */
+  searchResults?: PerplexitySearchResult[];
 }
 
 /**
@@ -188,6 +201,30 @@ const WEB_SEARCH_MODELS: Set<string> = new Set([
 /** Check if a model includes web search and citations */
 export function hasWebSearch(model: string): boolean {
   return WEB_SEARCH_MODELS.has(model);
+}
+
+/**
+ * Extract normalized citations from an OpenRouter response.
+ * Prefers structured search_results over legacy citations array.
+ * Returns empty array for non-research models.
+ */
+export function extractCitations(response: ChatCompletionResponse): Citation[] {
+  // Prefer structured searchResults (new format as of May 2025)
+  if (response.searchResults?.length) {
+    return response.searchResults.map(sr => ({
+      url: sr.url,
+      title: sr.title,
+      date: sr.date,
+      snippet: sr.snippet,
+    }));
+  }
+
+  // Fallback to legacy citations array (URLs only)
+  if (response.citations?.length) {
+    return response.citations.map(url => ({ url }));
+  }
+
+  return [];
 }
 
 // Approximate costs per 1M tokens (input/output) - for estimation
@@ -321,6 +358,10 @@ export class OpenRouterClient {
     const promptTokens = data.usage?.prompt_tokens || 0;
     const completionTokens = data.usage?.completion_tokens || 0;
 
+    // Extract Perplexity citation fields if present
+    const citations = data.citations as string[] | undefined;
+    const searchResults = data.search_results as PerplexitySearchResult[] | undefined;
+
     return {
       content: data.choices[0]?.message?.content || "",
       usage: {
@@ -329,6 +370,9 @@ export class OpenRouterClient {
         totalTokens: promptTokens + completionTokens,
       },
       cost: estimateCost(model, promptTokens, completionTokens),
+      // Include citation fields (only present for Perplexity models)
+      ...(citations && { citations }),
+      ...(searchResults && { searchResults }),
     };
   }
 

@@ -30,10 +30,10 @@ Milestone 4: Multi-Agent Research (v1.3) IN PROGRESS
 └── Phase 14: Citations UI & Cost Tracking
 ```
 
-Phase: 9 of 14 (OpenRouter Multi-Model Support)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-05 - Completed 09-01-PLAN.md
+Phase: 10 of 14 (Research Agent Infrastructure)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-05 - Completed 10-01-PLAN.md
 
 Progress: █░░░░░░░░░ 17% (1/6 phases in v1.3)
 
@@ -73,6 +73,7 @@ Progress: █░░░░░░░░░ 17% (1/6 phases in v1.3)
 | 2025-12-29 | 08-01 | Inline styles for PDF component | Avoid CSS variable parsing issues with html2canvas |
 | 2025-12-29 | 08-01 | Scale 2x for canvas capture | High-quality PDF output |
 | 2026-01-05 | 09-01 | Set<string> for model capability sets | TypeScript type compatibility with string params |
+| 2026-01-05 | 10-01 | Prefer searchResults over citations | New Perplexity format (May 2025) has richer metadata |
 
 ## Deferred Issues
 
@@ -86,7 +87,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - Phase 9 complete, ready for Phase 10
+- **On track:** Yes - Phase 10 plan 1 complete, ready for plan 2
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -100,7 +101,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-05
-Stopped at: Completed 09-01-PLAN.md
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
 
 ---
