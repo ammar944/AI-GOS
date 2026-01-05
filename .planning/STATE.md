@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-05
-**Current Phase:** 9 (OpenRouter Multi-Model Support)
-**Current Plan:** 1 of 1 complete
+**Current Phase:** 10 (Research Agent Infrastructure)
+**Current Plan:** 2 of 2 complete (Phase complete)
 
 ## Position
 
@@ -22,20 +22,20 @@ Milestone 3: PDF Export (v1.2) COMPLETE (archived)
 └── Phase 8: PDF Export Enhancement DONE
 
 Milestone 4: Multi-Agent Research (v1.3) IN PROGRESS
-├── Phase 9: OpenRouter Multi-Model Support ← CURRENT
-├── Phase 10: Research Agent Infrastructure
-├── Phase 11: Section 4 Competitor Analysis Enhancement
+├── Phase 9: OpenRouter Multi-Model Support DONE
+├── Phase 10: Research Agent Infrastructure DONE
+├── Phase 11: Section 4 Competitor Analysis Enhancement ← NEXT
 ├── Phase 12: Section 1 Industry Market Enhancement
 ├── Phase 13: Sections 2-3 Enhancement
 └── Phase 14: Citations UI & Cost Tracking
 ```
 
 Phase: 10 of 14 (Research Agent Infrastructure)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-05 - Completed 10-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-05 - Completed 10-02-PLAN.md
 
-Progress: █░░░░░░░░░ 17% (1/6 phases in v1.3)
+Progress: ██░░░░░░░░ 33% (2/6 phases in v1.3)
 
 ## Decisions
 
@@ -74,6 +74,9 @@ Progress: █░░░░░░░░░ 17% (1/6 phases in v1.3)
 | 2025-12-29 | 08-01 | Scale 2x for canvas capture | High-quality PDF output |
 | 2026-01-05 | 09-01 | Set<string> for model capability sets | TypeScript type compatibility with string params |
 | 2026-01-05 | 10-01 | Prefer searchResults over citations | New Perplexity format (May 2025) has richer metadata |
+| 2026-01-05 | 10-02 | Wrap existing OpenRouterClient | No duplication, ResearchAgent delegates to client |
+| 2026-01-05 | 10-02 | Separate citation cost tracking | Perplexity citation tokens priced differently |
+| 2026-01-05 | 10-02 | Empty citations for JSON-validated | chatJSONValidated doesn't preserve citations |
 
 ## Deferred Issues
 
@@ -87,7 +90,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - Phase 10 plan 1 complete, ready for plan 2
+- **On track:** Yes - Phase 10 complete, ready for Phase 11
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -101,7 +104,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-05
-Stopped at: Completed 10-01-PLAN.md
+Stopped at: Completed 10-02-PLAN.md (Phase 10 complete)
 Resume file: None
 
 ---
