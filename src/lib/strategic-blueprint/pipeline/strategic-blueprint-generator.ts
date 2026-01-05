@@ -18,6 +18,8 @@ import {
 } from "../output-types";
 import { researchCompetitors } from "./competitor-research";
 import { researchIndustryMarket } from "./industry-market-research";
+import { researchICPAnalysis } from "./icp-research";
+import { researchOfferAnalysis } from "./offer-research";
 
 export type StrategicBlueprintProgressCallback = (progress: StrategicBlueprintProgress) => void;
 
@@ -520,6 +522,32 @@ export async function generateStrategicBlueprint(
         continue;
       }
 
+      // Special handling for icpAnalysisValidation - use Perplexity Deep Research
+      if (section === "icpAnalysisValidation") {
+        const result = await researchICPAnalysis(context, partialOutput.industryMarketOverview);
+        partialOutput[section] = result.data;
+        sectionCitations[section] = result.citations;
+        totalCost += result.cost;
+        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        sectionTimings[section] = Date.now() - sectionStart;
+        completedSections.push(section);
+        updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
+        continue;
+      }
+
+      // Special handling for offerAnalysisViability - use Perplexity Deep Research
+      if (section === "offerAnalysisViability") {
+        const result = await researchOfferAnalysis(context, partialOutput.icpAnalysisValidation);
+        partialOutput[section] = result.data;
+        sectionCitations[section] = result.citations;
+        totalCost += result.cost;
+        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        sectionTimings[section] = Date.now() - sectionStart;
+        completedSections.push(section);
+        updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
+        continue;
+      }
+
       // Special handling for competitorAnalysis - use Perplexity Deep Research
       if (section === "competitorAnalysis") {
         const result = await researchCompetitors(context);
@@ -533,7 +561,7 @@ export async function generateStrategicBlueprint(
         continue;
       }
 
-      // Other sections (icpAnalysisValidation, offerAnalysisViability, crossAnalysisSynthesis) use Claude Sonnet
+      // Only crossAnalysisSynthesis uses Claude Sonnet (other 4 sections use Perplexity Deep Research)
       const promptFn = SECTION_PROMPTS[section];
       const messages = promptFn(context, partialOutput);
 
