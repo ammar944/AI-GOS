@@ -5,9 +5,10 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
+import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
+import { CitationBadge, SourcesList } from "./citations";
 
 // Section icons mapping - reused from strategic-blueprint-display.tsx
 import {
@@ -41,6 +42,8 @@ export interface SectionCardProps {
   isReviewed: boolean;
   isEditing: boolean;
   hasEdits: boolean;
+  /** Citations for this section (sections 1-4 have citations from research agents) */
+  citations?: Citation[];
   onToggleExpand: () => void;
   onMarkReviewed: () => void;
   onToggleEdit: () => void;
@@ -54,6 +57,7 @@ export function SectionCard({
   isReviewed,
   isEditing,
   hasEdits,
+  citations,
   onToggleExpand,
   onMarkReviewed,
   onToggleEdit,
@@ -87,6 +91,10 @@ export function SectionCard({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Citation count badge */}
+            {citations && citations.length > 0 && (
+              <CitationBadge count={citations.length} />
+            )}
             {/* Edited badge */}
             {hasEdits && (
               <Badge variant="outline" className="gap-1 border-blue-500/50 text-blue-500">
@@ -156,6 +164,10 @@ export function SectionCard({
             isEditing={isEditing}
             onFieldChange={onFieldChange}
           />
+          {/* Sources list - only show when expanded and citations exist */}
+          {citations && citations.length > 0 && (
+            <SourcesList citations={citations} sectionLabel={sectionLabel} />
+          )}
         </CardContent>
 
         {/* Footer with Mark as Reviewed button */}

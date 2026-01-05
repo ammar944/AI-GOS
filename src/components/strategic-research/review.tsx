@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { CheckCircle2, CheckCheck, RotateCcw, ArrowRight, Undo2, Redo2 } from "lucide-react";
+import { CheckCircle2, CheckCheck, RotateCcw, ArrowRight, Undo2, Redo2, DollarSign } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +15,7 @@ import { SectionCard } from "./section-card";
 import type {
   StrategicBlueprintOutput,
   StrategicBlueprintSection,
+  Citation,
 } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { createApprovedBlueprint } from "@/lib/strategic-blueprint/approval";
@@ -291,7 +292,17 @@ export function StrategicResearchReview({
               </p>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
+              {/* Generation cost - only show if > 0 */}
+              {strategicBlueprint.metadata.totalCost > 0 && (
+                <div className="text-right">
+                  <div className="text-sm text-muted-foreground">Generation Cost</div>
+                  <div className="text-lg font-semibold flex items-center justify-end gap-1">
+                    <DollarSign className="h-4 w-4" />
+                    {strategicBlueprint.metadata.totalCost.toFixed(4)}
+                  </div>
+                </div>
+              )}
               <div className="text-right">
                 <div className="text-sm text-muted-foreground">Progress</div>
                 <div className="text-lg font-semibold">
@@ -322,6 +333,7 @@ export function StrategicResearchReview({
               isReviewed={reviewedSections.has(sectionKey)}
               isEditing={editingSection === sectionKey}
               hasEdits={sectionHasEdits(sectionKey)}
+              citations={strategicBlueprint.metadata.sectionCitations?.[sectionKey] || []}
               onToggleExpand={() => handleToggleExpand(sectionKey)}
               onMarkReviewed={() => handleMarkReviewed(sectionKey)}
               onToggleEdit={() => handleToggleEdit(sectionKey)}

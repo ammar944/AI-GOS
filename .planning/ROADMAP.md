@@ -5,7 +5,7 @@
 - [v1.0 Stabilization](milestones/v1.0-ROADMAP.md) (Phases 1-4) - SHIPPED 2025-12-26
 - [v1.1 Validation Gate](milestones/v1.1-ROADMAP.md) (Phases 5-7) - SHIPPED 2025-12-29
 - ✅ **v1.2 PDF Export** - Phase 8 - SHIPPED 2025-12-29
-- 🚧 **v1.3 Multi-Agent Research** - Phases 9-14 (in progress)
+- ✅ **v1.3 Multi-Agent Research** - Phases 9-14 - SHIPPED 2026-01-05
 - v1.4 Persistence - Planned
 - v1.5 Testing - Planned
 
@@ -130,7 +130,7 @@ Plans:
 
 ---
 
-### 🚧 v1.3 Multi-Agent Research (In Progress)
+### ✅ v1.3 Multi-Agent Research (Complete)
 
 Transform from single-model to multi-agent research pipeline. Integrate Perplexity, OpenAI o3, Google Gemini, and Claude Opus through OpenRouter for real-time market intelligence with citations.
 
@@ -182,14 +182,14 @@ Plans:
 Plans:
 - [x] 13-01: Perplexity Deep Research integration for Sections 2-3
 
-#### Phase 14: Citations UI & Cost Tracking
+#### Phase 14: Citations UI & Cost Tracking COMPLETE
 **Goal**: Display inline citations and sources section in review UI, per-agent cost tracking
 **Depends on**: Phase 13
-**Research**: Unlikely (UI patterns established in v1.1)
-**Plans**: TBD
+**Completed**: 2026-01-05
+**Plans**: 1/1
 
 Plans:
-- [ ] 14-01: TBD
+- [x] 14-01: CitationBadge, SourcesList components, cost display in header
 
 ---
 
@@ -224,9 +224,9 @@ Plans:
 | 11. Section 4 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 12. Section 1 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 13. Sections 2-3 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
-| 14. Citations UI & Cost | v1.3 | 0/? | Not started | - |
+| 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-05 (Phase 13 complete)*
+*Updated: 2026-01-05 (v1.3 Milestone complete)*
