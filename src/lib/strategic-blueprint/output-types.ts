@@ -378,6 +378,8 @@ export interface StrategicBlueprintMetadata {
   modelsUsed: string[];
   /** Overall confidence score (0-100) */
   overallConfidence: number;
+  /** Citations collected during research (keyed by section) */
+  sectionCitations?: Record<string, Citation[]>;
 }
 
 // =============================================================================

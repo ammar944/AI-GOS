@@ -14,7 +14,9 @@ import {
   type OfferAnalysisViability,
   type CompetitorAnalysis,
   type CrossAnalysisSynthesis,
+  type Citation,
 } from "../output-types";
+import { researchCompetitors } from "./competitor-research";
 
 export type StrategicBlueprintProgressCallback = (progress: StrategicBlueprintProgress) => void;
 
@@ -494,12 +496,30 @@ export async function generateStrategicBlueprint(
     }
   };
 
+  // Track citations per section for later display (Phase 14)
+  const sectionCitations: Record<string, Citation[]> = {};
+  const modelsUsed: Set<string> = new Set([MODELS.CLAUDE_SONNET]);
+
   try {
     for (const section of STRATEGIC_BLUEPRINT_SECTION_ORDER) {
       checkAbort();
       const sectionStart = Date.now();
       updateProgress(section, `Generating ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]}...`);
 
+      // Special handling for competitorAnalysis - use Perplexity Deep Research
+      if (section === "competitorAnalysis") {
+        const result = await researchCompetitors(context);
+        partialOutput[section] = result.data;
+        sectionCitations[section] = result.citations;
+        totalCost += result.cost;
+        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        sectionTimings[section] = Date.now() - sectionStart;
+        completedSections.push(section);
+        updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
+        continue;
+      }
+
+      // Other sections use Claude Sonnet
       const promptFn = SECTION_PROMPTS[section];
       const messages = promptFn(context, partialOutput);
 
@@ -528,11 +548,12 @@ export async function generateStrategicBlueprint(
       crossAnalysisSynthesis: partialOutput.crossAnalysisSynthesis as CrossAnalysisSynthesis,
       metadata: {
         generatedAt: new Date().toISOString(),
-        version: "1.0",
+        version: "1.1", // Bumped for multi-model support
         processingTime: totalTime,
         totalCost: Math.round(totalCost * 10000) / 10000,
-        modelsUsed: [MODELS.CLAUDE_SONNET],
+        modelsUsed: Array.from(modelsUsed),
         overallConfidence: 75,
+        sectionCitations: Object.keys(sectionCitations).length > 0 ? sectionCitations : undefined,
       },
     };
 
