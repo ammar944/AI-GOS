@@ -99,6 +99,19 @@ export interface ChatMessage {
   content: string;
 }
 
+/** Effort level for OpenAI o-series reasoning models */
+export type ReasoningEffort = "low" | "medium" | "high";
+
+/** Reasoning/thinking parameters for supported models */
+export interface ReasoningOptions {
+  /** Effort level for OpenAI o-series models */
+  effort?: ReasoningEffort;
+  /** Max tokens for Anthropic/Gemini reasoning (min 1024) */
+  maxTokens?: number;
+  /** Include reasoning in response (default: false) */
+  include?: boolean;
+}
+
 export interface ChatCompletionOptions {
   model: string;
   messages: ChatMessage[];
@@ -106,6 +119,8 @@ export interface ChatCompletionOptions {
   maxTokens?: number;
   jsonMode?: boolean; // Enable strict JSON output
   timeout?: number; // Request timeout in ms (default: 45000)
+  /** Reasoning/thinking parameters for supported models */
+  reasoning?: ReasoningOptions;
 }
 
 // Default timeout for API requests (45 seconds)
@@ -121,20 +136,73 @@ export interface ChatCompletionResponse {
   cost: number;
 }
 
-// Model identifiers for OpenRouter
+/**
+ * Model identifiers for OpenRouter
+ *
+ * Research/Search models:
+ * - PERPLEXITY_SONAR: Real-time web search, citations
+ * - PERPLEXITY_DEEP_RESEARCH: Multi-step research with reasoning
+ *
+ * Reasoning models:
+ * - O3_MINI: Cost-efficient STEM reasoning
+ * - GEMINI_25_FLASH: Fast reasoning with 1M context
+ * - CLAUDE_OPUS: Deep reasoning for complex tasks
+ *
+ * General purpose:
+ * - GEMINI_FLASH: Fast extraction and simple tasks
+ * - GPT_4O: Balanced capability
+ * - CLAUDE_SONNET: Synthesis and writing
+ */
 export const MODELS = {
+  // Existing models
   GEMINI_FLASH: "google/gemini-2.0-flash-001",
   PERPLEXITY_SONAR: "perplexity/sonar-pro",
   GPT_4O: "openai/gpt-4o",
   CLAUDE_SONNET: "anthropic/claude-sonnet-4",
+  // New models for v1.3 multi-agent research
+  PERPLEXITY_DEEP_RESEARCH: "perplexity/sonar-deep-research",
+  O3_MINI: "openai/o3-mini",
+  GEMINI_25_FLASH: "google/gemini-2.5-flash",
+  CLAUDE_OPUS: "anthropic/claude-opus-4",
 } as const;
 
+/** Models that support reasoning/thinking parameters */
+const REASONING_MODELS: Set<string> = new Set([
+  MODELS.O3_MINI,
+  MODELS.GEMINI_25_FLASH,
+  MODELS.CLAUDE_OPUS,
+  MODELS.PERPLEXITY_DEEP_RESEARCH,
+]);
+
+/** Check if a model supports reasoning/thinking parameters */
+export function supportsReasoning(model: string): boolean {
+  return REASONING_MODELS.has(model);
+}
+
+/** Models that include web search/citations */
+const WEB_SEARCH_MODELS: Set<string> = new Set([
+  MODELS.PERPLEXITY_SONAR,
+  MODELS.PERPLEXITY_DEEP_RESEARCH,
+]);
+
+/** Check if a model includes web search and citations */
+export function hasWebSearch(model: string): boolean {
+  return WEB_SEARCH_MODELS.has(model);
+}
+
 // Approximate costs per 1M tokens (input/output) - for estimation
+// Note: Perplexity models have additional $5/K search cost not tracked here
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+  // Existing models
   [MODELS.GEMINI_FLASH]: { input: 0.075, output: 0.30 },
-  [MODELS.PERPLEXITY_SONAR]: { input: 1.0, output: 1.0 },
+  [MODELS.PERPLEXITY_SONAR]: { input: 3.0, output: 15.0 },
   [MODELS.GPT_4O]: { input: 2.5, output: 10.0 },
   [MODELS.CLAUDE_SONNET]: { input: 3.0, output: 15.0 },
+  // New models for v1.3 multi-agent research
+  [MODELS.PERPLEXITY_DEEP_RESEARCH]: { input: 2.0, output: 8.0 },
+  [MODELS.O3_MINI]: { input: 1.10, output: 4.40 },
+  [MODELS.GEMINI_25_FLASH]: { input: 0.30, output: 2.50 },
+  [MODELS.CLAUDE_OPUS]: { input: 15.0, output: 75.0 },
 };
 
 function estimateCost(
@@ -179,6 +247,27 @@ export class OpenRouterClient {
     // Enable JSON mode for supported models (Claude, GPT-4, Gemini)
     if (jsonMode) {
       requestBody.response_format = { type: "json_object" };
+    }
+
+    // Add reasoning parameters if provided
+    if (options.reasoning) {
+      const reasoningConfig: Record<string, unknown> = {};
+
+      if (options.reasoning.effort) {
+        // OpenAI o-series format
+        reasoningConfig.effort = options.reasoning.effort;
+      }
+      if (options.reasoning.maxTokens) {
+        // Anthropic/Gemini format (enforce minimum 1024)
+        reasoningConfig.max_tokens = Math.max(1024, options.reasoning.maxTokens);
+      }
+      if (options.reasoning.include) {
+        reasoningConfig.include = true;
+      }
+
+      if (Object.keys(reasoningConfig).length > 0) {
+        requestBody.reasoning = reasoningConfig;
+      }
     }
 
     // Set up timeout with AbortController

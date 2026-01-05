@@ -136,15 +136,14 @@ Transform from single-model to multi-agent research pipeline. Integrate Perplexi
 
 **Milestone Goal:** Real-time, verified, and cited strategic blueprints using specialized research agents per section.
 
-#### Phase 9: OpenRouter Multi-Model Support
+#### Phase 9: OpenRouter Multi-Model Support COMPLETE
 **Goal**: Add Perplexity, OpenAI o3, Gemini, Claude Opus models to OpenRouter client
 **Depends on**: v1.2 complete
-**Research**: Likely (OpenRouter API patterns for different model providers)
-**Research topics**: Perplexity search API via OpenRouter, o3 deep research, Gemini thinking mode
-**Plans**: TBD
+**Completed**: 2026-01-05
+**Plans**: 1/1
 
 Plans:
-- [ ] 09-01: TBD (run /gsd:plan-phase 9 to break down)
+- [x] 09-01: Multi-model support with reasoning parameters
 
 #### Phase 10: Research Agent Infrastructure
 **Goal**: Create research agent abstraction with citation extraction and multi-step pipelines
@@ -220,7 +219,7 @@ Plans:
 | 6. Inline Edit | v1.1 | 2/2 | Complete | 2025-12-29 |
 | 7. Approval Flow | v1.1 | 1/1 | Complete | 2025-12-29 |
 | 8. PDF Export Enhancement | v1.2 | 1/1 | Complete | 2025-12-29 |
-| 9. OpenRouter Multi-Model | v1.3 | 0/? | Not started | - |
+| 9. OpenRouter Multi-Model | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 10. Research Agent Infra | v1.3 | 0/? | Not started | - |
 | 11. Section 4 Enhancement | v1.3 | 0/? | Not started | - |
 | 12. Section 1 Enhancement | v1.3 | 0/? | Not started | - |
@@ -230,4 +229,4 @@ Plans:
 ---
 
 *Created: 2025-12-24*
-*Updated: 2025-01-05 (v1.3 Multi-Agent Research milestone created)*
+*Updated: 2026-01-05 (Phase 9 complete)*
