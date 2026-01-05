@@ -17,6 +17,7 @@ import {
   type Citation,
 } from "../output-types";
 import { researchCompetitors } from "./competitor-research";
+import { researchIndustryMarket } from "./industry-market-research";
 
 export type StrategicBlueprintProgressCallback = (progress: StrategicBlueprintProgress) => void;
 
@@ -506,6 +507,19 @@ export async function generateStrategicBlueprint(
       const sectionStart = Date.now();
       updateProgress(section, `Generating ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]}...`);
 
+      // Special handling for industryMarketOverview - use Perplexity Deep Research
+      if (section === "industryMarketOverview") {
+        const result = await researchIndustryMarket(context);
+        partialOutput[section] = result.data;
+        sectionCitations[section] = result.citations;
+        totalCost += result.cost;
+        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        sectionTimings[section] = Date.now() - sectionStart;
+        completedSections.push(section);
+        updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
+        continue;
+      }
+
       // Special handling for competitorAnalysis - use Perplexity Deep Research
       if (section === "competitorAnalysis") {
         const result = await researchCompetitors(context);
@@ -519,7 +533,7 @@ export async function generateStrategicBlueprint(
         continue;
       }
 
-      // Other sections use Claude Sonnet
+      // Other sections (icpAnalysisValidation, offerAnalysisViability, crossAnalysisSynthesis) use Claude Sonnet
       const promptFn = SECTION_PROMPTS[section];
       const messages = promptFn(context, partialOutput);
 
