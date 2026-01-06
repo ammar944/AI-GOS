@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EditableText, EditableList } from "./editable";
+import { SourcedText, SourcedListItem } from "./citations";
 import type {
   StrategicBlueprintSection,
   IndustryMarketOverview,
@@ -171,7 +172,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
                   onSave={(v) => onFieldChange("categorySnapshot.category", v)}
                 />
               ) : (
-                safeRender(data?.categorySnapshot?.category)
+                <SourcedText>{safeRender(data?.categorySnapshot?.category)}</SourcedText>
               )}
             </p>
           </div>
@@ -193,11 +194,15 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
           </div>
           <div className="p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground uppercase">Sales Cycle</p>
-            <p className="font-medium">{safeRender(data?.categorySnapshot?.averageSalesCycle)}</p>
+            <p className="font-medium">
+              <SourcedText>{safeRender(data?.categorySnapshot?.averageSalesCycle)}</SourcedText>
+            </p>
           </div>
           <div className="p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground uppercase">Seasonality</p>
-            <p className="font-medium">{safeRender(data?.categorySnapshot?.seasonality)}</p>
+            <p className="font-medium">
+              <SourcedText>{safeRender(data?.categorySnapshot?.seasonality)}</SourcedText>
+            </p>
           </div>
         </div>
       </SubSection>
@@ -219,7 +224,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             ) : (
               <ul className="space-y-1">
                 {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
@@ -238,7 +243,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             ) : (
               <ul className="space-y-1">
                 {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
@@ -282,7 +287,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             ) : (
               <ul className="space-y-1">
                 {safeArray(data?.painPoints?.primary).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
@@ -298,7 +303,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             ) : (
               <ul className="space-y-1">
                 {safeArray(data?.painPoints?.secondary).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
@@ -650,7 +655,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                     onSave={(v) => onFieldChange(`competitors.${i}.name`, v)}
                   />
                 ) : (
-                  safeRender(comp?.name)
+                  <SourcedText>{safeRender(comp?.name)}</SourcedText>
                 )}
               </h4>
               <div className="text-sm text-muted-foreground mb-3">

@@ -88,7 +88,7 @@ Search the web for:
 Return the analysis as a JSON object following the exact structure specified.`;
 
   const response = await agent.research({
-    model: MODELS.PERPLEXITY_DEEP_RESEARCH,
+    model: MODELS.PERPLEXITY_SONAR,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -96,7 +96,7 @@ Return the analysis as a JSON object following the exact structure specified.`;
     temperature: 0.3,
     maxTokens: 8192,
     jsonMode: true,
-    timeout: 120000, // 2 minutes for deep research
+    timeout: 60000, // 1 minute for sonar-pro
   });
 
   // Parse JSON from research response

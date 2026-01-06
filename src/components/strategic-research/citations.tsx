@@ -1,13 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, ExternalLink, ChevronDown } from "lucide-react";
+import { Link2, ExternalLink, ChevronDown, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Citation } from "@/lib/strategic-blueprint/output-types";
 
@@ -32,6 +38,72 @@ export function CitationBadge({ count }: CitationBadgeProps) {
       <Link2 className="h-3 w-3" />
       {count} {count === 1 ? "source" : "sources"}
     </Badge>
+  );
+}
+
+// =============================================================================
+// SourcedText - Inline citation indicator for research-backed content
+// =============================================================================
+
+export interface SourcedTextProps {
+  /** The text content to display */
+  children: React.ReactNode;
+  /** Optional className for styling */
+  className?: string;
+}
+
+/**
+ * Wraps text with a subtle indicator showing it's research-backed.
+ * Shows a small globe icon on hover with tooltip.
+ * Uses dotted underline to indicate sourced data.
+ */
+export function SourcedText({ children, className }: SourcedTextProps) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 cursor-help",
+              "decoration-primary/40 decoration-dotted underline underline-offset-2",
+              className
+            )}
+          >
+            {children}
+            <Globe className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p>Data sourced from web research</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * Wraps list item text with citation indicator.
+ * More compact version for use in lists.
+ */
+export function SourcedListItem({ children, className }: SourcedTextProps) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              "cursor-help border-b border-dotted border-primary/30",
+              className
+            )}
+          >
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p>Data sourced from web research</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

@@ -515,7 +515,7 @@ export async function generateStrategicBlueprint(
         partialOutput[section] = result.data;
         sectionCitations[section] = result.citations;
         totalCost += result.cost;
-        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        modelsUsed.add(MODELS.PERPLEXITY_SONAR);
         sectionTimings[section] = Date.now() - sectionStart;
         completedSections.push(section);
         updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
@@ -528,7 +528,7 @@ export async function generateStrategicBlueprint(
         partialOutput[section] = result.data;
         sectionCitations[section] = result.citations;
         totalCost += result.cost;
-        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        modelsUsed.add(MODELS.PERPLEXITY_SONAR);
         sectionTimings[section] = Date.now() - sectionStart;
         completedSections.push(section);
         updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
@@ -541,7 +541,7 @@ export async function generateStrategicBlueprint(
         partialOutput[section] = result.data;
         sectionCitations[section] = result.citations;
         totalCost += result.cost;
-        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        modelsUsed.add(MODELS.PERPLEXITY_SONAR);
         sectionTimings[section] = Date.now() - sectionStart;
         completedSections.push(section);
         updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
@@ -554,7 +554,7 @@ export async function generateStrategicBlueprint(
         partialOutput[section] = result.data;
         sectionCitations[section] = result.citations;
         totalCost += result.cost;
-        modelsUsed.add(MODELS.PERPLEXITY_DEEP_RESEARCH);
+        modelsUsed.add(MODELS.PERPLEXITY_SONAR);
         sectionTimings[section] = Date.now() - sectionStart;
         completedSections.push(section);
         updateProgress(section, `Completed ${STRATEGIC_BLUEPRINT_SECTION_LABELS[section]} (with ${result.citations.length} citations)`);
