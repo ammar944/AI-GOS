@@ -401,7 +401,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
               multiline
             />
           ) : (
-            <p>{safeRender(data?.finalVerdict?.reasoning)}</p>
+            <p><SourcedListItem>{safeRender(data?.finalVerdict?.reasoning)}</SourcedListItem></p>
           )}
         </div>
       </div>
@@ -430,7 +430,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
                     onSave={(v) => onFieldChange("painSolutionFit.primaryPain", v)}
                   />
                 ) : (
-                  safeRender(data?.painSolutionFit?.primaryPain)
+                  <SourcedText>{safeRender(data?.painSolutionFit?.primaryPain)}</SourcedText>
                 )}
               </p>
             </div>
@@ -443,7 +443,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
                     onSave={(v) => onFieldChange("painSolutionFit.offerComponentSolvingIt", v)}
                   />
                 ) : (
-                  safeRender(data?.painSolutionFit?.offerComponentSolvingIt)
+                  <SourcedText>{safeRender(data?.painSolutionFit?.offerComponentSolvingIt)}</SourcedText>
                 )}
               </p>
             </div>
@@ -472,7 +472,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
             <p className="text-sm font-medium text-orange-400 mb-1">Contradicting Signals</p>
             <ul className="text-sm space-y-1">
               {data.marketReachability.contradictingSignals.map((signal, i) => (
-                <ListItem key={i}>{signal}</ListItem>
+                <ListItem key={i}><SourcedListItem>{signal}</SourcedListItem></ListItem>
               ))}
             </ul>
           </div>
@@ -487,7 +487,9 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
           <BoolCheck value={data?.economicFeasibility?.tamAlignedWithCac || false} label="TAM Aligns with CAC" />
         </div>
         {data?.economicFeasibility?.notes && (
-          <p className="mt-3 text-sm text-muted-foreground">{data.economicFeasibility.notes}</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            <SourcedListItem>{data.economicFeasibility.notes}</SourcedListItem>
+          </p>
         )}
       </SubSection>
 
@@ -517,7 +519,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
           ) : (
             <ul className="space-y-1">
               {safeArray(data?.finalVerdict?.recommendations).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
               ))}
             </ul>
           )}
@@ -554,7 +556,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
               multiline
             />
           ) : (
-            <p>{safeRender(data?.recommendation?.reasoning)}</p>
+            <p><SourcedListItem>{safeRender(data?.recommendation?.reasoning)}</SourcedListItem></p>
           )}
         </div>
       </div>
@@ -623,7 +625,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
         ) : (
           <ul className="space-y-1">
             {safeArray(data?.recommendation?.actionItems).map((item, i) => (
-              <ListItem key={i}>{item}</ListItem>
+              <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
             ))}
           </ul>
         )}
@@ -665,7 +667,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                     onSave={(v) => onFieldChange(`competitors.${i}.positioning`, v)}
                   />
                 ) : (
-                  safeRender(comp?.positioning)
+                  <SourcedListItem>{safeRender(comp?.positioning)}</SourcedListItem>
                 )}
               </div>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
@@ -677,7 +679,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                       onSave={(v) => onFieldChange(`competitors.${i}.offer`, v)}
                     />
                   ) : (
-                    <p>{safeRender(comp?.offer)}</p>
+                    <p><SourcedListItem>{safeRender(comp?.offer)}</SourcedListItem></p>
                   )}
                 </div>
                 <div>
@@ -688,7 +690,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                       onSave={(v) => onFieldChange(`competitors.${i}.price`, v)}
                     />
                   ) : (
-                    <p>{safeRender(comp?.price)}</p>
+                    <p><SourcedText>{safeRender(comp?.price)}</SourcedText></p>
                   )}
                 </div>
                 <div>
@@ -717,7 +719,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   ) : (
                     <ul className="text-sm space-y-1">
                       {safeArray(comp?.strengths).map((s, j) => (
-                        <li key={j}>+ {s}</li>
+                        <li key={j}>+ <SourcedListItem>{s}</SourcedListItem></li>
                       ))}
                     </ul>
                   )}
@@ -734,7 +736,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   ) : (
                     <ul className="text-sm space-y-1">
                       {safeArray(comp?.weaknesses).map((w, j) => (
-                        <li key={j}>- {w}</li>
+                        <li key={j}>- <SourcedListItem>{w}</SourcedListItem></li>
                       ))}
                     </ul>
                   )}
@@ -774,7 +776,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             <h4 className="font-medium mb-2">Landing Page Patterns</h4>
             <ul className="space-y-1">
               {safeArray(data?.funnelBreakdown?.landingPagePatterns).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
               ))}
             </ul>
           </div>
@@ -782,7 +784,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             <h4 className="font-medium mb-2">Headline Structure</h4>
             <ul className="space-y-1">
               {safeArray(data?.funnelBreakdown?.headlineStructure).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
               ))}
             </ul>
           </div>
@@ -790,7 +792,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             <h4 className="font-medium mb-2">CTA Hierarchy</h4>
             <ul className="space-y-1">
               {safeArray(data?.funnelBreakdown?.ctaHierarchy).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
               ))}
             </ul>
           </div>
@@ -798,7 +800,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             <h4 className="font-medium mb-2">Social Proof Patterns</h4>
             <ul className="space-y-1">
               {safeArray(data?.funnelBreakdown?.socialProofPatterns).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
               ))}
             </ul>
           </div>
@@ -806,7 +808,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             <h4 className="font-medium mb-2">Lead Capture Methods</h4>
             <ul className="space-y-1">
               {safeArray(data?.funnelBreakdown?.leadCaptureMethods).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
               ))}
             </ul>
           </div>
@@ -828,7 +830,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               {safeArray(data?.marketStrengths).map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500 shrink-0" />
-                  <span>{item}</span>
+                  <span><SourcedListItem>{item}</SourcedListItem></span>
                 </li>
               ))}
             </ul>
@@ -839,7 +841,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               {safeArray(data?.marketWeaknesses).map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <XCircle className="h-4 w-4 mt-0.5 text-red-500 shrink-0" />
-                  <span>{item}</span>
+                  <span><SourcedListItem>{item}</SourcedListItem></span>
                 </li>
               ))}
             </ul>
@@ -862,7 +864,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             ) : (
               <ul className="text-sm space-y-1">
                 {safeArray(data?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
@@ -879,7 +881,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             ) : (
               <ul className="text-sm space-y-1">
                 {safeArray(data?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
@@ -896,7 +898,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             ) : (
               <ul className="text-sm space-y-1">
                 {safeArray(data?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
+                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
                 ))}
               </ul>
             )}
