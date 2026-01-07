@@ -7,8 +7,8 @@
 - ✅ **v1.2 PDF Export** - Phase 8 - SHIPPED 2025-12-29
 - ✅ **v1.3 Multi-Agent Research** - Phases 9-14 - SHIPPED 2026-01-05
 - ✅ **v1.4 Blueprint Chat** - Phases 15-17 - SHIPPED 2026-01-07
-- v1.5 Persistence - Planned
-- v1.6 Testing - Planned
+- 📋 **v1.6 Persistence** - Planned
+- 📋 **v1.7 Testing** - Phases 19-22 (planned)
 
 ## Phases
 
@@ -256,17 +256,58 @@ Plans:
 
 ---
 
+### 📋 v1.7 Testing (Planned)
+
+Comprehensive test coverage for the AI-GOS application with unit, integration, and end-to-end tests.
+
+**Milestone Goal:** Reliable, maintainable codebase with automated testing for all critical paths.
+
+#### Phase 19: Test Infrastructure
+**Goal**: Set up Vitest, test utilities, and mocks for OpenRouter/Supabase
+**Depends on**: v1.5 complete
+**Research**: Unlikely (standard Vitest patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 19-01: TBD (run /gsd:plan-phase 19 to break down)
+
+#### Phase 20: Unit Tests Core
+**Goal**: Unit tests for JSON extraction, Zod schemas, and utility functions
+**Depends on**: Phase 19
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 20-01: TBD
+
+#### Phase 21: Integration Tests
+**Goal**: Integration tests for pipeline stages, API routes, and RAG retrieval
+**Depends on**: Phase 20
+**Research**: Likely (testing RAG/embeddings patterns)
+**Research topics**: Testing vector search, mocking embeddings API, API route testing
+**Plans**: TBD
+
+Plans:
+- [ ] 21-01: TBD
+
+#### Phase 22: E2E Tests
+**Goal**: End-to-end tests for critical user flows (generate blueprint, chat)
+**Depends on**: Phase 21
+**Research**: Likely (Playwright/Cypress setup)
+**Research topics**: Next.js E2E testing, Playwright vs Cypress, CI integration
+**Plans**: TBD
+
+Plans:
+- [ ] 22-01: TBD
+
+---
+
 ### Future Milestones
 
 #### v1.6 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
-
-#### v1.7 Testing
-- Vitest setup
-- Unit tests for JSON extraction
-- Integration tests for pipeline stages
 
 ---
 
@@ -292,8 +333,12 @@ Plans:
 | 16. Edit Capability | v1.4 | 3/3 | Complete | 2026-01-07 |
 | 17. Explain Agent | v1.4 | 1/1 | Complete | 2026-01-07 |
 | 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
+| 19. Test Infrastructure | v1.7 | 0/? | Not started | - |
+| 20. Unit Tests Core | v1.7 | 0/? | Not started | - |
+| 21. Integration Tests | v1.7 | 0/? | Not started | - |
+| 22. E2E Tests | v1.7 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-07 (v1.5 Chat Streaming milestone complete)*
+*Updated: 2026-01-08 (v1.7 Testing milestone created)*
