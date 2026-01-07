@@ -215,16 +215,17 @@ Plans:
 - [x] 15-03: Retrieval Service & Chat API (retrieval service, Q&A agent, chat endpoint)
 - [x] 15-04: Chat UI Integration
 
-#### Phase 16: Edit Capability IN PROGRESS
+#### Phase 16: Edit Capability COMPLETE
 **Goal**: Intent router, Edit agent, confirmation flow, version history
 **Depends on**: Phase 15
 **Research**: Unlikely (builds on existing patterns)
-**Plans**: 2/3 complete
+**Completed**: 2026-01-07
+**Plans**: 3/3 complete
 
 Plans:
 - [x] 16-01: Intent Router (ChatIntent types, classifyIntent service, API routing)
 - [x] 16-02: Edit Agent & Version History (edit-agent.ts, blueprint_versions table, apply_blueprint_edit RPC)
-- [ ] 16-03: TBD
+- [x] 16-03: Edit Confirmation Flow (session-based chat with edit detection, confirm/cancel UI)
 
 #### Phase 17: Explain Agent
 **Goal**: Explain agent for reasoning explanations, related factors, polished chat UX
@@ -270,7 +271,7 @@ Plans:
 | 13. Sections 2-3 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 15. RAG Foundation | v1.4 | 4/4 | Complete | 2026-01-07 |
-| 16. Edit Capability | v1.4 | 2/3 | In progress | - |
+| 16. Edit Capability | v1.4 | 3/3 | Complete | 2026-01-07 |
 | 17. Explain Agent | v1.4 | 0/? | Not started | - |
 
 ---
