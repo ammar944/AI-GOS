@@ -239,14 +239,31 @@ Plans:
 
 ---
 
+### 🚧 v1.5 Chat Streaming (Planned)
+
+Streaming responses for Blueprint Chat to improve perceived responsiveness and UX.
+
+**Milestone Goal:** Real-time token streaming for chat responses instead of waiting for full completion.
+
+#### Phase 18: Chat Streaming
+**Goal**: Add SSE streaming to OpenRouter client and chat API for real-time response display
+**Depends on**: Phase 17
+**Research**: Unlikely (OpenRouter uses standard OpenAI streaming format)
+**Plans**: TBD
+
+Plans:
+- [ ] 18-01: OpenRouter streaming support and chat API streaming endpoint
+
+---
+
 ### Future Milestones
 
-#### v1.5 Persistence
+#### v1.6 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
 
-#### v1.6 Testing
+#### v1.7 Testing
 - Vitest setup
 - Unit tests for JSON extraction
 - Integration tests for pipeline stages
@@ -274,6 +291,7 @@ Plans:
 | 15. RAG Foundation | v1.4 | 4/4 | Complete | 2026-01-07 |
 | 16. Edit Capability | v1.4 | 3/3 | Complete | 2026-01-07 |
 | 17. Explain Agent | v1.4 | 1/1 | Complete | 2026-01-07 |
+| 18. Chat Streaming | v1.5 | 0/1 | Planned | - |
 
 ---
 

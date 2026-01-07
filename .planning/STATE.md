@@ -33,14 +33,17 @@ Milestone 5: Blueprint Chat (v1.4) COMPLETE
 ├── Phase 15: RAG Foundation DONE
 ├── Phase 16: Edit Capability DONE
 └── Phase 17: Explain Agent DONE
+
+Milestone 6: Chat Streaming (v1.5) IN PROGRESS
+└── Phase 18: Chat Streaming
 ```
 
-Phase: 17 of 17 (Explain Agent)
-Plan: 1 of 1 in current phase
-Status: Phase 17 COMPLETE - Milestone 5 complete
-Last activity: 2026-01-07 - Completed 17-01-PLAN.md
+Phase: 18 of 18 (Chat Streaming)
+Plan: 0 of 1 in current phase
+Status: Phase 18 ready to plan
+Last activity: 2026-01-07 - Added Phase 18 Chat Streaming
 
-Progress: ██████████ 100% (All phases complete)
+Progress: █████████░ 94% (17/18 phases complete)
 
 ## Decisions
 
@@ -126,7 +129,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - v1.4 Blueprint Chat COMPLETE
+- **On track:** Yes - Starting v1.5 Chat Streaming
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -137,12 +140,13 @@ None.
 - v1.2 PDF Export: 1 phase (Phase 8) - SHIPPED 2025-12-29
 - v1.3 Multi-Agent Research: 6 phases (Phase 9-14) - SHIPPED 2026-01-05
 - v1.4 Blueprint Chat: 3 phases (Phase 15-17) - COMPLETE 2026-01-07
+- v1.5 Chat Streaming: 1 phase (Phase 18) - Started 2026-01-07
 
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Completed 17-01-PLAN.md (Phase 17 Explain Agent complete - Milestone 5 done)
-Resume file: None - ready for milestone completion
+Stopped at: Added Phase 18 Chat Streaming (v1.5 milestone started)
+Resume file: .planning/phases/18-chat-streaming/ (ready for planning)
 
 ---
 
