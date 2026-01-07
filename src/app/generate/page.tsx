@@ -440,8 +440,11 @@ export default function GeneratePage() {
             />
           </div>
 
-          {/* Blueprint Chat - for testing UI (requires DB blueprint for full functionality) */}
-          <BlueprintChat blueprintId="test-preview" />
+          {/* Blueprint Chat - works with in-memory blueprint, no DB required */}
+          <BlueprintChat
+            blueprint={strategicBlueprint as unknown as Record<string, unknown>}
+            onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
+          />
         </div>
       </div>
     );
