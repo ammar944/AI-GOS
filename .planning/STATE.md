@@ -36,11 +36,11 @@ Milestone 5: Blueprint Chat (v1.4) IN PROGRESS
 ```
 
 Phase: 15 of 17 (RAG Foundation)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-07 - Completed 15-02-PLAN.md
+Last activity: 2026-01-07 - Completed 15-03-PLAN.md
 
-Progress: ██░░░░░░░░ 17% (2/4 plans in Phase 15)
+Progress: ███░░░░░░░ 25% (3/4 plans in Phase 15)
 
 ## Decisions
 
@@ -97,6 +97,9 @@ Progress: ██░░░░░░░░ 17% (2/4 plans in Phase 15)
 | 2026-01-07 | 15-01 | SECURITY DEFINER for RPC | Enables proper RLS bypass during search |
 | 2026-01-07 | 15-02 | Semantic chunking by unit type | Pain points individually, competitors as units for better retrieval |
 | 2026-01-07 | 15-02 | Batch embedding generation | Single API call for all chunks minimizes cost |
+| 2026-01-07 | 15-03 | Match threshold 0.65 for API | Lower than 0.7 default for better recall in Q&A |
+| 2026-01-07 | 15-03 | Chat history limit 6 messages | Control context size while preserving conversation flow |
+| 2026-01-07 | 15-03 | Temperature 0.3 for Q&A | More consistent, focused responses for blueprint questions |
 
 ## Deferred Issues
 
@@ -125,7 +128,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Completed 15-02-PLAN.md
+Stopped at: Completed 15-03-PLAN.md
 Resume file: None
 
 ---
