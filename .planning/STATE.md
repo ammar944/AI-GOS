@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-07
-**Current Phase:** 15 (RAG Foundation) - COMPLETE
-**Current Plan:** 4 of 4
+**Current Phase:** 16 (Edit Capability) - IN PROGRESS
+**Current Plan:** 1 of 3
 
 ## Position
 
@@ -31,16 +31,16 @@ Milestone 4: Multi-Agent Research (v1.3) COMPLETE (archived)
 
 Milestone 5: Blueprint Chat (v1.4) IN PROGRESS
 ├── Phase 15: RAG Foundation DONE
-├── Phase 16: Edit Capability
+├── Phase 16: Edit Capability IN PROGRESS (1/3 plans)
 └── Phase 17: Explain Agent
 ```
 
-Phase: 15 of 17 (RAG Foundation)
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-01-07 - Completed 15-04-PLAN.md
+Phase: 16 of 17 (Edit Capability)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-07 - Completed 16-01-PLAN.md
 
-Progress: ████░░░░░░ 33% (Phase 15 complete, 1/3 phases in v1.4)
+Progress: ████░░░░░░ 40% (Phase 16 started, 1/3 plans complete)
 
 ## Decisions
 
@@ -102,6 +102,9 @@ Progress: ████░░░░░░ 33% (Phase 15 complete, 1/3 phases in v
 | 2026-01-07 | 15-03 | Temperature 0.3 for Q&A | More consistent, focused responses for blueprint questions |
 | 2026-01-07 | 15-04 | Bottom-left chat button position | Avoid conflict with approval buttons on right |
 | 2026-01-07 | 15-04 | z-50 for chat panel layering | Proper visibility above other content |
+| 2026-01-07 | 16-01 | CLAUDE_SONNET for intent classification | Haiku not available on OpenRouter, Sonnet fast enough |
+| 2026-01-07 | 16-01 | Temperature 0 for classification | Deterministic intent routing |
+| 2026-01-07 | 16-01 | Section validation with fallback | crossAnalysisSynthesis default for invalid sections |
 
 ## Deferred Issues
 
@@ -130,7 +133,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Completed 15-04-PLAN.md (Phase 15 complete)
+Stopped at: Completed 16-01-PLAN.md (Intent Router)
 Resume file: None
 
 ---

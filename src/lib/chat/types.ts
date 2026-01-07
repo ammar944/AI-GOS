@@ -1,5 +1,5 @@
 // Blueprint Chat Types
-// Types for RAG chunking and embedding storage
+// Types for RAG chunking, embedding storage, and intent classification
 
 export type BlueprintSection =
   | 'industryMarketOverview'
@@ -49,4 +49,91 @@ export interface BlueprintChunk extends ChunkInput {
   createdAt: Date;
   /** When the chunk was last updated */
   updatedAt: Date;
+}
+
+// =============================================================================
+// Intent Classification Types
+// =============================================================================
+
+/**
+ * Intent for asking questions about the blueprint
+ */
+export interface QuestionIntent {
+  type: 'question';
+  /** What the user is asking about */
+  topic: string;
+  /** Which sections are likely relevant */
+  sections: BlueprintSection[];
+}
+
+/**
+ * Intent for editing a specific field in the blueprint
+ */
+export interface EditIntent {
+  type: 'edit';
+  /** Which section to edit */
+  section: BlueprintSection;
+  /** Specific field path within the section */
+  field: string;
+  /** What the user wants to change */
+  desiredChange: string;
+}
+
+/**
+ * Intent for explaining why something is the way it is
+ */
+export interface ExplainIntent {
+  type: 'explain';
+  /** Which section contains the item to explain */
+  section: BlueprintSection;
+  /** Specific field to explain */
+  field: string;
+  /** What aspect needs explanation */
+  whatToExplain: string;
+}
+
+/**
+ * Intent for regenerating an entire section with new instructions
+ */
+export interface RegenerateIntent {
+  type: 'regenerate';
+  /** Which section to regenerate */
+  section: BlueprintSection;
+  /** Special instructions for regeneration */
+  instructions: string;
+}
+
+/**
+ * Intent for general conversation (greetings, unclear requests)
+ */
+export interface GeneralIntent {
+  type: 'general';
+  /** What the conversation is about */
+  topic: string;
+}
+
+/**
+ * Discriminated union of all chat intents
+ */
+export type ChatIntent =
+  | QuestionIntent
+  | EditIntent
+  | ExplainIntent
+  | RegenerateIntent
+  | GeneralIntent;
+
+/**
+ * Result from intent classification including cost tracking
+ */
+export interface IntentClassificationResult {
+  /** The classified intent */
+  intent: ChatIntent;
+  /** Token usage for the classification */
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  /** Cost of the classification call */
+  cost: number;
 }
