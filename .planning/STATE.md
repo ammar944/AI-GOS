@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-07
 **Current Phase:** 15 (RAG Foundation)
-**Current Plan:** Not started
+**Current Plan:** 1 of 4
 
 ## Position
 
@@ -36,11 +36,11 @@ Milestone 5: Blueprint Chat (v1.4) IN PROGRESS
 ```
 
 Phase: 15 of 17 (RAG Foundation)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-07 - Milestone v1.4 created
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-07 - Completed 15-01-PLAN.md
 
-Progress: ░░░░░░░░░░ 0% (0/3 phases in v1.4)
+Progress: ░░░░░░░░░░ 8% (1/4 plans in Phase 15)
 
 ## Decisions
 
@@ -92,6 +92,9 @@ Progress: ░░░░░░░░░░ 0% (0/3 phases in v1.4)
 | 2026-01-05 | 13-01 | Score averaging for offers | Overall score = average of 6 sub-scores with 1-decimal precision |
 | 2026-01-05 | 14-01 | Collapsible for sources | Consistent with shadcn patterns, clean UX |
 | 2026-01-05 | 14-01 | 4 decimal cost precision | Appropriate for API costs ($0.0123 format) |
+| 2026-01-07 | 15-01 | IVFFlat with 100 lists | Appropriate for initial scale, can tune later |
+| 2026-01-07 | 15-01 | vector(1536) dimension | Matches text-embedding-3-small output |
+| 2026-01-07 | 15-01 | SECURITY DEFINER for RPC | Enables proper RLS bypass during search |
 
 ## Deferred Issues
 
@@ -120,7 +123,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Milestone v1.4 initialization
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
 
 ---
