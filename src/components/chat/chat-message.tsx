@@ -1,13 +1,19 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { User, Bot, Pencil } from 'lucide-react';
+import { User, Bot, Pencil, Lightbulb } from 'lucide-react';
 
 interface Source {
   chunkId: string;
   section: string;
   fieldPath: string;
   similarity: number;
+}
+
+interface RelatedFactor {
+  section: string;
+  factor: string;
+  relevance: string;
 }
 
 interface ChatMessageProps {
@@ -18,6 +24,10 @@ interface ChatMessageProps {
   isLoading?: boolean;
   /** Whether this message contains an edit proposal */
   isEditProposal?: boolean;
+  /** Whether this message is an explanation */
+  isExplanation?: boolean;
+  /** Related factors for explanation responses */
+  relatedFactors?: RelatedFactor[];
 }
 
 const SECTION_LABELS: Record<string, string> = {
@@ -96,6 +106,8 @@ export function ChatMessage({
   confidence,
   isLoading,
   isEditProposal,
+  isExplanation,
+  relatedFactors,
 }: ChatMessageProps) {
   const isUser = role === 'user';
 
@@ -104,7 +116,8 @@ export function ChatMessage({
       className={cn(
         'flex gap-3 p-4 rounded-lg',
         isUser ? 'bg-muted/50' : 'bg-background',
-        isEditProposal && 'border border-amber-500/30 bg-amber-50/5'
+        isEditProposal && 'border border-amber-500/30 bg-amber-50/5',
+        isExplanation && 'border border-blue-500/30 bg-blue-50/5'
       )}
     >
       {/* Avatar */}
@@ -115,6 +128,8 @@ export function ChatMessage({
             ? 'bg-primary text-primary-foreground'
             : isEditProposal
             ? 'bg-amber-500 text-amber-50'
+            : isExplanation
+            ? 'bg-blue-500 text-blue-50'
             : 'bg-secondary'
         )}
       >
@@ -122,6 +137,8 @@ export function ChatMessage({
           <User className="w-4 h-4" />
         ) : isEditProposal ? (
           <Pencil className="w-4 h-4" />
+        ) : isExplanation ? (
+          <Lightbulb className="w-4 h-4" />
         ) : (
           <Bot className="w-4 h-4" />
         )}
@@ -134,6 +151,11 @@ export function ChatMessage({
           {isEditProposal && (
             <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
               Edit Proposal
+            </span>
+          )}
+          {isExplanation && (
+            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+              Explanation
             </span>
           )}
         </div>
@@ -163,6 +185,28 @@ export function ChatMessage({
                     >
                       {SECTION_LABELS[source.section] || source.section}
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Related Factors (for explanation responses) */}
+            {relatedFactors && relatedFactors.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
+                  Related Factors
+                </div>
+                <div className="space-y-2">
+                  {relatedFactors.map((factor, i) => (
+                    <div key={i} className="text-sm bg-blue-50 dark:bg-blue-950/50 p-2 rounded">
+                      <span className="font-medium text-blue-900 dark:text-blue-100">
+                        {SECTION_LABELS[factor.section] || factor.section}:
+                      </span>{' '}
+                      <span className="text-blue-800 dark:text-blue-200">{factor.factor}</span>
+                      <span className="text-blue-600 dark:text-blue-400 block text-xs mt-1">
+                        {factor.relevance}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>

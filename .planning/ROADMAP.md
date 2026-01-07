@@ -6,7 +6,7 @@
 - [v1.1 Validation Gate](milestones/v1.1-ROADMAP.md) (Phases 5-7) - SHIPPED 2025-12-29
 - ✅ **v1.2 PDF Export** - Phase 8 - SHIPPED 2025-12-29
 - ✅ **v1.3 Multi-Agent Research** - Phases 9-14 - SHIPPED 2026-01-05
-- 🚧 **v1.4 Blueprint Chat** - Phases 15-17 (in progress)
+- ✅ **v1.4 Blueprint Chat** - Phases 15-17 - SHIPPED 2026-01-07
 - v1.5 Persistence - Planned
 - v1.6 Testing - Planned
 
@@ -194,7 +194,7 @@ Plans:
 
 ---
 
-### 🚧 v1.4 Blueprint Chat (In Progress)
+### ✅ v1.4 Blueprint Chat (Complete)
 
 RAG-powered conversational interface for interacting with Strategic Blueprints. Ask questions, request explanations, and make edits through natural language.
 
@@ -227,14 +227,15 @@ Plans:
 - [x] 16-02: Edit Agent & Version History (edit-agent.ts, blueprint_versions table, apply_blueprint_edit RPC)
 - [x] 16-03: Edit Confirmation Flow (session-based chat with edit detection, confirm/cancel UI)
 
-#### Phase 17: Explain Agent
+#### Phase 17: Explain Agent COMPLETE
 **Goal**: Explain agent for reasoning explanations, related factors, polished chat UX
 **Depends on**: Phase 16
 **Research**: Unlikely (established agent patterns)
-**Plans**: TBD
+**Completed**: 2026-01-07
+**Plans**: 1/1 complete
 
 Plans:
-- [ ] 17-01: TBD
+- [x] 17-01: Explain Agent & Chat UX Polish (explain-agent.ts, API integration, response formatting)
 
 ---
 
@@ -272,9 +273,9 @@ Plans:
 | 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 15. RAG Foundation | v1.4 | 4/4 | Complete | 2026-01-07 |
 | 16. Edit Capability | v1.4 | 3/3 | Complete | 2026-01-07 |
-| 17. Explain Agent | v1.4 | 0/? | Not started | - |
+| 17. Explain Agent | v1.4 | 1/1 | Complete | 2026-01-07 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-07 (v1.4 Blueprint Chat milestone created)*
+*Updated: 2026-01-07 (v1.4 Blueprint Chat milestone complete)*

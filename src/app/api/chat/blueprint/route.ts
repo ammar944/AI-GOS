@@ -19,6 +19,12 @@ interface PendingEdit {
   diffPreview: string;
 }
 
+interface RelatedFactor {
+  section: string;
+  factor: string;
+  relevance: string;
+}
+
 interface ChatResponse {
   response: string;
   confidence: 'high' | 'medium' | 'low';
@@ -26,6 +32,10 @@ interface ChatResponse {
   pendingEdit?: PendingEdit;
   /** Multiple edits for batch operations */
   pendingEdits?: PendingEdit[];
+  /** Related factors for explanation responses */
+  relatedFactors?: RelatedFactor[];
+  /** Whether this response is an explanation */
+  isExplanation?: boolean;
   metadata: {
     tokensUsed: number;
     cost: number;
@@ -96,7 +106,37 @@ MULTI-EDIT SCENARIOS (always propose multiple edits for these):
 - "Emphasize feature Y" → Update positioning + add to messaging angles + adjust offer analysis
 - "Add competitor Z" → Add to competitors array + update gaps analysis
 
-Always explain the overall strategy and each individual change before the JSON block.`;
+Always explain the overall strategy and each individual change before the JSON block.
+
+FOR EXPLANATIONS (user asks "why" or "explain" something):
+- Explain the reasoning behind the recommendation or assessment
+- Reference specific data points from the blueprint as evidence
+- Connect related factors from different sections to show how they influenced the decision
+- Respond with a JSON block:
+
+\`\`\`json
+{
+  "isExplanation": true,
+  "explanation": "Clear explanation answering the why question...",
+  "relatedFactors": [
+    {"section": "sectionName", "factor": "what contributed", "relevance": "how it connects"},
+    {"section": "anotherSection", "factor": "another factor", "relevance": "its connection"}
+  ],
+  "confidence": "high|medium|low"
+}
+\`\`\`
+
+EXPLANATION TRIGGERS (detect these patterns):
+- "Why is..." / "Why does..."
+- "Explain..." / "Can you explain..."
+- "How come..." / "What's the reasoning..."
+- "Why did you recommend..." / "Why was X chosen..."
+
+CROSS-SECTION CONNECTIONS to highlight:
+- Industry pain points -> ICP pain-solution fit -> Messaging angles
+- Competitor weaknesses -> Competitive gaps -> Positioning recommendations
+- Psychological drivers -> Messaging opportunities -> Primary messaging angles
+- Offer strength scores -> Risk assessment -> Strategic recommendations`;
 
 /**
  * Generate a diff preview for the edit
@@ -179,6 +219,45 @@ function extractEdits(response: string): { text: string; edits: PendingEdit[] } 
   }
 
   return { text: response, edits: [] };
+}
+
+/**
+ * Extract explanation from AI response if present
+ */
+function extractExplanation(response: string): {
+  text: string;
+  explanation: string | null;
+  relatedFactors: RelatedFactor[];
+  confidence: 'high' | 'medium' | 'low' | null;
+} {
+  // Look for JSON block with explanation
+  const jsonMatch = response.match(/```json\s*(\{[\s\S]*?"isExplanation"\s*:\s*true[\s\S]*?\})\s*```/);
+
+  if (!jsonMatch) {
+    return { text: response, explanation: null, relatedFactors: [], confidence: null };
+  }
+
+  try {
+    const explainData = JSON.parse(jsonMatch[1]);
+
+    if (!explainData.isExplanation) {
+      return { text: response, explanation: null, relatedFactors: [], confidence: null };
+    }
+
+    // Remove the JSON block from the text response
+    const text = response.replace(/```json[\s\S]*?```/, '').trim();
+
+    return {
+      text,
+      explanation: explainData.explanation || null,
+      relatedFactors: explainData.relatedFactors || [],
+      confidence: explainData.confidence || 'medium',
+    };
+  } catch {
+    // JSON parse failed, return original
+  }
+
+  return { text: response, explanation: null, relatedFactors: [], confidence: null };
 }
 
 /**
@@ -291,22 +370,34 @@ export async function POST(request: NextRequest) {
     // Extract edits if present
     const { text, edits } = extractEdits(aiResponse.content);
 
+    // Extract explanations if present (only if no edits)
+    const explainResult = edits.length === 0 ? extractExplanation(aiResponse.content) : null;
+    const hasExplanation = explainResult?.explanation !== null;
+
     // Determine confidence based on response
     let confidence: 'high' | 'medium' | 'low' = 'medium';
     if (edits.length > 0) {
       confidence = 'high'; // Edits are structured
+    } else if (hasExplanation && explainResult?.confidence) {
+      confidence = explainResult.confidence;
     } else if (aiResponse.content.includes("I don't") || aiResponse.content.includes("isn't in")) {
       confidence = 'low';
     }
 
-    // Format response with edit details
-    let responseText = text;
+    // Format response with edit details or explanation
+    let responseText = hasExplanation ? (explainResult?.text || text) : text;
+    let relatedFactors: RelatedFactor[] | undefined;
+
     if (edits.length > 0) {
       const editSummaries = edits.map((edit, i) =>
         `### Edit ${edits.length > 1 ? `${i + 1}: ` : ''}${edit.section} / ${edit.fieldPath}\n${edit.explanation}\n\n\`\`\`diff\n${edit.diffPreview}\n\`\`\``
       ).join('\n\n');
 
       responseText = `${text}\n\n**Proposed ${edits.length > 1 ? `Edits (${edits.length})` : 'Edit'}:**\n\n${editSummaries}\n\nClick **Confirm ${edits.length > 1 ? 'All' : 'Edit'}** below to apply, or **Cancel** to discard.`;
+    } else if (hasExplanation && explainResult) {
+      // Format explanation with related factors
+      responseText = explainResult.explanation || responseText;
+      relatedFactors = explainResult.relatedFactors;
     }
 
     const response: ChatResponse = {
@@ -316,6 +407,9 @@ export async function POST(request: NextRequest) {
       pendingEdit: edits.length === 1 ? edits[0] : undefined,
       // Always include full array
       pendingEdits: edits.length > 0 ? edits : undefined,
+      // Include explanation data
+      relatedFactors: relatedFactors && relatedFactors.length > 0 ? relatedFactors : undefined,
+      isExplanation: hasExplanation || undefined,
       metadata: {
         tokensUsed: aiResponse.usage.totalTokens,
         cost: aiResponse.cost,
