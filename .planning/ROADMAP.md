@@ -6,8 +6,9 @@
 - [v1.1 Validation Gate](milestones/v1.1-ROADMAP.md) (Phases 5-7) - SHIPPED 2025-12-29
 - ✅ **v1.2 PDF Export** - Phase 8 - SHIPPED 2025-12-29
 - ✅ **v1.3 Multi-Agent Research** - Phases 9-14 - SHIPPED 2026-01-05
-- v1.4 Persistence - Planned
-- v1.5 Testing - Planned
+- 🚧 **v1.4 Blueprint Chat** - Phases 15-17 (in progress)
+- v1.5 Persistence - Planned
+- v1.6 Testing - Planned
 
 ## Phases
 
@@ -193,14 +194,52 @@ Plans:
 
 ---
 
+### 🚧 v1.4 Blueprint Chat (In Progress)
+
+RAG-powered conversational interface for interacting with Strategic Blueprints. Ask questions, request explanations, and make edits through natural language.
+
+**Milestone Goal:** Users can chat with their blueprints to understand content, get explanations, and make targeted edits.
+
+**Spec:** [Blueprint_AI_Chat_RAG_Specification_OpenRouter.md](docs/Blueprint_AI_Chat_RAG_Specification_OpenRouter.md)
+
+#### Phase 15: RAG Foundation
+**Goal**: Set up pgvector, chunking, embeddings, and basic Q&A agent
+**Depends on**: v1.3 complete
+**Research**: Likely (pgvector setup, OpenRouter embeddings API)
+**Research topics**: pgvector Supabase setup, vector index tuning, OpenRouter embeddings endpoint
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: TBD (run /gsd:plan-phase 15 to break down)
+
+#### Phase 16: Edit Capability
+**Goal**: Intent router, Edit agent, confirmation flow, version history
+**Depends on**: Phase 15
+**Research**: Unlikely (builds on existing patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 16-01: TBD
+
+#### Phase 17: Explain Agent
+**Goal**: Explain agent for reasoning explanations, related factors, polished chat UX
+**Depends on**: Phase 16
+**Research**: Unlikely (established agent patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 17-01: TBD
+
+---
+
 ### Future Milestones
 
-#### v1.4 Persistence
+#### v1.5 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
 
-#### v1.5 Testing
+#### v1.6 Testing
 - Vitest setup
 - Unit tests for JSON extraction
 - Integration tests for pipeline stages
@@ -225,8 +264,11 @@ Plans:
 | 12. Section 1 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 13. Sections 2-3 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
+| 15. RAG Foundation | v1.4 | 0/? | Not started | - |
+| 16. Edit Capability | v1.4 | 0/? | Not started | - |
+| 17. Explain Agent | v1.4 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-05 (v1.3 Milestone complete)*
+*Updated: 2026-01-07 (v1.4 Blueprint Chat milestone created)*

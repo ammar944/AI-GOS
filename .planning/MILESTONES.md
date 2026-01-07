@@ -1,5 +1,47 @@
 # Project Milestones: AI-GOS
 
+## v1.3 Multi-Agent Research (Shipped: 2026-01-05)
+
+**Delivered:** Multi-agent research pipeline with Perplexity Deep Research, real-time market intelligence, and inline citations across all strategic blueprint sections.
+
+**Phases completed:** 9-14 (8 plans total)
+
+**Key accomplishments:**
+- OpenRouter multi-model support (Perplexity, OpenAI o3, Gemini, Claude Opus)
+- Research agent abstraction with citation extraction and cost tracking
+- Perplexity Deep Research integration for all 4 strategic research sections
+- Citation types and searchResults parsing for new Perplexity format
+- Inline citation indicators with collapsible sources list
+- Per-agent cost display in generation header
+
+**Stats:**
+- 6 phases, 8 plans
+- Section-specific research agents with 120s timeout for deep research
+- Real-time web search citations from Perplexity sonar-pro model
+
+**Git range:** `feat(09-01)` → `feat(14-01)`
+
+**What's next:** v1.4 Blueprint Chat - RAG-powered conversational interface
+
+---
+
+## v1.2 PDF Export (Shipped: 2025-12-29)
+
+**Delivered:** HTML-to-canvas PDF generation with exact visual match to review UI.
+
+**Phases completed:** 8 (1 plan)
+
+**Key accomplishments:**
+- PdfExportContent component with inline styles
+- html2canvas capture at 2x scale for high-quality output
+- CSS variable workaround for canvas rendering
+
+**Git range:** `feat(08-01)`
+
+**What's next:** v1.3 Multi-Agent Research (completed)
+
+---
+
 ## v1.1 Validation Gate (Shipped: 2025-12-29)
 
 **Delivered:** User validation gate for strategic research - review, edit, and approve AI-generated research before media plan generation.
@@ -22,7 +64,7 @@
 
 **Git range:** `feat(05-01)` → `feat(07-01)`
 
-**What's next:** v1.2 - PDF export showing strategic research like the review display
+**What's next:** v1.2 PDF Export (completed)
 
 ---
 
@@ -51,3 +93,4 @@
 ---
 
 *Created: 2025-12-29*
+*Updated: 2026-01-07*
