@@ -219,11 +219,11 @@ Plans:
 **Goal**: Intent router, Edit agent, confirmation flow, version history
 **Depends on**: Phase 15
 **Research**: Unlikely (builds on existing patterns)
-**Plans**: 1/3 complete
+**Plans**: 2/3 complete
 
 Plans:
 - [x] 16-01: Intent Router (ChatIntent types, classifyIntent service, API routing)
-- [ ] 16-02: TBD
+- [x] 16-02: Edit Agent & Version History (edit-agent.ts, blueprint_versions table, apply_blueprint_edit RPC)
 - [ ] 16-03: TBD
 
 #### Phase 17: Explain Agent
@@ -270,7 +270,7 @@ Plans:
 | 13. Sections 2-3 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 15. RAG Foundation | v1.4 | 4/4 | Complete | 2026-01-07 |
-| 16. Edit Capability | v1.4 | 1/3 | In progress | - |
+| 16. Edit Capability | v1.4 | 2/3 | In progress | - |
 | 17. Explain Agent | v1.4 | 0/? | Not started | - |
 
 ---

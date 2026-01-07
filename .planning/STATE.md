@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-07
 **Current Phase:** 16 (Edit Capability) - IN PROGRESS
-**Current Plan:** 1 of 3
+**Current Plan:** 2 of 3
 
 ## Position
 
@@ -31,16 +31,16 @@ Milestone 4: Multi-Agent Research (v1.3) COMPLETE (archived)
 
 Milestone 5: Blueprint Chat (v1.4) IN PROGRESS
 ├── Phase 15: RAG Foundation DONE
-├── Phase 16: Edit Capability IN PROGRESS (1/3 plans)
+├── Phase 16: Edit Capability IN PROGRESS (2/3 plans)
 └── Phase 17: Explain Agent
 ```
 
 Phase: 16 of 17 (Edit Capability)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-07 - Completed 16-01-PLAN.md
+Last activity: 2026-01-07 - Completed 16-02-PLAN.md
 
-Progress: ████░░░░░░ 40% (Phase 16 started, 1/3 plans complete)
+Progress: █████░░░░░ 50% (Phase 16 in progress, 2/3 plans complete)
 
 ## Decisions
 
@@ -105,6 +105,9 @@ Progress: ████░░░░░░ 40% (Phase 16 started, 1/3 plans comple
 | 2026-01-07 | 16-01 | CLAUDE_SONNET for intent classification | Haiku not available on OpenRouter, Sonnet fast enough |
 | 2026-01-07 | 16-01 | Temperature 0 for classification | Deterministic intent routing |
 | 2026-01-07 | 16-01 | Section validation with fallback | crossAnalysisSynthesis default for invalid sections |
+| 2026-01-07 | 16-02 | Temperature 0.2 for edit precision | Lower than 0.3 Q&A for deterministic field identification |
+| 2026-01-07 | 16-02 | Store full_snapshot BEFORE change | Enables clean rollback to any version |
+| 2026-01-07 | 16-02 | Regex for array index paths | Handle "competitors[0].name" → path array conversion |
 
 ## Deferred Issues
 
@@ -133,7 +136,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Completed 16-01-PLAN.md (Intent Router)
+Stopped at: Completed 16-02-PLAN.md (Edit Agent & Version History)
 Resume file: None
 
 ---
