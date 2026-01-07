@@ -36,11 +36,11 @@ Milestone 5: Blueprint Chat (v1.4) IN PROGRESS
 ```
 
 Phase: 15 of 17 (RAG Foundation)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-01-07 - Completed 15-01-PLAN.md
+Last activity: 2026-01-07 - Completed 15-02-PLAN.md
 
-Progress: ░░░░░░░░░░ 8% (1/4 plans in Phase 15)
+Progress: ██░░░░░░░░ 17% (2/4 plans in Phase 15)
 
 ## Decisions
 
@@ -95,6 +95,8 @@ Progress: ░░░░░░░░░░ 8% (1/4 plans in Phase 15)
 | 2026-01-07 | 15-01 | IVFFlat with 100 lists | Appropriate for initial scale, can tune later |
 | 2026-01-07 | 15-01 | vector(1536) dimension | Matches text-embedding-3-small output |
 | 2026-01-07 | 15-01 | SECURITY DEFINER for RPC | Enables proper RLS bypass during search |
+| 2026-01-07 | 15-02 | Semantic chunking by unit type | Pain points individually, competitors as units for better retrieval |
+| 2026-01-07 | 15-02 | Batch embedding generation | Single API call for all chunks minimizes cost |
 
 ## Deferred Issues
 
@@ -123,7 +125,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Completed 15-01-PLAN.md
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
 
 ---

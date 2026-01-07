@@ -149,6 +149,31 @@ export interface ChatCompletionResponse {
   searchResults?: PerplexitySearchResult[];
 }
 
+// =============================================================================
+// Embedding Types (for v1.4 RAG)
+// =============================================================================
+
+export interface EmbeddingOptions {
+  /** Model to use for embeddings */
+  model: string;
+  /** Text(s) to embed - single string or array for batch */
+  input: string | string[];
+  /** Request timeout in ms (default: 45000) */
+  timeout?: number;
+}
+
+export interface EmbeddingResponse {
+  /** Generated embeddings (one per input text) */
+  embeddings: number[][];
+  /** Token usage */
+  usage: {
+    promptTokens: number;
+    totalTokens: number;
+  };
+  /** Estimated cost */
+  cost: number;
+}
+
 /**
  * Model identifiers for OpenRouter
  *
@@ -177,6 +202,8 @@ export const MODELS = {
   O3_MINI: "openai/o3-mini",
   GEMINI_25_FLASH: "google/gemini-2.5-flash",
   CLAUDE_OPUS: "anthropic/claude-opus-4",
+  // Embedding model for v1.4 RAG
+  EMBEDDING: "openai/text-embedding-3-small",
 } as const;
 
 /** Models that support reasoning/thinking parameters */
@@ -256,6 +283,8 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   [MODELS.O3_MINI]: { input: 1.10, output: 4.40 },
   [MODELS.GEMINI_25_FLASH]: { input: 0.30, output: 2.50 },
   [MODELS.CLAUDE_OPUS]: { input: 15.0, output: 75.0 },
+  // Embedding model for v1.4 RAG (per 1M tokens)
+  [MODELS.EMBEDDING]: { input: 0.02, output: 0 },
 };
 
 function estimateCost(
@@ -389,6 +418,87 @@ export class OpenRouterClient {
       // Include citation fields (only present for Perplexity models)
       ...(citations && { citations }),
       ...(searchResults && { searchResults }),
+    };
+  }
+
+  /**
+   * Generate embeddings for text(s) using OpenRouter's embeddings API.
+   * Uses OpenAI-compatible format.
+   *
+   * @param options - Embedding options (model, input text(s), timeout)
+   * @returns Embeddings array with usage stats
+   */
+  async embeddings(options: EmbeddingOptions): Promise<EmbeddingResponse> {
+    const { model, input, timeout = DEFAULT_TIMEOUT_MS } = options;
+
+    const requestBody = {
+      model,
+      input: Array.isArray(input) ? input : [input],
+    };
+
+    // Set up timeout with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/embeddings`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-Title": "AI-GOS Media Plan Generator",
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      // Check if this was a timeout abort
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new TimeoutError(timeout);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = response.statusText;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorData.message || errorText;
+      } catch {
+        errorMessage = errorText || response.statusText;
+      }
+      console.error(`OpenRouter Embeddings API error [${response.status}]:`, errorMessage);
+      throw new APIError(
+        response.status,
+        `OpenRouter Embeddings API error: ${response.status} - ${errorMessage}`
+      );
+    }
+
+    const data = await response.json();
+
+    // Response format: { data: [{ index, embedding }], usage: { prompt_tokens, total_tokens } }
+    const embeddings = (data.data as { index: number; embedding: number[] }[])
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.embedding);
+
+    const promptTokens = data.usage?.prompt_tokens || 0;
+    const totalTokens = data.usage?.total_tokens || promptTokens;
+
+    return {
+      embeddings,
+      usage: {
+        promptTokens,
+        totalTokens,
+      },
+      cost: estimateCost(model, promptTokens, 0),
     };
   }
 

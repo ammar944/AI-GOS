@@ -207,12 +207,12 @@ RAG-powered conversational interface for interacting with Strategic Blueprints. 
 **Depends on**: v1.3 complete
 **Research**: Likely (pgvector setup, OpenRouter embeddings API)
 **Research topics**: pgvector Supabase setup, vector index tuning, OpenRouter embeddings endpoint
-**Plans**: 1/4 complete
+**Plans**: 2/4 complete
 
 Plans:
 - [x] 15-01: Database Foundation (pgvector, blueprints, blueprint_chunks tables)
-- [ ] 15-02: Chunking Pipeline
-- [ ] 15-03: Embedding Service
+- [x] 15-02: Embeddings & Chunking (OpenRouterClient embeddings, semantic chunking, storage service)
+- [ ] 15-03: Retrieval Service
 - [ ] 15-04: Q&A Agent
 
 #### Phase 16: Edit Capability
@@ -267,7 +267,7 @@ Plans:
 | 12. Section 1 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 13. Sections 2-3 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
-| 15. RAG Foundation | v1.4 | 1/4 | In progress | - |
+| 15. RAG Foundation | v1.4 | 2/4 | In progress | - |
 | 16. Edit Capability | v1.4 | 0/? | Not started | - |
 | 17. Explain Agent | v1.4 | 0/? | Not started | - |
 
