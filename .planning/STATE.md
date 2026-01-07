@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-07
-**Current Phase:** 15 (RAG Foundation)
-**Current Plan:** 1 of 4
+**Current Phase:** 15 (RAG Foundation) - COMPLETE
+**Current Plan:** 4 of 4
 
 ## Position
 
@@ -30,17 +30,17 @@ Milestone 4: Multi-Agent Research (v1.3) COMPLETE (archived)
 └── Phase 14: Citations UI & Cost Tracking DONE
 
 Milestone 5: Blueprint Chat (v1.4) IN PROGRESS
-├── Phase 15: RAG Foundation
+├── Phase 15: RAG Foundation DONE
 ├── Phase 16: Edit Capability
 └── Phase 17: Explain Agent
 ```
 
 Phase: 15 of 17 (RAG Foundation)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-07 - Completed 15-03-PLAN.md
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-07 - Completed 15-04-PLAN.md
 
-Progress: ███░░░░░░░ 25% (3/4 plans in Phase 15)
+Progress: ████░░░░░░ 33% (Phase 15 complete, 1/3 phases in v1.4)
 
 ## Decisions
 
@@ -100,6 +100,8 @@ Progress: ███░░░░░░░ 25% (3/4 plans in Phase 15)
 | 2026-01-07 | 15-03 | Match threshold 0.65 for API | Lower than 0.7 default for better recall in Q&A |
 | 2026-01-07 | 15-03 | Chat history limit 6 messages | Control context size while preserving conversation flow |
 | 2026-01-07 | 15-03 | Temperature 0.3 for Q&A | More consistent, focused responses for blueprint questions |
+| 2026-01-07 | 15-04 | Bottom-left chat button position | Avoid conflict with approval buttons on right |
+| 2026-01-07 | 15-04 | z-50 for chat panel layering | Proper visibility above other content |
 
 ## Deferred Issues
 
@@ -128,7 +130,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Completed 15-03-PLAN.md
+Stopped at: Completed 15-04-PLAN.md (Phase 15 complete)
 Resume file: None
 
 ---

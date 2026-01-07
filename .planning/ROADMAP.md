@@ -202,18 +202,18 @@ RAG-powered conversational interface for interacting with Strategic Blueprints. 
 
 **Spec:** [Blueprint_AI_Chat_RAG_Specification_OpenRouter.md](docs/Blueprint_AI_Chat_RAG_Specification_OpenRouter.md)
 
-#### Phase 15: RAG Foundation
+#### Phase 15: RAG Foundation COMPLETE
 **Goal**: Set up pgvector, chunking, embeddings, and basic Q&A agent
 **Depends on**: v1.3 complete
 **Research**: Likely (pgvector setup, OpenRouter embeddings API)
 **Research topics**: pgvector Supabase setup, vector index tuning, OpenRouter embeddings endpoint
-**Plans**: 3/4 complete
+**Plans**: 4/4 complete
 
 Plans:
 - [x] 15-01: Database Foundation (pgvector, blueprints, blueprint_chunks tables)
 - [x] 15-02: Embeddings & Chunking (OpenRouterClient embeddings, semantic chunking, storage service)
 - [x] 15-03: Retrieval Service & Chat API (retrieval service, Q&A agent, chat endpoint)
-- [ ] 15-04: Chat UI Integration
+- [x] 15-04: Chat UI Integration
 
 #### Phase 16: Edit Capability
 **Goal**: Intent router, Edit agent, confirmation flow, version history
@@ -267,7 +267,7 @@ Plans:
 | 12. Section 1 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 13. Sections 2-3 Enhancement | v1.3 | 1/1 | Complete | 2026-01-05 |
 | 14. Citations UI & Cost | v1.3 | 1/1 | Complete | 2026-01-05 |
-| 15. RAG Foundation | v1.4 | 3/4 | In progress | - |
+| 15. RAG Foundation | v1.4 | 4/4 | Complete | 2026-01-07 |
 | 16. Edit Capability | v1.4 | 0/? | Not started | - |
 | 17. Explain Agent | v1.4 | 0/? | Not started | - |
 

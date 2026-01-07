@@ -19,6 +19,7 @@ import {
 import { OnboardingWizard } from "@/components/onboarding";
 import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/strategic-blueprint-display";
 import { StrategicResearchReview } from "@/components/strategic-research";
+import { BlueprintChat } from "@/components/chat";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -438,6 +439,9 @@ export default function GeneratePage() {
               onRegenerate={handleRegenerateBlueprint}
             />
           </div>
+
+          {/* Blueprint Chat - for testing UI (requires DB blueprint for full functionality) */}
+          <BlueprintChat blueprintId="test-preview" />
         </div>
       </div>
     );
