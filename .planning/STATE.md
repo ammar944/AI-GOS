@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-07
-**Current Phase:** 17 (Explain Agent) - COMPLETE
-**Current Plan:** 1 of 1
+**Current Phase:** 18 (Chat Streaming) - COMPLETE
+**Current Plan:** 1 of 1 - COMPLETE
 
 ## Position
 
@@ -29,21 +29,21 @@ Milestone 4: Multi-Agent Research (v1.3) COMPLETE (archived)
 ├── Phase 13: Sections 2-3 Enhancement DONE
 └── Phase 14: Citations UI & Cost Tracking DONE
 
-Milestone 5: Blueprint Chat (v1.4) COMPLETE
+Milestone 5: Blueprint Chat (v1.4) COMPLETE (archived)
 ├── Phase 15: RAG Foundation DONE
 ├── Phase 16: Edit Capability DONE
 └── Phase 17: Explain Agent DONE
 
-Milestone 6: Chat Streaming (v1.5) IN PROGRESS
-└── Phase 18: Chat Streaming
+Milestone 6: Chat Streaming (v1.5) COMPLETE
+└── Phase 18: Chat Streaming DONE
 ```
 
 Phase: 18 of 18 (Chat Streaming)
-Plan: 0 of 1 in current phase
-Status: Phase 18 ready to plan
-Last activity: 2026-01-07 - Added Phase 18 Chat Streaming
+Plan: 1 of 1 in current phase - COMPLETE
+Status: Milestone 6 (v1.5) complete
+Last activity: 2026-01-07 - Completed 18-01-PLAN.md (Chat Streaming)
 
-Progress: █████████░ 94% (17/18 phases complete)
+Progress: ██████████ 100% (18/18 phases complete)
 
 ## Decisions
 
@@ -116,6 +116,10 @@ Progress: █████████░ 94% (17/18 phases complete)
 | 2026-01-07 | 17-01 | maxTokens 1536 for explanations | Explanations need more space than Q&A's 1024 |
 | 2026-01-07 | 17-01 | JSON block format for explain detection | Consistent with edit detection pattern |
 | 2026-01-07 | 17-01 | Blue styling for explanation messages | Visual distinction from Q&A and edits |
+| 2026-01-07 | 18-01 | Regex intent detection for streaming | Avoid extra LLM call; edit/explain keywords → JSON, questions → stream |
+| 2026-01-07 | 18-01 | Streaming only for Q&A | Edit/explain need structured JSON for confirmation UI |
+| 2026-01-07 | 18-01 | Content-Type based response handling | Client checks text/event-stream vs application/json |
+| 2026-01-07 | 18-01 | Separate isStreaming state | Distinct from isLoading for real-time UX updates |
 
 ## Deferred Issues
 
@@ -129,7 +133,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - Starting v1.5 Chat Streaming
+- **On track:** Yes - v1.5 Chat Streaming complete
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -139,15 +143,15 @@ None.
 - v1.1 Validation Gate: 3 phases (Phase 5-7) - SHIPPED 2025-12-29
 - v1.2 PDF Export: 1 phase (Phase 8) - SHIPPED 2025-12-29
 - v1.3 Multi-Agent Research: 6 phases (Phase 9-14) - SHIPPED 2026-01-05
-- v1.4 Blueprint Chat: 3 phases (Phase 15-17) - COMPLETE 2026-01-07
-- v1.5 Chat Streaming: 1 phase (Phase 18) - Started 2026-01-07
+- v1.4 Blueprint Chat: 3 phases (Phase 15-17) - SHIPPED 2026-01-07
+- v1.5 Chat Streaming: 1 phase (Phase 18) - SHIPPED 2026-01-07
 
 ## Session Continuity
 
 Last session: 2026-01-07
-Stopped at: Added Phase 18 Chat Streaming (v1.5 milestone started)
-Resume file: .planning/phases/18-chat-streaming/ (ready for planning)
+Stopped at: Completed 18-01-PLAN.md (v1.5 Chat Streaming complete)
+Resume file: None - all planned phases complete
 
 ---
 
-*v1.4 Blueprint Chat: RAG-powered conversational interface for interacting with Strategic Blueprints.*
+*v1.5 Chat Streaming: Real-time token streaming for Blueprint Chat Q&A responses.*

@@ -239,20 +239,20 @@ Plans:
 
 ---
 
-### 🚧 v1.5 Chat Streaming (Planned)
+### ✅ v1.5 Chat Streaming (Complete)
 
 Streaming responses for Blueprint Chat to improve perceived responsiveness and UX.
 
 **Milestone Goal:** Real-time token streaming for chat responses instead of waiting for full completion.
 
-#### Phase 18: Chat Streaming
+#### Phase 18: Chat Streaming COMPLETE
 **Goal**: Add SSE streaming to OpenRouter client and chat API for real-time response display
 **Depends on**: Phase 17
-**Research**: Unlikely (OpenRouter uses standard OpenAI streaming format)
-**Plans**: TBD
+**Completed**: 2026-01-07
+**Plans**: 1/1 complete
 
 Plans:
-- [ ] 18-01: OpenRouter streaming support and chat API streaming endpoint
+- [x] 18-01: OpenRouter streaming support and chat API streaming endpoint
 
 ---
 
@@ -291,9 +291,9 @@ Plans:
 | 15. RAG Foundation | v1.4 | 4/4 | Complete | 2026-01-07 |
 | 16. Edit Capability | v1.4 | 3/3 | Complete | 2026-01-07 |
 | 17. Explain Agent | v1.4 | 1/1 | Complete | 2026-01-07 |
-| 18. Chat Streaming | v1.5 | 0/1 | Planned | - |
+| 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-07 (v1.4 Blueprint Chat milestone complete)*
+*Updated: 2026-01-07 (v1.5 Chat Streaming milestone complete)*

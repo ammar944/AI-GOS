@@ -309,6 +309,164 @@ export class OpenRouterClient {
     this.apiKey = apiKey;
   }
 
+  /**
+   * Stream a chat completion response, yielding content chunks as they arrive.
+   * Uses SSE format from OpenRouter (OpenAI-compatible streaming).
+   *
+   * @param options - Chat completion options (same as chat())
+   * @yields String chunks of the response content (delta.content)
+   *
+   * Note: Usage/cost tracking not available during streaming.
+   * JSON mode (response_format) is incompatible with streaming.
+   */
+  async *chatStream(
+    options: ChatCompletionOptions
+  ): AsyncGenerator<string, void, unknown> {
+    const {
+      model,
+      messages,
+      temperature = 0.7,
+      maxTokens = 4096,
+      timeout = DEFAULT_TIMEOUT_MS,
+    } = options;
+
+    const requestBody: Record<string, unknown> = {
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: true, // Enable streaming
+    };
+
+    // Add reasoning parameters if provided (but NOT response_format for streaming)
+    if (options.reasoning) {
+      const reasoningConfig: Record<string, unknown> = {};
+
+      if (options.reasoning.effort) {
+        reasoningConfig.effort = options.reasoning.effort;
+      }
+      if (options.reasoning.maxTokens) {
+        reasoningConfig.max_tokens = Math.max(1024, options.reasoning.maxTokens);
+      }
+      if (options.reasoning.include) {
+        reasoningConfig.include = true;
+      }
+
+      if (Object.keys(reasoningConfig).length > 0) {
+        requestBody.reasoning = reasoningConfig;
+      }
+    }
+
+    // Set up timeout with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-Title": "AI-GOS Media Plan Generator",
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new TimeoutError(timeout);
+      }
+      throw error;
+    }
+
+    if (!response.ok) {
+      clearTimeout(timeoutId);
+      const errorText = await response.text();
+      let errorMessage = response.statusText;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorData.message || errorText;
+      } catch {
+        errorMessage = errorText || response.statusText;
+      }
+      console.error(`OpenRouter API error [${response.status}]:`, errorMessage);
+      throw new APIError(
+        response.status,
+        `OpenRouter API error: ${response.status} - ${errorMessage}`
+      );
+    }
+
+    // Process SSE stream
+    const reader = response.body?.getReader();
+    if (!reader) {
+      clearTimeout(timeoutId);
+      throw new Error("No response body for streaming");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        // Decode chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines from buffer
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+
+          // Ignore empty lines and SSE comments (lines starting with :)
+          if (!trimmedLine || trimmedLine.startsWith(":")) {
+            continue;
+          }
+
+          // Check for data: prefix
+          if (!trimmedLine.startsWith("data:")) {
+            continue;
+          }
+
+          // Extract the data content
+          const dataContent = trimmedLine.slice(5).trim();
+
+          // Check for stream termination
+          if (dataContent === "[DONE]") {
+            return;
+          }
+
+          // Parse the JSON chunk
+          try {
+            const chunk = JSON.parse(dataContent);
+            const content = chunk.choices?.[0]?.delta?.content;
+
+            if (content) {
+              yield content;
+            }
+          } catch (parseError) {
+            // Log but don't fail on parse errors - may be malformed chunk
+            console.warn("Failed to parse SSE chunk:", dataContent, parseError);
+          }
+        }
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      reader.releaseLock();
+    }
+  }
+
   async chat(options: ChatCompletionOptions): Promise<ChatCompletionResponse> {
     const {
       model,

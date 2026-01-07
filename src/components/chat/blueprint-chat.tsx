@@ -37,6 +37,7 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -47,9 +48,92 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pendingEdits]);
 
+  /**
+   * Process SSE stream and update message content incrementally
+   */
+  const processStream = async (
+    response: Response,
+    messageId: string
+  ): Promise<void> => {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body for streaming');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullContent = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        // Decode chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+
+          // Skip empty lines and comments
+          if (!trimmedLine || trimmedLine.startsWith(':')) {
+            continue;
+          }
+
+          // Check for data: prefix
+          if (!trimmedLine.startsWith('data:')) {
+            continue;
+          }
+
+          // Extract and parse data
+          const dataContent = trimmedLine.slice(5).trim();
+
+          try {
+            const data = JSON.parse(dataContent);
+
+            // Handle content chunks
+            if (data.content) {
+              fullContent += data.content;
+              // Update the message content incrementally
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === messageId ? { ...m, content: fullContent } : m
+                )
+              );
+            }
+
+            // Handle completion
+            if (data.done) {
+              return;
+            }
+
+            // Handle errors
+            if (data.error) {
+              throw new Error(data.error);
+            }
+          } catch (parseError) {
+            // Skip invalid JSON chunks
+            if (dataContent !== '[DONE]') {
+              console.warn('Failed to parse SSE data:', dataContent);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || pendingEdits.length > 0) return;
+    if (!input.trim() || isLoading || isStreaming || pendingEdits.length > 0) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -62,13 +146,13 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     setIsLoading(true);
 
     try {
-      // Send blueprint context directly with the request - no DB needed
-      const response = await fetch('/api/chat/blueprint', {
+      // Use streaming endpoint
+      const response = await fetch('/api/chat/blueprint/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage.content,
-          blueprint, // Send full blueprint context
+          blueprint,
           chatHistory: messages.map(m => ({ role: m.role, content: m.content })),
         }),
       });
@@ -78,23 +162,50 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
         throw new Error(errorData.details || errorData.error || 'Failed to get response');
       }
 
-      const data = await response.json();
+      // Check content type to determine streaming vs JSON response
+      const contentType = response.headers.get('Content-Type') || '';
 
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: data.response,
-        confidence: data.confidence,
-        isEditProposal: !!(data.pendingEdits?.length || data.pendingEdit),
-      };
+      if (contentType.includes('text/event-stream')) {
+        // Streaming response - create empty message and populate incrementally
+        const assistantMessageId = crypto.randomUUID();
+        const assistantMessage: Message = {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '', // Will be populated by stream
+          confidence: 'medium', // Default for streamed responses
+        };
 
-      setMessages(prev => [...prev, assistantMessage]);
+        setMessages(prev => [...prev, assistantMessage]);
+        setIsLoading(false); // No longer loading, now streaming
+        setIsStreaming(true);
 
-      // If there are pending edits, store them (handle both array and single)
-      if (data.pendingEdits && data.pendingEdits.length > 0) {
-        setPendingEdits(data.pendingEdits);
-      } else if (data.pendingEdit) {
-        setPendingEdits([data.pendingEdit]);
+        // Process the stream
+        try {
+          await processStream(response, assistantMessageId);
+        } finally {
+          setIsStreaming(false);
+        }
+
+      } else {
+        // JSON response (edit/explain) - handle as before
+        const data = await response.json();
+
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: data.response,
+          confidence: data.confidence,
+          isEditProposal: !!(data.pendingEdits?.length || data.pendingEdit),
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+
+        // If there are pending edits, store them
+        if (data.pendingEdits && data.pendingEdits.length > 0) {
+          setPendingEdits(data.pendingEdits);
+        } else if (data.pendingEdit) {
+          setPendingEdits([data.pendingEdit]);
+        }
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -424,13 +535,19 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
           <Input
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder={pendingEdits.length > 0 ? 'Confirm or cancel edits first...' : 'Ask about your blueprint...'}
-            disabled={isLoading || pendingEdits.length > 0}
+            placeholder={
+              pendingEdits.length > 0
+                ? 'Confirm or cancel edits first...'
+                : isStreaming
+                ? 'Receiving response...'
+                : 'Ask about your blueprint...'
+            }
+            disabled={isLoading || isStreaming || pendingEdits.length > 0}
             className="flex-1"
           />
           <Button
             type="submit"
-            disabled={!input.trim() || isLoading || pendingEdits.length > 0}
+            disabled={!input.trim() || isLoading || isStreaming || pendingEdits.length > 0}
             size="icon"
           >
             <Send className="w-4 h-4" />
