@@ -1,9 +1,11 @@
 // src/app/api/blueprint/[id]/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { retrieveRelevantChunks } from '@/lib/chat/retrieval';
 import { answerQuestion } from '@/lib/chat/agents/qa-agent';
+import { handleEdit, EditResult } from '@/lib/chat/agents/edit-agent';
 import { classifyIntent } from '@/lib/chat/intent-router';
-import { ChatIntent } from '@/lib/chat/types';
+import { ChatIntent, EditIntent } from '@/lib/chat/types';
 
 interface ChatRequest {
   message: string;
@@ -28,8 +30,49 @@ interface ChatResponse {
     processingTime: number;
     intentClassificationCost: number;
   };
-  /** Placeholder for edit confirmation flow (future phases) */
-  pendingAction?: unknown;
+  /** Edit result for confirmation flow */
+  pendingAction?: {
+    type: 'edit';
+    editResult: EditResult;
+  };
+}
+
+/**
+ * Fetch full section data for edit context
+ */
+async function fetchFullSection(
+  blueprintId: string,
+  section: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('blueprints')
+    .select('output')
+    .eq('id', blueprintId)
+    .single();
+
+  if (error || !data?.output) {
+    return null;
+  }
+
+  return data.output[section] || null;
+}
+
+/**
+ * Format edit response message with diff preview
+ */
+function formatEditResponse(editResult: EditResult): string {
+  return `I'll make this change:
+
+**Section:** ${editResult.section}
+**Field:** ${editResult.fieldPath}
+**Change:** ${editResult.explanation}
+
+\`\`\`diff
+${editResult.diffPreview}
+\`\`\`
+
+Reply **'confirm'** to apply this edit or **'cancel'** to discard.`;
 }
 
 export async function POST(
@@ -62,6 +105,7 @@ export async function POST(
     let totalCost = intentResult.cost;
     let chunks: Awaited<ReturnType<typeof retrieveRelevantChunks>>['chunks'] = [];
     let embeddingCost = 0;
+    let pendingAction: ChatResponse['pendingAction'] = undefined;
 
     switch (intent.type) {
       case 'question':
@@ -89,18 +133,49 @@ export async function POST(
         break;
       }
 
-      case 'edit':
-        // Placeholder for edit capability (Phase 16-02)
-        responseText = `I understand you want to edit the ${intent.section} section${intent.field ? ` (field: ${intent.field})` : ''}. Edit capability is coming soon. For now, I can answer questions about your blueprint.`;
+      case 'edit': {
+        // Handle edit with edit agent
+        const editIntent = intent as EditIntent;
+        const fullSection = await fetchFullSection(blueprintId, editIntent.section);
+
+        if (!fullSection) {
+          responseText = `I couldn't find the ${editIntent.section} section in this blueprint. Please check that the blueprint exists and has been generated.`;
+          break;
+        }
+
+        try {
+          const editResponse = await handleEdit({
+            fullSection,
+            intent: editIntent,
+            chatHistory: body.chatHistory,
+          });
+
+          // Track costs
+          tokensUsed += editResponse.usage.totalTokens;
+          totalCost += editResponse.cost;
+
+          // Format response with diff preview
+          responseText = formatEditResponse(editResponse.result);
+
+          // Set pending action for confirmation flow
+          pendingAction = {
+            type: 'edit',
+            editResult: editResponse.result,
+          };
+        } catch (editError) {
+          console.error('Edit agent error:', editError);
+          responseText = `I encountered an error while preparing the edit. Please try rephrasing your request. Error: ${editError instanceof Error ? editError.message : 'Unknown error'}`;
+        }
         break;
+      }
 
       case 'explain':
-        // Placeholder for explain capability (Phase 16-03)
+        // Placeholder for explain capability (Phase 17)
         responseText = `I understand you want an explanation about ${intent.whatToExplain || intent.field || 'something'} in the ${intent.section} section. Explain capability is coming soon. For now, I can answer questions about your blueprint.`;
         break;
 
       case 'regenerate':
-        // Placeholder for regenerate capability (Phase 16-04)
+        // Placeholder for regenerate capability (future)
         responseText = `I understand you want to regenerate the ${intent.section} section${intent.instructions ? ` with instructions: "${intent.instructions}"` : ''}. Regenerate capability is coming soon. For now, I can answer questions about your blueprint.`;
         break;
 
@@ -126,6 +201,7 @@ export async function POST(
         processingTime: Date.now() - startTime,
         intentClassificationCost: intentResult.cost,
       },
+      pendingAction,
     };
 
     return NextResponse.json(response);
@@ -133,7 +209,11 @@ export async function POST(
   } catch (error) {
     console.error('Chat error:', error);
 
+    // More detailed error info
     const message = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error('Error details:', { message, stack, blueprintId });
+
     return NextResponse.json(
       { error: 'Failed to process chat message', details: message },
       { status: 500 }

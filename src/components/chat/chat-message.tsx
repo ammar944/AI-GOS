@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { User, Bot, Pencil, Lightbulb } from 'lucide-react';
+import { renderWithSubscripts } from '@/components/strategic-research/citations';
 
 interface Source {
   chunkId: string;
@@ -39,11 +40,12 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 /**
- * Render content with markdown-style formatting for edit proposals
+ * Render content with markdown-style formatting for edit proposals.
+ * Highlights subscript references like [1], [2] in blue.
  */
 function renderContent(content: string, isEditProposal?: boolean) {
   if (!isEditProposal) {
-    return <div className="text-sm whitespace-pre-wrap">{content}</div>;
+    return <div className="text-sm whitespace-pre-wrap">{renderWithSubscripts(content)}</div>;
   }
 
   // Split content into parts to handle code blocks and bold text
@@ -56,7 +58,7 @@ function renderContent(content: string, isEditProposal?: boolean) {
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
             <span key={index} className="font-semibold">
-              {part.slice(2, -2)}
+              {renderWithSubscripts(part.slice(2, -2))}
             </span>
           );
         }
@@ -80,7 +82,7 @@ function renderContent(content: string, isEditProposal?: boolean) {
                       isAdded && 'text-green-600 dark:text-green-400'
                     )}
                   >
-                    {line}
+                    {renderWithSubscripts(line)}
                   </div>
                 );
               })}
@@ -91,7 +93,7 @@ function renderContent(content: string, isEditProposal?: boolean) {
         // Regular text
         return (
           <span key={index} className="whitespace-pre-wrap">
-            {part}
+            {renderWithSubscripts(part)}
           </span>
         );
       })}

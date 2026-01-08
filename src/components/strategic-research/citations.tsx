@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Link2, ExternalLink, ChevronDown, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +16,62 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Citation } from "@/lib/strategic-blueprint/output-types";
+
+// =============================================================================
+// Subscript Reference Styling - Highlights [1], [2], etc. in text
+// =============================================================================
+
+/**
+ * Parses text and wraps subscript references like [1], [2] with styled spans.
+ * Returns an array of ReactNodes with styled subscripts.
+ */
+function parseSubscriptReferences(text: string): ReactNode[] {
+  // Match [N] where N is one or more digits
+  const pattern = /\[(\d+)\]/g;
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    // Add the styled subscript
+    parts.push(
+      <span
+        key={`sub-${match.index}`}
+        className="text-blue-400 font-medium text-[0.85em] align-super"
+      >
+        [{match[1]}]
+      </span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last match
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+}
+
+/**
+ * Recursively processes children to style subscript references.
+ * Handles both string children and nested ReactNodes.
+ * Exported for use in chat messages and other components.
+ */
+export function renderWithSubscripts(children: ReactNode): ReactNode {
+  if (typeof children === "string") {
+    const parts = parseSubscriptReferences(children);
+    return parts.length === 1 && typeof parts[0] === "string"
+      ? parts[0]
+      : <>{parts}</>;
+  }
+  // For non-string children, return as-is (they may contain their own styled content)
+  return children;
+}
 
 // =============================================================================
 // CitationBadge
@@ -56,6 +112,7 @@ export interface SourcedTextProps {
  * Wraps text with a subtle indicator showing it's research-backed.
  * Shows a small globe icon on hover with tooltip.
  * Uses dotted underline to indicate sourced data.
+ * Highlights subscript references like [1], [2] in blue.
  */
 export function SourcedText({ children, className }: SourcedTextProps) {
   return (
@@ -69,7 +126,7 @@ export function SourcedText({ children, className }: SourcedTextProps) {
               className
             )}
           >
-            {children}
+            {renderWithSubscripts(children)}
             <Globe className="h-3.5 w-3.5 text-blue-500 shrink-0" />
           </span>
         </TooltipTrigger>
@@ -84,6 +141,7 @@ export function SourcedText({ children, className }: SourcedTextProps) {
 /**
  * Wraps list item text with citation indicator.
  * More compact version for use in lists.
+ * Highlights subscript references like [1], [2] in blue.
  */
 export function SourcedListItem({ children, className }: SourcedTextProps) {
   return (
@@ -96,7 +154,7 @@ export function SourcedListItem({ children, className }: SourcedTextProps) {
               className
             )}
           >
-            {children}
+            {renderWithSubscripts(children)}
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
