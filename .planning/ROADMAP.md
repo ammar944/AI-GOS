@@ -8,7 +8,8 @@
 - ✅ **v1.3 Multi-Agent Research** - Phases 9-14 - SHIPPED 2026-01-05
 - ✅ **v1.4 Blueprint Chat** - Phases 15-17 - SHIPPED 2026-01-07
 - 📋 **v1.6 Persistence** - Planned
-- 📋 **v1.7 Testing** - Phases 19-22 (planned)
+- 🚧 **v1.7 Testing** - Phases 19-22 (in progress)
+- 📋 **v1.8 Ad Intelligence** - Phases 23-26 (planned)
 
 ## Phases
 
@@ -302,6 +303,53 @@ Plans:
 
 ---
 
+### 📋 v1.8 Ad Intelligence (Planned)
+
+Enrich competitor analysis with real ad data from LinkedIn, Meta, and Google Ad Libraries, plus verified competitor insights (offers, pricing, creatives).
+
+**Milestone Goal:** Real competitor ad creatives and intelligence integrated into Section 4 with carousel display.
+
+**API Reference:** SearchAPI.io Ad Libraries (LinkedIn, Meta, Google Ads Transparency Center)
+
+#### Phase 23: Ad Library Service
+**Goal**: SearchAPI.io integration for all 3 platforms (LinkedIn, Meta, Google)
+**Depends on**: v1.7 complete
+**Research**: Unlikely (APIs tested in test-ad-libraries-local.ts)
+**Plans**: TBD
+
+Plans:
+- [ ] 23-01: TBD (run /gsd:plan-phase 23 to break down)
+
+#### Phase 24: Competitor Ad Research
+**Goal**: Integrate ad fetching into Section 4 pipeline, extract insights per competitor
+**Depends on**: Phase 23
+**Research**: Unlikely (existing research agent patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 24-01: TBD
+
+#### Phase 25: Creative Carousel UI
+**Goal**: Display competitor ads in carousel with images, headlines, platform badges
+**Depends on**: Phase 24
+**Research**: Unlikely (UI component work)
+**Plans**: TBD
+
+Plans:
+- [ ] 25-01: TBD
+
+#### Phase 26: Competitor Intel Enhancement
+**Goal**: True offers, pricing tiers, and positioning from research + ads
+**Depends on**: Phase 25
+**Research**: Likely (pricing/offer extraction patterns)
+**Research topics**: Structured pricing extraction, competitor positioning analysis
+**Plans**: TBD
+
+Plans:
+- [ ] 26-01: TBD
+
+---
+
 ### Future Milestones
 
 #### v1.6 Persistence
@@ -337,8 +385,12 @@ Plans:
 | 20. Unit Tests Core | v1.7 | 0/? | Not started | - |
 | 21. Integration Tests | v1.7 | 0/? | Not started | - |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
+| 23. Ad Library Service | v1.8 | 0/? | Not started | - |
+| 24. Competitor Ad Research | v1.8 | 0/? | Not started | - |
+| 25. Creative Carousel UI | v1.8 | 0/? | Not started | - |
+| 26. Competitor Intel Enhancement | v1.8 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-08 (v1.7 Testing milestone created)*
+*Updated: 2026-01-09 (v1.8 Ad Intelligence milestone created)*
