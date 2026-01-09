@@ -331,14 +331,15 @@ Plans:
 Plans:
 - [x] 24-01: Ad integration into competitor-research.ts
 
-#### Phase 25: Creative Carousel UI
+#### Phase 25: Creative Carousel UI COMPLETE
 **Goal**: Display competitor ads in carousel with images, headlines, platform badges
 **Depends on**: Phase 24
 **Research**: Unlikely (UI component work)
-**Plans**: TBD
+**Completed**: 2026-01-09
+**Plans**: 1/1
 
 Plans:
-- [ ] 25-01: TBD
+- [x] 25-01: AdCreativeCarousel component and Section 4 integration
 
 #### Phase 26: Competitor Intel Enhancement
 **Goal**: True offers, pricing tiers, and positioning from research + ads
@@ -389,10 +390,10 @@ Plans:
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
-| 25. Creative Carousel UI | v1.8 | 0/? | Not started | - |
+| 25. Creative Carousel UI | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 26. Competitor Intel Enhancement | v1.8 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-09 (Phase 24 complete)*
+*Updated: 2026-01-09 (Phase 25 complete)*

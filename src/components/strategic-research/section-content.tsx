@@ -10,11 +10,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Image,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EditableText, EditableList } from "./editable";
 import { SourcedText, SourcedListItem } from "./citations";
+import { AdCreativeCarousel } from "./ad-creative-carousel";
 import type {
   StrategicBlueprintSection,
   IndustryMarketOverview,
@@ -742,6 +744,17 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   )}
                 </div>
               </div>
+
+              {/* Ad Creatives Carousel */}
+              {comp?.adCreatives && comp.adCreatives.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Image className="h-4 w-4 text-primary" />
+                    Ad Creatives ({comp.adCreatives.length})
+                  </p>
+                  <AdCreativeCarousel ads={comp.adCreatives} />
+                </div>
+              )}
             </div>
           ))}
         </div>

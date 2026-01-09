@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-09
-**Current Phase:** 24 (Competitor Ad Research) - COMPLETE
-**Current Plan:** 24-01-PLAN.md DONE
+**Current Phase:** 25 (Creative Carousel UI) - COMPLETE
+**Current Plan:** 25-01-PLAN.md DONE
 
 ## Position
 
@@ -46,16 +46,16 @@ Milestone 7: Testing (v1.7) IN PROGRESS
 Milestone 8: Ad Intelligence (v1.8) IN PROGRESS
 ├── Phase 23: Ad Library Service DONE
 ├── Phase 24: Competitor Ad Research DONE
-├── Phase 25: Creative Carousel UI
+├── Phase 25: Creative Carousel UI DONE
 └── Phase 26: Competitor Intel Enhancement
 ```
 
-Phase: 24 of 26 (Competitor Ad Research)
+Phase: 25 of 26 (Creative Carousel UI)
 Plan: 1 of 1 complete
 Status: Phase complete
-Last activity: 2026-01-09 - Completed 24-01-PLAN.md
+Last activity: 2026-01-09 - Completed 25-01-PLAN.md
 
-Progress: █████████░░░ 77% (20/26 phases complete)
+Progress: █████████░░░ 81% (21/26 phases complete)
 
 ## Decisions
 
@@ -138,6 +138,9 @@ Progress: █████████░░░ 77% (20/26 phases complete)
 | 2026-01-09 | 24-01 | 10 ads per platform per competitor | Balance breadth vs API call volume |
 | 2026-01-09 | 24-01 | Graceful degradation without SEARCHAPI_KEY | Research continues without ads if key missing |
 | 2026-01-09 | 24-01 | No separate ad cost tracking | SearchAPI.io subscription model, no per-call costs |
+| 2026-01-09 | 25-01 | aspect-video for ad image container | Matches typical ad creative aspect ratios |
+| 2026-01-09 | 25-01 | Platform brand colors for badges | LinkedIn=#0A66C2, Meta=#1877F2, Google=#4285F4 |
+| 2026-01-09 | 25-01 | Loop carousel when >1 ad | Better UX for browsing multiple creatives |
 
 ## Deferred Issues
 
@@ -169,7 +172,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-09
-Stopped at: Completed 24-01-PLAN.md - Phase 24 complete
+Stopped at: Completed 25-01-PLAN.md - Phase 25 complete
 Resume file: None
 
 ---
