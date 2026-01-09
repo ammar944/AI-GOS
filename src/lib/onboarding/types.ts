@@ -8,11 +8,6 @@
 export interface BusinessBasicsData {
   businessName: string;
   websiteUrl: string;
-  contactName: string;
-  contactEmail: string;
-  // Billing setup info
-  billingOwner?: string;
-  paymentVerified?: boolean;
 }
 
 // =============================================================================
@@ -337,10 +332,6 @@ export const SAMPLE_ONBOARDING_DATA: OnboardingFormData = {
   businessBasics: {
     businessName: "FlowMetrics",
     websiteUrl: "https://flowmetrics.io",
-    contactName: "Alex Chen",
-    contactEmail: "alex@flowmetrics.io",
-    billingOwner: "Alex Chen",
-    paymentVerified: true,
   },
   icp: {
     primaryIcpDescription: "B2B SaaS founders and marketing leaders at growth-stage companies ($1M-$20M ARR) who are struggling to attribute revenue to their marketing efforts and need a unified analytics dashboard to prove ROI to their board.",
@@ -413,10 +404,6 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingFormData = {
   businessBasics: {
     businessName: "",
     websiteUrl: "",
-    contactName: "",
-    contactEmail: "",
-    billingOwner: "",
-    paymentVerified: false,
   },
   icp: {
     primaryIcpDescription: "",

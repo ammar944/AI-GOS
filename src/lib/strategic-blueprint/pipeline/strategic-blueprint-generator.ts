@@ -97,7 +97,6 @@ function createBusinessContext(data: OnboardingFormData): string {
 ### Company Information
 - Business Name: ${s(businessBasics.businessName)}
 - Website: ${s(businessBasics.websiteUrl)}
-- Contact: ${s(businessBasics.contactName)}
 
 ### Ideal Customer Profile (ICP)
 - Primary ICP: ${s(icp.primaryIcpDescription)}

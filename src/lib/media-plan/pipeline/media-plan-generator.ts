@@ -155,9 +155,6 @@ function createBusinessContext(data: OnboardingFormData): string {
 ### Company Information
 - Business Name: ${s(businessBasics.businessName)}
 - Website: ${s(businessBasics.websiteUrl)}
-- Contact: ${s(businessBasics.contactName)} (${s(businessBasics.contactEmail)})
-${businessBasics.billingOwner ? `- Billing Account Owner: ${s(businessBasics.billingOwner)}` : ""}
-${businessBasics.paymentVerified ? "- Payment Method: Verified" : ""}
 
 ### Ideal Customer Profile (ICP)
 - Primary ICP: ${s(icp.primaryIcpDescription)}

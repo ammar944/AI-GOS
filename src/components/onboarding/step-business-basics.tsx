@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Globe, User, Mail, CreditCard, CheckCircle2 } from "lucide-react";
+import { Building2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { BusinessBasicsData } from "@/lib/onboarding/types";
 
 interface StepBusinessBasicsProps {
@@ -22,10 +21,6 @@ export function StepBusinessBasics({
   const [formData, setFormData] = useState<BusinessBasicsData>({
     businessName: initialData?.businessName || "",
     websiteUrl: initialData?.websiteUrl || "",
-    contactName: initialData?.contactName || "",
-    contactEmail: initialData?.contactEmail || "",
-    billingOwner: initialData?.billingOwner || "",
-    paymentVerified: initialData?.paymentVerified || false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -82,15 +77,6 @@ export function StepBusinessBasics({
       newErrors.websiteUrl = urlResult.error || "Invalid URL";
     }
 
-    if (!formData.contactName.trim()) {
-      newErrors.contactName = "Contact name is required";
-    }
-    if (!formData.contactEmail.trim()) {
-      newErrors.contactEmail = "Contact email is required";
-    } else if (!formData.contactEmail.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
-      newErrors.contactEmail = "Please enter a valid email";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -104,13 +90,8 @@ export function StepBusinessBasics({
     const url = urlResult.normalized;
 
     onSubmit({
-      ...formData,
       businessName: formData.businessName.trim(),
       websiteUrl: url,
-      contactName: formData.contactName.trim(),
-      contactEmail: formData.contactEmail.trim().toLowerCase(),
-      billingOwner: formData.billingOwner?.trim() || "",
-      paymentVerified: formData.paymentVerified || false,
     });
   }
 
@@ -162,79 +143,6 @@ export function StepBusinessBasics({
           {errors.websiteUrl && (
             <p className="text-sm text-destructive">{errors.websiteUrl}</p>
           )}
-        </div>
-
-        {/* Contact Name */}
-        <div className="space-y-2">
-          <Label htmlFor="contactName" className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
-            Primary Contact Name
-          </Label>
-          <Input
-            id="contactName"
-            placeholder="John Smith"
-            value={formData.contactName}
-            onChange={(e) => updateField("contactName", e.target.value)}
-            aria-invalid={!!errors.contactName}
-            className="h-11"
-          />
-          {errors.contactName && (
-            <p className="text-sm text-destructive">{errors.contactName}</p>
-          )}
-        </div>
-
-        {/* Contact Email */}
-        <div className="space-y-2">
-          <Label htmlFor="contactEmail" className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            Contact Email
-          </Label>
-          <Input
-            id="contactEmail"
-            type="email"
-            placeholder="john@example.com"
-            value={formData.contactEmail}
-            onChange={(e) => updateField("contactEmail", e.target.value)}
-            aria-invalid={!!errors.contactEmail}
-            className="h-11"
-          />
-          {errors.contactEmail && (
-            <p className="text-sm text-destructive">{errors.contactEmail}</p>
-          )}
-        </div>
-
-        {/* Billing Owner */}
-        <div className="space-y-2">
-          <Label htmlFor="billingOwner" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-            Billing Account Owner
-            <span className="text-xs text-muted-foreground">(optional)</span>
-          </Label>
-          <Input
-            id="billingOwner"
-            placeholder="Name of person who owns the ad accounts"
-            value={formData.billingOwner || ""}
-            onChange={(e) => updateField("billingOwner", e.target.value)}
-            className="h-11"
-          />
-        </div>
-
-        {/* Payment Verified */}
-        <div className="flex items-center space-x-3 rounded-lg border p-4">
-          <Checkbox
-            id="paymentVerified"
-            checked={formData.paymentVerified || false}
-            onCheckedChange={(checked) => updateField("paymentVerified", checked === true)}
-          />
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-            <Label
-              htmlFor="paymentVerified"
-              className="text-sm font-medium leading-none cursor-pointer"
-            >
-              Payment method verified on ad accounts
-            </Label>
-          </div>
         </div>
       </div>
 
