@@ -1,6 +1,8 @@
 // Strategic Blueprint Output Types
 // Based on the Strategic Blueprint Template v1.0
 
+import type { AdCreative } from '@/lib/ad-library';
+
 // =============================================================================
 // Section 1: Industry & Market Overview
 // =============================================================================
@@ -267,6 +269,8 @@ export interface CompetitorSnapshot {
   strengths: string[];
   /** Key weaknesses */
   weaknesses: string[];
+  /** Real ad creatives fetched from ad libraries */
+  adCreatives?: AdCreative[];
 }
 
 export interface CompetitorCreativeLibrary {

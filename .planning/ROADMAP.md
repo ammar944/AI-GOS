@@ -321,14 +321,15 @@ Enrich competitor analysis with real ad data from LinkedIn, Meta, and Google Ad 
 Plans:
 - [x] 23-01: Ad Library Service (types, service class, env config)
 
-#### Phase 24: Competitor Ad Research
+#### Phase 24: Competitor Ad Research COMPLETE
 **Goal**: Integrate ad fetching into Section 4 pipeline, extract insights per competitor
 **Depends on**: Phase 23
 **Research**: Unlikely (existing research agent patterns)
-**Plans**: TBD
+**Completed**: 2026-01-09
+**Plans**: 1/1
 
 Plans:
-- [ ] 24-01: TBD
+- [x] 24-01: Ad integration into competitor-research.ts
 
 #### Phase 25: Creative Carousel UI
 **Goal**: Display competitor ads in carousel with images, headlines, platform badges
@@ -387,11 +388,11 @@ Plans:
 | 21. Integration Tests | v1.7 | 0/? | Not started | - |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
-| 24. Competitor Ad Research | v1.8 | 0/? | Not started | - |
+| 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 25. Creative Carousel UI | v1.8 | 0/? | Not started | - |
 | 26. Competitor Intel Enhancement | v1.8 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-09 (Phase 23 complete)*
+*Updated: 2026-01-09 (Phase 24 complete)*

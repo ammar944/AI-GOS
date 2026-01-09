@@ -3,7 +3,9 @@
 
 import { createResearchAgent } from "@/lib/research";
 import { MODELS } from "@/lib/openrouter/client";
-import type { CitedSectionOutput, CompetitorAnalysis } from "../output-types";
+import { createAdLibraryService } from "@/lib/ad-library";
+import type { AdCreative } from "@/lib/ad-library";
+import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot } from "../output-types";
 
 /**
  * Research competitors using Perplexity Deep Research for real-time web search.
@@ -100,13 +102,37 @@ Return the analysis as a JSON object following the exact structure specified.`;
   });
 
   // Parse JSON from research response
-  const data = parseCompetitorAnalysisJSON(response.content);
+  let data = parseCompetitorAnalysisJSON(response.content);
+
+  // Fetch real ads for each competitor (graceful degradation if API key missing)
+  let competitorAds = new Map<string, AdCreative[]>();
+  try {
+    const adService = createAdLibraryService();
+    competitorAds = await fetchCompetitorAds(adService, data.competitors);
+    console.log(`[Competitor Research] Fetched ads for ${competitorAds.size} competitors`);
+  } catch (error) {
+    // SEARCHAPI_KEY missing or service creation failed - continue without ads
+    console.warn('[Competitor Research] Ad library unavailable, continuing without ads:',
+      error instanceof Error ? error.message : 'Unknown error');
+  }
+
+  // Merge ads into competitor snapshots
+  data = {
+    ...data,
+    competitors: mergeAdsIntoCompetitors(data.competitors, competitorAds),
+  };
+
+  // Log summary of ads fetched
+  const totalAds = data.competitors.reduce((sum, c) => sum + (c.adCreatives?.length || 0), 0);
+  if (totalAds > 0) {
+    console.log(`[Competitor Research] Total ads attached: ${totalAds} across ${data.competitors.length} competitors`);
+  }
 
   return {
     data,
     citations: response.citations,
     model: response.model,
-    cost: response.cost.totalCost,
+    cost: response.cost.totalCost, // Ad library calls have no additional cost (included in SearchAPI.io subscription)
   };
 }
 
@@ -309,4 +335,55 @@ function isValidJSON(str: string): boolean {
   } catch {
     return false;
   }
+}
+
+// =============================================================================
+// Ad Library Integration
+// =============================================================================
+
+/**
+ * Fetch ads for each competitor from all ad library platforms
+ * Service handles rate limiting internally
+ */
+async function fetchCompetitorAds(
+  adService: ReturnType<typeof createAdLibraryService>,
+  competitors: CompetitorSnapshot[]
+): Promise<Map<string, AdCreative[]>> {
+  const adsMap = new Map<string, AdCreative[]>();
+
+  // Fetch ads for each competitor in parallel (service handles rate limiting)
+  const fetchPromises = competitors.map(async (competitor) => {
+    try {
+      const response = await adService.fetchAllPlatforms({
+        query: competitor.name,
+        limit: 10, // 10 ads per platform max
+      });
+
+      // Combine all successful platform results
+      const allAds = response.results
+        .filter(r => r.success)
+        .flatMap(r => r.ads);
+
+      adsMap.set(competitor.name, allAds);
+    } catch (error) {
+      console.error(`[Competitor Research] Failed to fetch ads for ${competitor.name}:`, error);
+      adsMap.set(competitor.name, []);
+    }
+  });
+
+  await Promise.all(fetchPromises);
+  return adsMap;
+}
+
+/**
+ * Merge fetched ads into competitor snapshots
+ */
+function mergeAdsIntoCompetitors(
+  competitors: CompetitorSnapshot[],
+  adsMap: Map<string, AdCreative[]>
+): CompetitorSnapshot[] {
+  return competitors.map(competitor => ({
+    ...competitor,
+    adCreatives: adsMap.get(competitor.name) || [],
+  }));
 }
