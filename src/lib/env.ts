@@ -6,7 +6,7 @@
  */
 const REQUIRED_ENV_VARS = {
   // Server-only variables (not prefixed with NEXT_PUBLIC_)
-  server: ["OPENROUTER_API_KEY"] as const,
+  server: ["OPENROUTER_API_KEY", "SEARCHAPI_KEY"] as const,
 
   // Public variables (accessible in browser)
   public: [
