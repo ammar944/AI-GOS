@@ -420,11 +420,15 @@ function analyzeAdMessaging(ads: AdCreative[]): AdMessagingAnalysis {
     return { themes: [], commonCTAs: [], priceMentions: [] };
   }
 
-  // Collect all text from ads
+  // Collect all text from ads with type guards
   const allText: string[] = [];
   for (const ad of ads) {
-    if (ad.headline) allText.push(ad.headline.toLowerCase());
-    if (ad.body) allText.push(ad.body.toLowerCase());
+    if (typeof ad.headline === 'string' && ad.headline) {
+      allText.push(ad.headline.toLowerCase());
+    }
+    if (typeof ad.body === 'string' && ad.body) {
+      allText.push(ad.body.toLowerCase());
+    }
   }
 
   const fullText = allText.join(' ');
@@ -478,11 +482,14 @@ function analyzeAdMessaging(ads: AdCreative[]): AdMessagingAnalysis {
 function extractPricingFromText(text: string): PricingTier[] {
   if (!text) return [];
 
+  // Limit input to prevent performance issues with large text
+  const safeText = text.length > 50000 ? text.slice(0, 50000) : text;
+
   const tiers: PricingTier[] = [];
 
   // Pattern: tier name followed by price
   const tierPricePattern = /(?:(\w+)\s+(?:plan|tier)?[:.]?\s*)?\$[\d,]+(?:\.\d{2})?(?:\s*\/\s*(?:mo|month|yr|year|user|seat))?/gi;
-  const matches = text.matchAll(tierPricePattern);
+  const matches = safeText.matchAll(tierPricePattern);
 
   for (const match of matches) {
     const fullMatch = match[0];
