@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   XCircle,
   Image,
+  DollarSign,
+  Sparkles,
+  Tag,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,8 @@ import type {
   ValidationStatus,
   RiskRating,
   OfferRecommendation,
+  PricingTier,
+  CompetitorOffer,
 } from "@/lib/strategic-blueprint/output-types";
 
 // =============================================================================
@@ -60,6 +65,22 @@ function safeArray(value: unknown): string[] {
       .map(safeRender);
   }
   return [safeRender(value)];
+}
+
+/** Format a PricingTier to a string for editing */
+function formatPricingTier(tier: PricingTier): string {
+  return `${tier.tier}: ${tier.price}`;
+}
+
+/** Parse pricing tier strings back to PricingTier objects */
+function parsePricingTierStrings(strings: string[]): PricingTier[] {
+  return strings.map(s => {
+    const [tier, ...priceParts] = s.split(':');
+    return {
+      tier: tier.trim(),
+      price: priceParts.join(':').trim() || 'Custom',
+    };
+  });
 }
 
 // =============================================================================
@@ -744,6 +765,95 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   )}
                 </div>
               </div>
+
+              {/* Pricing Tiers - only render if available */}
+              {comp?.pricingTiers && comp.pricingTiers.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                    Pricing Tiers
+                  </p>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={comp.pricingTiers.map(formatPricingTier)}
+                      onSave={(v) => onFieldChange(`competitors.${i}.pricingTiers`, parsePricingTierStrings(v))}
+                      renderPrefix={() => <DollarSign className="h-3 w-3 text-green-600" />}
+                      className="text-sm"
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {comp.pricingTiers.map((tier, j) => (
+                        <Badge key={j} variant="outline" className="text-xs bg-green-500/10 border-green-500/30">
+                          {tier.tier}: {tier.price}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Main Offer - only render if available */}
+              {comp?.mainOffer && (
+                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Main Offer
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      {isEditing && onFieldChange ? (
+                        <EditableText
+                          value={comp.mainOffer.headline}
+                          onSave={(v) => onFieldChange(`competitors.${i}.mainOffer.headline`, v)}
+                          className="font-semibold"
+                        />
+                      ) : (
+                        <p className="font-semibold">{comp.mainOffer.headline}</p>
+                      )}
+                    </div>
+                    <div>
+                      {isEditing && onFieldChange ? (
+                        <EditableText
+                          value={comp.mainOffer.valueProposition}
+                          onSave={(v) => onFieldChange(`competitors.${i}.mainOffer.valueProposition`, v)}
+                          className="text-muted-foreground italic"
+                        />
+                      ) : (
+                        <p className="text-muted-foreground italic">{comp.mainOffer.valueProposition}</p>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      CTA: {comp.mainOffer.cta}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* Ad Messaging Themes - only render if available */}
+              {comp?.adMessagingThemes && comp.adMessagingThemes.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-blue-600" />
+                    Ad Themes
+                  </p>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={comp.adMessagingThemes}
+                      onSave={(v) => onFieldChange(`competitors.${i}.adMessagingThemes`, v)}
+                      renderPrefix={() => <Tag className="h-3 w-3 text-blue-600" />}
+                      className="text-sm"
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {comp.adMessagingThemes.map((theme, j) => (
+                        <Badge key={j} variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 capitalize">
+                          {theme}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Ad Creatives Carousel */}
               {comp?.adCreatives && comp.adCreatives.length > 0 && (

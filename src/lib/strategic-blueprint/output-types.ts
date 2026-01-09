@@ -252,6 +252,26 @@ export interface OfferAnalysisViability {
 // Section 4: Competitor Analysis
 // =============================================================================
 
+/** Pricing tier extracted from competitor research/ads */
+export interface PricingTier {
+  /** Tier name (e.g., "Starter", "Pro", "Enterprise") */
+  tier: string;
+  /** Price string (e.g., "$99/mo", "$299/mo", "Custom") */
+  price: string;
+  /** Key features at this tier */
+  features?: string[];
+}
+
+/** Structured offer extracted from competitor ads */
+export interface CompetitorOffer {
+  /** Primary value proposition headline from ads */
+  headline: string;
+  /** What they promise (value proposition) */
+  valueProposition: string;
+  /** Common call-to-action pattern */
+  cta: string;
+}
+
 export interface CompetitorSnapshot {
   /** Competitor name */
   name: string;
@@ -271,6 +291,12 @@ export interface CompetitorSnapshot {
   weaknesses: string[];
   /** Real ad creatives fetched from ad libraries */
   adCreatives?: AdCreative[];
+  /** Structured pricing tiers extracted from research + ad mentions */
+  pricingTiers?: PricingTier[];
+  /** Structured main offer from ad patterns */
+  mainOffer?: CompetitorOffer;
+  /** Recurring messaging themes extracted from ad copy (3-5 themes) */
+  adMessagingThemes?: string[];
 }
 
 export interface CompetitorCreativeLibrary {

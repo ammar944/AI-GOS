@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-09
-**Current Phase:** 25 (Creative Carousel UI) - COMPLETE
-**Current Plan:** 25-01-PLAN.md DONE
+**Current Phase:** 26 (Competitor Intel Enhancement) - COMPLETE
+**Current Plan:** 26-01-PLAN.md DONE
 
 ## Position
 
@@ -43,19 +43,19 @@ Milestone 7: Testing (v1.7) IN PROGRESS
 ├── Phase 21: Integration Tests
 └── Phase 22: E2E Tests
 
-Milestone 8: Ad Intelligence (v1.8) IN PROGRESS
+Milestone 8: Ad Intelligence (v1.8) COMPLETE
 ├── Phase 23: Ad Library Service DONE
 ├── Phase 24: Competitor Ad Research DONE
 ├── Phase 25: Creative Carousel UI DONE
-└── Phase 26: Competitor Intel Enhancement
+└── Phase 26: Competitor Intel Enhancement DONE
 ```
 
-Phase: 25 of 26 (Creative Carousel UI)
+Phase: 26 of 26 (Competitor Intel Enhancement)
 Plan: 1 of 1 complete
-Status: Phase complete
-Last activity: 2026-01-09 - Completed 25-01-PLAN.md
+Status: Milestone complete
+Last activity: 2026-01-09 - Completed 26-01-PLAN.md
 
-Progress: █████████░░░ 81% (21/26 phases complete)
+Progress: ██████████████ 100% (26/26 phases complete)
 
 ## Decisions
 
@@ -141,6 +141,9 @@ Progress: █████████░░░ 81% (21/26 phases complete)
 | 2026-01-09 | 25-01 | aspect-video for ad image container | Matches typical ad creative aspect ratios |
 | 2026-01-09 | 25-01 | Platform brand colors for badges | LinkedIn=#0A66C2, Meta=#1877F2, Google=#4285F4 |
 | 2026-01-09 | 25-01 | Loop carousel when >1 ad | Better UX for browsing multiple creatives |
+| 2026-01-09 | 26-01 | Regex frequency analysis for ad themes | Simple but effective for extracting 3-5 recurring themes |
+| 2026-01-09 | 26-01 | Merge ad-extracted with Perplexity pricing | Prefer research data, fallback to ad extraction |
+| 2026-01-09 | 26-01 | "Tier: $Price" format for editable tiers | Simple string format for EditableList compatibility |
 
 ## Deferred Issues
 
@@ -167,14 +170,14 @@ None.
 - v1.4 Blueprint Chat: 3 phases (Phase 15-17) - SHIPPED 2026-01-07
 - v1.5 Chat Streaming: 1 phase (Phase 18) - SHIPPED 2026-01-07
 - v1.7 Testing: 4 phases (Phase 19-22) - Started 2026-01-08
-- v1.8 Ad Intelligence: 4 phases (Phase 23-26) - Planned 2026-01-09
+- v1.8 Ad Intelligence: 4 phases (Phase 23-26) - SHIPPED 2026-01-09
 
 ## Session Continuity
 
 Last session: 2026-01-09
-Stopped at: Completed 25-01-PLAN.md - Phase 25 complete
+Stopped at: Completed 26-01-PLAN.md - v1.8 Ad Intelligence milestone complete
 Resume file: None
 
 ---
 
-*v1.8 Ad Intelligence: Real competitor ad creatives from LinkedIn, Meta, Google integrated into Section 4 with carousel display.*
+*v1.8 Ad Intelligence: Real competitor ad creatives from LinkedIn, Meta, Google integrated into Section 4 with carousel display, plus structured pricing tiers, main offer, and ad messaging themes.*

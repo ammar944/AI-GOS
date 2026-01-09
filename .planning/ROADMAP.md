@@ -9,7 +9,7 @@
 - ✅ **v1.4 Blueprint Chat** - Phases 15-17 - SHIPPED 2026-01-07
 - 📋 **v1.6 Persistence** - Planned
 - 🚧 **v1.7 Testing** - Phases 19-22 (in progress)
-- 📋 **v1.8 Ad Intelligence** - Phases 23-26 (planned)
+- ✅ **v1.8 Ad Intelligence** - Phases 23-26 - SHIPPED 2026-01-09
 
 ## Phases
 
@@ -303,7 +303,7 @@ Plans:
 
 ---
 
-### 📋 v1.8 Ad Intelligence (Planned)
+### ✅ v1.8 Ad Intelligence (Complete)
 
 Enrich competitor analysis with real ad data from LinkedIn, Meta, and Google Ad Libraries, plus verified competitor insights (offers, pricing, creatives).
 
@@ -341,15 +341,15 @@ Plans:
 Plans:
 - [x] 25-01: AdCreativeCarousel component and Section 4 integration
 
-#### Phase 26: Competitor Intel Enhancement
+#### Phase 26: Competitor Intel Enhancement COMPLETE
 **Goal**: True offers, pricing tiers, and positioning from research + ads
 **Depends on**: Phase 25
-**Research**: Likely (pricing/offer extraction patterns)
-**Research topics**: Structured pricing extraction, competitor positioning analysis
-**Plans**: TBD
+**Research**: Unlikely (pattern-based extraction)
+**Completed**: 2026-01-09
+**Plans**: 1/1
 
 Plans:
-- [ ] 26-01: TBD
+- [x] 26-01: PricingTier/CompetitorOffer types, ad messaging analysis, UI display
 
 ---
 
@@ -391,9 +391,9 @@ Plans:
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 25. Creative Carousel UI | v1.8 | 1/1 | Complete | 2026-01-09 |
-| 26. Competitor Intel Enhancement | v1.8 | 0/? | Not started | - |
+| 26. Competitor Intel Enhancement | v1.8 | 1/1 | Complete | 2026-01-09 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-09 (Phase 25 complete)*
+*Updated: 2026-01-09 (v1.8 Ad Intelligence complete)*

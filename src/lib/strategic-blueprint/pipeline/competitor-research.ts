@@ -5,7 +5,7 @@ import { createResearchAgent } from "@/lib/research";
 import { MODELS } from "@/lib/openrouter/client";
 import { createAdLibraryService } from "@/lib/ad-library";
 import type { AdCreative } from "@/lib/ad-library";
-import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot } from "../output-types";
+import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot, PricingTier, CompetitorOffer } from "../output-types";
 
 /**
  * Research competitors using Perplexity Deep Research for real-time web search.
@@ -35,7 +35,15 @@ REQUIRED JSON STRUCTURE (follow EXACTLY):
       "funnels": "string - e.g. 'Demo call, Free trial' based on their actual website",
       "adPlatforms": ["array of platforms they advertise on - verify from ad libraries"],
       "strengths": ["array of 2-3 verified strengths from reviews/market presence"],
-      "weaknesses": ["array of 2-3 weaknesses from reviews/user feedback"]
+      "weaknesses": ["array of 2-3 weaknesses from reviews/user feedback"],
+      "pricingTiers": [
+        { "tier": "string e.g. Starter", "price": "string e.g. $99/mo", "features": ["key feature 1", "key feature 2"] }
+      ],
+      "mainOffer": {
+        "headline": "string - primary value proposition from their marketing",
+        "valueProposition": "string - what they promise to deliver",
+        "cta": "string - common call-to-action pattern"
+      }
     }
   ],
   "creativeLibrary": {
@@ -73,6 +81,8 @@ RESEARCH INSTRUCTIONS:
 5. Include 3-5 competitors with verified information from web sources
 6. Use actual hook text and headlines from ads you find online
 7. Be specific with real data - avoid generic or made-up information
+8. IMPORTANT: Search competitor pricing pages for actual pricing tiers (Starter, Pro, Enterprise, etc.)
+9. Extract main offer/value proposition from their landing pages and ads
 
 OUTPUT ONLY THE JSON OBJECT. No explanations, no markdown code blocks.`;
 
@@ -177,6 +187,9 @@ function parseCompetitorAnalysisJSON(content: string): CompetitorAnalysis {
         adPlatforms: Array.isArray(c.adPlatforms) ? c.adPlatforms : [],
         strengths: Array.isArray(c.strengths) ? c.strengths : [],
         weaknesses: Array.isArray(c.weaknesses) ? c.weaknesses : [],
+        pricingTiers: parsePricingTiers(c.pricingTiers),
+        mainOffer: parseMainOffer(c.mainOffer),
+        // adMessagingThemes will be populated from ad analysis later
       })),
       creativeLibrary: {
         adHooks: Array.isArray(parsed.creativeLibrary.adHooks)
@@ -337,6 +350,165 @@ function isValidJSON(str: string): boolean {
   }
 }
 
+/**
+ * Parse pricing tiers from raw competitor data
+ */
+function parsePricingTiers(raw: unknown): PricingTier[] | undefined {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) {
+    return undefined;
+  }
+
+  const tiers: PricingTier[] = [];
+  for (const item of raw) {
+    if (typeof item === 'object' && item !== null) {
+      const obj = item as Record<string, unknown>;
+      const tier = String(obj.tier || '').trim();
+      const price = String(obj.price || '').trim();
+      if (tier && price) {
+        tiers.push({
+          tier,
+          price,
+          features: Array.isArray(obj.features)
+            ? obj.features.filter((f): f is string => typeof f === 'string')
+            : undefined,
+        });
+      }
+    }
+  }
+  return tiers.length > 0 ? tiers : undefined;
+}
+
+/**
+ * Parse main offer from raw competitor data
+ */
+function parseMainOffer(raw: unknown): CompetitorOffer | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const headline = String(obj.headline || '').trim();
+  const valueProposition = String(obj.valueProposition || '').trim();
+  const cta = String(obj.cta || '').trim();
+
+  // Need at least headline to be useful
+  if (!headline) {
+    return undefined;
+  }
+
+  return {
+    headline,
+    valueProposition: valueProposition || headline,
+    cta: cta || 'Get Started',
+  };
+}
+
+/**
+ * Ad messaging analysis result
+ */
+interface AdMessagingAnalysis {
+  themes: string[];
+  commonCTAs: string[];
+  priceMentions: string[];
+}
+
+/**
+ * Analyze ad creatives to extract messaging themes
+ */
+function analyzeAdMessaging(ads: AdCreative[]): AdMessagingAnalysis {
+  if (!ads || ads.length === 0) {
+    return { themes: [], commonCTAs: [], priceMentions: [] };
+  }
+
+  // Collect all text from ads
+  const allText: string[] = [];
+  for (const ad of ads) {
+    if (ad.headline) allText.push(ad.headline.toLowerCase());
+    if (ad.body) allText.push(ad.body.toLowerCase());
+  }
+
+  const fullText = allText.join(' ');
+
+  // Extract recurring words/phrases (simple frequency analysis)
+  const wordCounts = new Map<string, number>();
+  const meaningfulWords = fullText
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
+
+  for (const word of meaningfulWords) {
+    wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+  }
+
+  // Get words that appear 2+ times as themes
+  const themes = Array.from(wordCounts.entries())
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word);
+
+  // Extract CTAs (common patterns)
+  const ctaPatterns = [
+    /get started/gi, /sign up/gi, /try free/gi, /learn more/gi,
+    /book a demo/gi, /start free/gi, /join now/gi, /contact us/gi,
+    /request demo/gi, /free trial/gi, /schedule/gi,
+  ];
+  const foundCTAs = new Set<string>();
+  for (const pattern of ctaPatterns) {
+    const matches = fullText.match(pattern);
+    if (matches) {
+      foundCTAs.add(matches[0].toLowerCase());
+    }
+  }
+
+  // Extract price mentions
+  const pricePattern = /\$[\d,]+(?:\.\d{2})?(?:\s*\/\s*(?:mo|month|yr|year|user|seat))?/gi;
+  const priceMentions = [...new Set(fullText.match(pricePattern) || [])];
+
+  return {
+    themes,
+    commonCTAs: Array.from(foundCTAs),
+    priceMentions,
+  };
+}
+
+/**
+ * Extract pricing tiers from ad text mentions
+ */
+function extractPricingFromText(text: string): PricingTier[] {
+  if (!text) return [];
+
+  const tiers: PricingTier[] = [];
+
+  // Pattern: tier name followed by price
+  const tierPricePattern = /(?:(\w+)\s+(?:plan|tier)?[:.]?\s*)?\$[\d,]+(?:\.\d{2})?(?:\s*\/\s*(?:mo|month|yr|year|user|seat))?/gi;
+  const matches = text.matchAll(tierPricePattern);
+
+  for (const match of matches) {
+    const fullMatch = match[0];
+    const tierName = match[1];
+    const priceMatch = fullMatch.match(/\$[\d,]+(?:\.\d{2})?(?:\s*\/\s*(?:mo|month|yr|year|user|seat))?/i);
+
+    if (priceMatch) {
+      tiers.push({
+        tier: tierName || 'Standard',
+        price: priceMatch[0],
+      });
+    }
+  }
+
+  return tiers;
+}
+
+/** Common stop words to filter out from theme analysis */
+const STOP_WORDS = new Set([
+  'that', 'this', 'with', 'from', 'your', 'have', 'more', 'will', 'what',
+  'when', 'which', 'their', 'they', 'been', 'were', 'being', 'other', 'some',
+  'than', 'then', 'into', 'only', 'over', 'such', 'make', 'like', 'just',
+  'also', 'well', 'very', 'most', 'even', 'back', 'much', 'here', 'take',
+  'each', 'where', 'after', 'before', 'about', 'through', 'could', 'should',
+]);
+
 // =============================================================================
 // Ad Library Integration
 // =============================================================================
@@ -376,14 +548,46 @@ async function fetchCompetitorAds(
 }
 
 /**
- * Merge fetched ads into competitor snapshots
+ * Merge fetched ads into competitor snapshots and analyze ad messaging
  */
 function mergeAdsIntoCompetitors(
   competitors: CompetitorSnapshot[],
   adsMap: Map<string, AdCreative[]>
 ): CompetitorSnapshot[] {
-  return competitors.map(competitor => ({
-    ...competitor,
-    adCreatives: adsMap.get(competitor.name) || [],
-  }));
+  return competitors.map(competitor => {
+    const ads = adsMap.get(competitor.name) || [];
+
+    // Analyze ad messaging if we have ads
+    let adMessagingThemes: string[] | undefined;
+    let enhancedPricingTiers = competitor.pricingTiers;
+
+    if (ads.length > 0) {
+      const analysis = analyzeAdMessaging(ads);
+
+      // Use themes if found
+      if (analysis.themes.length > 0) {
+        adMessagingThemes = analysis.themes;
+        console.log(`[Competitor Research] ${competitor.name} - Extracted ${analysis.themes.length} messaging themes from ${ads.length} ads`);
+      }
+
+      // Extract and merge price mentions from ads if no pricing tiers from research
+      if (!enhancedPricingTiers || enhancedPricingTiers.length === 0) {
+        const allAdText = ads
+          .map(ad => `${ad.headline || ''} ${ad.body || ''}`)
+          .join(' ');
+        const extractedTiers = extractPricingFromText(allAdText);
+        if (extractedTiers.length > 0) {
+          enhancedPricingTiers = extractedTiers;
+          console.log(`[Competitor Research] ${competitor.name} - Extracted ${extractedTiers.length} pricing tiers from ad text`);
+        }
+      }
+    }
+
+    return {
+      ...competitor,
+      adCreatives: ads,
+      pricingTiers: enhancedPricingTiers,
+      adMessagingThemes,
+    };
+  });
 }
