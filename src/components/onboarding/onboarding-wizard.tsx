@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import {
   Building2,
   Users,
@@ -13,8 +14,8 @@ import {
   Shield,
   Check,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { GradientBorder } from "@/components/ui/gradient-border";
+import { fadeUp, easings } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 import { StepBusinessBasics } from "./step-business-basics";
@@ -284,15 +285,27 @@ export function OnboardingWizard({
       <div className="space-y-4">
         {/* Step Counter & Progress Bar */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">
+          <div className="flex items-center justify-between text-[14px]">
+            <span className="font-medium" style={{ color: "var(--text-primary)" }}>
               Step {currentStep + 1} of {STEPS.length}
             </span>
-            <span className="text-muted-foreground">
+            <span style={{ color: "var(--text-tertiary)" }}>
               {Math.round(progress)}% complete
             </span>
           </div>
-          <Progress value={progress} className="h-2" />
+          {/* Animated Progress Bar */}
+          <div
+            className="h-2 rounded-full overflow-hidden"
+            style={{ background: "var(--bg-hover)" }}
+          >
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: "var(--gradient-primary)" }}
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5, ease: easings.out }}
+            />
+          </div>
         </div>
 
         {/* Step Indicators */}
@@ -314,42 +327,74 @@ export function OnboardingWizard({
                   {index !== 0 && (
                     <div className="absolute left-0 right-0 top-4 -z-10 hidden md:block">
                       <div
-                        className={cn(
-                          "h-0.5 w-full",
-                          isCompleted ? "bg-primary" : "bg-border"
-                        )}
+                        className="h-0.5 w-full transition-colors duration-300"
+                        style={{
+                          background: isCompleted
+                            ? "var(--accent-blue)"
+                            : "var(--border-default)",
+                        }}
                       />
                     </div>
                   )}
 
                   {/* Step Circle */}
-                  <div
+                  <motion.div
                     className={cn(
-                      "relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors",
-                      isCompleted
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : isCurrent
-                          ? "border-primary bg-background text-primary"
-                          : "border-muted bg-muted text-muted-foreground"
+                      "relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors"
                     )}
+                    style={{
+                      borderColor: isCompleted || isCurrent
+                        ? "var(--accent-blue)"
+                        : "var(--border-default)",
+                      background: isCompleted
+                        ? "var(--accent-blue)"
+                        : isCurrent
+                          ? "transparent"
+                          : "var(--bg-hover)",
+                      color: isCompleted
+                        ? "#ffffff"
+                        : isCurrent
+                          ? "var(--accent-blue)"
+                          : "var(--text-tertiary)",
+                    }}
+                    animate={
+                      isCurrent
+                        ? {
+                            scale: [1, 1.1, 1],
+                            boxShadow: [
+                              "0 0 0 0 rgba(59, 130, 246, 0)",
+                              "0 0 0 8px rgba(59, 130, 246, 0.2)",
+                              "0 0 0 0 rgba(59, 130, 246, 0)",
+                            ],
+                          }
+                        : { scale: 1 }
+                    }
+                    transition={
+                      isCurrent
+                        ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                        : { duration: 0.3 }
+                    }
                   >
                     {isCompleted ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       step.icon
                     )}
-                  </div>
+                  </motion.div>
 
                   {/* Step Label */}
                   <span
                     className={cn(
-                      "text-xs font-medium",
-                      isCurrent
-                        ? "text-primary"
-                        : isCompleted
-                          ? "text-foreground"
-                          : "text-muted-foreground"
+                      "text-xs transition-colors duration-300",
+                      isCurrent ? "font-semibold" : "font-medium"
                     )}
+                    style={{
+                      color: isCurrent
+                        ? "var(--text-primary)"
+                        : isCompleted
+                          ? "var(--text-secondary)"
+                          : "var(--text-tertiary)",
+                    }}
                   >
                     {step.shortTitle}
                   </span>
@@ -361,12 +406,23 @@ export function OnboardingWizard({
 
         {/* Mobile Step Indicator */}
         <div className="flex items-center gap-3 md:hidden">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-primary text-primary-foreground">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full"
+            style={{
+              background: "var(--gradient-primary)",
+              color: "#ffffff",
+            }}
+          >
             {STEPS[currentStep].icon}
           </div>
           <div>
-            <p className="font-medium">{STEPS[currentStep].title}</p>
-            <p className="text-sm text-muted-foreground">
+            <p
+              className="text-[16px] font-medium"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {STEPS[currentStep].title}
+            </p>
+            <p className="text-[14px]" style={{ color: "var(--text-tertiary)" }}>
               Step {currentStep + 1} of {STEPS.length}
             </p>
           </div>
@@ -374,11 +430,19 @@ export function OnboardingWizard({
       </div>
 
       {/* Form Card */}
-      <Card className="border-2">
-        <CardContent className="p-6 md:p-8">
+      <GradientBorder className="overflow-hidden">
+        <motion.div
+          key={currentStep}
+          className="p-6 md:p-8"
+          style={{ background: "var(--bg-elevated)" }}
+          variants={fadeUp}
+          initial="initial"
+          animate="animate"
+          transition={{ duration: 0.6, ease: easings.out }}
+        >
           {renderStepContent()}
-        </CardContent>
-      </Card>
+        </motion.div>
+      </GradientBorder>
     </div>
   );
 }
