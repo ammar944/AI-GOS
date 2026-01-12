@@ -399,11 +399,11 @@ Plans:
 **Goal**: Apply new design language to business intake forms with floating labels and magnetic buttons
 **Depends on**: Phase 28
 **Research**: Unlikely (applying existing patterns)
-**Plans**: 1/5
+**Plans**: 2/5
 
 Plans:
 - [x] 29-01: Wizard & Navigation (FloatingLabelTextarea, GradientBorder wrapper, animated progress bar)
-- [ ] 29-02: Step 1 Form
+- [x] 29-02: Step 1 Form (FloatingLabelInput, MagneticButton Continue/Back pattern)
 - [ ] 29-03: Step 2 Form
 - [ ] 29-04: Step 3 Form
 - [ ] 29-05: Step 4 Form
@@ -478,7 +478,7 @@ Plans:
 | 26. Competitor Intel Enhancement | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 27. Design Foundation | v2.0 | 2/2 | Complete | 2026-01-12 |
 | 28. Core Components | v2.0 | 1/1 | Complete | 2026-01-12 |
-| 29. Onboarding Refresh | v2.0 | 1/5 | In Progress | - |
+| 29. Onboarding Refresh | v2.0 | 2/5 | In Progress | - |
 | 30. Generation UI | v2.0 | 0/? | Not started | - |
 | 31. Output Display | v2.0 | 0/? | Not started | - |
 | 32. Chat Panel | v2.0 | 0/? | Not started | - |

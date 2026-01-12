@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Globe } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { motion } from "framer-motion";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
+import { MagneticButton } from "@/components/ui/magnetic-button";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { BusinessBasicsData } from "@/lib/onboarding/types";
 
 interface StepBusinessBasicsProps {
@@ -97,65 +97,92 @@ export function StepBusinessBasics({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+      <motion.div
+        className="space-y-2"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+      >
+        <h2
+          className="text-[24px] font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Business Basics
         </h2>
-        <p className="text-muted-foreground">
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Let&apos;s start with your company information
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div
+        className="grid gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Business Name */}
-        <div className="space-y-2">
-          <Label htmlFor="businessName" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            Business Name
-          </Label>
-          <Input
-            id="businessName"
-            placeholder="Acme Inc."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelInput
+            label="Business Name"
             value={formData.businessName}
             onChange={(e) => updateField("businessName", e.target.value)}
             aria-invalid={!!errors.businessName}
-            className="h-11"
           />
           {errors.businessName && (
-            <p className="text-sm text-destructive">{errors.businessName}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.businessName}
+            </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Website URL */}
-        <div className="space-y-2">
-          <Label htmlFor="websiteUrl" className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-muted-foreground" />
-            Website URL
-          </Label>
-          <Input
-            id="websiteUrl"
-            placeholder="www.example.com"
+        <motion.div variants={staggerItem}>
+          <FloatingLabelInput
+            label="Website URL"
             value={formData.websiteUrl}
             onChange={(e) => updateField("websiteUrl", e.target.value)}
             aria-invalid={!!errors.websiteUrl}
-            className="h-11"
           />
           {errors.websiteUrl && (
-            <p className="text-sm text-destructive">{errors.websiteUrl}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.websiteUrl}
+            </p>
           )}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div
+        className="flex gap-3 pt-6"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.3 }}
+      >
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            onClick={onBack}
+            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
           Continue
-        </Button>
-      </div>
+        </MagneticButton>
+      </motion.div>
     </form>
   );
 }
