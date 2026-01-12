@@ -10,6 +10,7 @@
 - 📋 **v1.6 Persistence** - Planned
 - 🚧 **v1.7 Testing** - Phases 19-22 (in progress)
 - ✅ **v1.8 Ad Intelligence** - Phases 23-26 - SHIPPED 2026-01-09
+- **v2.0 Design Refresh** - Phases 27-32 (planned)
 
 ## Phases
 
@@ -282,7 +283,7 @@ Plans:
 
 Plans:
 - [x] 20-01: JSON Extraction Tests (extractJSON strategies 1-8, repairJSON, isValidJSON)
-- [ ] 20-02: Zod Schema Tests (11 media plan section schemas)
+- [x] 20-02: Zod Schema Tests (11 media plan section schemas)
 - [ ] 20-03: Utility Function Tests (localStorage, model capability helpers)
 
 #### Phase 21: Integration Tests
@@ -357,6 +358,77 @@ Plans:
 
 ---
 
+### v2.0 Design Refresh (Planned)
+
+Premium, crafted design language overhaul inspired by Vercel, Stripe, and Linear. Dark-first aesthetic with Framer Motion animations, Geist typography, and polished micro-interactions.
+
+**Milestone Goal:** Transform the entire UI with a cohesive premium design system across onboarding, generation, output display, and chat.
+
+**Stack:**
+- **UI Components:** shadcn/ui
+- **Icons:** Lucide React (no emojis)
+- **Animations:** Framer Motion
+- **Typography:** Geist Sans + Geist Mono
+
+**Design Spec:** [AI-GOS-DESIGN-SYSTEM.md](.planning/docs/AI-GOS-DESIGN-SYSTEM.md)
+**Reference Implementation:** [aigis-soul.jsx](.planning/docs/aigis-soul.jsx)
+
+#### Phase 27: Design Foundation
+**Goal**: Set up Geist fonts, CSS tokens, Framer Motion springs, Grain overlay, GradientBorder component
+**Depends on**: v1.8 complete
+**Research**: Unlikely (design system documented)
+**Plans**: TBD
+
+Plans:
+- [ ] 27-01: TBD
+
+#### Phase 28: Core Components
+**Goal**: MagneticButton, floating label Input, StatCard with counter animation (Lucide icons), Badge - built on shadcn/ui
+**Depends on**: Phase 27
+**Research**: Unlikely (component patterns documented)
+**Plans**: TBD
+
+Plans:
+- [ ] 28-01: TBD
+
+#### Phase 29: Onboarding Refresh
+**Goal**: Apply new design language to business intake forms with floating labels and magnetic buttons
+**Depends on**: Phase 28
+**Research**: Unlikely (applying existing patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 29-01: TBD
+
+#### Phase 30: Generation UI
+**Goal**: Pipeline progress component, generation states, stats display grid, streaming response display
+**Depends on**: Phase 29
+**Research**: Unlikely (patterns documented)
+**Plans**: TBD
+
+Plans:
+- [ ] 30-01: TBD
+
+#### Phase 31: Output Display
+**Goal**: Document editor window (traffic lights, line numbers, syntax highlighting, streaming cursor), blueprint viewer
+**Depends on**: Phase 30
+**Research**: Unlikely (patterns documented)
+**Plans**: TBD
+
+Plans:
+- [ ] 31-01: TBD
+
+#### Phase 32: Chat Panel
+**Goal**: Slide panel with backdrop, message bubbles, typing indicator animation, quick suggestion pills
+**Depends on**: Phase 31
+**Research**: Unlikely (patterns documented)
+**Plans**: TBD
+
+Plans:
+- [ ] 32-01: TBD
+
+---
+
 ### Future Milestones
 
 #### v1.6 Persistence
@@ -389,15 +461,21 @@ Plans:
 | 17. Explain Agent | v1.4 | 1/1 | Complete | 2026-01-07 |
 | 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
 | 19. Test Infrastructure | v1.7 | 2/2 | Complete | 2026-01-12 |
-| 20. Unit Tests Core | v1.7 | 1/3 | In progress | - |
+| 20. Unit Tests Core | v1.7 | 2/3 | In progress | - |
 | 21. Integration Tests | v1.7 | 0/? | Not started | - |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 25. Creative Carousel UI | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 26. Competitor Intel Enhancement | v1.8 | 1/1 | Complete | 2026-01-09 |
+| 27. Design Foundation | v2.0 | 0/? | Not started | - |
+| 28. Core Components | v2.0 | 0/? | Not started | - |
+| 29. Onboarding Refresh | v2.0 | 0/? | Not started | - |
+| 30. Generation UI | v2.0 | 0/? | Not started | - |
+| 31. Output Display | v2.0 | 0/? | Not started | - |
+| 32. Chat Panel | v2.0 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-12 (Phase 19 complete)*
+*Updated: 2026-01-12 (v2.0 Design Refresh milestone created)*

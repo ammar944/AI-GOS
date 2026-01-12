@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-12
 **Current Phase:** 20 (Unit Tests Core) - IN PROGRESS
-**Current Plan:** 20-01-PLAN.md DONE
+**Current Plan:** 20-02-PLAN.md DONE
 
 ## Position
 
@@ -39,7 +39,7 @@ Milestone 6: Chat Streaming (v1.5) COMPLETE (archived)
 
 Milestone 7: Testing (v1.7) IN PROGRESS
 ├── Phase 19: Test Infrastructure (2/2 plans) DONE
-├── Phase 20: Unit Tests Core (1/3 plans) IN PROGRESS
+├── Phase 20: Unit Tests Core (2/3 plans) IN PROGRESS
 ├── Phase 21: Integration Tests
 └── Phase 22: E2E Tests
 
@@ -48,12 +48,20 @@ Milestone 8: Ad Intelligence (v1.8) COMPLETE
 ├── Phase 24: Competitor Ad Research DONE
 ├── Phase 25: Creative Carousel UI DONE
 └── Phase 26: Competitor Intel Enhancement DONE
+
+Milestone 9: Design Refresh (v2.0) PLANNED
+├── Phase 27: Design Foundation
+├── Phase 28: Core Components
+├── Phase 29: Onboarding Refresh
+├── Phase 30: Generation UI
+├── Phase 31: Output Display
+└── Phase 32: Chat Panel
 ```
 
-Phase: 20 of 26 (Unit Tests Core)
-Plan: 1 of 3 in current phase
+Phase: 20 of 32 (Unit Tests Core)
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-12 - Completed 20-01-PLAN.md
+Last activity: 2026-01-12 - Completed 20-02-PLAN.md
 
 Progress: ██████████████ 100% (26/26 phases complete)
 
@@ -179,13 +187,14 @@ None.
 - v1.5 Chat Streaming: 1 phase (Phase 18) - SHIPPED 2026-01-07
 - v1.7 Testing: 4 phases (Phase 19-22) - Started 2026-01-08
 - v1.8 Ad Intelligence: 4 phases (Phase 23-26) - SHIPPED 2026-01-09
+- v2.0 Design Refresh: 6 phases (Phase 27-32) - Created 2026-01-12
 
 ## Session Continuity
 
 Last session: 2026-01-12
-Stopped at: Completed 20-01-PLAN.md
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None
 
 ---
 
-*v1.7 Testing: Phase 20 in progress (1/3 plans). Ready for 20-02-PLAN.md.*
+*v1.7 Testing: Phase 20 in progress (2/3 plans). Ready for 20-03-PLAN.md.*
