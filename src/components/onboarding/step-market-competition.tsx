@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, Swords, AlertTriangle, Lightbulb, Cpu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
+import { MagneticButton } from "@/components/ui/magnetic-button";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { MarketCompetitionData } from "@/lib/onboarding/types";
 
 interface StepMarketCompetitionProps {
@@ -74,133 +74,135 @@ export function StepMarketCompetition({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+      <motion.div
+        className="space-y-2"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+      >
+        <h2
+          className="text-[24px] font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Market & Competition
         </h2>
-        <p className="text-muted-foreground">
-          Help us understand your competitive landscape and market dynamics
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
+          Tell us about your market landscape and competitors
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div
+        className="grid gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Top Competitors */}
-        <div className="space-y-2">
-          <Label htmlFor="topCompetitors" className="flex items-center gap-2">
-            <Swords className="h-4 w-4 text-muted-foreground" />
-            Who are your top competitors?
-          </Label>
-          <Textarea
-            id="topCompetitors"
-            placeholder="List your main competitors and briefly describe what they offer..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="Who are your top competitors?"
             value={formData.topCompetitors}
             onChange={(e) => updateField("topCompetitors", e.target.value)}
             rows={4}
             aria-invalid={!!errors.topCompetitors}
-            className="resize-none"
           />
           {errors.topCompetitors && (
-            <p className="text-sm text-destructive">{errors.topCompetitors}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.topCompetitors}
+            </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Unique Edge */}
-        <div className="space-y-2">
-          <Label htmlFor="uniqueEdge" className="flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-muted-foreground" />
-            What makes your product more attractive or effective?
-          </Label>
-          <Textarea
-            id="uniqueEdge"
-            placeholder="What's the simplest way to explain why customers choose you over alternatives?"
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What makes your product more attractive or effective?"
             value={formData.uniqueEdge}
             onChange={(e) => updateField("uniqueEdge", e.target.value)}
             rows={3}
             aria-invalid={!!errors.uniqueEdge}
-            className="resize-none"
           />
           {errors.uniqueEdge && (
-            <p className="text-sm text-destructive">{errors.uniqueEdge}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.uniqueEdge}
+            </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Competitor Frustrations */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="competitorFrustrations"
-            className="flex items-center gap-2"
-          >
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            What frustrations do customers have with competing products?
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="competitorFrustrations"
-            placeholder="Common complaints, pain points, or gaps that competitors don't address well..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What frustrations do customers have with competing products? (optional)"
             value={formData.competitorFrustrations}
             onChange={(e) =>
               updateField("competitorFrustrations", e.target.value)
             }
             rows={3}
-            className="resize-none"
           />
-        </div>
+        </motion.div>
 
         {/* Market Bottlenecks */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="marketBottlenecks"
-            className="flex items-center gap-2"
-          >
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            What are the biggest frustrations or bottlenecks in your target
-            market?
-          </Label>
-          <Textarea
-            id="marketBottlenecks"
-            placeholder="Industry-wide challenges, inefficiencies, or problems that your market faces..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What are the biggest frustrations or bottlenecks in your target market?"
             value={formData.marketBottlenecks}
             onChange={(e) => updateField("marketBottlenecks", e.target.value)}
             rows={3}
             aria-invalid={!!errors.marketBottlenecks}
-            className="resize-none"
           />
           {errors.marketBottlenecks && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.marketBottlenecks}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Proprietary Tech */}
-        <div className="space-y-2">
-          <Label htmlFor="proprietaryTech" className="flex items-center gap-2">
-            <Cpu className="h-4 w-4 text-muted-foreground" />
-            Do you use any proprietary frameworks, systems, or technology worth
-            highlighting?
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="proprietaryTech"
-            placeholder="Any unique methodology, technology, or approach that differentiates your solution..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="Do you use any proprietary frameworks, systems, or technology? (optional)"
             value={formData.proprietaryTech}
             onChange={(e) => updateField("proprietaryTech", e.target.value)}
             rows={2}
-            className="resize-none"
           />
-        </div>
-      </div>
+          <p className="text-[12px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
+            Any unique methodology, technology, or approach that differentiates your solution
+          </p>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div
+        className="flex gap-3 pt-6"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.3 }}
+      >
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            onClick={onBack}
+            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
           Continue
-        </Button>
-      </div>
+        </MagneticButton>
+      </motion.div>
     </form>
   );
 }

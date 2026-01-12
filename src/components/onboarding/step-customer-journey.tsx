@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Route, Sparkles, MessageSquare, Clock, Workflow } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
+import { MagneticButton } from "@/components/ui/magnetic-button";
 import {
   Select,
   SelectContent,
@@ -12,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { CustomerJourneyData, SalesCycleLength } from "@/lib/onboarding/types";
 import { SALES_CYCLE_OPTIONS } from "@/lib/onboarding/types";
 
@@ -81,158 +81,175 @@ export function StepCustomerJourney({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+      <motion.div
+        className="space-y-2"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+      >
+        <h2
+          className="text-[24px] font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Customer Journey
         </h2>
-        <p className="text-muted-foreground">
-          Describe the transformation your customers experience
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
+          Map out how customers discover and buy from you
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div
+        className="grid gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Situation Before Buying */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="situationBeforeBuying"
-            className="flex items-center gap-2"
-          >
-            <Route className="h-4 w-4 text-muted-foreground" />
-            What situation is your ideal client usually in before buying from
-            you?
-          </Label>
-          <Textarea
-            id="situationBeforeBuying"
-            placeholder="Describe their current state, struggles, and what they've typically tried before..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What situation is your ideal client usually in before buying?"
             value={formData.situationBeforeBuying}
             onChange={(e) =>
               updateField("situationBeforeBuying", e.target.value)
             }
             rows={4}
             aria-invalid={!!errors.situationBeforeBuying}
-            className="resize-none"
           />
           {errors.situationBeforeBuying && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.situationBeforeBuying}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Desired Transformation */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="desiredTransformation"
-            className="flex items-center gap-2"
-          >
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-            What outcome or transformation are they hoping to achieve?
-          </Label>
-          <Textarea
-            id="desiredTransformation"
-            placeholder="The end result, goals, or transformation your customers are seeking..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What outcome or transformation are they hoping to achieve?"
             value={formData.desiredTransformation}
             onChange={(e) =>
               updateField("desiredTransformation", e.target.value)
             }
             rows={4}
             aria-invalid={!!errors.desiredTransformation}
-            className="resize-none"
           />
           {errors.desiredTransformation && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.desiredTransformation}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Common Objections */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="commonObjections"
-            className="flex items-center gap-2"
-          >
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            What common objections do prospects bring up and how do you address
-            them?
-          </Label>
-          <Textarea
-            id="commonObjections"
-            placeholder="List typical objections and your responses to them..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What common objections do prospects bring up and how do you address them?"
             value={formData.commonObjections}
             onChange={(e) => updateField("commonObjections", e.target.value)}
             rows={4}
             aria-invalid={!!errors.commonObjections}
-            className="resize-none"
           />
           {errors.commonObjections && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.commonObjections}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Sales Cycle Length */}
-        <div className="space-y-2">
-          <Label htmlFor="salesCycleLength" className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+        <motion.div className="space-y-2" variants={staggerItem}>
+          <label
+            className="text-[14px] font-medium"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             Average Sales Cycle Length
-          </Label>
+          </label>
           <Select
             value={formData.salesCycleLength}
             onValueChange={(value) =>
               updateField("salesCycleLength", value as SalesCycleLength)
             }
           >
-            <SelectTrigger id="salesCycleLength" className="h-11">
+            <SelectTrigger
+              className="h-12 rounded-lg"
+              style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
+                color: 'var(--text-primary)',
+              }}
+            >
               <SelectValue placeholder="Select sales cycle length" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
               {SALES_CYCLE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="hover:bg-[var(--bg-hover)]"
+                >
                   {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
             Time from first contact to closed sale
           </p>
-        </div>
+        </motion.div>
 
         {/* Sales Process Overview */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="salesProcessOverview"
-            className="flex items-center gap-2"
-          >
-            <Workflow className="h-4 w-4 text-muted-foreground" />
-            What does your sales process look like from lead to close?
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="salesProcessOverview"
-            placeholder="E.g., Lead capture → Discovery call → Demo → Proposal → Close..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What does your sales process look like from lead to close? (optional)"
             value={formData.salesProcessOverview}
             onChange={(e) =>
               updateField("salesProcessOverview", e.target.value)
             }
             rows={3}
-            className="resize-none"
           />
-        </div>
-      </div>
+          <p className="text-[12px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
+            E.g., Lead capture, Discovery call, Demo, Proposal, Close
+          </p>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div
+        className="flex gap-3 pt-6"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.3 }}
+      >
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            onClick={onBack}
+            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
           Continue
-        </Button>
-      </div>
+        </MagneticButton>
+      </motion.div>
     </form>
   );
 }

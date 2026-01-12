@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Quote } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
+import { MagneticButton } from "@/components/ui/magnetic-button";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { BrandPositioningData } from "@/lib/onboarding/types";
 
 interface StepBrandPositioningProps {
@@ -61,76 +61,94 @@ export function StepBrandPositioning({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+      <motion.div
+        className="space-y-2"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+      >
+        <h2
+          className="text-[24px] font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Brand & Positioning
         </h2>
-        <p className="text-muted-foreground">
-          Define how you want to be perceived in the market
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
+          Define your brand voice and market positioning
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div
+        className="grid gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Brand Positioning */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="brandPositioning"
-            className="flex items-center gap-2"
-          >
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-            What do you want your brand to be known for in your market?
-          </Label>
-          <Textarea
-            id="brandPositioning"
-            placeholder="The reputation, perception, and positioning you want to own in your industry..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What do you want your brand to be known for in your market?"
             value={formData.brandPositioning}
             onChange={(e) => updateField("brandPositioning", e.target.value)}
             rows={5}
             aria-invalid={!!errors.brandPositioning}
-            className="resize-none"
           />
           {errors.brandPositioning && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.brandPositioning}
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
-            Think about the key attributes, expertise, or values you want
-            associated with your brand
+          <p className="text-[12px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
+            Think about the key attributes, expertise, or values you want associated with your brand
           </p>
-        </div>
+        </motion.div>
 
         {/* Customer Voice */}
-        <div className="space-y-2">
-          <Label htmlFor="customerVoice" className="flex items-center gap-2">
-            <Quote className="h-4 w-4 text-muted-foreground" />
-            How would your best customer describe you?
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="customerVoice"
-            placeholder="In their own words, how would a satisfied customer describe working with you or using your product?"
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="How would your best customer describe you? (optional)"
             value={formData.customerVoice}
             onChange={(e) => updateField("customerVoice", e.target.value)}
             rows={4}
-            className="resize-none"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[12px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
             This helps us understand the voice and language of your customers
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div
+        className="flex gap-3 pt-6"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.3 }}
+      >
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            onClick={onBack}
+            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
           Continue
-        </Button>
-      </div>
+        </MagneticButton>
+      </motion.div>
     </form>
   );
 }
