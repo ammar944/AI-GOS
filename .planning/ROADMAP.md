@@ -400,12 +400,12 @@ Plans:
 **Goal**: Apply new design language to business intake forms with floating labels and magnetic buttons
 **Depends on**: Phase 28
 **Research**: Unlikely (applying existing patterns)
-**Plans**: 2/5
+**Plans**: 3/5
 
 Plans:
 - [x] 29-01: Wizard & Navigation (FloatingLabelTextarea, GradientBorder wrapper, animated progress bar)
 - [x] 29-02: Step 1 Form (FloatingLabelInput, MagneticButton Continue/Back pattern)
-- [ ] 29-03: Step 2 Form
+- [x] 29-03: Step 2 Form (FloatingLabel conversion for step-icp and step-product-offer)
 - [ ] 29-04: Step 3 Form
 - [ ] 29-05: Step 4 Form
 

@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Building, MapPin, Zap, TrendingUp, Settings } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
+import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
+import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { ICPData, CompanySize, ClientSource } from "@/lib/onboarding/types";
 import {
   COMPANY_SIZE_OPTIONS,
@@ -112,100 +112,115 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+      <motion.div
+        className="space-y-2"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+      >
+        <h2
+          className="text-[24px] font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Ideal Customer Profile
         </h2>
-        <p className="text-muted-foreground">
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Define who your best customers are and how to reach them
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div
+        className="grid gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Primary ICP Description */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="primaryIcpDescription"
-            className="flex items-center gap-2"
-          >
-            <Users className="h-4 w-4 text-muted-foreground" />
-            Who is your ideal client?
-          </Label>
-          <Textarea
-            id="primaryIcpDescription"
-            placeholder="Include titles, roles, industries, business size, geography, and buying behavior..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="Who is your ideal client?"
             value={formData.primaryIcpDescription}
             onChange={(e) =>
               updateField("primaryIcpDescription", e.target.value)
             }
             rows={4}
             aria-invalid={!!errors.primaryIcpDescription}
-            className="resize-none"
           />
           {errors.primaryIcpDescription && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.primaryIcpDescription}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Industry & Job Titles Row */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label
-              htmlFor="industryVertical"
-              className="flex items-center gap-2"
-            >
-              <Building className="h-4 w-4 text-muted-foreground" />
-              Industry Vertical
-            </Label>
-            <Input
-              id="industryVertical"
-              placeholder="e.g., SaaS, E-commerce, Healthcare"
+        <motion.div className="grid gap-6 md:grid-cols-2" variants={staggerItem}>
+          <div>
+            <FloatingLabelInput
+              label="Industry Vertical"
               value={formData.industryVertical}
               onChange={(e) => updateField("industryVertical", e.target.value)}
               aria-invalid={!!errors.industryVertical}
-              className="h-11"
             />
             {errors.industryVertical && (
-              <p className="text-sm text-destructive">
+              <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
                 {errors.industryVertical}
               </p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="jobTitles">Target Job Titles</Label>
-            <Input
-              id="jobTitles"
-              placeholder="e.g., CEO, CMO, Marketing Director"
+          <div>
+            <FloatingLabelInput
+              label="Target Job Titles"
               value={formData.jobTitles}
               onChange={(e) => updateField("jobTitles", e.target.value)}
               aria-invalid={!!errors.jobTitles}
-              className="h-11"
             />
             {errors.jobTitles && (
-              <p className="text-sm text-destructive">{errors.jobTitles}</p>
+              <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+                {errors.jobTitles}
+              </p>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Company Size & Geography Row */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <motion.div className="grid gap-6 md:grid-cols-2" variants={staggerItem}>
           <div className="space-y-2">
-            <Label htmlFor="companySize">Company Size</Label>
+            <label
+              className="text-[14px] font-medium"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Company Size
+            </label>
             <Select
               value={formData.companySize}
               onValueChange={(value) =>
                 updateField("companySize", value as CompanySize)
               }
             >
-              <SelectTrigger id="companySize" className="h-11">
+              <SelectTrigger
+                className="h-12 rounded-lg"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-primary)',
+                }}
+              >
                 <SelectValue placeholder="Select company size" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
                 {COMPANY_SIZE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="hover:bg-[var(--bg-hover)]"
+                  >
                     {option.label}
                   </SelectItem>
                 ))}
@@ -213,143 +228,152 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="geography" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              Geography
-            </Label>
-            <Input
-              id="geography"
-              placeholder="e.g., USA, North America, Global"
+          <div>
+            <FloatingLabelInput
+              label="Geography"
               value={formData.geography}
               onChange={(e) => updateField("geography", e.target.value)}
               aria-invalid={!!errors.geography}
-              className="h-11"
             />
             {errors.geography && (
-              <p className="text-sm text-destructive">{errors.geography}</p>
+              <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+                {errors.geography}
+              </p>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Easiest to Close */}
-        <div className="space-y-2">
-          <Label htmlFor="easiestToClose" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            What type of companies or users are easiest for you to close and
-            why?
-          </Label>
-          <Textarea
-            id="easiestToClose"
-            placeholder="Include patterns in mindset, urgency, buying triggers, or use cases..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What type of companies are easiest for you to close and why?"
             value={formData.easiestToClose}
             onChange={(e) => updateField("easiestToClose", e.target.value)}
             rows={3}
             aria-invalid={!!errors.easiestToClose}
-            className="resize-none"
           />
           {errors.easiestToClose && (
-            <p className="text-sm text-destructive">{errors.easiestToClose}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.easiestToClose}
+            </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Buying Triggers */}
-        <div className="space-y-2">
-          <Label htmlFor="buyingTriggers" className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-muted-foreground" />
-            What problems or situations make them ready to buy?
-          </Label>
-          <Textarea
-            id="buyingTriggers"
-            placeholder="E.g., missed KPIs, inefficiencies, hiring gaps, system limitations..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What problems or situations make them ready to buy?"
             value={formData.buyingTriggers}
             onChange={(e) => updateField("buyingTriggers", e.target.value)}
             rows={3}
             aria-invalid={!!errors.buyingTriggers}
-            className="resize-none"
           />
           {errors.buyingTriggers && (
-            <p className="text-sm text-destructive">{errors.buyingTriggers}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.buyingTriggers}
+            </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Best Client Sources */}
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2">
+        <motion.div className="space-y-3" variants={staggerItem}>
+          <label
+            className="text-[14px] font-medium"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             Where do your best clients typically come from?
-          </Label>
+          </label>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {CLIENT_SOURCE_OPTIONS.map((option) => (
               <label
                 key={option.value}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent ${
-                  formData.bestClientSources.includes(option.value)
-                    ? "border-primary bg-primary/5"
-                    : "border-input"
-                }`}
+                className="flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-all"
+                style={{
+                  border: '1px solid',
+                  borderColor: formData.bestClientSources.includes(option.value)
+                    ? 'var(--accent-blue)'
+                    : 'var(--border-default)',
+                  background: formData.bestClientSources.includes(option.value)
+                    ? 'var(--accent-blue-subtle)'
+                    : 'transparent',
+                }}
               >
                 <Checkbox
                   checked={formData.bestClientSources.includes(option.value)}
                   onCheckedChange={() => toggleSource(option.value)}
                 />
-                <span className="text-sm">{option.label}</span>
+                <span
+                  className="text-sm"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {option.label}
+                </span>
               </label>
             ))}
           </div>
           {errors.bestClientSources && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.bestClientSources}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Secondary ICP */}
-        <div className="space-y-2">
-          <Label htmlFor="secondaryIcp">
-            Secondary ICP{" "}
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="secondaryIcp"
-            placeholder="If you target multiple segments, describe your secondary ICP here..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="Secondary ICP (optional)"
             value={formData.secondaryIcp}
             onChange={(e) => updateField("secondaryIcp", e.target.value)}
             rows={3}
-            className="resize-none"
           />
-        </div>
+        </motion.div>
 
         {/* Systems & Platforms */}
-        <div className="space-y-2">
-          <Label htmlFor="systemsPlatforms" className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-muted-foreground" />
-            Systems & Platforms Used{" "}
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="systemsPlatforms"
-            placeholder="List the systems and platforms you use: CRM (HubSpot, Salesforce), Marketing (GHL, ActiveCampaign), Delivery (Slack, ClickUp), Communication tools..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="Systems & Platforms Used (optional)"
             value={formData.systemsPlatforms || ""}
             onChange={(e) => updateField("systemsPlatforms", e.target.value)}
             rows={3}
-            className="resize-none"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[12px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
             Include CRM, marketing automation, project management, and communication tools
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div
+        className="flex gap-3 pt-6"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.3 }}
+      >
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            onClick={onBack}
+            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
           Continue
-        </Button>
-      </div>
+        </MagneticButton>
+      </motion.div>
     </form>
   );
 }

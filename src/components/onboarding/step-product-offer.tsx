@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Package, DollarSign, Heart, Shield, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
+import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
+import { MagneticButton } from "@/components/ui/magnetic-button";
 import {
   Select,
   SelectContent,
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type {
   ProductOfferData,
   PricingModel,
@@ -99,189 +99,234 @@ export function StepProductOffer({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+      <motion.div
+        className="space-y-2"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+      >
+        <h2
+          className="text-[24px] font-bold tracking-tight"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Product & Offer
         </h2>
-        <p className="text-muted-foreground">
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Tell us about what you sell and the value you provide
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div
+        className="grid gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Product Description */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="productDescription"
-            className="flex items-center gap-2"
-          >
-            <Package className="h-4 w-4 text-muted-foreground" />
-            In simple terms, what does your product do and what core problem
-            does it solve?
-          </Label>
-          <Textarea
-            id="productDescription"
-            placeholder="Describe your product/service and the main problem it solves for your customers..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="In simple terms, what does your product do and what core problem does it solve?"
             value={formData.productDescription}
             onChange={(e) => updateField("productDescription", e.target.value)}
             rows={4}
             aria-invalid={!!errors.productDescription}
-            className="resize-none"
           />
           {errors.productDescription && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.productDescription}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Core Deliverables */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="coreDeliverables"
-            className="flex items-center gap-2"
-          >
-            <Layers className="h-4 w-4 text-muted-foreground" />
-            What are the core deliverables or features included in your offer?
-          </Label>
-          <Textarea
-            id="coreDeliverables"
-            placeholder="List the main features, services, or deliverables your customers receive..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What are the core deliverables or features included in your offer?"
             value={formData.coreDeliverables}
             onChange={(e) => updateField("coreDeliverables", e.target.value)}
             rows={3}
             aria-invalid={!!errors.coreDeliverables}
-            className="resize-none"
           />
           {errors.coreDeliverables && (
-            <p className="text-sm text-destructive">
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
               {errors.coreDeliverables}
             </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Price & Pricing Model Row */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="offerPrice" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              Offer Price (USD)
-            </Label>
+        <motion.div className="grid gap-6 md:grid-cols-2" variants={staggerItem}>
+          <div>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <span
+                className="absolute left-0 top-4 text-[16px]"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 $
               </span>
-              <Input
-                id="offerPrice"
+              <FloatingLabelInput
+                label="Offer Price (USD)"
                 type="number"
                 min="1"
                 step="any"
-                placeholder="997"
                 value={priceInput}
                 onChange={(e) => setPriceInput(e.target.value)}
-                className="h-11 pl-7"
+                className="pl-4"
                 aria-invalid={!!errors.offerPrice}
               />
             </div>
             {errors.offerPrice && (
-              <p className="text-sm text-destructive">{errors.offerPrice}</p>
+              <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+                {errors.offerPrice}
+              </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pricingModel">How does your pricing work?</Label>
+            <label
+              className="text-[14px] font-medium"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              How does your pricing work?
+            </label>
             <Select
               value={formData.pricingModel}
               onValueChange={(value) =>
                 updateField("pricingModel", value as PricingModel)
               }
             >
-              <SelectTrigger id="pricingModel" className="h-11">
+              <SelectTrigger
+                className="h-12 rounded-lg"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-primary)',
+                }}
+              >
                 <SelectValue placeholder="Select pricing model" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
                 {PRICING_MODEL_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="hover:bg-[var(--bg-hover)]"
+                  >
                     {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </motion.div>
 
         {/* Value Proposition */}
-        <div className="space-y-2">
-          <Label htmlFor="valueProp" className="flex items-center gap-2">
-            <Heart className="h-4 w-4 text-muted-foreground" />
-            What value does your ICP care about most?
-          </Label>
-          <Textarea
-            id="valueProp"
-            placeholder="What outcomes, results, or benefits matter most to your ideal customers?"
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="What value does your ICP care about most?"
             value={formData.valueProp}
             onChange={(e) => updateField("valueProp", e.target.value)}
             rows={3}
             aria-invalid={!!errors.valueProp}
-            className="resize-none"
           />
           {errors.valueProp && (
-            <p className="text-sm text-destructive">{errors.valueProp}</p>
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.valueProp}
+            </p>
           )}
-        </div>
+        </motion.div>
 
         {/* Current Funnel Type */}
-        <div className="space-y-2">
-          <Label htmlFor="currentFunnelType">
+        <motion.div className="space-y-2" variants={staggerItem}>
+          <label
+            className="text-[14px] font-medium"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             What type of funnel are you currently using?
-          </Label>
+          </label>
           <Select
             value={formData.currentFunnelType}
             onValueChange={(value) =>
               updateField("currentFunnelType", value as FunnelType)
             }
           >
-            <SelectTrigger id="currentFunnelType" className="h-11">
+            <SelectTrigger
+              className="h-12 rounded-lg"
+              style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
+                color: 'var(--text-primary)',
+              }}
+            >
               <SelectValue placeholder="Select funnel type" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
               {FUNNEL_TYPE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="hover:bg-[var(--bg-hover)]"
+                >
                   {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </motion.div>
 
         {/* Guarantees */}
-        <div className="space-y-2">
-          <Label htmlFor="guarantees" className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-muted-foreground" />
-            Do you offer any guarantees, commitments, or risk-reversal elements?
-            <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Textarea
-            id="guarantees"
-            placeholder="E.g., money-back guarantee, performance guarantees, free trial period..."
+        <motion.div variants={staggerItem}>
+          <FloatingLabelTextarea
+            label="Do you offer any guarantees, commitments, or risk-reversal elements? (optional)"
             value={formData.guarantees}
             onChange={(e) => updateField("guarantees", e.target.value)}
             rows={2}
-            className="resize-none"
           />
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div
+        className="flex gap-3 pt-6"
+        variants={fadeUp}
+        initial="initial"
+        animate="animate"
+        transition={{ delay: 0.3 }}
+      >
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            onClick={onBack}
+            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
+          }}
+        >
           Continue
-        </Button>
-      </div>
+        </MagneticButton>
+      </motion.div>
     </form>
   );
 }
