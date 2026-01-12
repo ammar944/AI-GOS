@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 
-const inter = Inter({
+const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
   display: "swap",
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
         <ErrorBoundary>{children}</ErrorBoundary>

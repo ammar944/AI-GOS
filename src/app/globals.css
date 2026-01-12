@@ -171,6 +171,80 @@
   --sidebar-accent-foreground: oklch(0.90 0.02 255);
   --sidebar-border: oklch(0.25 0.04 265);
   --sidebar-ring: oklch(0.62 0.19 255);
+
+  /* ============================================
+     AI-GOS Design System v2.0 Tokens
+     ============================================ */
+
+  /* Background Hierarchy */
+  --bg-base: #000000;
+  --bg-elevated: #0a0a0a;
+  --bg-surface: #0c0c0c;
+  --bg-hover: #111111;
+  --bg-active: #181818;
+
+  /* Border System (Opacity-based) */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.10);
+  --border-focus: rgba(255, 255, 255, 0.15);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Text Hierarchy */
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #666666;
+  --text-quaternary: #444444;
+  --text-muted: #333333;
+
+  /* Accent Colors */
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #60a5fa;
+  --accent-blue-subtle: rgba(59, 130, 246, 0.10);
+  --accent-blue-glow: rgba(59, 130, 246, 0.15);
+  --accent-purple: #8b5cf6;
+  --accent-purple-subtle: rgba(139, 92, 246, 0.20);
+
+  /* Semantic */
+  --success: #22c55e;
+  --success-subtle: rgba(34, 197, 94, 0.10);
+  --warning: #f59e0b;
+  --error: #ef4444;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+  --gradient-accent: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  --gradient-text: linear-gradient(180deg, #ffffff 0%, #888888 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+
+  /* Spacing (4px grid) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+}
+
+/* Gradient shift animation for v2.0 */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 /* ============================================

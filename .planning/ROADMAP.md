@@ -377,10 +377,11 @@ Premium, crafted design language overhaul inspired by Vercel, Stripe, and Linear
 **Goal**: Set up Geist fonts, CSS tokens, Framer Motion springs, Grain overlay, GradientBorder component
 **Depends on**: v1.8 complete
 **Research**: Unlikely (design system documented)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 27-01: TBD
+- [x] 27-01: Framer Motion, Geist Sans, CSS design tokens
+- [ ] 27-02: Grain overlay, GradientBorder, MotionConfig
 
 #### Phase 28: Core Components
 **Goal**: MagneticButton, floating label Input, StatCard with counter animation (Lucide icons), Badge - built on shadcn/ui
@@ -468,7 +469,7 @@ Plans:
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 25. Creative Carousel UI | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 26. Competitor Intel Enhancement | v1.8 | 1/1 | Complete | 2026-01-09 |
-| 27. Design Foundation | v2.0 | 0/? | Not started | - |
+| 27. Design Foundation | v2.0 | 1/2 | In progress | - |
 | 28. Core Components | v2.0 | 0/? | Not started | - |
 | 29. Onboarding Refresh | v2.0 | 0/? | Not started | - |
 | 30. Generation UI | v2.0 | 0/? | Not started | - |
