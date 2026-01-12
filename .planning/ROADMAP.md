@@ -286,16 +286,17 @@ Plans:
 - [x] 20-02: Zod Schema Tests (11 media plan section schemas)
 - [x] 20-03: Utility Function Tests (localStorage, model capability helpers)
 
-#### Phase 21: Integration Tests
+#### Phase 21: Integration Tests COMPLETE
 **Goal**: Integration tests for pipeline stages, API routes, and RAG retrieval
 **Depends on**: Phase 20
 **Research**: Unlikely (using established mock patterns from Phase 19)
-**Plans**: 3
+**Completed**: 2026-01-12
+**Plans**: 3/3
 
 Plans:
 - [x] 21-01: Pipeline Stage Integration Tests (orchestrator, stages, factories)
-- [ ] 21-02: API Route Integration Tests (generate, chat, health endpoints)
-- [ ] 21-03: RAG Service Integration Tests (retrieval, intent router, agents)
+- [x] 21-02: API Route Integration Tests (generate, chat, health endpoints)
+- [x] 21-03: RAG Service Integration Tests (retrieval, intent router, agents)
 
 #### Phase 22: E2E Tests
 **Goal**: End-to-end tests for critical user flows (generate blueprint, chat)
@@ -470,7 +471,7 @@ Plans:
 | 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
 | 19. Test Infrastructure | v1.7 | 2/2 | Complete | 2026-01-12 |
 | 20. Unit Tests Core | v1.7 | 3/3 | Complete | 2026-01-12 |
-| 21. Integration Tests | v1.7 | 1/3 | In Progress | - |
+| 21. Integration Tests | v1.7 | 3/3 | Complete | 2026-01-12 |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
