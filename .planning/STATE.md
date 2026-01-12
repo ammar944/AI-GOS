@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-12
-**Current Phase:** 19 (Test Infrastructure) - COMPLETE
-**Current Plan:** 19-02-PLAN.md DONE
+**Current Phase:** 20 (Unit Tests Core) - IN PROGRESS
+**Current Plan:** 20-01-PLAN.md DONE
 
 ## Position
 
@@ -39,7 +39,7 @@ Milestone 6: Chat Streaming (v1.5) COMPLETE (archived)
 
 Milestone 7: Testing (v1.7) IN PROGRESS
 ├── Phase 19: Test Infrastructure (2/2 plans) DONE
-├── Phase 20: Unit Tests Core
+├── Phase 20: Unit Tests Core (1/3 plans) IN PROGRESS
 ├── Phase 21: Integration Tests
 └── Phase 22: E2E Tests
 
@@ -50,10 +50,10 @@ Milestone 8: Ad Intelligence (v1.8) COMPLETE
 └── Phase 26: Competitor Intel Enhancement DONE
 ```
 
-Phase: 19 of 26 (Test Infrastructure)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-12 - Completed 19-02-PLAN.md
+Phase: 20 of 26 (Unit Tests Core)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-12 - Completed 20-01-PLAN.md
 
 Progress: ██████████████ 100% (26/26 phases complete)
 
@@ -150,6 +150,8 @@ Progress: ██████████████ 100% (26/26 phases complete
 | 2026-01-12 | 19-02 | AAA pattern for test structure | Arrange-Act-Assert for clarity and consistency |
 | 2026-01-12 | 19-02 | vi.useFakeTimers for time-dependent tests | Clean timer mocking for circuit breaker |
 | 2026-01-12 | 19-02 | it.each for parameterized tests | Reduce test boilerplate for mapping functions |
+| 2026-01-12 | 20-01 | Protected methods for testability | Change private→protected for extractJSON/repairJSON/isValidJSON |
+| 2026-01-12 | 20-01 | TestableOpenRouterClient pattern | Subclass in tests to access protected methods cleanly |
 
 ## Deferred Issues
 
@@ -181,9 +183,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-12
-Stopped at: Completed 19-02-PLAN.md (Phase 19 complete)
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None
 
 ---
 
-*v1.7 Testing: Phase 19 complete. Ready for Phase 20: Unit Tests Core.*
+*v1.7 Testing: Phase 20 in progress (1/3 plans). Ready for 20-02-PLAN.md.*

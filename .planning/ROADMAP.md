@@ -278,10 +278,12 @@ Plans:
 **Goal**: Unit tests for JSON extraction, Zod schemas, and utility functions
 **Depends on**: Phase 19
 **Research**: Unlikely (internal patterns)
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
-- [ ] 20-01: TBD
+- [x] 20-01: JSON Extraction Tests (extractJSON strategies 1-8, repairJSON, isValidJSON)
+- [ ] 20-02: Zod Schema Tests (11 media plan section schemas)
+- [ ] 20-03: Utility Function Tests (localStorage, model capability helpers)
 
 #### Phase 21: Integration Tests
 **Goal**: Integration tests for pipeline stages, API routes, and RAG retrieval
@@ -387,7 +389,7 @@ Plans:
 | 17. Explain Agent | v1.4 | 1/1 | Complete | 2026-01-07 |
 | 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
 | 19. Test Infrastructure | v1.7 | 2/2 | Complete | 2026-01-12 |
-| 20. Unit Tests Core | v1.7 | 0/? | Not started | - |
+| 20. Unit Tests Core | v1.7 | 1/3 | In progress | - |
 | 21. Integration Tests | v1.7 | 0/? | Not started | - |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |

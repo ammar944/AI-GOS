@@ -921,7 +921,7 @@ CRITICAL: Your previous response was not valid JSON. This time you MUST:
     });
   }
 
-  private extractJSON(content: string): string | null {
+  protected extractJSON(content: string): string | null {
     if (!content || typeof content !== "string") {
       return null;
     }
@@ -1039,7 +1039,7 @@ CRITICAL: Your previous response was not valid JSON. This time you MUST:
    * Extract a balanced JSON structure by counting open/close brackets
    * This is more reliable than greedy regex for nested structures
    */
-  private extractBalancedJSON(content: string, openChar: string, closeChar: string): string | null {
+  protected extractBalancedJSON(content: string, openChar: string, closeChar: string): string | null {
     if (!content.startsWith(openChar)) {
       return null;
     }
@@ -1083,7 +1083,7 @@ CRITICAL: Your previous response was not valid JSON. This time you MUST:
     return null; // Unbalanced
   }
 
-  private isValidJSON(str: string): boolean {
+  protected isValidJSON(str: string): boolean {
     if (!str || typeof str !== "string") {
       return false;
     }
@@ -1100,7 +1100,7 @@ CRITICAL: Your previous response was not valid JSON. This time you MUST:
    * Attempt to repair common JSON malformations from AI responses.
    * This is a last-resort strategy when balanced extraction fails.
    */
-  private repairJSON(json: string): string {
+  protected repairJSON(json: string): string {
     let repaired = json;
 
     // 1. Remove trailing commas before closing braces/brackets
