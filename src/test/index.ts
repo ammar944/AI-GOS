@@ -76,3 +76,21 @@ export {
   type MockRpcCall,
   type MockQueryCall,
 } from "./mocks/supabase";
+
+// =============================================================================
+// Media Plan Pipeline Factories
+// =============================================================================
+
+export {
+  // Form data factories
+  createMockNicheFormData,
+  createMockBriefingFormData,
+  // Stage output factories
+  createMockExtractedData,
+  createMockResearchData,
+  createMockLogicData,
+  createMockMediaPlanBlueprint,
+  // Composite helpers
+  createMockPipelineInput,
+  createMockPipelineStageResults,
+} from "./factories/media-plan";

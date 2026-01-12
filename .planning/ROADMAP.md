@@ -293,7 +293,7 @@ Plans:
 **Plans**: 3
 
 Plans:
-- [ ] 21-01: Pipeline Stage Integration Tests (orchestrator, stages, factories)
+- [x] 21-01: Pipeline Stage Integration Tests (orchestrator, stages, factories)
 - [ ] 21-02: API Route Integration Tests (generate, chat, health endpoints)
 - [ ] 21-03: RAG Service Integration Tests (retrieval, intent router, agents)
 
@@ -466,7 +466,7 @@ Plans:
 | 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
 | 19. Test Infrastructure | v1.7 | 2/2 | Complete | 2026-01-12 |
 | 20. Unit Tests Core | v1.7 | 3/3 | Complete | 2026-01-12 |
-| 21. Integration Tests | v1.7 | 0/3 | Planned | - |
+| 21. Integration Tests | v1.7 | 1/3 | In Progress | - |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
