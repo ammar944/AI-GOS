@@ -39,7 +39,7 @@ Milestone 6: Chat Streaming (v1.5) COMPLETE (archived)
 
 Milestone 7: Testing (v1.7) IN PROGRESS
 ├── Phase 19: Test Infrastructure (2/2 plans) DONE
-├── Phase 20: Unit Tests Core (2/3 plans) IN PROGRESS
+├── Phase 20: Unit Tests Core (3/3 plans) DONE
 ├── Phase 21: Integration Tests
 └── Phase 22: E2E Tests
 
@@ -160,6 +160,8 @@ Progress: ██████████████ 100% (27/32 phases)
 | 2026-01-12 | 19-02 | it.each for parameterized tests | Reduce test boilerplate for mapping functions |
 | 2026-01-12 | 20-01 | Protected methods for testability | Change private→protected for extractJSON/repairJSON/isValidJSON |
 | 2026-01-12 | 20-01 | TestableOpenRouterClient pattern | Subclass in tests to access protected methods cleanly |
+| 2026-01-12 | 20-03 | vi.spyOn(Storage.prototype) for mocking | jsdom doesn't allow direct localStorage assignment |
+| 2026-01-12 | 20-03 | it.each for model capability tests | Reduces boilerplate for parameterized tests |
 
 ## Deferred Issues
 
