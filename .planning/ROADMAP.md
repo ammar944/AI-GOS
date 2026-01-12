@@ -289,12 +289,13 @@ Plans:
 #### Phase 21: Integration Tests
 **Goal**: Integration tests for pipeline stages, API routes, and RAG retrieval
 **Depends on**: Phase 20
-**Research**: Likely (testing RAG/embeddings patterns)
-**Research topics**: Testing vector search, mocking embeddings API, API route testing
-**Plans**: TBD
+**Research**: Unlikely (using established mock patterns from Phase 19)
+**Plans**: 3
 
 Plans:
-- [ ] 21-01: TBD
+- [ ] 21-01: Pipeline Stage Integration Tests (orchestrator, stages, factories)
+- [ ] 21-02: API Route Integration Tests (generate, chat, health endpoints)
+- [ ] 21-03: RAG Service Integration Tests (retrieval, intent router, agents)
 
 #### Phase 22: E2E Tests
 **Goal**: End-to-end tests for critical user flows (generate blueprint, chat)
@@ -384,14 +385,15 @@ Plans:
 - [x] 27-01: Framer Motion, Geist Sans, CSS design tokens
 - [x] 27-02: Grain overlay, GradientBorder, MotionConfig
 
-#### Phase 28: Core Components
+#### Phase 28: Core Components COMPLETE
 **Goal**: MagneticButton, floating label Input, StatCard with counter animation (Lucide icons), Badge - built on shadcn/ui
 **Depends on**: Phase 27
 **Research**: Unlikely (component patterns documented)
-**Plans**: TBD
+**Completed**: 2026-01-12
+**Plans**: 1/1
 
 Plans:
-- [ ] 28-01: TBD
+- [x] 28-01: MagneticButton, FloatingLabelInput, useCounter hook, StatCard
 
 #### Phase 29: Onboarding Refresh
 **Goal**: Apply new design language to business intake forms with floating labels and magnetic buttons
@@ -464,14 +466,14 @@ Plans:
 | 18. Chat Streaming | v1.5 | 1/1 | Complete | 2026-01-07 |
 | 19. Test Infrastructure | v1.7 | 2/2 | Complete | 2026-01-12 |
 | 20. Unit Tests Core | v1.7 | 3/3 | Complete | 2026-01-12 |
-| 21. Integration Tests | v1.7 | 0/? | Not started | - |
+| 21. Integration Tests | v1.7 | 0/3 | Planned | - |
 | 22. E2E Tests | v1.7 | 0/? | Not started | - |
 | 23. Ad Library Service | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 24. Competitor Ad Research | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 25. Creative Carousel UI | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 26. Competitor Intel Enhancement | v1.8 | 1/1 | Complete | 2026-01-09 |
 | 27. Design Foundation | v2.0 | 2/2 | Complete | 2026-01-12 |
-| 28. Core Components | v2.0 | 0/? | Not started | - |
+| 28. Core Components | v2.0 | 1/1 | Complete | 2026-01-12 |
 | 29. Onboarding Refresh | v2.0 | 0/? | Not started | - |
 | 30. Generation UI | v2.0 | 0/? | Not started | - |
 | 31. Output Display | v2.0 | 0/? | Not started | - |

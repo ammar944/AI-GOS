@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-12
-**Current Phase:** 27 (Design Foundation) - COMPLETE
-**Current Plan:** 27-02-PLAN.md DONE
+**Current Phase:** 28 (Core Components) - IN PROGRESS
+**Current Plan:** 28-01-PLAN.md DONE
 
 ## Position
 
@@ -40,7 +40,7 @@ Milestone 6: Chat Streaming (v1.5) COMPLETE (archived)
 Milestone 7: Testing (v1.7) IN PROGRESS
 ├── Phase 19: Test Infrastructure (2/2 plans) DONE
 ├── Phase 20: Unit Tests Core (3/3 plans) DONE
-├── Phase 21: Integration Tests
+├── Phase 21: Integration Tests (3 plans) PLANNED
 └── Phase 22: E2E Tests
 
 Milestone 8: Ad Intelligence (v1.8) COMPLETE
@@ -51,19 +51,19 @@ Milestone 8: Ad Intelligence (v1.8) COMPLETE
 
 Milestone 9: Design Refresh (v2.0) IN PROGRESS
 ├── Phase 27: Design Foundation (2/2 plans) DONE
-├── Phase 28: Core Components
+├── Phase 28: Core Components (1/1 plans) DONE
 ├── Phase 29: Onboarding Refresh
 ├── Phase 30: Generation UI
 ├── Phase 31: Output Display
 └── Phase 32: Chat Panel
 ```
 
-Phase: 27 of 32 (Design Foundation)
-Plan: 2 of 2 in current phase
+Phase: 28 of 32 (Core Components)
+Plan: 1 of 1 in current phase
 Status: Phase complete
-Last activity: 2026-01-12 - Completed 27-02-PLAN.md
+Last activity: 2026-01-12 - Completed 28-01-PLAN.md
 
-Progress: ██████████████ 100% (27/32 phases)
+Progress: ███████████████ 100% (28/32 phases)
 
 ## Decisions
 
@@ -162,6 +162,8 @@ Progress: ██████████████ 100% (27/32 phases)
 | 2026-01-12 | 20-01 | TestableOpenRouterClient pattern | Subclass in tests to access protected methods cleanly |
 | 2026-01-12 | 20-03 | vi.spyOn(Storage.prototype) for mocking | jsdom doesn't allow direct localStorage assignment |
 | 2026-01-12 | 20-03 | it.each for model capability tests | Reduces boilerplate for parameterized tests |
+| 2026-01-12 | 28-01 | HTMLMotionProps for MagneticButton | React.ComponentPropsWithoutRef caused type conflicts with motion.button |
+| 2026-01-12 | 28-01 | useSpring for magnetic reset | Smoother physics-based interpolation during reset |
 
 ## Deferred Issues
 
@@ -194,9 +196,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-12
-Stopped at: Completed 27-02-PLAN.md
+Stopped at: Completed 28-01-PLAN.md (Phase 28 complete)
 Resume file: None
 
 ---
 
-*v2.0 Design Refresh: Phase 27 complete (2/2 plans). Ready for Phase 28: Core Components.*
+*v2.0 Design Refresh: Phase 28 complete. Ready for Phase 29: Onboarding Refresh.*
