@@ -1,29 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Bot } from "lucide-react";
 
 export function TypingIndicator() {
   return (
     <div className="flex gap-3 px-5 py-2">
-      {/* Avatar placeholder to align with MessageBubble */}
+      {/* Avatar - flat monochrome, no animation */}
       <div
         className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-        style={{ background: "rgba(255, 255, 255, 0.1)" }}
+        style={{ background: "var(--bg-surface, #101010)" }}
       >
-        <motion.div
-          className="w-4 h-4 rounded-full"
-          style={{
-            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-          }}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.5, 1, 0.5],
-          }}
-          transition={{
-            duration: 1.2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        <Bot
+          className="w-4 h-4"
+          style={{ color: "var(--text-tertiary, #666666)" }}
         />
       </div>
 
@@ -31,8 +21,8 @@ export function TypingIndicator() {
       <div
         className="px-4 py-3"
         style={{
-          background: "rgba(255, 255, 255, 0.05)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--bg-card, #0d0d0d)",
+          border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
           borderRadius: "16px 16px 16px 4px",
         }}
       >
@@ -41,18 +31,17 @@ export function TypingIndicator() {
             <motion.div
               key={i}
               animate={{
-                y: [0, -6, 0],
-                opacity: [0.4, 1, 0.4],
+                opacity: [0.3, 0.7, 0.3],
               }}
               transition={{
-                duration: 0.8,
+                duration: 1.2,
                 repeat: Infinity,
-                delay: i * 0.15,
+                delay: i * 0.2,
                 ease: "easeInOut",
               }}
-              className="w-2 h-2 rounded-full"
+              className="w-1.5 h-1.5 rounded-full"
               style={{
-                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                background: "var(--text-tertiary, #666666)",
               }}
             />
           ))}

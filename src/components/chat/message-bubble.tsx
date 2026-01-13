@@ -274,20 +274,19 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = role === "user";
 
-  // Styles based on role and type
+  // Styles based on role and type - monochrome-first approach
   const bubbleStyles = isUser
     ? {
-        background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+        background: "var(--bg-surface, #101010)",
+        border: "1px solid var(--border-default, rgba(255, 255, 255, 0.12))",
         borderRadius: "16px 16px 4px 16px",
-        color: "#ffffff",
+        color: "var(--text-primary, #ffffff)",
       }
     : {
-        background: "rgba(255, 255, 255, 0.05)",
+        background: "var(--bg-card, #0d0d0d)",
         border: isEditProposal
-          ? "1px solid rgba(245, 158, 11, 0.3)"
-          : isExplanation
-            ? "1px solid rgba(59, 130, 246, 0.3)"
-            : "1px solid rgba(255, 255, 255, 0.08)",
+          ? "1px solid rgba(245, 158, 11, 0.2)"
+          : "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
         borderRadius: "16px 16px 16px 4px",
         color: "var(--text-secondary, #a0a0a0)",
       };
@@ -301,25 +300,23 @@ export function MessageBubble({
         ? Lightbulb
         : Bot;
 
+  // Icon backgrounds - flat monochrome, no gradients
   const iconBgColor = isUser
-    ? "linear-gradient(135deg, #3b82f6, #2563eb)"
+    ? "var(--bg-hover, #161616)"
     : isEditProposal
-      ? "rgba(245, 158, 11, 0.2)"
-      : isExplanation
-        ? "rgba(59, 130, 246, 0.2)"
-        : "rgba(255, 255, 255, 0.1)";
+      ? "rgba(245, 158, 11, 0.1)"
+      : "var(--bg-surface, #101010)";
 
+  // Icon colors - muted, not bright
   const iconColor = isUser
-    ? "#ffffff"
+    ? "var(--text-secondary, #a0a0a0)"
     : isEditProposal
       ? "#f59e0b"
-      : isExplanation
-        ? "#3b82f6"
-        : "#a0a0a0";
+      : "var(--text-tertiary, #666666)";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...springs.smooth, delay }}
       className={cn("flex gap-3 px-5 py-2", isUser ? "flex-row-reverse" : "")}
@@ -340,24 +337,24 @@ export function MessageBubble({
         style={bubbleStyles}
       >
         {isLoading ? (
-          <div className="flex items-center gap-1 py-1">
+          <div className="flex items-center gap-1.5 py-1">
             <motion.div
-              className="w-2 h-2 rounded-full"
-              style={{ background: "var(--text-muted, #666666)" }}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: "var(--text-tertiary, #666666)" }}
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0 }}
             />
             <motion.div
-              className="w-2 h-2 rounded-full"
-              style={{ background: "var(--text-muted, #666666)" }}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: "var(--text-tertiary, #666666)" }}
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
             />
             <motion.div
-              className="w-2 h-2 rounded-full"
-              style={{ background: "var(--text-muted, #666666)" }}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: "var(--text-tertiary, #666666)" }}
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
             />
           </div>
         ) : (
@@ -380,8 +377,8 @@ export function MessageBubble({
                   <span
                     className="text-xs px-2 py-0.5 rounded font-medium"
                     style={{
-                      background: "rgba(59, 130, 246, 0.15)",
-                      color: "#3b82f6",
+                      background: "var(--bg-hover, #161616)",
+                      color: "var(--text-secondary, #a0a0a0)",
                     }}
                   >
                     Explanation

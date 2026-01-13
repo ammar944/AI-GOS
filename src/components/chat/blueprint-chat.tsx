@@ -131,10 +131,10 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
             if (data.error) {
               throw new Error(data.error);
             }
-          } catch {
-            // Skip invalid JSON chunks
+          } catch (parseError) {
+            // Log parsing errors for debugging (except [DONE] which is expected)
             if (dataContent !== '[DONE]') {
-              console.warn('Failed to parse SSE data:', dataContent);
+              console.error('Failed to parse SSE data:', dataContent, parseError);
             }
           }
         }
@@ -144,14 +144,17 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent, directContent?: string) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading || isStreaming || pendingEdits.length > 0) return;
+
+    // Use directContent if provided (from quick suggestions), otherwise use input state
+    const content = directContent ?? input.trim();
+    if (!content || isLoading || isStreaming || pendingEdits.length > 0) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: input.trim(),
+      content,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -200,20 +203,50 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
         }
 
       } else {
-        // JSON response (edit/explain) - handle as before
+        // JSON response (edit/explain) - simulate streaming with typewriter effect
         const data = await response.json();
+        const fullContent = data.response;
+        const assistantMessageId = crypto.randomUUID();
 
+        // Create empty message first
         const assistantMessage: Message = {
-          id: crypto.randomUUID(),
+          id: assistantMessageId,
           role: 'assistant',
-          content: data.response,
+          content: '',
           confidence: data.confidence,
           isEditProposal: !!(data.pendingEdits?.length || data.pendingEdit),
         };
 
         setMessages(prev => [...prev, assistantMessage]);
+        setIsLoading(false);
+        setIsStreaming(true);
 
-        // If there are pending edits, store them
+        // Typewriter effect - reveal content progressively
+        const chunkSize = 3; // Characters per tick
+        const delay = 15; // ms between chunks
+        let currentIndex = 0;
+
+        await new Promise<void>((resolve) => {
+          const typeInterval = setInterval(() => {
+            currentIndex += chunkSize;
+            const currentContent = fullContent.slice(0, currentIndex);
+
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === assistantMessageId ? { ...m, content: currentContent } : m
+              )
+            );
+
+            if (currentIndex >= fullContent.length) {
+              clearInterval(typeInterval);
+              resolve();
+            }
+          }, delay);
+        });
+
+        setIsStreaming(false);
+
+        // If there are pending edits, store them after typewriter completes
         if (data.pendingEdits && data.pendingEdits.length > 0) {
           setPendingEdits(data.pendingEdits);
         } else if (data.pendingEdit) {
@@ -233,13 +266,9 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     }
   };
 
-  // Handle quick suggestion selection
+  // Handle quick suggestion selection - submit directly without relying on state
   const handleSuggestionSelect = (suggestion: string) => {
-    setInput(suggestion);
-    // Auto-submit after a short delay
-    setTimeout(() => {
-      handleSubmit();
-    }, 50);
+    handleSubmit(undefined, suggestion);
   };
 
   // Confirm all pending edits at once
@@ -255,18 +284,19 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
       // Notify parent of the update
       onBlueprintUpdate?.(updatedBlueprint);
 
-      // Add confirmation message
+      // Add confirmation message - concise summary
       const editCount = pendingEdits.length;
-      const fieldList = pendingEdits.map(e =>
-        `${SECTION_LABELS[e.section] || e.section} / ${e.fieldPath}`
-      ).join(', ');
+      const uniqueSections = [...new Set(pendingEdits.map(e => SECTION_LABELS[e.section] || e.section))];
+      const sectionSummary = uniqueSections.length === 1
+        ? uniqueSections[0]
+        : `${uniqueSections.length} sections`;
 
       const confirmMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: editCount === 1
-          ? `Edit applied! The ${pendingEdits[0].fieldPath} field in ${SECTION_LABELS[pendingEdits[0].section] || pendingEdits[0].section} has been updated.`
-          : `All ${editCount} edits applied! Updated: ${fieldList}`,
+          ? `Done! Updated ${SECTION_LABELS[pendingEdits[0].section] || pendingEdits[0].section}.`
+          : `Done! Applied ${editCount} edits across ${sectionSummary}.`,
       };
       setMessages(prev => [...prev, confirmMessage]);
       setPendingEdits([]);
@@ -317,11 +347,13 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
       const remaining = pendingEdits.filter((_, i) => i !== index);
       setPendingEdits(remaining);
 
-      // Add confirmation message
+      // Add confirmation message - concise
       const confirmMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Edit applied: ${SECTION_LABELS[edit.section] || edit.section} / ${edit.fieldPath}${remaining.length > 0 ? ` (${remaining.length} edit${remaining.length > 1 ? 's' : ''} remaining)` : ''}`,
+        content: remaining.length > 0
+          ? `Applied. ${remaining.length} remaining.`
+          : `Applied.`,
       };
       setMessages(prev => [...prev, confirmMessage]);
     } catch (error) {
@@ -348,11 +380,13 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     const remaining = pendingEdits.filter((_, i) => i !== index);
     setPendingEdits(remaining);
 
-    // Add rejection message
+    // Add rejection message - concise
     const rejectMessage: Message = {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: `Edit rejected: ${SECTION_LABELS[edit.section] || edit.section} / ${edit.fieldPath}${remaining.length > 0 ? ` (${remaining.length} edit${remaining.length > 1 ? 's' : ''} remaining)` : ''}`,
+      content: remaining.length > 0
+        ? `Skipped. ${remaining.length} remaining.`
+        : `Skipped.`,
     };
     setMessages(prev => [...prev, rejectMessage]);
   };
@@ -368,7 +402,7 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
 
   return (
     <>
-      {/* Floating chat trigger button */}
+      {/* Floating chat trigger button - solid blue CTA, no pulse */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -380,24 +414,14 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
           >
             <MagneticButton
               onClick={() => setIsOpen(true)}
-              className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+              className="w-14 h-14 rounded-full flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                background: 'var(--accent-blue, #3b82f6)',
                 border: 'none',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
               }}
             >
-              <motion.div
-                animate={{
-                  scale: [1, 1.1, 1],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              >
-                <Sparkles className="w-6 h-6 text-white" />
-              </motion.div>
+              <Sparkles className="w-6 h-6 text-white" />
             </MagneticButton>
           </motion.div>
         )}
@@ -420,15 +444,15 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                   <div
                     className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
                     style={{
-                      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.1))',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      background: 'var(--bg-surface, #101010)',
+                      border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
                     }}
                   >
-                    <Sparkles className="w-8 h-8" style={{ color: '#3b82f6' }} />
+                    <Sparkles className="w-8 h-8" style={{ color: 'var(--text-tertiary, #666666)' }} />
                   </div>
                   <p
                     className="text-sm"
-                    style={{ color: 'var(--text-secondary, #a0a0a0)' }}
+                    style={{ color: 'var(--text-tertiary, #666666)' }}
                   >
                     Ask questions or request edits to your blueprint
                   </p>
@@ -467,8 +491,8 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                     <motion.div
                       className="w-2 h-2 rounded-full"
                       style={{ background: '#f59e0b' }}
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                     />
                     <span
                       className="text-sm font-medium"
@@ -558,7 +582,7 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                         disabled={isConfirming}
                         className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
                         style={{
-                          background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                          background: '#22c55e',
                           color: '#ffffff',
                         }}
                       >
@@ -574,8 +598,8 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                         disabled={isConfirming}
                         className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
                         style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          background: 'var(--bg-surface, #101010)',
+                          border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
                           color: 'var(--text-secondary, #a0a0a0)',
                         }}
                       >
@@ -593,7 +617,7 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                         disabled={isConfirming}
                         className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
                         style={{
-                          background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                          background: '#22c55e',
                           color: '#ffffff',
                         }}
                       >
@@ -609,8 +633,8 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                         disabled={isConfirming}
                         className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
                         style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          background: 'var(--bg-surface, #101010)',
+                          border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
                           color: 'var(--text-secondary, #a0a0a0)',
                         }}
                       >
@@ -630,7 +654,7 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
           <div
             className="flex-shrink-0 p-4"
             style={{
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+              borderTop: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
             }}
           >
             <form onSubmit={handleSubmit} className="flex gap-2">
@@ -648,15 +672,15 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                 disabled={isLoading || isStreaming || pendingEdits.length > 0}
                 className="flex-1 h-10 px-4 text-sm rounded-lg outline-none transition-all duration-200"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'var(--bg-elevated, #0a0a0a)',
+                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
                   color: 'var(--text-primary, #ffffff)',
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                  e.currentTarget.style.borderColor = 'var(--border-focus, rgba(255, 255, 255, 0.22))';
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                  e.currentTarget.style.borderColor = 'var(--border-subtle, rgba(255, 255, 255, 0.08))';
                 }}
               />
               <MagneticButton
@@ -665,12 +689,12 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{
                   background: input.trim() && !isLoading && !isStreaming && pendingEdits.length === 0
-                    ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
-                    : 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                    ? 'var(--accent-blue, #3b82f6)'
+                    : 'var(--bg-surface, #101010)',
+                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
                   color: input.trim() && !isLoading && !isStreaming && pendingEdits.length === 0
                     ? '#ffffff'
-                    : 'var(--text-muted, #666666)',
+                    : 'var(--text-quaternary, #444444)',
                   opacity: !input.trim() || isLoading || isStreaming || pendingEdits.length > 0 ? 0.5 : 1,
                 }}
               >

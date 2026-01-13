@@ -26,58 +26,58 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
 
         return (
           <div key={stage} className="flex items-center">
-            {/* Stage pill */}
+            {/* Stage pill - monochrome-first, no blue gradients */}
             <div
               className="flex items-center gap-2.5"
               style={{
                 padding: "8px 16px",
                 background: isActive
-                  ? "linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.1))"
+                  ? "rgba(255,255,255,0.06)"
                   : isComplete
-                    ? "rgba(34,197,94,0.1)"
+                    ? "rgba(34,197,94,0.08)"
                     : "transparent",
                 borderRadius: 8,
                 border: `1px solid ${
                   isActive
-                    ? "rgba(59,130,246,0.3)"
+                    ? "rgba(255,255,255,0.12)"
                     : isComplete
-                      ? "rgba(34,197,94,0.2)"
+                      ? "rgba(34,197,94,0.15)"
                       : "transparent"
                 }`,
               }}
             >
-              {/* Status dot */}
+              {/* Status dot - white for active, green for complete */}
               <div className="relative">
                 <div
                   style={{
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: isComplete ? "#22c55e" : isActive ? "#3b82f6" : "#333",
+                    background: isComplete ? "#22c55e" : isActive ? "#ffffff" : "#333",
                   }}
                 />
 
-                {/* Pulse ring for active stage */}
+                {/* Pulse ring for active stage - opacity only, no scale */}
                 {isActive && (
                   <motion.div
-                    animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
+                    animate={{ opacity: [0.6, 0.2, 0.6] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                     style={{
                       position: "absolute",
-                      inset: 0,
+                      inset: -3,
                       borderRadius: "50%",
-                      background: "#3b82f6",
+                      border: "1px solid rgba(255,255,255,0.4)",
                     }}
                   />
                 )}
               </div>
 
-              {/* Stage label */}
+              {/* Stage label - text hierarchy, no color variation except green for complete */}
               <span
                 style={{
                   fontSize: 13,
                   fontWeight: isActive ? 600 : 500,
-                  color: isComplete ? "#22c55e" : isActive ? "#fff" : "#666",
+                  color: isComplete ? "#22c55e" : isActive ? "var(--text-primary)" : "var(--text-tertiary)",
                   fontFamily: "var(--font-mono)",
                 }}
               >

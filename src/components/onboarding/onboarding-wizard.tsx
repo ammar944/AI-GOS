@@ -293,14 +293,14 @@ export function OnboardingWizard({
               {Math.round(progress)}% complete
             </span>
           </div>
-          {/* Animated Progress Bar */}
+          {/* Animated Progress Bar - monochrome with green for completion */}
           <div
-            className="h-2 rounded-full overflow-hidden"
+            className="h-1.5 rounded-full overflow-hidden"
             style={{ background: "var(--bg-hover)" }}
           >
             <motion.div
               className="h-full rounded-full"
-              style={{ background: "var(--gradient-primary)" }}
+              style={{ background: "var(--success)" }}
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5, ease: easings.out }}
@@ -323,51 +323,46 @@ export function OnboardingWizard({
                     index !== 0 && "flex-1"
                   )}
                 >
-                  {/* Connector Line */}
+                  {/* Connector Line - green for completed */}
                   {index !== 0 && (
                     <div className="absolute left-0 right-0 top-4 -z-10 hidden md:block">
                       <div
                         className="h-0.5 w-full transition-colors duration-300"
                         style={{
                           background: isCompleted
-                            ? "var(--accent-blue)"
+                            ? "var(--success)"
                             : "var(--border-default)",
                         }}
                       />
                     </div>
                   )}
 
-                  {/* Step Circle */}
+                  {/* Step Circle - monochrome styling, green for complete, white for current */}
                   <motion.div
                     className={cn(
-                      "relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors"
+                      "relative flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
                     )}
                     style={{
-                      borderColor: isCompleted || isCurrent
-                        ? "var(--accent-blue)"
-                        : "var(--border-default)",
-                      background: isCompleted
-                        ? "var(--accent-blue)"
+                      borderColor: isCompleted
+                        ? "var(--success)"
                         : isCurrent
-                          ? "transparent"
+                          ? "rgba(255,255,255,0.3)"
+                          : "var(--border-default)",
+                      background: isCompleted
+                        ? "var(--success)"
+                        : isCurrent
+                          ? "rgba(255,255,255,0.1)"
                           : "var(--bg-hover)",
                       color: isCompleted
                         ? "#ffffff"
                         : isCurrent
-                          ? "var(--accent-blue)"
+                          ? "var(--text-primary)"
                           : "var(--text-tertiary)",
                     }}
                     animate={
                       isCurrent
-                        ? {
-                            scale: [1, 1.1, 1],
-                            boxShadow: [
-                              "0 0 0 0 rgba(59, 130, 246, 0)",
-                              "0 0 0 8px rgba(59, 130, 246, 0.2)",
-                              "0 0 0 0 rgba(59, 130, 246, 0)",
-                            ],
-                          }
-                        : { scale: 1 }
+                        ? { opacity: [1, 0.7, 1] }
+                        : { opacity: 1 }
                     }
                     transition={
                       isCurrent
@@ -404,13 +399,14 @@ export function OnboardingWizard({
           </div>
         </div>
 
-        {/* Mobile Step Indicator */}
+        {/* Mobile Step Indicator - monochrome */}
         <div className="flex items-center gap-3 md:hidden">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-full"
             style={{
-              background: "var(--gradient-primary)",
-              color: "#ffffff",
+              background: "rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "var(--text-primary)",
             }}
           >
             {STEPS[currentStep].icon}

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/strategic-blueprint-display";
-import { StrategicResearchReview } from "@/components/strategic-research";
+import { BlueprintDocument } from "@/components/strategic-research";
 import { BlueprintChat } from "@/components/chat";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -536,7 +536,11 @@ export default function GeneratePage() {
               <div className="flex items-center gap-2">
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                  style={{ background: 'var(--gradient-primary)', color: 'white' }}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    color: 'var(--text-primary)'
+                  }}
                 >
                   1
                 </div>
@@ -569,7 +573,7 @@ export default function GeneratePage() {
               transition={{ delay: 0.4 }}
             >
               <MagneticButton
-                className="mt-4 h-9 px-3 rounded-md text-sm font-medium"
+                className="mt-4 h-9 px-3 rounded-md text-sm font-medium flex items-center"
                 onClick={handleAutoFill}
                 style={{
                   border: '1px solid var(--border-default)',
@@ -721,7 +725,11 @@ export default function GeneratePage() {
               <div className="flex items-center gap-2">
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                  style={{ background: 'var(--gradient-primary)', color: 'white' }}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    color: 'var(--text-primary)'
+                  }}
                 >
                   2
                 </div>
@@ -746,9 +754,9 @@ export default function GeneratePage() {
             </div>
           </motion.div>
 
-          {/* Review Component */}
-          <div className="mx-auto max-w-5xl">
-            <StrategicResearchReview
+          {/* Review Component - Continuous Scroll Layout */}
+          <div className="mx-auto max-w-6xl">
+            <BlueprintDocument
               strategicBlueprint={strategicBlueprint}
               onApprove={handleApprove}
               onRegenerate={handleRegenerateBlueprint}

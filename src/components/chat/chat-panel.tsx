@@ -16,7 +16,7 @@ export function ChatPanel({ isOpen, onClose, children }: ChatPanelProps) {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - solid dark, no blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -24,8 +24,7 @@ export function ChatPanel({ isOpen, onClose, children }: ChatPanelProps) {
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-40"
             style={{
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              backdropFilter: "blur(4px)",
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
             }}
             onClick={onClose}
           />
@@ -38,17 +37,16 @@ export function ChatPanel({ isOpen, onClose, children }: ChatPanelProps) {
             transition={springs.smooth}
             className="fixed right-0 top-0 z-50 h-screen w-full sm:w-[400px] flex flex-col"
             style={{
-              background: "var(--bg-elevated, #0a0a0a)",
-              borderLeft: "1px solid rgba(255, 255, 255, 0.06)",
+              background: "var(--bg-base, #000000)",
+              borderLeft: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
             }}
           >
-            {/* Header */}
+            {/* Header - flat elevated surface, no gradient */}
             <div
               className="flex-shrink-0 p-5"
               style={{
-                background:
-                  "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.05))",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+                background: "var(--bg-elevated, #0a0a0a)",
+                borderBottom: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
               }}
             >
               <div className="flex items-center justify-between">
@@ -56,35 +54,35 @@ export function ChatPanel({ isOpen, onClose, children }: ChatPanelProps) {
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center"
                     style={{
-                      background:
-                        "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                      background: "var(--bg-surface, #101010)",
+                      border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
                     }}
                   >
-                    <Sparkles className="w-4 h-4 text-white" />
+                    <Sparkles className="w-4 h-4" style={{ color: "var(--text-secondary, #a0a0a0)" }} />
                   </div>
                   <div>
                     <h2
-                      className="font-medium"
+                      className="font-medium text-sm"
                       style={{ color: "var(--text-primary, #ffffff)" }}
                     >
                       AI Editor
                     </h2>
                     <p
-                      className="text-sm"
-                      style={{ color: "var(--text-secondary, #a0a0a0)" }}
+                      className="text-xs"
+                      style={{ color: "var(--text-tertiary, #666666)" }}
                     >
-                      Refine your blueprint...
+                      Refine your blueprint
                     </p>
                   </div>
                 </div>
 
                 <MagneticButton
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    color: "var(--text-secondary, #a0a0a0)",
+                    background: "transparent",
+                    border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
+                    color: "var(--text-tertiary, #666666)",
                   }}
                 >
                   <X className="w-4 h-4" />
