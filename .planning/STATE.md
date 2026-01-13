@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-13
-**Current Phase:** 31 (Output Display) - IN PROGRESS
-**Current Plan:** 1 of 2 complete
+**Current Phase:** 31 (Output Display) - COMPLETE
+**Current Plan:** 2 of 2 complete
 
 ## Position
 
@@ -54,16 +54,16 @@ Milestone 9: Design Refresh (v2.0) IN PROGRESS
 ├── Phase 28: Core Components (1/1 plans) DONE
 ├── Phase 29: Onboarding Refresh (5/5 plans) DONE
 ├── Phase 30: Generation UI (2/2 plans) DONE
-├── Phase 31: Output Display (1/2 plans) IN PROGRESS
+├── Phase 31: Output Display (2/2 plans) DONE
 └── Phase 32: Chat Panel
 ```
 
 Phase: 31 of 32 (Output Display)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-13 - Completed 31-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-13 - Completed 31-02-PLAN.md
 
-Progress: ████████████████░ 91% (30/32 phases complete)
+Progress: ████████████████░ 97% (31/32 phases complete)
 
 ## Decisions
 
@@ -172,6 +172,10 @@ Progress: ████████████████░ 91% (30/32 phases 
 | 2026-01-13 | 30-01 | StatCard reuse for Time only | Other stats use custom styling for formatted strings |
 | 2026-01-13 | 31-01 | Inline subcomponents for DocumentEditor | WindowChrome/LineNumbers colocated for simplicity |
 | 2026-01-13 | 31-01 | CSS variable fallbacks | Ensures compatibility if CSS variables not loaded |
+| 2026-01-13 | 31-02 | highlightLine prop on DocumentEditor | Enable syntax highlighting pass-through from parent |
+| 2026-01-13 | 31-02 | GradientBorder for complete state | Consistent v2.0 styling, replaces Card component |
+| 2026-01-13 | 31-02 | MagneticButton for all actions | Premium interaction feel on Share/Regenerate/New |
+| 2026-01-13 | 31-02 | font-mono for data values | Premium aesthetic for time/cost display |
 
 ## Deferred Issues
 
@@ -185,7 +189,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - v2.0 Design Refresh Phase 31
+- **On track:** Yes - v2.0 Design Refresh Phase 31 complete
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -204,9 +208,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 31-01-PLAN.md
+Stopped at: Completed 31-02-PLAN.md (Phase 31 complete)
 Resume file: None
 
 ---
 
-*v2.0 Design Refresh: Phase 31 plan 1/2 complete. Ready for 31-02-PLAN.md.*
+*v2.0 Design Refresh: Phase 31 complete. Ready for Phase 32 (Chat Panel).*

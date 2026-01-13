@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
   CheckCircle2,
@@ -20,25 +20,102 @@ import { OnboardingWizard } from "@/components/onboarding";
 import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/strategic-blueprint-display";
 import { StrategicResearchReview } from "@/components/strategic-research";
 import { BlueprintChat } from "@/components/chat";
-import { Button } from "@/components/ui/button";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
-import { Pipeline, GenerationStats } from "@/components/pipeline";
+import { Pipeline, GenerationStats, StreamingSectionPreview } from "@/components/pipeline";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
-import type { StrategicBlueprintOutput, StrategicBlueprintProgress } from "@/lib/strategic-blueprint/output-types";
-import { STRATEGIC_BLUEPRINT_SECTION_LABELS } from "@/lib/strategic-blueprint/output-types";
+import type { StrategicBlueprintOutput, StrategicBlueprintProgress, StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
 import {
   setOnboardingData as saveOnboardingData,
   setStrategicBlueprint as saveStrategicBlueprint,
   clearAllSavedData,
   getSavedProgress,
 } from "@/lib/storage/local-storage";
+
+// =============================================================================
+// SSE Event Types (match server-side definitions)
+// =============================================================================
+
+interface SSESectionStartEvent {
+  type: "section-start";
+  section: StrategicBlueprintSection;
+  label: string;
+}
+
+interface SSESectionCompleteEvent {
+  type: "section-complete";
+  section: StrategicBlueprintSection;
+  label: string;
+  data: unknown;
+}
+
+interface SSEProgressEvent {
+  type: "progress";
+  percentage: number;
+  message: string;
+}
+
+interface SSEMetadataEvent {
+  type: "metadata";
+  elapsedTime: number;
+  estimatedCost: number;
+  completedSections: number;
+  totalSections: number;
+}
+
+interface SSEDoneEvent {
+  type: "done";
+  success: true;
+  strategicBlueprint: StrategicBlueprintOutput;
+  metadata: {
+    totalTime: number;
+    totalCost: number;
+  };
+}
+
+interface SSEErrorEvent {
+  type: "error";
+  message: string;
+  code?: string;
+}
+
+type SSEEvent =
+  | SSESectionStartEvent
+  | SSESectionCompleteEvent
+  | SSEProgressEvent
+  | SSEMetadataEvent
+  | SSEDoneEvent
+  | SSEErrorEvent;
+
+// =============================================================================
+// SSE Parsing Helper
+// =============================================================================
+
+function parseSSEEvent(eventStr: string): SSEEvent | null {
+  const lines = eventStr.trim().split("\n");
+  let eventType = "";
+  let data = "";
+
+  for (const line of lines) {
+    if (line.startsWith("event: ")) {
+      eventType = line.slice(7);
+    } else if (line.startsWith("data: ")) {
+      data = line.slice(6);
+    }
+  }
+
+  if (!eventType || !data) return null;
+
+  try {
+    return JSON.parse(data) as SSEEvent;
+  } catch {
+    return null;
+  }
+}
 
 type PageState =
   | "onboarding"
@@ -70,6 +147,11 @@ export default function GeneratePage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+
+  // Streaming state for real-time section display
+  const [streamingSections, setStreamingSections] = useState<Map<StrategicBlueprintSection, unknown>>(new Map());
+  const [currentStreamingSection, setCurrentStreamingSection] = useState<StrategicBlueprintSection | null>(null);
+  const [streamingCost, setStreamingCost] = useState(0);
 
   // Check for saved progress on mount
   useEffect(() => {
@@ -123,12 +205,15 @@ export default function GeneratePage() {
     setWizardKey((prev) => prev + 1);
   }, []);
 
-  // Onboarding complete → Generate Strategic Blueprint
+  // Onboarding complete → Generate Strategic Blueprint (with SSE streaming)
   const handleOnboardingComplete = useCallback(async (data: OnboardingFormData) => {
     setOnboardingData(data);
     saveOnboardingData(data);
     setPageState("generating-blueprint");
     setError(null);
+    setStreamingSections(new Map());
+    setCurrentStreamingSection(null);
+    setStreamingCost(0);
     setBlueprintProgress({
       currentSection: "industryMarketOverview",
       completedSections: [],
@@ -138,26 +223,126 @@ export default function GeneratePage() {
     });
 
     try {
-      const response = await fetch("/api/strategic-blueprint/generate", {
+      // Use SSE streaming for real-time section updates
+      const response = await fetch("/api/strategic-blueprint/generate?stream=true", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ onboardingData: data }),
       });
 
-      const result = await response.json();
+      // Check if we got a streaming response
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("text/event-stream") && response.body) {
+        // Handle SSE streaming
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-      if (result.success && result.strategicBlueprint) {
-        setStrategicBlueprint(result.strategicBlueprint);
-        saveStrategicBlueprint(result.strategicBlueprint);
-        setBlueprintMeta({
-          totalTime: result.metadata?.totalTime || 0,
-          totalCost: result.metadata?.totalCost || 0,
-        });
-        setPageState("review-blueprint");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Split on double newline (SSE event separator)
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+
+          for (const eventStr of events) {
+            if (!eventStr.trim()) continue;
+
+            const event = parseSSEEvent(eventStr);
+            if (!event) continue;
+
+            switch (event.type) {
+              case "section-start":
+                setCurrentStreamingSection(event.section);
+                setBlueprintProgress((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        currentSection: event.section,
+                        progressMessage: `Generating ${event.label}...`,
+                      }
+                    : null
+                );
+                break;
+
+              case "section-complete":
+                setStreamingSections((prev) => {
+                  const newMap = new Map(prev);
+                  newMap.set(event.section, event.data);
+                  return newMap;
+                });
+                setBlueprintProgress((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        completedSections: [...prev.completedSections, event.section],
+                        partialOutput: {
+                          ...prev.partialOutput,
+                          [event.section]: event.data,
+                        },
+                        progressMessage: `Completed ${event.label}`,
+                      }
+                    : null
+                );
+                break;
+
+              case "progress":
+                setBlueprintProgress((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        progressPercentage: event.percentage,
+                        progressMessage: event.message,
+                      }
+                    : null
+                );
+                break;
+
+              case "metadata":
+                setStreamingCost(event.estimatedCost);
+                break;
+
+              case "done":
+                setStrategicBlueprint(event.strategicBlueprint);
+                saveStrategicBlueprint(event.strategicBlueprint);
+                setBlueprintMeta({
+                  totalTime: event.metadata.totalTime,
+                  totalCost: event.metadata.totalCost,
+                });
+                setCurrentStreamingSection(null);
+                setPageState("review-blueprint");
+                break;
+
+              case "error":
+                setError({
+                  message: event.message,
+                  retryable: true,
+                });
+                setPageState("error");
+                break;
+            }
+          }
+        }
       } else {
-        // Parse structured error from API response
-        setError(parseApiError(result));
-        setPageState("error");
+        // Fallback to non-streaming JSON response (backward compatibility)
+        const result = await response.json();
+
+        if (result.success && result.strategicBlueprint) {
+          setStrategicBlueprint(result.strategicBlueprint);
+          saveStrategicBlueprint(result.strategicBlueprint);
+          setBlueprintMeta({
+            totalTime: result.metadata?.totalTime || 0,
+            totalCost: result.metadata?.totalCost || 0,
+          });
+          setPageState("review-blueprint");
+        } else {
+          // Parse structured error from API response
+          setError(parseApiError(result));
+          setPageState("error");
+        }
       }
     } catch (err) {
       console.error("Blueprint generation error:", err);
@@ -416,12 +601,12 @@ export default function GeneratePage() {
     const currentStageIndex = Math.min(completedCount, BLUEPRINT_STAGES.length - 1);
     const totalSections = BLUEPRINT_STAGES.length;
 
-    // Estimate cost based on elapsed time (rough estimate: ~$0.001 per second)
-    const estimatedCost = (elapsedTime / 1000) * 0.001;
+    // Use streaming cost if available, otherwise estimate based on elapsed time
+    const estimatedCost = streamingCost > 0 ? streamingCost : (elapsedTime / 1000) * 0.001;
 
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
           <motion.div
             variants={fadeUp}
             initial="initial"
@@ -429,19 +614,19 @@ export default function GeneratePage() {
             transition={{ duration: durations.normal }}
           >
             <GradientBorder animate={true}>
-              <div className="p-8 space-y-8">
-                {/* Header */}
+              <div className="p-6 space-y-6">
+                {/* Header - compact */}
                 <motion.div
-                  className="text-center space-y-2"
+                  className="text-center"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: durations.normal }}
                 >
-                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                    Generating Strategic Blueprint
+                  <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    Generating Blueprint
                   </h2>
-                  <p style={{ color: 'var(--text-secondary)' }}>
-                    Analyzing your market, ICP, offer, and competitive landscape
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                    {blueprintProgress?.progressMessage || "Starting..."}
                   </p>
                 </motion.div>
 
@@ -457,10 +642,10 @@ export default function GeneratePage() {
                   />
                 </motion.div>
 
-                {/* Generation Stats */}
+                {/* Inline Stats */}
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   transition={{ delay: 0.3, duration: durations.normal }}
                 >
                   <GenerationStats
@@ -471,37 +656,22 @@ export default function GeneratePage() {
                   />
                 </motion.div>
 
-                {/* Current Section Indicator */}
-                {blueprintProgress?.currentSection && (
-                  <motion.div
-                    className="rounded-lg p-4"
-                    style={{ background: 'var(--accent-blue-subtle)' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4, duration: durations.normal }}
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent-blue)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        Currently generating:{" "}
-                        <strong style={{ color: 'var(--text-primary)' }}>
-                          {STRATEGIC_BLUEPRINT_SECTION_LABELS[blueprintProgress.currentSection]}
-                        </strong>
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Time estimate */}
-                <motion.p
-                  className="text-xs text-center"
-                  style={{ color: 'var(--text-tertiary)' }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5, duration: durations.normal }}
-                >
-                  This typically takes 1-2 minutes
-                </motion.p>
+                {/* Streaming Section Preview - only show when sections start completing */}
+                <AnimatePresence>
+                  {streamingSections.size > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <StreamingSectionPreview
+                        sections={streamingSections}
+                        currentSection={currentStreamingSection}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </GradientBorder>
           </motion.div>
@@ -600,207 +770,216 @@ export default function GeneratePage() {
     return (
       <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 md:py-12">
-          {/* Success Banner */}
+          {/* Success Header */}
           <motion.div
             className="mx-auto max-w-5xl mb-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: durations.normal, ease: easings.out }}
           >
-            <Card
-              style={{
-                background: 'var(--bg-elevated)',
-                borderColor: 'var(--success)',
-                borderWidth: '1px',
-              }}
-            >
-              <CardContent className="p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <GradientBorder>
+              <div className="p-6">
+                {/* Main header row */}
+                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-4">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-full"
-                      style={{ background: 'var(--success-subtle)' }}
-                    >
-                      <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--success)' }} />
+                    {/* Success indicator with pulse */}
+                    <div className="relative">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-full"
+                        style={{ background: 'var(--success-subtle)' }}
+                      >
+                        <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--success)' }} />
+                      </div>
+                      {/* Subtle pulse ring */}
+                      <motion.div
+                        className="absolute inset-0 rounded-full"
+                        style={{ border: '2px solid var(--success)' }}
+                        initial={{ opacity: 0.5, scale: 1 }}
+                        animate={{ opacity: 0, scale: 1.5 }}
+                        transition={{ duration: 1.5, repeat: 2 }}
+                      />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                        Strategic Blueprint Complete!
+                      <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Blueprint Complete
                       </h2>
-                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        Your comprehensive 5-section Strategic Blueprint is ready
+                      <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                        5-section strategic analysis ready
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4">
-                    {blueprintMeta && (
-                      <>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                          <span style={{ color: 'var(--text-secondary)' }}>
-                            {Math.round(blueprintMeta.totalTime / 1000)}s
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                          <span style={{ color: 'var(--text-secondary)' }}>
-                            ${blueprintMeta.totalCost.toFixed(4)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleShare}
-                        disabled={isSharing || !!shareUrl}
-                        style={{
-                          border: '1px solid var(--border-default)',
-                          color: 'var(--text-secondary)',
-                          background: 'transparent',
-                        }}
-                      >
-                        {isSharing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating Link...
-                          </>
-                        ) : shareUrl ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Link Created
-                          </>
-                        ) : (
-                          <>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            Share
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRegenerateBlueprint}
-                        style={{
-                          border: '1px solid var(--border-default)',
-                          color: 'var(--text-secondary)',
-                          background: 'transparent',
-                        }}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Regenerate
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleStartOver}
-                        style={{
-                          border: '1px solid var(--border-default)',
-                          color: 'var(--text-secondary)',
-                          background: 'transparent',
-                        }}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        New Blueprint
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Completed Stage */}
-                <div
-                  className="mt-4 pt-4"
-                  style={{ borderTop: '1px solid var(--success)' }}
-                >
-                  <div className="flex items-center gap-3 text-sm">
-                    <Badge
-                      variant="secondary"
-                      className="gap-1"
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <MagneticButton
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      onClick={handleShare}
+                      disabled={isSharing || !!shareUrl}
                       style={{
-                        background: 'var(--success-subtle)',
-                        color: 'var(--success)',
-                        border: '1px solid var(--success)',
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-secondary)',
+                        background: 'transparent',
                       }}
                     >
-                      <CheckCircle2 className="h-3 w-3" />
-                      Strategic Blueprint
-                    </Badge>
+                      {isSharing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : shareUrl ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Share2 className="h-4 w-4" />
+                      )}
+                      {isSharing ? 'Sharing...' : shareUrl ? 'Shared' : 'Share'}
+                    </MagneticButton>
+                    <MagneticButton
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      onClick={handleRegenerateBlueprint}
+                      style={{
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-secondary)',
+                        background: 'transparent',
+                      }}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Regenerate
+                    </MagneticButton>
+                    <MagneticButton
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      onClick={handleStartOver}
+                      style={{
+                        background: 'var(--gradient-primary)',
+                        color: 'white',
+                      }}
+                    >
+                      New Blueprint
+                    </MagneticButton>
                   </div>
                 </div>
 
-                {/* Share Link Display */}
-                {shareUrl && (
-                  <div
-                    className="mt-4 p-4 rounded-lg"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-default)',
-                    }}
+                {/* Stats row */}
+                {blueprintMeta && (
+                  <motion.div
+                    className="flex flex-wrap gap-6 mt-6 pt-6"
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Link2 className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
-                      <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
-                        Shareable Link
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                      <span
+                        className="text-sm font-mono"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        {Math.round(blueprintMeta.totalTime / 1000)}s
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={shareUrl}
-                        className="flex-1 px-3 py-2 text-sm rounded-md"
-                        style={{
-                          background: 'var(--bg-elevated)',
-                          border: '1px solid var(--border-default)',
-                          color: 'var(--text-primary)',
-                        }}
-                      />
-                      <MagneticButton
-                        className="h-9 px-3 rounded-md text-sm font-medium"
-                        onClick={handleCopyLink}
-                        style={{
-                          background: 'var(--gradient-primary)',
-                          color: 'white',
-                        }}
+                      <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                      <span
+                        className="text-sm font-mono"
+                        style={{ color: 'var(--text-secondary)' }}
                       >
-                        {shareCopied ? (
-                          <>
-                            <Check className="h-4 w-4 mr-1" />
-                            Copied
-                          </>
-                        ) : (
-                          "Copy"
-                        )}
-                      </MagneticButton>
+                        ${blueprintMeta.totalCost.toFixed(4)}
+                      </span>
                     </div>
-                    <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
-                      Anyone with this link can view this blueprint
-                    </p>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <FileSearch className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                      <span
+                        className="text-sm"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        5 sections analyzed
+                      </span>
+                    </div>
+                  </motion.div>
                 )}
 
+                {/* Share Link Display */}
+                <AnimatePresence>
+                  {shareUrl && (
+                    <motion.div
+                      className="mt-6 p-4 rounded-lg"
+                      style={{
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-default)',
+                      }}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <Link2 className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
+                        <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                          Shareable Link
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={shareUrl}
+                          className="flex-1 px-3 py-2 text-sm rounded-md font-mono"
+                          style={{
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-default)',
+                            color: 'var(--text-primary)',
+                          }}
+                        />
+                        <MagneticButton
+                          className="h-9 px-4 rounded-md text-sm font-medium"
+                          onClick={handleCopyLink}
+                          style={{
+                            background: 'var(--gradient-primary)',
+                            color: 'white',
+                          }}
+                        >
+                          {shareCopied ? (
+                            <span className="flex items-center gap-1">
+                              <Check className="h-4 w-4" />
+                              Copied
+                            </span>
+                          ) : (
+                            "Copy"
+                          )}
+                        </MagneticButton>
+                      </div>
+                      <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
+                        Anyone with this link can view this blueprint
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {/* Share Error Display */}
-                {shareError && (
-                  <div
-                    className="mt-4 p-3 rounded-lg"
-                    style={{
-                      background: 'var(--error-subtle)',
-                      border: '1px solid var(--error)',
-                    }}
-                  >
-                    <p className="text-sm" style={{ color: 'var(--error)' }}>{shareError}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                <AnimatePresence>
+                  {shareError && (
+                    <motion.div
+                      className="mt-4 p-3 rounded-lg"
+                      style={{
+                        background: 'var(--error-subtle)',
+                        border: '1px solid var(--error)',
+                      }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <p className="text-sm" style={{ color: 'var(--error)' }}>{shareError}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </GradientBorder>
           </motion.div>
 
           {/* Strategic Blueprint Display */}
-          <div className="mx-auto max-w-5xl">
+          <motion.div
+            className="mx-auto max-w-5xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
+          >
             <StrategicBlueprintDisplay strategicBlueprint={strategicBlueprint} />
-          </div>
+          </motion.div>
         </div>
       </div>
     );

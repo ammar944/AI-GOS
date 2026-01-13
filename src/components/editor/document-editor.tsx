@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { StreamingCursor } from "./streaming-cursor";
 
@@ -8,6 +9,8 @@ interface DocumentEditorProps {
   filename?: string;
   isStreaming?: boolean;
   className?: string;
+  /** Optional function to apply syntax highlighting to each line */
+  highlightLine?: (line: string) => CSSProperties;
 }
 
 // Traffic lights component (macOS window controls)
@@ -98,6 +101,7 @@ export function DocumentEditor({
   filename = "blueprint.md",
   isStreaming = false,
   className,
+  highlightLine,
 }: DocumentEditorProps) {
   const lines = content.split("\n");
   const lineCount = lines.length;
@@ -122,15 +126,20 @@ export function DocumentEditor({
               fontSize: 13,
               lineHeight: 1.8,
               color: "var(--text-secondary, #a0a0a0)",
+              overflow: "auto",
             }}
           >
-            {lines.map((line, index) => (
-              <div key={index}>
-                {line || "\u00A0"}
-                {/* Show streaming cursor at end of last line when streaming */}
-                {isStreaming && index === lines.length - 1 && <StreamingCursor />}
-              </div>
-            ))}
+            {lines.map((line, index) => {
+              // Apply syntax highlighting if provided
+              const lineStyle = highlightLine ? highlightLine(line) : {};
+              return (
+                <div key={index} style={lineStyle}>
+                  {line || "\u00A0"}
+                  {/* Show streaming cursor at end of last line when streaming */}
+                  {isStreaming && index === lines.length - 1 && <StreamingCursor />}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -421,15 +421,16 @@ Plans:
 - [x] 30-01: Pipeline & Stats Components (Pipeline progress indicator, GenerationStats grid)
 - [x] 30-02: Streaming Generation Display
 
-#### Phase 31: Output Display
+#### Phase 31: Output Display COMPLETE
 **Goal**: Document editor window (traffic lights, line numbers, syntax highlighting, streaming cursor), blueprint viewer
 **Depends on**: Phase 30
 **Research**: Unlikely (patterns documented)
-**Plans**: 1/2
+**Completed**: 2026-01-13
+**Plans**: 2/2
 
 Plans:
 - [x] 31-01: Document Editor Foundation (WindowChrome, LineNumbers, StreamingCursor)
-- [ ] 31-02: Blueprint Viewer Integration
+- [x] 31-02: Blueprint Viewer Integration (syntax highlighting, v2.0 complete page)
 
 #### Phase 32: Chat Panel
 **Goal**: Slide panel with backdrop, message bubbles, typing indicator animation, quick suggestion pills
@@ -485,10 +486,10 @@ Plans:
 | 28. Core Components | v2.0 | 1/1 | Complete | 2026-01-12 |
 | 29. Onboarding Refresh | v2.0 | 5/5 | Complete | 2026-01-13 |
 | 30. Generation UI | v2.0 | 2/2 | Complete | 2026-01-13 |
-| 31. Output Display | v2.0 | 1/2 | In progress | - |
+| 31. Output Display | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 32. Chat Panel | v2.0 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-13 (Phase 31 plan 1/2 complete - Document Editor Foundation)*
+*Updated: 2026-01-13 (Phase 31 complete - Output Display with BlueprintViewer)*
