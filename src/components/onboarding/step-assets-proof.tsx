@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import {
   FileCheck,
   Presentation,
@@ -15,9 +16,9 @@ import {
   Camera,
   Users,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
+import { MagneticButton } from "@/components/ui/magnetic-button";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { AssetsProofData } from "@/lib/onboarding/types";
 
 interface StepAssetsProofProps {
@@ -189,62 +190,90 @@ export function StepAssetsProof({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+    <motion.form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.div className="space-y-2" variants={fadeUp}>
+        <h2 className="text-[24px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Assets & Proof
         </h2>
-        <p className="text-muted-foreground">
-          Share links to your existing marketing materials. All fields are
-          optional.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
+          Share links to your existing marketing materials. All fields are optional.
         </p>
-      </div>
+      </motion.div>
 
-      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+      <motion.div
+        className="rounded-xl p-4"
+        style={{
+          border: '1px solid var(--border-default)',
+          background: 'var(--bg-elevated)',
+        }}
+        variants={staggerItem}
+      >
         <div className="flex gap-3">
-          <FileCheck className="h-5 w-5 text-primary mt-0.5" />
+          <FileCheck className="h-5 w-5 mt-0.5" style={{ color: 'var(--accent-blue)' }} />
           <div className="space-y-1">
-            <p className="text-sm font-medium">Why we ask for these</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              Why we ask for these
+            </p>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               These assets help our AI create better ad angles, scripts, and
               creative direction based on your existing proof and messaging.
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-5">
+      <motion.div className="grid gap-5" variants={staggerContainer}>
         {ASSET_FIELDS.map((field) => (
-          <div key={field.key} className="space-y-2">
-            <Label
-              htmlFor={field.key}
-              className="flex items-center gap-2 text-muted-foreground"
-            >
-              {field.icon}
-              <span className="text-foreground">{field.label}</span>
-            </Label>
-            <Input
+          <motion.div key={field.key} variants={staggerItem}>
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ color: 'var(--text-tertiary)' }}>{field.icon}</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {field.label}
+              </span>
+            </div>
+            <FloatingLabelInput
               id={field.key}
+              label={field.placeholder}
               type="url"
-              placeholder={field.placeholder}
               value={formData[field.key] || ""}
               onChange={(e) => updateField(field.key, e.target.value)}
-              className="h-11"
             />
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div className="flex gap-3 pt-4" variants={staggerItem}>
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            className="h-10 px-4 py-2 rounded-md text-sm font-medium"
+            onClick={onBack}
+            style={{
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
+          style={{
+            background: 'var(--gradient-primary)',
+            color: 'white',
+          }}
+        >
           Continue
-        </Button>
-      </div>
-    </form>
+        </MagneticButton>
+      </motion.div>
+    </motion.form>
   );
 }

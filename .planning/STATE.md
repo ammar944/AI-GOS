@@ -1,8 +1,8 @@
 # Project State
 
-**Last Updated:** 2026-01-12
-**Current Phase:** 29 (Onboarding Refresh) - IN PROGRESS
-**Current Plan:** 29-04-PLAN.md (ready to execute)
+**Last Updated:** 2026-01-13
+**Current Phase:** 29 (Onboarding Refresh) - COMPLETE
+**Current Plan:** Phase 29 complete, ready for Phase 30
 
 ## Position
 
@@ -52,18 +52,18 @@ Milestone 8: Ad Intelligence (v1.8) COMPLETE
 Milestone 9: Design Refresh (v2.0) IN PROGRESS
 ├── Phase 27: Design Foundation (2/2 plans) DONE
 ├── Phase 28: Core Components (1/1 plans) DONE
-├── Phase 29: Onboarding Refresh (1/5 plans) IN PROGRESS
+├── Phase 29: Onboarding Refresh (5/5 plans) DONE
 ├── Phase 30: Generation UI
 ├── Phase 31: Output Display
 └── Phase 32: Chat Panel
 ```
 
 Phase: 29 of 32 (Onboarding Refresh)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-01-12 - Completed 29-04-PLAN.md
+Plan: 5 of 5 in current phase
+Status: Phase complete
+Last activity: 2026-01-13 - Completed 29-05-PLAN.md
 
-Progress: ███████████████░ 90% (28/32 phases complete + 29 in progress)
+Progress: ████████████████░ 91% (29/32 phases complete)
 
 ## Decisions
 
@@ -164,6 +164,8 @@ Progress: ███████████████░ 90% (28/32 phases com
 | 2026-01-12 | 20-03 | it.each for model capability tests | Reduces boilerplate for parameterized tests |
 | 2026-01-12 | 28-01 | HTMLMotionProps for MagneticButton | React.ComponentPropsWithoutRef caused type conflicts with motion.button |
 | 2026-01-12 | 28-01 | useSpring for magnetic reset | Smoother physics-based interpolation during reset |
+| 2026-01-13 | 29-05 | FloatingLabelInput with placeholder as label | More compact for URL fields than separate labels |
+| 2026-01-13 | 29-05 | Keep Select for dropdowns | Dropdowns don't need floating labels, shadcn Select sufficient |
 
 ## Deferred Issues
 
@@ -195,10 +197,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-12
-Stopped at: Completed 29-04-PLAN.md
+Last session: 2026-01-13
+Stopped at: Completed 29-05-PLAN.md (Phase 29 complete)
 Resume file: None
 
 ---
 
-*v2.0 Design Refresh: Phase 29 in progress (4/5 plans). Ready for 29-05-PLAN.md (Budget & Timeline).*
+*v2.0 Design Refresh: Phase 29 complete (5/5 plans). Ready for Phase 30 (Generation UI).*

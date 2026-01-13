@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   Loader2,
   CheckCircle2,
@@ -21,18 +21,18 @@ import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/stra
 import { StrategicResearchReview } from "@/components/strategic-research";
 import { BlueprintChat } from "@/components/chat";
 import { Button } from "@/components/ui/button";
+import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
+import { easings } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput, StrategicBlueprintProgress } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_LABELS } from "@/lib/strategic-blueprint/output-types";
 import {
-  getOnboardingData,
   setOnboardingData as saveOnboardingData,
-  getStrategicBlueprint,
   setStrategicBlueprint as saveStrategicBlueprint,
   clearAllSavedData,
   getSavedProgress,
@@ -46,7 +46,6 @@ type PageState =
   | "error";
 
 export default function GeneratePage() {
-  const router = useRouter();
   const [pageState, setPageState] = useState<PageState>("onboarding");
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData | null>(null);
   const [strategicBlueprint, setStrategicBlueprint] = useState<StrategicBlueprintOutput | null>(null);
@@ -198,7 +197,7 @@ export default function GeneratePage() {
       } else {
         setShareError(result.error?.message || "Failed to create share link");
       }
-    } catch (err) {
+    } catch {
       setShareError("Failed to create share link");
     } finally {
       setIsSharing(false);
@@ -229,27 +228,53 @@ export default function GeneratePage() {
   // Resume Prompt
   if (showResumePrompt) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 max-w-lg">
-          <Card className="border-2 border-primary/20">
+          <Card
+            className="border-2"
+            style={{
+              background: 'var(--bg-elevated)',
+              borderColor: 'var(--accent-blue)',
+            }}
+          >
             <CardContent className="p-8">
               <div className="flex flex-col items-center gap-6 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <AlertCircle className="h-8 w-8 text-primary" />
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-full"
+                  style={{ background: 'var(--accent-blue-subtle)' }}
+                >
+                  <AlertCircle className="h-8 w-8" style={{ color: 'var(--accent-blue)' }} />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">Resume Previous Session?</h2>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                    Resume Previous Session?
+                  </h2>
+                  <p style={{ color: 'var(--text-secondary)' }}>
                     We found saved progress from a previous session. Would you like to continue where you left off?
                   </p>
                 </div>
                 <div className="flex gap-3 w-full">
-                  <Button variant="outline" className="flex-1" onClick={handleStartFresh}>
+                  <MagneticButton
+                    className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
+                    onClick={handleStartFresh}
+                    style={{
+                      border: '1px solid var(--border-default)',
+                      color: 'var(--text-secondary)',
+                      background: 'transparent',
+                    }}
+                  >
                     Start Fresh
-                  </Button>
-                  <Button className="flex-1" onClick={handleResume}>
+                  </MagneticButton>
+                  <MagneticButton
+                    className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
+                    onClick={handleResume}
+                    style={{
+                      background: 'var(--gradient-primary)',
+                      color: 'white',
+                    }}
+                  >
                     Resume
-                  </Button>
+                  </MagneticButton>
                 </div>
               </div>
             </CardContent>
@@ -262,38 +287,87 @@ export default function GeneratePage() {
   // Onboarding State
   if (pageState === "onboarding") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 md:py-12">
           {/* Header */}
-          <div className="mx-auto max-w-4xl mb-8 text-center">
-            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+          <motion.div
+            className="mx-auto max-w-4xl mb-8 text-center"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: easings.out }}
+          >
+            <motion.h1
+              className="text-3xl font-bold tracking-tight md:text-4xl"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Generate Your Strategic Blueprint
-            </h1>
-            <p className="mt-2 text-muted-foreground">
+            </motion.h1>
+            <motion.p
+              className="mt-2"
+              style={{ color: 'var(--text-secondary)', fontSize: '15px' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
               Complete the onboarding form to generate your comprehensive Strategic Blueprint
-            </p>
+            </motion.p>
+
             {/* Stage Indicator */}
-            <div className="flex items-center justify-center gap-4 mt-6">
+            <motion.div
+              className="flex items-center justify-center gap-4 mt-6"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                  style={{ background: 'var(--gradient-primary)', color: 'white' }}
+                >
                   1
                 </div>
-                <span className="text-sm font-medium">Onboarding</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Onboarding
+                </span>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
               <div className="flex items-center gap-2 opacity-50">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                  style={{
+                    background: 'var(--bg-hover)',
+                    color: 'var(--text-tertiary)',
+                    border: '1px solid var(--border-default)',
+                  }}
+                >
                   2
                 </div>
-                <span className="text-sm">Strategic Blueprint</span>
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  Strategic Blueprint
+                </span>
               </div>
-            </div>
+            </motion.div>
+
             {/* Auto-fill Button */}
-            <Button variant="outline" size="sm" className="mt-4" onClick={handleAutoFill}>
-              <Wand2 className="mr-2 h-4 w-4" />
-              Auto-fill with Sample Data
-            </Button>
-          </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <MagneticButton
+                className="mt-4 h-9 px-3 rounded-md text-sm font-medium"
+                onClick={handleAutoFill}
+                style={{
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-secondary)',
+                  background: 'transparent',
+                }}
+              >
+                <Wand2 className="mr-2 h-4 w-4" />
+                Auto-fill with Sample Data
+              </MagneticButton>
+            </motion.div>
+          </motion.div>
 
           {/* Wizard */}
           <OnboardingWizard
@@ -309,50 +383,77 @@ export default function GeneratePage() {
   // Generating Blueprint State
   if (pageState === "generating-blueprint") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <Card className="border-2">
+          <Card className="border-2" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-default)' }}>
             <CardContent className="p-8">
               <div className="flex flex-col items-center gap-6 text-center">
                 {/* Spinner */}
                 <div className="relative">
-                  <div className="h-20 w-20 rounded-full border-4 border-muted" />
-                  <Loader2 className="absolute inset-0 h-20 w-20 animate-spin text-primary" />
-                  <FileSearch className="absolute inset-0 m-auto h-8 w-8 text-primary" />
+                  <div
+                    className="h-20 w-20 rounded-full border-4"
+                    style={{ borderColor: 'var(--border-default)' }}
+                  />
+                  <Loader2 className="absolute inset-0 h-20 w-20 animate-spin" style={{ color: 'var(--accent-blue)' }} />
+                  <FileSearch className="absolute inset-0 m-auto h-8 w-8" style={{ color: 'var(--accent-blue)' }} />
                 </div>
 
                 {/* Title */}
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">Generating Strategic Blueprint</h2>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                    Generating Strategic Blueprint
+                  </h2>
+                  <p style={{ color: 'var(--text-secondary)' }}>
                     Analyzing your market, ICP, offer, and competitive landscape
                   </p>
                 </div>
 
                 {/* Stage Indicator */}
                 <div className="flex items-center gap-2 text-sm">
-                  <Badge variant="secondary">Step 2 of 2</Badge>
-                  <span className="text-muted-foreground">Strategic Blueprint</span>
+                  <Badge
+                    variant="secondary"
+                    style={{
+                      background: 'var(--bg-hover)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-default)',
+                    }}
+                  >
+                    Step 2 of 2
+                  </Badge>
+                  <span style={{ color: 'var(--text-tertiary)' }}>Strategic Blueprint</span>
                 </div>
 
                 {/* Progress */}
                 <div className="w-full space-y-3">
                   <Progress value={blueprintProgress?.progressPercentage || 5} className="h-3" />
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
+                    <span style={{ color: 'var(--text-tertiary)' }}>
                       {blueprintProgress?.progressMessage || "Initializing..."}
                     </span>
-                    <span className="font-medium">{blueprintProgress?.progressPercentage || 0}%</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {blueprintProgress?.progressPercentage || 0}%
+                    </span>
                   </div>
                 </div>
 
                 {/* Completed Sections */}
                 {blueprintProgress && blueprintProgress.completedSections.length > 0 && (
                   <div className="w-full text-left">
-                    <p className="text-sm font-medium mb-2">Completed sections:</p>
+                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                      Completed sections:
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {blueprintProgress.completedSections.map((section) => (
-                        <Badge key={section} variant="secondary" className="gap-1">
+                        <Badge
+                          key={section}
+                          variant="secondary"
+                          className="gap-1"
+                          style={{
+                            background: 'var(--success-subtle)',
+                            color: 'var(--success)',
+                            border: '1px solid var(--success)',
+                          }}
+                        >
                           <CheckCircle2 className="h-3 w-3" />
                           {STRATEGIC_BLUEPRINT_SECTION_LABELS[section]}
                         </Badge>
@@ -363,18 +464,23 @@ export default function GeneratePage() {
 
                 {/* Current Section */}
                 {blueprintProgress?.currentSection && (
-                  <div className="w-full rounded-lg bg-primary/5 p-4">
+                  <div
+                    className="w-full rounded-lg p-4"
+                    style={{ background: 'var(--accent-blue-subtle)' }}
+                  >
                     <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      <span className="text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent-blue)' }} />
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                         Currently generating:{" "}
-                        <strong>{STRATEGIC_BLUEPRINT_SECTION_LABELS[blueprintProgress.currentSection]}</strong>
+                        <strong style={{ color: 'var(--text-primary)' }}>
+                          {STRATEGIC_BLUEPRINT_SECTION_LABELS[blueprintProgress.currentSection]}
+                        </strong>
                       </span>
                     </div>
                   </div>
                 )}
 
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   This typically takes 1-2 minutes
                 </p>
               </div>
@@ -388,7 +494,7 @@ export default function GeneratePage() {
   // Error State
   if (pageState === "error" && error) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 max-w-lg">
           <ApiErrorDisplay
             error={error}
@@ -403,33 +509,53 @@ export default function GeneratePage() {
   // Review Blueprint State
   if (pageState === "review-blueprint" && strategicBlueprint) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 md:py-12">
           {/* Stage Indicator */}
-          <div className="mx-auto max-w-5xl mb-8">
+          <motion.div
+            className="mx-auto max-w-5xl mb-8"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             <div className="flex items-center justify-center gap-4">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white text-sm font-medium">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                  style={{ background: 'var(--success)', color: 'white' }}
+                >
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
-                <span className="text-sm text-muted-foreground">Onboarding</span>
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Onboarding</span>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                  style={{ background: 'var(--gradient-primary)', color: 'white' }}
+                >
                   2
                 </div>
-                <span className="text-sm font-medium">Review Research</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  Review Research
+                </span>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
               <div className="flex items-center gap-2 opacity-50">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground text-sm font-medium">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                  style={{
+                    background: 'var(--bg-hover)',
+                    color: 'var(--text-tertiary)',
+                    border: '1px solid var(--border-default)',
+                  }}
+                >
                   3
                 </div>
-                <span className="text-sm">Complete</span>
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Complete</span>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Review Component */}
           <div className="mx-auto max-w-5xl">
@@ -453,20 +579,36 @@ export default function GeneratePage() {
   // Complete State - Show Strategic Blueprint
   if (pageState === "complete" && strategicBlueprint) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
         <div className="container mx-auto px-4 py-8 md:py-12">
           {/* Success Banner */}
-          <div className="mx-auto max-w-5xl mb-8">
-            <Card className="border-green-500/20 bg-green-500/5">
+          <motion.div
+            className="mx-auto max-w-5xl mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Card
+              style={{
+                background: 'var(--bg-elevated)',
+                borderColor: 'var(--success)',
+                borderWidth: '1px',
+              }}
+            >
               <CardContent className="p-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
-                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-full"
+                      style={{ background: 'var(--success-subtle)' }}
+                    >
+                      <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--success)' }} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold">Strategic Blueprint Complete!</h2>
-                      <p className="text-sm text-muted-foreground">
+                      <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                        Strategic Blueprint Complete!
+                      </h2>
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                         Your comprehensive 5-section Strategic Blueprint is ready
                       </p>
                     </div>
@@ -476,12 +618,16 @@ export default function GeneratePage() {
                     {blueprintMeta && (
                       <>
                         <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{Math.round(blueprintMeta.totalTime / 1000)}s</span>
+                          <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {Math.round(blueprintMeta.totalTime / 1000)}s
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <Coins className="h-4 w-4 text-muted-foreground" />
-                          <span>${blueprintMeta.totalCost.toFixed(4)}</span>
+                          <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            ${blueprintMeta.totalCost.toFixed(4)}
+                          </span>
                         </div>
                       </>
                     )}
@@ -491,6 +637,11 @@ export default function GeneratePage() {
                         size="sm"
                         onClick={handleShare}
                         disabled={isSharing || !!shareUrl}
+                        style={{
+                          border: '1px solid var(--border-default)',
+                          color: 'var(--text-secondary)',
+                          background: 'transparent',
+                        }}
                       >
                         {isSharing ? (
                           <>
@@ -509,11 +660,29 @@ export default function GeneratePage() {
                           </>
                         )}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={handleRegenerateBlueprint}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRegenerateBlueprint}
+                        style={{
+                          border: '1px solid var(--border-default)',
+                          color: 'var(--text-secondary)',
+                          background: 'transparent',
+                        }}
+                      >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Regenerate
                       </Button>
-                      <Button variant="outline" size="sm" onClick={handleStartOver}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStartOver}
+                        style={{
+                          border: '1px solid var(--border-default)',
+                          color: 'var(--text-secondary)',
+                          background: 'transparent',
+                        }}
+                      >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         New Blueprint
                       </Button>
@@ -522,9 +691,20 @@ export default function GeneratePage() {
                 </div>
 
                 {/* Completed Stage */}
-                <div className="mt-4 pt-4 border-t border-green-500/20">
+                <div
+                  className="mt-4 pt-4"
+                  style={{ borderTop: '1px solid var(--success)' }}
+                >
                   <div className="flex items-center gap-3 text-sm">
-                    <Badge variant="secondary" className="gap-1 bg-green-100 text-green-800 border-green-200">
+                    <Badge
+                      variant="secondary"
+                      className="gap-1"
+                      style={{
+                        background: 'var(--success-subtle)',
+                        color: 'var(--success)',
+                        border: '1px solid var(--success)',
+                      }}
+                    >
                       <CheckCircle2 className="h-3 w-3" />
                       Strategic Blueprint
                     </Badge>
@@ -533,19 +713,39 @@ export default function GeneratePage() {
 
                 {/* Share Link Display */}
                 {shareUrl && (
-                  <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
+                  <div
+                    className="mt-4 p-4 rounded-lg"
+                    style={{
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-default)',
+                    }}
+                  >
                     <div className="flex items-center gap-2 mb-2">
-                      <Link2 className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-sm">Shareable Link</span>
+                      <Link2 className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
+                      <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                        Shareable Link
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         readOnly
                         value={shareUrl}
-                        className="flex-1 px-3 py-2 text-sm bg-background border rounded-md"
+                        className="flex-1 px-3 py-2 text-sm rounded-md"
+                        style={{
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border-default)',
+                          color: 'var(--text-primary)',
+                        }}
                       />
-                      <Button size="sm" onClick={handleCopyLink}>
+                      <MagneticButton
+                        className="h-9 px-3 rounded-md text-sm font-medium"
+                        onClick={handleCopyLink}
+                        style={{
+                          background: 'var(--gradient-primary)',
+                          color: 'white',
+                        }}
+                      >
                         {shareCopied ? (
                           <>
                             <Check className="h-4 w-4 mr-1" />
@@ -554,9 +754,9 @@ export default function GeneratePage() {
                         ) : (
                           "Copy"
                         )}
-                      </Button>
+                      </MagneticButton>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
+                    <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
                       Anyone with this link can view this blueprint
                     </p>
                   </div>
@@ -564,13 +764,19 @@ export default function GeneratePage() {
 
                 {/* Share Error Display */}
                 {shareError && (
-                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                    <p className="text-sm text-destructive">{shareError}</p>
+                  <div
+                    className="mt-4 p-3 rounded-lg"
+                    style={{
+                      background: 'var(--error-subtle)',
+                      border: '1px solid var(--error)',
+                    }}
+                  >
+                    <p className="text-sm" style={{ color: 'var(--error)' }}>{shareError}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
-          </div>
+          </motion.div>
 
           {/* Strategic Blueprint Display */}
           <div className="mx-auto max-w-5xl">

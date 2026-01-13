@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Target, DollarSign, Calendar, TrendingUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
+import { MagneticButton } from "@/components/ui/magnetic-button";
 import {
   Select,
   SelectContent,
@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { BudgetTargetsData, CampaignDuration } from "@/lib/onboarding/types";
 import { CAMPAIGN_DURATION_OPTIONS } from "@/lib/onboarding/types";
 
@@ -82,46 +84,51 @@ export function StepBudgetTargets({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
+    <motion.form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.div className="space-y-2" variants={fadeUp}>
+        <h2 className="text-[24px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Budget & Targets
         </h2>
-        <p className="text-muted-foreground">
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Set your advertising budget and performance goals
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6">
+      <motion.div className="grid gap-6" variants={staggerContainer}>
         {/* Budget Section */}
-        <div className="space-y-4">
-          <h3 className="flex items-center gap-2 text-lg font-medium">
-            <DollarSign className="h-5 w-5 text-primary" />
+        <motion.div className="space-y-4" variants={staggerItem}>
+          <h3 className="flex items-center gap-2 text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
+            <DollarSign className="h-5 w-5" style={{ color: 'var(--accent-blue)' }} />
             Budget
           </h3>
 
           <div className="grid gap-6 md:grid-cols-2">
             {/* Monthly Budget */}
             <div className="space-y-2">
-              <Label htmlFor="monthlyAdBudget">Monthly Ad Budget (USD)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  $
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>$</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Monthly Ad Budget (USD)
                 </span>
-                <Input
-                  id="monthlyAdBudget"
-                  type="number"
-                  min="1"
-                  step="any"
-                  placeholder="5000"
-                  value={monthlyBudget}
-                  onChange={(e) => setMonthlyBudget(e.target.value)}
-                  className="h-11 pl-7"
-                  aria-invalid={!!errors.monthlyAdBudget}
-                />
               </div>
+              <FloatingLabelInput
+                id="monthlyAdBudget"
+                label="5000"
+                type="number"
+                min="1"
+                step="any"
+                value={monthlyBudget}
+                onChange={(e) => setMonthlyBudget(e.target.value)}
+                aria-invalid={!!errors.monthlyAdBudget}
+              />
               {errors.monthlyAdBudget && (
-                <p className="text-sm text-destructive">
+                <p className="text-sm" style={{ color: 'var(--error)' }}>
                   {errors.monthlyAdBudget}
                 </p>
               )}
@@ -129,25 +136,22 @@ export function StepBudgetTargets({
 
             {/* Daily Ceiling */}
             <div className="space-y-2">
-              <Label htmlFor="dailyBudgetCeiling">
-                Daily Budget Ceiling{" "}
-                <span className="text-muted-foreground">(optional)</span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  $
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>$</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Daily Budget Ceiling
                 </span>
-                <Input
-                  id="dailyBudgetCeiling"
-                  type="number"
-                  min="1"
-                  step="any"
-                  placeholder="200"
-                  value={dailyCeiling}
-                  onChange={(e) => setDailyCeiling(e.target.value)}
-                  className="h-11 pl-7"
-                />
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
               </div>
+              <FloatingLabelInput
+                id="dailyBudgetCeiling"
+                label="200"
+                type="number"
+                min="1"
+                step="any"
+                value={dailyCeiling}
+                onChange={(e) => setDailyCeiling(e.target.value)}
+              />
             </div>
           </div>
 
@@ -156,8 +160,9 @@ export function StepBudgetTargets({
             <Label
               htmlFor="campaignDuration"
               className="flex items-center gap-2"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Calendar className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
               Campaign Duration
             </Label>
             <Select
@@ -166,28 +171,45 @@ export function StepBudgetTargets({
                 setCampaignDuration(value as CampaignDuration)
               }
             >
-              <SelectTrigger id="campaignDuration" className="h-11">
+              <SelectTrigger
+                id="campaignDuration"
+                className="h-11"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-primary)',
+                }}
+              >
                 <SelectValue placeholder="Select duration" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
                 {CAMPAIGN_DURATION_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </motion.div>
 
         {/* Targets Section */}
-        <div className="space-y-4">
+        <motion.div className="space-y-4" variants={staggerItem}>
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-lg font-medium">
-              <Target className="h-5 w-5 text-primary" />
+            <h3 className="flex items-center gap-2 text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
+              <Target className="h-5 w-5" style={{ color: 'var(--accent-blue)' }} />
               Target Outcomes
             </h3>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               Leave blank if unknown - we&apos;ll set benchmarks
             </span>
           </div>
@@ -195,98 +217,110 @@ export function StepBudgetTargets({
           <div className="grid gap-6 md:grid-cols-2">
             {/* Target CPL */}
             <div className="space-y-2">
-              <Label htmlFor="targetCpl">
-                Target CPL{" "}
-                <span className="text-muted-foreground">(Cost per Lead)</span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  $
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>$</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Target CPL
                 </span>
-                <Input
-                  id="targetCpl"
-                  type="number"
-                  min="1"
-                  step="any"
-                  placeholder="50"
-                  value={targetCpl}
-                  onChange={(e) => setTargetCpl(e.target.value)}
-                  className="h-11 pl-7"
-                />
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>(Cost per Lead)</span>
               </div>
+              <FloatingLabelInput
+                id="targetCpl"
+                label="50"
+                type="number"
+                min="1"
+                step="any"
+                value={targetCpl}
+                onChange={(e) => setTargetCpl(e.target.value)}
+              />
             </div>
 
             {/* Target CAC */}
             <div className="space-y-2">
-              <Label htmlFor="targetCac">
-                Target CAC{" "}
-                <span className="text-muted-foreground">
-                  (Customer Acquisition Cost)
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>$</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Target CAC
                 </span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  id="targetCac"
-                  type="number"
-                  min="1"
-                  step="any"
-                  placeholder="500"
-                  value={targetCac}
-                  onChange={(e) => setTargetCac(e.target.value)}
-                  className="h-11 pl-7"
-                />
+                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>(Customer Acquisition Cost)</span>
               </div>
+              <FloatingLabelInput
+                id="targetCac"
+                label="500"
+                type="number"
+                min="1"
+                step="any"
+                value={targetCac}
+                onChange={(e) => setTargetCac(e.target.value)}
+              />
             </div>
 
             {/* Target SQLs */}
             <div className="space-y-2">
-              <Label htmlFor="targetSqls" className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                Target SQLs / month
-              </Label>
-              <Input
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Target SQLs / month
+                </span>
+              </div>
+              <FloatingLabelInput
                 id="targetSqls"
+                label="50"
                 type="number"
                 min="1"
                 step="1"
-                placeholder="50"
                 value={targetSqls}
                 onChange={(e) => setTargetSqls(e.target.value)}
-                className="h-11"
               />
             </div>
 
             {/* Target Demos */}
             <div className="space-y-2">
-              <Label htmlFor="targetDemos">Target Demos / month</Label>
-              <Input
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Target Demos / month
+                </span>
+              </div>
+              <FloatingLabelInput
                 id="targetDemos"
+                label="30"
                 type="number"
                 min="1"
                 step="1"
-                placeholder="30"
                 value={targetDemos}
                 onChange={(e) => setTargetDemos(e.target.value)}
-                className="h-11"
               />
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex gap-3 pt-4">
+      <motion.div className="flex gap-3 pt-4" variants={staggerItem}>
         {onBack && (
-          <Button type="button" variant="outline" onClick={onBack} size="lg">
+          <MagneticButton
+            type="button"
+            className="h-10 px-4 py-2 rounded-md text-sm font-medium"
+            onClick={onBack}
+            style={{
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+            }}
+          >
             Back
-          </Button>
+          </MagneticButton>
         )}
-        <Button type="submit" className="flex-1" size="lg">
+        <MagneticButton
+          type="submit"
+          className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
+          style={{
+            background: 'var(--gradient-primary)',
+            color: 'white',
+          }}
+        >
           Continue
-        </Button>
-      </div>
-    </form>
+        </MagneticButton>
+      </motion.div>
+    </motion.form>
   );
 }
