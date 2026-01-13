@@ -410,24 +410,26 @@ Plans:
 - [x] 29-04: Step 3 Forms (FloatingLabel conversion for step-market-competition, step-customer-journey, step-brand-positioning)
 - [x] 29-05: Budget & Timeline (FloatingLabel for assets-proof/budget-targets, /generate page animations)
 
-#### Phase 30: Generation UI
+#### Phase 30: Generation UI COMPLETE
 **Goal**: Pipeline progress component, generation states, stats display grid, streaming response display
 **Depends on**: Phase 29
 **Research**: Unlikely (patterns documented)
-**Plans**: 1/2
+**Completed**: 2026-01-13
+**Plans**: 2/2
 
 Plans:
 - [x] 30-01: Pipeline & Stats Components (Pipeline progress indicator, GenerationStats grid)
-- [ ] 30-02: Streaming Generation Display
+- [x] 30-02: Streaming Generation Display
 
 #### Phase 31: Output Display
 **Goal**: Document editor window (traffic lights, line numbers, syntax highlighting, streaming cursor), blueprint viewer
 **Depends on**: Phase 30
 **Research**: Unlikely (patterns documented)
-**Plans**: TBD
+**Plans**: 1/2
 
 Plans:
-- [ ] 31-01: TBD
+- [x] 31-01: Document Editor Foundation (WindowChrome, LineNumbers, StreamingCursor)
+- [ ] 31-02: Blueprint Viewer Integration
 
 #### Phase 32: Chat Panel
 **Goal**: Slide panel with backdrop, message bubbles, typing indicator animation, quick suggestion pills
@@ -482,11 +484,11 @@ Plans:
 | 27. Design Foundation | v2.0 | 2/2 | Complete | 2026-01-12 |
 | 28. Core Components | v2.0 | 1/1 | Complete | 2026-01-12 |
 | 29. Onboarding Refresh | v2.0 | 5/5 | Complete | 2026-01-13 |
-| 30. Generation UI | v2.0 | 1/2 | In progress | - |
-| 31. Output Display | v2.0 | 0/? | Not started | - |
+| 30. Generation UI | v2.0 | 2/2 | Complete | 2026-01-13 |
+| 31. Output Display | v2.0 | 1/2 | In progress | - |
 | 32. Chat Panel | v2.0 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-13 (Phase 30 plan 1/2 complete - Pipeline & Stats Components)*
+*Updated: 2026-01-13 (Phase 31 plan 1/2 complete - Document Editor Foundation)*

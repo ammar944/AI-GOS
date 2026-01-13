@@ -1,7 +1,7 @@
 # Project State
 
 **Last Updated:** 2026-01-13
-**Current Phase:** 30 (Generation UI) - IN PROGRESS
+**Current Phase:** 31 (Output Display) - IN PROGRESS
 **Current Plan:** 1 of 2 complete
 
 ## Position
@@ -53,17 +53,17 @@ Milestone 9: Design Refresh (v2.0) IN PROGRESS
 ├── Phase 27: Design Foundation (2/2 plans) DONE
 ├── Phase 28: Core Components (1/1 plans) DONE
 ├── Phase 29: Onboarding Refresh (5/5 plans) DONE
-├── Phase 30: Generation UI (1/2 plans) IN PROGRESS
-├── Phase 31: Output Display
+├── Phase 30: Generation UI (2/2 plans) DONE
+├── Phase 31: Output Display (1/2 plans) IN PROGRESS
 └── Phase 32: Chat Panel
 ```
 
-Phase: 30 of 32 (Generation UI)
+Phase: 31 of 32 (Output Display)
 Plan: 1 of 2 in current phase
 Status: In progress
-Last activity: 2026-01-13 - Completed 30-01-PLAN.md
+Last activity: 2026-01-13 - Completed 31-01-PLAN.md
 
-Progress: ████████████████░ 91% (29/32 phases complete)
+Progress: ████████████████░ 91% (30/32 phases complete)
 
 ## Decisions
 
@@ -170,6 +170,8 @@ Progress: ████████████████░ 91% (29/32 phases 
 | 2026-01-13 | 30-01 | Responsive Pipeline wrap | flex-wrap on mobile, horizontal with connection lines on desktop |
 | 2026-01-13 | 30-01 | Connection lines hidden on mobile | Better mobile UX with wrapped pills |
 | 2026-01-13 | 30-01 | StatCard reuse for Time only | Other stats use custom styling for formatted strings |
+| 2026-01-13 | 31-01 | Inline subcomponents for DocumentEditor | WindowChrome/LineNumbers colocated for simplicity |
+| 2026-01-13 | 31-01 | CSS variable fallbacks | Ensures compatibility if CSS variables not loaded |
 
 ## Deferred Issues
 
@@ -183,7 +185,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - v2.0 Design Refresh Phase 30
+- **On track:** Yes - v2.0 Design Refresh Phase 31
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -202,9 +204,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 30-01-PLAN.md
+Stopped at: Completed 31-01-PLAN.md
 Resume file: None
 
 ---
 
-*v2.0 Design Refresh: Phase 30 plan 1/2 complete. Ready for 30-02-PLAN.md (Streaming Generation Display).*
+*v2.0 Design Refresh: Phase 31 plan 1/2 complete. Ready for 31-02-PLAN.md.*
