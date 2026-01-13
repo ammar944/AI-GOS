@@ -414,10 +414,11 @@ Plans:
 **Goal**: Pipeline progress component, generation states, stats display grid, streaming response display
 **Depends on**: Phase 29
 **Research**: Unlikely (patterns documented)
-**Plans**: TBD
+**Plans**: 1/2
 
 Plans:
-- [ ] 30-01: TBD
+- [x] 30-01: Pipeline & Stats Components (Pipeline progress indicator, GenerationStats grid)
+- [ ] 30-02: Streaming Generation Display
 
 #### Phase 31: Output Display
 **Goal**: Document editor window (traffic lights, line numbers, syntax highlighting, streaming cursor), blueprint viewer
@@ -481,11 +482,11 @@ Plans:
 | 27. Design Foundation | v2.0 | 2/2 | Complete | 2026-01-12 |
 | 28. Core Components | v2.0 | 1/1 | Complete | 2026-01-12 |
 | 29. Onboarding Refresh | v2.0 | 5/5 | Complete | 2026-01-13 |
-| 30. Generation UI | v2.0 | 0/? | Not started | - |
+| 30. Generation UI | v2.0 | 1/2 | In progress | - |
 | 31. Output Display | v2.0 | 0/? | Not started | - |
 | 32. Chat Panel | v2.0 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-13 (Phase 29 Onboarding Refresh complete)*
+*Updated: 2026-01-13 (Phase 30 plan 1/2 complete - Pipeline & Stats Components)*

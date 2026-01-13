@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Loader2,
@@ -25,8 +25,10 @@ import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { GradientBorder } from "@/components/ui/gradient-border";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
-import { easings } from "@/lib/motion";
+import { Pipeline, GenerationStats } from "@/components/pipeline";
+import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput, StrategicBlueprintProgress } from "@/lib/strategic-blueprint/output-types";
@@ -45,6 +47,9 @@ type PageState =
   | "complete"
   | "error";
 
+// Pipeline stages for generation progress visualization
+const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Synthesis"];
+
 export default function GeneratePage() {
   const [pageState, setPageState] = useState<PageState>("onboarding");
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData | null>(null);
@@ -55,6 +60,10 @@ export default function GeneratePage() {
   const [wizardKey, setWizardKey] = useState(0);
   const [initialData, setInitialData] = useState<OnboardingFormData | undefined>(undefined);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+
+  // Generation elapsed time tracking
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const generationStartRef = useRef<number | null>(null);
 
   // Share state
   const [isSharing, setIsSharing] = useState(false);
@@ -71,6 +80,26 @@ export default function GeneratePage() {
       }
     }
   }, []);
+
+  // Track elapsed time during generation
+  useEffect(() => {
+    if (pageState === "generating-blueprint") {
+      // Start timer when entering generating state
+      generationStartRef.current = Date.now();
+      setElapsedTime(0);
+
+      const interval = setInterval(() => {
+        if (generationStartRef.current) {
+          setElapsedTime(Date.now() - generationStartRef.current);
+        }
+      }, 100);
+
+      return () => {
+        clearInterval(interval);
+        generationStartRef.current = null;
+      };
+    }
+  }, [pageState]);
 
   const handleResume = useCallback(() => {
     const saved = getSavedProgress();
@@ -382,93 +411,76 @@ export default function GeneratePage() {
 
   // Generating Blueprint State
   if (pageState === "generating-blueprint") {
+    // Calculate current stage index based on completed sections
+    const completedCount = blueprintProgress?.completedSections.length ?? 0;
+    const currentStageIndex = Math.min(completedCount, BLUEPRINT_STAGES.length - 1);
+    const totalSections = BLUEPRINT_STAGES.length;
+
+    // Estimate cost based on elapsed time (rough estimate: ~$0.001 per second)
+    const estimatedCost = (elapsedTime / 1000) * 0.001;
+
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <Card className="border-2" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-default)' }}>
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center gap-6 text-center">
-                {/* Spinner */}
-                <div className="relative">
-                  <div
-                    className="h-20 w-20 rounded-full border-4"
-                    style={{ borderColor: 'var(--border-default)' }}
-                  />
-                  <Loader2 className="absolute inset-0 h-20 w-20 animate-spin" style={{ color: 'var(--accent-blue)' }} />
-                  <FileSearch className="absolute inset-0 m-auto h-8 w-8" style={{ color: 'var(--accent-blue)' }} />
-                </div>
-
-                {/* Title */}
-                <div className="space-y-2">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <motion.div
+            variants={fadeUp}
+            initial="initial"
+            animate="animate"
+            transition={{ duration: durations.normal }}
+          >
+            <GradientBorder animate={true}>
+              <div className="p-8 space-y-8">
+                {/* Header */}
+                <motion.div
+                  className="text-center space-y-2"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: durations.normal }}
+                >
                   <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                     Generating Strategic Blueprint
                   </h2>
                   <p style={{ color: 'var(--text-secondary)' }}>
                     Analyzing your market, ICP, offer, and competitive landscape
                   </p>
-                </div>
+                </motion.div>
 
-                {/* Stage Indicator */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge
-                    variant="secondary"
-                    style={{
-                      background: 'var(--bg-hover)',
-                      color: 'var(--text-secondary)',
-                      border: '1px solid var(--border-default)',
-                    }}
-                  >
-                    Step 2 of 2
-                  </Badge>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Strategic Blueprint</span>
-                </div>
+                {/* Pipeline Progress */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: durations.normal }}
+                >
+                  <Pipeline
+                    stages={BLUEPRINT_STAGES}
+                    currentStageIndex={currentStageIndex}
+                  />
+                </motion.div>
 
-                {/* Progress */}
-                <div className="w-full space-y-3">
-                  <Progress value={blueprintProgress?.progressPercentage || 5} className="h-3" />
-                  <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--text-tertiary)' }}>
-                      {blueprintProgress?.progressMessage || "Initializing..."}
-                    </span>
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {blueprintProgress?.progressPercentage || 0}%
-                    </span>
-                  </div>
-                </div>
+                {/* Generation Stats */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: durations.normal }}
+                >
+                  <GenerationStats
+                    elapsedTime={elapsedTime}
+                    estimatedCost={estimatedCost}
+                    completedSections={completedCount}
+                    totalSections={totalSections}
+                  />
+                </motion.div>
 
-                {/* Completed Sections */}
-                {blueprintProgress && blueprintProgress.completedSections.length > 0 && (
-                  <div className="w-full text-left">
-                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                      Completed sections:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {blueprintProgress.completedSections.map((section) => (
-                        <Badge
-                          key={section}
-                          variant="secondary"
-                          className="gap-1"
-                          style={{
-                            background: 'var(--success-subtle)',
-                            color: 'var(--success)',
-                            border: '1px solid var(--success)',
-                          }}
-                        >
-                          <CheckCircle2 className="h-3 w-3" />
-                          {STRATEGIC_BLUEPRINT_SECTION_LABELS[section]}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Current Section */}
+                {/* Current Section Indicator */}
                 {blueprintProgress?.currentSection && (
-                  <div
-                    className="w-full rounded-lg p-4"
+                  <motion.div
+                    className="rounded-lg p-4"
                     style={{ background: 'var(--accent-blue-subtle)' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4, duration: durations.normal }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent-blue)' }} />
                       <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                         Currently generating:{" "}
@@ -477,15 +489,22 @@ export default function GeneratePage() {
                         </strong>
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                {/* Time estimate */}
+                <motion.p
+                  className="text-xs text-center"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5, duration: durations.normal }}
+                >
                   This typically takes 1-2 minutes
-                </p>
+                </motion.p>
               </div>
-            </CardContent>
-          </Card>
+            </GradientBorder>
+          </motion.div>
         </div>
       </div>
     );

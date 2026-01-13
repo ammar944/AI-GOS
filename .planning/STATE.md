@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-13
-**Current Phase:** 29 (Onboarding Refresh) - COMPLETE
-**Current Plan:** Phase 29 complete, ready for Phase 30
+**Current Phase:** 30 (Generation UI) - IN PROGRESS
+**Current Plan:** 1 of 2 complete
 
 ## Position
 
@@ -53,15 +53,15 @@ Milestone 9: Design Refresh (v2.0) IN PROGRESS
 ├── Phase 27: Design Foundation (2/2 plans) DONE
 ├── Phase 28: Core Components (1/1 plans) DONE
 ├── Phase 29: Onboarding Refresh (5/5 plans) DONE
-├── Phase 30: Generation UI
+├── Phase 30: Generation UI (1/2 plans) IN PROGRESS
 ├── Phase 31: Output Display
 └── Phase 32: Chat Panel
 ```
 
-Phase: 29 of 32 (Onboarding Refresh)
-Plan: 5 of 5 in current phase
-Status: Phase complete
-Last activity: 2026-01-13 - Completed 29-05-PLAN.md
+Phase: 30 of 32 (Generation UI)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-13 - Completed 30-01-PLAN.md
 
 Progress: ████████████████░ 91% (29/32 phases complete)
 
@@ -166,6 +166,10 @@ Progress: ████████████████░ 91% (29/32 phases 
 | 2026-01-12 | 28-01 | useSpring for magnetic reset | Smoother physics-based interpolation during reset |
 | 2026-01-13 | 29-05 | FloatingLabelInput with placeholder as label | More compact for URL fields than separate labels |
 | 2026-01-13 | 29-05 | Keep Select for dropdowns | Dropdowns don't need floating labels, shadcn Select sufficient |
+| 2026-01-13 | 30-01 | Inline styles for Pipeline | Matches v2.0 design system CSS variables pattern |
+| 2026-01-13 | 30-01 | Responsive Pipeline wrap | flex-wrap on mobile, horizontal with connection lines on desktop |
+| 2026-01-13 | 30-01 | Connection lines hidden on mobile | Better mobile UX with wrapped pills |
+| 2026-01-13 | 30-01 | StatCard reuse for Time only | Other stats use custom styling for formatted strings |
 
 ## Deferred Issues
 
@@ -179,7 +183,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - v2.0 Design Refresh Phase 29
+- **On track:** Yes - v2.0 Design Refresh Phase 30
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -198,9 +202,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 29-05-PLAN.md (Phase 29 complete)
+Stopped at: Completed 30-01-PLAN.md
 Resume file: None
 
 ---
 
-*v2.0 Design Refresh: Phase 29 complete (5/5 plans). Ready for Phase 30 (Generation UI).*
+*v2.0 Design Refresh: Phase 30 plan 1/2 complete. Ready for 30-02-PLAN.md (Streaming Generation Display).*
