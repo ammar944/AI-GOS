@@ -1,5 +1,10 @@
 export { SectionCard } from "./section-card";
 export { SectionContentRenderer } from "./section-content";
 export { StrategicResearchReview } from "./review";
+export { BlueprintDocument } from "./blueprint-document";
+export { SectionNav } from "./section-nav";
+export { DocumentSection } from "./document-section";
+export { ReadingProgress } from "./reading-progress";
 export type { SectionCardProps } from "./section-card";
 export type { StrategicResearchReviewProps } from "./review";
+export type { BlueprintDocumentProps } from "./blueprint-document";
