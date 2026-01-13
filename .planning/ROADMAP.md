@@ -432,14 +432,15 @@ Plans:
 - [x] 31-01: Document Editor Foundation (WindowChrome, LineNumbers, StreamingCursor)
 - [x] 31-02: Blueprint Viewer Integration (syntax highlighting, v2.0 complete page)
 
-#### Phase 32: Chat Panel
+#### Phase 32: Chat Panel IN PROGRESS
 **Goal**: Slide panel with backdrop, message bubbles, typing indicator animation, quick suggestion pills
 **Depends on**: Phase 31
 **Research**: Unlikely (patterns documented)
-**Plans**: TBD
+**Plans**: 1/2
 
 Plans:
-- [ ] 32-01: TBD
+- [x] 32-01: ChatPanel slide container and MessageBubble with markdown formatting
+- [ ] 32-02: BlueprintChat integration, typing indicator, suggestion pills
 
 ---
 
@@ -487,9 +488,9 @@ Plans:
 | 29. Onboarding Refresh | v2.0 | 5/5 | Complete | 2026-01-13 |
 | 30. Generation UI | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 31. Output Display | v2.0 | 2/2 | Complete | 2026-01-13 |
-| 32. Chat Panel | v2.0 | 0/? | Not started | - |
+| 32. Chat Panel | v2.0 | 1/2 | In progress | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-13 (Phase 31 complete - Output Display with BlueprintViewer)*
+*Updated: 2026-01-13 (Phase 32 plan 1 - ChatPanel and MessageBubble)*

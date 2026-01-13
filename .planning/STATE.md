@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-13
-**Current Phase:** 31 (Output Display) - COMPLETE
-**Current Plan:** 2 of 2 complete
+**Current Phase:** 32 (Chat Panel) - IN PROGRESS
+**Current Plan:** 1 of 2 complete
 
 ## Position
 
@@ -55,13 +55,13 @@ Milestone 9: Design Refresh (v2.0) IN PROGRESS
 ├── Phase 29: Onboarding Refresh (5/5 plans) DONE
 ├── Phase 30: Generation UI (2/2 plans) DONE
 ├── Phase 31: Output Display (2/2 plans) DONE
-└── Phase 32: Chat Panel
+└── Phase 32: Chat Panel (1/2 plans) IN PROGRESS
 ```
 
-Phase: 31 of 32 (Output Display)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-13 - Completed 31-02-PLAN.md
+Phase: 32 of 32 (Chat Panel)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-13 - Completed 32-01-PLAN.md
 
 Progress: ████████████████░ 97% (31/32 phases complete)
 
@@ -176,6 +176,9 @@ Progress: ████████████████░ 97% (31/32 phases 
 | 2026-01-13 | 31-02 | GradientBorder for complete state | Consistent v2.0 styling, replaces Card component |
 | 2026-01-13 | 31-02 | MagneticButton for all actions | Premium interaction feel on Share/Regenerate/New |
 | 2026-01-13 | 31-02 | font-mono for data values | Premium aesthetic for time/cost display |
+| 2026-01-13 | 32-01 | div with role="heading" for headers | Avoids JSX namespace issues with dynamic tag names |
+| 2026-01-13 | 32-01 | Comprehensive markdown in MessageBubble | User requested; better chat UX for all messages |
+| 2026-01-13 | 32-01 | Pink (#f472b6) for inline code | Matches premium v2.0 aesthetic, stands out from text |
 
 ## Deferred Issues
 
@@ -189,7 +192,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - v2.0 Design Refresh Phase 31 complete
+- **On track:** Yes - v2.0 Design Refresh Phase 32 in progress (1/2 plans)
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -208,9 +211,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 31-02-PLAN.md (Phase 31 complete)
+Stopped at: Completed 32-01-PLAN.md (Phase 32 plan 1 of 2)
 Resume file: None
 
 ---
 
-*v2.0 Design Refresh: Phase 31 complete. Ready for Phase 32 (Chat Panel).*
+*v2.0 Design Refresh: Phase 32 in progress (1/2 plans). ChatPanel and MessageBubble complete.*
