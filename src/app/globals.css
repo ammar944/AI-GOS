@@ -179,16 +179,21 @@
   /* Background Hierarchy */
   --bg-base: #000000;
   --bg-elevated: #0a0a0a;
-  --bg-surface: #0c0c0c;
-  --bg-hover: #111111;
-  --bg-active: #181818;
+  --bg-surface: #101010;
+  --bg-hover: #161616;
+  --bg-active: #1c1c1c;
+  --bg-card: #0d0d0d;
 
-  /* Border System (Opacity-based) */
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-default: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.10);
-  --border-focus: rgba(255, 255, 255, 0.15);
-  --border-strong: rgba(255, 255, 255, 0.20);
+  /* Border System (Opacity-based) - INCREASED for visibility */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --border-focus: rgba(255, 255, 255, 0.22);
+  --border-strong: rgba(255, 255, 255, 0.28);
+
+  /* Shadows for depth */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
 
   /* Text Hierarchy */
   --text-primary: #ffffff;
