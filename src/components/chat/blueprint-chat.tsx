@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ChatMessage } from './chat-message';
-import { Send, MessageSquare, X, Check, XCircle, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Send, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ChatPanel } from './chat-panel';
+import { MessageBubble } from './message-bubble';
+import { TypingIndicator } from './typing-indicator';
+import { QuickSuggestions } from './quick-suggestions';
+import { MagneticButton } from '@/components/ui/magnetic-button';
+import { GradientBorder } from '@/components/ui/gradient-border';
+import { springs } from '@/lib/motion';
 
 interface Message {
   id: string;
@@ -42,11 +47,19 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Scroll to bottom on new messages or when pending edits appear
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pendingEdits]);
+
+  // Focus input when panel opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 300);
+    }
+  }, [isOpen]);
 
   /**
    * Process SSE stream and update message content incrementally
@@ -118,7 +131,7 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
             if (data.error) {
               throw new Error(data.error);
             }
-          } catch (parseError) {
+          } catch {
             // Skip invalid JSON chunks
             if (dataContent !== '[DONE]') {
               console.warn('Failed to parse SSE data:', dataContent);
@@ -131,8 +144,8 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!input.trim() || isLoading || isStreaming || pendingEdits.length > 0) return;
 
     const userMessage: Message = {
@@ -218,6 +231,15 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle quick suggestion selection
+  const handleSuggestionSelect = (suggestion: string) => {
+    setInput(suggestion);
+    // Auto-submit after a short delay
+    setTimeout(() => {
+      handleSubmit();
+    }, 50);
   };
 
   // Confirm all pending edits at once
@@ -344,217 +366,321 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     crossAnalysisSynthesis: 'Synthesis',
   };
 
-  // Collapsed state - just a button
-  if (!isOpen) {
-    return (
-      <Button
-        onClick={() => setIsOpen(true)}
-        className={cn('fixed bottom-6 left-6 rounded-full w-14 h-14 shadow-lg z-50', className)}
-        size="icon"
-      >
-        <MessageSquare className="w-6 h-6" />
-      </Button>
-    );
-  }
-
   return (
-    <div
-      className={cn(
-        'fixed bottom-6 left-6 w-96 h-[600px] max-h-[80vh] bg-background border rounded-lg shadow-xl flex flex-col z-50',
-        className
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5" />
-          <span className="font-medium">Blueprint Chat</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsOpen(false)}
-          className="w-8 h-8"
-        >
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center text-muted-foreground py-8">
-            <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">Ask questions or request edits</p>
-            <p className="text-xs mt-2">
-              Try: &quot;What competitors did you find?&quot; or &quot;Change the positioning to focus on speed&quot;
-            </p>
-          </div>
+    <>
+      {/* Floating chat trigger button */}
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={springs.smooth}
+            className={cn('fixed bottom-6 left-6 z-50', className)}
+          >
+            <MagneticButton
+              onClick={() => setIsOpen(true)}
+              className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                border: 'none',
+              }}
+            >
+              <motion.div
+                animate={{
+                  scale: [1, 1.1, 1],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              >
+                <Sparkles className="w-6 h-6 text-white" />
+              </motion.div>
+            </MagneticButton>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {messages.map(message => (
-          <ChatMessage
-            key={message.id}
-            role={message.role}
-            content={message.content}
-            confidence={message.confidence}
-            isEditProposal={message.isEditProposal}
-          />
-        ))}
+      {/* Chat Panel */}
+      <ChatPanel isOpen={isOpen} onClose={() => setIsOpen(false)}>
+        <div className="flex flex-col h-full">
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto py-4">
+            {/* Empty state with quick suggestions */}
+            {messages.length === 0 && (
+              <div className="px-5 py-8 text-center">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-6"
+                >
+                  <div
+                    className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.1))',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                    }}
+                  >
+                    <Sparkles className="w-8 h-8" style={{ color: '#3b82f6' }} />
+                  </div>
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-secondary, #a0a0a0)' }}
+                  >
+                    Ask questions or request edits to your blueprint
+                  </p>
+                </motion.div>
 
-        {isLoading && (
-          <ChatMessage role="assistant" content="" isLoading />
-        )}
+                <QuickSuggestions
+                  onSelect={handleSuggestionSelect}
+                  disabled={isLoading || isStreaming}
+                />
+              </div>
+            )}
 
-        {/* Pending Edits Confirmation UI */}
-        {pendingEdits.length > 0 && !isLoading && (
-          <div className="border rounded-lg p-4 bg-muted/50 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-sm font-medium">
-                {pendingEdits.length === 1 ? 'Proposed Edit' : `Proposed Edits (${pendingEdits.length})`}
-              </span>
-            </div>
+            {/* Message list */}
+            {messages.map((message, index) => (
+              <MessageBubble
+                key={message.id}
+                role={message.role}
+                content={message.content}
+                confidence={message.confidence}
+                isEditProposal={message.isEditProposal}
+                delay={index * 0.05}
+              />
+            ))}
 
-            {/* Show each edit with individual actions */}
-            <div className="space-y-3 max-h-72 overflow-y-auto">
-              {pendingEdits.map((edit, index) => (
-                <div key={index} className="border rounded p-3 bg-background space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      {pendingEdits.length > 1 && (
-                        <div className="text-xs font-medium text-muted-foreground mb-1">
-                          Edit {index + 1} of {pendingEdits.length}
-                        </div>
-                      )}
-                      <div className="text-xs text-muted-foreground truncate">
-                        <span className="font-medium">
-                          {SECTION_LABELS[edit.section] || edit.section}
-                        </span>
-                        {' / '}
-                        <span className="font-mono">{edit.fieldPath}</span>
-                      </div>
-                    </div>
-                    {/* Individual approve/reject buttons */}
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="w-7 h-7 text-green-600 hover:text-green-700 hover:bg-green-100"
-                        onClick={() => handleApproveSingle(index)}
-                        disabled={isConfirming}
-                        title="Approve this edit"
+            {/* Typing indicator */}
+            {(isLoading || isStreaming) && <TypingIndicator />}
+
+            {/* Pending Edits Confirmation UI */}
+            {pendingEdits.length > 0 && !isLoading && (
+              <div className="px-5 py-3">
+                <GradientBorder
+                  className="w-full"
+                  innerClassName="p-4 space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <motion.div
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: '#f59e0b' }}
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: '#f59e0b' }}
+                    >
+                      {pendingEdits.length === 1 ? 'Proposed Edit' : `Proposed Edits (${pendingEdits.length})`}
+                    </span>
+                  </div>
+
+                  {/* Show each edit with individual actions */}
+                  <div className="space-y-3 max-h-72 overflow-y-auto">
+                    {pendingEdits.map((edit, index) => (
+                      <div
+                        key={index}
+                        className="rounded-lg p-3 space-y-2"
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid rgba(245, 158, 11, 0.2)',
+                        }}
                       >
-                        <Check className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="w-7 h-7 text-red-600 hover:text-red-700 hover:bg-red-100"
-                        onClick={() => handleRejectSingle(index)}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            {pendingEdits.length > 1 && (
+                              <div
+                                className="text-xs font-medium mb-1"
+                                style={{ color: 'var(--text-muted, #666666)' }}
+                              >
+                                Edit {index + 1} of {pendingEdits.length}
+                              </div>
+                            )}
+                            <div
+                              className="text-xs truncate"
+                              style={{ color: 'var(--text-secondary, #a0a0a0)' }}
+                            >
+                              <span className="font-medium">
+                                {SECTION_LABELS[edit.section] || edit.section}
+                              </span>
+                              {' / '}
+                              <span className="font-mono">{edit.fieldPath}</span>
+                            </div>
+                          </div>
+                          {/* Individual approve/reject buttons */}
+                          <div className="flex gap-1 flex-shrink-0">
+                            <MagneticButton
+                              onClick={() => handleApproveSingle(index)}
+                              disabled={isConfirming}
+                              className="w-7 h-7 rounded flex items-center justify-center"
+                              style={{
+                                background: 'rgba(34, 197, 94, 0.15)',
+                                border: '1px solid rgba(34, 197, 94, 0.3)',
+                              }}
+                            >
+                              <Check className="w-4 h-4" style={{ color: '#22c55e' }} />
+                            </MagneticButton>
+                            <MagneticButton
+                              onClick={() => handleRejectSingle(index)}
+                              disabled={isConfirming}
+                              className="w-7 h-7 rounded flex items-center justify-center"
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                              }}
+                            >
+                              <X className="w-4 h-4" style={{ color: '#ef4444' }} />
+                            </MagneticButton>
+                          </div>
+                        </div>
+                        <pre
+                          className="text-xs p-2 rounded overflow-auto max-h-20 font-mono whitespace-pre-wrap"
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            color: 'var(--text-secondary, #a0a0a0)',
+                          }}
+                        >
+                          {edit.diffPreview}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Bulk actions */}
+                  {pendingEdits.length > 1 && (
+                    <div className="flex gap-2 pt-2 border-t border-white/5">
+                      <MagneticButton
+                        onClick={handleConfirmAll}
                         disabled={isConfirming}
-                        title="Reject this edit"
+                        className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
+                        style={{
+                          background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                          color: '#ffffff',
+                        }}
+                      >
+                        {isConfirming ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        Approve All ({pendingEdits.length})
+                      </MagneticButton>
+                      <MagneticButton
+                        onClick={handleCancelAll}
+                        disabled={isConfirming}
+                        className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'var(--text-secondary, #a0a0a0)',
+                        }}
                       >
                         <X className="w-4 h-4" />
-                      </Button>
+                        Reject All
+                      </MagneticButton>
                     </div>
-                  </div>
-                  <pre className="text-xs bg-muted p-2 rounded border overflow-auto max-h-20 font-mono whitespace-pre-wrap">
-                    {edit.diffPreview}
-                  </pre>
-                </div>
-              ))}
-            </div>
-
-            {/* Bulk actions */}
-            {pendingEdits.length > 1 && (
-              <div className="flex gap-2 pt-2 border-t">
-                <Button
-                  size="sm"
-                  onClick={handleConfirmAll}
-                  disabled={isConfirming}
-                  className="flex-1"
-                >
-                  {isConfirming ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  ) : (
-                    <Check className="w-4 h-4 mr-1" />
                   )}
-                  Approve All ({pendingEdits.length})
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelAll}
-                  disabled={isConfirming}
-                  className="flex-1"
-                >
-                  <XCircle className="w-4 h-4 mr-1" />
-                  Reject All
-                </Button>
+
+                  {/* Single edit actions (shown when only 1 edit) */}
+                  {pendingEdits.length === 1 && (
+                    <div className="flex gap-2">
+                      <MagneticButton
+                        onClick={handleConfirmAll}
+                        disabled={isConfirming}
+                        className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
+                        style={{
+                          background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                          color: '#ffffff',
+                        }}
+                      >
+                        {isConfirming ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        Confirm Edit
+                      </MagneticButton>
+                      <MagneticButton
+                        onClick={handleCancelAll}
+                        disabled={isConfirming}
+                        className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-sm font-medium"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'var(--text-secondary, #a0a0a0)',
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </MagneticButton>
+                    </div>
+                  )}
+                </GradientBorder>
               </div>
             )}
 
-            {/* Single edit actions (shown when only 1 edit) */}
-            {pendingEdits.length === 1 && (
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleConfirmAll}
-                  disabled={isConfirming}
-                  className="flex-1"
-                >
-                  {isConfirming ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  ) : (
-                    <Check className="w-4 h-4 mr-1" />
-                  )}
-                  Confirm Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelAll}
-                  disabled={isConfirming}
-                  className="flex-1"
-                >
-                  <XCircle className="w-4 h-4 mr-1" />
-                  Cancel
-                </Button>
-              </div>
-            )}
+            <div ref={messagesEndRef} />
           </div>
-        )}
 
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t">
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={
-              pendingEdits.length > 0
-                ? 'Confirm or cancel edits first...'
-                : isStreaming
-                ? 'Receiving response...'
-                : 'Ask about your blueprint...'
-            }
-            disabled={isLoading || isStreaming || pendingEdits.length > 0}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            disabled={!input.trim() || isLoading || isStreaming || pendingEdits.length > 0}
-            size="icon"
+          {/* Input area */}
+          <div
+            className="flex-shrink-0 p-4"
+            style={{
+              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            }}
           >
-            <Send className="w-4 h-4" />
-          </Button>
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder={
+                  pendingEdits.length > 0
+                    ? 'Confirm or cancel edits first...'
+                    : isStreaming
+                    ? 'Receiving response...'
+                    : 'Ask about your blueprint...'
+                }
+                disabled={isLoading || isStreaming || pendingEdits.length > 0}
+                className="flex-1 h-10 px-4 text-sm rounded-lg outline-none transition-all duration-200"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-primary, #ffffff)',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                }}
+              />
+              <MagneticButton
+                type="submit"
+                disabled={!input.trim() || isLoading || isStreaming || pendingEdits.length > 0}
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{
+                  background: input.trim() && !isLoading && !isStreaming && pendingEdits.length === 0
+                    ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
+                    : 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: input.trim() && !isLoading && !isStreaming && pendingEdits.length === 0
+                    ? '#ffffff'
+                    : 'var(--text-muted, #666666)',
+                  opacity: !input.trim() || isLoading || isStreaming || pendingEdits.length > 0 ? 0.5 : 1,
+                }}
+              >
+                <Send className="w-4 h-4" />
+              </MagneticButton>
+            </form>
+          </div>
         </div>
-      </form>
-    </div>
+      </ChatPanel>
+    </>
   );
 }
 

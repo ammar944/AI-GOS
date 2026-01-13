@@ -10,7 +10,7 @@
 - 📋 **v1.6 Persistence** - Planned
 - 🚧 **v1.7 Testing** - Phases 19-22 (in progress)
 - ✅ **v1.8 Ad Intelligence** - Phases 23-26 - SHIPPED 2026-01-09
-- **v2.0 Design Refresh** - Phases 27-32 (planned)
+- ✅ **v2.0 Design Refresh** - Phases 27-32 - SHIPPED 2026-01-13
 
 ## Phases
 
@@ -360,7 +360,7 @@ Plans:
 
 ---
 
-### v2.0 Design Refresh (Planned)
+### ✅ v2.0 Design Refresh (Complete)
 
 Premium, crafted design language overhaul inspired by Vercel, Stripe, and Linear. Dark-first aesthetic with Framer Motion animations, Geist typography, and polished micro-interactions.
 
@@ -432,15 +432,16 @@ Plans:
 - [x] 31-01: Document Editor Foundation (WindowChrome, LineNumbers, StreamingCursor)
 - [x] 31-02: Blueprint Viewer Integration (syntax highlighting, v2.0 complete page)
 
-#### Phase 32: Chat Panel IN PROGRESS
+#### Phase 32: Chat Panel COMPLETE
 **Goal**: Slide panel with backdrop, message bubbles, typing indicator animation, quick suggestion pills
 **Depends on**: Phase 31
 **Research**: Unlikely (patterns documented)
-**Plans**: 1/2
+**Completed**: 2026-01-13
+**Plans**: 2/2
 
 Plans:
 - [x] 32-01: ChatPanel slide container and MessageBubble with markdown formatting
-- [ ] 32-02: BlueprintChat integration, typing indicator, suggestion pills
+- [x] 32-02: BlueprintChat integration, typing indicator, suggestion pills
 
 ---
 
@@ -488,9 +489,9 @@ Plans:
 | 29. Onboarding Refresh | v2.0 | 5/5 | Complete | 2026-01-13 |
 | 30. Generation UI | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 31. Output Display | v2.0 | 2/2 | Complete | 2026-01-13 |
-| 32. Chat Panel | v2.0 | 1/2 | In progress | - |
+| 32. Chat Panel | v2.0 | 2/2 | Complete | 2026-01-13 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-13 (Phase 32 plan 1 - ChatPanel and MessageBubble)*
+*Updated: 2026-01-13 (Phase 32 complete - v2.0 Design Refresh SHIPPED)*
