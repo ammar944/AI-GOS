@@ -81,6 +81,79 @@ export interface Database {
           created_at?: string;
         };
       };
+      conversations: {
+        Row: {
+          id: string;
+          blueprint_id: string | null;
+          user_id: string | null;
+          title: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          blueprint_id?: string | null;
+          user_id?: string | null;
+          title?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          blueprint_id?: string | null;
+          user_id?: string | null;
+          title?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          confidence: 'high' | 'medium' | 'low' | null;
+          confidence_explanation: string | null;
+          intent: string | null;
+          sources: Json | null;
+          source_quality: Json | null;
+          pending_edits: Json | null;
+          created_at: string;
+          tokens_used: number | null;
+          cost: number | null;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          confidence?: 'high' | 'medium' | 'low' | null;
+          confidence_explanation?: string | null;
+          intent?: string | null;
+          sources?: Json | null;
+          source_quality?: Json | null;
+          pending_edits?: Json | null;
+          created_at?: string;
+          tokens_used?: number | null;
+          cost?: number | null;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          role?: 'user' | 'assistant';
+          content?: string;
+          confidence?: 'high' | 'medium' | 'low' | null;
+          confidence_explanation?: string | null;
+          intent?: string | null;
+          sources?: Json | null;
+          source_quality?: Json | null;
+          pending_edits?: Json | null;
+          created_at?: string;
+          tokens_used?: number | null;
+          cost?: number | null;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

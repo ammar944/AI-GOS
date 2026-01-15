@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, Undo2, Redo2 } from "lucide-react";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { springs } from "@/lib/motion";
 
@@ -9,9 +9,17 @@ interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  /** Undo/redo controls */
+  undoRedo?: {
+    canUndo: boolean;
+    canRedo: boolean;
+    undoDepth: number;
+    onUndo: () => void;
+    onRedo: () => void;
+  };
 }
 
-export function ChatPanel({ isOpen, onClose, children }: ChatPanelProps) {
+export function ChatPanel({ isOpen, onClose, children, undoRedo }: ChatPanelProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -62,17 +70,68 @@ export function ChatPanel({ isOpen, onClose, children }: ChatPanelProps) {
                 </div>
               </div>
 
-              <MagneticButton
-                onClick={onClose}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
-                  color: "var(--text-tertiary, #666666)",
-                }}
-              >
-                <X className="w-4 h-4" />
-              </MagneticButton>
+              <div className="flex items-center gap-2">
+                {/* Undo/Redo controls */}
+                {undoRedo && (
+                  <div className="flex items-center gap-1">
+                    <MagneticButton
+                      onClick={undoRedo.onUndo}
+                      disabled={!undoRedo.canUndo}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors relative"
+                      style={{
+                        background: "transparent",
+                        border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
+                        color: undoRedo.canUndo
+                          ? "var(--text-secondary, #a0a0a0)"
+                          : "var(--text-quaternary, #444444)",
+                        opacity: undoRedo.canUndo ? 1 : 0.5,
+                      }}
+                      title={undoRedo.canUndo ? `Undo (${undoRedo.undoDepth} available)` : "Nothing to undo"}
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      {undoRedo.undoDepth > 0 && (
+                        <span
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
+                          style={{
+                            background: "var(--accent-blue, #3b82f6)",
+                            color: "#ffffff",
+                          }}
+                        >
+                          {undoRedo.undoDepth > 9 ? "9+" : undoRedo.undoDepth}
+                        </span>
+                      )}
+                    </MagneticButton>
+                    <MagneticButton
+                      onClick={undoRedo.onRedo}
+                      disabled={!undoRedo.canRedo}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                      style={{
+                        background: "transparent",
+                        border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
+                        color: undoRedo.canRedo
+                          ? "var(--text-secondary, #a0a0a0)"
+                          : "var(--text-quaternary, #444444)",
+                        opacity: undoRedo.canRedo ? 1 : 0.5,
+                      }}
+                      title={undoRedo.canRedo ? "Redo" : "Nothing to redo"}
+                    >
+                      <Redo2 className="w-4 h-4" />
+                    </MagneticButton>
+                  </div>
+                )}
+
+                <MagneticButton
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
+                    color: "var(--text-tertiary, #666666)",
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </MagneticButton>
+              </div>
             </div>
           </div>
 

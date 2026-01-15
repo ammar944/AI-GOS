@@ -21,6 +21,30 @@ vi.mock('@/lib/openrouter/client', () => ({
   MODELS: { CLAUDE_SONNET: 'claude-3-sonnet' },
 }));
 
+// Mock the explain agent - must be defined inline for hoisting
+vi.mock('@/lib/chat/agents/explain-agent', () => ({
+  handleExplain: vi.fn().mockResolvedValue({
+    explanation: 'The recommendation is based on market research and competitor gaps.',
+    relatedFactors: [
+      { section: 'competitorAnalysis', factor: 'Market gaps', relevance: 'Untapped opportunity' },
+    ],
+    confidence: 'high',
+    usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+    cost: 0.001,
+  }),
+}));
+
+// Reference for test assertions (matching the mock above)
+const mockExplainResponse = {
+  explanation: 'The recommendation is based on market research and competitor gaps.',
+  relatedFactors: [
+    { section: 'competitorAnalysis', factor: 'Market gaps', relevance: 'Untapped opportunity' },
+  ],
+  confidence: 'high' as const,
+  usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+  cost: 0.001,
+};
+
 /**
  * Helper to call the POST route handler
  */
@@ -147,22 +171,7 @@ describe('POST /api/chat/blueprint/stream', () => {
     });
 
     it('returns application/json Content-Type for explain intent', async () => {
-      // Queue non-streaming response for explain
-      mockClient.queueChatResponse(
-        createMockChatResponse(`Let me explain.
-
-\`\`\`json
-{
-  "isExplanation": true,
-  "explanation": "The positioning was chosen because...",
-  "relatedFactors": [
-    {"section": "industryMarketOverview", "factor": "Market trends", "relevance": "High demand"}
-  ],
-  "confidence": "high"
-}
-\`\`\``)
-      );
-
+      // The explain agent is mocked, so no need to queue a chat response
       const response = await callRoute(
         createValidRequest({ message: 'Why is this positioning recommended?' })
       );
@@ -256,21 +265,7 @@ describe('POST /api/chat/blueprint/stream', () => {
     });
 
     it('returns JSON response with isExplanation for explain requests', async () => {
-      mockClient.queueChatResponse(
-        createMockChatResponse(`Here's the explanation.
-
-\`\`\`json
-{
-  "isExplanation": true,
-  "explanation": "The recommendation is based on market research...",
-  "relatedFactors": [
-    {"section": "competitorAnalysis", "factor": "Gaps", "relevance": "Opportunity"}
-  ],
-  "confidence": "high"
-}
-\`\`\``)
-      );
-
+      // The explain agent is mocked with mockExplainResponse
       const response = await callRoute(
         createValidRequest({ message: 'Explain why this was recommended' })
       );
@@ -279,9 +274,12 @@ describe('POST /api/chat/blueprint/stream', () => {
       const json = await response.json();
 
       expect(json.isExplanation).toBe(true);
+      expect(json.response).toBe(mockExplainResponse.explanation);
       expect(json.relatedFactors).toBeDefined();
       expect(json.relatedFactors.length).toBe(1);
+      expect(json.relatedFactors[0].section).toBe('competitorAnalysis');
       expect(json.confidence).toBe('high');
+      expect(json.metadata.tokensUsed).toBe(150);
     });
   });
 });

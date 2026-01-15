@@ -137,3 +137,186 @@ export interface IntentClassificationResult {
   /** Cost of the classification call */
   cost: number;
 }
+
+// =============================================================================
+// Source Quality Types
+// =============================================================================
+
+/**
+ * Factors used to calculate confidence in a response
+ */
+export interface ConfidenceFactors {
+  /** Average similarity score across all chunks (0-1) */
+  avgSimilarity: number;
+  /** Total number of source chunks used */
+  chunkCount: number;
+  /** Estimated coverage - how much of the answer is supported by sources */
+  coverageScore: number;
+  /** Number of high-quality chunks (similarity > 0.85) */
+  highQualityChunks: number;
+}
+
+/**
+ * Quality assessment of retrieved sources
+ */
+export interface SourceQuality {
+  /** Average relevance score across all sources (0-1) */
+  avgRelevance: number;
+  /** Total number of sources retrieved */
+  sourceCount: number;
+  /** Number of high-quality sources (similarity > 0.85) */
+  highQualitySources: number;
+  /** Human-readable explanation of the quality assessment */
+  explanation: string;
+}
+
+/**
+ * Enhanced confidence result with detailed factors
+ */
+export interface ConfidenceResult {
+  /** Overall confidence level */
+  level: 'high' | 'medium' | 'low';
+  /** Detailed factors that contributed to the confidence level */
+  factors: ConfidenceFactors;
+  /** Human-readable explanation of why this confidence level was assigned */
+  explanation: string;
+}
+
+// =============================================================================
+// Database Record Types
+// =============================================================================
+
+/**
+ * Conversation record as stored in the database
+ */
+export interface ConversationRecord {
+  id: string;
+  blueprint_id: string | null;
+  user_id: string | null;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Chat message record as stored in the database
+ */
+export interface ChatMessageRecord {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  confidence: 'high' | 'medium' | 'low' | null;
+  confidence_explanation: string | null;
+  intent: string | null;
+  sources: unknown[] | null;
+  source_quality: SourceQuality | null;
+  pending_edits: PendingEdit[] | null;
+  created_at: string;
+  tokens_used: number | null;
+  cost: number | null;
+}
+
+/**
+ * Pending edit proposal from assistant
+ */
+export interface PendingEdit {
+  section: string;
+  fieldPath: string;
+  oldValue: unknown;
+  newValue: unknown;
+  explanation: string;
+  diffPreview: string;
+}
+
+/**
+ * Input for creating a new conversation
+ */
+export interface CreateConversationInput {
+  blueprintId?: string;
+  title?: string;
+}
+
+/**
+ * Input for saving a chat message
+ */
+export interface SaveMessageInput {
+  conversationId: string;
+  blueprintId?: string;
+  message: {
+    role: 'user' | 'assistant';
+    content: string;
+    confidence?: 'high' | 'medium' | 'low';
+    confidenceExplanation?: string;
+    intent?: string;
+    sources?: unknown[];
+    sourceQuality?: SourceQuality;
+    pendingEdits?: PendingEdit[];
+    tokensUsed?: number;
+    cost?: number;
+  };
+}
+
+/**
+ * Response from save message API
+ */
+export interface SaveMessageResponse {
+  messageId: string;
+  conversationId: string;
+}
+
+/**
+ * Response from load conversation API
+ */
+export interface LoadConversationResponse {
+  conversation: ConversationRecord;
+  messages: ChatMessageRecord[];
+}
+
+/**
+ * Response from list conversations API
+ */
+export interface ListConversationsResponse {
+  conversations: ConversationRecord[];
+}
+
+/**
+ * Response from create conversation API
+ */
+export interface CreateConversationResponse {
+  conversationId: string;
+}
+
+// =============================================================================
+// Edit History Types (Undo/Redo)
+// =============================================================================
+
+/**
+ * A single entry in the edit history stack
+ */
+export interface EditHistoryEntry {
+  /** Unique identifier for this history entry */
+  id: string;
+  /** When this edit was applied */
+  appliedAt: Date;
+  /** The edits that were applied */
+  edits: PendingEdit[];
+  /** Blueprint state before the edits */
+  blueprintBefore: Record<string, unknown>;
+  /** Blueprint state after the edits */
+  blueprintAfter: Record<string, unknown>;
+  /** Human-readable label describing the edits */
+  label: string;
+}
+
+/**
+ * State for the edit history (undo/redo stack)
+ */
+export interface EditHistoryState {
+  /** Stack of edit history entries */
+  history: EditHistoryEntry[];
+  /** Current position in the history (-1 means no history) */
+  currentIndex: number;
+  /** Maximum number of entries to keep */
+  maxDepth: number;
+}

@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { retrieveRelevantChunks } from '@/lib/chat/retrieval';
 import { answerQuestion } from '@/lib/chat/agents/qa-agent';
 import { handleEdit, EditResult } from '@/lib/chat/agents/edit-agent';
+import { handleExplain, RelatedFactor } from '@/lib/chat/agents/explain-agent';
 import { classifyIntent } from '@/lib/chat/intent-router';
-import { ChatIntent, EditIntent } from '@/lib/chat/types';
+import { ChatIntent, EditIntent, ExplainIntent, SourceQuality, ConfidenceResult } from '@/lib/chat/types';
 
 interface ChatRequest {
   message: string;
@@ -24,6 +25,10 @@ interface ChatResponse {
     similarity: number;
   }[];
   confidence: 'high' | 'medium' | 'low';
+  /** Detailed confidence calculation with factors and explanation */
+  confidenceResult?: ConfidenceResult;
+  /** Quality assessment of retrieved sources */
+  sourceQuality?: SourceQuality;
   metadata: {
     tokensUsed: number;
     cost: number;
@@ -35,6 +40,10 @@ interface ChatResponse {
     type: 'edit';
     editResult: EditResult;
   };
+  /** Related factors from cross-section analysis (for explain responses) */
+  relatedFactors?: RelatedFactor[];
+  /** Whether this response is an explanation */
+  isExplanation?: boolean;
 }
 
 /**
@@ -56,6 +65,26 @@ async function fetchFullSection(
   }
 
   return data.output[section] || null;
+}
+
+/**
+ * Fetch full blueprint output for explain context
+ */
+async function fetchFullBlueprint(
+  blueprintId: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('blueprints')
+    .select('output')
+    .eq('id', blueprintId)
+    .single();
+
+  if (error || !data?.output) {
+    return null;
+  }
+
+  return data.output;
 }
 
 /**
@@ -101,11 +130,15 @@ export async function POST(
     // 2. Route based on intent type
     let responseText: string;
     let qaConfidence: 'high' | 'medium' | 'low' = 'medium';
+    let qaConfidenceResult: ConfidenceResult | undefined = undefined;
+    let qaSourceQuality: SourceQuality | undefined = undefined;
     let tokensUsed = intentResult.usage.totalTokens;
     let totalCost = intentResult.cost;
     let chunks: Awaited<ReturnType<typeof retrieveRelevantChunks>>['chunks'] = [];
     let embeddingCost = 0;
     let pendingAction: ChatResponse['pendingAction'] = undefined;
+    let relatedFactors: RelatedFactor[] | undefined = undefined;
+    let isExplanation = false;
 
     switch (intent.type) {
       case 'question':
@@ -128,6 +161,8 @@ export async function POST(
 
         responseText = qaResult.answer;
         qaConfidence = qaResult.confidence;
+        qaConfidenceResult = qaResult.confidenceResult;
+        qaSourceQuality = qaResult.sourceQuality;
         tokensUsed += qaResult.usage.totalTokens;
         totalCost += qaResult.cost + embeddingCost;
         break;
@@ -169,10 +204,38 @@ export async function POST(
         break;
       }
 
-      case 'explain':
-        // Placeholder for explain capability (Phase 17)
-        responseText = `I understand you want an explanation about ${intent.whatToExplain || intent.field || 'something'} in the ${intent.section} section. Explain capability is coming soon. For now, I can answer questions about your blueprint.`;
+      case 'explain': {
+        // Handle explain with explain agent
+        const explainIntent = intent as ExplainIntent;
+        const fullBlueprint = await fetchFullBlueprint(blueprintId);
+
+        if (!fullBlueprint) {
+          responseText = `I couldn't find the blueprint data. Please check that the blueprint exists and has been generated.`;
+          break;
+        }
+
+        try {
+          const explainResponse = await handleExplain({
+            fullBlueprint,
+            intent: explainIntent,
+            chatHistory: body.chatHistory,
+          });
+
+          // Track costs
+          tokensUsed += explainResponse.usage.totalTokens;
+          totalCost += explainResponse.cost;
+
+          // Set response data
+          responseText = explainResponse.explanation;
+          qaConfidence = explainResponse.confidence;
+          relatedFactors = explainResponse.relatedFactors;
+          isExplanation = true;
+        } catch (explainError) {
+          console.error('Explain agent error:', explainError);
+          responseText = `I encountered an error while generating the explanation. Please try rephrasing your question. Error: ${explainError instanceof Error ? explainError.message : 'Unknown error'}`;
+        }
         break;
+      }
 
       case 'regenerate':
         // Placeholder for regenerate capability (future)
@@ -195,6 +258,8 @@ export async function POST(
         similarity: c.similarity || 0,
       })),
       confidence: qaConfidence,
+      confidenceResult: qaConfidenceResult,
+      sourceQuality: qaSourceQuality,
       metadata: {
         tokensUsed,
         cost: totalCost,
@@ -202,6 +267,8 @@ export async function POST(
         intentClassificationCost: intentResult.cost,
       },
       pendingAction,
+      relatedFactors: relatedFactors && relatedFactors.length > 0 ? relatedFactors : undefined,
+      isExplanation: isExplanation || undefined,
     };
 
     return NextResponse.json(response);

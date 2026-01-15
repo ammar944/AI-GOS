@@ -1,24 +1,34 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Send, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatPanel } from './chat-panel';
-import { MessageBubble } from './message-bubble';
+import { MessageBubble, SourceQuality, SourceReference } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { QuickSuggestions } from './quick-suggestions';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { GradientBorder } from '@/components/ui/gradient-border';
 import { springs } from '@/lib/motion';
+import type { ChatMessageRecord, PendingEdit as DbPendingEdit, EditHistoryEntry, EditHistoryState } from '@/lib/chat/types';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   confidence?: 'high' | 'medium' | 'low';
+  confidenceExplanation?: string;
+  sourceQuality?: SourceQuality;
+  sources?: SourceReference[];
   /** Whether this message contains an edit proposal */
   isEditProposal?: boolean;
+  /** Streaming state tracking */
+  streamingState?: 'text' | 'awaiting-edits' | 'complete';
+  /** Token usage for assistant messages */
+  tokensUsed?: number;
+  /** Cost for assistant messages */
+  cost?: number;
 }
 
 interface PendingEdit {
@@ -33,12 +43,31 @@ interface PendingEdit {
 interface BlueprintChatProps {
   /** The full blueprint data - chat works with this directly, no DB required */
   blueprint: Record<string, unknown>;
+  /** Blueprint ID for persistence */
+  blueprintId?: string;
+  /** Optional existing conversation ID to load */
+  conversationId?: string;
   className?: string;
   /** Callback when an edit is confirmed - receives the updated blueprint */
   onBlueprintUpdate?: (updatedBlueprint: Record<string, unknown>) => void;
 }
 
-export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: BlueprintChatProps) {
+// Section labels for display (moved outside component for use in callbacks)
+const SECTION_LABELS: Record<string, string> = {
+  industryMarketOverview: 'Industry & Market',
+  icpAnalysisValidation: 'ICP Analysis',
+  offerAnalysisViability: 'Offer Analysis',
+  competitorAnalysis: 'Competitors',
+  crossAnalysisSynthesis: 'Synthesis',
+};
+
+export function BlueprintChat({
+  blueprint,
+  blueprintId,
+  conversationId: initialConversationId,
+  className,
+  onBlueprintUpdate
+}: BlueprintChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,8 +75,314 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
   const [isOpen, setIsOpen] = useState(false);
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
+
+  // Persistence state
+  const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const conversationCreatedRef = useRef(false);
+
+  // Edit history state (undo/redo)
+  const [editHistory, setEditHistory] = useState<EditHistoryState>({
+    history: [],
+    currentIndex: -1,
+    maxDepth: 50
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // SessionStorage key for edit history persistence
+  const historyStorageKey = blueprintId ? `blueprint-edit-history-${blueprintId}` : null;
+
+  /**
+   * Generate a human-readable label for a set of edits
+   */
+  const generateEditLabel = useCallback((edits: PendingEdit[]): string => {
+    if (edits.length === 1) {
+      const edit = edits[0];
+      const sectionLabel = SECTION_LABELS[edit.section] || edit.section;
+      return `${sectionLabel}: ${edit.fieldPath}`;
+    }
+    const uniqueSections = [...new Set(edits.map(e => SECTION_LABELS[e.section] || e.section))];
+    if (uniqueSections.length === 1) {
+      return `${edits.length} edits in ${uniqueSections[0]}`;
+    }
+    return `${edits.length} edits across ${uniqueSections.length} sections`;
+  }, []);
+
+  /**
+   * Record a batch of edits in history for undo/redo
+   */
+  const recordEditInHistory = useCallback((
+    blueprintBefore: Record<string, unknown>,
+    blueprintAfter: Record<string, unknown>,
+    edits: PendingEdit[]
+  ) => {
+    const entry: EditHistoryEntry = {
+      id: crypto.randomUUID(),
+      appliedAt: new Date(),
+      edits,
+      blueprintBefore,
+      blueprintAfter,
+      label: generateEditLabel(edits)
+    };
+
+    setEditHistory(prev => {
+      // If we're not at the end, trim future entries (user did undo then made new edit)
+      const newHistory = prev.history.slice(0, prev.currentIndex + 1);
+      newHistory.push(entry);
+
+      // Enforce max depth
+      if (newHistory.length > prev.maxDepth) {
+        newHistory.shift();
+      }
+
+      return {
+        ...prev,
+        history: newHistory,
+        currentIndex: newHistory.length - 1
+      };
+    });
+  }, [generateEditLabel]);
+
+  /**
+   * Handle undo - restore previous blueprint state
+   */
+  const handleUndo = useCallback(() => {
+    if (editHistory.currentIndex < 0) return;
+
+    const entry = editHistory.history[editHistory.currentIndex];
+    const previousBlueprint = entry.blueprintBefore;
+
+    // Apply the previous state
+    onBlueprintUpdate?.(previousBlueprint);
+
+    // Move back in history
+    setEditHistory(prev => ({
+      ...prev,
+      currentIndex: prev.currentIndex - 1
+    }));
+
+    // Add undo message to chat
+    const undoMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: `Undid: ${entry.label}`
+    };
+    setMessages(prev => [...prev, undoMessage]);
+  }, [editHistory, onBlueprintUpdate]);
+
+  /**
+   * Handle redo - reapply previously undone edit
+   */
+  const handleRedo = useCallback(() => {
+    if (editHistory.currentIndex >= editHistory.history.length - 1) return;
+
+    const nextEntry = editHistory.history[editHistory.currentIndex + 1];
+
+    // Apply the next state
+    onBlueprintUpdate?.(nextEntry.blueprintAfter);
+
+    // Move forward in history
+    setEditHistory(prev => ({
+      ...prev,
+      currentIndex: prev.currentIndex + 1
+    }));
+
+    // Add redo message to chat
+    const redoMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: `Reapplied: ${nextEntry.label}`
+    };
+    setMessages(prev => [...prev, redoMessage]);
+  }, [editHistory, onBlueprintUpdate]);
+
+  // Derived undo/redo state
+  const canUndo = editHistory.currentIndex >= 0;
+  const canRedo = editHistory.currentIndex < editHistory.history.length - 1;
+  const undoDepth = editHistory.currentIndex + 1;
+
+  // Load edit history from sessionStorage on mount
+  useEffect(() => {
+    if (!historyStorageKey) return;
+
+    try {
+      const stored = sessionStorage.getItem(historyStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as EditHistoryState;
+        // Restore dates from ISO strings
+        parsed.history = parsed.history.map(entry => ({
+          ...entry,
+          appliedAt: new Date(entry.appliedAt)
+        }));
+        setEditHistory(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to load edit history from sessionStorage:', error);
+    }
+  }, [historyStorageKey]);
+
+  // Persist edit history to sessionStorage on change
+  useEffect(() => {
+    if (!historyStorageKey) return;
+
+    try {
+      sessionStorage.setItem(historyStorageKey, JSON.stringify(editHistory));
+    } catch (error) {
+      console.error('Failed to save edit history to sessionStorage:', error);
+    }
+  }, [editHistory, historyStorageKey]);
+
+  /**
+   * Transform database message record to component Message format
+   */
+  const dbMessageToComponentMessage = useCallback((dbMsg: ChatMessageRecord): Message => {
+    // Parse JSON strings if needed (DB stores as JSON strings)
+    let sources = dbMsg.sources;
+    let sourceQuality = dbMsg.source_quality;
+    let pendingEditsFromDb = dbMsg.pending_edits;
+
+    if (typeof sources === 'string') {
+      try { sources = JSON.parse(sources); } catch { sources = null; }
+    }
+    if (typeof sourceQuality === 'string') {
+      try { sourceQuality = JSON.parse(sourceQuality); } catch { sourceQuality = null; }
+    }
+    if (typeof pendingEditsFromDb === 'string') {
+      try { pendingEditsFromDb = JSON.parse(pendingEditsFromDb); } catch { pendingEditsFromDb = null; }
+    }
+
+    return {
+      id: dbMsg.id,
+      role: dbMsg.role,
+      content: dbMsg.content,
+      confidence: dbMsg.confidence ?? undefined,
+      confidenceExplanation: dbMsg.confidence_explanation ?? undefined,
+      sourceQuality: sourceQuality as SourceQuality | undefined,
+      sources: sources as SourceReference[] | undefined,
+      isEditProposal: !!(pendingEditsFromDb && (pendingEditsFromDb as DbPendingEdit[]).length > 0),
+      streamingState: 'complete',
+      tokensUsed: dbMsg.tokens_used ?? undefined,
+      cost: dbMsg.cost ?? undefined,
+    };
+  }, []);
+
+  /**
+   * Save a message to the database (non-blocking)
+   */
+  const saveMessage = useCallback(async (
+    convId: string,
+    message: {
+      role: 'user' | 'assistant';
+      content: string;
+      confidence?: 'high' | 'medium' | 'low';
+      confidenceExplanation?: string;
+      sources?: SourceReference[];
+      sourceQuality?: SourceQuality;
+      pendingEdits?: PendingEdit[];
+      tokensUsed?: number;
+      cost?: number;
+    }
+  ): Promise<void> => {
+    try {
+      const response = await fetch('/api/chat/messages/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: convId,
+          blueprintId,
+          message,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save message:', await response.text());
+      }
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  }, [blueprintId]);
+
+  /**
+   * Load or create a conversation for this blueprint
+   */
+  const loadOrCreateConversation = useCallback(async (): Promise<string | null> => {
+    // Skip if already created in this session
+    if (conversationCreatedRef.current && conversationId) {
+      return conversationId;
+    }
+
+    setIsLoadingHistory(true);
+
+    try {
+      // If we have an initial conversationId, load that conversation
+      if (initialConversationId) {
+        const response = await fetch(`/api/chat/conversations/${initialConversationId}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          const loadedMessages = data.messages.map(dbMessageToComponentMessage);
+          setMessages(loadedMessages);
+          setConversationId(initialConversationId);
+          conversationCreatedRef.current = true;
+          return initialConversationId;
+        }
+      }
+
+      // Check if there's an existing conversation for this blueprint
+      if (blueprintId) {
+        const listResponse = await fetch(`/api/chat/conversations?blueprintId=${blueprintId}`);
+
+        if (listResponse.ok) {
+          const listData = await listResponse.json();
+
+          // Load the most recent conversation if one exists
+          if (listData.conversations && listData.conversations.length > 0) {
+            const existingConvId = listData.conversations[0].id;
+            const convResponse = await fetch(`/api/chat/conversations/${existingConvId}`);
+
+            if (convResponse.ok) {
+              const convData = await convResponse.json();
+              const loadedMessages = convData.messages.map(dbMessageToComponentMessage);
+              setMessages(loadedMessages);
+              setConversationId(existingConvId);
+              conversationCreatedRef.current = true;
+              return existingConvId;
+            }
+          }
+        }
+
+        // No existing conversation - create a new one
+        const createResponse = await fetch('/api/chat/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blueprintId }),
+        });
+
+        if (createResponse.ok) {
+          const createData = await createResponse.json();
+          setConversationId(createData.conversationId);
+          conversationCreatedRef.current = true;
+          return createData.conversationId;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error loading/creating conversation:', error);
+      return null;
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [blueprintId, initialConversationId, conversationId, dbMessageToComponentMessage]);
+
+  // Load or create conversation when panel opens and blueprintId is available
+  useEffect(() => {
+    if (isOpen && blueprintId && !conversationCreatedRef.current) {
+      loadOrCreateConversation();
+    }
+  }, [isOpen, blueprintId, loadOrCreateConversation]);
 
   // Scroll to bottom on new messages or when pending edits appear
   useEffect(() => {
@@ -61,13 +396,27 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     }
   }, [isOpen]);
 
+  /** Result returned from processStream for persistence */
+  interface StreamResult {
+    content: string;
+    confidence?: 'high' | 'medium' | 'low';
+    confidenceExplanation?: string;
+    sourceQuality?: SourceQuality;
+    sources?: SourceReference[];
+    pendingEdits?: PendingEdit[];
+    tokens?: number;
+    cost?: number;
+  }
+
   /**
    * Process SSE stream and update message content incrementally
+   * Supports both new typed format (type: 'text'|'edits'|'done') and legacy format
+   * Returns collected metadata for persistence
    */
   const processStream = async (
     response: Response,
     messageId: string
-  ): Promise<void> => {
+  ): Promise<StreamResult> => {
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error('No response body for streaming');
@@ -76,6 +425,18 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     const decoder = new TextDecoder();
     let buffer = '';
     let fullContent = '';
+    let receivedEdits = false;
+    let collectedPendingEdits: PendingEdit[] = [];
+
+    // Track metadata from stream completion
+    const streamMetadata: {
+      confidence?: 'high' | 'medium' | 'low';
+      confidenceExplanation?: string;
+      sourceQuality?: SourceQuality;
+      sources?: SourceReference[];
+      tokens?: number;
+      cost?: number;
+    } = {};
 
     try {
       while (true) {
@@ -111,10 +472,21 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
           try {
             const data = JSON.parse(dataContent);
 
-            // Handle content chunks
-            if (data.content) {
+            // Handle new typed format: { type: 'text', content: '...' }
+            if (data.type === 'text' && data.content) {
               fullContent += data.content;
-              // Update the message content incrementally
+              // Update the message content incrementally with streaming state
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === messageId
+                    ? { ...m, content: fullContent, streamingState: 'text' as const }
+                    : m
+                )
+              );
+            }
+            // Handle legacy format: { content: '...' } without type field
+            else if (!data.type && data.content) {
+              fullContent += data.content;
               setMessages(prev =>
                 prev.map(m =>
                   m.id === messageId ? { ...m, content: fullContent } : m
@@ -122,9 +494,81 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
               );
             }
 
-            // Handle completion
-            if (data.done) {
-              return;
+            // Handle edit events: { type: 'edits', pendingEdits: [...] }
+            if (data.type === 'edits' && data.pendingEdits) {
+              receivedEdits = true;
+              collectedPendingEdits = data.pendingEdits;
+              // Mark message as edit proposal
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === messageId
+                    ? { ...m, isEditProposal: true, streamingState: 'complete' as const }
+                    : m
+                )
+              );
+              // Store edits for confirmation UI
+              setPendingEdits(data.pendingEdits);
+            }
+
+            // Handle metadata (can arrive with content or at completion)
+            if (data.confidence) {
+              streamMetadata.confidence = data.confidence;
+            }
+            if (data.confidenceExplanation) {
+              streamMetadata.confidenceExplanation = data.confidenceExplanation;
+            }
+            if (data.sourceQuality) {
+              streamMetadata.sourceQuality = data.sourceQuality;
+            }
+            if (data.sources) {
+              streamMetadata.sources = data.sources;
+            }
+            if (data.tokens) {
+              streamMetadata.tokens = data.tokens;
+            }
+            if (data.cost) {
+              streamMetadata.cost = data.cost;
+            }
+
+            // Handle completion - new format: { type: 'done', done: true, metadata }
+            // or legacy format: { done: true }
+            if (data.done || data.type === 'done') {
+
+              // Extract metadata from done event if present
+              if (data.metadata) {
+                if (data.metadata.confidence) streamMetadata.confidence = data.metadata.confidence;
+                if (data.metadata.confidenceExplanation) streamMetadata.confidenceExplanation = data.metadata.confidenceExplanation;
+                if (data.metadata.sourceQuality) streamMetadata.sourceQuality = data.metadata.sourceQuality;
+                if (data.metadata.sources) streamMetadata.sources = data.metadata.sources;
+                if (data.metadata.tokens) streamMetadata.tokens = data.metadata.tokens;
+                if (data.metadata.cost) streamMetadata.cost = data.metadata.cost;
+              }
+
+              // Update message with all collected metadata and final state
+              setMessages(prev =>
+                prev.map(m => {
+                  if (m.id !== messageId) return m;
+
+                  const updates: Partial<Message> = { ...streamMetadata };
+
+                  // If text is done but no edits received yet, show awaiting-edits state
+                  // This only applies if message was marked as edit proposal
+                  if (m.isEditProposal && !receivedEdits) {
+                    updates.streamingState = 'awaiting-edits';
+                  } else {
+                    updates.streamingState = 'complete';
+                  }
+
+                  return { ...m, ...updates };
+                })
+              );
+
+              // Return collected data for persistence
+              return {
+                content: fullContent,
+                ...streamMetadata,
+                pendingEdits: collectedPendingEdits.length > 0 ? collectedPendingEdits : undefined,
+              };
             }
 
             // Handle errors
@@ -139,6 +583,25 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
           }
         }
       }
+
+      // Stream ended without done signal - still apply any collected metadata
+      setMessages(prev =>
+        prev.map(m => {
+          if (m.id !== messageId) return m;
+          return {
+            ...m,
+            ...streamMetadata,
+            streamingState: 'complete' as const,
+          };
+        })
+      );
+
+      // Return what we collected
+      return {
+        content: fullContent,
+        ...streamMetadata,
+        pendingEdits: collectedPendingEdits.length > 0 ? collectedPendingEdits : undefined,
+      };
     } finally {
       reader.releaseLock();
     }
@@ -151,6 +614,12 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     const content = directContent ?? input.trim();
     if (!content || isLoading || isStreaming || pendingEdits.length > 0) return;
 
+    // Ensure we have a conversation for persistence
+    let currentConversationId = conversationId;
+    if (blueprintId && !currentConversationId) {
+      currentConversationId = await loadOrCreateConversation();
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -160,6 +629,14 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+
+    // Save user message (non-blocking)
+    if (currentConversationId) {
+      saveMessage(currentConversationId, {
+        role: 'user',
+        content: userMessage.content,
+      });
+    }
 
     try {
       // Use streaming endpoint
@@ -195,9 +672,24 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
         setIsLoading(false); // No longer loading, now streaming
         setIsStreaming(true);
 
-        // Process the stream
+        // Process the stream and get result for persistence
         try {
-          await processStream(response, assistantMessageId);
+          const streamResult = await processStream(response, assistantMessageId);
+
+          // Save assistant message after streaming completes (non-blocking)
+          if (currentConversationId && streamResult.content) {
+            saveMessage(currentConversationId, {
+              role: 'assistant',
+              content: streamResult.content,
+              confidence: streamResult.confidence,
+              confidenceExplanation: streamResult.confidenceExplanation,
+              sources: streamResult.sources,
+              sourceQuality: streamResult.sourceQuality,
+              pendingEdits: streamResult.pendingEdits,
+              tokensUsed: streamResult.tokens,
+              cost: streamResult.cost,
+            });
+          }
         } finally {
           setIsStreaming(false);
         }
@@ -208,13 +700,23 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
         const fullContent = data.response;
         const assistantMessageId = crypto.randomUUID();
 
-        // Create empty message first
+        // Collect pending edits for persistence
+        const jsonPendingEdits = data.pendingEdits?.length > 0
+          ? data.pendingEdits
+          : data.pendingEdit
+            ? [data.pendingEdit]
+            : undefined;
+
+        // Create empty message first with all metadata
         const assistantMessage: Message = {
           id: assistantMessageId,
           role: 'assistant',
           content: '',
           confidence: data.confidence,
-          isEditProposal: !!(data.pendingEdits?.length || data.pendingEdit),
+          confidenceExplanation: data.confidenceExplanation,
+          sourceQuality: data.sourceQuality,
+          sources: data.sources,
+          isEditProposal: !!jsonPendingEdits,
         };
 
         setMessages(prev => [...prev, assistantMessage]);
@@ -247,10 +749,23 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
         setIsStreaming(false);
 
         // If there are pending edits, store them after typewriter completes
-        if (data.pendingEdits && data.pendingEdits.length > 0) {
-          setPendingEdits(data.pendingEdits);
-        } else if (data.pendingEdit) {
-          setPendingEdits([data.pendingEdit]);
+        if (jsonPendingEdits) {
+          setPendingEdits(jsonPendingEdits);
+        }
+
+        // Save assistant message after typewriter completes (non-blocking)
+        if (currentConversationId && fullContent) {
+          saveMessage(currentConversationId, {
+            role: 'assistant',
+            content: fullContent,
+            confidence: data.confidence,
+            confidenceExplanation: data.confidenceExplanation,
+            sources: data.sources,
+            sourceQuality: data.sourceQuality,
+            pendingEdits: jsonPendingEdits,
+            tokensUsed: data.tokensUsed,
+            cost: data.cost,
+          });
         }
       }
     } catch (error) {
@@ -278,8 +793,14 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     setIsConfirming(true);
 
     try {
+      // Capture blueprint state before edit for undo
+      const blueprintBefore = JSON.parse(JSON.stringify(blueprint));
+
       // Apply all edits locally - update the blueprint in memory
       const updatedBlueprint = applyEdits(blueprint, pendingEdits);
+
+      // Record in history for undo/redo
+      recordEditInHistory(blueprintBefore, updatedBlueprint, pendingEdits);
 
       // Notify parent of the update
       onBlueprintUpdate?.(updatedBlueprint);
@@ -339,8 +860,15 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     setIsConfirming(true);
 
     try {
+      // Capture blueprint state before edit for undo
+      const blueprintBefore = JSON.parse(JSON.stringify(blueprint));
+
       // Apply single edit
       const updatedBlueprint = applyEdits(blueprint, [edit]);
+
+      // Record in history for undo/redo
+      recordEditInHistory(blueprintBefore, updatedBlueprint, [edit]);
+
       onBlueprintUpdate?.(updatedBlueprint);
 
       // Remove from pending list
@@ -391,15 +919,6 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
     setMessages(prev => [...prev, rejectMessage]);
   };
 
-  // Section labels for display
-  const SECTION_LABELS: Record<string, string> = {
-    industryMarketOverview: 'Industry & Market',
-    icpAnalysisValidation: 'ICP Analysis',
-    offerAnalysisViability: 'Offer Analysis',
-    competitorAnalysis: 'Competitors',
-    crossAnalysisSynthesis: 'Synthesis',
-  };
-
   return (
     <>
       {/* Floating chat trigger button - solid blue CTA, no pulse */}
@@ -428,12 +947,44 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
       </AnimatePresence>
 
       {/* Chat Panel */}
-      <ChatPanel isOpen={isOpen} onClose={() => setIsOpen(false)}>
+      <ChatPanel
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        undoRedo={{
+          canUndo,
+          canRedo,
+          undoDepth,
+          onUndo: handleUndo,
+          onRedo: handleRedo,
+        }}
+      >
         <div className="flex flex-col h-full">
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto py-4">
+            {/* Loading history state */}
+            {isLoadingHistory && (
+              <div className="px-5 py-8 text-center">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <Loader2
+                    className="w-8 h-8 animate-spin"
+                    style={{ color: 'var(--text-tertiary, #666666)' }}
+                  />
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-tertiary, #666666)' }}
+                  >
+                    Loading conversation...
+                  </p>
+                </motion.div>
+              </div>
+            )}
+
             {/* Empty state with quick suggestions */}
-            {messages.length === 0 && (
+            {!isLoadingHistory && messages.length === 0 && (
               <div className="px-5 py-8 text-center">
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -472,6 +1023,9 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                 role={message.role}
                 content={message.content}
                 confidence={message.confidence}
+                confidenceExplanation={message.confidenceExplanation}
+                sourceQuality={message.sourceQuality}
+                sources={message.sources}
                 isEditProposal={message.isEditProposal}
                 delay={index * 0.05}
               />
@@ -480,9 +1034,56 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
             {/* Typing indicator */}
             {(isLoading || isStreaming) && <TypingIndicator />}
 
+            {/* Awaiting edits indicator - shown when text is done but edits haven't arrived */}
+            <AnimatePresence>
+              {messages.length > 0 &&
+                messages[messages.length - 1].streamingState === 'awaiting-edits' &&
+                pendingEdits.length === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                    transition={springs.smooth}
+                    className="px-5 py-3"
+                  >
+                    <div
+                      className="rounded-lg p-3 flex items-center gap-3"
+                      style={{
+                        background: 'var(--bg-surface, #101010)',
+                        border: '1px solid rgba(245, 158, 11, 0.2)',
+                      }}
+                    >
+                      <motion.div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: '#f59e0b' }}
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                      <span
+                        className="text-sm"
+                        style={{ color: 'var(--text-secondary, #a0a0a0)' }}
+                      >
+                        Generating edit proposal...
+                      </span>
+                      <Loader2
+                        className="w-4 h-4 animate-spin ml-auto"
+                        style={{ color: '#f59e0b' }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Pending Edits Confirmation UI */}
-            {pendingEdits.length > 0 && !isLoading && (
-              <div className="px-5 py-3">
+            <AnimatePresence>
+              {pendingEdits.length > 0 && !isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 15, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }}
+                transition={{ ...springs.smooth, duration: 0.3 }}
+                className="px-5 py-3"
+              >
                 <GradientBorder
                   className="w-full"
                   innerClassName="p-4 space-y-3"
@@ -644,8 +1245,9 @@ export function BlueprintChat({ blueprint, className, onBlueprintUpdate }: Bluep
                     </div>
                   )}
                 </GradientBorder>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
 
             <div ref={messagesEndRef} />
           </div>
