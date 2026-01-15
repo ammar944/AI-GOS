@@ -14,6 +14,7 @@ import {
   DollarSign,
   Sparkles,
   Tag,
+  ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -680,12 +681,22 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
         <div className="space-y-4">
           {(data?.competitors || []).map((comp, i) => (
             <div key={i} className="p-4 bg-muted/30 rounded-lg border">
-              <h4 className="font-semibold text-lg">
+              <h4 className="font-semibold text-lg flex items-center gap-2">
                 {isEditing && onFieldChange ? (
                   <EditableText
                     value={safeRender(comp?.name)}
                     onSave={(v) => onFieldChange(`competitors.${i}.name`, v)}
                   />
+                ) : comp?.website ? (
+                  <a
+                    href={comp.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 hover:text-primary transition-colors group"
+                  >
+                    <SourcedText>{safeRender(comp?.name)}</SourcedText>
+                    <ExternalLink className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </a>
                 ) : (
                   <SourcedText>{safeRender(comp?.name)}</SourcedText>
                 )}
@@ -889,12 +900,29 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
         </div>
         <div>
           <h4 className="font-medium mb-2">Creative Formats Used</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            <BoolCheck value={data?.creativeLibrary?.creativeFormats?.ugc || false} label="UGC" />
-            <BoolCheck value={data?.creativeLibrary?.creativeFormats?.carousels || false} label="Carousels" />
-            <BoolCheck value={data?.creativeLibrary?.creativeFormats?.statics || false} label="Statics" />
-            <BoolCheck value={data?.creativeLibrary?.creativeFormats?.testimonial || false} label="Testimonials" />
-            <BoolCheck value={data?.creativeLibrary?.creativeFormats?.productDemo || false} label="Product Demo" />
+          <div className="flex flex-wrap gap-2">
+            {data?.creativeLibrary?.creativeFormats?.ugc && (
+              <Badge variant="secondary" className="text-sm">UGC</Badge>
+            )}
+            {data?.creativeLibrary?.creativeFormats?.carousels && (
+              <Badge variant="secondary" className="text-sm">Carousels</Badge>
+            )}
+            {data?.creativeLibrary?.creativeFormats?.statics && (
+              <Badge variant="secondary" className="text-sm">Statics</Badge>
+            )}
+            {data?.creativeLibrary?.creativeFormats?.testimonial && (
+              <Badge variant="secondary" className="text-sm">Testimonials</Badge>
+            )}
+            {data?.creativeLibrary?.creativeFormats?.productDemo && (
+              <Badge variant="secondary" className="text-sm">Product Demo</Badge>
+            )}
+            {!data?.creativeLibrary?.creativeFormats?.ugc &&
+             !data?.creativeLibrary?.creativeFormats?.carousels &&
+             !data?.creativeLibrary?.creativeFormats?.statics &&
+             !data?.creativeLibrary?.creativeFormats?.testimonial &&
+             !data?.creativeLibrary?.creativeFormats?.productDemo && (
+              <span className="text-sm text-muted-foreground">No formats identified</span>
+            )}
           </div>
         </div>
       </SubSection>
@@ -942,12 +970,12 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               ))}
             </ul>
           </div>
-          <div className="p-3 bg-muted/30 rounded-lg">
-            <p className="text-sm text-muted-foreground">Form Friction Level</p>
-            <Badge variant="outline" className="mt-1 capitalize">
-              {safeRender(data?.funnelBreakdown?.formFriction)}
-            </Badge>
-          </div>
+          {data?.funnelBreakdown?.formFriction && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Form Friction Level</p>
+              <span className="text-sm capitalize">{safeRender(data.funnelBreakdown.formFriction)}</span>
+            </div>
+          )}
         </div>
       </SubSection>
 

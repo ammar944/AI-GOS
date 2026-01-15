@@ -8,6 +8,7 @@ interface GenerationStatsProps {
   completedSections: number;
   totalSections: number;
   className?: string;
+  isComplete?: boolean; // Only show cost when generation is complete
 }
 
 /**
@@ -20,6 +21,7 @@ export function GenerationStats({
   completedSections,
   totalSections,
   className,
+  isComplete = false,
 }: GenerationStatsProps) {
   // Format time as M:SS
   const totalSeconds = Math.floor(elapsedTime / 1000);
@@ -27,8 +29,8 @@ export function GenerationStats({
   const seconds = totalSeconds % 60;
   const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
-  // Format cost
-  const costDisplay = `$${estimatedCost.toFixed(4)}`;
+  // Format cost - only show actual cost when complete, otherwise show placeholder
+  const costDisplay = isComplete ? `$${estimatedCost.toFixed(4)}` : "Calculating...";
 
   return (
     <div

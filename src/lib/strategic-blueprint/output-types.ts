@@ -275,6 +275,8 @@ export interface CompetitorOffer {
 export interface CompetitorSnapshot {
   /** Competitor name */
   name: string;
+  /** Competitor website URL */
+  website?: string;
   /** Positioning */
   positioning: string;
   /** Their offer */

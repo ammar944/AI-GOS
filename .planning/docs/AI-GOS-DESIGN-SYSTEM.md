@@ -42,22 +42,40 @@
 ### Background Hierarchy
 
 ```css
---bg-base: #000000;           /* Page background */
---bg-elevated: #0a0a0a;       /* Cards, panels */
---bg-surface: #0c0c0c;        /* Modals, overlays */
---bg-hover: #111111;          /* Interactive hover states */
---bg-active: #181818;         /* Active/pressed states */
+--bg-base: #000000;           /* Page background - pure black */
+--bg-elevated: #0a0a0a;       /* Elevated surfaces */
+--bg-card: #0d0d0d;           /* Card containers - NEW */
+--bg-surface: #101010;        /* Component backgrounds - INCREASED */
+--bg-hover: #161616;          /* Interactive hover states - INCREASED */
+--bg-active: #1c1c1c;         /* Active/pressed states - INCREASED */
 ```
+
+> **v2.1 Update:** Background values were increased to create better visual separation. The original values (#0c0c0c, #111111, #181818) blended too much with pure black, making content feel flat.
 
 ### Border System (Opacity-based)
 
 ```css
---border-subtle: rgba(255, 255, 255, 0.04);
---border-default: rgba(255, 255, 255, 0.06);
---border-hover: rgba(255, 255, 255, 0.10);
---border-focus: rgba(255, 255, 255, 0.15);
---border-strong: rgba(255, 255, 255, 0.20);
+/* INCREASED for visibility - original values caused content to blend */
+--border-subtle: rgba(255, 255, 255, 0.08);   /* was 0.04 */
+--border-default: rgba(255, 255, 255, 0.12);  /* was 0.06 */
+--border-hover: rgba(255, 255, 255, 0.18);    /* was 0.10 */
+--border-focus: rgba(255, 255, 255, 0.22);    /* was 0.15 */
+--border-strong: rgba(255, 255, 255, 0.28);   /* was 0.20 */
 ```
+
+> **v2.1 Update:** Border opacities doubled to improve visibility. The original values were too subtle and caused cards/sections to disappear into the background.
+
+### Shadow System (NEW in v2.1)
+
+```css
+/* Card shadow - subtle depth with inset highlight */
+--shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+
+/* Elevated shadow - for floating elements */
+--shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
+```
+
+> **Usage:** Apply `shadow-[var(--shadow-card)]` to cards and section containers. The inset highlight creates a subtle top edge that helps separate content from the background.
 
 ### Text Hierarchy
 
@@ -972,6 +990,225 @@ const Pipeline = ({ stages, current }) => (
 
 ---
 
+## Document Layout System (NEW in v2.1)
+
+### Overview
+
+A continuous-scroll document layout that eliminates click-to-expand friction. Users can read all content immediately with sticky navigation for wayfinding.
+
+### Key Principles
+
+1. **Zero friction** - All sections visible immediately, no clicking required
+2. **Wayfinding** - Sticky sidebar navigation shows current position
+3. **Visual hierarchy** - Cards create clear section separation on pure black
+4. **Typography-driven** - Text hierarchy instead of color for visual weight
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ▓ Reading Progress Bar (thin blue line at top)              │
+├────────────────────────────────────────────┬─────────────────┤
+│                                            │                 │
+│  ┌─────────────────────────────────────┐   │  ┌───────────┐  │
+│  │ Section 1: Industry & Market        │   │  │ ① Industry │  │
+│  │ [Section Card with content]         │   │  │ ② ICP      │  │
+│  │                                     │   │  │ ③ Offer    │  │
+│  └─────────────────────────────────────┘   │  │ ④ Compete  │  │
+│                                            │  │ ⑤ Synthesis│  │
+│  ┌─────────────────────────────────────┐   │  ├───────────┤  │
+│  │ Section 2: ICP Analysis             │   │  │ Progress   │  │
+│  │ [Section Card with content]         │   │  │ ████░ 3/5  │  │
+│  │                                     │   │  └───────────┘  │
+│  └─────────────────────────────────────┘   │                 │
+│                                            │  (Sticky Nav)   │
+│  ...more sections...                       │                 │
+│                                            │                 │
+├────────────────────────────────────────────┴─────────────────┤
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ Floating Action Bar: [3/5] | [Undo] [Redo] | [Approve →]│ │
+│  └─────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Reading Progress Bar
+
+Thin progress indicator at top of viewport showing scroll position.
+
+```tsx
+<div className="fixed top-0 left-0 right-0 h-0.5 bg-[var(--border-subtle)] z-50">
+  <div
+    className="h-full bg-[var(--accent-blue)] transition-[width] duration-150"
+    style={{ width: `${scrollProgress}%` }}
+  />
+</div>
+```
+
+### Section Card Container
+
+Each section is wrapped in an elevated card for visual separation.
+
+```tsx
+<section
+  className={cn(
+    "scroll-mt-6 mb-6 rounded-xl",
+    "bg-[var(--bg-card)] border border-[var(--border-default)]",
+    "shadow-[var(--shadow-card)]",
+    "p-6 md:p-8"
+  )}
+>
+  {/* Section header with number and title */}
+  {/* Content always visible - no collapse */}
+</section>
+```
+
+**Key styling:**
+- `bg-[var(--bg-card)]` (#0d0d0d) - Slightly elevated from pure black
+- `border-[var(--border-default)]` - 12% white opacity border
+- `shadow-[var(--shadow-card)]` - Subtle depth with inset highlight
+- `rounded-xl` - 12px radius for cards
+
+### Section Header Pattern
+
+```tsx
+<div className="flex items-start justify-between gap-4 mb-6">
+  {/* Section number badge - monochrome */}
+  <span className={cn(
+    "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium",
+    isReviewed
+      ? "bg-green-500/20 text-green-400 border border-green-500/30"  // Reviewed state
+      : "bg-[var(--text-primary)] text-black"                        // Default: white/black
+  )}>
+    {sectionNumber}
+  </span>
+
+  {/* Title and status indicators */}
+  <div>
+    <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+      {sectionLabel}
+    </h2>
+    {/* Subtle text indicators instead of blue badges */}
+    <span className="text-xs text-[var(--text-tertiary)]">
+      <Pencil className="h-3 w-3" /> Modified
+    </span>
+  </div>
+</div>
+```
+
+**Design decision:** Section numbers use white background with black text (monochrome) instead of blue. Blue is reserved for primary CTAs only.
+
+### Sticky Section Navigation
+
+```tsx
+<nav className="sticky top-6 hidden xl:block">
+  <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] shadow-[var(--shadow-card)]">
+    {sections.map((section, i) => (
+      <button
+        className={cn(
+          "flex items-center gap-3 w-full px-3 py-2.5 text-sm rounded-lg",
+          "hover:bg-[var(--bg-hover)]",
+          isActive
+            ? "bg-[var(--bg-active)] text-[var(--text-primary)]"
+            : "text-[var(--text-tertiary)]"
+        )}
+      >
+        <span className={cn(
+          "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
+          isActive
+            ? "bg-[var(--text-primary)] text-black"
+            : isReviewed
+            ? "bg-green-500/20 text-green-400"
+            : "bg-[var(--border-default)]"
+        )}>
+          {i + 1}
+        </span>
+        <span className="truncate">{section.label}</span>
+      </button>
+    ))}
+
+    {/* Progress bar */}
+    <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+      <div className="h-1.5 bg-[var(--border-subtle)] rounded-full">
+        <div
+          className="h-full bg-green-500 rounded-full"
+          style={{ width: `${(reviewed / total) * 100}%` }}
+        />
+      </div>
+    </div>
+  </div>
+</nav>
+```
+
+### SubSection Headers
+
+Horizontal line decorators for subsection titles:
+
+```tsx
+<h3 className="font-semibold text-sm uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-3">
+  <span className="h-px w-6 bg-[var(--border-hover)]" />
+  {title}
+  <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+</h3>
+```
+
+### Data Card Styling
+
+Nested cards for data display within sections:
+
+```tsx
+<div className={cn(
+  "p-4 rounded-lg",
+  "bg-[var(--bg-surface)]",              /* Slightly lighter than section card */
+  "border border-[var(--border-subtle)]"
+)}>
+  {content}
+</div>
+```
+
+### Keyboard Navigation
+
+Built-in keyboard shortcuts for power users:
+
+| Key | Action |
+|-----|--------|
+| `j` | Jump to next section |
+| `k` | Jump to previous section |
+| `Ctrl+Z` | Undo edit |
+| `Ctrl+Shift+Z` | Redo edit |
+
+### Floating Action Bar
+
+Fixed at bottom of viewport:
+
+```tsx
+<div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+  <div className={cn(
+    "flex items-center gap-3 px-4 py-3 rounded-full",
+    "bg-[var(--bg-elevated)] border border-[var(--border-default)]",
+    "shadow-lg shadow-black/20"
+  )}>
+    {/* Progress: 3/5 */}
+    {/* Undo/Redo buttons */}
+    {/* Primary CTA with accent blue */}
+  </div>
+</div>
+```
+
+### Color Usage in Document Layout
+
+| Element | Color | Rationale |
+|---------|-------|-----------|
+| Section numbers | White on black | Monochrome, no blue |
+| Reviewed state | Green (semantic) | Clear success indicator |
+| Modified indicator | Gray text | Subtle, not prominent |
+| Edit button (active) | White on black | Inverted, stands out |
+| Primary CTA | Accent blue | Only place blue is used |
+| Progress bar | Green | Semantic success color |
+
+**Key principle:** Blue is used ONLY for the primary CTA button. All other interactive elements use monochrome (white/gray/black).
+
+---
+
 ## Syntax Highlighting
 
 For document content:
@@ -1140,5 +1377,21 @@ src/
 
 ---
 
+## Changelog
+
+### v2.1 (January 2026)
+- **Background values increased** - Better visual separation from pure black
+- **Border opacities doubled** - Cards/sections now visible
+- **Added shadow system** - `--shadow-card` and `--shadow-elevated` for depth
+- **Added `--bg-card`** - Explicit card background token
+- **New Document Layout System** - Continuous scroll with sticky navigation
+- **Reduced blue usage** - Blue now only for primary CTAs
+- **SubSection line decorators** - Horizontal lines for visual hierarchy
+
+### v1.0 (January 2026)
+- Initial design system documentation
+
+---
+
 *Last updated: January 2026*
-*Version: 1.0*
+*Version: 2.1*

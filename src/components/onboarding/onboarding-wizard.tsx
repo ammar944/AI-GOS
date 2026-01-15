@@ -118,6 +118,7 @@ export function OnboardingWizard({
   onStepChange,
 }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [formData, setFormData] = useState<OnboardingFormData>({
     ...DEFAULT_ONBOARDING_DATA,
     ...initialData,
@@ -127,6 +128,8 @@ export function OnboardingWizard({
 
   const goToNextStep = useCallback(() => {
     if (currentStep < STEPS.length - 1) {
+      // Mark the current step as completed before advancing
+      setCompletedSteps((prev) => new Set(prev).add(currentStep));
       setCurrentStep((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -138,6 +141,15 @@ export function OnboardingWizard({
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [currentStep]);
+
+  // Navigate to a specific step (only completed steps are allowed)
+  const goToStep = useCallback((stepIndex: number) => {
+    // Only allow navigation to completed steps
+    if (completedSteps.has(stepIndex) && stepIndex !== currentStep) {
+      setCurrentStep(stepIndex);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [completedSteps, currentStep]);
 
   const updateFormData = useCallback(
     <K extends keyof OnboardingFormData>(
@@ -312,8 +324,10 @@ export function OnboardingWizard({
         <div className="hidden md:block">
           <div className="flex justify-between">
             {STEPS.map((step, index) => {
-              const isCompleted = index < currentStep;
+              const isCompleted = completedSteps.has(index);
               const isCurrent = index === currentStep;
+              const isFuture = !isCompleted && !isCurrent;
+              const isClickable = isCompleted && !isCurrent;
 
               return (
                 <div
@@ -337,10 +351,26 @@ export function OnboardingWizard({
                     </div>
                   )}
 
-                  {/* Step Circle - monochrome styling, green for complete, white for current */}
-                  <motion.div
+                  {/* Step Circle - clickable for completed steps */}
+                  <motion.button
+                    type="button"
+                    onClick={() => isClickable && goToStep(index)}
+                    disabled={!isClickable}
+                    aria-label={
+                      isCompleted
+                        ? `Go back to ${step.title} (completed)`
+                        : isCurrent
+                          ? `Current step: ${step.title}`
+                          : `${step.title} (not yet available)`
+                    }
+                    aria-current={isCurrent ? "step" : undefined}
                     className={cn(
-                      "relative flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+                      "relative flex h-8 w-8 items-center justify-center rounded-full border",
+                      "transition-all duration-200",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                      isClickable && "cursor-pointer hover:scale-110",
+                      isFuture && "cursor-not-allowed",
+                      isCurrent && "cursor-default"
                     )}
                     style={{
                       borderColor: isCompleted
@@ -369,19 +399,33 @@ export function OnboardingWizard({
                         ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
                         : { duration: 0.3 }
                     }
+                    whileHover={isClickable ? { scale: 1.1 } : undefined}
+                    whileTap={isClickable ? { scale: 0.95 } : undefined}
                   >
                     {isCompleted ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       step.icon
                     )}
-                  </motion.div>
+                  </motion.button>
 
-                  {/* Step Label */}
+                  {/* Step Label - also clickable for completed steps */}
                   <span
+                    onClick={() => isClickable && goToStep(index)}
+                    role={isClickable ? "button" : undefined}
+                    tabIndex={isClickable ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (isClickable && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        goToStep(index);
+                      }
+                    }}
                     className={cn(
-                      "text-xs transition-colors duration-300",
-                      isCurrent ? "font-semibold" : "font-medium"
+                      "text-xs transition-all duration-200",
+                      isCurrent ? "font-semibold" : "font-medium",
+                      isClickable && "cursor-pointer hover:text-[var(--text-primary)]",
+                      isFuture && "cursor-not-allowed",
+                      "focus-visible:outline-none focus-visible:underline focus-visible:underline-offset-2"
                     )}
                     style={{
                       color: isCurrent

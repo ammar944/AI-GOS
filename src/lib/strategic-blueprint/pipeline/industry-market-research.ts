@@ -96,7 +96,7 @@ Return the analysis as a JSON object following the exact structure specified.`;
     temperature: 0.3,
     maxTokens: 8192,
     jsonMode: true,
-    timeout: 60000, // 1 minute for sonar-pro
+    timeout: 120000, // 2 minutes for deep research (Phase 11 decision)
   });
 
   // Parse JSON from research response

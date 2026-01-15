@@ -29,6 +29,7 @@ REQUIRED JSON STRUCTURE (follow EXACTLY):
   "competitors": [
     {
       "name": "string - actual competitor company name from web search",
+      "website": "string - competitor website URL (e.g. https://competitor.com)",
       "positioning": "string - how they position themselves based on their website/marketing",
       "offer": "string - their main offer/product with actual pricing if found",
       "price": "string - e.g. '$997/mo', '$5,000 one-time', 'Custom pricing'",
@@ -108,7 +109,7 @@ Return the analysis as a JSON object following the exact structure specified.`;
     temperature: 0.3,
     maxTokens: 8192,
     jsonMode: true,
-    timeout: 60000, // 1 minute for sonar-pro
+    timeout: 120000, // 2 minutes for deep research (Phase 11 decision)
   });
 
   // Parse JSON from research response
