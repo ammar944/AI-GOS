@@ -368,9 +368,16 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
 
       {/* Messaging Opportunities */}
       <SubSection title="Messaging Opportunities">
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="space-y-3 mb-4">
           {safeArray(data?.messagingOpportunities?.opportunities).map((item, i) => (
-            <Badge key={i} variant="secondary">{item}</Badge>
+            <div
+              key={i}
+              className="p-4 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)] shadow-[var(--shadow-card)]"
+            >
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed" style={{ wordBreak: 'break-word' }}>
+                {item}
+              </p>
+            </div>
           ))}
         </div>
         <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
