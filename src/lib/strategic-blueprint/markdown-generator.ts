@@ -1,0 +1,724 @@
+/**
+ * Strategic Blueprint Markdown Generator
+ *
+ * Converts a StrategicBlueprintOutput to well-formatted markdown
+ * for export and display in markdown viewers.
+ */
+
+import type {
+  StrategicBlueprintOutput,
+  IndustryMarketOverview,
+  ICPAnalysisValidation,
+  OfferAnalysisViability,
+  CompetitorAnalysis,
+  CrossAnalysisSynthesis,
+  StrategicBlueprintMetadata,
+  RiskRating,
+  OfferRedFlag,
+  OfferRecommendation,
+} from './output-types';
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Returns a check mark or X mark based on boolean value
+ */
+function checkMark(value: boolean | undefined | null): string {
+  return value ? '✓' : '✗';
+}
+
+/**
+ * Formats an ISO date string to a readable format
+ */
+function formatDate(isoString: string | undefined | null): string {
+  if (!isoString) return 'N/A';
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return isoString;
+  }
+}
+
+/**
+ * Safely gets a string value or returns a fallback
+ */
+function safeString(value: string | undefined | null, fallback = 'N/A'): string {
+  return value?.trim() || fallback;
+}
+
+/**
+ * Safely gets an array or returns empty array
+ */
+function safeArray<T>(value: T[] | undefined | null): T[] {
+  return value ?? [];
+}
+
+/**
+ * Formats a risk rating with visual indicator
+ */
+function formatRiskRating(rating: RiskRating | undefined | null): string {
+  const ratings: Record<RiskRating, string> = {
+    low: '🟢 Low',
+    medium: '🟡 Medium',
+    high: '🟠 High',
+    critical: '🔴 Critical',
+  };
+  return rating ? ratings[rating] : 'N/A';
+}
+
+/**
+ * Formats offer red flags to readable text
+ */
+function formatRedFlag(flag: OfferRedFlag): string {
+  const labels: Record<OfferRedFlag, string> = {
+    offer_too_vague: 'Offer Too Vague',
+    overcrowded_market: 'Overcrowded Market',
+    price_mismatch: 'Price Mismatch',
+    weak_or_no_proof: 'Weak or No Proof',
+    no_funnel_built: 'No Funnel Built',
+    transformation_unclear: 'Transformation Unclear',
+  };
+  return labels[flag] || flag;
+}
+
+/**
+ * Formats offer recommendation status
+ */
+function formatRecommendation(status: OfferRecommendation): string {
+  const labels: Record<OfferRecommendation, string> = {
+    proceed: '✅ Proceed',
+    adjust_messaging: '🔄 Adjust Messaging',
+    adjust_pricing: '💰 Adjust Pricing',
+    icp_refinement_needed: '🎯 ICP Refinement Needed',
+    major_offer_rebuild: '🔨 Major Offer Rebuild',
+  };
+  return labels[status] || status;
+}
+
+/**
+ * Creates a markdown table from rows
+ */
+function createTable(headers: string[], rows: string[][]): string {
+  const headerRow = `| ${headers.join(' | ')} |`;
+  const separatorRow = `| ${headers.map(() => '---').join(' | ')} |`;
+  const dataRows = rows.map((row) => `| ${row.join(' | ')} |`).join('\n');
+  return `${headerRow}\n${separatorRow}\n${dataRows}`;
+}
+
+// =============================================================================
+// Section Generators
+// =============================================================================
+
+function generateHeader(blueprint: StrategicBlueprintOutput): string {
+  const { metadata } = blueprint;
+  const confidence = metadata?.overallConfidence ?? 0;
+
+  return `# Strategic Blueprint Report
+
+**Generated:** ${formatDate(metadata?.generatedAt)}
+**Confidence Score:** ${confidence}%
+**Version:** ${safeString(metadata?.version)}
+
+---
+
+`;
+}
+
+function generateIndustryMarketOverview(section: IndustryMarketOverview): string {
+  const lines: string[] = [];
+
+  lines.push('## Section 1: Industry & Market Overview\n');
+
+  // Category Snapshot
+  const snapshot = section.categorySnapshot;
+  lines.push('### Category Snapshot\n');
+  lines.push(`- **Category:** ${safeString(snapshot?.category)}`);
+  lines.push(`- **Market Maturity:** ${safeString(snapshot?.marketMaturity)}`);
+  lines.push(`- **Awareness Level:** ${safeString(snapshot?.awarenessLevel)}`);
+  lines.push(`- **Buying Behavior:** ${safeString(snapshot?.buyingBehavior)}`);
+  lines.push(`- **Average Sales Cycle:** ${safeString(snapshot?.averageSalesCycle)}`);
+  lines.push(`- **Seasonality:** ${safeString(snapshot?.seasonality)}`);
+  lines.push('');
+
+  // Market Dynamics
+  const dynamics = section.marketDynamics;
+  lines.push('### Market Dynamics\n');
+
+  lines.push('**Demand Drivers:**');
+  safeArray(dynamics?.demandDrivers).forEach((driver) => {
+    lines.push(`- ${driver}`);
+  });
+  lines.push('');
+
+  lines.push('**Buying Triggers:**');
+  safeArray(dynamics?.buyingTriggers).forEach((trigger) => {
+    lines.push(`- ${trigger}`);
+  });
+  lines.push('');
+
+  lines.push('**Barriers to Purchase:**');
+  safeArray(dynamics?.barriersToPurchase).forEach((barrier) => {
+    lines.push(`- ${barrier}`);
+  });
+  lines.push('');
+
+  lines.push('**Macro Risks:**');
+  lines.push(`- **Regulatory Concerns:** ${safeString(dynamics?.macroRisks?.regulatoryConcerns)}`);
+  lines.push(`- **Market Downturn Risks:** ${safeString(dynamics?.macroRisks?.marketDownturnRisks)}`);
+  lines.push(`- **Industry Consolidation:** ${safeString(dynamics?.macroRisks?.industryConsolidation)}`);
+  lines.push('');
+
+  // Pain Points
+  const painPoints = section.painPoints;
+  lines.push('### Pain Points\n');
+
+  lines.push('**Primary Pain Points:**');
+  safeArray(painPoints?.primary).forEach((pain) => {
+    lines.push(`- ${pain}`);
+  });
+  lines.push('');
+
+  lines.push('**Secondary Pain Points:**');
+  safeArray(painPoints?.secondary).forEach((pain) => {
+    lines.push(`- ${pain}`);
+  });
+  lines.push('');
+
+  // Psychological Drivers
+  const psych = section.psychologicalDrivers;
+  lines.push('### Psychological Drivers\n');
+  safeArray(psych?.drivers).forEach((item) => {
+    lines.push(`- **${safeString(item.driver)}:** ${safeString(item.description)}`);
+  });
+  lines.push('');
+
+  // Audience Objections
+  const objections = section.audienceObjections;
+  lines.push('### Audience Objections\n');
+  safeArray(objections?.objections).forEach((item) => {
+    lines.push(`- **Objection:** ${safeString(item.objection)}`);
+    lines.push(`  - **How to Address:** ${safeString(item.howToAddress)}`);
+  });
+  lines.push('');
+
+  // Messaging Opportunities
+  const messaging = section.messagingOpportunities;
+  lines.push('### Messaging Opportunities\n');
+
+  lines.push('**Opportunities:**');
+  safeArray(messaging?.opportunities).forEach((opp) => {
+    lines.push(`- ${opp}`);
+  });
+  lines.push('');
+
+  lines.push('**Summary Recommendations:**');
+  safeArray(messaging?.summaryRecommendations).forEach((rec) => {
+    lines.push(`- ${rec}`);
+  });
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function generateICPAnalysis(section: ICPAnalysisValidation): string {
+  const lines: string[] = [];
+
+  lines.push('## Section 2: ICP Analysis & Validation\n');
+
+  // Coherence Check
+  const coherence = section.coherenceCheck;
+  lines.push('### ICP Coherence Check\n');
+  lines.push(
+    createTable(
+      ['Criteria', 'Status'],
+      [
+        ['Clearly Defined', checkMark(coherence?.clearlyDefined)],
+        ['Reachable Through Paid Channels', checkMark(coherence?.reachableThroughPaidChannels)],
+        ['Adequate Scale', checkMark(coherence?.adequateScale)],
+        ['Has Pain Offer Solves', checkMark(coherence?.hasPainOfferSolves)],
+        ['Has Budget and Authority', checkMark(coherence?.hasBudgetAndAuthority)],
+      ]
+    )
+  );
+  lines.push('');
+
+  // Pain-Solution Fit
+  const fit = section.painSolutionFit;
+  lines.push('### Pain-Solution Fit\n');
+  lines.push(`- **Primary Pain:** ${safeString(fit?.primaryPain)}`);
+  lines.push(`- **Offer Component Solving It:** ${safeString(fit?.offerComponentSolvingIt)}`);
+  lines.push(`- **Fit Assessment:** ${safeString(fit?.fitAssessment)}`);
+  lines.push(`- **Notes:** ${safeString(fit?.notes)}`);
+  lines.push('');
+
+  // Market Reachability
+  const reach = section.marketReachability;
+  lines.push('### Market Reachability\n');
+  lines.push(
+    createTable(
+      ['Platform', 'Available'],
+      [
+        ['Meta Volume', checkMark(reach?.metaVolume)],
+        ['LinkedIn Volume', checkMark(reach?.linkedInVolume)],
+        ['Google Search Demand', checkMark(reach?.googleSearchDemand)],
+      ]
+    )
+  );
+  lines.push('');
+
+  if (safeArray(reach?.contradictingSignals).length > 0) {
+    lines.push('**Contradicting Signals:**');
+    safeArray(reach?.contradictingSignals).forEach((signal) => {
+      lines.push(`- ${signal}`);
+    });
+    lines.push('');
+  }
+
+  // Economic Feasibility
+  const econ = section.economicFeasibility;
+  lines.push('### Economic Feasibility\n');
+  lines.push(`- **Has Budget:** ${checkMark(econ?.hasBudget)}`);
+  lines.push(`- **Purchases Similar:** ${checkMark(econ?.purchasesSimilar)}`);
+  lines.push(`- **TAM Aligned with CAC:** ${checkMark(econ?.tamAlignedWithCac)}`);
+  lines.push(`- **Notes:** ${safeString(econ?.notes)}`);
+  lines.push('');
+
+  // Risk Assessment
+  const risk = section.riskAssessment;
+  lines.push('### Risk Assessment\n');
+  lines.push(
+    createTable(
+      ['Risk Category', 'Rating'],
+      [
+        ['Reachability', formatRiskRating(risk?.reachability)],
+        ['Budget', formatRiskRating(risk?.budget)],
+        ['Pain Strength', formatRiskRating(risk?.painStrength)],
+        ['Competitiveness', formatRiskRating(risk?.competitiveness)],
+      ]
+    )
+  );
+  lines.push('');
+
+  // Final Verdict
+  const verdict = section.finalVerdict;
+  lines.push('### Final Verdict\n');
+  lines.push(`**Status:** ${safeString(verdict?.status)?.toUpperCase()}`);
+  lines.push('');
+  lines.push(`**Reasoning:** ${safeString(verdict?.reasoning)}`);
+  lines.push('');
+
+  if (safeArray(verdict?.recommendations).length > 0) {
+    lines.push('**Recommendations:**');
+    safeArray(verdict?.recommendations).forEach((rec) => {
+      lines.push(`- ${rec}`);
+    });
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+function generateOfferAnalysis(section: OfferAnalysisViability): string {
+  const lines: string[] = [];
+
+  lines.push('## Section 3: Offer Analysis & Viability\n');
+
+  // Offer Clarity
+  const clarity = section.offerClarity;
+  lines.push('### Offer Clarity\n');
+  lines.push(
+    createTable(
+      ['Criteria', 'Status'],
+      [
+        ['Clearly Articulated', checkMark(clarity?.clearlyArticulated)],
+        ['Solves Real Pain', checkMark(clarity?.solvesRealPain)],
+        ['Benefits Easy to Understand', checkMark(clarity?.benefitsEasyToUnderstand)],
+        ['Transformation Measurable', checkMark(clarity?.transformationMeasurable)],
+        ['Value Proposition Obvious', checkMark(clarity?.valuePropositionObvious)],
+      ]
+    )
+  );
+  lines.push('');
+
+  // Offer Strength Scores
+  const strength = section.offerStrength;
+  lines.push('### Offer Strength Scores\n');
+  lines.push(
+    createTable(
+      ['Metric', 'Score (1-10)'],
+      [
+        ['Pain Relevance', String(strength?.painRelevance ?? 'N/A')],
+        ['Urgency', String(strength?.urgency ?? 'N/A')],
+        ['Differentiation', String(strength?.differentiation ?? 'N/A')],
+        ['Tangibility', String(strength?.tangibility ?? 'N/A')],
+        ['Proof', String(strength?.proof ?? 'N/A')],
+        ['Pricing Logic', String(strength?.pricingLogic ?? 'N/A')],
+        ['**Overall Score**', `**${strength?.overallScore ?? 'N/A'}**`],
+      ]
+    )
+  );
+  lines.push('');
+
+  // Market-Offer Fit
+  const fit = section.marketOfferFit;
+  lines.push('### Market-Offer Fit\n');
+  lines.push(
+    createTable(
+      ['Criteria', 'Status'],
+      [
+        ['Market Wants Now', checkMark(fit?.marketWantsNow)],
+        ['Competitors Offer Similar', checkMark(fit?.competitorsOfferSimilar)],
+        ['Price Matches Expectations', checkMark(fit?.priceMatchesExpectations)],
+        ['Proof Strong for Cold Traffic', checkMark(fit?.proofStrongForColdTraffic)],
+        ['Transformation Believable', checkMark(fit?.transformationBelievable)],
+      ]
+    )
+  );
+  lines.push('');
+
+  // Red Flags
+  const redFlags = safeArray(section.redFlags);
+  lines.push('### Red Flags\n');
+  if (redFlags.length > 0) {
+    redFlags.forEach((flag) => {
+      lines.push(`- ⚠️ ${formatRedFlag(flag)}`);
+    });
+  } else {
+    lines.push('- ✅ No red flags identified');
+  }
+  lines.push('');
+
+  // Recommendation
+  const rec = section.recommendation;
+  lines.push('### Recommendation\n');
+  lines.push(`**Status:** ${formatRecommendation(rec?.status as OfferRecommendation)}`);
+  lines.push('');
+  lines.push(`**Reasoning:** ${safeString(rec?.reasoning)}`);
+  lines.push('');
+
+  if (safeArray(rec?.actionItems).length > 0) {
+    lines.push('**Action Items:**');
+    safeArray(rec?.actionItems).forEach((item) => {
+      lines.push(`- ${item}`);
+    });
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
+  const lines: string[] = [];
+
+  lines.push('## Section 4: Competitor Analysis\n');
+
+  // Competitor Snapshots
+  const competitors = safeArray(section.competitors);
+  lines.push('### Competitor Snapshots\n');
+
+  competitors.forEach((comp, index) => {
+    lines.push(`#### ${index + 1}. ${safeString(comp.name)}\n`);
+    if (comp.website) {
+      lines.push(`**Website:** ${comp.website}`);
+    }
+    lines.push(`**Positioning:** ${safeString(comp.positioning)}`);
+    lines.push(`**Offer:** ${safeString(comp.offer)}`);
+    lines.push(`**Price:** ${safeString(comp.price)}`);
+    lines.push(`**Funnels:** ${safeString(comp.funnels)}`);
+    lines.push(`**Ad Platforms:** ${safeArray(comp.adPlatforms).join(', ') || 'N/A'}`);
+    lines.push('');
+
+    if (safeArray(comp.strengths).length > 0) {
+      lines.push('**Strengths:**');
+      safeArray(comp.strengths).forEach((s) => lines.push(`- ${s}`));
+      lines.push('');
+    }
+
+    if (safeArray(comp.weaknesses).length > 0) {
+      lines.push('**Weaknesses:**');
+      safeArray(comp.weaknesses).forEach((w) => lines.push(`- ${w}`));
+      lines.push('');
+    }
+
+    if (safeArray(comp.adMessagingThemes).length > 0) {
+      lines.push('**Ad Messaging Themes:**');
+      safeArray(comp.adMessagingThemes).forEach((theme) => lines.push(`- ${theme}`));
+      lines.push('');
+    }
+
+    if (safeArray(comp.pricingTiers).length > 0) {
+      lines.push('**Pricing Tiers:**');
+      safeArray(comp.pricingTiers).forEach((tier) => {
+        lines.push(`- **${tier.tier}:** ${tier.price}`);
+        if (safeArray(tier.features).length > 0) {
+          safeArray(tier.features).forEach((f) => lines.push(`  - ${f}`));
+        }
+      });
+      lines.push('');
+    }
+
+    if (comp.mainOffer) {
+      lines.push('**Main Offer:**');
+      lines.push(`- Headline: ${safeString(comp.mainOffer.headline)}`);
+      lines.push(`- Value Proposition: ${safeString(comp.mainOffer.valueProposition)}`);
+      lines.push(`- CTA: ${safeString(comp.mainOffer.cta)}`);
+      lines.push('');
+    }
+  });
+
+  // Creative Library
+  const creative = section.creativeLibrary;
+  lines.push('### Creative Library Insights\n');
+
+  if (safeArray(creative?.adHooks).length > 0) {
+    lines.push('**Ad Hooks Used:**');
+    safeArray(creative?.adHooks).forEach((hook) => {
+      lines.push(`- ${hook}`);
+    });
+    lines.push('');
+  }
+
+  lines.push('**Creative Formats:**');
+  const formats = creative?.creativeFormats;
+  lines.push(
+    createTable(
+      ['Format', 'Used'],
+      [
+        ['UGC', checkMark(formats?.ugc)],
+        ['Carousels', checkMark(formats?.carousels)],
+        ['Statics', checkMark(formats?.statics)],
+        ['Testimonial', checkMark(formats?.testimonial)],
+        ['Product Demo', checkMark(formats?.productDemo)],
+      ]
+    )
+  );
+  lines.push('');
+
+  // Funnel Breakdown
+  const funnel = section.funnelBreakdown;
+  lines.push('### Funnel Breakdown\n');
+
+  lines.push(`**Form Friction:** ${safeString(funnel?.formFriction)}`);
+  lines.push('');
+
+  if (safeArray(funnel?.headlineStructure).length > 0) {
+    lines.push('**Headline Structure Patterns:**');
+    safeArray(funnel?.headlineStructure).forEach((pattern) => {
+      lines.push(`- ${pattern}`);
+    });
+    lines.push('');
+  }
+
+  if (safeArray(funnel?.ctaHierarchy).length > 0) {
+    lines.push('**CTA Hierarchy Patterns:**');
+    safeArray(funnel?.ctaHierarchy).forEach((pattern) => {
+      lines.push(`- ${pattern}`);
+    });
+    lines.push('');
+  }
+
+  if (safeArray(funnel?.socialProofPatterns).length > 0) {
+    lines.push('**Social Proof Patterns:**');
+    safeArray(funnel?.socialProofPatterns).forEach((pattern) => {
+      lines.push(`- ${pattern}`);
+    });
+    lines.push('');
+  }
+
+  if (safeArray(funnel?.leadCaptureMethods).length > 0) {
+    lines.push('**Lead Capture Methods:**');
+    safeArray(funnel?.leadCaptureMethods).forEach((method) => {
+      lines.push(`- ${method}`);
+    });
+    lines.push('');
+  }
+
+  // Opportunities
+  const gaps = section.gapsAndOpportunities;
+  lines.push('### Gaps & Opportunities\n');
+
+  if (safeArray(gaps?.messagingOpportunities).length > 0) {
+    lines.push('**Messaging Opportunities:**');
+    safeArray(gaps?.messagingOpportunities).forEach((opp) => {
+      lines.push(`- ${opp}`);
+    });
+    lines.push('');
+  }
+
+  if (safeArray(gaps?.creativeOpportunities).length > 0) {
+    lines.push('**Creative Opportunities:**');
+    safeArray(gaps?.creativeOpportunities).forEach((opp) => {
+      lines.push(`- ${opp}`);
+    });
+    lines.push('');
+  }
+
+  if (safeArray(gaps?.funnelOpportunities).length > 0) {
+    lines.push('**Funnel Opportunities:**');
+    safeArray(gaps?.funnelOpportunities).forEach((opp) => {
+      lines.push(`- ${opp}`);
+    });
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+function generateCrossAnalysis(section: CrossAnalysisSynthesis): string {
+  const lines: string[] = [];
+
+  lines.push('## Section 5: Cross-Analysis Synthesis\n');
+
+  // Key Insights
+  const insights = safeArray(section.keyInsights);
+  lines.push('### Key Strategic Insights\n');
+
+  if (insights.length > 0) {
+    insights.forEach((insight, index) => {
+      const priorityIcon =
+        insight.priority === 'high' ? '🔴' : insight.priority === 'medium' ? '🟡' : '🟢';
+      lines.push(`#### ${index + 1}. ${safeString(insight.insight)} ${priorityIcon}\n`);
+      lines.push(`- **Source:** ${safeString(insight.source)}`);
+      lines.push(`- **Implication:** ${safeString(insight.implication)}`);
+      lines.push(`- **Priority:** ${safeString(insight.priority)}`);
+      lines.push('');
+    });
+  }
+
+  // Positioning
+  lines.push('### Recommended Positioning\n');
+  lines.push(safeString(section.recommendedPositioning));
+  lines.push('');
+
+  // Messaging Angles
+  const angles = safeArray(section.primaryMessagingAngles);
+  lines.push('### Primary Messaging Angles\n');
+  angles.forEach((angle, index) => {
+    lines.push(`${index + 1}. ${angle}`);
+  });
+  lines.push('');
+
+  // Recommended Platforms
+  const platforms = safeArray(section.recommendedPlatforms);
+  lines.push('### Recommended Platforms\n');
+  lines.push(
+    createTable(
+      ['Platform', 'Priority', 'Reasoning'],
+      platforms.map((p) => [
+        safeString(p.platform),
+        safeString(p.priority),
+        safeString(p.reasoning),
+      ])
+    )
+  );
+  lines.push('');
+
+  // Success Factors
+  const successFactors = safeArray(section.criticalSuccessFactors);
+  lines.push('### Critical Success Factors\n');
+  successFactors.forEach((factor) => {
+    lines.push(`- ${factor}`);
+  });
+  lines.push('');
+
+  // Potential Blockers
+  const blockers = safeArray(section.potentialBlockers);
+  lines.push('### Potential Blockers\n');
+  blockers.forEach((blocker) => {
+    lines.push(`- ⚠️ ${blocker}`);
+  });
+  lines.push('');
+
+  // Next Steps
+  const nextSteps = safeArray(section.nextSteps);
+  lines.push('### Next Steps\n');
+  nextSteps.forEach((step, index) => {
+    lines.push(`${index + 1}. ${step}`);
+  });
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function generateFooter(metadata: StrategicBlueprintMetadata): string {
+  const lines: string[] = [];
+
+  lines.push('---\n');
+  lines.push('## Report Metadata\n');
+
+  const processingTimeSec = metadata?.processingTime
+    ? (metadata.processingTime / 1000).toFixed(1)
+    : 'N/A';
+  const totalCost = metadata?.totalCost ? `$${metadata.totalCost.toFixed(4)}` : 'N/A';
+
+  lines.push(`- **Generated At:** ${formatDate(metadata?.generatedAt)}`);
+  lines.push(`- **Version:** ${safeString(metadata?.version)}`);
+  lines.push(`- **Processing Time:** ${processingTimeSec}s`);
+  lines.push(`- **Total Cost:** ${totalCost}`);
+  lines.push(`- **Models Used:** ${safeArray(metadata?.modelsUsed).join(', ') || 'N/A'}`);
+  lines.push(`- **Confidence Score:** ${metadata?.overallConfidence ?? 'N/A'}%`);
+  lines.push('');
+
+  lines.push('---\n');
+  lines.push('*Generated by AI-GOS Strategic Blueprint Engine*');
+
+  return lines.join('\n');
+}
+
+// =============================================================================
+// Main Export Function
+// =============================================================================
+
+/**
+ * Generates a well-formatted markdown document from a Strategic Blueprint output.
+ *
+ * @param blueprint - The complete strategic blueprint output
+ * @returns Formatted markdown string
+ */
+export function generateBlueprintMarkdown(blueprint: StrategicBlueprintOutput): string {
+  const sections: string[] = [];
+
+  // Header
+  sections.push(generateHeader(blueprint));
+
+  // Section 1: Industry & Market Overview
+  if (blueprint.industryMarketOverview) {
+    sections.push(generateIndustryMarketOverview(blueprint.industryMarketOverview));
+  }
+
+  // Section 2: ICP Analysis & Validation
+  if (blueprint.icpAnalysisValidation) {
+    sections.push(generateICPAnalysis(blueprint.icpAnalysisValidation));
+  }
+
+  // Section 3: Offer Analysis & Viability
+  if (blueprint.offerAnalysisViability) {
+    sections.push(generateOfferAnalysis(blueprint.offerAnalysisViability));
+  }
+
+  // Section 4: Competitor Analysis
+  if (blueprint.competitorAnalysis) {
+    sections.push(generateCompetitorAnalysis(blueprint.competitorAnalysis));
+  }
+
+  // Section 5: Cross-Analysis Synthesis
+  if (blueprint.crossAnalysisSynthesis) {
+    sections.push(generateCrossAnalysis(blueprint.crossAnalysisSynthesis));
+  }
+
+  // Footer with metadata
+  if (blueprint.metadata) {
+    sections.push(generateFooter(blueprint.metadata));
+  }
+
+  return sections.join('\n');
+}

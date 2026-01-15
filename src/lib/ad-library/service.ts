@@ -4,6 +4,7 @@
 import { getRequiredEnv } from '@/lib/env';
 import type {
   AdPlatform,
+  AdFormat,
   AdCreative,
   AdLibraryOptions,
   AdLibraryResponse,
@@ -197,7 +198,15 @@ export class AdLibraryService {
           }
           if (typeof firstImage === 'object' && firstImage !== null) {
             const imgObj = firstImage as Record<string, unknown>;
-            return (imgObj.url || imgObj.original_image_url) as string | undefined;
+            // Check multiple possible field names for image URL
+            return (
+              imgObj.url ||
+              imgObj.original_image_url ||
+              imgObj.src ||
+              imgObj.image_url ||
+              imgObj.thumbnail ||
+              imgObj.resized_image_url
+            ) as string | undefined;
           }
         }
         return undefined;
@@ -226,7 +235,14 @@ export class AdLibraryService {
           }
           if (typeof firstVideo === 'object' && firstVideo !== null) {
             const vidObj = firstVideo as Record<string, unknown>;
-            return vidObj.video_hd_url as string | undefined || vidObj.video_sd_url as string | undefined;
+            // Check multiple possible field names for video URL
+            return (
+              vidObj.video_hd_url ||
+              vidObj.video_sd_url ||
+              vidObj.video_url ||
+              vidObj.src ||
+              vidObj.url
+            ) as string | undefined;
           }
         }
         return undefined;
@@ -246,6 +262,46 @@ export class AdLibraryService {
   }
 
   /**
+   * Determine ad format based on platform-specific data
+   */
+  private determineFormat(platform: AdPlatform, ad: Record<string, unknown>, hasVideo: boolean, hasImage: boolean): AdFormat {
+    switch (platform) {
+      case 'google': {
+        // Google explicitly provides format field
+        const format = (ad.format as string | undefined)?.toLowerCase();
+        if (format === 'video') return 'video';
+        if (format === 'carousel') return 'carousel';
+        if (hasImage) return 'image';
+        return 'unknown';
+      }
+      case 'meta': {
+        const snapshot = ad.snapshot as Record<string, unknown> | undefined;
+        const videos = snapshot?.videos as unknown[] | undefined;
+        const images = snapshot?.images as unknown[] | undefined;
+        // Check carousel by multiple images/cards
+        const cards = snapshot?.cards as unknown[] | undefined;
+        if (cards && cards.length > 1) return 'carousel';
+        if (videos && videos.length > 0) return 'video';
+        if (images && images.length > 0) return 'image';
+        return 'unknown';
+      }
+      case 'linkedin': {
+        // LinkedIn: check for video content type
+        const content = ad.content as Record<string, unknown> | undefined;
+        const contentType = (content?.type as string | undefined)?.toLowerCase();
+        if (contentType === 'video' || hasVideo) return 'video';
+        if (contentType === 'carousel') return 'carousel';
+        if (hasImage) return 'image';
+        return 'unknown';
+      }
+      default:
+        if (hasVideo) return 'video';
+        if (hasImage) return 'image';
+        return 'unknown';
+    }
+  }
+
+  /**
    * Normalize ad from platform-specific format to unified AdCreative
    */
   private normalizeAd(platform: AdPlatform, rawAd: unknown): AdCreative {
@@ -255,14 +311,17 @@ export class AdLibraryService {
       case 'linkedin': {
         const advertiser = ad.advertiser as Record<string, unknown> | undefined;
         const content = ad.content as Record<string, unknown> | undefined;
+        const imageUrl = this.extractImageUrl(platform, ad);
+        const videoUrl = this.extractVideoUrl(platform, ad);
         return {
           platform,
           id: (ad.ad_id || ad.id || String(Math.random())) as string,
           advertiser: (advertiser?.name || 'Unknown') as string,
           headline: content?.headline as string | undefined,
           body: content?.body as string | undefined,
-          imageUrl: this.extractImageUrl(platform, ad),
-          videoUrl: this.extractVideoUrl(platform, ad),
+          imageUrl,
+          videoUrl,
+          format: this.determineFormat(platform, ad, !!videoUrl, !!imageUrl),
           isActive: true, // LinkedIn doesn't provide active status
           firstSeen: ad.first_shown_datetime as string | undefined,
           lastSeen: ad.last_shown_datetime as string | undefined,
@@ -273,32 +332,53 @@ export class AdLibraryService {
       case 'meta': {
         const snapshot = ad.snapshot as Record<string, unknown> | undefined;
         const body = snapshot?.body as Record<string, unknown> | undefined;
+        const imageUrl = this.extractImageUrl(platform, ad);
+        const videoUrl = this.extractVideoUrl(platform, ad);
+        const adId = (ad.id || String(Math.random())) as string;
+
+        // Try to get details URL from multiple possible fields, or construct from ad ID
+        let detailsUrl = (
+          ad.link ||
+          ad.ad_library_link ||
+          ad.library_link ||
+          ad.permalink
+        ) as string | undefined;
+
+        // If no URL found but we have a valid ad ID, construct the Meta Ad Library URL
+        if (!detailsUrl && ad.id) {
+          detailsUrl = `https://www.facebook.com/ads/library/?id=${ad.id}`;
+        }
+
         return {
           platform,
-          id: (ad.id || String(Math.random())) as string,
+          id: adId,
           advertiser: (ad.page_name || snapshot?.page_name || 'Unknown') as string,
           headline: snapshot?.title as string | undefined,
           body: body?.text as string | undefined,
-          imageUrl: this.extractImageUrl(platform, ad),
-          videoUrl: this.extractVideoUrl(platform, ad),
+          imageUrl,
+          videoUrl,
+          format: this.determineFormat(platform, ad, !!videoUrl, !!imageUrl),
           isActive: ad.is_active as boolean || false,
           firstSeen: ad.start_date as string | undefined,
           lastSeen: ad.end_date as string | undefined,
           platforms: ad.publisher_platform as string[] | undefined,
-          detailsUrl: ad.link as string | undefined,
+          detailsUrl,
           rawData: rawAd,
         };
       }
       case 'google': {
         const advertiser = ad.advertiser as Record<string, unknown> | undefined;
+        const imageUrl = this.extractImageUrl(platform, ad);
+        const videoUrl = this.extractVideoUrl(platform, ad);
         return {
           platform,
           id: (ad.creative_id || ad.id || String(Math.random())) as string,
           advertiser: (advertiser?.name || 'Unknown') as string,
           headline: ad.headline as string | undefined,
           body: ad.description as string | undefined,
-          imageUrl: this.extractImageUrl(platform, ad),
-          videoUrl: this.extractVideoUrl(platform, ad),
+          imageUrl,
+          videoUrl,
+          format: this.determineFormat(platform, ad, !!videoUrl, !!imageUrl),
           isActive: true, // Presence in API means it was active
           firstSeen: ad.first_shown_datetime as string | undefined,
           lastSeen: ad.last_shown_datetime as string | undefined,
@@ -311,6 +391,7 @@ export class AdLibraryService {
           platform,
           id: String(Math.random()),
           advertiser: 'Unknown',
+          format: 'unknown' as AdFormat,
           isActive: false,
           rawData: rawAd,
         };

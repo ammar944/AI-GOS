@@ -6,6 +6,7 @@ import {
   Loader2,
   CheckCircle2,
   ArrowRight,
+  ArrowLeft,
   RotateCcw,
   Clock,
   Coins,
@@ -377,6 +378,10 @@ export default function GeneratePage() {
       handleOnboardingComplete(onboardingData);
     }
   }, [onboardingData, handleOnboardingComplete]);
+
+  const handleBackToReview = useCallback(() => {
+    setPageState("review-blueprint");
+  }, []);
 
   const handleApprove = useCallback((approvedBlueprint: StrategicBlueprintOutput) => {
     // Save approved blueprint to localStorage
@@ -819,6 +824,18 @@ export default function GeneratePage() {
 
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-3">
+                    <MagneticButton
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      onClick={handleBackToReview}
+                      style={{
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-secondary)',
+                        background: 'transparent',
+                      }}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back to Review
+                    </MagneticButton>
                     <MagneticButton
                       className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
                       onClick={handleShare}

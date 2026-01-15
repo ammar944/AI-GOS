@@ -7,6 +7,11 @@
 export type AdPlatform = 'linkedin' | 'meta' | 'google';
 
 /**
+ * Ad format/type classification
+ */
+export type AdFormat = 'video' | 'image' | 'carousel' | 'unknown';
+
+/**
  * Unified ad creative interface
  * Normalizes different platform formats into a common structure
  */
@@ -25,6 +30,8 @@ export interface AdCreative {
   imageUrl?: string;
   /** URL to the ad's video creative (if applicable) */
   videoUrl?: string;
+  /** Ad format/type (video, image, carousel) */
+  format: AdFormat;
   /** Whether the ad is currently active */
   isActive: boolean;
   /** First date the ad was seen (ISO string) */

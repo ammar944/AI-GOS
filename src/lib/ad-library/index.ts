@@ -4,6 +4,7 @@
 export { AdLibraryService, createAdLibraryService } from './service';
 export type {
   AdPlatform,
+  AdFormat,
   AdCreative,
   AdLibraryOptions,
   AdLibraryResponse,

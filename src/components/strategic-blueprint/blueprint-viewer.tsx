@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { DocumentEditor } from "@/components/editor/document-editor";
 import { highlightLine } from "@/lib/syntax";
-import { PdfExportContent } from "./pdf-export-content";
+import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
+import PdfMarkdownContent from "./pdf-markdown-content";
 import type {
   StrategicBlueprintOutput,
   IndustryMarketOverview,
@@ -630,7 +631,7 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
     metadata,
   ]);
 
-  // PDF Export handler (preserved from original)
+  // PDF Export handler
   const handleExportPDF = useCallback(async () => {
     setIsExporting(true);
 
@@ -648,22 +649,19 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
       // Create a temporary container for the PDF content
       const container = document.createElement("div");
       container.style.cssText = `
-        all: initial;
         position: absolute;
         left: -9999px;
         top: 0;
         width: 850px;
-        font-family: system-ui, -apple-system, sans-serif;
-        color: #1f2937;
         background: #ffffff;
       `;
       document.body.appendChild(container);
 
-      // Render the PdfExportContent component into the container
+      // Render the PdfMarkdownContent component into the container
       const root = createRoot(container);
       await new Promise<void>((resolve) => {
-        root.render(<PdfExportContent strategicBlueprint={strategicBlueprint} />);
-        setTimeout(resolve, 500);
+        root.render(<PdfMarkdownContent strategicBlueprint={strategicBlueprint} />);
+        setTimeout(resolve, 300);
       });
 
       const content = container.firstElementChild as HTMLElement;
@@ -676,12 +674,6 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
-        windowWidth: 794,
-        onclone: (clonedDoc, element) => {
-          clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => el.remove());
-          element.style.fontFamily = "system-ui, -apple-system, sans-serif";
-          element.style.color = "#1f2937";
-        },
       });
 
       root.unmount();
