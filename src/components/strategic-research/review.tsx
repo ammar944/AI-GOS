@@ -85,6 +85,9 @@ export function StrategicResearchReview({
   const [editHistory, setEditHistory] = useState<Record<string, Record<string, unknown>>[]>([]);
   const [futureEdits, setFutureEdits] = useState<Record<string, Record<string, unknown>>[]>([]);
 
+  // Track previous state before "Approve All" for undo
+  const [preApproveAllState, setPreApproveAllState] = useState<Set<StrategicBlueprintSection> | null>(null);
+
   // Track if we can undo/redo
   const canUndo = editHistory.length > 0;
   const canRedo = futureEdits.length > 0;
@@ -140,8 +143,18 @@ export function StrategicResearchReview({
 
   // Approve all sections at once
   const handleApproveAll = useCallback(() => {
+    // Save current state before approving all (for undo)
+    setPreApproveAllState(new Set(reviewedSections));
     setReviewedSections(new Set(STRATEGIC_BLUEPRINT_SECTION_ORDER));
-  }, []);
+  }, [reviewedSections]);
+
+  // Undo the "Approve All" action
+  const handleUndoApproveAll = useCallback(() => {
+    if (preApproveAllState !== null) {
+      setReviewedSections(preApproveAllState);
+      setPreApproveAllState(null);
+    }
+  }, [preApproveAllState]);
 
   // Set ref for a section
   const setSectionRef = useCallback((sectionKey: StrategicBlueprintSection, element: HTMLDivElement | null) => {
@@ -430,6 +443,26 @@ export function StrategicResearchReview({
                       </TooltipTrigger>
                       <TooltipContent side="top">
                         <p>Mark all sections as reviewed</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {allReviewed && preApproveAllState !== null && (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3"
+                          onClick={handleUndoApproveAll}
+                        >
+                          <Undo2 className="h-4 w-4" />
+                          <span className="sr-only sm:not-sr-only sm:ml-2">Undo</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Undo Approve All</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

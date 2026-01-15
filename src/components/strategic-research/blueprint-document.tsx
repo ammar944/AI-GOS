@@ -78,6 +78,9 @@ export function BlueprintDocument({
   const [editHistory, setEditHistory] = useState<Record<string, Record<string, unknown>>[]>([]);
   const [futureEdits, setFutureEdits] = useState<Record<string, Record<string, unknown>>[]>([]);
 
+  // Track previous state before "Approve All" for undo
+  const [preApproveAllState, setPreApproveAllState] = useState<Set<StrategicBlueprintSection> | null>(null);
+
   const canUndo = editHistory.length > 0;
   const canRedo = futureEdits.length > 0;
   const allReviewed = reviewedSections.size === STRATEGIC_BLUEPRINT_SECTION_ORDER.length;
@@ -122,8 +125,18 @@ export function BlueprintDocument({
   }, [reviewedSections]);
 
   const handleApproveAll = useCallback(() => {
+    // Save current state before approving all (for undo)
+    setPreApproveAllState(new Set(reviewedSections));
     setReviewedSections(new Set(STRATEGIC_BLUEPRINT_SECTION_ORDER));
-  }, []);
+  }, [reviewedSections]);
+
+  // Undo the "Approve All" action
+  const handleUndoApproveAll = useCallback(() => {
+    if (preApproveAllState !== null) {
+      setReviewedSections(preApproveAllState);
+      setPreApproveAllState(null);
+    }
+  }, [preApproveAllState]);
 
   const handleToggleEdit = useCallback((sectionKey: StrategicBlueprintSection) => {
     setEditingSection((prev) => (prev === sectionKey ? null : sectionKey));
@@ -259,9 +272,9 @@ export function BlueprintDocument({
       {/* Reading progress bar */}
       <ReadingProgress />
 
-      <div className="flex gap-8">
+      <div className="flex gap-8 overflow-hidden">
         {/* Main document content */}
-        <div ref={containerRef} className="flex-1 max-w-4xl">
+        <div ref={containerRef} className="flex-1 max-w-4xl min-w-0">
           {/* Header */}
           <div className="mb-8 pb-6 border-b border-[var(--border-subtle)]">
             <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
@@ -390,6 +403,24 @@ export function BlueprintDocument({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">Mark all sections as reviewed</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {allReviewed && preApproveAllState !== null && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                      onClick={handleUndoApproveAll}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Undo</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Undo Approve All</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
