@@ -414,6 +414,7 @@ export function OnboardingWizard({
                     onClick={() => isClickable && goToStep(index)}
                     role={isClickable ? "button" : undefined}
                     tabIndex={isClickable ? 0 : undefined}
+                    aria-label={isClickable ? `Go back to ${step.title}` : undefined}
                     onKeyDown={(e) => {
                       if (isClickable && (e.key === "Enter" || e.key === " ")) {
                         e.preventDefault();
@@ -443,28 +444,108 @@ export function OnboardingWizard({
           </div>
         </div>
 
-        {/* Mobile Step Indicator - monochrome */}
-        <div className="flex items-center gap-3 md:hidden">
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full"
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              color: "var(--text-primary)",
-            }}
-          >
-            {STEPS[currentStep].icon}
-          </div>
-          <div>
-            <p
-              className="text-[16px] font-medium"
-              style={{ color: "var(--text-primary)" }}
+        {/* Mobile Step Indicator with Navigation */}
+        <div className="space-y-3 md:hidden">
+          {/* Current Step Info */}
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "var(--text-primary)",
+              }}
             >
-              {STEPS[currentStep].title}
-            </p>
-            <p className="text-[14px]" style={{ color: "var(--text-tertiary)" }}>
-              Step {currentStep + 1} of {STEPS.length}
-            </p>
+              {STEPS[currentStep].icon}
+            </div>
+            <div>
+              <p
+                className="text-[16px] font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {STEPS[currentStep].title}
+              </p>
+              <p className="text-[14px]" style={{ color: "var(--text-tertiary)" }}>
+                Step {currentStep + 1} of {STEPS.length}
+              </p>
+            </div>
+          </div>
+
+          {/* Horizontal Scrollable Step Pills */}
+          <div className="relative -mx-4 px-4">
+            <div
+              className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {STEPS.map((step, index) => {
+                const isCompleted = completedSteps.has(index);
+                const isCurrent = index === currentStep;
+                const isFuture = !isCompleted && !isCurrent;
+                const isClickable = isCompleted && !isCurrent;
+
+                return (
+                  <motion.button
+                    key={step.id}
+                    type="button"
+                    onClick={() => isClickable && goToStep(index)}
+                    disabled={!isClickable}
+                    aria-label={
+                      isCompleted
+                        ? `Go back to ${step.title} (completed)`
+                        : isCurrent
+                          ? `Current step: ${step.title}`
+                          : `${step.title} (not yet available)`
+                    }
+                    aria-current={isCurrent ? "step" : undefined}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap min-h-[36px]",
+                      "border transition-all duration-200 flex-shrink-0",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                      isClickable && "cursor-pointer active:scale-95",
+                      isFuture && "cursor-not-allowed opacity-50",
+                      isCurrent && "cursor-default"
+                    )}
+                    style={{
+                      borderColor: isCompleted
+                        ? "var(--success)"
+                        : isCurrent
+                          ? "rgba(255,255,255,0.3)"
+                          : "var(--border-default)",
+                      background: isCompleted
+                        ? "rgba(34, 197, 94, 0.15)"
+                        : isCurrent
+                          ? "rgba(255,255,255,0.1)"
+                          : "var(--bg-hover)",
+                      color: isCompleted
+                        ? "var(--success)"
+                        : isCurrent
+                          ? "var(--text-primary)"
+                          : "var(--text-tertiary)",
+                    }}
+                    whileTap={isClickable ? { scale: 0.95 } : undefined}
+                  >
+                    {isCompleted ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <span className="h-3 w-3 flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                    )}
+                    <span>{step.shortTitle}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+            {/* Fade gradient on right edge to indicate scrollability */}
+            <div
+              className="absolute right-4 top-0 bottom-2 w-8 pointer-events-none"
+              style={{
+                background: "linear-gradient(to right, transparent, var(--bg-elevated))",
+              }}
+            />
           </div>
         </div>
       </div>

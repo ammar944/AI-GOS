@@ -28,7 +28,7 @@ export function SectionNav({ activeSection, reviewedSections, onNavigate }: Sect
   };
 
   return (
-    <nav className="sticky top-6 hidden xl:block">
+    <nav className="sticky top-6 hidden lg:block">
       <div
         className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] shadow-[var(--shadow-card)]"
       >

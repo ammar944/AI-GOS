@@ -272,7 +272,7 @@ export function BlueprintDocument({
       {/* Reading progress bar */}
       <ReadingProgress />
 
-      <div className="flex gap-8 overflow-hidden">
+      <div className="flex gap-8">
         {/* Main document content */}
         <div ref={containerRef} className="flex-1 max-w-4xl min-w-0">
           {/* Header */}

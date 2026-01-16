@@ -31,19 +31,15 @@ export function FloatingLabelTextarea({
   const isActive = focused || hasValue;
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative pt-6", className)}>
       <motion.label
         htmlFor={textareaId}
-        className="absolute left-0 top-4 text-[14px] font-medium pointer-events-none origin-left"
+        className="absolute left-0 top-0 text-[14px] font-medium pointer-events-none origin-left z-10"
         animate={{
-          y: isActive ? -24 : 0,
-          scale: isActive ? 0.85 : 1,
+          y: isActive ? 0 : 24,
           color: isActive ? "var(--accent-blue)" : "var(--text-tertiary)",
         }}
         transition={{ duration: durations.normal }}
-        style={{
-          transformOrigin: "left",
-        }}
       >
         {label}
       </motion.label>
@@ -55,12 +51,11 @@ export function FloatingLabelTextarea({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         rows={rows}
-        className="w-full bg-transparent border-none outline-none py-4 text-[16px] resize-none"
+        className="relative w-full bg-transparent border-none outline-none py-3 text-[16px] resize-none z-0"
         style={{
           color: "var(--text-primary)",
           borderBottom: "1px solid var(--border-default)",
         }}
-        aria-label={label}
         {...props}
       />
 

@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import { durations } from "@/lib/motion";
 
 interface FloatingLabelInputProps
-  extends Omit<React.ComponentPropsWithoutRef<"input">, "placeholder"> {
-  label: string;
+  extends React.ComponentPropsWithoutRef<"input"> {
+  label?: string;
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
@@ -19,6 +19,7 @@ export function FloatingLabelInput({
   onChange,
   className,
   id: providedId,
+  placeholder,
   ...props
 }: FloatingLabelInputProps) {
   const [focused, setFocused] = useState(false);
@@ -27,24 +28,23 @@ export function FloatingLabelInput({
 
   const hasValue = Boolean(value && value.length > 0);
   const isActive = focused || hasValue;
+  const hasLabel = Boolean(label);
 
   return (
-    <div className={cn("relative", className)}>
-      <motion.label
-        htmlFor={inputId}
-        className="absolute left-0 top-4 pointer-events-none origin-left"
-        animate={{
-          y: isActive ? -24 : 0,
-          scale: isActive ? 0.85 : 1,
-          color: isActive ? "var(--accent-blue)" : "var(--text-tertiary)",
-        }}
-        transition={{ duration: durations.normal }}
-        style={{
-          transformOrigin: "left",
-        }}
-      >
-        {label}
-      </motion.label>
+    <div className={cn(hasLabel ? "relative pt-6" : "relative", className)}>
+      {hasLabel && (
+        <motion.label
+          htmlFor={inputId}
+          className="absolute left-0 top-0 text-[14px] font-medium pointer-events-none origin-left z-10"
+          animate={{
+            y: isActive ? 0 : 24,
+            color: isActive ? "var(--accent-blue)" : "var(--text-tertiary)",
+          }}
+          transition={{ duration: durations.normal }}
+        >
+          {label}
+        </motion.label>
+      )}
 
       <input
         id={inputId}
@@ -52,7 +52,8 @@ export function FloatingLabelInput({
         onChange={onChange}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        className="w-full bg-transparent border-none outline-none py-4 text-[16px]"
+        placeholder={placeholder}
+        className="relative w-full bg-transparent border-none outline-none py-3 text-[16px] z-0"
         style={{
           color: "var(--text-primary)",
           borderBottom: "1px solid var(--border-default)",

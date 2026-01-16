@@ -25,7 +25,7 @@ import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
-import { Pipeline, GenerationStats, StreamingSectionPreview } from "@/components/pipeline";
+import { Pipeline, GenerationStats } from "@/components/pipeline";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
@@ -519,7 +519,7 @@ export default function GeneratePage() {
               className="text-3xl font-bold tracking-tight md:text-4xl"
               style={{ color: 'var(--text-primary)' }}
             >
-              Generate Your Strategic Blueprint
+              Your Strategy Starts With Research
             </motion.h1>
             <motion.p
               className="mt-2"
@@ -528,7 +528,7 @@ export default function GeneratePage() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              Complete the onboarding form to generate your comprehensive Strategic Blueprint
+              Complete the onboarding to uncover market demand, competitive gaps, and a proven ICP and offer direction.
             </motion.p>
 
             {/* Stage Indicator */}
@@ -665,22 +665,6 @@ export default function GeneratePage() {
                   />
                 </motion.div>
 
-                {/* Streaming Section Preview - only show when sections start completing */}
-                <AnimatePresence>
-                  {streamingSections.size > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <StreamingSectionPreview
-                        sections={streamingSections}
-                        currentSection={currentStreamingSection}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             </GradientBorder>
           </motion.div>

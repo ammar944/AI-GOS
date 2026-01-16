@@ -119,12 +119,13 @@ export function StepBudgetTargets({
               </div>
               <FloatingLabelInput
                 id="monthlyAdBudget"
-                label="5000"
+                placeholder="5000"
                 type="number"
                 min="1"
                 step="any"
                 value={monthlyBudget}
                 onChange={(e) => setMonthlyBudget(e.target.value)}
+                aria-label="Monthly Ad Budget in USD"
                 aria-invalid={!!errors.monthlyAdBudget}
               />
               {errors.monthlyAdBudget && (
@@ -145,12 +146,13 @@ export function StepBudgetTargets({
               </div>
               <FloatingLabelInput
                 id="dailyBudgetCeiling"
-                label="200"
+                placeholder="200"
                 type="number"
                 min="1"
                 step="any"
                 value={dailyCeiling}
                 onChange={(e) => setDailyCeiling(e.target.value)}
+                aria-label="Daily Budget Ceiling in USD"
               />
             </div>
           </div>
@@ -226,12 +228,13 @@ export function StepBudgetTargets({
               </div>
               <FloatingLabelInput
                 id="targetCpl"
-                label="50"
+                placeholder="50"
                 type="number"
                 min="1"
                 step="any"
                 value={targetCpl}
                 onChange={(e) => setTargetCpl(e.target.value)}
+                aria-label="Target Cost per Lead in USD"
               />
             </div>
 
@@ -246,12 +249,13 @@ export function StepBudgetTargets({
               </div>
               <FloatingLabelInput
                 id="targetCac"
-                label="500"
+                placeholder="500"
                 type="number"
                 min="1"
                 step="any"
                 value={targetCac}
                 onChange={(e) => setTargetCac(e.target.value)}
+                aria-label="Target Customer Acquisition Cost in USD"
               />
             </div>
 
@@ -265,12 +269,13 @@ export function StepBudgetTargets({
               </div>
               <FloatingLabelInput
                 id="targetSqls"
-                label="50"
+                placeholder="50"
                 type="number"
                 min="1"
                 step="1"
                 value={targetSqls}
                 onChange={(e) => setTargetSqls(e.target.value)}
+                aria-label="Target SQLs per month"
               />
             </div>
 
@@ -283,12 +288,13 @@ export function StepBudgetTargets({
               </div>
               <FloatingLabelInput
                 id="targetDemos"
-                label="30"
+                placeholder="30"
                 type="number"
                 min="1"
                 step="1"
                 value={targetDemos}
                 onChange={(e) => setTargetDemos(e.target.value)}
+                aria-label="Target Demos per month"
               />
             </div>
           </div>
