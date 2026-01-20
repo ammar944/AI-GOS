@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-20
-**Current Phase:** 33 (Output Page Polish) - COMPLETE
-**Current Plan:** 2 of 2 (complete)
+**Current Phase:** 34 (Chat Panel Redesign) - IN PROGRESS
+**Current Plan:** 1 of 2
 
 ## Position
 
@@ -59,15 +59,15 @@ Milestone 9: Design Refresh (v2.0) COMPLETE
 
 Milestone 10: UX Polish (v2.1) IN PROGRESS
 ├── Phase 33: Output Page Polish (2/2 plans) DONE
-└── Phase 34: Chat Panel Redesign
+└── Phase 34: Chat Panel Redesign (1/2 plans)
 ```
 
-Phase: 33 of 34 (Output Page Polish) - COMPLETE
-Plan: 2 of 2 in current phase (complete)
-Status: Phase 33 complete, ready for Phase 34
-Last activity: 2026-01-20 - Completed 33-02-PLAN.md
+Phase: 34 of 34 (Chat Panel Redesign) - IN PROGRESS
+Plan: 1 of 2 in current phase
+Status: Plan 1 complete, ready for Plan 2
+Last activity: 2026-01-20 - Completed 34-01-PLAN.md
 
-Progress: ████████████████░ 97% (33/34 phases complete)
+Progress: ████████████████░ 97% (33/34 phases complete, 34 in progress)
 
 ## Decisions
 
@@ -193,6 +193,7 @@ Progress: ████████████████░ 97% (33/34 phases 
 | 2026-01-20 | 33-02 | PDF export uses PdfMarkdownContent pattern | Consistency with existing blueprint-viewer implementation |
 | 2026-01-20 | 33-02 | Button order: Back/Export/Share/Regen/New | Logical flow from navigation to actions |
 | 2026-01-20 | 33-02 | 5 buttons: 4 outline + 1 gradient pill | Primary action (New Blueprint) stands out |
+| 2026-01-20 | 34-01 | v4 API for react-resizable-panels | Group/Panel/Separator over deprecated PanelGroup/PanelResizeHandle |
 
 ## Deferred Issues
 
@@ -206,7 +207,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - Phase 33 (Output Page Polish) COMPLETE
+- **On track:** Yes - Phase 34 (Chat Panel Redesign) Plan 1 complete
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -226,9 +227,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 33-02-PLAN.md (Complete page integration)
+Stopped at: Completed 34-01-PLAN.md (Split layout foundation)
 Resume file: None
 
 ---
 
-*v2.1 UX Polish: Phase 33 complete. Output page now displays card-based layout with PDF export, share, and navigation buttons.*
+*v2.1 UX Polish: Phase 34 Plan 1 complete. SplitChatLayout component created with react-resizable-panels v4.*
