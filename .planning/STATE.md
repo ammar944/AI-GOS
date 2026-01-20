@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-20
-**Current Phase:** 33 (Output Page Polish) - IN PROGRESS
-**Current Plan:** 1 of 2
+**Current Phase:** 33 (Output Page Polish) - COMPLETE
+**Current Plan:** 2 of 2 (complete)
 
 ## Position
 
@@ -58,16 +58,16 @@ Milestone 9: Design Refresh (v2.0) COMPLETE
 └── Phase 32: Chat Panel (2/2 plans) DONE
 
 Milestone 10: UX Polish (v2.1) IN PROGRESS
-├── Phase 33: Output Page Polish (1/2 plans) IN PROGRESS
+├── Phase 33: Output Page Polish (2/2 plans) DONE
 └── Phase 34: Chat Panel Redesign
 ```
 
-Phase: 33 of 34 (Output Page Polish) - IN PROGRESS
-Plan: 1 of 2 in current phase
-Status: Plan 01 complete, ready for Plan 02
-Last activity: 2026-01-20 — Completed 33-01-PLAN.md
+Phase: 33 of 34 (Output Page Polish) - COMPLETE
+Plan: 2 of 2 in current phase (complete)
+Status: Phase 33 complete, ready for Phase 34
+Last activity: 2026-01-20 - Completed 33-02-PLAN.md
 
-Progress: ████████████████░ 97% (32/34 phases complete)
+Progress: ████████████████░ 97% (33/34 phases complete)
 
 ## Decisions
 
@@ -190,6 +190,9 @@ Progress: ████████████████░ 97% (32/34 phases 
 | 2026-01-20 | 33-01 | OutputSectionCard always isEditing=false | Read-only mode without edit controls for complete page |
 | 2026-01-20 | 33-01 | Stagger 0.05s delay between cards | Smooth reveal animation on mount |
 | 2026-01-20 | 33-01 | Container max-w-4xl | Matches review page layout for consistency |
+| 2026-01-20 | 33-02 | PDF export uses PdfMarkdownContent pattern | Consistency with existing blueprint-viewer implementation |
+| 2026-01-20 | 33-02 | Button order: Back/Export/Share/Regen/New | Logical flow from navigation to actions |
+| 2026-01-20 | 33-02 | 5 buttons: 4 outline + 1 gradient pill | Primary action (New Blueprint) stands out |
 
 ## Deferred Issues
 
@@ -203,7 +206,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - v2.0 Design Refresh milestone COMPLETE
+- **On track:** Yes - Phase 33 (Output Page Polish) COMPLETE
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -218,13 +221,14 @@ None.
 - v1.7 Testing: 4 phases (Phase 19-22) - Started 2026-01-08
 - v1.8 Ad Intelligence: 4 phases (Phase 23-26) - SHIPPED 2026-01-09
 - v2.0 Design Refresh: 6 phases (Phase 27-32) - SHIPPED 2026-01-13
+- v2.1 UX Polish: 2 phases (Phase 33-34) - Started 2026-01-20
 
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 33-01-PLAN.md (Output section cards created)
+Stopped at: Completed 33-02-PLAN.md (Complete page integration)
 Resume file: None
 
 ---
 
-*v2.1 UX Polish: Phase 33 Plan 01 complete. OutputSectionCard and PolishedBlueprintView ready for integration.*
+*v2.1 UX Polish: Phase 33 complete. Output page now displays card-based layout with PDF export, share, and navigation buttons.*
