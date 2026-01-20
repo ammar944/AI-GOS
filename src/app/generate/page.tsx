@@ -958,7 +958,13 @@ export default function GeneratePage() {
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions - SaaSLaunch styled buttons (5 total):
+                       1. Back to Review (secondary outline)
+                       2. Export PDF (secondary outline)
+                       3. Share (secondary outline)
+                       4. Regenerate (secondary outline)
+                       5. New Blueprint (primary gradient pill)
+                  */}
                   <div className="flex flex-wrap items-center gap-3">
                     <MagneticButton
                       className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
