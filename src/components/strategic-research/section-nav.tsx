@@ -1,6 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CheckCheck, RotateCcw, Undo2, Redo2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 
@@ -16,9 +24,36 @@ interface SectionNavProps {
   activeSection: StrategicBlueprintSection;
   reviewedSections: Set<StrategicBlueprintSection>;
   onNavigate?: (sectionId: StrategicBlueprintSection) => void;
+  // Action bar props
+  allReviewed?: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  hasPendingEdits?: boolean;
+  preApproveAllState?: Set<StrategicBlueprintSection> | null;
+  onApproveAll?: () => void;
+  onUndoApproveAll?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onRegenerate?: () => void;
+  onApprove?: () => void;
 }
 
-export function SectionNav({ activeSection, reviewedSections, onNavigate }: SectionNavProps) {
+export function SectionNav({
+  activeSection,
+  reviewedSections,
+  onNavigate,
+  allReviewed = false,
+  canUndo = false,
+  canRedo = false,
+  hasPendingEdits = false,
+  preApproveAllState = null,
+  onApproveAll,
+  onUndoApproveAll,
+  onUndo,
+  onRedo,
+  onRegenerate,
+  onApprove,
+}: SectionNavProps) {
   const handleClick = (sectionId: StrategicBlueprintSection) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -26,6 +61,8 @@ export function SectionNav({ activeSection, reviewedSections, onNavigate }: Sect
     }
     onNavigate?.(sectionId);
   };
+
+  const showActionBar = onApproveAll || onRegenerate || onApprove;
 
   return (
     <nav className="sticky top-6 hidden lg:block">
@@ -120,6 +157,154 @@ export function SectionNav({ activeSection, reviewedSections, onNavigate }: Sect
           </span>
         </div>
       </div>
+
+      {/* Action Bar */}
+      {showActionBar && (
+        <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+          {/* Undo/Redo row */}
+          {(canUndo || canRedo) && (
+            <TooltipProvider delayDuration={300}>
+              <div className="flex items-center gap-1 mb-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7 rounded-lg transition-all duration-200",
+                        !canUndo && "opacity-40 cursor-not-allowed"
+                      )}
+                      style={{
+                        color: canUndo ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                      }}
+                      onClick={onUndo}
+                      disabled={!canUndo}
+                    >
+                      <Undo2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Undo (Ctrl+Z)</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7 rounded-lg transition-all duration-200",
+                        !canRedo && "opacity-40 cursor-not-allowed"
+                      )}
+                      style={{
+                        color: canRedo ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                      }}
+                      onClick={onRedo}
+                      disabled={!canRedo}
+                    >
+                      <Redo2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Redo (Ctrl+Shift+Z)</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+          )}
+
+          {/* Action buttons - stacked vertically */}
+          <div className="flex flex-col gap-2">
+            {!allReviewed && onApproveAll && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-8 gap-2 justify-start rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        borderColor: 'var(--border-default)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                      onClick={onApproveAll}
+                    >
+                      <CheckCheck className="h-4 w-4" />
+                      <span>Approve All</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Mark all sections as reviewed</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {allReviewed && preApproveAllState !== null && onUndoApproveAll && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-8 gap-2 justify-start rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        borderColor: 'var(--border-default)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                      onClick={onUndoApproveAll}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      <span>Undo Approve</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Undo Approve All</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {onRegenerate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-8 gap-2 justify-start rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                style={{
+                  color: 'var(--text-secondary)',
+                  borderColor: 'var(--border-default)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+                onClick={onRegenerate}
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>Regenerate</span>
+              </Button>
+            )}
+            {onApprove && (
+              <Button
+                size="sm"
+                onClick={onApprove}
+                disabled={!allReviewed}
+                className={cn(
+                  "w-full h-9 gap-2 justify-center rounded-lg transition-all duration-200",
+                  !allReviewed && "opacity-50 cursor-not-allowed"
+                )}
+                style={{
+                  background: allReviewed ? 'var(--gradient-primary)' : 'var(--bg-elevated)',
+                  color: allReviewed ? 'white' : 'var(--text-tertiary)',
+                  fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                  fontWeight: 500,
+                  border: 'none',
+                }}
+              >
+                <span>{hasPendingEdits ? "Approve" : "Continue"}</span>
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
       </div>
     </nav>
   );

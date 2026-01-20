@@ -826,83 +826,90 @@ export default function GeneratePage() {
   // Review Blueprint State
   if (pageState === "review-blueprint" && strategicBlueprint) {
     return (
-      <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
-        <SplitChatLayout
-          chatContent={
-            <ChatSidebar
-              blueprint={strategicBlueprint as unknown as Record<string, unknown>}
-              onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
-            />
-          }
-          blueprintContent={
-            <div className="container mx-auto px-4 py-8 md:py-12">
-              {/* Stage Indicator */}
-              <motion.div
-                className="mx-auto max-w-5xl mb-8"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
+      <div className="h-screen flex flex-col" style={{ background: 'var(--bg-base)' }}>
+        {/* Stage Indicator - centered on full viewport */}
+        <motion.div
+          className="w-full py-4 px-4 flex-shrink-0"
+          style={{
+            background: 'var(--bg-base)',
+            borderBottom: '1px solid var(--border-default)',
+          }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                style={{ background: 'rgb(34, 197, 94)', color: 'white' }}
               >
-                <div className="flex items-center justify-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                      style={{ background: 'rgb(34, 197, 94)', color: 'white' }}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                    </div>
-                    <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Onboarding</span>
-                  </div>
-                  <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                      style={{
-                        background: 'rgba(54, 94, 255, 0.15)',
-                        border: '1px solid var(--accent-blue)',
-                        color: 'var(--accent-blue)'
-                      }}
-                    >
-                      2
-                    </div>
-                    <span
-                      className="text-sm font-medium"
-                      style={{
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      Review Research
-                    </span>
-                  </div>
-                  <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                  <div className="flex items-center gap-2 opacity-50">
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                      style={{
-                        background: 'var(--bg-hover)',
-                        color: 'var(--text-tertiary)',
-                        border: '1px solid var(--border-default)',
-                      }}
-                    >
-                      3
-                    </div>
-                    <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Complete</span>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Review Component */}
-              <div className="mx-auto max-w-6xl">
-                <BlueprintDocument
-                  strategicBlueprint={strategicBlueprint}
-                  onApprove={handleApprove}
-                  onRegenerate={handleRegenerateBlueprint}
-                />
+                <CheckCircle2 className="h-4 w-4" />
               </div>
+              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Onboarding</span>
             </div>
-          }
-        />
+            <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+            <div className="flex items-center gap-2">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                style={{
+                  background: 'rgba(54, 94, 255, 0.15)',
+                  border: '1px solid var(--accent-blue)',
+                  color: 'var(--accent-blue)'
+                }}
+              >
+                2
+              </div>
+              <span
+                className="text-sm font-medium"
+                style={{
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+              >
+                Review Research
+              </span>
+            </div>
+            <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+            <div className="flex items-center gap-2 opacity-50">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                style={{
+                  background: 'var(--bg-hover)',
+                  color: 'var(--text-tertiary)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
+                3
+              </div>
+              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Complete</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Main content area */}
+        <div className="flex-1 min-h-0">
+          <SplitChatLayout
+            chatContent={
+              <ChatSidebar
+                blueprint={strategicBlueprint as unknown as Record<string, unknown>}
+                onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
+              />
+            }
+            blueprintContent={
+              <div className="container mx-auto px-4 py-8 md:py-12 pb-32">
+                {/* Review Component */}
+                <div className="mx-auto max-w-6xl">
+                  <BlueprintDocument
+                    strategicBlueprint={strategicBlueprint}
+                    onApprove={handleApprove}
+                    onRegenerate={handleRegenerateBlueprint}
+                  />
+                </div>
+              </div>
+            }
+          />
+        </div>
       </div>
     );
   }

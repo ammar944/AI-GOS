@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { CheckCheck, RotateCcw, ArrowRight, Undo2, Redo2, DollarSign } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
+import { DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionNav } from "./section-nav";
 import { DocumentSection } from "./document-section";
@@ -333,183 +326,18 @@ export function BlueprintDocument({
           <SectionNav
             activeSection={activeSection}
             reviewedSections={reviewedSections}
+            allReviewed={allReviewed}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            hasPendingEdits={hasPendingEdits}
+            preApproveAllState={preApproveAllState}
+            onApproveAll={handleApproveAll}
+            onUndoApproveAll={handleUndoApproveAll}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onRegenerate={onRegenerate}
+            onApprove={handleApprove}
           />
-        </div>
-      </div>
-
-      {/* Floating Action Bar */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-40 pb-[env(safe-area-inset-bottom)]">
-        <div
-          className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-sm border"
-          style={{
-            background: 'var(--bg-surface)',
-            borderColor: 'var(--border-default)',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)',
-          }}
-        >
-          {/* Progress indicator */}
-          <div className="flex items-center gap-2">
-            {allReviewed ? (
-              <span className="flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-sm font-medium" style={{ fontFamily: 'var(--font-sans), Inter, sans-serif' }}>Done</span>
-              </span>
-            ) : (
-              <span className="text-sm" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans), Inter, sans-serif' }}>
-                <span className="font-medium" style={{ color: 'var(--accent-blue)' }}>{reviewedSections.size}</span>
-                <span className="mx-0.5">/</span>
-                <span>5</span>
-              </span>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="h-5 w-px" style={{ background: 'var(--border-default)' }} />
-
-          {/* Undo/Redo */}
-          {(canUndo || canRedo) && (
-            <>
-              <TooltipProvider delayDuration={300}>
-                <div className="flex items-center gap-0.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "h-8 w-8 rounded-lg transition-all duration-200",
-                          !canUndo && "opacity-40 cursor-not-allowed"
-                        )}
-                        style={{
-                          color: canUndo ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                        }}
-                        onClick={handleUndo}
-                        disabled={!canUndo}
-                      >
-                        <Undo2 className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Undo (Ctrl+Z)</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "h-8 w-8 rounded-lg transition-all duration-200",
-                          !canRedo && "opacity-40 cursor-not-allowed"
-                        )}
-                        style={{
-                          color: canRedo ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                        }}
-                        onClick={handleRedo}
-                        disabled={!canRedo}
-                      >
-                        <Redo2 className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Redo (Ctrl+Shift+Z)</TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
-              <div className="h-5 w-px" style={{ background: 'var(--border-default)' }} />
-            </>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {!allReviewed && (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 gap-1.5 rounded-full border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                      style={{
-                        color: 'var(--text-secondary)',
-                        borderColor: 'var(--border-default)',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                      onClick={handleApproveAll}
-                    >
-                      <CheckCheck className="h-4 w-4" />
-                      <span className="hidden sm:inline">Approve All</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Mark all sections as reviewed</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {allReviewed && preApproveAllState !== null && (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 gap-1.5 rounded-full border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                      style={{
-                        color: 'var(--text-secondary)',
-                        borderColor: 'var(--border-default)',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                      onClick={handleUndoApproveAll}
-                    >
-                      <Undo2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Undo</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Undo Approve All</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 rounded-full border transition-all duration-200 hover:border-[var(--accent-blue)]"
-              style={{
-                color: 'var(--text-secondary)',
-                borderColor: 'var(--border-default)',
-                fontFamily: 'var(--font-sans), Inter, sans-serif',
-              }}
-              onClick={onRegenerate}
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Regenerate</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleApprove}
-              disabled={!allReviewed}
-              className={cn(
-                "h-8 gap-1.5 px-5 rounded-full transition-all duration-200",
-                !allReviewed && "opacity-50 cursor-not-allowed"
-              )}
-              style={{
-                background: allReviewed ? 'var(--gradient-primary)' : 'var(--bg-elevated)',
-                color: allReviewed ? 'white' : 'var(--text-tertiary)',
-                fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-                fontWeight: 500,
-                border: 'none',
-                padding: '12px 20px',
-              }}
-            >
-              <span>{hasPendingEdits ? "Approve" : "Continue"}</span>
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Button>
-          </div>
         </div>
       </div>
     </>

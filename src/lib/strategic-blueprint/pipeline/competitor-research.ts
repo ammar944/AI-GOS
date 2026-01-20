@@ -181,6 +181,7 @@ function parseCompetitorAnalysisJSON(content: string): CompetitorAnalysis {
     return {
       competitors: parsed.competitors.map((c: Record<string, unknown>) => ({
         name: String(c.name || "Unknown"),
+        website: c.website ? String(c.website) : undefined,
         positioning: String(c.positioning || ""),
         offer: String(c.offer || ""),
         price: String(c.price || "Custom pricing"),

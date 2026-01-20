@@ -772,24 +772,25 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               className="p-4 rounded-lg"
               style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
             >
-              <h4 className="font-semibold text-lg flex items-center gap-2">
+              <h4 className="font-semibold text-lg flex items-center gap-2 flex-wrap">
                 {isEditing && onFieldChange ? (
                   <EditableText
                     value={safeRender(comp?.name)}
                     onSave={(v) => onFieldChange(`competitors.${i}.name`, v)}
                   />
-                ) : comp?.website ? (
+                ) : (
+                  <SourcedText>{safeRender(comp?.name)}</SourcedText>
+                )}
+                {comp?.website && (
                   <a
                     href={comp.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 underline decoration-primary/30 hover:decoration-primary/60 underline-offset-2 transition-all group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded-sm"
+                    className="inline-flex items-center gap-1 text-sm font-normal text-muted-foreground hover:text-primary transition-colors"
                   >
-                    {safeRender(comp?.name)}
-                    <ExternalLink className="h-4 w-4 opacity-70 group-hover:opacity-100 transition-opacity shrink-0" />
+                    <span className="truncate max-w-[200px]">{comp.website.replace(/^https?:\/\//, '')}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                   </a>
-                ) : (
-                  <SourcedText>{safeRender(comp?.name)}</SourcedText>
                 )}
               </h4>
               <div className="text-sm text-muted-foreground mb-3">
