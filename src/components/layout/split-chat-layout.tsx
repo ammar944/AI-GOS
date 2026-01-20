@@ -1,6 +1,5 @@
 "use client";
 
-import { Group, Panel, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 
 interface SplitChatLayoutProps {
@@ -9,6 +8,11 @@ interface SplitChatLayoutProps {
   className?: string;
 }
 
+/**
+ * Split layout with chat sidebar on left (30%) and content on right (70%).
+ * Inspired by v0/Lovable's permanent sidebar pattern.
+ * Uses CSS flexbox for reliable cross-browser layout.
+ */
 export function SplitChatLayout({
   chatContent,
   blueprintContent,
@@ -16,51 +20,23 @@ export function SplitChatLayout({
 }: SplitChatLayoutProps) {
   return (
     <div className={cn("h-full", className)}>
-      {/* Desktop: side-by-side with resize */}
-      <div className="hidden lg:block h-full">
-        <Group orientation="horizontal" className="h-full">
-          {/* Chat sidebar: 30% default, 20-40% range */}
-          <Panel
-            defaultSize={30}
-            minSize={20}
-            maxSize={40}
-          >
-            <div
-              className="h-full flex flex-col"
-              style={{ background: 'var(--bg-surface)' }}
-            >
-              {chatContent}
-            </div>
-          </Panel>
+      {/* Desktop: side-by-side layout */}
+      <div className="hidden lg:flex h-full">
+        {/* Chat sidebar: fixed 30% width */}
+        <div
+          className="w-[30%] min-w-[280px] max-w-[400px] h-full flex flex-col flex-shrink-0"
+          style={{
+            background: 'var(--bg-surface)',
+            borderRight: '1px solid var(--border-default)',
+          }}
+        >
+          {chatContent}
+        </div>
 
-          {/* Resize handle with visual indicator */}
-          <Separator className="w-px relative group cursor-col-resize">
-            {/* Visual handle bar */}
-            <div
-              className="absolute inset-y-0 -left-1.5 -right-1.5 w-4 flex items-center justify-center"
-            >
-              <div
-                className="w-1 h-12 rounded-full transition-colors duration-150 group-hover:scale-110"
-                style={{
-                  background: 'var(--border-default)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--accent-blue)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--border-default)';
-                }}
-              />
-            </div>
-          </Separator>
-
-          {/* Blueprint content: fills remaining space */}
-          <Panel minSize={60}>
-            <div className="h-full overflow-y-auto">
-              {blueprintContent}
-            </div>
-          </Panel>
-        </Group>
+        {/* Blueprint content: fills remaining space */}
+        <div className="flex-1 h-full overflow-y-auto">
+          {blueprintContent}
+        </div>
       </div>
 
       {/* Mobile: vertical stack (blueprint above, chat below) */}
