@@ -5,6 +5,8 @@ export { BlueprintDocument } from "./blueprint-document";
 export { SectionNav } from "./section-nav";
 export { DocumentSection } from "./document-section";
 export { ReadingProgress } from "./reading-progress";
+export { OutputSectionCard } from "./output-section-card";
 export type { SectionCardProps } from "./section-card";
 export type { StrategicResearchReviewProps } from "./review";
 export type { BlueprintDocumentProps } from "./blueprint-document";
+export type { OutputSectionCardProps } from "./output-section-card";
