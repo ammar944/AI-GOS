@@ -1,8 +1,8 @@
 # Project State
 
 **Last Updated:** 2026-01-20
-**Current Phase:** 34 (Chat Panel Redesign) - IN PROGRESS
-**Current Plan:** 1 of 2
+**Current Phase:** 34 (Chat Panel Redesign) - COMPLETE
+**Current Plan:** 2 of 2
 
 ## Position
 
@@ -57,17 +57,17 @@ Milestone 9: Design Refresh (v2.0) COMPLETE
 ├── Phase 31: Output Display (2/2 plans) DONE
 └── Phase 32: Chat Panel (2/2 plans) DONE
 
-Milestone 10: UX Polish (v2.1) IN PROGRESS
+Milestone 10: UX Polish (v2.1) COMPLETE
 ├── Phase 33: Output Page Polish (2/2 plans) DONE
-└── Phase 34: Chat Panel Redesign (1/2 plans)
+└── Phase 34: Chat Panel Redesign (2/2 plans) DONE
 ```
 
-Phase: 34 of 34 (Chat Panel Redesign) - IN PROGRESS
-Plan: 1 of 2 in current phase
-Status: Plan 1 complete, ready for Plan 2
-Last activity: 2026-01-20 - Completed 34-01-PLAN.md
+Phase: 34 of 34 (Chat Panel Redesign) - COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase 34 complete, Milestone 10 (v2.1 UX Polish) complete
+Last activity: 2026-01-20 - Completed 34-02-PLAN.md
 
-Progress: ████████████████░ 97% (33/34 phases complete, 34 in progress)
+Progress: █████████████████ 100% (34/34 phases complete)
 
 ## Decisions
 
@@ -194,6 +194,7 @@ Progress: ████████████████░ 97% (33/34 phases 
 | 2026-01-20 | 33-02 | Button order: Back/Export/Share/Regen/New | Logical flow from navigation to actions |
 | 2026-01-20 | 33-02 | 5 buttons: 4 outline + 1 gradient pill | Primary action (New Blueprint) stands out |
 | 2026-01-20 | 34-01 | v4 API for react-resizable-panels | Group/Panel/Separator over deprecated PanelGroup/PanelResizeHandle |
+| 2026-01-20 | 34-02 | Auto-load conversation on mount | ChatSidebar is always visible, unlike BlueprintChat which loaded when panel opened |
 
 ## Deferred Issues
 
@@ -207,7 +208,7 @@ None.
 
 ## Brief Alignment
 
-- **On track:** Yes - Phase 34 (Chat Panel Redesign) Plan 1 complete
+- **On track:** Yes - Phase 34 complete, Milestone 10 (v2.1 UX Polish) complete
 - **Scope creep:** None
 - **Technical concerns:** None
 
@@ -222,14 +223,14 @@ None.
 - v1.7 Testing: 4 phases (Phase 19-22) - Started 2026-01-08
 - v1.8 Ad Intelligence: 4 phases (Phase 23-26) - SHIPPED 2026-01-09
 - v2.0 Design Refresh: 6 phases (Phase 27-32) - SHIPPED 2026-01-13
-- v2.1 UX Polish: 2 phases (Phase 33-34) - Started 2026-01-20
+- v2.1 UX Polish: 2 phases (Phase 33-34) - SHIPPED 2026-01-20
 
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 34-01-PLAN.md (Split layout foundation)
+Stopped at: Completed 34-02-PLAN.md (Chat sidebar integration)
 Resume file: None
 
 ---
 
-*v2.1 UX Polish: Phase 34 Plan 1 complete. SplitChatLayout component created with react-resizable-panels v4.*
+*v2.1 UX Polish: Phase 34 complete. ChatSidebar integrated with SplitChatLayout on review page.*
