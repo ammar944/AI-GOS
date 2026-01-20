@@ -272,19 +272,39 @@ export function BlueprintDocument({
       {/* Reading progress bar */}
       <ReadingProgress />
 
-      <div className="flex gap-8">
+      <div className="flex gap-8" style={{ background: 'var(--bg-base)' }}>
         {/* Main document content */}
         <div ref={containerRef} className="flex-1 max-w-4xl min-w-0">
           {/* Header */}
-          <div className="mb-8 pb-6 border-b border-[var(--border-subtle)]">
-            <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+          <div className="mb-8 pb-6 border-b" style={{ borderColor: 'var(--border-default)' }}>
+            <h1
+              className="text-3xl font-bold mb-2"
+              style={{
+                color: 'var(--text-heading)',
+                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                letterSpacing: '-0.02em',
+              }}
+            >
               Strategic Research Blueprint
             </h1>
-            <p className="text-[var(--text-secondary)]">
-              Review each section below. Use <kbd className="px-1.5 py-0.5 text-xs rounded bg-[var(--bg-hover)] border border-[var(--border-default)]">j</kbd> / <kbd className="px-1.5 py-0.5 text-xs rounded bg-[var(--bg-hover)] border border-[var(--border-default)]">k</kbd> to navigate between sections.
+            <p
+              className="text-base"
+              style={{
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+                lineHeight: '1.6',
+              }}
+            >
+              Review each section below. Use <kbd className="px-1.5 py-0.5 text-xs rounded border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>j</kbd> / <kbd className="px-1.5 py-0.5 text-xs rounded border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>k</kbd> to navigate between sections.
             </p>
             {strategicBlueprint.metadata.totalCost > 0 && (
-              <div className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--text-tertiary)]">
+              <div
+                className="mt-3 inline-flex items-center gap-1.5 text-sm"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+              >
                 <DollarSign className="h-4 w-4" />
                 Generation cost: ${strategicBlueprint.metadata.totalCost.toFixed(4)}
               </div>
@@ -320,24 +340,25 @@ export function BlueprintDocument({
       {/* Floating Action Bar */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-40 pb-[env(safe-area-inset-bottom)]">
         <div
-          className={cn(
-            "flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-full",
-            "bg-[var(--bg-elevated)] border border-[var(--border-default)]",
-            "shadow-lg shadow-black/20"
-          )}
+          className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-sm border"
+          style={{
+            background: 'var(--bg-surface)',
+            borderColor: 'var(--border-default)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)',
+          }}
         >
           {/* Progress indicator */}
           <div className="flex items-center gap-2">
             {allReviewed ? (
-              <span className="flex items-center gap-1.5 text-green-400">
+              <span className="flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm font-medium">Done</span>
+                <span className="text-sm font-medium" style={{ fontFamily: 'var(--font-sans), Inter, sans-serif' }}>Done</span>
               </span>
             ) : (
-              <span className="text-sm text-[var(--text-tertiary)]">
-                <span className="font-medium text-[var(--text-primary)]">{reviewedSections.size}</span>
+              <span className="text-sm" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans), Inter, sans-serif' }}>
+                <span className="font-medium" style={{ color: 'var(--accent-blue)' }}>{reviewedSections.size}</span>
                 <span className="mx-0.5">/</span>
                 <span>5</span>
               </span>
@@ -345,7 +366,7 @@ export function BlueprintDocument({
           </div>
 
           {/* Divider */}
-          <div className="h-5 w-px bg-[var(--border-default)]" />
+          <div className="h-5 w-px" style={{ background: 'var(--border-default)' }} />
 
           {/* Undo/Redo */}
           {(canUndo || canRedo) && (
@@ -357,7 +378,13 @@ export function BlueprintDocument({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        className={cn(
+                          "h-8 w-8 rounded-lg transition-all duration-200",
+                          !canUndo && "opacity-40 cursor-not-allowed"
+                        )}
+                        style={{
+                          color: canUndo ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                        }}
                         onClick={handleUndo}
                         disabled={!canUndo}
                       >
@@ -371,7 +398,13 @@ export function BlueprintDocument({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        className={cn(
+                          "h-8 w-8 rounded-lg transition-all duration-200",
+                          !canRedo && "opacity-40 cursor-not-allowed"
+                        )}
+                        style={{
+                          color: canRedo ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                        }}
                         onClick={handleRedo}
                         disabled={!canRedo}
                       >
@@ -382,7 +415,7 @@ export function BlueprintDocument({
                   </Tooltip>
                 </div>
               </TooltipProvider>
-              <div className="h-5 w-px bg-[var(--border-default)]" />
+              <div className="h-5 w-px" style={{ background: 'var(--border-default)' }} />
             </>
           )}
 
@@ -395,7 +428,12 @@ export function BlueprintDocument({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                      className="h-8 gap-1.5 rounded-full border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        borderColor: 'var(--border-default)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
                       onClick={handleApproveAll}
                     >
                       <CheckCheck className="h-4 w-4" />
@@ -413,7 +451,12 @@ export function BlueprintDocument({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                      className="h-8 gap-1.5 rounded-full border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        borderColor: 'var(--border-default)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
                       onClick={handleUndoApproveAll}
                     >
                       <Undo2 className="h-4 w-4" />
@@ -427,7 +470,12 @@ export function BlueprintDocument({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+              className="h-8 gap-1.5 rounded-full border transition-all duration-200 hover:border-[var(--accent-blue)]"
+              style={{
+                color: 'var(--text-secondary)',
+                borderColor: 'var(--border-default)',
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+              }}
               onClick={onRegenerate}
             >
               <RotateCcw className="h-4 w-4" />
@@ -438,12 +486,28 @@ export function BlueprintDocument({
               onClick={handleApprove}
               disabled={!allReviewed}
               className={cn(
-                "h-8 gap-1.5 px-4",
-                "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white"
+                "h-8 gap-1.5 px-5 rounded-full transition-all duration-200",
+                !allReviewed && "opacity-50 cursor-not-allowed"
               )}
+              style={{
+                background: allReviewed ? 'var(--gradient-primary)' : 'var(--bg-elevated)',
+                color: allReviewed ? 'white' : 'var(--text-tertiary)',
+                fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                fontWeight: 500,
+                border: 'none',
+                padding: '12px 20px',
+              }}
             >
               <span>{hasPendingEdits ? "Approve" : "Continue"}</span>
-              <ArrowRight className="h-4 w-4" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </Button>
           </div>
         </div>

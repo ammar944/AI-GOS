@@ -726,24 +726,31 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
           <div>
             <h1
               className="text-2xl font-bold"
-              style={{ color: "var(--text-primary, #ffffff)" }}
+              style={{
+                color: 'var(--text-heading)',
+                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                letterSpacing: '-0.02em',
+              }}
             >
               Strategic Blueprint
             </h1>
             <div
               className="flex flex-wrap gap-4 text-sm mt-2"
-              style={{ color: "var(--text-secondary, #a0a0a0)" }}
+              style={{
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+              }}
             >
               <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" style={{ color: "var(--text-tertiary, #666666)" }} />
+                <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                 Generated: {new Date(metadata.generatedAt).toLocaleString()}
               </span>
               <span className="flex items-center gap-1">
-                <Coins className="h-4 w-4" style={{ color: "var(--text-tertiary, #666666)" }} />
+                <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                 ${metadata.totalCost.toFixed(4)}
               </span>
               <span className="flex items-center gap-1">
-                <BarChart3 className="h-4 w-4" style={{ color: "var(--text-tertiary, #666666)" }} />
+                <BarChart3 className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                 Confidence: {metadata.overallConfidence}%
               </span>
             </div>
@@ -752,10 +759,12 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
             onClick={handleExportPDF}
             disabled={isExporting}
             variant="outline"
+            className="rounded-md"
             style={{
-              border: "1px solid var(--border-default, rgba(255,255,255,0.06))",
-              color: "var(--text-secondary, #a0a0a0)",
-              background: "transparent",
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
             }}
           >
             {isExporting ? (

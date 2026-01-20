@@ -53,13 +53,25 @@ export function SectionNav({ activeSection, reviewedSections, onNavigate }: Sect
               {/* Section number indicator */}
               <span
                 className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors",
-                  isActive
-                    ? "bg-[var(--text-primary)] text-black"
-                    : isReviewed
-                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                    : "bg-[var(--border-default)] text-[var(--text-tertiary)]"
+                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors"
                 )}
+                style={
+                  isActive
+                    ? {
+                        background: 'var(--text-primary)',
+                        color: 'rgb(0, 0, 0)',
+                      }
+                    : isReviewed
+                    ? {
+                        background: 'var(--success-subtle)',
+                        color: 'var(--success)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                      }
+                    : {
+                        background: 'var(--border-default)',
+                        color: 'var(--text-tertiary)',
+                      }
+                }
               >
                 {isReviewed && !isActive ? (
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -77,15 +89,33 @@ export function SectionNav({ activeSection, reviewedSections, onNavigate }: Sect
 
       {/* Progress summary */}
       <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
-        <div className="text-xs text-[var(--text-quaternary)] mb-2">Review Progress</div>
+        <div
+          className="text-xs mb-2"
+          style={{
+            color: 'var(--text-quaternary)',
+            fontFamily: 'var(--font-sans), Inter, sans-serif',
+          }}
+        >
+          Review Progress
+        </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-[var(--border-subtle)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-green-500 rounded-full transition-all duration-500"
-              style={{ width: `${(reviewedSections.size / 5) * 100}%` }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${(reviewedSections.size / 5) * 100}%`,
+                background: 'var(--gradient-primary)',
+                boxShadow: '0 0 8px rgba(54, 94, 255, 0.3)',
+              }}
             />
           </div>
-          <span className="text-xs text-[var(--text-tertiary)] tabular-nums">
+          <span
+            className="text-xs tabular-nums font-medium"
+            style={{
+              color: 'var(--accent-blue)',
+              fontFamily: 'var(--font-mono), monospace',
+            }}
+          >
             {reviewedSections.size}/5
           </span>
         </div>

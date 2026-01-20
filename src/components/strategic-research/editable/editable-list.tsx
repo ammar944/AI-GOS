@@ -69,10 +69,20 @@ export function EditableList({
             size="icon-sm"
             onClick={() => handleRemoveItem(index)}
             className={cn(
-              "h-6 w-6 shrink-0 text-muted-foreground/50 opacity-0 transition-opacity",
-              "hover:text-red-500 hover:bg-red-100/50",
+              "h-6 w-6 shrink-0 opacity-0 transition-all",
               "group-hover:opacity-100 focus:opacity-100"
             )}
+            style={{
+              color: 'var(--text-tertiary)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#ef4444';
+              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-tertiary)';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             aria-label={`Remove item ${index + 1}`}
           >
             <X className="h-3 w-3" />
@@ -86,7 +96,18 @@ export function EditableList({
         variant="ghost"
         size="sm"
         onClick={handleAddItem}
-        className="h-7 px-2 text-muted-foreground hover:text-foreground mt-1"
+        className="h-7 px-2 mt-1 transition-colors"
+        style={{
+          color: 'var(--accent-blue)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(54, 94, 255, 0.1)';
+          e.currentTarget.style.color = 'var(--accent-blue-hover)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.color = 'var(--accent-blue)';
+        }}
       >
         <Plus className="h-3 w-3 mr-1" />
         Add item

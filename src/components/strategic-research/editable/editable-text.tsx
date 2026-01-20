@@ -84,16 +84,26 @@ export function EditableText({
         className={cn(
           // Base styles
           "cursor-text rounded px-1.5 py-0.5 -mx-1 transition-all duration-150",
-          // Editable indicator - subtle dashed underline
-          "border-b border-dashed border-muted-foreground/40",
-          // Hover state - background appears, border becomes solid
-          "hover:bg-muted/50 hover:border-solid hover:border-muted-foreground/50",
-          // Focus state for keyboard navigation
-          "focus:outline-none focus:bg-muted/50 focus:border-solid focus:border-muted-foreground/50",
+          // Editable indicator - subtle dashed underline with SaaSLaunch blue
+          "border-b border-dashed",
           // Empty placeholder styling
-          !value && "text-muted-foreground italic",
+          !value && "italic",
           className
         )}
+        style={{
+          borderBottomColor: value ? 'rgba(54, 94, 255, 0.3)' : 'var(--border-default)',
+          color: value ? 'inherit' : 'var(--text-tertiary)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+          e.currentTarget.style.borderBottomStyle = 'solid';
+          e.currentTarget.style.borderBottomColor = 'var(--accent-blue)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.borderBottomStyle = 'dashed';
+          e.currentTarget.style.borderBottomColor = value ? 'rgba(54, 94, 255, 0.3)' : 'var(--border-default)';
+        }}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
@@ -101,6 +111,17 @@ export function EditableText({
             e.preventDefault();
             handleClick();
           }
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+          e.currentTarget.style.borderBottomStyle = 'solid';
+          e.currentTarget.style.borderBottomColor = 'var(--accent-blue)';
+          e.currentTarget.style.outline = 'none';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.borderBottomStyle = 'dashed';
+          e.currentTarget.style.borderBottomColor = value ? 'rgba(54, 94, 255, 0.3)' : 'var(--border-default)';
         }}
       >
         {value || placeholder}
@@ -119,20 +140,46 @@ export function EditableText({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={cn(
-            "flex-1 min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "placeholder:text-muted-foreground resize-y"
+            "flex-1 min-h-[80px] rounded-md border px-3 py-2 text-sm resize-y",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
           )}
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            borderColor: 'var(--border-default)',
+            color: 'var(--text-heading)',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-blue)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(54, 94, 255, 0.2)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-default)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
           rows={3}
         />
       ) : (
-        <Input
+        <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="flex-1 h-7 text-sm"
+          className="flex-1 h-7 text-sm rounded-md border px-2 transition-all"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            borderColor: 'var(--border-default)',
+            color: 'var(--text-heading)',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-blue)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(54, 94, 255, 0.2)';
+            e.currentTarget.style.outline = 'none';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-default)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
         />
       )}
       <Button
@@ -140,8 +187,19 @@ export function EditableText({
         variant="ghost"
         size="icon-sm"
         onClick={handleSave}
-        className="h-7 w-7 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-100/50"
+        className="h-7 w-7 shrink-0 transition-colors"
         aria-label="Save"
+        style={{
+          color: 'var(--accent-blue)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(54, 94, 255, 0.1)';
+          e.currentTarget.style.color = 'var(--accent-blue-hover)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.color = 'var(--accent-blue)';
+        }}
       >
         <Check className="h-4 w-4" />
       </Button>
@@ -150,8 +208,17 @@ export function EditableText({
         variant="ghost"
         size="icon-sm"
         onClick={handleCancel}
-        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+        className="h-7 w-7 shrink-0"
         aria-label="Cancel"
+        style={{
+          color: 'var(--text-tertiary)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'var(--text-heading)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--text-tertiary)';
+        }}
       >
         <X className="h-4 w-4" />
       </Button>

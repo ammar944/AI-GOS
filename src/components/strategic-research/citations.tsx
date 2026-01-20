@@ -41,7 +41,8 @@ function parseSubscriptReferences(text: string): ReactNode[] {
     parts.push(
       <span
         key={`sub-${match.index}`}
-        className="text-blue-400 font-medium text-[0.85em] align-super"
+        className="font-medium text-[0.85em] align-super"
+        style={{ color: 'var(--accent-blue)' }}
       >
         [{match[1]}]
       </span>
@@ -85,12 +86,21 @@ export interface CitationBadgeProps {
 /**
  * Small badge showing citation count for a section.
  * Only renders if count > 0.
+ * Uses cyan accent color to highlight metrics.
  */
 export function CitationBadge({ count }: CitationBadgeProps) {
   if (count <= 0) return null;
 
   return (
-    <Badge variant="outline" className="gap-1 text-muted-foreground">
+    <Badge
+      variant="outline"
+      className="gap-1"
+      style={{
+        borderColor: 'var(--accent-blue)',
+        color: 'var(--accent-blue)',
+        background: 'rgba(54, 94, 255, 0.1)',
+      }}
+    >
       <Link2 className="h-3 w-3" />
       {count} {count === 1 ? "source" : "sources"}
     </Badge>
@@ -112,7 +122,7 @@ export interface SourcedTextProps {
  * Wraps text with a subtle indicator showing it's research-backed.
  * Shows a small globe icon on hover with tooltip.
  * Uses dotted underline to indicate sourced data.
- * Highlights subscript references like [1], [2] in blue.
+ * Highlights subscript references like [1], [2] in cyan.
  */
 export function SourcedText({ children, className }: SourcedTextProps) {
   return (
@@ -122,12 +132,13 @@ export function SourcedText({ children, className }: SourcedTextProps) {
           <span
             className={cn(
               "inline-flex items-center gap-1.5 cursor-help",
-              "decoration-primary/40 decoration-dotted underline underline-offset-2",
+              "decoration-dotted underline underline-offset-2",
               className
             )}
+            style={{ textDecorationColor: 'rgba(54, 94, 255, 0.4)' }}
           >
             {renderWithSubscripts(children)}
-            <Globe className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+            <Globe className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent-blue)' }} />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -141,7 +152,7 @@ export function SourcedText({ children, className }: SourcedTextProps) {
 /**
  * Wraps list item text with citation indicator.
  * More compact version for use in lists.
- * Highlights subscript references like [1], [2] in blue.
+ * Highlights subscript references like [1], [2] in cyan.
  */
 export function SourcedListItem({ children, className }: SourcedTextProps) {
   return (
@@ -150,9 +161,10 @@ export function SourcedListItem({ children, className }: SourcedTextProps) {
         <TooltipTrigger asChild>
           <span
             className={cn(
-              "cursor-help border-b border-dotted border-primary/30",
+              "cursor-help border-b border-dotted",
               className
             )}
+            style={{ borderColor: 'rgba(54, 94, 255, 0.3)' }}
           >
             {renderWithSubscripts(children)}
           </span>
@@ -209,10 +221,15 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-4">
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center justify-between rounded-lg border bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground transition-colors",
-          "hover:bg-muted hover:text-foreground",
+          "flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors",
           isOpen && "rounded-b-none border-b-0"
         )}
+        style={{
+          border: '1px solid var(--border-default)',
+          background: 'var(--bg-hover)',
+          color: 'var(--text-secondary)',
+          fontFamily: 'var(--font-sans), Inter, sans-serif',
+        }}
         aria-label={`Toggle sources for ${sectionLabel}`}
       >
         <span className="flex items-center gap-2">
@@ -229,10 +246,14 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
 
       <CollapsibleContent
         className={cn(
-          "rounded-b-lg border border-t-0 bg-muted/30"
+          "rounded-b-lg border border-t-0"
         )}
+        style={{
+          background: 'var(--bg-surface)',
+          borderColor: 'var(--border-default)',
+        }}
       >
-        <div className="divide-y divide-border">
+        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
           {citations.map((citation, index) => (
             <div key={`${citation.url}-${index}`} className="px-4 py-3">
               {/* Title with external link */}
@@ -240,7 +261,13 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
                 href={citation.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-start gap-2 text-sm font-medium text-foreground hover:text-primary"
+                className="group flex items-start gap-2 text-sm font-medium transition-colors duration-200"
+                style={{
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-blue)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               >
                 <span className="flex-1">
                   {citation.title
@@ -251,7 +278,13 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
               </a>
 
               {/* Domain and date */}
-              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <div
+                className="mt-1 flex items-center gap-2 text-xs"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+              >
                 <span>{extractDomain(citation.url)}</span>
                 {citation.date && (
                   <>
@@ -263,7 +296,13 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
 
               {/* Snippet */}
               {citation.snippet && (
-                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                <p
+                  className="mt-2 text-xs leading-relaxed"
+                  style={{
+                    color: 'var(--text-tertiary)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  }}
+                >
                   {truncate(citation.snippet, 150)}
                 </p>
               )}

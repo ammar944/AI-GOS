@@ -10,7 +10,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  /* SaaSLaunch Font Stack */
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: var(--font-instrument-sans), "Instrument Sans", sans-serif;
+  --font-display: var(--font-instrument-sans), "Cabinet Grotesk", sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -173,42 +176,56 @@
   --sidebar-ring: oklch(0.62 0.19 255);
 
   /* ============================================
-     AI-GOS Design System v2.0 Tokens
+     SaaSLaunch Design System Tokens
+     Extracted from Framer MCP
      ============================================ */
 
-  /* Background Hierarchy */
-  --bg-base: #000000;
-  --bg-elevated: #0a0a0a;
-  --bg-surface: #101010;
-  --bg-hover: #161616;
-  --bg-active: #1c1c1c;
-  --bg-card: #0d0d0d;
+  /* Background Hierarchy - Blue-tinted blacks, NOT pure black */
+  --bg-base: rgb(7, 9, 14);           /* Main page background */
+  --bg-elevated: rgb(10, 13, 20);     /* Elevated surfaces (900) */
+  --bg-surface: rgb(12, 14, 19);      /* Component backgrounds */
+  --bg-hover: rgb(20, 23, 30);        /* Interactive hover states */
+  --bg-active: rgb(25, 28, 35);       /* Active/pressed states */
+  --bg-card: rgb(12, 14, 19);         /* Card surfaces */
+  --bg-card-blue: rgba(51, 136, 255, 0.09); /* Cards with blue tint */
+  --bg-black: rgb(0, 0, 0);           /* Pure black (rare) */
 
-  /* Border System (Opacity-based) - INCREASED for visibility */
+  /* Border System - SaaSLaunch uses solid borders */
+  --border-line: rgb(31, 31, 31);     /* Default borders, dividers */
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-default: rgba(255, 255, 255, 0.12);
-  --border-hover: rgba(255, 255, 255, 0.18);
-  --border-focus: rgba(255, 255, 255, 0.22);
-  --border-strong: rgba(255, 255, 255, 0.28);
+  --border-default: rgb(31, 31, 31);
+  --border-hover: rgb(45, 45, 50);
+  --border-focus: rgb(54, 94, 255);
+  --border-strong: rgb(50, 50, 55);
 
   /* Shadows for depth */
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.02);
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
 
-  /* Text Hierarchy */
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-tertiary: #666666;
-  --text-quaternary: #444444;
-  --text-muted: #333333;
+  /* Text Hierarchy - Warm white for headings */
+  --text-primary: rgb(252, 252, 250);    /* Headings, primary (warm white) */
+  --text-heading: rgb(252, 252, 250);    /* Alias for headings */
+  --text-white: rgb(255, 255, 255);      /* Pure white */
+  --text-secondary: rgb(205, 208, 213);  /* Body text, descriptions (gray-300) */
+  --text-tertiary: rgb(100, 105, 115);   /* Labels, captions */
+  --text-quaternary: rgb(49, 53, 63);    /* Muted text (gray-600) */
+  --text-muted: rgb(32, 35, 45);         /* Very muted (gray-700) */
 
-  /* Accent Colors */
-  --accent-blue: #3b82f6;
-  --accent-blue-hover: #60a5fa;
-  --accent-blue-subtle: rgba(59, 130, 246, 0.10);
-  --accent-blue-glow: rgba(59, 130, 246, 0.15);
-  --accent-purple: #8b5cf6;
-  --accent-purple-subtle: rgba(139, 92, 246, 0.20);
+  /* Accent Colors - SaaSLaunch Primary Blue */
+  --accent-blue: rgb(54, 94, 255);       /* Primary buttons, links */
+  --sl-primary: rgb(54, 94, 255);        /* Alias */
+  --accent-blue-hover: rgb(0, 111, 255); /* Bright blue for emphasis */
+  --accent-blue-secondary: rgb(0, 62, 161); /* Deeper blue for contrast */
+  --accent-blue-subtle: rgba(51, 136, 255, 0.09);
+  --accent-blue-glow: rgba(54, 94, 255, 0.15);
+  --accent-cyan: rgb(80, 248, 228);      /* Cyan for metrics, highlights */
+  --accent-pink: rgb(255, 202, 226);     /* Pink accent (secondary) */
+
+  /* Shader/Gradient Colors - For mesh background */
+  --shader-1: rgb(54, 94, 255);
+  --shader-2: rgb(20, 68, 215);
+  --shader-3: rgb(112, 234, 255);
+  --shader-4: rgb(0, 0, 0);
 
   /* Semantic */
   --success: #22c55e;
@@ -216,40 +233,225 @@
   --warning: #f59e0b;
   --error: #ef4444;
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
-  --gradient-accent: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  --gradient-text: linear-gradient(180deg, #ffffff 0%, #888888 100%);
+  /* Gradients - SaaSLaunch style */
+  --gradient-primary: linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%);
+  --gradient-accent: linear-gradient(135deg, rgb(54, 94, 255), rgb(0, 111, 255));
+  --gradient-text: linear-gradient(180deg, rgb(252, 252, 250) 0%, rgb(150, 150, 150) 100%);
   --gradient-surface: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+  --gradient-mesh: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(54, 94, 255, 0.4) 0%, rgba(20, 68, 215, 0.2) 40%, transparent 70%), radial-gradient(ellipse 60% 40% at 70% 20%, rgba(112, 234, 255, 0.15) 0%, transparent 50%);
 
-  /* Spacing (4px grid) */
+  /* Spacing - SaaSLaunch scale */
   --space-0: 0;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-7: 28px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-14: 56px;
-  --space-16: 64px;
+  --space-1: 5px;     /* gap-xs */
+  --space-2: 10px;    /* gap-sm */
+  --space-3: 16px;    /* gap-md */
+  --space-4: 24px;    /* gap-lg */
+  --space-5: 32px;    /* gap-xl */
+  --space-6: 48px;    /* gap-2xl */
+  --space-7: 56px;    /* gap-3xl */
+  --space-8: 64px;    /* gap-4xl */
 
-  /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-full: 9999px;
+  /* Section Padding */
+  --section-padding: 30px 64px;
+  --section-padding-lg: 100px 64px;
+  --section-padding-xl: 120px 64px;
+  --section-padding-mobile: 30px 24px;
+
+  /* Max Widths */
+  --max-content: 1200px;
+  --max-wide: 1400px;
+  --max-text: 800px;
+  --max-narrow: 700px;
+
+  /* Border Radius - SaaSLaunch scale */
+  --radius-none: 0px;
+  --radius-sm: 8px;     /* Cards, small elements */
+  --radius-md: 12px;    /* Medium elements */
+  --radius-lg: 16px;    /* Large cards, testimonials */
+  --radius-xl: 20px;    /* CTA boxes */
+  --radius-2xl: 32px;   /* Large containers */
+  --radius-full: 999px; /* Pill buttons, tags */
 }
 
-/* Gradient shift animation for v2.0 */
+/* Gradient shift animation */
 @keyframes gradientShift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
+}
+
+/* SaaSLaunch shader pulse animation */
+@keyframes shaderPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+/* ============================================
+   SaaSLaunch Shader Mesh Background
+   ============================================ */
+.sl-shader-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 800px;
+  opacity: 0.8;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sl-shader-background::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% 0%,
+      rgba(54, 94, 255, 0.4) 0%,
+      rgba(20, 68, 215, 0.2) 40%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 70% 20%,
+      rgba(112, 234, 255, 0.15) 0%,
+      transparent 50%
+    );
+  animation: shaderPulse 8s ease-in-out infinite;
+}
+
+/* SaaSLaunch Background Pattern - subtle grid at 2% opacity */
+.sl-bg-pattern {
+  position: fixed;
+  inset: 0;
+  opacity: 0.02;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* SaaSLaunch Gradient Overlay - used at 40% opacity */
+.sl-gradient-overlay {
+  position: absolute;
+  width: 100%;
+  height: 740px;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    rgba(54, 94, 255, 0.15) 0%,
+    transparent 70%
+  );
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* SaaSLaunch Glass Navigation */
+.sl-nav-glass {
+  background: rgba(7, 9, 14, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgb(31, 31, 31);
+}
+
+/* ============================================
+   SaaSLaunch Component Styles
+   ============================================ */
+
+/* Primary Button - Pill shaped with gradient */
+.sl-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%);
+  color: white;
+  font-family: var(--font-display, "Cabinet Grotesk", sans-serif);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sl-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(54, 94, 255, 0.4);
+}
+
+/* Secondary Button */
+.sl-btn-secondary {
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(252, 252, 250);
+  border: 1px solid rgb(31, 31, 31);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sl-btn-secondary:hover {
+  border-color: rgb(54, 94, 255);
+  color: rgb(54, 94, 255);
+}
+
+/* Tag/Badge */
+.sl-tag {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(51, 136, 255, 0.09);
+  color: rgb(54, 94, 255);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Card */
+.sl-card {
+  background: rgb(12, 14, 19);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.sl-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Testimonial Card with gradient border */
+.sl-testimonial-card {
+  background: transparent;
+  border-radius: 16px;
+  padding: 32px;
+  position: relative;
+}
+
+.sl-testimonial-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(54, 94, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(54, 94, 255, 0.1) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Divider */
+.sl-divider {
+  height: 1px;
+  background: rgb(31, 31, 31);
 }
 
 /* ============================================

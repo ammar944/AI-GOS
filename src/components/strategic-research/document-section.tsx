@@ -56,14 +56,23 @@ export function DocumentSection({
       {/* Section Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
-          {/* Section number - monochrome design */}
+          {/* Section number - cyan for active, green for reviewed */}
           <span
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium",
-              isReviewed
-                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : "bg-[var(--text-primary)] text-black"
+              "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
             )}
+            style={
+              isReviewed
+                ? {
+                    background: 'var(--success-subtle)',
+                    color: 'var(--success)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                  }
+                : {
+                    background: 'var(--accent-blue)',
+                    color: 'white',
+                  }
+            }
           >
             {isReviewed ? (
               <CheckCircle2 className="h-4 w-4" />
@@ -74,7 +83,14 @@ export function DocumentSection({
 
           {/* Section title */}
           <div>
-            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+            <h2
+              className="text-xl font-semibold"
+              style={{
+                color: 'var(--text-heading)',
+                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                letterSpacing: '-0.02em',
+              }}
+            >
               {sectionLabel}
             </h2>
             {/* Status indicators - subtle text instead of blue badges */}
@@ -83,13 +99,25 @@ export function DocumentSection({
                 <CitationBadge count={citations.length} />
               )}
               {hasEdits && (
-                <span className="inline-flex items-center gap-1 text-xs text-[var(--text-tertiary)]">
+                <span
+                  className="inline-flex items-center gap-1 text-xs"
+                  style={{
+                    color: 'var(--text-tertiary)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  }}
+                >
                   <Pencil className="h-3 w-3" />
                   Modified
                 </span>
               )}
               {isReviewed && (
-                <span className="inline-flex items-center gap-1 text-xs text-green-400">
+                <span
+                  className="inline-flex items-center gap-1 text-xs"
+                  style={{
+                    color: 'var(--success)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  }}
+                >
                   <CheckCircle2 className="h-3 w-3" />
                   Reviewed
                 </span>
@@ -106,11 +134,15 @@ export function DocumentSection({
             size="sm"
             onClick={onToggleEdit}
             className={cn(
-              "gap-1.5 text-sm",
+              "gap-1.5 text-sm transition-colors duration-200",
               isEditing
-                ? "bg-[var(--text-primary)] text-black hover:bg-[var(--text-secondary)]"
-                : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                ? "shadow-[0_0_15px_rgba(54,94,255,0.2)]"
+                : "text-[var(--text-tertiary)] hover:text-[var(--accent-blue)]"
             )}
+            style={isEditing ? {
+              background: 'var(--gradient-primary)',
+              color: 'white',
+            } : undefined}
           >
             {isEditing ? (
               <>
@@ -131,7 +163,11 @@ export function DocumentSection({
               variant="ghost"
               size="sm"
               onClick={onMarkReviewed}
-              className="gap-1.5 text-sm text-[var(--text-tertiary)] hover:text-green-400"
+              className="gap-1.5 text-sm transition-colors duration-200 hover:text-[var(--success)]"
+              style={{
+                color: 'var(--text-tertiary)',
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+              }}
             >
               <CheckCircle2 className="h-4 w-4" />
               Mark Reviewed

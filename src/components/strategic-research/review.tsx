@@ -295,12 +295,28 @@ export function StrategicResearchReview({
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <Card className="border-primary/20 bg-primary/5">
+      <Card
+        style={{
+          background: 'var(--bg-surface)',
+          borderColor: 'var(--accent-blue)',
+          borderWidth: '1px',
+        }}
+        className="shadow-[0_0_30px_rgba(54,94,255,0.15)]"
+      >
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-2xl font-bold">Review Your Strategic Research</h2>
-              <p className="text-muted-foreground mt-1">
+              <h2
+                className="text-2xl font-bold tracking-tight"
+                style={{
+                  fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-heading)'
+                }}
+              >
+                Review Your Strategic Research
+              </h2>
+              <p className="mt-1" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-sans), Inter, sans-serif' }}>
                 Review each section before continuing. You&apos;ll be able to edit specific details in the next step.
               </p>
             </div>
@@ -309,17 +325,29 @@ export function StrategicResearchReview({
               {/* Generation cost - only show if > 0 */}
               {strategicBlueprint.metadata.totalCost > 0 && (
                 <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Generation Cost</div>
-                  <div className="text-lg font-semibold flex items-center justify-end gap-1">
+                  <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Generation Cost</div>
+                  <div
+                    className="text-lg font-semibold flex items-center justify-end gap-1"
+                    style={{
+                      fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
+                      color: 'var(--text-heading)'
+                    }}
+                  >
                     <DollarSign className="h-4 w-4" />
                     {strategicBlueprint.metadata.totalCost.toFixed(4)}
                   </div>
                 </div>
               )}
               <div className="text-right">
-                <div className="text-sm text-muted-foreground">Progress</div>
-                <div className="text-lg font-semibold">
-                  {reviewedSections.size} of 5 reviewed
+                <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Progress</div>
+                <div
+                  className="text-lg font-semibold"
+                  style={{
+                    fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
+                  }}
+                >
+                  <span style={{ color: 'var(--accent-blue)' }}>{reviewedSections.size}</span>
+                  <span style={{ color: 'var(--text-heading)' }}> of 5 reviewed</span>
                 </div>
               </div>
             </div>
@@ -327,7 +355,19 @@ export function StrategicResearchReview({
 
           {/* Progress bar */}
           <div className="mt-4">
-            <Progress value={reviewProgress} className="h-2" />
+            <div
+              className="relative h-2 w-full overflow-hidden rounded-full"
+              style={{ background: 'var(--border-subtle)' }}
+            >
+              <div
+                className="h-full transition-all duration-300"
+                style={{
+                  width: `${reviewProgress}%`,
+                  background: 'var(--gradient-primary)',
+                  boxShadow: '0 0 10px rgba(54, 94, 255, 0.4)',
+                }}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -358,19 +398,33 @@ export function StrategicResearchReview({
 
       {/* Floating Action Bar - centered on mobile, right-aligned on desktop */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-50 pb-[env(safe-area-inset-bottom)]">
-        <Card className="border shadow-xl bg-background/95 backdrop-blur-sm">
+        <Card
+          className="shadow-xl backdrop-blur-sm"
+          style={{
+            background: 'rgba(12, 14, 19, 0.95)',
+            borderColor: 'var(--border-default)',
+          }}
+        >
           <CardContent className="p-2 sm:p-3">
             <div className="flex items-center gap-3 sm:gap-4">
               {/* Compact progress indicator */}
               <div className="flex items-center gap-2">
                 {allReviewed ? (
-                  <span className="flex items-center gap-1.5 text-green-600">
+                  <span className="flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
                     <CheckCircle2 className="h-4 w-4" />
                     <span className="text-sm font-medium">Done</span>
                   </span>
                 ) : (
-                  <span className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{reviewedSections.size}</span>
+                  <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    <span
+                      className="font-medium"
+                      style={{
+                        color: 'var(--accent-blue)',
+                        fontFamily: 'var(--font-mono), "JetBrains Mono", monospace'
+                      }}
+                    >
+                      {reviewedSections.size}
+                    </span>
                     <span className="mx-0.5">/</span>
                     <span>5</span>
                   </span>
@@ -378,7 +432,7 @@ export function StrategicResearchReview({
               </div>
 
               {/* Divider */}
-              <div className="h-6 w-px bg-border" />
+              <div className="h-6 w-px" style={{ background: 'var(--border-default)' }} />
 
               {/* Undo/Redo buttons - only show when there's history */}
               {(canUndo || canRedo) && (
@@ -389,9 +443,10 @@ export function StrategicResearchReview({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 hover:bg-[var(--bg-hover)]"
                           onClick={handleUndo}
                           disabled={!canUndo}
+                          style={{ color: canUndo ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
                         >
                           <Undo2 className="h-4 w-4" />
                           <span className="sr-only">Undo (Ctrl+Z)</span>
@@ -406,9 +461,10 @@ export function StrategicResearchReview({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 hover:bg-[var(--bg-hover)]"
                           onClick={handleRedo}
                           disabled={!canRedo}
+                          style={{ color: canRedo ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
                         >
                           <Redo2 className="h-4 w-4" />
                           <span className="sr-only">Redo (Ctrl+Shift+Z)</span>
@@ -423,7 +479,7 @@ export function StrategicResearchReview({
               )}
 
               {/* Divider before main actions (only when undo/redo visible) */}
-              {(canUndo || canRedo) && <div className="h-6 w-px bg-border" />}
+              {(canUndo || canRedo) && <div className="h-6 w-px" style={{ background: 'var(--border-default)' }} />}
 
               {/* Action buttons - larger touch targets on mobile */}
               <div className="flex items-center gap-1.5 sm:gap-2">
@@ -434,8 +490,12 @@ export function StrategicResearchReview({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3"
+                          className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3 hover:bg-[var(--bg-hover)]"
                           onClick={handleApproveAll}
+                          style={{
+                            color: 'var(--text-secondary)',
+                            fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif'
+                          }}
                         >
                           <CheckCheck className="h-4 w-4" />
                           <span className="sr-only sm:not-sr-only sm:ml-2">Approve All</span>
@@ -454,8 +514,12 @@ export function StrategicResearchReview({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3"
+                          className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3 hover:bg-[var(--bg-hover)]"
                           onClick={handleUndoApproveAll}
+                          style={{
+                            color: 'var(--text-secondary)',
+                            fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif'
+                          }}
                         >
                           <Undo2 className="h-4 w-4" />
                           <span className="sr-only sm:not-sr-only sm:ml-2">Undo</span>
@@ -470,8 +534,12 @@ export function StrategicResearchReview({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3"
+                  className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3 hover:bg-[var(--bg-hover)]"
                   onClick={onRegenerate}
+                  style={{
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif'
+                  }}
                 >
                   <RotateCcw className="h-4 w-4" />
                   <span className="sr-only sm:not-sr-only sm:ml-2">Regenerate</span>
@@ -480,10 +548,28 @@ export function StrategicResearchReview({
                   size="sm"
                   onClick={handleApprove}
                   disabled={!allReviewed}
-                  className="h-9 sm:h-8 gap-1.5 px-3"
+                  className="h-9 sm:h-8 gap-1.5 rounded-full shadow-[0_0_20px_rgba(54,94,255,0.3)]"
+                  style={{
+                    background: allReviewed
+                      ? 'var(--gradient-primary)'
+                      : 'var(--bg-hover)',
+                    borderColor: 'transparent',
+                    color: allReviewed ? 'white' : 'var(--text-tertiary)',
+                    fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                    fontWeight: 500,
+                    padding: '12px 20px',
+                  }}
                 >
                   <span>{hasPendingEdits ? "Approve" : "Continue"}</span>
-                  <ArrowRight className="h-4 w-4" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
                 </Button>
               </div>
             </div>

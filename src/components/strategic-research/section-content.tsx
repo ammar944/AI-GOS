@@ -91,7 +91,15 @@ function parsePricingTierStrings(strings: string[]): PricingTier[] {
 function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3 mb-6">
-      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide border-l-4 border-primary/40 pl-3">
+      <h3
+        className="font-semibold text-sm uppercase tracking-wide border-l-4 pl-3"
+        style={{
+          color: 'var(--text-tertiary)',
+          borderColor: 'var(--accent-blue)',
+          fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+          letterSpacing: '0.05em',
+        }}
+      >
         {title}
       </h3>
       {children}
@@ -102,7 +110,7 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
 function ListItem({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2">
-      <Check className="h-4 w-4 mt-0.5 text-green-600 shrink-0" />
+      <Check className="h-4 w-4 mt-0.5 shrink-0" style={{ color: 'var(--accent-blue)' }} />
       <span>{children}</span>
     </li>
   );
@@ -112,28 +120,54 @@ function BoolCheck({ value, label }: { value: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2">
       {value ? (
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success)' }} />
       ) : (
         <XCircle className="h-4 w-4 text-red-500" />
       )}
-      <span className={value ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+      <span
+        className={value ? "" : "text-muted-foreground"}
+        style={value ? { color: 'var(--text-heading)' } : {}}
+      >
+        {label}
+      </span>
     </div>
   );
 }
 
 function ScoreDisplay({ label, score, max = 10 }: { label: string; score: number; max?: number }) {
   const percentage = (score / max) * 100;
-  const colorClass =
-    percentage >= 70 ? "bg-green-500" : percentage >= 50 ? "bg-yellow-500" : "bg-red-500";
+  const getBarColor = () => {
+    if (percentage >= 70) return 'var(--gradient-primary)';
+    if (percentage >= 50) return 'linear-gradient(90deg, #f59e0b, #fbbf24)'; // yellow gradient
+    return 'linear-gradient(90deg, #ef4444, #f87171)'; // red gradient
+  };
 
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-sm">
-        <span>{label}</span>
-        <span className="font-medium">{score}/{max}</span>
+        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+        <span
+          className="font-medium"
+          style={{
+            fontFamily: 'var(--font-mono), monospace',
+            color: percentage >= 70 ? 'var(--accent-blue)' : 'var(--text-heading)'
+          }}
+        >
+          {score}/{max}
+        </span>
       </div>
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full", colorClass)} style={{ width: `${percentage}%` }} />
+      <div
+        className="h-2 rounded-full overflow-hidden"
+        style={{ backgroundColor: 'var(--bg-elevated)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{
+            width: `${percentage}%`,
+            background: getBarColor(),
+            boxShadow: percentage >= 70 ? '0 0 8px rgba(54, 94, 255, 0.3)' : 'none'
+          }}
+        />
       </div>
     </div>
   );
@@ -187,9 +221,12 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       {/* Category Snapshot */}
       <SubSection title="Category Snapshot">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground uppercase">Category</p>
-            <p className="font-medium">
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Category</p>
+            <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
               {isEditing && onFieldChange ? (
                 <EditableText
                   value={safeRender(data?.categorySnapshot?.category)}
@@ -200,31 +237,46 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
               )}
             </p>
           </div>
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground uppercase">Market Maturity</p>
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Market Maturity</p>
             <Badge variant="outline" className="mt-1 capitalize">
               {safeRender(data?.categorySnapshot?.marketMaturity)}
             </Badge>
           </div>
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground uppercase">Awareness Level</p>
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Awareness Level</p>
             <Badge variant="outline" className="mt-1 capitalize">
               {safeRender(data?.categorySnapshot?.awarenessLevel)}
             </Badge>
           </div>
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground uppercase">Buying Behavior</p>
-            <p className="font-medium capitalize">{safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}</p>
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Buying Behavior</p>
+            <p className="font-medium capitalize" style={{ color: 'var(--text-heading)' }}>{safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}</p>
           </div>
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground uppercase">Sales Cycle</p>
-            <p className="font-medium">
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Sales Cycle</p>
+            <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
               <SourcedText>{safeRender(data?.categorySnapshot?.averageSalesCycle)}</SourcedText>
             </p>
           </div>
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground uppercase">Seasonality</p>
-            <p className="font-medium">
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Seasonality</p>
+            <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
               <SourcedText>{safeRender(data?.categorySnapshot?.seasonality)}</SourcedText>
             </p>
           </div>
@@ -235,15 +287,15 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       <SubSection title="Market Dynamics">
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-600" />
+            <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+              <TrendingUp className="h-4 w-4" style={{ color: 'var(--success)' }} />
               Demand Drivers
             </h4>
             {isEditing && onFieldChange ? (
               <EditableList
                 items={safeArray(data?.marketDynamics?.demandDrivers)}
                 onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
               />
             ) : (
               <ul className="space-y-1">
@@ -254,15 +306,15 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             )}
           </div>
           <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2">
-              <Target className="h-4 w-4 text-blue-600" />
+            <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+              <Target className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
               Buying Triggers
             </h4>
             {isEditing && onFieldChange ? (
               <EditableList
                 items={safeArray(data?.marketDynamics?.buyingTriggers)}
                 onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
               />
             ) : (
               <ul className="space-y-1">
@@ -274,7 +326,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
           </div>
         </div>
         <div className="mt-4">
-          <h4 className="font-medium mb-2 flex items-center gap-2">
+          <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
             <Shield className="h-4 w-4 text-orange-600" />
             Barriers to Purchase
           </h4>
@@ -301,12 +353,12 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       <SubSection title="Pain Points">
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium mb-2 text-red-600">Primary Pain Points</h4>
+            <h4 className="font-medium mb-2 text-red-500">Primary Pain Points</h4>
             {isEditing && onFieldChange ? (
               <EditableList
                 items={safeArray(data?.painPoints?.primary)}
                 onSave={(v) => onFieldChange("painPoints.primary", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
               />
             ) : (
               <ul className="space-y-1">
@@ -317,12 +369,12 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             )}
           </div>
           <div>
-            <h4 className="font-medium mb-2 text-orange-600">Secondary Pain Points</h4>
+            <h4 className="font-medium mb-2 text-orange-500">Secondary Pain Points</h4>
             {isEditing && onFieldChange ? (
               <EditableList
                 items={safeArray(data?.painPoints?.secondary)}
                 onSave={(v) => onFieldChange("painPoints.secondary", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
               />
             ) : (
               <ul className="space-y-1">
@@ -339,12 +391,19 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       <SubSection title="Psychological Drivers">
         <div className="grid md:grid-cols-2 gap-4">
           {(data?.psychologicalDrivers?.drivers || []).map((driver, i) => (
-            <div key={i} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
-              <p className="font-medium flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" />
+            <div
+              key={i}
+              className="p-3 rounded-lg border-l-4"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderLeftColor: 'var(--accent-blue)'
+              }}
+            >
+              <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                <Brain className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
                 {safeRender(driver?.driver)}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">{safeRender(driver?.description)}</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{safeRender(driver?.description)}</p>
             </div>
           ))}
         </div>
@@ -354,13 +413,17 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       <SubSection title="Audience Objections">
         <div className="space-y-3">
           {(data?.audienceObjections?.objections || []).map((obj, i) => (
-            <div key={i} className="p-4 bg-muted/30 rounded-lg">
-              <p className="font-medium flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-orange-600" />
+            <div
+              key={i}
+              className="p-4 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+            >
+              <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                <MessageSquare className="h-4 w-4 text-orange-500" />
                 &quot;{safeRender(obj?.objection)}&quot;
               </p>
-              <p className="text-sm text-muted-foreground mt-2 ml-6">
-                <strong>Response:</strong> {safeRender(obj?.howToAddress)}
+              <p className="text-sm mt-2 ml-6" style={{ color: 'var(--text-secondary)' }}>
+                <strong style={{ color: 'var(--text-heading)' }}>Response:</strong> {safeRender(obj?.howToAddress)}
               </p>
             </div>
           ))}
@@ -381,13 +444,20 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             </div>
           ))}
         </div>
-        <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-          <h4 className="font-medium mb-2">Key Recommendations</h4>
+        <div
+          className="p-4 rounded-lg"
+          style={{
+            backgroundColor: 'rgba(54, 94, 255, 0.05)',
+            borderWidth: '1px',
+            borderColor: 'rgba(54, 94, 255, 0.2)'
+          }}
+        >
+          <h4 className="font-medium mb-2" style={{ color: 'var(--text-heading)' }}>Key Recommendations</h4>
           {isEditing && onFieldChange ? (
             <EditableList
               items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
               onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
-              renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+              renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
             />
           ) : (
             <ul className="space-y-1">
@@ -450,11 +520,14 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
 
       {/* Pain-Solution Fit */}
       <SubSection title="Pain-Solution Fit">
-        <div className="p-4 bg-muted/30 rounded-lg">
+        <div
+          className="p-4 rounded-lg"
+          style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+        >
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">Primary Pain</p>
-              <p className="font-medium">
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Primary Pain</p>
+              <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
                 {isEditing && onFieldChange ? (
                   <EditableText
                     value={safeRender(data?.painSolutionFit?.primaryPain)}
@@ -466,8 +539,8 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Offer Component Solving It</p>
-              <p className="font-medium">
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Offer Component Solving It</p>
+              <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
                 {isEditing && onFieldChange ? (
                   <EditableText
                     value={safeRender(data?.painSolutionFit?.offerComponentSolvingIt)}
@@ -545,7 +618,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
             <EditableList
               items={safeArray(data?.finalVerdict?.recommendations)}
               onSave={(v) => onFieldChange("finalVerdict.recommendations", v)}
-              renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+              renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
             />
           ) : (
             <ul className="space-y-1">
@@ -613,9 +686,23 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
           <ScoreDisplay label="Proof" score={data?.offerStrength?.proof || 0} />
           <ScoreDisplay label="Pricing Logic" score={data?.offerStrength?.pricingLogic || 0} />
         </div>
-        <div className="mt-4 p-4 bg-primary/10 rounded-lg text-center">
-          <p className="text-sm text-muted-foreground">Overall Score</p>
-          <p className="text-3xl font-bold text-primary">
+        <div
+          className="mt-4 p-4 rounded-lg text-center"
+          style={{
+            background: 'rgba(54, 94, 255, 0.1)',
+            borderWidth: '1px',
+            borderColor: 'rgba(54, 94, 255, 0.3)'
+          }}
+        >
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Overall Score</p>
+          <p
+            className="text-3xl font-bold"
+            style={{
+              color: 'var(--accent-blue)',
+              fontFamily: 'var(--font-mono), monospace',
+              textShadow: '0 0 20px rgba(54, 94, 255, 0.3)'
+            }}
+          >
             {(data?.offerStrength?.overallScore || 0).toFixed(1)}/10
           </p>
         </div>
@@ -651,7 +738,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
           <EditableList
             items={safeArray(data?.recommendation?.actionItems)}
             onSave={(v) => onFieldChange("recommendation.actionItems", v)}
-            renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+            renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
           />
         ) : (
           <ul className="space-y-1">
@@ -680,7 +767,11 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
       <SubSection title="Competitor Snapshots">
         <div className="space-y-4">
           {(data?.competitors || []).map((comp, i) => (
-            <div key={i} className="p-4 bg-muted/30 rounded-lg border">
+            <div
+              key={i}
+              className="p-4 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+            >
               <h4 className="font-semibold text-lg flex items-center gap-2">
                 {isEditing && onFieldChange ? (
                   <EditableText
@@ -713,7 +804,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               </div>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Offer</p>
+                  <p style={{ color: 'var(--text-tertiary)' }}>Offer</p>
                   {isEditing && onFieldChange ? (
                     <EditableText
                       value={safeRender(comp?.offer)}
@@ -724,18 +815,25 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   )}
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Price</p>
+                  <p style={{ color: 'var(--text-tertiary)' }}>Price</p>
                   {isEditing && onFieldChange ? (
                     <EditableText
                       value={safeRender(comp?.price)}
                       onSave={(v) => onFieldChange(`competitors.${i}.price`, v)}
                     />
                   ) : (
-                    <p><SourcedText>{safeRender(comp?.price)}</SourcedText></p>
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-mono), monospace',
+                        color: 'var(--text-heading)'
+                      }}
+                    >
+                      <SourcedText>{safeRender(comp?.price)}</SourcedText>
+                    </p>
                   )}
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Platforms</p>
+                  <p style={{ color: 'var(--text-tertiary)' }}>Platforms</p>
                   <div className="flex gap-1 flex-wrap">
                     {safeArray(comp?.adPlatforms).map((p, j) => (
                       <Badge key={j} variant="outline" className="text-xs">{p}</Badge>
@@ -743,41 +841,41 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   </div>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Funnels</p>
-                  <p>{safeRender(comp?.funnels)}</p>
+                  <p style={{ color: 'var(--text-tertiary)' }}>Funnels</p>
+                  <p style={{ color: 'var(--text-secondary)' }}>{safeRender(comp?.funnels)}</p>
                 </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4 mt-3">
                 <div>
-                  <p className="text-sm font-medium text-green-600">Strengths</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>Strengths</p>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={safeArray(comp?.strengths)}
                       onSave={(v) => onFieldChange(`competitors.${i}.strengths`, v)}
-                      renderPrefix={() => <span className="text-green-600">+</span>}
+                      renderPrefix={() => <span style={{ color: 'var(--success)' }}>+</span>}
                       className="text-sm"
                     />
                   ) : (
                     <ul className="text-sm space-y-1">
                       {safeArray(comp?.strengths).map((s, j) => (
-                        <li key={j}>+ <SourcedListItem>{s}</SourcedListItem></li>
+                        <li key={j} style={{ color: 'var(--text-secondary)' }}>+ <SourcedListItem>{s}</SourcedListItem></li>
                       ))}
                     </ul>
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-red-600">Weaknesses</p>
+                  <p className="text-sm font-medium text-red-500">Weaknesses</p>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={safeArray(comp?.weaknesses)}
                       onSave={(v) => onFieldChange(`competitors.${i}.weaknesses`, v)}
-                      renderPrefix={() => <span className="text-red-600">-</span>}
+                      renderPrefix={() => <span className="text-red-500">-</span>}
                       className="text-sm"
                     />
                   ) : (
                     <ul className="text-sm space-y-1">
                       {safeArray(comp?.weaknesses).map((w, j) => (
-                        <li key={j}>- <SourcedListItem>{w}</SourcedListItem></li>
+                        <li key={j} style={{ color: 'var(--text-secondary)' }}>- <SourcedListItem>{w}</SourcedListItem></li>
                       ))}
                     </ul>
                   )}
@@ -787,21 +885,30 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               {/* Pricing Tiers - only render if available */}
               {comp?.pricingTiers && comp.pricingTiers.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-600" />
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                    <DollarSign className="h-4 w-4" style={{ color: 'var(--success)' }} />
                     Pricing Tiers
                   </p>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={comp.pricingTiers.map(formatPricingTier)}
                       onSave={(v) => onFieldChange(`competitors.${i}.pricingTiers`, parsePricingTierStrings(v))}
-                      renderPrefix={() => <DollarSign className="h-3 w-3 text-green-600" />}
+                      renderPrefix={() => <DollarSign className="h-3 w-3" style={{ color: 'var(--success)' }} />}
                       className="text-sm"
                     />
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {comp.pricingTiers.map((tier, j) => (
-                        <Badge key={j} variant="outline" className="text-xs bg-green-500/10 border-green-500/30">
+                        <Badge
+                          key={j}
+                          variant="outline"
+                          className="text-xs"
+                          style={{
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            borderColor: 'rgba(34, 197, 94, 0.3)',
+                            fontFamily: 'var(--font-mono), monospace'
+                          }}
+                        >
                           {tier.tier}: {tier.price}
                         </Badge>
                       ))}
@@ -812,9 +919,16 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
 
               {/* Main Offer - only render if available */}
               {comp?.mainOffer && (
-                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
+                <div
+                  className="mt-4 p-3 rounded-lg"
+                  style={{
+                    backgroundColor: 'rgba(54, 94, 255, 0.05)',
+                    borderWidth: '1px',
+                    borderColor: 'rgba(54, 94, 255, 0.2)'
+                  }}
+                >
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                    <Sparkles className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
                     Main Offer
                   </p>
                   <div className="space-y-2 text-sm">
@@ -850,21 +964,29 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               {/* Ad Messaging Themes - only render if available */}
               {comp?.adMessagingThemes && comp.adMessagingThemes.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-blue-600" />
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                    <Tag className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
                     Ad Themes
                   </p>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={comp.adMessagingThemes}
                       onSave={(v) => onFieldChange(`competitors.${i}.adMessagingThemes`, v)}
-                      renderPrefix={() => <Tag className="h-3 w-3 text-blue-600" />}
+                      renderPrefix={() => <Tag className="h-3 w-3" style={{ color: 'var(--accent-blue)' }} />}
                       className="text-sm"
                     />
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {comp.adMessagingThemes.map((theme, j) => (
-                        <Badge key={j} variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 capitalize">
+                        <Badge
+                          key={j}
+                          variant="outline"
+                          className="text-xs capitalize"
+                          style={{
+                            backgroundColor: 'rgba(54, 94, 255, 0.1)',
+                            borderColor: 'rgba(54, 94, 255, 0.3)'
+                          }}
+                        >
                           {theme}
                         </Badge>
                       ))}
@@ -876,8 +998,8 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               {/* Ad Creatives Carousel */}
               {comp?.adCreatives && comp.adCreatives.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Image className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                    <Image className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
                     Ad Creatives ({comp.adCreatives.length})
                   </p>
                   <AdCreativeCarousel ads={comp.adCreatives} />
@@ -983,23 +1105,23 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
       <SubSection title="Market Strengths & Weaknesses">
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium mb-2 text-green-400">Market Strengths</h4>
+            <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Market Strengths</h4>
             <ul className="space-y-1">
               {safeArray(data?.marketStrengths).map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500 shrink-0" />
-                  <span><SourcedListItem>{item}</SourcedListItem></span>
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" style={{ color: 'var(--success)' }} />
+                  <span style={{ color: 'var(--text-secondary)' }}><SourcedListItem>{item}</SourcedListItem></span>
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <h4 className="font-medium mb-2 text-red-400">Market Weaknesses</h4>
+            <h4 className="font-medium mb-2 text-red-500">Market Weaknesses</h4>
             <ul className="space-y-1">
               {safeArray(data?.marketWeaknesses).map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <XCircle className="h-4 w-4 mt-0.5 text-red-500 shrink-0" />
-                  <span><SourcedListItem>{item}</SourcedListItem></span>
+                  <span style={{ color: 'var(--text-secondary)' }}><SourcedListItem>{item}</SourcedListItem></span>
                 </li>
               ))}
             </ul>
@@ -1010,13 +1132,20 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
       {/* Gaps & Opportunities */}
       <SubSection title="Gaps & Opportunities">
         <div className="grid md:grid-cols-3 gap-4">
-          <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/30">
-            <h4 className="font-medium text-green-400 mb-2">Messaging Opportunities</h4>
+          <div
+            className="p-4 rounded-lg"
+            style={{
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              borderWidth: '1px',
+              borderColor: 'rgba(34, 197, 94, 0.3)'
+            }}
+          >
+            <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Messaging Opportunities</h4>
             {isEditing && onFieldChange ? (
               <EditableList
                 items={safeArray(data?.gapsAndOpportunities?.messagingOpportunities)}
                 onSave={(v) => onFieldChange("gapsAndOpportunities.messagingOpportunities", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
                 className="text-sm"
               />
             ) : (
@@ -1027,13 +1156,20 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               </ul>
             )}
           </div>
-          <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
-            <h4 className="font-medium text-blue-400 mb-2">Creative Opportunities</h4>
+          <div
+            className="p-4 rounded-lg"
+            style={{
+              backgroundColor: 'rgba(54, 94, 255, 0.1)',
+              borderWidth: '1px',
+              borderColor: 'rgba(54, 94, 255, 0.3)'
+            }}
+          >
+            <h4 className="font-medium mb-2" style={{ color: 'var(--accent-blue)' }}>Creative Opportunities</h4>
             {isEditing && onFieldChange ? (
               <EditableList
                 items={safeArray(data?.gapsAndOpportunities?.creativeOpportunities)}
                 onSave={(v) => onFieldChange("gapsAndOpportunities.creativeOpportunities", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
                 className="text-sm"
               />
             ) : (
@@ -1050,7 +1186,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               <EditableList
                 items={safeArray(data?.gapsAndOpportunities?.funnelOpportunities)}
                 onSave={(v) => onFieldChange("gapsAndOpportunities.funnelOpportunities", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
                 className="text-sm"
               />
             ) : (
@@ -1082,12 +1218,19 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
       <SubSection title="Key Strategic Insights">
         <div className="space-y-3">
           {(data?.keyInsights || []).map((insight, i) => (
-            <div key={i} className="p-4 bg-muted/30 rounded-lg border-l-4 border-primary">
+            <div
+              key={i}
+              className="p-4 rounded-lg border-l-4"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderLeftColor: 'var(--accent-blue)'
+              }}
+            >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium">{safeRender(insight?.insight)}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    <strong>Implication:</strong> {safeRender(insight?.implication)}
+                  <p className="font-medium" style={{ color: 'var(--text-heading)' }}>{safeRender(insight?.insight)}</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-heading)' }}>Implication:</strong> {safeRender(insight?.implication)}
                   </p>
                 </div>
                 <Badge variant={insight?.priority === "high" ? "default" : "secondary"} className="shrink-0">
@@ -1101,7 +1244,14 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
 
       {/* Recommended Positioning */}
       <SubSection title="Recommended Positioning">
-        <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+        <div
+          className="p-4 rounded-lg"
+          style={{
+            backgroundColor: 'rgba(54, 94, 255, 0.05)',
+            borderWidth: '1px',
+            borderColor: 'rgba(54, 94, 255, 0.2)'
+          }}
+        >
           {isEditing && onFieldChange ? (
             <EditableText
               value={safeRender(data?.recommendedPositioning)}
@@ -1110,7 +1260,7 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
               className="text-lg"
             />
           ) : (
-            <p className="text-lg">{safeRender(data?.recommendedPositioning)}</p>
+            <p className="text-lg" style={{ color: 'var(--text-heading)' }}>{safeRender(data?.recommendedPositioning)}</p>
           )}
         </div>
       </SubSection>
@@ -1135,17 +1285,26 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
       <SubSection title="Recommended Platforms">
         <div className="grid md:grid-cols-3 gap-4">
           {(data?.recommendedPlatforms || []).map((plat, i) => (
-            <div key={i} className={cn(
-              "p-4 rounded-lg border",
-              plat?.priority === "primary" ? "bg-primary/10 border-primary" : "bg-muted/30"
-            )}>
+            <div
+              key={i}
+              className={cn("p-4 rounded-lg")}
+              style={plat?.priority === "primary" ? {
+                backgroundColor: 'rgba(54, 94, 255, 0.1)',
+                borderWidth: '1px',
+                borderColor: 'var(--accent-blue)'
+              } : {
+                backgroundColor: 'var(--bg-surface)',
+                borderWidth: '1px',
+                borderColor: 'var(--border-default)'
+              }}
+            >
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold">{safeRender(plat?.platform)}</h4>
+                <h4 className="font-semibold" style={{ color: 'var(--text-heading)' }}>{safeRender(plat?.platform)}</h4>
                 <Badge variant={plat?.priority === "primary" ? "default" : "secondary"}>
                   {safeRender(plat?.priority)}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{safeRender(plat?.reasoning)}</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{safeRender(plat?.reasoning)}</p>
             </div>
           ))}
         </div>
@@ -1157,7 +1316,7 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
           <EditableList
             items={safeArray(data?.criticalSuccessFactors)}
             onSave={(v) => onFieldChange("criticalSuccessFactors", v)}
-            renderPrefix={() => <Check className="h-4 w-4 text-green-600" />}
+            renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
           />
         ) : (
           <ul className="space-y-1">

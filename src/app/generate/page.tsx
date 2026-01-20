@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
 import { Pipeline, GenerationStats } from "@/components/pipeline";
+import { SaaSLaunchBackground, ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
@@ -452,7 +453,7 @@ export default function GeneratePage() {
           <Card
             className="border-2"
             style={{
-              background: 'var(--bg-elevated)',
+              background: 'var(--bg-surface)',
               borderColor: 'var(--accent-blue)',
             }}
           >
@@ -460,36 +461,49 @@ export default function GeneratePage() {
               <div className="flex flex-col items-center gap-6 text-center">
                 <div
                   className="flex h-16 w-16 items-center justify-center rounded-full"
-                  style={{ background: 'var(--accent-blue-subtle)' }}
+                  style={{ background: 'rgba(54, 94, 255, 0.15)' }}
                 >
                   <AlertCircle className="h-8 w-8" style={{ color: 'var(--accent-blue)' }} />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <h2
+                    className="text-2xl font-bold"
+                    style={{
+                      color: 'var(--text-heading)',
+                      fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                    }}
+                  >
                     Resume Previous Session?
                   </h2>
-                  <p style={{ color: 'var(--text-secondary)' }}>
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    }}
+                  >
                     We found saved progress from a previous session. Would you like to continue where you left off?
                   </p>
                 </div>
                 <div className="flex gap-3 w-full">
                   <MagneticButton
-                    className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
+                    className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                     onClick={handleStartFresh}
                     style={{
                       border: '1px solid var(--border-default)',
                       color: 'var(--text-secondary)',
                       background: 'transparent',
+                      fontFamily: 'var(--font-sans), Inter, sans-serif',
                     }}
                   >
                     Start Fresh
                   </MagneticButton>
                   <MagneticButton
-                    className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
+                    className="flex-1 h-10 px-4 py-2 rounded-full text-sm font-medium"
                     onClick={handleResume}
                     style={{
                       background: 'var(--gradient-primary)',
                       color: 'white',
+                      fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
                     }}
                   >
                     Resume
@@ -506,9 +520,13 @@ export default function GeneratePage() {
   // Onboarding State
   if (pageState === "onboarding") {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 md:py-12">
-          {/* Header */}
+      <div className="min-h-screen relative" style={{ background: 'rgb(7, 9, 14)' }}>
+        {/* SaaSLaunch Shader Mesh Background */}
+        <ShaderMeshBackground variant="hero" />
+        <BackgroundPattern opacity={0.02} />
+
+        <div className="container mx-auto px-4 py-8 md:py-12 relative z-10">
+          {/* Header - SaaSLaunch Typography */}
           <motion.div
             className="mx-auto max-w-4xl mb-8 text-center"
             initial={{ opacity: 0, y: -20 }}
@@ -517,13 +535,22 @@ export default function GeneratePage() {
           >
             <motion.h1
               className="text-3xl font-bold tracking-tight md:text-4xl"
-              style={{ color: 'var(--text-primary)' }}
+              style={{
+                color: 'rgb(252, 252, 250)',
+                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                letterSpacing: '-0.02em',
+              }}
             >
               Your Strategy Starts With Research
             </motion.h1>
             <motion.p
-              className="mt-2"
-              style={{ color: 'var(--text-secondary)', fontSize: '15px' }}
+              className="mt-4 max-w-[600px] mx-auto"
+              style={{
+                color: 'rgb(205, 208, 213)',
+                fontSize: '16px',
+                lineHeight: '1.6em',
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -531,7 +558,7 @@ export default function GeneratePage() {
               Complete the onboarding to uncover market demand, competitive gaps, and a proven ICP and offer direction.
             </motion.p>
 
-            {/* Stage Indicator */}
+            {/* Stage Indicator - SaaSLaunch Style */}
             <motion.div
               className="flex items-center justify-center gap-4 mt-6"
               initial={{ opacity: 0, y: 10 }}
@@ -542,47 +569,47 @@ export default function GeneratePage() {
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    color: 'var(--text-primary)'
+                    background: 'rgba(54, 94, 255, 0.15)',
+                    border: '1px solid rgb(54, 94, 255)',
+                    color: 'rgb(54, 94, 255)'
                   }}
                 >
                   1
                 </div>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span className="text-sm font-medium" style={{ color: 'rgb(252, 252, 250)' }}>
                   Onboarding
                 </span>
               </div>
-              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+              <ArrowRight className="h-4 w-4" style={{ color: 'rgb(49, 53, 63)' }} />
               <div className="flex items-center gap-2 opacity-50">
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
                   style={{
-                    background: 'var(--bg-hover)',
-                    color: 'var(--text-tertiary)',
-                    border: '1px solid var(--border-default)',
+                    background: 'rgb(20, 23, 30)',
+                    color: 'rgb(100, 105, 115)',
+                    border: '1px solid rgb(31, 31, 31)',
                   }}
                 >
                   2
                 </div>
-                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="text-sm" style={{ color: 'rgb(100, 105, 115)' }}>
                   Strategic Blueprint
                 </span>
               </div>
             </motion.div>
 
-            {/* Auto-fill Button */}
+            {/* Auto-fill Button - SaaSLaunch Secondary Style */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
               <MagneticButton
-                className="mt-4 h-9 px-3 rounded-md text-sm font-medium flex items-center"
+                className="mt-4 h-10 px-5 rounded-full text-sm font-medium flex items-center transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
                 onClick={handleAutoFill}
                 style={{
-                  border: '1px solid var(--border-default)',
-                  color: 'var(--text-secondary)',
+                  border: '1px solid rgb(31, 31, 31)',
+                  color: 'rgb(252, 252, 250)',
                   background: 'transparent',
                 }}
               >
@@ -614,8 +641,12 @@ export default function GeneratePage() {
     const estimatedCost = streamingCost > 0 ? streamingCost : (elapsedTime / 1000) * 0.001;
 
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="min-h-screen flex items-center justify-center relative" style={{ background: 'var(--bg-base)' }}>
+        {/* SaaSLaunch Shader Mesh Background */}
+        <ShaderMeshBackground variant="page" />
+        <BackgroundPattern opacity={0.02} />
+
+        <div className="container mx-auto px-4 py-8 max-w-2xl relative z-10">
           <motion.div
             variants={fadeUp}
             initial="initial"
@@ -631,10 +662,22 @@ export default function GeneratePage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: durations.normal }}
                 >
-                  <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <h2
+                    className="text-xl font-semibold"
+                    style={{
+                      color: 'var(--text-heading)',
+                      fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                    }}
+                  >
                     Generating Blueprint
                   </h2>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  <p
+                    className="text-sm mt-1"
+                    style={{
+                      color: 'var(--text-tertiary)',
+                      fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    }}
+                  >
                     {blueprintProgress?.progressMessage || "Starting..."}
                   </p>
                 </motion.div>
@@ -704,7 +747,7 @@ export default function GeneratePage() {
               <div className="flex items-center gap-2">
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                  style={{ background: 'var(--success)', color: 'white' }}
+                  style={{ background: 'rgb(34, 197, 94)', color: 'white' }}
                 >
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
@@ -715,14 +758,20 @@ export default function GeneratePage() {
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    color: 'var(--text-primary)'
+                    background: 'rgba(54, 94, 255, 0.15)',
+                    border: '1px solid var(--accent-blue)',
+                    color: 'var(--accent-blue)'
                   }}
                 >
                   2
                 </div>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span
+                  className="text-sm font-medium"
+                  style={{
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  }}
+                >
                   Review Research
                 </span>
               </div>
@@ -783,24 +832,36 @@ export default function GeneratePage() {
                     <div className="relative">
                       <div
                         className="flex h-12 w-12 items-center justify-center rounded-full"
-                        style={{ background: 'var(--success-subtle)' }}
+                        style={{ background: 'rgba(34, 197, 94, 0.15)' }}
                       >
-                        <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--success)' }} />
+                        <CheckCircle2 className="h-6 w-6" style={{ color: 'rgb(34, 197, 94)' }} />
                       </div>
                       {/* Subtle pulse ring */}
                       <motion.div
                         className="absolute inset-0 rounded-full"
-                        style={{ border: '2px solid var(--success)' }}
+                        style={{ border: '2px solid rgb(34, 197, 94)' }}
                         initial={{ opacity: 0.5, scale: 1 }}
                         animate={{ opacity: 0, scale: 1.5 }}
                         transition={{ duration: 1.5, repeat: 2 }}
                       />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      <h2
+                        className="text-xl font-semibold"
+                        style={{
+                          color: 'var(--text-heading)',
+                          fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                        }}
+                      >
                         Blueprint Complete
                       </h2>
-                      <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      <p
+                        className="text-sm"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
+                        }}
+                      >
                         5-section strategic analysis ready
                       </p>
                     </div>
@@ -809,25 +870,27 @@ export default function GeneratePage() {
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-3">
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleBackToReview}
                       style={{
                         border: '1px solid var(--border-default)',
                         color: 'var(--text-secondary)',
                         background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
                       }}
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Back to Review
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleShare}
                       disabled={isSharing || !!shareUrl}
                       style={{
                         border: '1px solid var(--border-default)',
                         color: 'var(--text-secondary)',
                         background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
                       }}
                     >
                       {isSharing ? (
@@ -840,23 +903,25 @@ export default function GeneratePage() {
                       {isSharing ? 'Sharing...' : shareUrl ? 'Shared' : 'Share'}
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleRegenerateBlueprint}
                       style={{
                         border: '1px solid var(--border-default)',
                         color: 'var(--text-secondary)',
                         background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
                       }}
                     >
                       <RotateCcw className="h-4 w-4" />
                       Regenerate
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2"
+                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
                       onClick={handleStartOver}
                       style={{
                         background: 'var(--gradient-primary)',
                         color: 'white',
+                        fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
                       }}
                     >
                       New Blueprint
@@ -877,7 +942,10 @@ export default function GeneratePage() {
                       <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                       <span
                         className="text-sm font-mono"
-                        style={{ color: 'var(--text-secondary)' }}
+                        style={{
+                          color: 'var(--text-secondary)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
                       >
                         {Math.round(blueprintMeta.totalTime / 1000)}s
                       </span>
@@ -886,7 +954,10 @@ export default function GeneratePage() {
                       <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                       <span
                         className="text-sm font-mono"
-                        style={{ color: 'var(--text-secondary)' }}
+                        style={{
+                          color: 'var(--text-secondary)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
                       >
                         ${blueprintMeta.totalCost.toFixed(4)}
                       </span>
@@ -895,7 +966,10 @@ export default function GeneratePage() {
                       <FileSearch className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                       <span
                         className="text-sm"
-                        style={{ color: 'var(--text-secondary)' }}
+                        style={{
+                          color: 'var(--text-secondary)',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
+                        }}
                       >
                         5 sections analyzed
                       </span>
@@ -909,7 +983,7 @@ export default function GeneratePage() {
                     <motion.div
                       className="mt-6 p-4 rounded-lg"
                       style={{
-                        background: 'var(--bg-surface)',
+                        background: 'var(--bg-elevated)',
                         border: '1px solid var(--border-default)',
                       }}
                       initial={{ opacity: 0, height: 0 }}
@@ -918,7 +992,13 @@ export default function GeneratePage() {
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <Link2 className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
-                        <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>
+                        <span
+                          className="font-medium text-sm"
+                          style={{
+                            color: 'var(--text-primary)',
+                            fontFamily: 'var(--font-sans), Inter, sans-serif',
+                          }}
+                        >
                           Shareable Link
                         </span>
                       </div>
@@ -929,9 +1009,10 @@ export default function GeneratePage() {
                           value={shareUrl}
                           className="flex-1 px-3 py-2 text-sm rounded-md font-mono"
                           style={{
-                            background: 'var(--bg-elevated)',
+                            background: 'var(--bg-surface)',
                             border: '1px solid var(--border-default)',
                             color: 'var(--text-primary)',
+                            fontFamily: 'var(--font-mono)',
                           }}
                         />
                         <MagneticButton
@@ -940,6 +1021,7 @@ export default function GeneratePage() {
                           style={{
                             background: 'var(--gradient-primary)',
                             color: 'white',
+                            fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
                           }}
                         >
                           {shareCopied ? (
@@ -952,7 +1034,13 @@ export default function GeneratePage() {
                           )}
                         </MagneticButton>
                       </div>
-                      <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
+                      <p
+                        className="text-xs mt-2"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
+                        }}
+                      >
                         Anyone with this link can view this blueprint
                       </p>
                     </motion.div>
@@ -965,14 +1053,22 @@ export default function GeneratePage() {
                     <motion.div
                       className="mt-4 p-3 rounded-lg"
                       style={{
-                        background: 'var(--error-subtle)',
-                        border: '1px solid var(--error)',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgb(239, 68, 68)',
                       }}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     >
-                      <p className="text-sm" style={{ color: 'var(--error)' }}>{shareError}</p>
+                      <p
+                        className="text-sm"
+                        style={{
+                          color: 'rgb(239, 68, 68)',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
+                        }}
+                      >
+                        {shareError}
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>

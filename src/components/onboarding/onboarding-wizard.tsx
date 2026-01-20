@@ -119,6 +119,8 @@ export function OnboardingWizard({
 }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  // Track the highest step reached to allow forward navigation to visited steps
+  const [highestStepReached, setHighestStepReached] = useState(0);
   const [formData, setFormData] = useState<OnboardingFormData>({
     ...DEFAULT_ONBOARDING_DATA,
     ...initialData,
@@ -130,7 +132,10 @@ export function OnboardingWizard({
     if (currentStep < STEPS.length - 1) {
       // Mark the current step as completed before advancing
       setCompletedSteps((prev) => new Set(prev).add(currentStep));
-      setCurrentStep((prev) => prev + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      // Update highest step reached if we're going further than before
+      setHighestStepReached((prev) => Math.max(prev, nextStep));
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [currentStep]);
@@ -142,14 +147,15 @@ export function OnboardingWizard({
     }
   }, [currentStep]);
 
-  // Navigate to a specific step (only completed steps are allowed)
+  // Navigate to a specific step (any step up to highestStepReached)
   const goToStep = useCallback((stepIndex: number) => {
-    // Only allow navigation to completed steps
-    if (completedSteps.has(stepIndex) && stepIndex !== currentStep) {
+    // Allow navigation to any step up to the highest step reached
+    // This enables going back AND forward to previously visited steps
+    if (stepIndex <= highestStepReached) {
       setCurrentStep(stepIndex);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [completedSteps, currentStep]);
+  }, [highestStepReached]);
 
   const updateFormData = useCallback(
     <K extends keyof OnboardingFormData>(
@@ -295,24 +301,24 @@ export function OnboardingWizard({
     <div className="mx-auto w-full max-w-4xl space-y-8">
       {/* Progress Header */}
       <div className="space-y-4">
-        {/* Step Counter & Progress Bar */}
+        {/* Step Counter & Progress Bar - SaaSLaunch Style */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-[14px]">
-            <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+            <span className="font-medium" style={{ color: "rgb(252, 252, 250)" }}>
               Step {currentStep + 1} of {STEPS.length}
             </span>
-            <span style={{ color: "var(--text-tertiary)" }}>
+            <span style={{ color: "rgb(100, 105, 115)" }}>
               {Math.round(progress)}% complete
             </span>
           </div>
-          {/* Animated Progress Bar - monochrome with green for completion */}
+          {/* Animated Progress Bar - SaaSLaunch primary blue */}
           <div
             className="h-1.5 rounded-full overflow-hidden"
-            style={{ background: "var(--bg-hover)" }}
+            style={{ background: "rgb(20, 23, 30)" }}
           >
             <motion.div
               className="h-full rounded-full"
-              style={{ background: "var(--success)" }}
+              style={{ background: "linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(0, 111, 255) 100%)" }}
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5, ease: easings.out }}
@@ -326,8 +332,9 @@ export function OnboardingWizard({
             {STEPS.map((step, index) => {
               const isCompleted = completedSteps.has(index);
               const isCurrent = index === currentStep;
-              const isFuture = !isCompleted && !isCurrent;
-              const isClickable = isCompleted && !isCurrent;
+              // A step is clickable if it's within the highest step reached
+              const isClickable = index <= highestStepReached;
+              const isFuture = !isClickable;
 
               return (
                 <div
@@ -337,61 +344,60 @@ export function OnboardingWizard({
                     index !== 0 && "flex-1"
                   )}
                 >
-                  {/* Connector Line - green for completed */}
+                  {/* Connector Line - SaaSLaunch blue for completed */}
                   {index !== 0 && (
                     <div className="absolute left-0 right-0 top-4 -z-10 hidden md:block">
                       <div
                         className="h-0.5 w-full transition-colors duration-300"
                         style={{
                           background: isCompleted
-                            ? "var(--success)"
-                            : "var(--border-default)",
+                            ? "rgb(54, 94, 255)"
+                            : "rgb(31, 31, 31)",
                         }}
                       />
                     </div>
                   )}
 
-                  {/* Step Circle - clickable for completed steps */}
+                  {/* Step Circle - SaaSLaunch styling */}
                   <motion.button
                     type="button"
                     onClick={() => isClickable && goToStep(index)}
                     disabled={!isClickable}
                     aria-label={
-                      isCompleted
-                        ? `Go back to ${step.title} (completed)`
-                        : isCurrent
-                          ? `Current step: ${step.title}`
+                      isCurrent
+                        ? `Current step: ${step.title}`
+                        : isClickable
+                          ? `Go to ${step.title}${isCompleted ? " (completed)" : ""}`
                           : `${step.title} (not yet available)`
                     }
                     aria-current={isCurrent ? "step" : undefined}
                     className={cn(
                       "relative flex h-8 w-8 items-center justify-center rounded-full border",
                       "transition-all duration-200",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]",
                       isClickable && "cursor-pointer hover:scale-110",
-                      isFuture && "cursor-not-allowed",
-                      isCurrent && "cursor-default"
+                      isFuture && "cursor-not-allowed"
                     )}
                     style={{
                       borderColor: isCompleted
-                        ? "var(--success)"
+                        ? "rgb(54, 94, 255)"
                         : isCurrent
-                          ? "rgba(255,255,255,0.3)"
-                          : "var(--border-default)",
+                          ? "rgb(54, 94, 255)"
+                          : "rgb(31, 31, 31)",
                       background: isCompleted
-                        ? "var(--success)"
+                        ? "rgb(54, 94, 255)"
                         : isCurrent
-                          ? "rgba(255,255,255,0.1)"
-                          : "var(--bg-hover)",
+                          ? "rgba(54, 94, 255, 0.15)"
+                          : "rgb(20, 23, 30)",
                       color: isCompleted
                         ? "#ffffff"
                         : isCurrent
-                          ? "var(--text-primary)"
-                          : "var(--text-tertiary)",
+                          ? "rgb(54, 94, 255)"
+                          : "rgb(100, 105, 115)",
                     }}
                     animate={
                       isCurrent
-                        ? { opacity: [1, 0.7, 1] }
+                        ? { opacity: [1, 0.8, 1] }
                         : { opacity: 1 }
                     }
                     transition={
@@ -409,12 +415,12 @@ export function OnboardingWizard({
                     )}
                   </motion.button>
 
-                  {/* Step Label - also clickable for completed steps */}
+                  {/* Step Label - SaaSLaunch styling */}
                   <span
                     onClick={() => isClickable && goToStep(index)}
                     role={isClickable ? "button" : undefined}
                     tabIndex={isClickable ? 0 : undefined}
-                    aria-label={isClickable ? `Go back to ${step.title}` : undefined}
+                    aria-label={isClickable ? `Go to ${step.title}` : undefined}
                     onKeyDown={(e) => {
                       if (isClickable && (e.key === "Enter" || e.key === " ")) {
                         e.preventDefault();
@@ -424,16 +430,16 @@ export function OnboardingWizard({
                     className={cn(
                       "text-xs transition-all duration-200",
                       isCurrent ? "font-semibold" : "font-medium",
-                      isClickable && "cursor-pointer hover:text-[var(--text-primary)]",
+                      isClickable && "cursor-pointer hover:text-[rgb(252,252,250)]",
                       isFuture && "cursor-not-allowed",
                       "focus-visible:outline-none focus-visible:underline focus-visible:underline-offset-2"
                     )}
                     style={{
                       color: isCurrent
-                        ? "var(--text-primary)"
+                        ? "rgb(252, 252, 250)"
                         : isCompleted
-                          ? "var(--text-secondary)"
-                          : "var(--text-tertiary)",
+                          ? "rgb(205, 208, 213)"
+                          : "rgb(100, 105, 115)",
                     }}
                   >
                     {step.shortTitle}
@@ -444,16 +450,16 @@ export function OnboardingWizard({
           </div>
         </div>
 
-        {/* Mobile Step Indicator with Navigation */}
+        {/* Mobile Step Indicator with Navigation - SaaSLaunch Style */}
         <div className="space-y-3 md:hidden">
           {/* Current Step Info */}
           <div className="flex items-center gap-3">
             <div
               className="flex h-10 w-10 items-center justify-center rounded-full"
               style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                color: "var(--text-primary)",
+                background: "rgba(54, 94, 255, 0.15)",
+                border: "1px solid rgb(54, 94, 255)",
+                color: "rgb(54, 94, 255)",
               }}
             >
               {STEPS[currentStep].icon}
@@ -461,11 +467,11 @@ export function OnboardingWizard({
             <div>
               <p
                 className="text-[16px] font-medium"
-                style={{ color: "var(--text-primary)" }}
+                style={{ color: "rgb(252, 252, 250)" }}
               >
                 {STEPS[currentStep].title}
               </p>
-              <p className="text-[14px]" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-[14px]" style={{ color: "rgb(100, 105, 115)" }}>
                 Step {currentStep + 1} of {STEPS.length}
               </p>
             </div>
@@ -483,8 +489,9 @@ export function OnboardingWizard({
               {STEPS.map((step, index) => {
                 const isCompleted = completedSteps.has(index);
                 const isCurrent = index === currentStep;
-                const isFuture = !isCompleted && !isCurrent;
-                const isClickable = isCompleted && !isCurrent;
+                // A step is clickable if it's within the highest step reached
+                const isClickable = index <= highestStepReached;
+                const isFuture = !isClickable;
 
                 return (
                   <motion.button
@@ -493,10 +500,10 @@ export function OnboardingWizard({
                     onClick={() => isClickable && goToStep(index)}
                     disabled={!isClickable}
                     aria-label={
-                      isCompleted
-                        ? `Go back to ${step.title} (completed)`
-                        : isCurrent
-                          ? `Current step: ${step.title}`
+                      isCurrent
+                        ? `Current step: ${step.title}`
+                        : isClickable
+                          ? `Go to ${step.title}${isCompleted ? " (completed)" : ""}`
                           : `${step.title} (not yet available)`
                     }
                     aria-current={isCurrent ? "step" : undefined}
@@ -505,24 +512,23 @@ export function OnboardingWizard({
                       "border transition-all duration-200 flex-shrink-0",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-black",
                       isClickable && "cursor-pointer active:scale-95",
-                      isFuture && "cursor-not-allowed opacity-50",
-                      isCurrent && "cursor-default"
+                      isFuture && "cursor-not-allowed opacity-50"
                     )}
                     style={{
                       borderColor: isCompleted
                         ? "var(--success)"
                         : isCurrent
-                          ? "rgba(255,255,255,0.3)"
+                          ? "rgba(255,255,255,0.5)"
                           : "var(--border-default)",
                       background: isCompleted
                         ? "rgba(34, 197, 94, 0.15)"
                         : isCurrent
-                          ? "rgba(255,255,255,0.1)"
+                          ? "rgba(255,255,255,0.15)"
                           : "var(--bg-hover)",
                       color: isCompleted
                         ? "var(--success)"
                         : isCurrent
-                          ? "var(--text-primary)"
+                          ? "#ffffff"
                           : "var(--text-tertiary)",
                     }}
                     whileTap={isClickable ? { scale: 0.95 } : undefined}

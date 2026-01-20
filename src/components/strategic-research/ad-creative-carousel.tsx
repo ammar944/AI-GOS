@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ImageOff, ExternalLink, Filter, Info, Play } from "lucide-react";
+import { ImageOff, ExternalLink, Info, Play, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,17 @@ const FORMAT_LABELS: Record<AdFormat, string> = {
   image: "Image",
   carousel: "Carousel",
   unknown: "Other",
+};
+
+// =============================================================================
+// Creative Type (Format) Colors
+// =============================================================================
+
+const FORMAT_COLORS: Record<AdFormat, { bg: string; text: string }> = {
+  video: { bg: "bg-purple-600", text: "text-white" },
+  image: { bg: "bg-teal-600", text: "text-white" },
+  carousel: { bg: "bg-amber-600", text: "text-white" },
+  unknown: { bg: "bg-slate-500", text: "text-white" },
 };
 
 // =============================================================================
@@ -49,7 +60,15 @@ function SlideCounter({ total }: { total: number }) {
   const { selectedIndex } = useCarousel();
 
   return (
-    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+    <div
+      className="absolute bottom-2 right-2 text-xs px-2 py-1 rounded backdrop-blur-sm"
+      style={{
+        backgroundColor: 'rgba(12, 14, 19, 0.8)',
+        color: 'var(--text-heading)',
+        borderColor: 'var(--border-default)',
+        borderWidth: '1px'
+      }}
+    >
       {selectedIndex + 1} of {total}
     </div>
   );
@@ -72,29 +91,32 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
     new Set([...ALL_FORMATS, "unknown"])
   );
 
-  // Don't render anything if no ads
-  if (!ads || ads.length === 0) {
-    return null;
-  }
-
-  // Get unique platforms that have ads
+  // Get unique platforms that have ads (must be before early return for hooks rules)
   const availablePlatforms = React.useMemo(() => {
+    if (!ads || ads.length === 0) return [];
     const platforms = new Set(ads.map(ad => ad.platform));
     return ALL_PLATFORMS.filter(p => platforms.has(p));
   }, [ads]);
 
   // Get unique formats that have ads
   const availableFormats = React.useMemo(() => {
+    if (!ads || ads.length === 0) return [];
     const formats = new Set(ads.map(ad => ad.format));
     return ALL_FORMATS.filter(f => formats.has(f));
   }, [ads]);
 
   // Filter ads by enabled platforms and formats
   const filteredAds = React.useMemo(() => {
+    if (!ads || ads.length === 0) return [];
     return ads.filter(ad =>
       enabledPlatforms.has(ad.platform) && enabledFormats.has(ad.format)
     );
   }, [ads, enabledPlatforms, enabledFormats]);
+
+  // Don't render anything if no ads
+  if (!ads || ads.length === 0) {
+    return null;
+  }
 
   const togglePlatform = (platform: AdPlatform) => {
     setEnabledPlatforms(prev => {
@@ -133,60 +155,92 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
 
   return (
     <div className={cn("w-full max-w-md mx-auto space-y-2", className)}>
-      {/* Filters Row */}
+      {/* Filters Section - Two Rows */}
       {(showPlatformFilters || showFormatFilters) && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-
-          {/* Platform Filters */}
-          {showPlatformFilters && availablePlatforms.map(platform => {
-            const isActive = enabledPlatforms.has(platform);
-            const platformColor = PLATFORM_COLORS[platform];
-            return (
-              <button
-                key={platform}
-                onClick={() => togglePlatform(platform)}
-                className={cn(
-                  "px-2 py-0.5 rounded text-xs font-medium transition-all",
-                  isActive
-                    ? cn(platformColor.bg, platformColor.text)
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
+        <div
+          className="space-y-2 p-2 rounded-lg"
+          style={{
+            backgroundColor: 'var(--bg-surface)',
+            borderColor: 'var(--border-default)',
+            borderWidth: '1px'
+          }}
+        >
+          {/* Row 1: Channel Filters */}
+          {showPlatformFilters && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className="text-xs font-medium min-w-[60px]"
+                style={{ color: 'var(--text-tertiary)' }}
               >
-                {PLATFORM_LABELS[platform]}
-              </button>
-            );
-          })}
-
-          {/* Separator if both filter types shown */}
-          {showPlatformFilters && showFormatFilters && (
-            <span className="text-muted-foreground/50">|</span>
+                Channels
+              </span>
+              {availablePlatforms.map(platform => {
+                const isActive = enabledPlatforms.has(platform);
+                const platformColor = PLATFORM_COLORS[platform];
+                return (
+                  <button
+                    key={platform}
+                    onClick={() => togglePlatform(platform)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                      isActive
+                        ? cn(platformColor.bg, platformColor.text, "shadow-sm")
+                        : "hover:opacity-80"
+                    )}
+                    style={!isActive ? {
+                      backgroundColor: 'var(--bg-hover)',
+                      color: 'var(--text-tertiary)'
+                    } : undefined}
+                  >
+                    {PLATFORM_LABELS[platform]}
+                  </button>
+                );
+              })}
+            </div>
           )}
 
-          {/* Format Filters */}
-          {showFormatFilters && availableFormats.map(format => {
-            const isActive = enabledFormats.has(format);
-            return (
-              <button
-                key={format}
-                onClick={() => toggleFormat(format)}
-                className={cn(
-                  "px-2 py-0.5 rounded text-xs font-medium transition-all",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
+          {/* Row 2: Creative Type Filters */}
+          {showFormatFilters && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className="text-xs font-medium min-w-[60px]"
+                style={{ color: 'var(--text-tertiary)' }}
               >
-                {FORMAT_LABELS[format]}
-              </button>
-            );
-          })}
+                Type
+              </span>
+              {availableFormats.map(format => {
+                const isActive = enabledFormats.has(format);
+                const formatColor = FORMAT_COLORS[format];
+                return (
+                  <button
+                    key={format}
+                    onClick={() => toggleFormat(format)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                      isActive
+                        ? cn(formatColor.bg, formatColor.text, "shadow-sm")
+                        : "hover:opacity-80"
+                    )}
+                    style={!isActive ? {
+                      backgroundColor: 'var(--bg-hover)',
+                      color: 'var(--text-tertiary)'
+                    } : undefined}
+                  >
+                    {FORMAT_LABELS[format]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* Carousel or empty state */}
       {filteredAds.length === 0 ? (
-        <div className="text-center text-sm text-muted-foreground py-4">
+        <div
+          className="text-center text-sm py-4"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           No ads match the selected filters
         </div>
       ) : (
@@ -208,8 +262,22 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
           {/* Navigation - only show if more than one ad */}
           {filteredAds.length > 1 && (
             <>
-              <CarouselPrevious className="left-1 h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background" />
-              <CarouselNext className="right-1 h-7 w-7 bg-background/80 backdrop-blur-sm hover:bg-background" />
+              <CarouselPrevious
+                className="left-1 h-7 w-7 backdrop-blur-sm transition-all"
+                style={{
+                  backgroundColor: 'rgba(12, 14, 19, 0.8)',
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-heading)'
+                }}
+              />
+              <CarouselNext
+                className="right-1 h-7 w-7 backdrop-blur-sm transition-all"
+                style={{
+                  backgroundColor: 'rgba(12, 14, 19, 0.8)',
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-heading)'
+                }}
+              />
               <SlideCounter total={filteredAds.length} />
             </>
           )}
@@ -259,9 +327,19 @@ function AdCreativeCard({ ad }: AdCreativeCardProps) {
   const hasImage = ad.imageUrl;
 
   return (
-    <div className="bg-muted/50 rounded-lg border overflow-hidden">
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{
+        backgroundColor: 'var(--bg-surface)',
+        borderColor: 'var(--border-default)',
+        borderWidth: '1px'
+      }}
+    >
       {/* Media Section */}
-      <div className="aspect-video relative bg-muted flex items-center justify-center">
+      <div
+        className="aspect-video relative flex items-center justify-center"
+        style={{ backgroundColor: 'var(--bg-hover)' }}
+      >
         {hasVideo ? (
           // Video with play overlay
           <div className="relative w-full h-full">
@@ -299,7 +377,7 @@ function AdCreativeCard({ ad }: AdCreativeCardProps) {
             loading="lazy"
           />
         ) : (
-          <div className="flex flex-col items-center gap-1.5 text-muted-foreground p-4">
+          <div className="flex flex-col items-center gap-1.5 p-4" style={{ color: 'var(--text-tertiary)' }}>
             <ImageOff className="h-8 w-8" />
             <span className="text-xs font-medium">No image available</span>
             <span className="text-[10px] text-center opacity-70 flex items-center gap-1">
@@ -328,7 +406,12 @@ function AdCreativeCard({ ad }: AdCreativeCardProps) {
           {ad.format && ad.format !== "unknown" && (
             <Badge
               variant="outline"
-              className="bg-background/80 backdrop-blur-sm text-xs capitalize"
+              className="backdrop-blur-sm text-xs capitalize"
+              style={{
+                backgroundColor: 'rgba(12, 14, 19, 0.8)',
+                borderColor: 'var(--border-default)',
+                color: 'var(--text-secondary)'
+              }}
             >
               {FORMAT_LABELS[ad.format]}
             </Badge>
@@ -347,37 +430,80 @@ function AdCreativeCard({ ad }: AdCreativeCardProps) {
       {/* Content Section */}
       <div className="p-3 space-y-2">
         {/* Headline/Body Text */}
-        <p className="text-sm font-medium line-clamp-2">
+        <p className="text-sm font-medium line-clamp-2" style={{ color: 'var(--text-heading)' }}>
           {displayText}
         </p>
 
         {/* Date Info */}
         {(ad.firstSeen || ad.lastSeen) && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             {ad.firstSeen && `First seen: ${formatDate(ad.firstSeen)}`}
             {ad.firstSeen && ad.lastSeen && " | "}
             {ad.lastSeen && `Last seen: ${formatDate(ad.lastSeen)}`}
           </p>
         )}
 
-        {/* View Ad Link */}
-        {ad.detailsUrl && (
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="w-full text-xs h-7"
-          >
-            <a
-              href={ad.detailsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1"
-            >
-              <ExternalLink className="h-3 w-3" />
-              View Ad
-            </a>
-          </Button>
+        {/* Action Buttons */}
+        {(ad.detailsUrl || hasVideo) && (
+          <div className={cn(
+            "flex gap-2",
+            ad.detailsUrl && hasVideo ? "flex-row" : "flex-col"
+          )}>
+            {/* Open Video Button */}
+            {hasVideo && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "text-xs h-7 transition-all hover:opacity-90",
+                  ad.detailsUrl ? "flex-1" : "w-full"
+                )}
+                style={{
+                  backgroundColor: 'var(--accent-blue)',
+                  borderColor: 'var(--accent-blue)',
+                  color: 'white'
+                }}
+              >
+                <a
+                  href={ad.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1"
+                >
+                  <Video className="h-3 w-3" />
+                  Open Video
+                </a>
+              </Button>
+            )}
+            {/* View Ad Link */}
+            {ad.detailsUrl && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "text-xs h-7 transition-all hover:opacity-90",
+                  hasVideo ? "flex-1" : "w-full"
+                )}
+                style={{
+                  backgroundColor: 'var(--accent-blue)',
+                  borderColor: 'var(--accent-blue)',
+                  color: 'white'
+                }}
+              >
+                <a
+                  href={ad.detailsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View Ad
+                </a>
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -69,25 +69,53 @@ export function SectionCard({
 
   return (
     <Card
+      style={{
+        background: 'var(--bg-surface)',
+        borderColor: isReviewed
+          ? 'var(--success)'
+          : isEditing
+          ? 'var(--accent-blue)'
+          : 'var(--border-default)',
+      }}
       className={cn(
         "transition-all duration-300",
-        isReviewed && "border-green-500/50 bg-green-500/5",
-        isEditing && "border-blue-500/50 ring-1 ring-blue-500/20"
+        isReviewed && "shadow-[0_0_20px_rgba(34,197,94,0.1)]",
+        isEditing && "shadow-[0_0_20px_rgba(54,94,255,0.1)] ring-1 ring-[var(--accent-blue)]/20"
       )}
     >
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Section number */}
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-lg">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full font-semibold text-lg"
+              style={{
+                background: isReviewed
+                  ? 'var(--success-subtle)'
+                  : 'var(--gradient-primary)',
+                color: isReviewed ? 'var(--success)' : 'white',
+              }}
+            >
               {sectionNumber}
             </div>
             {/* Section icon */}
-            <div className="flex items-center gap-2 text-primary">
+            <div
+              className="flex items-center gap-2"
+              style={{ color: isReviewed ? 'var(--success)' : 'var(--accent-blue)' }}
+            >
               {sectionIcon}
             </div>
             {/* Section label */}
-            <h2 className="text-lg font-bold text-foreground">{sectionLabel}</h2>
+            <h2
+              className="text-lg font-bold tracking-tight"
+              style={{
+                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                letterSpacing: '-0.02em',
+                color: 'var(--text-heading)'
+              }}
+            >
+              {sectionLabel}
+            </h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -97,14 +125,32 @@ export function SectionCard({
             )}
             {/* Edited badge */}
             {hasEdits && (
-              <Badge variant="outline" className="gap-1 border-blue-500/50 text-blue-500">
+              <Badge
+                variant="outline"
+                className="gap-1"
+                style={{
+                  borderColor: 'var(--accent-blue)',
+                  color: 'var(--accent-blue)',
+                  background: 'rgba(54, 94, 255, 0.1)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+              >
                 <Pencil className="h-3 w-3" />
                 Edited
               </Badge>
             )}
             {/* Reviewed badge */}
             {isReviewed && (
-              <Badge variant="success" className="gap-1">
+              <Badge
+                variant="success"
+                className="gap-1"
+                style={{
+                  borderColor: 'var(--success)',
+                  color: 'var(--success)',
+                  background: 'var(--success-subtle)',
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                }}
+              >
                 <CheckCircle2 className="h-3 w-3" />
                 Reviewed
               </Badge>
@@ -116,9 +162,20 @@ export function SectionCard({
                 size="sm"
                 onClick={onToggleEdit}
                 className={cn(
-                  "gap-1.5",
-                  isEditing && "bg-blue-500 hover:bg-blue-600"
+                  "gap-1.5 transition-all duration-200",
+                  isEditing && "shadow-[0_0_20px_rgba(54,94,255,0.3)]",
+                  !isEditing && "hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                 )}
+                style={isEditing ? {
+                  background: 'var(--gradient-primary)',
+                  borderColor: 'transparent',
+                  color: 'white',
+                  fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                } : {
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-secondary)',
+                  fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                }}
               >
                 {isEditing ? (
                   <>
@@ -139,6 +196,8 @@ export function SectionCard({
               size="icon-sm"
               onClick={onToggleExpand}
               aria-label={isExpanded ? "Collapse section" : "Expand section"}
+              style={{ color: 'var(--text-tertiary)' }}
+              className="hover:bg-[var(--bg-hover)]"
             >
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5" />
@@ -172,11 +231,17 @@ export function SectionCard({
 
         {/* Footer with Mark as Reviewed button */}
         {!isReviewed && !isEditing && (
-          <CardFooter className="border-t pt-4">
+          <CardFooter className="pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
             <Button
               variant="outline"
               onClick={onMarkReviewed}
               className="ml-auto gap-2"
+              style={{
+                borderColor: 'var(--success)',
+                color: 'var(--success)',
+                background: 'var(--success-subtle)',
+                fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+              }}
             >
               <CheckCircle2 className="h-4 w-4" />
               Mark as Reviewed

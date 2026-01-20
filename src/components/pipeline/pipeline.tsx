@@ -26,38 +26,38 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
 
         return (
           <div key={stage} className="flex items-center">
-            {/* Stage pill - monochrome-first, no blue gradients */}
+            {/* Stage pill - SaaSLaunch blue for active/complete */}
             <div
               className="flex items-center gap-2.5"
               style={{
                 padding: "8px 16px",
                 background: isActive
-                  ? "rgba(255,255,255,0.06)"
+                  ? "rgba(54, 94, 255, 0.1)"
                   : isComplete
-                    ? "rgba(34,197,94,0.08)"
+                    ? "rgba(34, 197, 94, 0.08)"
                     : "transparent",
                 borderRadius: 8,
                 border: `1px solid ${
                   isActive
-                    ? "rgba(255,255,255,0.12)"
+                    ? "rgba(54, 94, 255, 0.3)"
                     : isComplete
-                      ? "rgba(34,197,94,0.15)"
+                      ? "rgba(34, 197, 94, 0.2)"
                       : "transparent"
                 }`,
               }}
             >
-              {/* Status dot - white for active, green for complete */}
+              {/* Status dot - blue for active, green for complete */}
               <div className="relative">
                 <div
                   style={{
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: isComplete ? "#22c55e" : isActive ? "#ffffff" : "#333",
+                    background: isComplete ? "rgb(34, 197, 94)" : isActive ? "rgb(54, 94, 255)" : "rgb(49, 53, 63)",
                   }}
                 />
 
-                {/* Pulse ring for active stage - opacity only, no scale */}
+                {/* Pulse ring for active stage - SaaSLaunch blue */}
                 {isActive && (
                   <motion.div
                     animate={{ opacity: [0.6, 0.2, 0.6] }}
@@ -66,18 +66,18 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
                       position: "absolute",
                       inset: -3,
                       borderRadius: "50%",
-                      border: "1px solid rgba(255,255,255,0.4)",
+                      border: "1px solid rgba(54, 94, 255, 0.5)",
                     }}
                   />
                 )}
               </div>
 
-              {/* Stage label - text hierarchy, no color variation except green for complete */}
+              {/* Stage label - SaaSLaunch typography */}
               <span
                 style={{
                   fontSize: 13,
                   fontWeight: isActive ? 600 : 500,
-                  color: isComplete ? "#22c55e" : isActive ? "var(--text-primary)" : "var(--text-tertiary)",
+                  color: isComplete ? "rgb(34, 197, 94)" : isActive ? "var(--accent-blue)" : "var(--text-tertiary)",
                   fontFamily: "var(--font-mono)",
                 }}
               >
@@ -92,7 +92,7 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
                 style={{
                   width: 32,
                   height: 2,
-                  background: "#222",
+                  background: "var(--border-default)",
                   borderRadius: 1,
                   overflow: "hidden",
                 }}
@@ -104,7 +104,7 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "#22c55e",
+                    background: "rgb(34, 197, 94)",
                   }}
                 />
               </div>
