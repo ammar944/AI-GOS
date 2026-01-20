@@ -19,13 +19,13 @@ Requirements for UX Polish milestone. Each maps to roadmap phases.
 
 ### Chat Panel
 
-- [ ] **CHAT-01**: Review page uses 30/70 split layout (chat left, blueprint right) instead of overlay
-- [ ] **CHAT-02**: Chat panel is permanently visible sidebar during review (not triggered by button)
-- [ ] **CHAT-03**: Blueprint content scrolls independently within 70% right panel
-- [ ] **CHAT-04**: Chat panel includes input, message history, and suggestion pills
-- [ ] **CHAT-05**: Responsive layout: vertical stack on mobile (chat above/below blueprint), side-by-side on desktop (lg breakpoint)
-- [ ] **CHAT-06**: Chat panel hidden on complete page (only visible during review)
-- [ ] **CHAT-07**: Design follows SaaSLaunch design language with v0/Lovable inspiration
+- [x] **CHAT-01**: Review page uses 30/70 split layout (chat left, blueprint right) instead of overlay
+- [x] **CHAT-02**: Chat panel is permanently visible sidebar during review (not triggered by button)
+- [x] **CHAT-03**: Blueprint content scrolls independently within 70% right panel
+- [x] **CHAT-04**: Chat panel includes input, message history, and suggestion pills
+- [x] **CHAT-05**: Responsive layout: vertical stack on mobile (chat above/below blueprint), side-by-side on desktop (lg breakpoint)
+- [x] **CHAT-06**: Chat panel hidden on complete page (only visible during review)
+- [x] **CHAT-07**: Design follows SaaSLaunch design language with v0/Lovable inspiration
 
 ## v2.2 Requirements (Deferred)
 
@@ -44,7 +44,6 @@ Requirements for UX Polish milestone. Each maps to roadmap phases.
 | Feature | Reason |
 |---------|--------|
 | Chat on complete page | User specified review-only |
-| Resizable panels | Keep fixed 30/70 split for simplicity |
 | Media plan generation | Future milestone |
 | Mobile-first chat | Desktop focus for v2.1, basic responsive stacking sufficient |
 
@@ -59,19 +58,20 @@ Requirements for UX Polish milestone. Each maps to roadmap phases.
 | OUT-05 | Phase 33 | Complete |
 | OUT-06 | Phase 33 | Complete |
 | OUT-07 | Phase 33 | Complete |
-| CHAT-01 | Phase 34 | Pending |
-| CHAT-02 | Phase 34 | Pending |
-| CHAT-03 | Phase 34 | Pending |
-| CHAT-04 | Phase 34 | Pending |
-| CHAT-05 | Phase 34 | Pending |
-| CHAT-06 | Phase 34 | Pending |
-| CHAT-07 | Phase 34 | Pending |
+| CHAT-01 | Phase 34 | Complete |
+| CHAT-02 | Phase 34 | Complete |
+| CHAT-03 | Phase 34 | Complete |
+| CHAT-04 | Phase 34 | Complete |
+| CHAT-05 | Phase 34 | Complete |
+| CHAT-06 | Phase 34 | Complete |
+| CHAT-07 | Phase 34 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 14 total
 - Mapped to phases: 14
+- Complete: 14 ✓
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after Phase 33 completion*
+*Last updated: 2026-01-20 after Phase 34 completion (v2.1 UX Polish complete)*

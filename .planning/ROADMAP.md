@@ -11,6 +11,7 @@
 - 🚧 **v1.7 Testing** - Phases 19-22 (in progress)
 - ✅ **v1.8 Ad Intelligence** - Phases 23-26 - SHIPPED 2026-01-09
 - ✅ **v2.0 Design Refresh** - Phases 27-32 - SHIPPED 2026-01-13
+- ✅ **v2.1 UX Polish** - Phases 33-34 - SHIPPED 2026-01-20
 
 ## Phases
 
@@ -445,7 +446,7 @@ Plans:
 
 ---
 
-### ✅ v2.1 UX Polish (In Progress)
+### ✅ v2.1 UX Polish (Complete)
 
 Polish the output page and redesign the AI chat panel for better UX following SaaSLaunch design language.
 
@@ -472,11 +473,12 @@ Plans:
 - [x] 33-01: Polished Complete Page Component (PolishedBlueprintView with section cards)
 - [x] 33-02: Complete Page Integration (replace StrategicBlueprintDisplay, wire actions)
 
-#### Phase 34: Chat Panel Redesign
+#### Phase 34: Chat Panel Redesign COMPLETE
 **Goal**: Replace slide-in overlay with 30/70 split sidebar layout on review page
 **Depends on**: Phase 33
 **Research**: Unlikely (UI component work, v0/Lovable inspiration)
-**Plans**: 2
+**Completed**: 2026-01-20
+**Plans**: 2/2
 
 Requirements covered: CHAT-01, CHAT-02, CHAT-03, CHAT-04, CHAT-05, CHAT-06, CHAT-07
 
@@ -488,8 +490,8 @@ Success criteria:
 5. Blueprint scrolls independently within right panel
 
 Plans:
-- [ ] 34-01: Split Layout Container (ReviewLayout with 30/70 grid, responsive stacking)
-- [ ] 34-02: Chat Sidebar Integration (ChatSidebar component, remove overlay, wire to review)
+- [x] 34-01: Split Layout Container (SplitChatLayout with react-resizable-panels, responsive stacking)
+- [x] 34-02: Chat Sidebar Integration (ChatSidebar component, remove overlay, wire to review)
 
 ---
 
@@ -542,9 +544,9 @@ Plans:
 | 31. Output Display | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 32. Chat Panel | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 33. Output Page Polish | v2.1 | 2/2 | Complete | 2026-01-20 |
-| 34. Chat Panel Redesign | v2.1 | 0/2 | Not started | - |
+| 34. Chat Panel Redesign | v2.1 | 2/2 | Complete | 2026-01-20 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-20 (Phase 33 Output Page Polish complete)*
+*Updated: 2026-01-20 (Phase 34 Chat Panel Redesign complete, v2.1 milestone complete)*
