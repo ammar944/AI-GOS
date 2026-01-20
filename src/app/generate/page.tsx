@@ -23,7 +23,8 @@ import { createRoot } from "react-dom/client";
 import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
 import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import { BlueprintDocument } from "@/components/strategic-research";
-import { BlueprintChat } from "@/components/chat";
+import { ChatSidebar } from "@/components/chat";
+import { SplitChatLayout } from "@/components/layout";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientBorder } from "@/components/ui/gradient-border";
@@ -825,79 +826,83 @@ export default function GeneratePage() {
   // Review Blueprint State
   if (pageState === "review-blueprint" && strategicBlueprint) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 md:py-12">
-          {/* Stage Indicator */}
-          <motion.div
-            className="mx-auto max-w-5xl mb-8"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="flex items-center justify-center gap-4">
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                  style={{ background: 'rgb(34, 197, 94)', color: 'white' }}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
+      <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
+        <SplitChatLayout
+          chatContent={
+            <ChatSidebar
+              blueprint={strategicBlueprint as unknown as Record<string, unknown>}
+              onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
+            />
+          }
+          blueprintContent={
+            <div className="container mx-auto px-4 py-8 md:py-12">
+              {/* Stage Indicator */}
+              <motion.div
+                className="mx-auto max-w-5xl mb-8"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                      style={{ background: 'rgb(34, 197, 94)', color: 'white' }}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Onboarding</span>
+                  </div>
+                  <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                      style={{
+                        background: 'rgba(54, 94, 255, 0.15)',
+                        border: '1px solid var(--accent-blue)',
+                        color: 'var(--accent-blue)'
+                      }}
+                    >
+                      2
+                    </div>
+                    <span
+                      className="text-sm font-medium"
+                      style={{
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      Review Research
+                    </span>
+                  </div>
+                  <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                  <div className="flex items-center gap-2 opacity-50">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
+                      style={{
+                        background: 'var(--bg-hover)',
+                        color: 'var(--text-tertiary)',
+                        border: '1px solid var(--border-default)',
+                      }}
+                    >
+                      3
+                    </div>
+                    <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Complete</span>
+                  </div>
                 </div>
-                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Onboarding</span>
-              </div>
-              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                  style={{
-                    background: 'rgba(54, 94, 255, 0.15)',
-                    border: '1px solid var(--accent-blue)',
-                    color: 'var(--accent-blue)'
-                  }}
-                >
-                  2
-                </div>
-                <span
-                  className="text-sm font-medium"
-                  style={{
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-sans), Inter, sans-serif',
-                  }}
-                >
-                  Review Research
-                </span>
-              </div>
-              <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-              <div className="flex items-center gap-2 opacity-50">
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                  style={{
-                    background: 'var(--bg-hover)',
-                    color: 'var(--text-tertiary)',
-                    border: '1px solid var(--border-default)',
-                  }}
-                >
-                  3
-                </div>
-                <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Complete</span>
+              </motion.div>
+
+              {/* Review Component */}
+              <div className="mx-auto max-w-6xl">
+                <BlueprintDocument
+                  strategicBlueprint={strategicBlueprint}
+                  onApprove={handleApprove}
+                  onRegenerate={handleRegenerateBlueprint}
+                />
               </div>
             </div>
-          </motion.div>
-
-          {/* Review Component - Continuous Scroll Layout */}
-          <div className="mx-auto max-w-6xl">
-            <BlueprintDocument
-              strategicBlueprint={strategicBlueprint}
-              onApprove={handleApprove}
-              onRegenerate={handleRegenerateBlueprint}
-            />
-          </div>
-
-          {/* Blueprint Chat - works with in-memory blueprint, no DB required */}
-          <BlueprintChat
-            blueprint={strategicBlueprint as unknown as Record<string, unknown>}
-            onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
-          />
-        </div>
+          }
+        />
       </div>
     );
   }
