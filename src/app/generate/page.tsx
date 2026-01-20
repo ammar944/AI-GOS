@@ -16,9 +16,12 @@ import {
   Share2,
   Link2,
   Check,
+  Download,
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
+import { createRoot } from "react-dom/client";
 import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
+import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import { BlueprintDocument } from "@/components/strategic-research";
 import { BlueprintChat } from "@/components/chat";
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -149,6 +152,9 @@ export default function GeneratePage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+
+  // PDF export state
+  const [isExporting, setIsExporting] = useState(false);
 
   // Streaming state for real-time section display
   const [streamingSections, setStreamingSections] = useState<Map<StrategicBlueprintSection, unknown>>(new Map());
@@ -444,6 +450,91 @@ export default function GeneratePage() {
       setTimeout(() => setShareCopied(false), 2000);
     }
   }, [shareUrl]);
+
+  // Export PDF handler
+  const handleExportPDF = useCallback(async () => {
+    if (!strategicBlueprint) return;
+
+    setIsExporting(true);
+
+    try {
+      const [html2canvasModule, jspdfModule] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const html2canvas = html2canvasModule.default;
+      const { jsPDF } = jspdfModule;
+
+      const date = new Date().toISOString().split("T")[0];
+      const filename = `Strategic-Blueprint-${date}.pdf`;
+
+      // Create a temporary container for the PDF content
+      const container = document.createElement("div");
+      container.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        width: 850px;
+        background: #ffffff;
+      `;
+      document.body.appendChild(container);
+
+      // Render the PdfMarkdownContent component into the container
+      const root = createRoot(container);
+      await new Promise<void>((resolve) => {
+        root.render(<PdfMarkdownContent strategicBlueprint={strategicBlueprint} />);
+        setTimeout(resolve, 300);
+      });
+
+      const content = container.firstElementChild as HTMLElement;
+      if (!content) {
+        throw new Error("Failed to render PDF content");
+      }
+
+      const canvas = await html2canvas(content, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      root.unmount();
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+      let pageNumber = 0;
+
+      while (heightLeft > 0) {
+        if (pageNumber > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        position -= pageHeight;
+        pageNumber++;
+      }
+
+      pdf.save(filename);
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      alert(`PDF export failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [strategicBlueprint]);
 
   // Resume Prompt
   if (showResumePrompt) {
@@ -881,6 +972,24 @@ export default function GeneratePage() {
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Back to Review
+                    </MagneticButton>
+                    <MagneticButton
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      onClick={handleExportPDF}
+                      disabled={isExporting}
+                      style={{
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-secondary)',
+                        background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      {isExporting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      {isExporting ? 'Exporting...' : 'Export PDF'}
                     </MagneticButton>
                     <MagneticButton
                       className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
