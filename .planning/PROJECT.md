@@ -1,24 +1,43 @@
 # AI-GOS Project
 
-## Current State (Updated: 2025-12-29)
+## Current State (Updated: 2026-01-20)
 
-**Shipped:** v1.1 Validation Gate (2025-12-29)
-**Status:** Production-ready MVP
-**Codebase:** 16,985 lines TypeScript/TSX, Next.js 16 + React 19 + Supabase
+**Shipped:** v2.0 Design Refresh (2026-01-13)
+**Status:** Production-ready with premium design system
+**Codebase:** TypeScript/TSX, Next.js 16 + React 19 + Supabase
 
-## v1.2 Goals
+## Current Milestone: v2.1 UX Polish
 
-**Vision:** PDF export that displays strategic research in the same format as the review UI.
+**Goal:** Polish the output page and redesign the AI chat panel for better UX
+
+**Target features:**
+- Output page shows finished polished view (not markdown format) after approval
+- AI chat panel integrated as 30/70 split sidebar on review page (not overlay)
+- Consistent SaaSLaunch design language throughout
 
 **Motivation:**
-- Users want to export and share their strategic research
-- Current PDF generation doesn't match the polished review display
-- Consistent visual presentation across review and export
+- After clicking "Continue" from review, the complete page shows raw markdown-style document
+- Users expect a polished, presentation-ready view of their blueprint
+- The slide-in chat panel feels disconnected; v0/Lovable style side-by-side is more intuitive
 
-**Scope (v1.2):**
-- Fix PDF generation to match strategic research review layout
-- Use same section card styling and content renderers
-- Branded PDF template with proper formatting
+## Requirements — Active
+
+- [ ] Output page displays blueprint in polished card-based layout (not markdown document editor)
+- [ ] Output page includes share/export/new actions with SaaSLaunch styling
+- [ ] Chat panel is 30% sidebar on left during review (not slide-in overlay)
+- [ ] Blueprint content takes 70% right side during review
+- [ ] Responsive layout: stack on mobile, side-by-side on desktop
+- [ ] Chat hidden on complete page (only visible during review)
+
+## Requirements — Validated
+
+- ✓ v1.0-v2.0 features (see archived milestones)
+
+## Out of Scope
+
+- Chat on complete page — User specified review-only
+- Resizable panels — Keep fixed 30/70 split for simplicity
+- Media plan generation — Future milestone
 
 ---
 

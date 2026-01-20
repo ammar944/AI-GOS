@@ -445,12 +445,62 @@ Plans:
 
 ---
 
+### ✅ v2.1 UX Polish (In Progress)
+
+Polish the output page and redesign the AI chat panel for better UX following SaaSLaunch design language.
+
+**Milestone Goal:** Polished complete page with card-based layout and integrated 30/70 chat sidebar on review page.
+
+**Design Reference:** [SAASLAUNCH-DESIGN-LANGUAGE.md](../docs/SAASLAUNCH-DESIGN-LANGUAGE.md)
+
+#### Phase 33: Output Page Polish
+**Goal**: Replace markdown document editor with polished card-based layout on complete page
+**Depends on**: v2.0 complete
+**Research**: Unlikely (using existing component patterns)
+**Plans**: 2
+
+Requirements covered: OUT-01, OUT-02, OUT-03, OUT-04, OUT-05, OUT-06, OUT-07
+
+Success criteria:
+1. Complete page displays 5 section cards with same content renderers as review
+2. Header shows success indicator, metadata stats, and action buttons
+3. Share/Export/New buttons work correctly with SaaSLaunch styling
+4. No markdown/document editor visible on complete page
+
+Plans:
+- [ ] 33-01: Polished Complete Page Component (PolishedBlueprintView with section cards)
+- [ ] 33-02: Complete Page Integration (replace StrategicBlueprintDisplay, wire actions)
+
+#### Phase 34: Chat Panel Redesign
+**Goal**: Replace slide-in overlay with 30/70 split sidebar layout on review page
+**Depends on**: Phase 33
+**Research**: Unlikely (UI component work, v0/Lovable inspiration)
+**Plans**: 2
+
+Requirements covered: CHAT-01, CHAT-02, CHAT-03, CHAT-04, CHAT-05, CHAT-06, CHAT-07
+
+Success criteria:
+1. Review page has permanent 30% chat sidebar on left, 70% blueprint on right
+2. Chat includes input, messages, suggestions without trigger button
+3. Layout stacks vertically on mobile (below lg breakpoint)
+4. Chat completely hidden on complete page
+5. Blueprint scrolls independently within right panel
+
+Plans:
+- [ ] 34-01: Split Layout Container (ReviewLayout with 30/70 grid, responsive stacking)
+- [ ] 34-02: Chat Sidebar Integration (ChatSidebar component, remove overlay, wire to review)
+
+---
+
 ### Future Milestones
 
 #### v1.6 Persistence
 - Save blueprints and media plans to Supabase
 - User project history
 - Re-generate from saved inputs
+
+#### v2.2 E2E Testing
+- Complete Phase 22 E2E tests with Playwright
 
 ---
 
@@ -490,8 +540,10 @@ Plans:
 | 30. Generation UI | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 31. Output Display | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 32. Chat Panel | v2.0 | 2/2 | Complete | 2026-01-13 |
+| 33. Output Page Polish | v2.1 | 0/2 | Not started | - |
+| 34. Chat Panel Redesign | v2.1 | 0/2 | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-13 (Phase 32 complete - v2.0 Design Refresh SHIPPED)*
+*Updated: 2026-01-20 (v2.1 UX Polish milestone started)*
