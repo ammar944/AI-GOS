@@ -18,7 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
-import { StrategicBlueprintDisplay } from "@/components/strategic-blueprint/strategic-blueprint-display";
+import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
 import { BlueprintDocument } from "@/components/strategic-research";
 import { BlueprintChat } from "@/components/chat";
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -1076,14 +1076,14 @@ export default function GeneratePage() {
             </GradientBorder>
           </motion.div>
 
-          {/* Strategic Blueprint Display */}
+          {/* Polished Blueprint View - Card-based layout */}
           <motion.div
             className="mx-auto max-w-5xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
           >
-            <StrategicBlueprintDisplay strategicBlueprint={strategicBlueprint} />
+            <PolishedBlueprintView strategicBlueprint={strategicBlueprint} />
           </motion.div>
         </div>
       </div>
