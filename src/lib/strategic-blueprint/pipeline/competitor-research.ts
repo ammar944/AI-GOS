@@ -122,9 +122,16 @@ Return the analysis as a JSON object following the exact structure specified.`;
     competitorAds = await fetchCompetitorAds(adService, data.competitors);
     console.log(`[Competitor Research] Fetched ads for ${competitorAds.size} competitors`);
   } catch (error) {
-    // SEARCHAPI_KEY missing or service creation failed - continue without ads
-    console.warn('[Competitor Research] Ad library unavailable, continuing without ads:',
-      error instanceof Error ? error.message : 'Unknown error');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Differentiate between missing API key (expected) vs actual errors (unexpected)
+    if (errorMessage.includes('SEARCHAPI_KEY') || errorMessage.includes('Environment variable')) {
+      // Expected: API key not configured - this is fine, just skip ad library
+      console.info('[Competitor Research] SEARCHAPI_KEY not configured - skipping ad library search');
+    } else {
+      // Unexpected error - log as error for investigation but continue
+      console.error('[Competitor Research] Ad library search failed:', errorMessage);
+    }
   }
 
   // Merge ads into competitor snapshots
@@ -524,7 +531,9 @@ const STOP_WORDS = new Set([
 
 /**
  * Fetch ads for each competitor from all ad library platforms
- * Service handles rate limiting internally
+ *
+ * FIX: Now passes domain to improve ad filtering and validation
+ * Service handles request-scoped rate limiting to prevent ad mixing between competitors
  */
 async function fetchCompetitorAds(
   adService: ReturnType<typeof createAdLibraryService>,
@@ -532,20 +541,33 @@ async function fetchCompetitorAds(
 ): Promise<Map<string, AdCreative[]>> {
   const adsMap = new Map<string, AdCreative[]>();
 
-  // Fetch ads for each competitor in parallel (service handles rate limiting)
+  // Fetch ads for each competitor in parallel
+  // Each competitor gets its own request context (no shared state)
   const fetchPromises = competitors.map(async (competitor) => {
     try {
+      // Extract domain from website URL if available
+      const domain = extractDomainFromURL(competitor.website);
+
       const response = await adService.fetchAllPlatforms({
         query: competitor.name,
+        domain, // Pass domain for better Google Ads filtering and validation
         limit: 10, // 10 ads per platform max
       });
 
       // Combine all successful platform results
+      // Ads are already filtered by the service to match the competitor name
       const allAds = response.results
         .filter(r => r.success)
         .flatMap(r => r.ads);
 
       adsMap.set(competitor.name, allAds);
+
+      // Log summary for this competitor
+      if (allAds.length > 0) {
+        console.log(
+          `[Competitor Research] ${competitor.name}: Found ${allAds.length} validated ads across platforms`
+        );
+      }
     } catch (error) {
       console.error(`[Competitor Research] Failed to fetch ads for ${competitor.name}:`, error);
       adsMap.set(competitor.name, []);
@@ -554,6 +576,32 @@ async function fetchCompetitorAds(
 
   await Promise.all(fetchPromises);
   return adsMap;
+}
+
+/**
+ * Extract domain from a full URL
+ * Example: "https://www.tesla.com/about" → "tesla.com"
+ */
+function extractDomainFromURL(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+
+  try {
+    // If URL doesn't have protocol, add it
+    const urlWithProtocol = url.startsWith('http') ? url : `https://${url}`;
+    const parsed = new URL(urlWithProtocol);
+
+    // Remove www prefix if present
+    let hostname = parsed.hostname;
+    if (hostname.startsWith('www.')) {
+      hostname = hostname.substring(4);
+    }
+
+    return hostname;
+  } catch {
+    // If URL parsing fails, try basic extraction
+    const match = url.match(/(?:https?:\/\/)?(?:www\.)?([^\/\s]+)/);
+    return match ? match[1] : undefined;
+  }
 }
 
 /**
