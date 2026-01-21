@@ -1,12 +1,13 @@
 -- Chat History Persistence Schema
 -- Migration: 20260115_create_chat_tables.sql
+-- Note: Authentication is handled by Clerk, not Supabase Auth
 
 -- Conversations table
 -- Stores chat sessions, optionally linked to a blueprint
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   blueprint_id uuid,
-  user_id uuid references auth.users(id) on delete cascade,
+  user_id text, -- Clerk user ID (string format)
   title text,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
@@ -41,72 +42,17 @@ create index if not exists idx_conversations_updated on public.conversations(upd
 alter table public.conversations enable row level security;
 alter table public.chat_messages enable row level security;
 
--- RLS Policies for conversations table
-create policy "Users can view own conversations"
-on public.conversations for select
-to authenticated
-using (user_id = auth.uid());
+-- Temporary permissive policies
+-- TODO: Update these with Clerk-based authentication policies when Clerk integration is complete
+create policy "Allow all access to conversations"
+on public.conversations for all
+using (true)
+with check (true);
 
-create policy "Users can insert own conversations"
-on public.conversations for insert
-to authenticated
-with check (user_id = auth.uid());
-
-create policy "Users can update own conversations"
-on public.conversations for update
-to authenticated
-using (user_id = auth.uid());
-
-create policy "Users can delete own conversations"
-on public.conversations for delete
-to authenticated
-using (user_id = auth.uid());
-
--- RLS Policies for chat_messages table
--- Messages access is controlled through conversation ownership
-create policy "Users can view messages in own conversations"
-on public.chat_messages for select
-to authenticated
-using (
-  exists (
-    select 1 from public.conversations
-    where conversations.id = chat_messages.conversation_id
-    and conversations.user_id = auth.uid()
-  )
-);
-
-create policy "Users can insert messages in own conversations"
-on public.chat_messages for insert
-to authenticated
-with check (
-  exists (
-    select 1 from public.conversations
-    where conversations.id = chat_messages.conversation_id
-    and conversations.user_id = auth.uid()
-  )
-);
-
-create policy "Users can update messages in own conversations"
-on public.chat_messages for update
-to authenticated
-using (
-  exists (
-    select 1 from public.conversations
-    where conversations.id = chat_messages.conversation_id
-    and conversations.user_id = auth.uid()
-  )
-);
-
-create policy "Users can delete messages in own conversations"
-on public.chat_messages for delete
-to authenticated
-using (
-  exists (
-    select 1 from public.conversations
-    where conversations.id = chat_messages.conversation_id
-    and conversations.user_id = auth.uid()
-  )
-);
+create policy "Allow all access to chat_messages"
+on public.chat_messages for all
+using (true)
+with check (true);
 
 -- Trigger to update conversations.updated_at when messages are added
 create or replace function public.update_conversation_timestamp()

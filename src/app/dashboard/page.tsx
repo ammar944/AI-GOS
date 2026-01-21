@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,18 +6,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { signOut } from "../login/actions";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  // TODO: Add Clerk authentication check here
+  // Once Clerk is set up, use auth() to protect this page
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,12 +17,8 @@ export default async function DashboardPage() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <h1 className="text-xl font-bold">AI-GOS</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            <form action={signOut}>
-              <Button variant="outline" size="sm" type="submit">
-                Sign out
-              </Button>
-            </form>
+            {/* TODO: Add Clerk UserButton here */}
+            <span className="text-sm text-muted-foreground">User</span>
           </div>
         </div>
       </header>

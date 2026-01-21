@@ -62,8 +62,6 @@ export {
   createMockSupabaseClient,
   createSupabaseClientMock,
   // Data factories
-  createMockUser,
-  createMockSession,
   createMockBlueprint,
   createMockBlueprintChunk,
   createMockSharedBlueprint,

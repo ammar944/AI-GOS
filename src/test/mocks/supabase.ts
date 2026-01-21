@@ -3,26 +3,20 @@
  *
  * Provides a mock implementation of Supabase client with:
  * - Query builder pattern (from().select().insert() etc.)
- * - Auth mocks (getUser, getSession, signIn, signOut)
  * - RPC function mocks
  * - Data factories for common entities
  * - Error simulation
+ *
+ * Note: Auth mocks have been removed - authentication is now handled by Clerk.
  */
 
 import { vi } from "vitest";
-import type { User, Session, AuthError } from "@supabase/supabase-js";
 
 // =============================================================================
 // Types
 // =============================================================================
 
 export interface MockSupabaseConfig {
-  /** Default user for auth.getUser() */
-  defaultUser?: Partial<User> | null;
-  /** Default session for auth.getSession() */
-  defaultSession?: Partial<Session> | null;
-  /** Simulate auth error */
-  authError?: { code: string; message: string };
   /** Simulate query error on all operations */
   queryError?: { code: string; message: string };
 }
@@ -52,48 +46,6 @@ export interface MockQueryCall {
 // =============================================================================
 // Data Factories
 // =============================================================================
-
-/**
- * Create a mock Supabase User
- */
-export function createMockUser(overrides?: Partial<User>): User {
-  const id = overrides?.id || crypto.randomUUID();
-  return {
-    id,
-    app_metadata: {},
-    user_metadata: {},
-    aud: "authenticated",
-    created_at: new Date().toISOString(),
-    email: overrides?.email || `user-${id.slice(0, 8)}@test.com`,
-    phone: "",
-    confirmed_at: new Date().toISOString(),
-    last_sign_in_at: new Date().toISOString(),
-    role: "authenticated",
-    updated_at: new Date().toISOString(),
-    ...overrides,
-  };
-}
-
-/**
- * Create a mock Supabase Session
- */
-export function createMockSession(overrides?: {
-  user?: Partial<User>;
-  accessToken?: string;
-  refreshToken?: string;
-  expiresIn?: number;
-  expiresAt?: number;
-}): Session {
-  const user = createMockUser(overrides?.user);
-  return {
-    access_token: overrides?.accessToken || "mock-access-token-" + Date.now(),
-    refresh_token: overrides?.refreshToken || "mock-refresh-token-" + Date.now(),
-    expires_in: overrides?.expiresIn || 3600,
-    expires_at: overrides?.expiresAt || Math.floor(Date.now() / 1000) + 3600,
-    token_type: "bearer",
-    user,
-  };
-}
 
 /**
  * Create a mock blueprint row
@@ -226,7 +178,6 @@ function createMockQueryBuilder<T = unknown>(
   let operation: MockQueryCall["operation"] = "select";
   let operationData: unknown;
   const filters: MockQueryCall["filters"] = [];
-  let limitCount: number | undefined;
   let singleRow = false;
   let maybeSingleRow = false;
 
@@ -398,8 +349,7 @@ function createMockQueryBuilder<T = unknown>(
 
     // Modifiers
     order: (_column: string, _options?: { ascending?: boolean }) => builder,
-    limit: (count: number) => {
-      limitCount = count;
+    limit: (_count: number) => {
       return builder;
     },
     range: (_from: number, _to: number) => builder,
@@ -437,7 +387,6 @@ export class MockSupabaseClient {
   // Call history
   public queryCalls: MockQueryCall[] = [];
   public rpcCalls: MockRpcCall[] = [];
-  public authCalls: Array<{ method: string; args: unknown[]; timestamp: number }> = [];
 
   // Response queues (keyed by "table:operation" or "rpc:functionName")
   private queryResponseQueue = new Map<string, MockQueryResult[]>();
@@ -482,7 +431,6 @@ export class MockSupabaseClient {
   reset(): void {
     this.queryCalls = [];
     this.rpcCalls = [];
-    this.authCalls = [];
     this.queryResponseQueue.clear();
     this.rpcResponseQueue.clear();
   }
@@ -550,165 +498,6 @@ export class MockSupabaseClient {
       error: null,
     });
   }
-
-  /**
-   * Auth methods
-   */
-  get auth() {
-    const recordAuthCall = (method: string, args: unknown[]) => {
-      this.authCalls.push({ method, args, timestamp: Date.now() });
-    };
-
-    return {
-      getUser: async () => {
-        recordAuthCall("getUser", []);
-
-        if (this.config.authError) {
-          return {
-            data: { user: null },
-            error: this.config.authError as AuthError,
-          };
-        }
-
-        if (this.config.defaultUser === null) {
-          return {
-            data: { user: null },
-            error: null,
-          };
-        }
-
-        return {
-          data: { user: createMockUser(this.config.defaultUser) },
-          error: null,
-        };
-      },
-
-      getSession: async () => {
-        recordAuthCall("getSession", []);
-
-        if (this.config.authError) {
-          return {
-            data: { session: null },
-            error: this.config.authError as AuthError,
-          };
-        }
-
-        if (this.config.defaultSession === null) {
-          return {
-            data: { session: null },
-            error: null,
-          };
-        }
-
-        const user = this.config.defaultUser
-          ? createMockUser(this.config.defaultUser)
-          : undefined;
-        return {
-          data: {
-            session: createMockSession({
-              user,
-              ...this.config.defaultSession,
-            }),
-          },
-          error: null,
-        };
-      },
-
-      signInWithPassword: async (credentials: { email: string; password: string }) => {
-        recordAuthCall("signInWithPassword", [credentials]);
-
-        if (this.config.authError) {
-          return {
-            data: { user: null, session: null },
-            error: this.config.authError as AuthError,
-          };
-        }
-
-        const user = createMockUser({ email: credentials.email });
-        const session = createMockSession({ user });
-        return {
-          data: { user, session },
-          error: null,
-        };
-      },
-
-      signInWithOAuth: async (options: { provider: string; options?: unknown }) => {
-        recordAuthCall("signInWithOAuth", [options]);
-
-        if (this.config.authError) {
-          return {
-            data: { provider: options.provider, url: null },
-            error: this.config.authError as AuthError,
-          };
-        }
-
-        return {
-          data: {
-            provider: options.provider,
-            url: `https://auth.example.com/${options.provider}`,
-          },
-          error: null,
-        };
-      },
-
-      signUp: async (credentials: { email: string; password: string }) => {
-        recordAuthCall("signUp", [credentials]);
-
-        if (this.config.authError) {
-          return {
-            data: { user: null, session: null },
-            error: this.config.authError as AuthError,
-          };
-        }
-
-        const user = createMockUser({ email: credentials.email });
-        return {
-          data: { user, session: null },
-          error: null,
-        };
-      },
-
-      signOut: async () => {
-        recordAuthCall("signOut", []);
-
-        if (this.config.authError) {
-          return { error: this.config.authError as AuthError };
-        }
-
-        return { error: null };
-      },
-
-      exchangeCodeForSession: async (code: string) => {
-        recordAuthCall("exchangeCodeForSession", [code]);
-
-        if (this.config.authError) {
-          return {
-            data: { user: null, session: null },
-            error: this.config.authError as AuthError,
-          };
-        }
-
-        const user = createMockUser();
-        const session = createMockSession({ user });
-        return {
-          data: { user, session },
-          error: null,
-        };
-      },
-
-      onAuthStateChange: (callback: (event: string, session: Session | null) => void) => {
-        recordAuthCall("onAuthStateChange", [callback]);
-        // Return unsubscribe function
-        return {
-          data: {
-            subscription: {
-              unsubscribe: vi.fn(),
-            },
-          },
-        };
-      },
-    };
-  }
 }
 
 // =============================================================================
@@ -732,8 +521,6 @@ export function createSupabaseClientMock(config?: MockSupabaseConfig) {
   const mockClient = new MockSupabaseClient(config);
   return {
     createClient: vi.fn(() => mockClient),
-    createBrowserClient: vi.fn(() => mockClient),
-    createServerClient: vi.fn(() => mockClient),
     // Expose the mock instance for test assertions
     __mockInstance: mockClient,
   };
