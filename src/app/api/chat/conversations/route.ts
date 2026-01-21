@@ -2,6 +2,7 @@
 // Create and list chat conversations
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import type {
@@ -21,17 +22,13 @@ const createConversationSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
 
     // Parse and validate request body
     const body = await request.json();
@@ -50,7 +47,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('conversations')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         blueprint_id: blueprintId || null,
         title: title || null,
       })
@@ -85,17 +82,13 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = await createClient();
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -105,7 +98,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('conversations')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('updated_at', { ascending: false });
 
     // Filter by blueprint if provided

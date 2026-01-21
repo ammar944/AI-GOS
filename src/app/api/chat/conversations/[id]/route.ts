@@ -2,6 +2,7 @@
 // Load, update, and delete a specific conversation
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import type { LoadConversationResponse } from '@/lib/chat/types';
@@ -22,18 +23,14 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const supabase = await createClient();
+    const { userId } = await auth();
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { id } = await params;
+    const supabase = await createClient();
 
     // Validate UUID format
     const uuidSchema = z.string().uuid();
@@ -103,18 +100,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const supabase = await createClient();
+    const { userId } = await auth();
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { id } = await params;
+    const supabase = await createClient();
 
     // Validate UUID format
     const uuidSchema = z.string().uuid();
@@ -192,18 +185,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const supabase = await createClient();
+    const { userId } = await auth();
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { id } = await params;
+    const supabase = await createClient();
 
     // Validate UUID format
     const uuidSchema = z.string().uuid();
