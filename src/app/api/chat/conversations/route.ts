@@ -9,6 +9,11 @@ import type {
   CreateConversationResponse,
   ListConversationsResponse,
 } from '@/lib/chat/types';
+import {
+  unauthorizedResponse,
+  handleSupabaseError,
+  isRLSError,
+} from '@/lib/auth/errors';
 
 // Validation schema for creating a conversation
 const createConversationSchema = z.object({
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest) {
     const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorizedResponse('Authentication required');
     }
 
     const supabase = await createClient();
@@ -36,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten() },
+        { error: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -55,9 +60,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      if (isRLSError(error)) {
+        return handleSupabaseError(error);
+      }
       console.error('Failed to create conversation:', error);
       return NextResponse.json(
-        { error: 'Failed to create conversation' },
+        { error: 'DATABASE_ERROR', message: 'Failed to create conversation' },
         { status: 500 }
       );
     }
@@ -85,7 +93,7 @@ export async function GET(request: NextRequest) {
     const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthorizedResponse('Authentication required');
     }
 
     const supabase = await createClient();
@@ -94,7 +102,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const blueprintId = searchParams.get('blueprintId');
 
-    // Build query
+    // Build query - RLS policies will also filter by user_id
     let query = supabase
       .from('conversations')
       .select('*')
@@ -109,9 +117,12 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
+      if (isRLSError(error)) {
+        return handleSupabaseError(error);
+      }
       console.error('Failed to list conversations:', error);
       return NextResponse.json(
-        { error: 'Failed to list conversations' },
+        { error: 'DATABASE_ERROR', message: 'Failed to list conversations' },
         { status: 500 }
       );
     }
