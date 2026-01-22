@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Building2,
@@ -126,7 +126,20 @@ export function OnboardingWizard({
     ...initialData,
   });
 
+  // Track if form data was updated by user action (not initialization)
+  const isUserAction = useRef(false);
+  const pendingStepChange = useRef<{ step: number; data: OnboardingFormData } | null>(null);
+
   const progress = ((currentStep + 1) / STEPS.length) * 100;
+
+  // Call onStepChange after state updates (outside of render)
+  useEffect(() => {
+    if (pendingStepChange.current && isUserAction.current) {
+      const { step, data } = pendingStepChange.current;
+      onStepChange?.(step, data);
+      pendingStepChange.current = null;
+    }
+  }, [formData, onStepChange]);
 
   const goToNextStep = useCallback(() => {
     if (currentStep < STEPS.length - 1) {
@@ -162,13 +175,15 @@ export function OnboardingWizard({
       section: K,
       data: OnboardingFormData[K]
     ) => {
+      isUserAction.current = true;
       setFormData((prev) => {
         const updated = { ...prev, [section]: data };
-        onStepChange?.(currentStep, updated);
+        // Queue the step change to be called in useEffect (after render)
+        pendingStepChange.current = { step: currentStep, data: updated };
         return updated;
       });
     },
-    [currentStep, onStepChange]
+    [currentStep]
   );
 
   // Step handlers

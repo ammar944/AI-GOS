@@ -208,16 +208,18 @@ export function DashboardContent() {
                 </div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                <Link href="/generate" className="flex-1 sm:flex-none">
+                <Link href="/blueprint/view" className="flex-1 sm:flex-none">
                   <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Eye className="size-4 mr-2" />
                     View
                   </Button>
                 </Link>
-                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                  <Share2 className="size-4 mr-2" />
-                  Share
-                </Button>
+                <Link href="/blueprint/view" className="flex-1 sm:flex-none">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                    <Share2 className="size-4 mr-2" />
+                    Share
+                  </Button>
+                </Link>
               </div>
             </div>
           </GlowCard>

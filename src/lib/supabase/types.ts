@@ -6,9 +6,63 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+// Onboarding data structure
+export interface OnboardingData {
+  businessBasics?: Record<string, Json>;
+  icpData?: Record<string, Json>;
+  productOffer?: Record<string, Json>;
+  marketCompetition?: Record<string, Json>;
+  customerJourney?: Record<string, Json>;
+  brandPositioning?: Record<string, Json>;
+  assetsProof?: Record<string, Json>;
+  budgetTargets?: Record<string, Json>;
+  compliance?: Record<string, Json>;
+}
+
 export interface Database {
   public: {
     Tables: {
+      user_profiles: {
+        Row: {
+          id: string;
+          email: string | null;
+          first_name: string | null;
+          last_name: string | null;
+          avatar_url: string | null;
+          onboarding_completed: boolean;
+          onboarding_completed_at: string | null;
+          onboarding_data: OnboardingData | null;
+          created_at: string | null;
+          updated_at: string | null;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id: string;
+          email?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          avatar_url?: string | null;
+          onboarding_completed?: boolean;
+          onboarding_completed_at?: string | null;
+          onboarding_data?: OnboardingData | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          email?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          avatar_url?: string | null;
+          onboarding_completed?: boolean;
+          onboarding_completed_at?: string | null;
+          onboarding_data?: OnboardingData | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          deleted_at?: string | null;
+        };
+      };
       users: {
         Row: {
           id: string;

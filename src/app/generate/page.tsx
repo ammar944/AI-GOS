@@ -17,6 +17,7 @@ import {
   Link2,
   Check,
   Download,
+  LayoutDashboard,
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { createRoot } from "react-dom/client";
@@ -31,6 +32,8 @@ import { GradientBorder } from "@/components/ui/gradient-border";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
 import { Pipeline, GenerationStats } from "@/components/pipeline";
 import { SaaSLaunchBackground, ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
+import { GenerateHeader, type GenerateStage } from "@/components/generate";
+import { updateOnboardingData as persistOnboardingData } from "@/lib/actions/onboarding";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
@@ -133,6 +136,24 @@ type PageState =
 // Pipeline stages for generation progress visualization
 const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Synthesis"];
 
+// Map page state to header stage
+function getHeaderStage(pageState: PageState): GenerateStage {
+  switch (pageState) {
+    case "onboarding":
+      return "onboarding";
+    case "generating-blueprint":
+      return "generate";
+    case "review-blueprint":
+      return "review";
+    case "complete":
+      return "complete";
+    case "error":
+      return "generate"; // Show generate stage during error
+    default:
+      return "onboarding";
+  }
+}
+
 export default function GeneratePage() {
   const [pageState, setPageState] = useState<PageState>("onboarding");
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData | null>(null);
@@ -153,6 +174,9 @@ export default function GeneratePage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+
+  // Track if user has started filling in onboarding (for exit confirmation)
+  const [hasStartedOnboarding, setHasStartedOnboarding] = useState(false);
 
   // PDF export state
   const [isExporting, setIsExporting] = useState(false);
@@ -212,6 +236,40 @@ export default function GeneratePage() {
   const handleAutoFill = useCallback(() => {
     setInitialData(SAMPLE_ONBOARDING_DATA);
     setWizardKey((prev) => prev + 1);
+  }, []);
+
+  // Persist onboarding data to Supabase on each step change
+  const handleStepChange = useCallback(async (_step: number, data: Partial<OnboardingFormData>) => {
+    // Mark that user has started filling in data (for exit confirmation)
+    setHasStartedOnboarding(true);
+
+    // Debounced save to Supabase - save in background, don't block UI
+    try {
+      // Map the onboarding form data to the database format
+      const dbData = {
+        businessBasics: data.businessBasics ? JSON.parse(JSON.stringify(data.businessBasics)) : undefined,
+        icpData: data.icp ? JSON.parse(JSON.stringify(data.icp)) : undefined,
+        productOffer: data.productOffer ? JSON.parse(JSON.stringify(data.productOffer)) : undefined,
+        marketCompetition: data.marketCompetition ? JSON.parse(JSON.stringify(data.marketCompetition)) : undefined,
+        customerJourney: data.customerJourney ? JSON.parse(JSON.stringify(data.customerJourney)) : undefined,
+        brandPositioning: data.brandPositioning ? JSON.parse(JSON.stringify(data.brandPositioning)) : undefined,
+        assetsProof: data.assetsProof ? JSON.parse(JSON.stringify(data.assetsProof)) : undefined,
+        budgetTargets: data.budgetTargets ? JSON.parse(JSON.stringify(data.budgetTargets)) : undefined,
+        compliance: data.compliance ? JSON.parse(JSON.stringify(data.compliance)) : undefined,
+      };
+
+      // Filter out undefined values
+      const filteredData = Object.fromEntries(
+        Object.entries(dbData).filter(([, v]) => v !== undefined)
+      );
+
+      if (Object.keys(filteredData).length > 0) {
+        await persistOnboardingData(filteredData);
+      }
+    } catch (error) {
+      // Don't block the UI if save fails - data is also in localStorage
+      console.error('[Generate] Failed to persist onboarding data:', error);
+    }
   }, []);
 
   // Onboarding complete → Generate Strategic Blueprint (with SSE streaming)
@@ -378,6 +436,7 @@ export default function GeneratePage() {
     setBlueprintMeta(null);
     setInitialData(undefined);
     setWizardKey((prev) => prev + 1);
+    setHasStartedOnboarding(false);
     clearAllSavedData();
   }, []);
 
@@ -609,10 +668,26 @@ export default function GeneratePage() {
     );
   }
 
+  // Compute if user has unsaved progress
+  const hasUnsavedProgress = Boolean(
+    hasStartedOnboarding ||
+    onboardingData ||
+    strategicBlueprint ||
+    (pageState === "generating-blueprint")
+  );
+
   // Onboarding State
   if (pageState === "onboarding") {
     return (
-      <div className="min-h-screen relative" style={{ background: 'rgb(7, 9, 14)' }}>
+      <div className="min-h-screen relative flex flex-col" style={{ background: 'rgb(7, 9, 14)' }}>
+        {/* Persistent Navigation Header */}
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={hasUnsavedProgress}
+          onExit={handleStartOver}
+          exitUrl="/dashboard"
+        />
+
         {/* SaaSLaunch Shader Mesh Background */}
         <ShaderMeshBackground variant="hero" />
         <BackgroundPattern opacity={0.02} />
@@ -716,6 +791,7 @@ export default function GeneratePage() {
             key={wizardKey}
             initialData={initialData}
             onComplete={handleOnboardingComplete}
+            onStepChange={handleStepChange}
           />
         </div>
       </div>
@@ -733,19 +809,29 @@ export default function GeneratePage() {
     const estimatedCost = streamingCost > 0 ? streamingCost : (elapsedTime / 1000) * 0.001;
 
     return (
-      <div className="min-h-screen flex items-center justify-center relative" style={{ background: 'var(--bg-base)' }}>
+      <div className="min-h-screen flex flex-col relative" style={{ background: 'var(--bg-base)' }}>
+        {/* Persistent Navigation Header - collapsible during generation */}
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={true}
+          onExit={handleStartOver}
+          exitUrl="/dashboard"
+          collapsible={true}
+        />
+
         {/* SaaSLaunch Shader Mesh Background */}
         <ShaderMeshBackground variant="page" />
         <BackgroundPattern opacity={0.02} />
 
-        <div className="container mx-auto px-4 py-8 max-w-2xl relative z-10">
-          <motion.div
-            variants={fadeUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: durations.normal }}
-          >
-            <GradientBorder animate={true}>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="container mx-auto px-4 py-8 max-w-2xl relative z-10">
+            <motion.div
+              variants={fadeUp}
+              initial="initial"
+              animate="animate"
+              transition={{ duration: durations.normal }}
+            >
+              <GradientBorder animate={true}>
               <div className="p-6 space-y-6">
                 {/* Header - compact */}
                 <motion.div
@@ -803,6 +889,7 @@ export default function GeneratePage() {
               </div>
             </GradientBorder>
           </motion.div>
+          </div>
         </div>
       </div>
     );
@@ -811,13 +898,23 @@ export default function GeneratePage() {
   // Error State
   if (pageState === "error" && error) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 max-w-lg">
-          <ApiErrorDisplay
-            error={error}
-            onRetry={handleRetryBlueprint}
-            onGoBack={handleStartOver}
-          />
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)' }}>
+        {/* Persistent Navigation Header */}
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={hasUnsavedProgress}
+          onExit={handleStartOver}
+          exitUrl="/dashboard"
+        />
+
+        <div className="flex-1 flex items-center justify-center">
+          <div className="container mx-auto px-4 py-8 max-w-lg">
+            <ApiErrorDisplay
+              error={error}
+              onRetry={handleRetryBlueprint}
+              onGoBack={handleStartOver}
+            />
+          </div>
         </div>
       </div>
     );
@@ -827,65 +924,13 @@ export default function GeneratePage() {
   if (pageState === "review-blueprint" && strategicBlueprint) {
     return (
       <div className="h-screen flex flex-col" style={{ background: 'var(--bg-base)' }}>
-        {/* Stage Indicator - centered on full viewport */}
-        <motion.div
-          className="w-full py-4 px-4 flex-shrink-0"
-          style={{
-            background: 'var(--bg-base)',
-            borderBottom: '1px solid var(--border-default)',
-          }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="flex items-center justify-center gap-4">
-            <div className="flex items-center gap-2">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                style={{ background: 'rgb(34, 197, 94)', color: 'white' }}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </div>
-              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Onboarding</span>
-            </div>
-            <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-            <div className="flex items-center gap-2">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                style={{
-                  background: 'rgba(54, 94, 255, 0.15)',
-                  border: '1px solid var(--accent-blue)',
-                  color: 'var(--accent-blue)'
-                }}
-              >
-                2
-              </div>
-              <span
-                className="text-sm font-medium"
-                style={{
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-sans), Inter, sans-serif',
-                }}
-              >
-                Review Research
-              </span>
-            </div>
-            <ArrowRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-            <div className="flex items-center gap-2 opacity-50">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-                style={{
-                  background: 'var(--bg-hover)',
-                  color: 'var(--text-tertiary)',
-                  border: '1px solid var(--border-default)',
-                }}
-              >
-                3
-              </div>
-              <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Complete</span>
-            </div>
-          </div>
-        </motion.div>
+        {/* Persistent Navigation Header */}
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={hasUnsavedProgress}
+          onExit={handleStartOver}
+          exitUrl="/dashboard"
+        />
 
         {/* Main content area */}
         <div className="flex-1 min-h-0">
@@ -917,7 +962,14 @@ export default function GeneratePage() {
   // Complete State - Show Strategic Blueprint
   if (pageState === "complete" && strategicBlueprint) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)' }}>
+        {/* Persistent Navigation Header */}
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={false}
+          exitUrl="/dashboard"
+        />
+
         <div className="container mx-auto px-4 py-8 md:py-12">
           {/* Success Header */}
           <motion.div
@@ -970,14 +1022,28 @@ export default function GeneratePage() {
                     </div>
                   </div>
 
-                  {/* Actions - SaaSLaunch styled buttons (5 total):
-                       1. Back to Review (secondary outline)
-                       2. Export PDF (secondary outline)
-                       3. Share (secondary outline)
-                       4. Regenerate (secondary outline)
-                       5. New Blueprint (primary gradient pill)
+                  {/* Actions - SaaSLaunch styled buttons:
+                       1. Back to Dashboard (primary gradient - most important)
+                       2. Back to Review (secondary outline)
+                       3. Export PDF (secondary outline)
+                       4. Share (secondary outline)
+                       5. Regenerate (secondary outline)
+                       6. New Blueprint (secondary outline)
                   */}
                   <div className="flex flex-wrap items-center gap-3">
+                    <a href="/dashboard">
+                      <MagneticButton
+                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                        style={{
+                          background: 'var(--gradient-primary)',
+                          color: 'white',
+                          fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                        }}
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Back to Dashboard
+                      </MagneticButton>
+                    </a>
                     <MagneticButton
                       className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleBackToReview}
@@ -1043,14 +1109,16 @@ export default function GeneratePage() {
                       Regenerate
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleStartOver}
                       style={{
-                        background: 'var(--gradient-primary)',
-                        color: 'white',
-                        fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-secondary)',
+                        background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
                       }}
                     >
+                      <Wand2 className="h-4 w-4" />
                       New Blueprint
                     </MagneticButton>
                   </div>
