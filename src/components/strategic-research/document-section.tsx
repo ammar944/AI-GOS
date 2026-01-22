@@ -157,22 +157,6 @@ export function DocumentSection({
             )}
           </Button>
 
-          {/* Mark as reviewed button */}
-          {!isReviewed && !isEditing && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onMarkReviewed}
-              className="gap-1.5 text-sm transition-colors duration-200 hover:text-[var(--success)]"
-              style={{
-                color: 'var(--text-tertiary)',
-                fontFamily: 'var(--font-sans), Inter, sans-serif',
-              }}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Mark Reviewed
-            </Button>
-          )}
         </div>
       </div>
 
@@ -188,6 +172,29 @@ export function DocumentSection({
         {/* Sources list */}
         {citations && citations.length > 0 && (
           <SourcesList citations={citations} sectionLabel={sectionLabel} />
+        )}
+
+        {/* Mark as Reviewed - positioned at bottom for natural reading flow */}
+        {!isReviewed && !isEditing && (
+          <div
+            className="mt-8 pt-6 flex justify-end"
+            style={{ borderTop: '1px solid var(--border-default)' }}
+          >
+            <Button
+              variant="outline"
+              onClick={onMarkReviewed}
+              className="gap-2 px-6 py-2.5 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+              style={{
+                borderColor: 'var(--success)',
+                color: 'var(--success)',
+                background: 'var(--success-subtle)',
+                fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+              }}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Mark as Reviewed
+            </Button>
+          </div>
         )}
       </div>
     </section>

@@ -218,7 +218,7 @@ export function SectionNav({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full h-8 gap-2 justify-start rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                      className="w-full h-8 gap-2 justify-center rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
                       style={{
                         color: 'var(--text-secondary)',
                         borderColor: 'var(--border-default)',
@@ -241,7 +241,7 @@ export function SectionNav({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full h-8 gap-2 justify-start rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                      className="w-full h-8 gap-2 justify-center rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
                       style={{
                         color: 'var(--text-secondary)',
                         borderColor: 'var(--border-default)',
@@ -261,7 +261,7 @@ export function SectionNav({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full h-8 gap-2 justify-start rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                className="w-full h-8 gap-2 justify-center rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
                 style={{
                   color: 'var(--text-secondary)',
                   borderColor: 'var(--border-default)',
