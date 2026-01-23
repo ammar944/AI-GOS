@@ -47,17 +47,41 @@ export interface AdCreative {
 }
 
 /**
+ * Google Ads Transparency ad format filter
+ * Used to exclude text-only ads and focus on rich creatives
+ */
+export type GoogleAdFormat = 'text' | 'image' | 'video';
+
+/**
+ * Google Ads Transparency platform filter
+ * Specifies where the ads appear
+ */
+export type GoogleAdPlatform = 'google_play' | 'google_maps' | 'google_search' | 'youtube' | 'google_shopping';
+
+/**
  * Options for fetching ads from ad libraries
  */
 export interface AdLibraryOptions {
   /** Company name to search for (used by LinkedIn and Meta) */
   query: string;
-  /** Domain to search for (used by Google Ads Transparency) */
+  /** Domain to search for (used by Google Ads Transparency as fallback) */
   domain?: string;
   /** Maximum number of ads to fetch per platform (default: 50) */
   limit?: number;
   /** Country filter (default: US) */
   country?: string;
+  /**
+   * Google Ads Transparency: ad formats to include
+   * Default: 'image' (excludes text-only domain sponsor ads which are useless)
+   * Set to 'video' for video-only, or 'text' if you really want text ads
+   */
+  googleAdFormat?: GoogleAdFormat;
+  /**
+   * Google Ads Transparency: platform to filter by
+   * e.g., 'youtube' for video-heavy results
+   * Default: undefined (all platforms)
+   */
+  googlePlatform?: GoogleAdPlatform;
 }
 
 /**

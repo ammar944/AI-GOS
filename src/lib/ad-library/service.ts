@@ -43,7 +43,7 @@ interface SearchApiResponse {
   };
   ads?: unknown[];
   ad_creatives?: unknown[];
-  // For page search responses
+  // For Meta page search responses
   pages?: Array<{
     id?: string;
     page_id?: string;
@@ -51,6 +51,20 @@ interface SearchApiResponse {
     page_name?: string;
     page_profile_uri?: string;
     likes?: number;
+  }>;
+  // For Google advertiser search responses
+  advertisers?: Array<{
+    id?: string;
+    name?: string;
+    region?: string;
+    ads_count?: {
+      lower?: number;
+      upper?: number;
+    };
+    is_verified?: boolean;
+  }>;
+  domains?: Array<{
+    name?: string;
   }>;
 }
 
@@ -122,14 +136,30 @@ export class AdLibraryService {
       // Filter ads to only include those matching the searched company
       const filteredAds = this.filterValidAds(normalizedAds, 'linkedin', context);
 
+      // Filter out LinkedIn ads without image preview
+      // Some ads only have a link to view on LinkedIn but no embedded image
+      const adsWithImages = filteredAds.filter(ad => {
+        const hasVisual = !!ad.imageUrl || !!ad.videoUrl;
+        if (!hasVisual) {
+          console.log(
+            `[AdLibrary:${context.requestId}] [LINKEDIN] Filtering out ad without image: "${ad.headline?.slice(0, 50) || ad.id}..."`
+          );
+        }
+        return hasVisual;
+      });
+
+      console.log(
+        `[AdLibrary:${context.requestId}] [LINKEDIN] Kept ${adsWithImages.length}/${filteredAds.length} ads with visual creatives`
+      );
+
       const response: AdLibraryResponse = {
         platform: 'linkedin',
         success: true,
-        ads: filteredAds,
+        ads: adsWithImages,
         totalCount,
       };
 
-      logResponse(context, 'linkedin', response, normalizedAds.length, filteredAds.length);
+      logResponse(context, 'linkedin', response, normalizedAds.length, adsWithImages.length);
       return response;
     } catch (error) {
       const errorMsg = this.getErrorMessage(error);
@@ -201,14 +231,30 @@ export class AdLibraryService {
       // Still run validation as a safety net (should pass since we used page_id)
       const filteredAds = this.filterValidAds(normalizedAds, 'meta', context);
 
+      // Filter out Meta ads without image preview
+      // Some ads are dynamic catalog templates without embedded images
+      const adsWithImages = filteredAds.filter(ad => {
+        const hasVisual = !!ad.imageUrl || !!ad.videoUrl;
+        if (!hasVisual) {
+          console.log(
+            `[AdLibrary:${context.requestId}] [META] Filtering out ad without image: "${ad.headline?.slice(0, 50) || ad.id}..."`
+          );
+        }
+        return hasVisual;
+      });
+
+      console.log(
+        `[AdLibrary:${context.requestId}] [META] Kept ${adsWithImages.length}/${filteredAds.length} ads with visual creatives`
+      );
+
       const response: AdLibraryResponse = {
         platform: 'meta',
         success: true,
-        ads: filteredAds,
+        ads: adsWithImages,
         totalCount,
       };
 
-      logResponse(context, 'meta', response, normalizedAds.length, filteredAds.length);
+      logResponse(context, 'meta', response, normalizedAds.length, adsWithImages.length);
       return response;
     } catch (error) {
       const errorMsg = this.getErrorMessage(error);
@@ -221,6 +267,9 @@ export class AdLibraryService {
    * Look up Meta page_id for an advertiser name
    * Uses meta_ad_library_page_search to find the official page
    * Returns the best matching page_id or undefined if not found
+   *
+   * FIX: API returns 'page_results' not 'pages'
+   * FIX: Prefer verified pages over unverified ones
    */
   private async lookupMetaPageId(advertiserName: string, context: AdFetchContext): Promise<string | undefined> {
     try {
@@ -230,44 +279,85 @@ export class AdLibraryService {
         api_key: this.apiKey,
       });
 
-      const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
+      const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`) as SearchApiResponse & {
+        page_results?: Array<{
+          page_id?: string;
+          name?: string;
+          likes?: number;
+          verification?: string;
+          ig_followers?: number;
+        }>;
+      };
 
       if (data.error) {
         console.warn(`[AdLibrary:${context.requestId}] [META] Page search error: ${data.error}`);
         return undefined;
       }
 
-      const pages = data.pages || [];
+      // API returns 'page_results' not 'pages'
+      const pages = data.page_results || data.pages || [];
       if (pages.length === 0) {
+        console.log(`[AdLibrary:${context.requestId}] [META] No pages found for "${advertiserName}"`);
         return undefined;
       }
 
+      console.log(`[AdLibrary:${context.requestId}] [META] Found ${pages.length} page candidates`);
+
       // Find the best matching page using fuzzy matching
-      // Prefer exact matches, then highest similarity score
-      let bestMatch: { pageId: string; similarity: number } | undefined;
+      // Prefer: 1) Verified pages, 2) High similarity, 3) More followers/likes
+      let bestMatch: {
+        pageId: string;
+        pageName: string;
+        similarity: number;
+        isVerified: boolean;
+        score: number;
+      } | undefined;
 
       for (const page of pages) {
-        const pageName = page.name || page.page_name || '';
-        const pageId = page.id || page.page_id;
+        const pageName = (page as { name?: string; page_name?: string }).name ||
+                        (page as { name?: string; page_name?: string }).page_name || '';
+        const pageId = (page as { page_id?: string; id?: string }).page_id ||
+                      (page as { page_id?: string; id?: string }).id;
 
         if (!pageId) continue;
 
         const similarity = calculateSimilarity(pageName, advertiserName);
+        const isVerified = (page as { verification?: string }).verification === 'BLUE_VERIFIED';
+        const likes = (page as { likes?: number }).likes || 0;
+        const igFollowers = (page as { ig_followers?: number }).ig_followers || 0;
+
+        // Calculate a composite score:
+        // - Similarity is most important (0-1, scaled to 0-100)
+        // - Verified pages get a big bonus (+50)
+        // - More followers/likes is a tiebreaker (log scale)
+        const followerScore = Math.log10(Math.max(igFollowers, likes, 1)) / 10; // 0-1 range roughly
+        const score = (similarity * 100) + (isVerified ? 50 : 0) + followerScore;
 
         // Log each candidate for debugging
         console.log(
-          `[AdLibrary:${context.requestId}] [META] Page candidate: "${pageName}" (id: ${pageId}) - similarity: ${similarity.toFixed(2)}`
+          `[AdLibrary:${context.requestId}] [META] Page candidate: "${pageName}" (id: ${pageId}) - ` +
+          `similarity: ${similarity.toFixed(2)}, verified: ${isVerified}, ` +
+          `likes: ${likes}, ig_followers: ${igFollowers}, score: ${score.toFixed(1)}`
         );
 
         // Only consider pages with reasonable similarity
         if (similarity >= SIMILARITY_THRESHOLD) {
-          if (!bestMatch || similarity > bestMatch.similarity) {
-            bestMatch = { pageId, similarity };
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { pageId, pageName, similarity, isVerified, score };
           }
         }
       }
 
-      return bestMatch?.pageId;
+      if (bestMatch) {
+        console.log(
+          `[AdLibrary:${context.requestId}] [META] Selected page: "${bestMatch.pageName}" ` +
+          `(id: ${bestMatch.pageId}) - verified: ${bestMatch.isVerified}, score: ${bestMatch.score.toFixed(1)}`
+        );
+        return bestMatch.pageId;
+      }
+
+      console.log(`[AdLibrary:${context.requestId}] [META] No pages matched similarity threshold for "${advertiserName}"`);
+      return undefined;
     } catch (error) {
       console.warn(`[AdLibrary:${context.requestId}] [META] Page lookup failed:`, error);
       return undefined;
@@ -275,7 +365,88 @@ export class AdLibraryService {
   }
 
   /**
+   * Look up Google advertiser_id for a company name
+   * Uses google_ads_transparency_center_advertiser_search to find the official advertiser
+   * Returns the best matching advertiser_id or undefined if not found
+   *
+   * This is more accurate than using domain because:
+   * 1. Returns only ads from the exact advertiser (not subsidiaries or similar domains)
+   * 2. Works for companies without verified domains
+   * 3. Allows filtering by ad format and platform
+   */
+  private async lookupGoogleAdvertiserId(
+    companyName: string,
+    context: AdFetchContext
+  ): Promise<{ advertiserId: string; advertiserName: string } | undefined> {
+    try {
+      const params = new URLSearchParams({
+        engine: 'google_ads_transparency_center_advertiser_search',
+        q: companyName,
+        api_key: this.apiKey,
+      });
+
+      const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
+
+      if (data.error) {
+        console.warn(`[AdLibrary:${context.requestId}] [GOOGLE] Advertiser search error: ${data.error}`);
+        return undefined;
+      }
+
+      const advertisers = data.advertisers || [];
+      if (advertisers.length === 0) {
+        console.log(`[AdLibrary:${context.requestId}] [GOOGLE] No advertisers found for "${companyName}"`);
+        return undefined;
+      }
+
+      // Find the best matching advertiser using fuzzy matching
+      let bestMatch: { advertiserId: string; advertiserName: string; similarity: number } | undefined;
+
+      for (const advertiser of advertisers) {
+        const advName = advertiser.name || '';
+        const advId = advertiser.id;
+
+        if (!advId) continue;
+
+        const similarity = calculateSimilarity(advName, companyName);
+
+        // Log each candidate for debugging
+        console.log(
+          `[AdLibrary:${context.requestId}] [GOOGLE] Advertiser candidate: "${advName}" (id: ${advId}) - ` +
+          `similarity: ${similarity.toFixed(2)}, verified: ${advertiser.is_verified}, ` +
+          `ads: ${advertiser.ads_count?.lower || 0}-${advertiser.ads_count?.upper || 0}`
+        );
+
+        // Only consider advertisers with reasonable similarity
+        if (similarity >= SIMILARITY_THRESHOLD) {
+          if (!bestMatch || similarity > bestMatch.similarity) {
+            bestMatch = { advertiserId: advId, advertiserName: advName, similarity };
+          }
+        }
+      }
+
+      if (bestMatch) {
+        console.log(
+          `[AdLibrary:${context.requestId}] [GOOGLE] Selected advertiser: "${bestMatch.advertiserName}" ` +
+          `(id: ${bestMatch.advertiserId}) with similarity ${bestMatch.similarity.toFixed(2)}`
+        );
+      }
+
+      return bestMatch ? { advertiserId: bestMatch.advertiserId, advertiserName: bestMatch.advertiserName } : undefined;
+    } catch (error) {
+      console.warn(`[AdLibrary:${context.requestId}] [GOOGLE] Advertiser lookup failed:`, error);
+      return undefined;
+    }
+  }
+
+  /**
    * Fetch ads from Google Ads Transparency Center with validation
+   *
+   * Uses a two-step approach for better accuracy:
+   * 1. First, search for the advertiser by name to get advertiser_id
+   * 2. Then, fetch ads using advertiser_id (more accurate than domain)
+   * 3. Optionally filter by ad_format to exclude text-only ads
+   *
+   * Falls back to domain-based search if advertiser lookup fails.
    */
   async fetchGoogleAds(
     options: AdLibraryOptions,
@@ -285,20 +456,52 @@ export class AdLibraryService {
     logRequest(context, 'google', options);
     await this.enforceRateLimit('google', context, rateLimitState);
 
-    // Google Ads Transparency requires a domain
-    const domain = options.domain || this.extractDomain(options.query);
-    if (!domain) {
-      const errorMsg = 'Domain is required for Google Ads Transparency';
-      logError(context, 'google', errorMsg);
-      return this.errorResponse('google', errorMsg);
-    }
-
     try {
+      // Step 1: Look up advertiser_id by company name (more accurate than domain)
+      const advertiserInfo = await this.lookupGoogleAdvertiserId(options.query, context);
+
+      // Build request parameters
       const params = new URLSearchParams({
         engine: 'google_ads_transparency_center',
-        domain: domain,
         api_key: this.apiKey,
       });
+
+      if (advertiserInfo) {
+        // Use advertiser_id for precise targeting
+        params.set('advertiser_id', advertiserInfo.advertiserId);
+        console.log(
+          `[AdLibrary:${context.requestId}] [GOOGLE] Using advertiser_id: ${advertiserInfo.advertiserId} ` +
+          `for "${advertiserInfo.advertiserName}"`
+        );
+      } else {
+        // Fall back to domain-based search
+        const domain = options.domain || this.extractDomain(options.query);
+        if (!domain) {
+          const errorMsg = 'Could not find advertiser and no domain available for Google Ads Transparency';
+          logError(context, 'google', errorMsg);
+          return this.errorResponse('google', errorMsg);
+        }
+        params.set('domain', domain);
+        console.log(
+          `[AdLibrary:${context.requestId}] [GOOGLE] Falling back to domain: ${domain}`
+        );
+      }
+
+      // Add format filter to exclude text-only ads (domain sponsor garbage)
+      // Default to 'image' if not specified - we only want ads with visual previews
+      const adFormat = options.googleAdFormat || 'image';
+      params.set('ad_format', adFormat);
+      console.log(
+        `[AdLibrary:${context.requestId}] [GOOGLE] Filtering by format: ${adFormat}`
+      );
+
+      // Add optional platform filter
+      if (options.googlePlatform) {
+        params.set('platform', options.googlePlatform);
+        console.log(
+          `[AdLibrary:${context.requestId}] [GOOGLE] Filtering by platform: ${options.googlePlatform}`
+        );
+      }
 
       const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
 
@@ -319,16 +522,33 @@ export class AdLibraryService {
         .map((ad: unknown) => this.normalizeAd('google', ad));
 
       // Filter ads to only include those matching the searched company
+      // Note: When using advertiser_id, this should already be accurate
       const filteredAds = this.filterValidAds(normalizedAds, 'google', context);
+
+      // CRITICAL: Remove Google ads without image preview (domain sponsor garbage)
+      // Even with format=image filter, API sometimes returns text-only ads
+      const adsWithImages = filteredAds.filter(ad => {
+        const hasVisual = !!ad.imageUrl || !!ad.videoUrl;
+        if (!hasVisual) {
+          console.log(
+            `[AdLibrary:${context.requestId}] [GOOGLE] Filtering out ad without image: "${ad.headline || ad.id}"`
+          );
+        }
+        return hasVisual;
+      });
+
+      console.log(
+        `[AdLibrary:${context.requestId}] [GOOGLE] Kept ${adsWithImages.length}/${filteredAds.length} ads with visual creatives`
+      );
 
       const response: AdLibraryResponse = {
         platform: 'google',
         success: true,
-        ads: filteredAds,
+        ads: adsWithImages,
         totalCount,
       };
 
-      logResponse(context, 'google', response, normalizedAds.length, filteredAds.length);
+      logResponse(context, 'google', response, normalizedAds.length, adsWithImages.length);
       return response;
     } catch (error) {
       const errorMsg = this.getErrorMessage(error);
@@ -459,7 +679,14 @@ export class AdLibraryService {
     switch (platform) {
       case 'linkedin': {
         const content = ad.content as Record<string, unknown> | undefined;
+        // Primary: content.image (works for both image and video ads - video ads have cover image)
         rawUrl = content?.image as string | undefined;
+
+        // Fallback: advertiser thumbnail (small but better than nothing)
+        if (!rawUrl) {
+          const advertiser = ad.advertiser as Record<string, unknown> | undefined;
+          rawUrl = advertiser?.thumbnail as string | undefined;
+        }
         break;
       }
       case 'meta': {
@@ -504,6 +731,19 @@ export class AdLibraryService {
     let rawUrl: string | undefined;
 
     switch (platform) {
+      case 'linkedin': {
+        // LinkedIn video ads have ad_type: "video" and content.video_url
+        const adType = (ad.ad_type as string | undefined)?.toLowerCase();
+        if (adType === 'video') {
+          const content = ad.content as Record<string, unknown> | undefined;
+          rawUrl = (
+            content?.video_url ||
+            content?.video ||
+            content?.media_url
+          ) as string | undefined;
+        }
+        break;
+      }
       case 'meta': {
         const snapshot = ad.snapshot as Record<string, unknown> | undefined;
         const videos = snapshot?.videos as unknown[] | undefined;
