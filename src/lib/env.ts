@@ -19,6 +19,11 @@ const REQUIRED_ENV_VARS = {
  * Optional environment variables
  */
 const OPTIONAL_ENV_VARS = {
+  // Server-only optional variables
+  server: [
+    "FOREPLAY_API_KEY",     // Foreplay API key for creative intelligence
+    "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
+  ] as const,
   public: ["NEXT_PUBLIC_APP_URL"] as const,
 } as const;
 
@@ -52,11 +57,22 @@ export function validateEnv(): EnvValidationResult {
     }
   }
 
-  // Check optional variables and warn if missing
+  // Check optional public variables and warn if missing
   for (const key of OPTIONAL_ENV_VARS.public) {
     const value = process.env[key];
     if (!value || value.trim() === "") {
       warnings.push(`Optional environment variable ${key} is not set`);
+    }
+  }
+
+  // Check optional server variables (info only, not warnings)
+  for (const key of OPTIONAL_ENV_VARS.server) {
+    const value = process.env[key];
+    if (!value || value.trim() === "") {
+      // These are truly optional features, just log for info
+      if (process.env.NODE_ENV === 'development') {
+        console.info(`[ENV] Optional: ${key} is not set (feature disabled)`);
+      }
     }
   }
 

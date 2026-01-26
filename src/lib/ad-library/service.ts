@@ -31,7 +31,7 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const DEFAULT_LIMIT = 50;
 const DEFAULT_COUNTRY = 'US';
 const MIN_REQUEST_INTERVAL = 100; // 100ms between requests to same platform
-const SIMILARITY_THRESHOLD = 0.8; // Minimum similarity score (raised from 0.7 to prevent false positives)
+const SIMILARITY_THRESHOLD = 0.8; // Minimum similarity score - stricter to avoid false positives like "huel" matching "hula"
 
 /**
  * SearchAPI.io response structure
@@ -581,16 +581,39 @@ export class AdLibraryService {
       this.fetchGoogleAds(options, context, rateLimitState),
     ]);
 
-    const results = [linkedinResult, metaResult, googleResult];
-    const totalAds = results.reduce((sum, r) => sum + r.ads.length, 0);
-    const hasCreatives = results.some((r) =>
-      r.ads.some((ad) => ad.imageUrl || ad.videoUrl)
-    );
+    // Collect all ads from all platforms for deduplication
+    const allAds = [
+      ...linkedinResult.ads,
+      ...metaResult.ads,
+      ...googleResult.ads,
+    ];
 
-    logMultiPlatformSummary(context, results);
+    // Deduplicate ads across platforms (removes same creative appearing on multiple platforms)
+    const dedupedAds = deduplicateAds(allAds);
+
+    // Rebuild per-platform results with deduplicated ads
+    const dedupedResults: AdLibraryResponse[] = [
+      {
+        ...linkedinResult,
+        ads: dedupedAds.filter((ad) => ad.platform === 'linkedin'),
+      },
+      {
+        ...metaResult,
+        ads: dedupedAds.filter((ad) => ad.platform === 'meta'),
+      },
+      {
+        ...googleResult,
+        ads: dedupedAds.filter((ad) => ad.platform === 'google'),
+      },
+    ];
+
+    const totalAds = dedupedAds.length;
+    const hasCreatives = dedupedAds.some((ad) => ad.imageUrl || ad.videoUrl);
+
+    logMultiPlatformSummary(context, dedupedResults);
 
     return {
-      results,
+      results: dedupedResults,
       totalAds,
       hasCreatives,
     };
@@ -713,7 +736,17 @@ export class AdLibraryService {
       }
       case 'google': {
         const image = ad.image as Record<string, unknown> | undefined;
-        rawUrl = image?.link as string | undefined;
+        const video = ad.video as Record<string, unknown> | undefined;
+        // Try image.link first, then fallback to video thumbnail for video ads
+        rawUrl = (
+          image?.link ||
+          image?.url ||
+          video?.thumbnail ||
+          video?.poster ||
+          ad.thumbnail ||
+          ad.thumbnail_url ||
+          ad.preview_image
+        ) as string | undefined;
         break;
       }
     }
@@ -733,13 +766,18 @@ export class AdLibraryService {
     switch (platform) {
       case 'linkedin': {
         // LinkedIn video ads have ad_type: "video" and content.video_url
+        // Also check for video_url even without ad_type flag (some ads may not have it)
+        const content = ad.content as Record<string, unknown> | undefined;
         const adType = (ad.ad_type as string | undefined)?.toLowerCase();
-        if (adType === 'video') {
-          const content = ad.content as Record<string, unknown> | undefined;
+        const contentType = (content?.type as string | undefined)?.toLowerCase();
+
+        // Extract video URL if it's a video ad or if video_url exists
+        if (adType === 'video' || contentType === 'video' || content?.video_url) {
           rawUrl = (
             content?.video_url ||
             content?.video ||
-            content?.media_url
+            content?.media_url ||
+            ad.video_url
           ) as string | undefined;
         }
         break;
@@ -767,10 +805,18 @@ export class AdLibraryService {
       }
       case 'google': {
         // Google video ads have format: "video"
+        // Check multiple possible locations for video URL
         const format = ad.format as string | undefined;
         if (format?.toLowerCase() === 'video') {
           const video = ad.video as Record<string, unknown> | undefined;
-          rawUrl = video?.link as string | undefined;
+          rawUrl = (
+            video?.link ||
+            video?.url ||
+            video?.video_url ||
+            ad.video_url ||
+            ad.video_link ||
+            ad.media_url
+          ) as string | undefined;
         }
         break;
       }
@@ -805,11 +851,16 @@ export class AdLibraryService {
         return 'unknown';
       }
       case 'linkedin': {
-        // LinkedIn: check for video content type
+        // LinkedIn: check ad_type FIRST (authoritative field from SearchAPI)
+        // This is critical because video ads also have cover images
+        const adType = (ad.ad_type as string | undefined)?.toLowerCase();
+        if (adType === 'video') return 'video';
+
+        // Then check content.type as fallback
         const content = ad.content as Record<string, unknown> | undefined;
         const contentType = (content?.type as string | undefined)?.toLowerCase();
         if (contentType === 'video' || hasVideo) return 'video';
-        if (contentType === 'carousel') return 'carousel';
+        if (contentType === 'carousel' || adType === 'carousel') return 'carousel';
         if (hasImage) return 'image';
         return 'unknown';
       }
@@ -1044,6 +1095,91 @@ export class AdLibraryService {
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+// ============================================================================
+// Ad Deduplication Utilities
+// ============================================================================
+
+/**
+ * Normalize text for deduplication comparison
+ * Lowercases, trims, and normalizes whitespace
+ */
+function normalizeTextForDedup(text: string | undefined): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' '); // Normalize multiple spaces to single space
+}
+
+/**
+ * Normalize image URL for deduplication
+ * Removes query parameters as they often differ but the image is the same
+ */
+function normalizeImageUrlForDedup(url: string | undefined): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    // Remove query params - same image often has different cache-busting params
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url.toLowerCase();
+  }
+}
+
+/**
+ * Create a unique hash key for an ad based on its creative content
+ * This identifies duplicate creatives across platforms with different IDs
+ */
+function createAdDeduplicationKey(ad: AdCreative): string {
+  const advertiser = normalizeTextForDedup(ad.advertiser);
+  const headline = normalizeTextForDedup(ad.headline);
+  const body = normalizeTextForDedup(ad.body);
+  const imageKey = normalizeImageUrlForDedup(ad.imageUrl);
+
+  // Create composite key: advertiser|headline|body|image
+  // This catches duplicates where the same creative runs on multiple platforms
+  return `${advertiser}|${headline}|${body}|${imageKey}`;
+}
+
+/**
+ * Deduplicate ads across platforms based on creative content
+ * Keeps the first occurrence of each unique creative
+ *
+ * @param ads Array of ads from all platforms
+ * @returns Deduplicated array with duplicates removed
+ */
+function deduplicateAds(ads: AdCreative[]): AdCreative[] {
+  const seen = new Map<string, AdCreative>();
+  const duplicateCount = { total: 0, byPlatform: new Map<string, number>() };
+
+  for (const ad of ads) {
+    const key = createAdDeduplicationKey(ad);
+
+    if (seen.has(key)) {
+      // This is a duplicate
+      duplicateCount.total++;
+      const platformCount = duplicateCount.byPlatform.get(ad.platform) || 0;
+      duplicateCount.byPlatform.set(ad.platform, platformCount + 1);
+    } else {
+      // First occurrence - keep it
+      seen.set(key, ad);
+    }
+  }
+
+  // Log deduplication stats if any duplicates were found
+  if (duplicateCount.total > 0) {
+    const platformStats = Array.from(duplicateCount.byPlatform.entries())
+      .map(([platform, count]) => `${platform}: ${count}`)
+      .join(', ');
+    console.log(
+      `[AdLibrary] Deduplication: ${ads.length} → ${seen.size} ads ` +
+      `(removed ${duplicateCount.total} duplicates: ${platformStats})`
+    );
+  }
+
+  return Array.from(seen.values());
 }
 
 /**

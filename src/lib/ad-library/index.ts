@@ -2,6 +2,13 @@
 // Re-exports all public types and the service
 
 export { AdLibraryService, createAdLibraryService } from './service';
+export {
+  EnhancedAdLibraryService,
+  createEnhancedAdLibraryService,
+} from './enhanced-service';
+export type {
+  EnhancedAdLibraryOptions,
+} from './enhanced-service';
 export type {
   AdPlatform,
   AdFormat,

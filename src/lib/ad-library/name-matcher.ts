@@ -61,16 +61,39 @@ export function calculateSimilarity(str1: string, str2: string): number {
   if (s1 === s2) return 1;
   if (s1.length === 0 || s2.length === 0) return 0;
 
+  // For short queries (5 chars or less), require exact word match or starts-with
+  // This prevents "huel" matching "hula hoop" via Jaro-Winkler
+  const shorter = s1.length <= s2.length ? s1 : s2;
+  const longer = s1.length <= s2.length ? s2 : s1;
+
+  if (shorter.length <= 5) {
+    // Check if longer string starts with shorter (e.g., "huel" matches "huel nutrition")
+    if (longer.startsWith(shorter + ' ') || longer === shorter) {
+      return 0.95;
+    }
+    // Check if shorter is an exact word within longer (e.g., "huel" in "the huel company")
+    const words = longer.split(' ');
+    if (words.some(word => word === shorter)) {
+      return 0.9;
+    }
+    // For short queries, reject if first 2 chars don't match (prevents "huel" matching "hula")
+    if (s1.substring(0, 2) !== s2.substring(0, 2)) {
+      return 0.3; // Low score for different prefixes on short strings
+    }
+  }
+
   // Check if one string contains the other (substring match)
-  // Use lower score (0.75) to prevent false positives
-  // e.g., "Nike" should not match "Nike Footwear Outlet LLC" with high confidence
+  // Only allow if the shorter string is a complete word/prefix in the longer
   if (s1.includes(s2)) {
-    // If the shorter string is the search query contained in a longer name
-    // give a moderate score - could be a match or could be a similar company
-    return s1.length === s2.length ? 1.0 : 0.75;
+    // Check if s2 is a word boundary match (not a random substring)
+    const wordBoundaryMatch = s1.startsWith(s2 + ' ') || s1.endsWith(' ' + s2) ||
+                              s1.includes(' ' + s2 + ' ') || s1 === s2;
+    return wordBoundaryMatch ? 0.85 : 0.5;
   }
   if (s2.includes(s1)) {
-    return s2.length === s1.length ? 1.0 : 0.75;
+    const wordBoundaryMatch = s2.startsWith(s1 + ' ') || s2.endsWith(' ' + s1) ||
+                              s2.includes(' ' + s1 + ' ') || s2 === s1;
+    return wordBoundaryMatch ? 0.85 : 0.5;
   }
 
   // Calculate Jaro similarity
