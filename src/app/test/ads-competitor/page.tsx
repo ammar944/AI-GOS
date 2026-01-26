@@ -556,6 +556,8 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
               src={ad.imageUrl}
               alt={ad.headline || 'Ad creative'}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
               onError={() => setMediaError(true)}
             />
           ) : null
