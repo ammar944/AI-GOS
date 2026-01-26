@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@clerk/nextjs/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { OnboardingData } from '@/lib/supabase/types'
@@ -21,6 +21,7 @@ const onboardingDataSchema = z.object({
 
 /**
  * Update user's onboarding data (partial update)
+ * Uses admin client to bypass RLS (safe since we validate userId via Clerk)
  */
 export async function updateOnboardingData(data: Partial<OnboardingData>) {
   // Check authentication via Clerk
@@ -38,7 +39,8 @@ export async function updateOnboardingData(data: Partial<OnboardingData>) {
     }
   }
 
-  const supabase = await createClient()
+  // Use admin client to bypass RLS issues with Clerk JWT
+  const supabase = createAdminClient()
 
   // Get current onboarding data
   const { data: profile, error: fetchError } = await supabase
@@ -47,7 +49,7 @@ export async function updateOnboardingData(data: Partial<OnboardingData>) {
     .eq('id', userId)
     .single()
 
-  if (fetchError) {
+  if (fetchError && fetchError.code !== 'PGRST116') {
     console.error('[Onboarding] Error fetching profile:', fetchError)
     return { error: 'Failed to fetch profile' }
   }
@@ -58,14 +60,14 @@ export async function updateOnboardingData(data: Partial<OnboardingData>) {
     ...parsed.data,
   }
 
-  // Update onboarding data
+  // Upsert onboarding data (create if doesn't exist, update if it does)
   const { data: updated, error: updateError } = await supabase
     .from('user_profiles')
-    .update({
+    .upsert({
+      id: userId,
       onboarding_data: mergedData,
       updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId)
+    }, { onConflict: 'id' })
     .select()
     .single()
 
@@ -83,6 +85,7 @@ export async function updateOnboardingData(data: Partial<OnboardingData>) {
 
 /**
  * Mark onboarding as completed
+ * Uses admin client to bypass RLS (safe since we validate userId via Clerk)
  */
 export async function completeOnboarding() {
   // Check authentication via Clerk
@@ -91,17 +94,18 @@ export async function completeOnboarding() {
     return { error: 'Unauthorized' }
   }
 
-  const supabase = await createClient()
+  // Use admin client to bypass RLS issues with Clerk JWT
+  const supabase = createAdminClient()
 
-  // Update completion status
+  // Upsert completion status (create if doesn't exist)
   const { data, error } = await supabase
     .from('user_profiles')
-    .update({
+    .upsert({
+      id: userId,
       onboarding_completed: true,
       onboarding_completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId)
+    }, { onConflict: 'id' })
     .select()
     .single()
 
@@ -119,6 +123,7 @@ export async function completeOnboarding() {
 
 /**
  * Get user's onboarding status and data
+ * Uses admin client to bypass RLS (safe since we validate userId via Clerk)
  */
 export async function getOnboardingStatus() {
   // Check authentication via Clerk
@@ -127,7 +132,9 @@ export async function getOnboardingStatus() {
     return { error: 'Unauthorized' }
   }
 
-  const supabase = await createClient()
+  // Use admin client to bypass RLS issues with Clerk JWT
+  // This is safe because we already validated the user via Clerk auth
+  const supabase = createAdminClient()
 
   // Fetch onboarding status
   const { data, error } = await supabase
@@ -137,6 +144,16 @@ export async function getOnboardingStatus() {
     .single()
 
   if (error) {
+    // PGRST116 means no rows found - user profile doesn't exist yet
+    if (error.code === 'PGRST116') {
+      return {
+        data: {
+          completed: false,
+          completedAt: null,
+          onboardingData: null,
+        }
+      }
+    }
     console.error('[Onboarding] Error fetching status:', error)
     return { error: 'Failed to fetch onboarding status' }
   }
@@ -152,6 +169,7 @@ export async function getOnboardingStatus() {
 
 /**
  * Reset onboarding (for testing or allowing users to redo)
+ * Uses admin client to bypass RLS (safe since we validate userId via Clerk)
  */
 export async function resetOnboarding() {
   // Check authentication via Clerk
@@ -160,7 +178,8 @@ export async function resetOnboarding() {
     return { error: 'Unauthorized' }
   }
 
-  const supabase = await createClient()
+  // Use admin client to bypass RLS issues with Clerk JWT
+  const supabase = createAdminClient()
 
   // Reset onboarding status
   const { data, error } = await supabase

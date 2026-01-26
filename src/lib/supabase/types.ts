@@ -208,6 +208,38 @@ export interface Database {
           cost?: number | null;
         };
       };
+      blueprints: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          input_data: Json | null;
+          output: Json;
+          generation_metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          input_data?: Json | null;
+          output: Json;
+          generation_metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          input_data?: Json | null;
+          output?: Json;
+          generation_metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

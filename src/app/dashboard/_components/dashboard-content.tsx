@@ -15,6 +15,7 @@ import {
   Target,
   Sparkles,
   BarChart3,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlowCard, GlowCardContent } from "@/components/ui/glow-card";
@@ -24,6 +25,8 @@ import {
   getOnboardingData,
   getStrategicBlueprint,
 } from "@/lib/storage/local-storage";
+import { getUserBlueprints, deleteBlueprint, type BlueprintRecord } from "@/lib/actions/blueprints";
+import { getOnboardingStatus } from "@/lib/actions/onboarding";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 
@@ -59,23 +62,83 @@ function DashboardSkeleton() {
 export function DashboardContent() {
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData | null>(null);
   const [savedBlueprint, setSavedBlueprint] = useState<StrategicBlueprintOutput | null>(null);
+  const [blueprints, setBlueprints] = useState<BlueprintRecord[]>([]);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const onboarding = getOnboardingData();
-    const blueprint = getStrategicBlueprint();
+    async function loadData() {
+      // Fetch onboarding status from database
+      const onboardingResult = await getOnboardingStatus();
+      if (onboardingResult.data) {
+        setOnboardingCompleted(onboardingResult.data.completed);
+        // If onboarding data exists in DB, use it
+        if (onboardingResult.data.onboardingData) {
+          // Map DB format to form format (use unknown cast for JSON data)
+          const dbData = onboardingResult.data.onboardingData;
+          setOnboardingData({
+            businessBasics: dbData.businessBasics as unknown as OnboardingFormData['businessBasics'],
+            icp: dbData.icpData as unknown as OnboardingFormData['icp'],
+            productOffer: dbData.productOffer as unknown as OnboardingFormData['productOffer'],
+            marketCompetition: dbData.marketCompetition as unknown as OnboardingFormData['marketCompetition'],
+            customerJourney: dbData.customerJourney as unknown as OnboardingFormData['customerJourney'],
+            brandPositioning: dbData.brandPositioning as unknown as OnboardingFormData['brandPositioning'],
+            assetsProof: dbData.assetsProof as unknown as OnboardingFormData['assetsProof'],
+            budgetTargets: dbData.budgetTargets as unknown as OnboardingFormData['budgetTargets'],
+            compliance: dbData.compliance as unknown as OnboardingFormData['compliance'],
+          } as OnboardingFormData);
+        }
+      }
 
-    setOnboardingData(onboarding);
-    setSavedBlueprint(blueprint);
-    setIsLoading(false);
+      // Fetch ALL blueprints from database
+      const blueprintsResult = await getUserBlueprints();
+      if (blueprintsResult.data && blueprintsResult.data.length > 0) {
+        setBlueprints(blueprintsResult.data);
+      }
+
+      // Fallback to localStorage if database empty (migration period)
+      if (!blueprintsResult.data?.length) {
+        const localBlueprint = getStrategicBlueprint();
+        if (localBlueprint) {
+          setSavedBlueprint(localBlueprint);
+        }
+      }
+
+      // Fallback for onboarding data from localStorage
+      if (!onboardingResult.data?.onboardingData) {
+        const localOnboarding = getOnboardingData();
+        if (localOnboarding) {
+          setOnboardingData(localOnboarding);
+        }
+      }
+
+      setIsLoading(false);
+    }
+
+    loadData();
   }, []);
+
+  const handleDeleteBlueprint = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const result = await deleteBlueprint(id);
+      if (result.success) {
+        setBlueprints((prev) => prev.filter((bp) => bp.id !== id));
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to delete blueprint:', error);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
-  const hasOnboardingData = !!onboardingData;
-  const hasBlueprint = !!savedBlueprint;
+  const hasOnboardingData = !!onboardingData || onboardingCompleted;
+  const hasBlueprint = blueprints.length > 0 || !!savedBlueprint;
   const companyName = onboardingData?.businessBasics?.businessName || "Your Company";
 
   return (
@@ -158,7 +221,7 @@ export function DashboardContent() {
                       ? `Update ${companyName}'s details to refine future blueprints and ensure accurate research.`
                       : "Tell us about your business to generate accurate, personalized research and recommendations."}
                   </p>
-                  <Link href="/generate">
+                  <Link href={hasOnboardingData ? "/onboarding/edit" : "/generate"}>
                     <Button variant="outline" size="default">
                       {hasOnboardingData ? "Edit Profile" : "Get Started"}
                     </Button>
@@ -170,8 +233,68 @@ export function DashboardContent() {
         </motion.div>
       </motion.div>
 
-      {/* Saved Blueprint Section */}
-      {hasBlueprint && savedBlueprint && (
+      {/* Saved Blueprints Section - From Database */}
+      {blueprints.length > 0 && (
+        <motion.section
+          variants={fadeUp}
+          initial="initial"
+          animate="animate"
+          transition={{ ...springs.smooth, delay: 0.2 }}
+        >
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <BarChart3 className="size-5 text-primary" />
+            Your Blueprints ({blueprints.length})
+          </h2>
+
+          <div className="space-y-4">
+            {blueprints.map((bp) => (
+              <GlowCard key={bp.id} variant="glass" glow="sm" className="p-6">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="inline-flex items-center justify-center size-10 rounded-lg bg-green-500/20 text-green-400 shrink-0">
+                      <FileCheck className="size-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">
+                        {bp.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Generated {formatDate(bp.created_at)}
+                      </p>
+                      {bp.output?.competitorAnalysis?.competitors && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {bp.output.competitorAnalysis.competitors.length} competitors analyzed
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Link href={`/blueprint/${bp.id}`} className="flex-1 sm:flex-none">
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                        <Eye className="size-4 mr-2" />
+                        View
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 sm:flex-none text-red-400 hover:text-red-300 hover:border-red-400"
+                      onClick={() => handleDeleteBlueprint(bp.id)}
+                      disabled={deletingId === bp.id}
+                    >
+                      <Trash2 className="size-4 mr-2" />
+                      {deletingId === bp.id ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </div>
+                </div>
+              </GlowCard>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* Fallback: localStorage blueprint (for migration period) */}
+      {blueprints.length === 0 && savedBlueprint && (
         <motion.section
           variants={fadeUp}
           initial="initial"
@@ -186,7 +309,7 @@ export function DashboardContent() {
           <GlowCard variant="glass" glow="sm" className="p-6">
             <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="inline-flex items-center justify-center size-10 rounded-lg bg-green-500/20 text-green-400 shrink-0">
+                <div className="inline-flex items-center justify-center size-10 rounded-lg bg-yellow-500/20 text-yellow-400 shrink-0">
                   <FileCheck className="size-5" />
                 </div>
                 <div>
@@ -200,11 +323,9 @@ export function DashboardContent() {
                       ? formatDate(savedBlueprint.metadata.generatedAt)
                       : "recently"}
                   </p>
-                  {savedBlueprint.competitorAnalysis?.competitors && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {savedBlueprint.competitorAnalysis.competitors.length} competitors analyzed
-                    </p>
-                  )}
+                  <p className="text-xs text-yellow-400 mt-1">
+                    Local only - generate a new blueprint to save to cloud
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
@@ -212,12 +333,6 @@ export function DashboardContent() {
                   <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Eye className="size-4 mr-2" />
                     View
-                  </Button>
-                </Link>
-                <Link href="/blueprint/view" className="flex-1 sm:flex-none">
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                    <Share2 className="size-4 mr-2" />
-                    Share
                   </Button>
                 </Link>
               </div>

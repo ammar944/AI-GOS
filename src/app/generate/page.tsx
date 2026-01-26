@@ -12,7 +12,6 @@ import {
   Coins,
   Wand2,
   FileSearch,
-  AlertCircle,
   Share2,
   Link2,
   Check,
@@ -27,13 +26,13 @@ import { BlueprintDocument } from "@/components/strategic-research";
 import { ChatSidebar } from "@/components/chat";
 import { SplitChatLayout } from "@/components/layout";
 import { MagneticButton } from "@/components/ui/magnetic-button";
-import { Card, CardContent } from "@/components/ui/card";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/components/ui/api-error-display";
 import { Pipeline, GenerationStats } from "@/components/pipeline";
 import { SaaSLaunchBackground, ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import { GenerateHeader, type GenerateStage } from "@/components/generate";
-import { updateOnboardingData as persistOnboardingData } from "@/lib/actions/onboarding";
+import { updateOnboardingData as persistOnboardingData, completeOnboarding } from "@/lib/actions/onboarding";
+import { saveBlueprint } from "@/lib/actions/blueprints";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
@@ -42,7 +41,6 @@ import {
   setOnboardingData as saveOnboardingData,
   setStrategicBlueprint as saveStrategicBlueprint,
   clearAllSavedData,
-  getSavedProgress,
 } from "@/lib/storage/local-storage";
 
 // =============================================================================
@@ -163,7 +161,6 @@ export default function GeneratePage() {
   const [blueprintMeta, setBlueprintMeta] = useState<{ totalTime: number; totalCost: number } | null>(null);
   const [wizardKey, setWizardKey] = useState(0);
   const [initialData, setInitialData] = useState<OnboardingFormData | undefined>(undefined);
-  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   // Generation elapsed time tracking
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -186,16 +183,6 @@ export default function GeneratePage() {
   const [currentStreamingSection, setCurrentStreamingSection] = useState<StrategicBlueprintSection | null>(null);
   const [streamingCost, setStreamingCost] = useState(0);
 
-  // Check for saved progress on mount
-  useEffect(() => {
-    const saved = getSavedProgress();
-    if (saved.state) {
-      if (saved.state.currentStage === "blueprint-complete" && saved.strategicBlueprint && saved.onboardingData) {
-        setShowResumePrompt(true);
-      }
-    }
-  }, []);
-
   // Track elapsed time during generation
   useEffect(() => {
     if (pageState === "generating-blueprint") {
@@ -215,23 +202,6 @@ export default function GeneratePage() {
       };
     }
   }, [pageState]);
-
-  const handleResume = useCallback(() => {
-    const saved = getSavedProgress();
-    if (saved.onboardingData) setOnboardingData(saved.onboardingData);
-    if (saved.strategicBlueprint) setStrategicBlueprint(saved.strategicBlueprint);
-
-    if (saved.state?.currentStage === "blueprint-complete" && saved.strategicBlueprint) {
-      // Resume to review step so user can review before proceeding
-      setPageState("review-blueprint");
-    }
-    setShowResumePrompt(false);
-  }, []);
-
-  const handleStartFresh = useCallback(() => {
-    clearAllSavedData();
-    setShowResumePrompt(false);
-  }, []);
 
   const handleAutoFill = useCallback(() => {
     setInitialData(SAMPLE_ONBOARDING_DATA);
@@ -450,17 +420,51 @@ export default function GeneratePage() {
     setPageState("review-blueprint");
   }, []);
 
-  const handleApprove = useCallback((approvedBlueprint: StrategicBlueprintOutput) => {
-    // Save approved blueprint to localStorage
+  const handleApprove = useCallback(async (approvedBlueprint: StrategicBlueprintOutput) => {
+    // Save approved blueprint to localStorage (offline fallback)
     saveStrategicBlueprint(approvedBlueprint);
     // Update state with approved blueprint
     setStrategicBlueprint(approvedBlueprint);
+
+    // Mark onboarding complete in database
+    try {
+      await completeOnboarding();
+    } catch (err) {
+      console.error('[Generate] Failed to complete onboarding:', err);
+    }
+
+    // Save blueprint to database
+    if (onboardingData) {
+      const title = approvedBlueprint.industryMarketOverview?.categorySnapshot?.category ||
+                    onboardingData.businessBasics?.businessName ||
+                    'Strategic Blueprint';
+
+      try {
+        const result = await saveBlueprint({
+          title: String(title),
+          inputData: onboardingData,
+          output: approvedBlueprint,
+          metadata: blueprintMeta ? {
+            totalTime: blueprintMeta.totalTime,
+            totalCost: blueprintMeta.totalCost,
+            generatedAt: new Date().toISOString(),
+          } : undefined,
+        });
+
+        if (result.error) {
+          console.error('[Generate] Failed to save blueprint:', result.error);
+        }
+      } catch (err) {
+        console.error('[Generate] Blueprint save error:', err);
+      }
+    }
+
     // Transition to complete state
     setPageState("complete");
     // Reset share state when approving new blueprint
     setShareUrl(null);
     setShareError(null);
-  }, []);
+  }, [onboardingData, blueprintMeta]);
 
   // Share blueprint
   const handleShare = useCallback(async () => {
@@ -595,78 +599,6 @@ export default function GeneratePage() {
       setIsExporting(false);
     }
   }, [strategicBlueprint]);
-
-  // Resume Prompt
-  if (showResumePrompt) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <div className="container mx-auto px-4 py-8 max-w-lg">
-          <Card
-            className="border-2"
-            style={{
-              background: 'var(--bg-surface)',
-              borderColor: 'var(--accent-blue)',
-            }}
-          >
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center gap-6 text-center">
-                <div
-                  className="flex h-16 w-16 items-center justify-center rounded-full"
-                  style={{ background: 'rgba(54, 94, 255, 0.15)' }}
-                >
-                  <AlertCircle className="h-8 w-8" style={{ color: 'var(--accent-blue)' }} />
-                </div>
-                <div className="space-y-2">
-                  <h2
-                    className="text-2xl font-bold"
-                    style={{
-                      color: 'var(--text-heading)',
-                      fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                    }}
-                  >
-                    Resume Previous Session?
-                  </h2>
-                  <p
-                    style={{
-                      color: 'var(--text-secondary)',
-                      fontFamily: 'var(--font-sans), Inter, sans-serif',
-                    }}
-                  >
-                    We found saved progress from a previous session. Would you like to continue where you left off?
-                  </p>
-                </div>
-                <div className="flex gap-3 w-full">
-                  <MagneticButton
-                    className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                    onClick={handleStartFresh}
-                    style={{
-                      border: '1px solid var(--border-default)',
-                      color: 'var(--text-secondary)',
-                      background: 'transparent',
-                      fontFamily: 'var(--font-sans), Inter, sans-serif',
-                    }}
-                  >
-                    Start Fresh
-                  </MagneticButton>
-                  <MagneticButton
-                    className="flex-1 h-10 px-4 py-2 rounded-full text-sm font-medium"
-                    onClick={handleResume}
-                    style={{
-                      background: 'var(--gradient-primary)',
-                      color: 'white',
-                      fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-                    }}
-                  >
-                    Resume
-                  </MagneticButton>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   // Compute if user has unsaved progress
   const hasUnsavedProgress = Boolean(
