@@ -374,7 +374,7 @@ export class ForeplayService {
     }
 
     // Build params - only include date filters if provided
-    const requestParams: Record<string, unknown> = {
+    const requestParams: Record<string, string | number | boolean | string[] | undefined> = {
       brand_ids: [params.brand_id], // API expects array format
       limit: params.limit ?? 50,
       order: 'newest',
