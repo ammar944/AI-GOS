@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { analyzeCompetitorAds, checkForeplayStatus, type AdsCompetitorResult } from './actions';
 import type { EnrichedAdCreative } from '@/lib/foreplay/types';
 
@@ -517,6 +518,77 @@ function PlatformPill({
   );
 }
 
+// Smart image component that handles external ad images with proper fallbacks
+function AdImage({
+  src,
+  alt,
+  platform,
+  onError,
+}: {
+  src: string;
+  alt: string;
+  platform: string;
+  onError: () => void;
+}) {
+  const [useNativeImg, setUseNativeImg] = useState(false);
+  const [nativeError, setNativeError] = useState(false);
+
+  // Check if URL is from a known CDN that works with Next.js Image
+  const isKnownCdn = (url: string) => {
+    const knownPatterns = [
+      'googlesyndication.com',
+      'googleusercontent.com',
+      'licdn.com',
+      'fbcdn.net',
+    ];
+    return knownPatterns.some((p) => url.includes(p));
+  };
+
+  // Handle Next.js Image error - fallback to native img
+  const handleNextImageError = () => {
+    console.warn(`[AdImage] Next.js Image failed, falling back to native img:`, src);
+    setUseNativeImg(true);
+  };
+
+  // Handle native img error
+  const handleNativeError = () => {
+    console.error(`[AdImage] Native img also failed:`, src);
+    setNativeError(true);
+    onError();
+  };
+
+  // If native img also failed, caller will handle showing placeholder
+  if (nativeError) {
+    return null;
+  }
+
+  // Try native img as fallback
+  if (useNativeImg) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        referrerPolicy="no-referrer"
+        onError={handleNativeError}
+      />
+    );
+  }
+
+  // Use Next.js Image with unoptimized for external URLs
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      className="object-cover transition-transform duration-500 group-hover:scale-105"
+      unoptimized // Bypass Next.js image optimization for external images
+      onError={handleNextImageError}
+    />
+  );
+}
+
 // Ad card component
 function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
   const hasEnrichment = !!ad.foreplay;
@@ -552,12 +624,10 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
               <source src={ad.videoUrl} type="video/mp4" />
             </video>
           ) : hasImage ? (
-            <img
-              src={ad.imageUrl}
+            <AdImage
+              src={ad.imageUrl!}
               alt={ad.headline || 'Ad creative'}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              referrerPolicy="no-referrer"
-              crossOrigin="anonymous"
+              platform={ad.platform}
               onError={() => setMediaError(true)}
             />
           ) : null

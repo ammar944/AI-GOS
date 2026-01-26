@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/shared/(.*)",
+  "/test/(.*)", // Test pages for development
   "/api/blueprints/(.*)",
   "/api/webhooks/(.*)", // Clerk webhooks - verified via svix signature
 ]);
