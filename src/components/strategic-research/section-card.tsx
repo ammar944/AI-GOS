@@ -228,27 +228,30 @@ export function SectionCard({
             <SourcesList citations={citations} sectionLabel={sectionLabel} />
           )}
         </CardContent>
-
-        {/* Footer with Mark as Reviewed button */}
-        {!isReviewed && !isEditing && (
-          <CardFooter className="pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
-            <Button
-              variant="outline"
-              onClick={onMarkReviewed}
-              className="ml-auto gap-2"
-              style={{
-                borderColor: 'var(--success)',
-                color: 'var(--success)',
-                background: 'var(--success-subtle)',
-                fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-              }}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Mark as Reviewed
-            </Button>
-          </CardFooter>
-        )}
       </div>
+
+      {/* Footer with Mark as Reviewed button - outside collapsible for visibility */}
+      {!isReviewed && isExpanded && (
+        <CardFooter
+          className="pt-4"
+          style={{ borderTop: '1px solid var(--border-default)' }}
+        >
+          <Button
+            variant="outline"
+            onClick={onMarkReviewed}
+            className="ml-auto gap-2"
+            style={{
+              borderColor: 'var(--success)',
+              color: 'var(--success)',
+              background: 'var(--success-subtle)',
+              fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+            }}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Mark as Reviewed
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }

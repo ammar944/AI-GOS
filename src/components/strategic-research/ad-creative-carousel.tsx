@@ -452,11 +452,11 @@ function AdCreativeCard({ ad }: AdCreativeCardProps) {
             {/* Open Video Button */}
             {hasVideo && (
               <Button
-                asChild
                 variant="outline"
                 size="sm"
+                onClick={() => window.open(ad.videoUrl, '_blank', 'noopener,noreferrer')}
                 className={cn(
-                  "text-xs h-7 transition-all hover:opacity-90",
+                  "text-xs h-7 transition-all hover:opacity-90 flex items-center gap-1",
                   ad.detailsUrl ? "flex-1" : "w-full"
                 )}
                 style={{
@@ -465,15 +465,8 @@ function AdCreativeCard({ ad }: AdCreativeCardProps) {
                   color: 'white'
                 }}
               >
-                <a
-                  href={ad.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1"
-                >
-                  <Video className="h-3 w-3" />
-                  Open Video
-                </a>
+                <Video className="h-3 w-3" />
+                Open Video
               </Button>
             )}
             {/* View Ad Link */}

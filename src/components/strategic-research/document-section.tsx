@@ -175,7 +175,7 @@ export function DocumentSection({
         )}
 
         {/* Mark as Reviewed - positioned at bottom for natural reading flow */}
-        {!isReviewed && !isEditing && (
+        {!isReviewed && (
           <div
             className="mt-8 pt-6 flex justify-end"
             style={{ borderTop: '1px solid var(--border-default)' }}
