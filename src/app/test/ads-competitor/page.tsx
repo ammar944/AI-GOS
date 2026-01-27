@@ -2,11 +2,12 @@
 
 import { useState, useTransition, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { analyzeCompetitorAds, checkForeplayStatus, type AdsCompetitorResult } from './actions';
+import { analyzeCompetitorAds, checkForeplayStatus, type AdsCompetitorResult, type AnalyzeOptions } from './actions';
 import type { EnrichedAdCreative } from '@/lib/foreplay/types';
 
 type FormatFilter = 'all' | 'video' | 'image';
 type PlatformFilter = 'all' | 'linkedin' | 'meta' | 'google';
+type SourceFilter = 'all' | 'enriched' | 'foreplay-sourced';
 
 // Platform color schemes
 const platformColors = {
@@ -32,7 +33,8 @@ const platformColors = {
 
 export default function AdsCompetitorTestPage() {
   const [domain, setDomain] = useState('');
-  const [enableForeplay, setEnableForeplay] = useState(true);
+  const [enableForeplayEnrichment, setEnableForeplayEnrichment] = useState(true);
+  const [includeForeplayAsSource, setIncludeForeplayAsSource] = useState(false);
   const [result, setResult] = useState<AdsCompetitorResult | null>(null);
   const [foreplayStatus, setForeplayStatus] = useState<{
     enabled: boolean;
@@ -46,12 +48,16 @@ export default function AdsCompetitorTestPage() {
   // Filter state
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
 
   // Filter ads based on selected filters
   const filteredAds = result?.data?.ads.filter(ad => {
     const matchesFormat = formatFilter === 'all' || ad.format === formatFilter;
     const matchesPlatform = platformFilter === 'all' || ad.platform === platformFilter;
-    return matchesFormat && matchesPlatform;
+    const matchesSource = sourceFilter === 'all'
+      || (sourceFilter === 'enriched' && !!ad.foreplay)
+      || (sourceFilter === 'foreplay-sourced' && ad.source === 'foreplay');
+    return matchesFormat && matchesPlatform && matchesSource;
   }) ?? [];
 
   // Check Foreplay status on mount
@@ -62,7 +68,11 @@ export default function AdsCompetitorTestPage() {
   const handleAnalyze = () => {
     if (!domain.trim()) return;
     startTransition(async () => {
-      const analysisResult = await analyzeCompetitorAds(domain, enableForeplay);
+      const options: AnalyzeOptions = {
+        enableForeplayEnrichment,
+        includeForeplayAsSource,
+      };
+      const analysisResult = await analyzeCompetitorAds(domain, options);
       setResult(analysisResult);
     });
   };
@@ -153,21 +163,41 @@ export default function AdsCompetitorTestPage() {
 
             {/* Options row */}
             <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-[var(--border-subtle)]">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={enableForeplay}
-                    onChange={(e) => setEnableForeplay(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 rounded-full bg-[var(--bg-hover)] peer-checked:bg-[var(--accent-blue)] transition-colors" />
-                  <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
-                </div>
-                <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                  Foreplay enrichment (transcripts, hooks, emotional analysis)
-                </span>
-              </label>
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Foreplay enrichment toggle */}
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={enableForeplayEnrichment}
+                      onChange={(e) => setEnableForeplayEnrichment(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 rounded-full bg-[var(--bg-hover)] peer-checked:bg-[var(--accent-blue)] transition-colors" />
+                    <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+                  </div>
+                  <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                    Enrich with Foreplay (transcripts, hooks)
+                  </span>
+                </label>
+
+                {/* Foreplay as source toggle */}
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={includeForeplayAsSource}
+                      onChange={(e) => setIncludeForeplayAsSource(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 rounded-full bg-[var(--bg-hover)] peer-checked:bg-[var(--accent-cyan)] transition-colors" />
+                    <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+                  </div>
+                  <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                    Include Foreplay ads (unique historical ads)
+                  </span>
+                </label>
+              </div>
 
               {/* Foreplay status indicator */}
               <div className="flex items-center gap-2">
@@ -192,7 +222,7 @@ export default function AdsCompetitorTestPage() {
 
             {/* Stats Bar */}
             {result.success && result.data && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <StatCard
                   label="Total Ads"
                   value={result.data.ads.length}
@@ -208,7 +238,7 @@ export default function AdsCompetitorTestPage() {
                 <StatCard
                   label="Enriched"
                   value={result.data.metadata.foreplay?.enriched_count ?? 0}
-                  suffix={`/ ${result.data.ads.length}`}
+                  suffix={`/ ${result.data.ads.filter(a => a.source !== 'foreplay').length}`}
                   icon={
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                       <path d="M12 2L2 7l10 5 10-5-10-5z" />
@@ -216,6 +246,18 @@ export default function AdsCompetitorTestPage() {
                       <path d="m2 12 10 5 10-5" />
                     </svg>
                   }
+                />
+                <StatCard
+                  label="Foreplay Sourced"
+                  value={result.data.metadata.foreplay_source?.unique_ads ?? 0}
+                  suffix={result.data.metadata.foreplay_source ? ` unique` : ''}
+                  icon={
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="m8 12 3 3 5-6" />
+                    </svg>
+                  }
+                  highlight={!!result.data.metadata.foreplay_source?.unique_ads}
                 />
                 <StatCard
                   label="Duration"
@@ -304,6 +346,30 @@ export default function AdsCompetitorTestPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Source filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[var(--text-tertiary)] mr-2">Source:</span>
+                    {([
+                      { key: 'all', label: 'All' },
+                      { key: 'enriched', label: 'Enriched' },
+                      { key: 'foreplay-sourced', label: 'Foreplay' },
+                    ] as { key: SourceFilter; label: string }[]).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setSourceFilter(key)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          sourceFilter === key
+                            ? key === 'foreplay-sourced'
+                              ? 'bg-[var(--accent-cyan)] text-white'
+                              : 'bg-[var(--accent-blue)] text-white'
+                            : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -328,7 +394,7 @@ export default function AdsCompetitorTestPage() {
                     </div>
                     <p className="text-[var(--text-secondary)]">No ads match the selected filters</p>
                     <button
-                      onClick={() => { setFormatFilter('all'); setPlatformFilter('all'); }}
+                      onClick={() => { setFormatFilter('all'); setPlatformFilter('all'); setSourceFilter('all'); }}
                       className="mt-4 text-[var(--accent-blue)] text-sm hover:underline"
                     >
                       Clear filters
@@ -398,7 +464,7 @@ export default function AdsCompetitorTestPage() {
                     )}
                     {result.data?.metadata.foreplay && (
                       <div className="p-4 rounded-lg bg-[var(--bg-elevated)]">
-                        <p className="text-xs text-[var(--text-tertiary)] mb-2">Foreplay Details</p>
+                        <p className="text-xs text-[var(--text-tertiary)] mb-2">Foreplay Enrichment</p>
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div>
                             <span className="text-[var(--text-tertiary)]">Enriched:</span>{' '}
@@ -411,6 +477,25 @@ export default function AdsCompetitorTestPage() {
                           <div>
                             <span className="text-[var(--text-tertiary)]">Duration:</span>{' '}
                             <span className="text-[var(--text-primary)]">{result.data.metadata.foreplay.duration_ms ?? 0}ms</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {result.data?.metadata.foreplay_source && (
+                      <div className="p-4 rounded-lg bg-[var(--accent-cyan)]/10 border border-[var(--accent-cyan)]/20">
+                        <p className="text-xs text-[var(--accent-cyan)] mb-2">Foreplay as Source</p>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-[var(--text-tertiary)]">Total fetched:</span>{' '}
+                            <span className="text-[var(--text-primary)]">{result.data.metadata.foreplay_source.total_ads} ads</span>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-tertiary)]">Unique ads:</span>{' '}
+                            <span className="text-[var(--accent-cyan)]">{result.data.metadata.foreplay_source.unique_ads} ads</span>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-tertiary)]">Duration:</span>{' '}
+                            <span className="text-[var(--text-primary)]">{result.data.metadata.foreplay_source.duration_ms ?? 0}ms</span>
                           </div>
                         </div>
                       </div>
@@ -432,23 +517,35 @@ function StatCard({
   value,
   prefix,
   suffix,
-  icon
+  icon,
+  highlight
 }: {
   label: string;
   value: string | number;
   prefix?: string;
   suffix?: string;
   icon: React.ReactNode;
+  highlight?: boolean;
 }) {
   return (
-    <div className="glass rounded-xl p-5 group hover:border-[var(--accent-blue)]/30 transition-colors">
+    <div className={`glass rounded-xl p-5 group transition-colors ${
+      highlight
+        ? 'border-[var(--accent-cyan)]/30 bg-[var(--accent-cyan)]/5'
+        : 'hover:border-[var(--accent-blue)]/30'
+    }`}>
       <div className="flex items-start justify-between mb-3">
         <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)]">{label}</span>
-        <div className="text-[var(--text-tertiary)] group-hover:text-[var(--accent-blue)] transition-colors">
+        <div className={`transition-colors ${
+          highlight
+            ? 'text-[var(--accent-cyan)]'
+            : 'text-[var(--text-tertiary)] group-hover:text-[var(--accent-blue)]'
+        }`}>
           {icon}
         </div>
       </div>
-      <div className="text-3xl font-semibold text-[var(--text-heading)]">
+      <div className={`text-3xl font-semibold ${
+        highlight ? 'text-[var(--accent-cyan)]' : 'text-[var(--text-heading)]'
+      }`}>
         {prefix}<span className="tabular-nums">{value}</span><span className="text-lg text-[var(--text-tertiary)]">{suffix}</span>
       </div>
     </div>
@@ -530,40 +627,68 @@ function AdImage({
   platform: string;
   onError: () => void;
 }) {
-  const [useNativeImg, setUseNativeImg] = useState(false);
-  const [nativeError, setNativeError] = useState(false);
+  const [fallbackLevel, setFallbackLevel] = useState(0);
+  // 0 = Next.js Image, 1 = native img with no-referrer, 2 = proxy, 3 = failed
 
-  // Check if URL is from a known CDN that works with Next.js Image
-  const isKnownCdn = (url: string) => {
-    const knownPatterns = [
+  // Check if URL should use proxy (some CDNs blocked by browsers)
+  const shouldUseProxy = (url: string) => {
+    const proxyDomains = [
       'googlesyndication.com',
-      'googleusercontent.com',
-      'licdn.com',
-      'fbcdn.net',
+      'storage.googleapis.com',
+      'firebasestorage.googleapis.com',
     ];
-    return knownPatterns.some((p) => url.includes(p));
+    return proxyDomains.some(d => url.includes(d));
+  };
+
+  const getProxyUrl = (url: string) => {
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
   };
 
   // Handle Next.js Image error - fallback to native img
   const handleNextImageError = () => {
-    console.warn(`[AdImage] Next.js Image failed, falling back to native img:`, src);
-    setUseNativeImg(true);
+    console.warn(`[AdImage] Next.js Image failed (level 0), trying native img:`, src);
+    setFallbackLevel(1);
   };
 
-  // Handle native img error
+  // Handle native img error - try proxy
   const handleNativeError = () => {
-    console.error(`[AdImage] Native img also failed:`, src);
-    setNativeError(true);
+    if (shouldUseProxy(src)) {
+      console.warn(`[AdImage] Native img failed (level 1), trying proxy:`, src);
+      setFallbackLevel(2);
+    } else {
+      console.error(`[AdImage] Native img failed, no proxy available:`, src);
+      setFallbackLevel(3);
+      onError();
+    }
+  };
+
+  // Handle proxy error
+  const handleProxyError = () => {
+    console.error(`[AdImage] Proxy also failed:`, src);
+    setFallbackLevel(3);
     onError();
   };
 
-  // If native img also failed, caller will handle showing placeholder
-  if (nativeError) {
+  // All fallbacks exhausted
+  if (fallbackLevel >= 3) {
     return null;
   }
 
-  // Try native img as fallback
-  if (useNativeImg) {
+  // Level 2: Use proxy for Google images
+  if (fallbackLevel === 2) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={getProxyUrl(src)}
+        alt={alt}
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        onError={handleProxyError}
+      />
+    );
+  }
+
+  // Level 1: Try native img with no-referrer
+  if (fallbackLevel === 1) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -576,14 +701,14 @@ function AdImage({
     );
   }
 
-  // Use Next.js Image with unoptimized for external URLs
+  // Level 0: Use Next.js Image with unoptimized for external URLs
   return (
     <Image
       src={src}
       alt={alt}
       fill
       className="object-cover transition-transform duration-500 group-hover:scale-105"
-      unoptimized // Bypass Next.js image optimization for external images
+      unoptimized
       onError={handleNextImageError}
     />
   );
@@ -647,8 +772,16 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
         </div>
 
         {/* Format badge */}
-        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-md bg-black/50 text-white">
-          {ad.format === 'video' ? '▶ Video' : '◻ Image'}
+        <div className="absolute top-3 right-3 flex gap-1.5">
+          {/* Source badge for Foreplay-sourced ads */}
+          {ad.source === 'foreplay' && (
+            <div className="px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-md bg-[var(--accent-cyan)]/80 text-white">
+              Foreplay
+            </div>
+          )}
+          <div className="px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-md bg-black/50 text-white">
+            {ad.format === 'video' ? '▶ Video' : '◻ Image'}
+          </div>
         </div>
 
         {/* Enriched indicator */}
@@ -772,7 +905,13 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
                 <polyline points="15 3 21 3 21 9" />
                 <line x1="10" y1="14" x2="21" y2="3" />
               </svg>
-              View Ad
+              {ad.source === 'foreplay'
+                ? (ad.detailsUrl?.includes('facebook.com/ads/library')
+                    ? 'Meta Ad Library'
+                    : ad.detailsUrl?.includes('ads.tiktok.com')
+                      ? 'TikTok Ads'
+                      : 'Landing Page')
+                : 'View Ad'}
             </a>
           )}
           {ad.videoUrl && (
@@ -785,6 +924,37 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8 5v14l11-7z" />
+              </svg>
+            </a>
+          )}
+          {/* Open image button for image ads */}
+          {ad.imageUrl && ad.format !== 'video' && (
+            <a
+              href={ad.imageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] transition-colors"
+              title="Open image"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="m21 15-5-5L5 21" />
+              </svg>
+            </a>
+          )}
+          {/* Landing page button for Foreplay ads (when separate from ad library link) */}
+          {ad.source === 'foreplay' && ad.foreplay?.landing_page_url && ad.detailsUrl !== ad.foreplay.landing_page_url && (
+            <a
+              href={ad.foreplay.landing_page_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-active)] transition-colors"
+              title="Open landing page"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
             </a>
           )}

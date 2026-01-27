@@ -15,6 +15,7 @@ import type {
   ForeplayMetadata,
   EnhancedAdLibraryResponse,
   ForeplayCostBreakdown,
+  AdSource,
 } from '@/lib/foreplay/types';
 import { calculateSimilarity, normalizeCompanyName } from './name-matcher';
 
@@ -24,6 +25,12 @@ import { calculateSimilarity, normalizeCompanyName } from './name-matcher';
 export interface EnhancedAdLibraryOptions extends AdLibraryOptions {
   /** Enable Foreplay enrichment (requires FOREPLAY_API_KEY and ENABLE_FOREPLAY=true) */
   enableForeplayEnrichment?: boolean;
+  /**
+   * Include Foreplay as a direct ad source (not just enrichment)
+   * This fetches ads directly from Foreplay's database and merges them with SearchAPI results
+   * Requires FOREPLAY_API_KEY and ENABLE_FOREPLAY=true
+   */
+  includeForeplayAsSource?: boolean;
   /** Date range for Foreplay analytics (default: last 90 days) */
   foreplayDateRange?: {
     from: string;
@@ -78,6 +85,10 @@ export class EnhancedAdLibraryService {
   /**
    * Fetch ads from SearchAPI and optionally enrich with Foreplay
    * Gracefully degrades if Foreplay is unavailable or disabled
+   *
+   * Supports two Foreplay modes:
+   * 1. enableForeplayEnrichment: Enrich SearchAPI ads with Foreplay intelligence
+   * 2. includeForeplayAsSource: Also fetch ads directly from Foreplay database
    */
   async fetchAllPlatforms(
     options: EnhancedAdLibraryOptions
@@ -93,92 +104,144 @@ export class EnhancedAdLibraryService {
       duration_ms: Date.now() - startTime,
     };
 
-    // Check if Foreplay enrichment should be attempted
+    // Check Foreplay availability
     const foreplayEnabledFlag = isForeplayEnabled();
     const foreplayServiceAvailable = this.foreplayService !== null;
+    const foreplayAvailable = foreplayEnabledFlag && foreplayServiceAvailable;
+
+    // Determine what Foreplay operations to perform
     const shouldEnrich =
-      options.enableForeplayEnrichment &&
-      foreplayEnabledFlag &&
-      foreplayServiceAvailable &&
-      searchResults.totalAds > 0;
+      options.enableForeplayEnrichment && foreplayAvailable && searchResults.totalAds > 0;
+    const shouldFetchFromForeplay =
+      options.includeForeplayAsSource && foreplayAvailable;
 
     console.log('[EnhancedAdLibrary] Foreplay check:', {
       enableForeplayEnrichment: options.enableForeplayEnrichment,
+      includeForeplayAsSource: options.includeForeplayAsSource,
       foreplayEnabledFlag,
       foreplayServiceAvailable,
       totalAds: searchResults.totalAds,
       shouldEnrich,
+      shouldFetchFromForeplay,
     });
 
-    if (!shouldEnrich) {
-      // Return SearchAPI results only
-      const reason = !options.enableForeplayEnrichment
-        ? 'enableForeplayEnrichment is false'
+    // Initialize response data
+    let allAds: EnrichedAdCreative[] = [];
+    let foreplayMetadata: ForeplayMetadata | undefined;
+    let foreplaySourceMetadata: { total_ads: number; unique_ads: number; duration_ms?: number } | undefined;
+    let totalForeplayCost = 0;
+
+    // Mark SearchAPI ads with source
+    const searchApiAds = this.flattenResults(searchResults).map((ad) => ({
+      ...ad,
+      source: 'searchapi' as AdSource,
+    }));
+
+    // Step 2a: Fetch directly from Foreplay (if enabled)
+    if (shouldFetchFromForeplay) {
+      try {
+        const domain = options.domain || this.extractDomainFromQuery(options.query);
+        const foreplayResult = await this.fetchAdsFromForeplay(
+          domain,
+          options.foreplayDateRange,
+          options.limit ?? 100
+        );
+
+        console.log(
+          `[EnhancedAdLibrary] Foreplay source fetch: ${foreplayResult.ads.length} ads`
+        );
+
+        // Combine and deduplicate
+        const combinedAds = [...searchApiAds, ...foreplayResult.ads];
+        allAds = this.deduplicateAds(combinedAds);
+
+        // Track unique Foreplay ads (not found in SearchAPI)
+        const uniqueForeplayAds = allAds.filter(
+          (ad) => ad.source === 'foreplay'
+        ).length;
+
+        foreplaySourceMetadata = {
+          total_ads: foreplayResult.ads.length,
+          unique_ads: uniqueForeplayAds,
+          duration_ms: foreplayResult.durationMs,
+        };
+
+        totalForeplayCost = foreplayResult.creditsUsed * COST_PER_CREDIT;
+      } catch (error) {
+        console.error('[EnhancedAdLibrary] Foreplay source fetch failed:', error);
+        allAds = searchApiAds;
+        foreplaySourceMetadata = {
+          total_ads: 0,
+          unique_ads: 0,
+        };
+      }
+    } else {
+      allAds = searchApiAds;
+    }
+
+    // Step 2b: Enrich with Foreplay data (if enabled)
+    if (shouldEnrich) {
+      try {
+        // Reset credits tracking if we already fetched from Foreplay
+        // to track enrichment cost separately
+        const preEnrichCredits = this.foreplayService?.getTotalCreditsUsed() ?? 0;
+
+        const enrichmentResult = await this.enrichAdsWithForeplay(
+          // Only enrich SearchAPI ads (Foreplay-sourced ads already have enrichment)
+          allAds.filter((ad) => ad.source !== 'foreplay'),
+          options.domain || this.extractDomainFromQuery(options.query),
+          options.foreplayDateRange,
+          options.skipAnalytics,
+          options.maxEnrichments
+        );
+
+        // Merge enriched SearchAPI ads with Foreplay-sourced ads
+        const foreplaySourcedAds = allAds.filter((ad) => ad.source === 'foreplay');
+        allAds = [...enrichmentResult.ads, ...foreplaySourcedAds];
+
+        foreplayMetadata = enrichmentResult.metadata;
+
+        // Calculate enrichment cost (credits used after source fetch)
+        const enrichmentCredits =
+          (this.foreplayService?.getTotalCreditsUsed() ?? 0) - preEnrichCredits;
+        totalForeplayCost += enrichmentCredits * COST_PER_CREDIT;
+      } catch (error) {
+        console.error('[EnhancedAdLibrary] Foreplay enrichment failed:', error);
+        foreplayMetadata = {
+          enriched_count: 0,
+          credits_used: 0,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    } else if (!shouldFetchFromForeplay) {
+      // No Foreplay operations at all - return SearchAPI results only
+      const reason = !options.enableForeplayEnrichment && !options.includeForeplayAsSource
+        ? 'Both Foreplay options disabled'
         : !foreplayEnabledFlag
           ? 'ENABLE_FOREPLAY env var is not true'
           : !foreplayServiceAvailable
             ? 'Foreplay service is null (no API key?)'
             : 'No ads to enrich';
-      console.log('[EnhancedAdLibrary] Skipping Foreplay enrichment:', reason);
-
-      return {
-        ads: this.convertToEnrichedAds(this.flattenResults(searchResults)),
-        metadata: {
-          searchapi: searchapiMetadata,
-        },
-        costs: {
-          searchapi: SEARCHAPI_COST_PER_QUERY * 3, // 3 platforms
-          foreplay: 0,
-          total: SEARCHAPI_COST_PER_QUERY * 3,
-        },
-      };
+      console.log('[EnhancedAdLibrary] Skipping Foreplay operations:', reason);
     }
 
-    // Step 2: Enrich with Foreplay data
-    try {
-      const enrichmentResult = await this.enrichAdsWithForeplay(
-        this.flattenResults(searchResults),
-        options.domain || this.extractDomainFromQuery(options.query),
-        options.foreplayDateRange,
-        options.skipAnalytics,
-        options.maxEnrichments
-      );
+    // Build final response
+    const totalForeplayCredits = this.foreplayService?.getTotalCreditsUsed() ?? 0;
+    const foreplayCostFinal = totalForeplayCredits * COST_PER_CREDIT;
 
-      const foreplayCost = this.foreplayService!.getTotalCreditsUsed() * COST_PER_CREDIT;
-
-      return {
-        ads: enrichmentResult.ads,
-        metadata: {
-          searchapi: searchapiMetadata,
-          foreplay: enrichmentResult.metadata,
-        },
-        costs: {
-          searchapi: SEARCHAPI_COST_PER_QUERY * 3,
-          foreplay: foreplayCost,
-          total: SEARCHAPI_COST_PER_QUERY * 3 + foreplayCost,
-        },
-      };
-    } catch (error) {
-      // Graceful degradation - return SearchAPI results if Foreplay fails
-      console.error('[EnhancedAdLibrary] Foreplay enrichment failed:', error);
-
-      return {
-        ads: this.convertToEnrichedAds(this.flattenResults(searchResults)),
-        metadata: {
-          searchapi: searchapiMetadata,
-          foreplay: {
-            enriched_count: 0,
-            credits_used: 0,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        },
-        costs: {
-          searchapi: SEARCHAPI_COST_PER_QUERY * 3,
-          foreplay: 0,
-          total: SEARCHAPI_COST_PER_QUERY * 3,
-        },
-      };
-    }
+    return {
+      ads: allAds,
+      metadata: {
+        searchapi: searchapiMetadata,
+        foreplay: foreplayMetadata,
+        foreplay_source: foreplaySourceMetadata,
+      },
+      costs: {
+        searchapi: SEARCHAPI_COST_PER_QUERY * 3, // 3 platforms
+        foreplay: foreplayCostFinal,
+        total: SEARCHAPI_COST_PER_QUERY * 3 + foreplayCostFinal,
+      },
+    };
   }
 
   /**
@@ -409,7 +472,7 @@ export class EnhancedAdLibraryService {
    * Convert plain AdCreative array to EnrichedAdCreative array
    */
   private convertToEnrichedAds(ads: AdCreative[]): EnrichedAdCreative[] {
-    return ads.map((ad) => ({ ...ad }));
+    return ads.map((ad) => ({ ...ad, source: 'searchapi' as AdSource }));
   }
 
   /**
@@ -446,6 +509,208 @@ export class EnhancedAdLibraryService {
    */
   private getToday(): string {
     return new Date().toISOString().split('T')[0];
+  }
+
+  /**
+   * Fetch ads directly from Foreplay (not just for enrichment)
+   * Returns normalized EnrichedAdCreative[] with source='foreplay'
+   */
+  async fetchAdsFromForeplay(
+    domain: string,
+    dateRange?: { from: string; to: string },
+    limit: number = 100
+  ): Promise<{ ads: EnrichedAdCreative[]; creditsUsed: number; durationMs: number }> {
+    const startTime = Date.now();
+
+    if (!this.foreplayService) {
+      console.log('[EnhancedAdLibrary] Foreplay service not available for direct fetch');
+      return { ads: [], creditsUsed: 0, durationMs: Date.now() - startTime };
+    }
+
+    // Step 1: Find brand by domain
+    console.log(`[EnhancedAdLibrary] Foreplay direct fetch - searching for brand: ${domain}`);
+    const brands = await this.foreplayService.searchBrands({ domain });
+
+    if (!brands || brands.length === 0) {
+      console.log(`[EnhancedAdLibrary] No Foreplay brand found for ${domain}`);
+      return {
+        ads: [],
+        creditsUsed: this.foreplayService.getTotalCreditsUsed(),
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    const brand = brands[0];
+    const brandId = brand.id || brand.brand_id;
+
+    if (!brandId) {
+      console.log(`[EnhancedAdLibrary] Brand found but no ID: ${brand.name}`);
+      return {
+        ads: [],
+        creditsUsed: this.foreplayService.getTotalCreditsUsed(),
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    console.log(`[EnhancedAdLibrary] Found Foreplay brand: ${brand.name} (id: ${brandId})`);
+
+    // Step 2: Fetch ads from Foreplay
+    const from = dateRange?.from ?? this.get90DaysAgo();
+    const to = dateRange?.to ?? this.getToday();
+
+    const foreplayAds = await this.foreplayService.searchAds({
+      brand_id: brandId,
+      date_from: from,
+      date_to: to,
+      limit,
+    });
+
+    console.log(`[EnhancedAdLibrary] Fetched ${foreplayAds.length} ads directly from Foreplay`);
+
+    // Step 3: Transform Foreplay ads to EnrichedAdCreative format
+    const enrichedAds: EnrichedAdCreative[] = foreplayAds.map((fpAd) =>
+      this.transformForeplayAdToEnriched(fpAd)
+    );
+
+    return {
+      ads: enrichedAds,
+      creditsUsed: this.foreplayService.getTotalCreditsUsed(),
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Transform a Foreplay ad to EnrichedAdCreative format
+   */
+  private transformForeplayAdToEnriched(fpAd: ForeplayAdDetails): EnrichedAdCreative {
+    const creative = fpAd.creative || {};
+    const copy = fpAd.copy || {};
+    const metadata = fpAd.metadata || {};
+    const brand = fpAd.brand || {};
+    const hookAnalysis = metadata.hook_analysis;
+    const landingPage = metadata.landing_page;
+
+    // Map Foreplay platform to our AdPlatform type
+    const platformMap: Record<string, 'linkedin' | 'meta' | 'google'> = {
+      facebook: 'meta',
+      instagram: 'meta',
+      tiktok: 'meta', // Closest match for TikTok
+      linkedin: 'linkedin',
+    };
+
+    const platform = platformMap[metadata.platform] || 'meta';
+
+    // Determine best image URL (prefer full image over thumbnail)
+    const imageUrl = creative.type === 'video'
+      ? creative.thumbnail_url || creative.url // For videos, use thumbnail
+      : creative.url || creative.thumbnail_url; // For images, use full URL first
+
+    // Determine best video URL
+    const videoUrl = creative.type === 'video' ? creative.url : undefined;
+
+    // Construct platform ad library URL
+    // Note: Foreplay doesn't store Meta's actual ad library IDs, so we can't link to specific ads.
+    // Instead, we link to the advertiser's page in the ad library or search by brand name.
+    let detailsUrl: string | undefined;
+
+    if (metadata.platform === 'facebook' || metadata.platform === 'instagram') {
+      // Meta Ad Library - link to advertiser's page or search
+      // page_id from Foreplay might be the Facebook page ID
+      if (brand.page_id && /^\d+$/.test(brand.page_id)) {
+        // If page_id looks like a numeric Facebook page ID, link to all their ads
+        detailsUrl = `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&view_all_page_id=${brand.page_id}&search_type=page&media_type=all`;
+      } else if (brand.name) {
+        // Fall back to search by brand name
+        detailsUrl = `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=${encodeURIComponent(brand.name)}&search_type=keyword_unordered&media_type=all`;
+      }
+    } else if (metadata.platform === 'linkedin') {
+      // LinkedIn Ad Library doesn't have public ad URLs, fall back to landing page
+      detailsUrl = landingPage?.url;
+    } else if (metadata.platform === 'tiktok') {
+      // TikTok Creative Center - search by brand name
+      if (brand.name) {
+        detailsUrl = `https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?keyword=${encodeURIComponent(brand.name)}&period=180&sort_by=like`;
+      }
+    }
+
+    // Fall back to landing page URL if no ad library URL available
+    if (!detailsUrl) {
+      detailsUrl = landingPage?.url;
+    }
+
+    return {
+      // Base AdCreative fields
+      platform,
+      id: fpAd.ad_id,
+      advertiser: brand.name || copy.sponsor_name || 'Unknown',
+      headline: copy.headline,
+      body: copy.body,
+      imageUrl,
+      videoUrl,
+      format: creative.type || 'unknown',
+      isActive: metadata.is_active ?? false,
+      firstSeen: metadata.first_seen,
+      lastSeen: metadata.last_seen,
+      platforms: [metadata.platform],
+      detailsUrl, // Landing page URL for Foreplay ads
+      rawData: fpAd,
+      // Source tracking
+      source: 'foreplay' as AdSource,
+      // Foreplay enrichment (always included for Foreplay-sourced ads)
+      foreplay: {
+        transcript: creative.video_transcript,
+        hook: hookAnalysis
+          ? {
+              text: hookAnalysis.hook_text,
+              type: hookAnalysis.hook_type,
+              duration: hookAnalysis.hook_duration_seconds,
+            }
+          : undefined,
+        emotional_tone: metadata.emotional_tone,
+        landing_page_screenshot: landingPage?.screenshot_url,
+        landing_page_url: landingPage?.url,
+        foreplay_ad_id: fpAd.ad_id,
+        match_confidence: 1.0, // Direct from Foreplay = 100% match
+      },
+    };
+  }
+
+  /**
+   * Deduplicate ads from multiple sources
+   * Uses composite key: advertiser + headline + body (normalized)
+   */
+  private deduplicateAds(ads: EnrichedAdCreative[]): EnrichedAdCreative[] {
+    const seen = new Map<string, EnrichedAdCreative>();
+
+    for (const ad of ads) {
+      const key = this.createAdDedupeKey(ad);
+
+      if (!seen.has(key)) {
+        seen.set(key, ad);
+      } else {
+        // Prefer Foreplay-sourced ads (they have enrichment data)
+        const existing = seen.get(key)!;
+        if (ad.source === 'foreplay' && existing.source !== 'foreplay') {
+          seen.set(key, ad);
+        }
+        // If both from same source, or existing is Foreplay, keep existing
+      }
+    }
+
+    return Array.from(seen.values());
+  }
+
+  /**
+   * Create a deduplication key for an ad
+   */
+  private createAdDedupeKey(ad: EnrichedAdCreative): string {
+    const normalize = (s?: string) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 100); // Limit length for efficiency
+
+    return `${normalize(ad.advertiser)}|${normalize(ad.headline)}|${normalize(ad.body)}`;
   }
 
   /**
