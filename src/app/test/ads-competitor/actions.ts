@@ -14,16 +14,27 @@ export interface AdsCompetitorResult {
     searchQuery: string;
     searchDomain: string;
     foreplayMetadata?: unknown;
+    foreplaySourceMetadata?: unknown;
     foreplayError?: string;
   };
 }
 
 /**
- * Fetch and analyze competitor ads with optional Foreplay enrichment
+ * Options for analyzing competitor ads
+ */
+export interface AnalyzeOptions {
+  /** Enable Foreplay enrichment (transcripts, hooks, emotional analysis) */
+  enableForeplayEnrichment?: boolean;
+  /** Include Foreplay as a direct ad source (fetches ads from Foreplay database) */
+  includeForeplayAsSource?: boolean;
+}
+
+/**
+ * Fetch and analyze competitor ads with optional Foreplay enrichment and/or source
  */
 export async function analyzeCompetitorAds(
   domain: string,
-  enableForeplay: boolean = true
+  options: AnalyzeOptions = { enableForeplayEnrichment: true, includeForeplayAsSource: false }
 ): Promise<AdsCompetitorResult> {
   const startTime = Date.now();
 
@@ -52,10 +63,13 @@ export async function analyzeCompetitorAds(
     const foreplayEnabled = process.env.ENABLE_FOREPLAY?.toLowerCase() === 'true';
     const foreplayConfigured = !!process.env.FOREPLAY_API_KEY;
 
+    const { enableForeplayEnrichment = true, includeForeplayAsSource = false } = options;
+
     console.log('[AdsCompetitor] Debug:', {
       companyName,
       cleanDomain,
-      enableForeplay,
+      enableForeplayEnrichment,
+      includeForeplayAsSource,
       foreplayEnabled,
       foreplayConfigured,
     });
@@ -63,16 +77,17 @@ export async function analyzeCompetitorAds(
     // Create enhanced service
     const service = createEnhancedAdLibraryService();
 
-    // Fetch ads with optional Foreplay enrichment
+    // Fetch ads with optional Foreplay enrichment and/or source
     // Use default 'image' format for Google (more reliable visual previews)
     // Foreplay enrichment adds video transcripts/hooks from their database
+    // Foreplay as source fetches ads directly from their database
     const result = await service.fetchAllPlatforms({
       query: companyName,
       domain: cleanDomain,
       limit: 20,
       // Note: Not specifying googleAdFormat uses default 'image' which has reliable thumbnails
-      // Foreplay provides video transcripts/hooks enrichment separately
-      enableForeplayEnrichment: enableForeplay,
+      enableForeplayEnrichment,
+      includeForeplayAsSource,
       foreplayDateRange: {
         from: get90DaysAgo(),
         to: getToday(),
@@ -89,6 +104,7 @@ export async function analyzeCompetitorAds(
         searchQuery: companyName,
         searchDomain: cleanDomain,
         foreplayMetadata: result.metadata?.foreplay,
+        foreplaySourceMetadata: result.metadata?.foreplay_source,
         foreplayError: result.metadata?.foreplay?.error,
       },
     };
