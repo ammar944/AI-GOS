@@ -99,11 +99,14 @@ export interface ForeplayLandingPage {
 export interface ForeplayAdDetails {
   /** Unique ad identifier */
   ad_id: string;
+  /** Platform-specific ad library identifier (e.g., Facebook Ad Library ID) */
+  ad_library_id?: string;
   /** Brand information */
   brand: {
     id: string;
     name: string;
     domain: string;
+    page_id?: string;
   };
   /** Creative asset information */
   creative: {
@@ -257,12 +260,19 @@ export interface ForeplayEnrichment {
 }
 
 /**
+ * Source of the ad - which service it was fetched from
+ */
+export type AdSource = 'searchapi' | 'foreplay';
+
+/**
  * Extended AdCreative with Foreplay enrichment
  * Combines SearchAPI real-time data with Foreplay intelligence
  */
 export interface EnrichedAdCreative extends AdCreative {
   /** Foreplay enrichment data (undefined if not enriched or not available) */
   foreplay?: ForeplayEnrichment;
+  /** Source service this ad was fetched from (defaults to 'searchapi' for backward compatibility) */
+  source?: AdSource;
 }
 
 /**
@@ -313,6 +323,12 @@ export interface EnhancedAdLibraryResponse {
       duration_ms?: number;
     };
     foreplay?: ForeplayMetadata;
+    /** When Foreplay is used as a direct source (not just enrichment) */
+    foreplay_source?: {
+      total_ads: number;
+      unique_ads: number; // Ads not found in SearchAPI
+      duration_ms?: number;
+    };
   };
   /** Cost breakdown */
   costs?: {
