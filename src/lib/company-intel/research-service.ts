@@ -95,10 +95,11 @@ function mapToResearchResult(
     }
 
     // Clean citation markers if it's a string
-    let cleanedValue = value;
+    let cleanedValue: T = value;
     if (typeof value === 'string') {
-      cleanedValue = cleanCitationMarkers(value) as T;
-      if (cleanedValue === '') return null;
+      const cleaned = cleanCitationMarkers(value);
+      if (cleaned === '') return null;
+      cleanedValue = cleaned as unknown as T;
     }
 
     // Determine confidence based on content characteristics
