@@ -437,9 +437,20 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           </SubSection>
 
           <SubSection title="Messaging Opportunities">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
               {safeArray(industryMarketOverview?.messagingOpportunities?.opportunities).map((item, i) => (
-                <Badge key={i} variant="secondary">{item}</Badge>
+                <div
+                  key={i}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    backgroundColor: printColors.muted,
+                    fontSize: 13,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {item}
+                </div>
               ))}
             </div>
             <div style={{ ...styles.card, backgroundColor: printColors.primaryLight, border: `1px solid ${printColors.primary}` }}>
@@ -687,9 +698,22 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           </SubSection>
 
           <SubSection title="Primary Messaging Angles">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {safeArray(crossAnalysisSynthesis?.primaryMessagingAngles).map((angle, i) => (
-                <Badge key={i} variant="outline">{angle}</Badge>
+                <div
+                  key={i}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: 8,
+                    backgroundColor: printColors.primary,
+                    color: "white",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {angle}
+                </div>
               ))}
             </div>
           </SubSection>

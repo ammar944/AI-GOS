@@ -898,20 +898,21 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                       className="text-sm"
                     />
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1">
                       {comp.pricingTiers.map((tier, j) => (
-                        <Badge
+                        <div
                           key={j}
-                          variant="outline"
-                          className="text-xs"
+                          className="py-1.5 px-3 rounded text-xs break-words"
                           style={{
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            borderWidth: '1px',
                             borderColor: 'rgba(34, 197, 94, 0.3)',
-                            fontFamily: 'var(--font-mono), monospace'
+                            fontFamily: 'var(--font-mono), monospace',
+                            color: 'var(--text-secondary)',
                           }}
                         >
                           {tier.tier}: {tier.price}
-                        </Badge>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -977,19 +978,20 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                       className="text-sm"
                     />
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1">
                       {comp.adMessagingThemes.map((theme, j) => (
-                        <Badge
+                        <div
                           key={j}
-                          variant="outline"
-                          className="text-xs capitalize"
+                          className="py-1.5 px-3 rounded text-xs capitalize break-words"
                           style={{
                             backgroundColor: 'rgba(54, 94, 255, 0.1)',
-                            borderColor: 'rgba(54, 94, 255, 0.3)'
+                            borderWidth: '1px',
+                            borderColor: 'rgba(54, 94, 255, 0.3)',
+                            color: 'var(--text-secondary)',
                           }}
                         >
                           {theme}
-                        </Badge>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1015,9 +1017,20 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
       <SubSection title="Creative Library">
         <div className="mb-4">
           <h4 className="font-medium mb-2">Ad Hooks Competitors Use</h4>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             {safeArray(data?.creativeLibrary?.adHooks).map((hook, i) => (
-              <Badge key={i} variant="outline" className="text-sm">&quot;{hook}&quot;</Badge>
+              <div
+                key={i}
+                className="py-2 px-3 rounded-lg text-sm break-words"
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  borderWidth: '1px',
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                &quot;{hook}&quot;
+              </div>
             ))}
           </div>
         </div>
@@ -1274,9 +1287,18 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
             onSave={(v) => onFieldChange("primaryMessagingAngles", v)}
           />
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             {safeArray(data?.primaryMessagingAngles).map((angle, i) => (
-              <Badge key={i} variant="outline" className="text-base py-1 px-3">{angle}</Badge>
+              <div
+                key={i}
+                className="py-2 px-4 rounded-lg text-base font-medium break-words"
+                style={{
+                  backgroundColor: 'var(--accent-blue)',
+                  color: 'white',
+                }}
+              >
+                {angle}
+              </div>
             ))}
           </div>
         )}
