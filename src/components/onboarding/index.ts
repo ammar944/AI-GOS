@@ -9,3 +9,7 @@ export { StepBrandPositioning } from "./step-brand-positioning";
 export { StepAssetsProof } from "./step-assets-proof";
 export { StepBudgetTargets } from "./step-budget-targets";
 export { StepCompliance } from "./step-compliance";
+
+// Auto-fill components
+export { AutoFillPanel } from "./auto-fill-panel";
+export { PrefillSummary } from "./prefill-summary";

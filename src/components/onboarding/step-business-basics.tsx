@@ -5,18 +5,21 @@ import { motion } from "framer-motion";
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
-import type { BusinessBasicsData } from "@/lib/onboarding/types";
+import { AutoFillPanel } from "./auto-fill-panel";
+import type { BusinessBasicsData, OnboardingFormData } from "@/lib/onboarding/types";
 
 interface StepBusinessBasicsProps {
   initialData?: Partial<BusinessBasicsData>;
   onSubmit: (data: BusinessBasicsData) => void;
   onBack?: () => void;
+  onPrefillAll?: (data: Partial<OnboardingFormData>) => void;
 }
 
 export function StepBusinessBasics({
   initialData,
   onSubmit,
   onBack,
+  onPrefillAll,
 }: StepBusinessBasicsProps) {
   const [formData, setFormData] = useState<BusinessBasicsData>({
     businessName: initialData?.businessName || "",
@@ -95,6 +98,24 @@ export function StepBusinessBasics({
     });
   }
 
+  /**
+   * Handle prefill data from AI research
+   */
+  function handlePrefillComplete(prefilled: Partial<OnboardingFormData>) {
+    // Update local form state with business basics if found
+    if (prefilled.businessBasics) {
+      setFormData((prev) => ({
+        businessName: prefilled.businessBasics?.businessName || prev.businessName,
+        websiteUrl: prefilled.businessBasics?.websiteUrl || prev.websiteUrl,
+      }));
+    }
+
+    // Propagate all prefilled data to parent wizard
+    if (onPrefillAll) {
+      onPrefillAll(prefilled);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <motion.div
@@ -120,6 +141,33 @@ export function StepBusinessBasics({
         initial="initial"
         animate="animate"
       >
+        {/* Auto-Fill Panel - Shown first as the recommended option */}
+        {onPrefillAll && (
+          <motion.div variants={staggerItem}>
+            <AutoFillPanel onPrefillComplete={handlePrefillComplete} />
+          </motion.div>
+        )}
+
+        {/* Divider */}
+        {onPrefillAll && (
+          <motion.div variants={staggerItem} className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" style={{ borderColor: 'var(--border-default)' }} />
+            </div>
+            <div className="relative flex justify-center">
+              <span
+                className="px-3 text-[13px]"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-tertiary)',
+                }}
+              >
+                or fill in manually
+              </span>
+            </div>
+          </motion.div>
+        )}
+
         {/* Business Name */}
         <motion.div variants={staggerItem}>
           <FloatingLabelInput

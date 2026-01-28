@@ -186,6 +186,46 @@ export function OnboardingWizard({
     [currentStep]
   );
 
+  /**
+   * Bulk update form data from AI prefill
+   * Deep merges prefilled data into existing formData (only non-empty values)
+   */
+  const bulkUpdateFormData = useCallback(
+    (prefilled: Partial<OnboardingFormData>) => {
+      isUserAction.current = true;
+      setFormData((prev) => {
+        const updated = { ...prev };
+
+        // Deep merge each section, only updating non-empty values
+        (Object.keys(prefilled) as Array<keyof OnboardingFormData>).forEach((section) => {
+          const prefilledSection = prefilled[section];
+          if (!prefilledSection) return;
+
+          const currentSection = updated[section] as Record<string, unknown>;
+          const mergedSection = { ...currentSection };
+
+          Object.entries(prefilledSection).forEach(([key, value]) => {
+            // Only update if value is non-empty
+            if (value !== undefined && value !== null && value !== "") {
+              // For arrays, only update if array has items
+              if (Array.isArray(value) && value.length === 0) return;
+              // For numbers, 0 is valid
+              if (typeof value === "number" || value) {
+                mergedSection[key] = value;
+              }
+            }
+          });
+
+          (updated[section] as Record<string, unknown>) = mergedSection;
+        });
+
+        pendingStepChange.current = { step: currentStep, data: updated };
+        return updated;
+      });
+    },
+    [currentStep]
+  );
+
   // Step handlers
   const handleBusinessBasics = (data: BusinessBasicsData) => {
     updateFormData("businessBasics", data);
@@ -241,6 +281,7 @@ export function OnboardingWizard({
           <StepBusinessBasics
             initialData={formData.businessBasics}
             onSubmit={handleBusinessBasics}
+            onPrefillAll={bulkUpdateFormData}
           />
         );
       case "icp":
