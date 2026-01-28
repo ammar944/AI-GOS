@@ -74,7 +74,6 @@ export function BlueprintViewClient({ blueprint }: Props) {
         left: -9999px;
         top: 0;
         width: 850px;
-        background: #ffffff;
       `;
       document.body.appendChild(container);
 
@@ -94,7 +93,8 @@ export function BlueprintViewClient({ blueprint }: Props) {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: "#ffffff",
+        backgroundColor: null,
+        allowTaint: true,
       });
 
       root.unmount();

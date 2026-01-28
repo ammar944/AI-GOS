@@ -90,27 +90,8 @@ const PdfMarkdownContent = forwardRef<HTMLDivElement, PdfMarkdownContentProps>(
           </div>
         </div>
 
-        {/* Editor content with line numbers */}
+        {/* Editor content */}
         <div style={{ display: 'flex', minHeight: 450 }}>
-          {/* Line numbers column */}
-          <div
-            style={{
-              padding: 20,
-              borderRight: '1px solid rgba(255,255,255,0.04)',
-              fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              fontSize: 12,
-              color: '#444444',
-              textAlign: 'right',
-              userSelect: 'none',
-              background: 'rgba(255,255,255,0.01)',
-              lineHeight: 1.8,
-            }}
-          >
-            {lines.map((_, index) => (
-              <div key={index + 1}>{index + 1}</div>
-            ))}
-          </div>
-
           {/* Code content */}
           <div
             style={{

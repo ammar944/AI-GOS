@@ -83,7 +83,6 @@ export default function BlueprintViewPage() {
         left: -9999px;
         top: 0;
         width: 850px;
-        background: #ffffff;
       `;
       document.body.appendChild(container);
 
@@ -103,7 +102,8 @@ export default function BlueprintViewPage() {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: "#ffffff",
+        backgroundColor: null,
+        allowTaint: true,
       });
 
       root.unmount();

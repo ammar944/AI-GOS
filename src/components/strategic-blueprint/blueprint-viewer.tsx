@@ -653,7 +653,6 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
         left: -9999px;
         top: 0;
         width: 850px;
-        background: #ffffff;
       `;
       document.body.appendChild(container);
 
@@ -673,7 +672,8 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: "#ffffff",
+        backgroundColor: null,
+        allowTaint: true,
       });
 
       root.unmount();
