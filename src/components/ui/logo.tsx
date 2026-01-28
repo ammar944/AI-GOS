@@ -78,9 +78,9 @@ function Logo({
         />
       )}
       <span className="flex items-baseline">
-        <span className="text-white">Saas</span>
+        <span className="text-white">AI</span>
         <GradientText variant="default" className="font-bold">
-          Launch
+          GOS
         </GradientText>
       </span>
     </div>

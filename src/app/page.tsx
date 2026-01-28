@@ -15,7 +15,7 @@ export default function Home() {
           <Link href="/" className="transition-opacity hover:opacity-80">
             <Logo size="md" />
           </Link>
-          <Link href="/login">
+          <Link href="/sign-in">
             <Button variant="outline" size="sm">
               Sign In
             </Button>
