@@ -18,9 +18,9 @@ const badgeVariants = cva(
         outline:
           "text-foreground border-border [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         glow:
-          "border-primary/30 bg-primary/10 text-primary shadow-[0_0_10px_oklch(0.62_0.19_255_/_0.2)]",
+          "border-primary/20 bg-primary/10 text-primary",
         gradient:
-          "border-transparent bg-gradient-to-r from-[oklch(0.62_0.19_255)] to-[oklch(0.55_0.22_260)] text-white",
+          "border-transparent bg-gradient-to-r from-[oklch(0.62_0.19_255)] to-[oklch(0.62_0.14_255)] text-white",
         success:
           "border-transparent bg-[oklch(0.65_0.18_145)] text-white",
         warning:

@@ -38,6 +38,22 @@ const nextConfig: NextConfig = {
         hostname: '*.fbcdn.net',
         pathname: '/**',
       },
+      // Foreplay CDNs
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.foreplay.co',
+        pathname: '/**',
+      },
     ],
   },
 };

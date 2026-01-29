@@ -7,7 +7,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm transition-all duration-300 hover:border-primary/20",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border/70 py-6 shadow-[0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-200 hover:border-border",
         className
       )}
       {...props}
@@ -22,9 +22,8 @@ function GlassCard({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         "flex flex-col gap-6 rounded-xl py-6 shadow-sm transition-all duration-300",
         "bg-[oklch(0.18_0.04_265_/_0.8)] backdrop-blur-xl",
-        "border border-[oklch(0.62_0.19_255_/_0.1)]",
-        "hover:border-[oklch(0.62_0.19_255_/_0.25)]",
-        "hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.1)]",
+        "border border-border/60",
+        "hover:border-border",
         className
       )}
       {...props}
@@ -38,9 +37,9 @@ function GlowCard({ className, glow = false, ...props }: React.ComponentProps<"d
       data-slot="card"
       className={cn(
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 transition-all duration-300",
-        "hover:border-primary/30",
-        glow && "shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.15)] hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.25)]",
-        !glow && "shadow-sm hover:shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.15)]",
+        "hover:border-border",
+        glow && "shadow-[0_1px_0_rgba(255,255,255,0.04)]",
+        !glow && "shadow-[0_1px_0_rgba(255,255,255,0.02)]",
         className
       )}
       {...props}

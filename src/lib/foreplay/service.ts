@@ -54,7 +54,9 @@ interface RawForeplayAd {
   // Core identifiers
   id?: string;
   ad_id?: string;
+  ad_library_id?: string; // Platform-specific ad library identifier (e.g., Facebook Ad Library ID)
   brand_id?: string;
+  page_id?: string; // Facebook page ID
 
   // Brand info (flat)
   name?: string;
@@ -72,16 +74,22 @@ interface RawForeplayAd {
   cta?: string;
   call_to_action?: string;
 
-  // Creative assets (flat)
+  // Creative assets (flat) - Foreplay API uses short field names
   type?: string;
-  video_url?: string;
-  image_url?: string;
-  media_url?: string;
-  thumbnail?: string;
-  transcript?: string;
-  video_transcript?: string;
+  display_format?: string; // video, image, carousel, dco, dpa
+  video?: string; // Video URL
+  image?: string; // Image URL
+  thumbnail?: string; // Thumbnail URL
+  avatar?: string; // Avatar image
+  video_url?: string; // Legacy/alternative
+  image_url?: string; // Legacy/alternative
+  media_url?: string; // Legacy/alternative
+  full_transcription?: string; // Video transcript
+  transcript?: string; // Legacy/alternative
+  video_transcript?: string; // Legacy/alternative
   duration?: number;
   video_duration?: number;
+  cards?: unknown[]; // Carousel/DCO cards
   carousel_images?: string[];
   images?: string[];
 
@@ -433,6 +441,24 @@ export class ForeplayService {
       }
     }
 
+    // Log raw ad structure to debug field mapping
+    if (rawAds.length > 0) {
+      const sample = rawAds[0];
+      console.log('[Foreplay] Raw ad keys:', Object.keys(sample));
+      console.log('[Foreplay] Raw ad ID fields:', {
+        id: sample.id,
+        ad_id: sample.ad_id,
+        ad_library_id: sample.ad_library_id,
+        page_id: sample.page_id,
+        brand_id: sample.brand_id,
+      });
+      console.log('[Foreplay] Raw ad media fields:', {
+        video: (sample as Record<string, unknown>).video,
+        image: (sample as Record<string, unknown>).image,
+        thumbnail: sample.thumbnail,
+      });
+    }
+
     // Transform raw API response to our expected ForeplayAdDetails structure
     const ads = rawAds.map(raw => this.transformRawAdToForeplayAdDetails(raw));
 
@@ -450,10 +476,12 @@ export class ForeplayService {
   private transformRawAdToForeplayAdDetails(raw: RawForeplayAd): ForeplayAdDetails {
     return {
       ad_id: raw.ad_id || raw.id || '',
+      ad_library_id: raw.ad_library_id || raw.ad_id || raw.id,
       brand: {
         id: raw.brand_id || '',
         name: raw.name || raw.brand_name || '',
         domain: raw.website || raw.domain || '',
+        page_id: raw.page_id,
       },
       copy: {
         headline: raw.headline || raw.title || '',
@@ -463,10 +491,10 @@ export class ForeplayService {
       },
       creative: {
         type: this.inferCreativeType(raw),
-        url: raw.video_url || raw.image_url || raw.media_url || raw.thumbnail || '',
-        thumbnail_url: raw.thumbnail || raw.image_url || '',
-        video_transcript: raw.transcript || raw.video_transcript || '',
-        duration_seconds: raw.duration || raw.video_duration,
+        url: raw.video || raw.image || raw.video_url || raw.image_url || raw.media_url || raw.thumbnail || raw.avatar || '',
+        thumbnail_url: raw.thumbnail || raw.image || raw.avatar || raw.image_url || '',
+        video_transcript: raw.full_transcription || raw.transcript || raw.video_transcript || '',
+        duration_seconds: raw.video_duration || raw.duration,
         carousel_urls: raw.carousel_images || raw.images || [],
       },
       metadata: {
@@ -492,14 +520,23 @@ export class ForeplayService {
    * Infer creative type from raw ad data
    */
   private inferCreativeType(raw: RawForeplayAd): 'video' | 'image' | 'carousel' {
+    // Check display_format first (most reliable)
+    if (raw.display_format) {
+      const f = raw.display_format.toLowerCase();
+      if (f === 'video') return 'video';
+      if (f === 'carousel' || f === 'dco' || f === 'dpa') return 'carousel';
+      if (f === 'image') return 'image';
+    }
     if (raw.type) {
       const t = raw.type.toLowerCase();
       if (t.includes('video')) return 'video';
       if (t.includes('carousel')) return 'carousel';
       if (t.includes('image')) return 'image';
     }
-    if (raw.video_url || raw.transcript || raw.video_transcript) return 'video';
-    if (raw.carousel_images?.length || (raw.images && raw.images.length > 1)) return 'carousel';
+    // Check for video indicators
+    if (raw.video || raw.video_url || raw.full_transcription || raw.transcript || raw.video_duration) return 'video';
+    // Check for carousel indicators
+    if (raw.cards?.length || raw.carousel_images?.length || (raw.images && raw.images.length > 1)) return 'carousel';
     return 'image';
   }
 

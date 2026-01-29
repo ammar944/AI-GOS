@@ -10,13 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.4)] active:scale-[0.98]",
+          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_1px_0_rgba(255,255,255,0.06)] active:translate-y-px",
         gradient:
-          "bg-gradient-to-r from-[oklch(0.62_0.19_255)] to-[oklch(0.55_0.22_260)] text-white hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.5)] hover:brightness-110 active:scale-[0.98]",
+          "bg-gradient-to-r from-[oklch(0.62_0.19_255)] to-[oklch(0.62_0.14_255)] text-white hover:brightness-105 active:translate-y-px",
         glow:
-          "bg-primary text-primary-foreground shadow-[0_0_15px_oklch(0.62_0.19_255_/_0.3)] hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.5)] active:scale-[0.98]",
+          "border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 active:translate-y-px",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 hover:shadow-[0_0_20px_oklch(0.65_0.22_25_/_0.4)] focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 active:scale-[0.98]",
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 active:translate-y-px",
         outline:
           "border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground hover:border-primary/50 dark:bg-input/30 dark:border-input dark:hover:bg-input/50 dark:hover:border-primary/50",
         secondary:

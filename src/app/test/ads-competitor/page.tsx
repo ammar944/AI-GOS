@@ -8,6 +8,16 @@ import type { EnrichedAdCreative } from '@/lib/foreplay/types';
 type FormatFilter = 'all' | 'video' | 'image';
 type PlatformFilter = 'all' | 'linkedin' | 'meta' | 'google';
 type SourceFilter = 'all' | 'enriched' | 'foreplay-sourced';
+type RelevanceFilter = 'all' | 'high' | 'medium' | 'low';
+
+// Relevance category colors
+const relevanceColors = {
+  direct: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Direct' },
+  lead_magnet: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Lead Magnet' },
+  brand_awareness: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Brand' },
+  subsidiary: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'Related Brand' },
+  unclear: { bg: 'bg-gray-500/20', text: 'text-gray-400', label: 'Unclear' },
+};
 
 // Platform color schemes
 const platformColors = {
@@ -49,6 +59,15 @@ export default function AdsCompetitorTestPage() {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [relevanceFilter, setRelevanceFilter] = useState<RelevanceFilter>('all');
+
+  // Helper to categorize relevance score
+  const getRelevanceLevel = (score: number | undefined): 'high' | 'medium' | 'low' => {
+    if (score === undefined) return 'medium';
+    if (score >= 70) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
+  };
 
   // Filter ads based on selected filters
   const filteredAds = result?.data?.ads.filter(ad => {
@@ -57,8 +76,17 @@ export default function AdsCompetitorTestPage() {
     const matchesSource = sourceFilter === 'all'
       || (sourceFilter === 'enriched' && !!ad.foreplay)
       || (sourceFilter === 'foreplay-sourced' && ad.source === 'foreplay');
-    return matchesFormat && matchesPlatform && matchesSource;
+    const matchesRelevance = relevanceFilter === 'all'
+      || getRelevanceLevel(ad.relevance?.score) === relevanceFilter;
+    return matchesFormat && matchesPlatform && matchesSource && matchesRelevance;
   }) ?? [];
+
+  // Relevance counts for filter UI
+  const relevanceCounts = {
+    high: result?.data?.ads.filter(a => getRelevanceLevel(a.relevance?.score) === 'high').length ?? 0,
+    medium: result?.data?.ads.filter(a => getRelevanceLevel(a.relevance?.score) === 'medium').length ?? 0,
+    low: result?.data?.ads.filter(a => getRelevanceLevel(a.relevance?.score) === 'low').length ?? 0,
+  };
 
   // Check Foreplay status on mount
   useEffect(() => {
@@ -370,6 +398,29 @@ export default function AdsCompetitorTestPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Relevance filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[var(--text-tertiary)] mr-2">Relevance:</span>
+                    {([
+                      { key: 'all', label: 'All', color: 'bg-[var(--accent-blue)]' },
+                      { key: 'high', label: `High (${relevanceCounts.high})`, color: 'bg-green-500' },
+                      { key: 'medium', label: `Med (${relevanceCounts.medium})`, color: 'bg-amber-500' },
+                      { key: 'low', label: `Low (${relevanceCounts.low})`, color: 'bg-red-500' },
+                    ] as { key: RelevanceFilter; label: string; color: string }[]).map(({ key, label, color }) => (
+                      <button
+                        key={key}
+                        onClick={() => setRelevanceFilter(key)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          relevanceFilter === key
+                            ? `${color} text-white`
+                            : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -394,7 +445,7 @@ export default function AdsCompetitorTestPage() {
                     </div>
                     <p className="text-[var(--text-secondary)]">No ads match the selected filters</p>
                     <button
-                      onClick={() => { setFormatFilter('all'); setPlatformFilter('all'); setSourceFilter('all'); }}
+                      onClick={() => { setFormatFilter('all'); setPlatformFilter('all'); setSourceFilter('all'); setRelevanceFilter('all'); }}
                       className="mt-4 text-[var(--accent-blue)] text-sm hover:underline"
                     >
                       Clear filters
@@ -718,8 +769,15 @@ function AdImage({
 function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
   const hasEnrichment = !!ad.foreplay;
   const [showDetails, setShowDetails] = useState(false);
+  const [showRelevanceInfo, setShowRelevanceInfo] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const colors = platformColors[ad.platform as keyof typeof platformColors] || platformColors.google;
+
+  // Get relevance styling
+  const relevanceScore = ad.relevance?.score ?? 50;
+  const relevanceCategory = ad.relevance?.category ?? 'unclear';
+  const relevanceStyle = relevanceColors[relevanceCategory] || relevanceColors.unclear;
+  const isLowRelevance = relevanceScore < 40;
 
   const hasVideo = ad.format === 'video' && ad.videoUrl;
   const hasImage = ad.imageUrl;
@@ -728,9 +786,11 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
   return (
     <div
       className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-1 ${
-        hasEnrichment
-          ? 'bg-[var(--bg-card-blue)] border-[var(--accent-blue)]/20'
-          : 'bg-[var(--bg-card)] border-[var(--border-line)]'
+        isLowRelevance
+          ? 'bg-[var(--bg-card)] border-amber-500/30 opacity-75 hover:opacity-100'
+          : hasEnrichment
+            ? 'bg-[var(--bg-card-blue)] border-[var(--accent-blue)]/20'
+            : 'bg-[var(--bg-card)] border-[var(--border-line)]'
       }`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
@@ -798,8 +858,46 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
 
       {/* Content */}
       <div className="p-5 space-y-4">
-        {/* Advertiser */}
-        <p className="text-sm font-medium text-[var(--text-tertiary)]">{ad.advertiser}</p>
+        {/* Advertiser + Relevance */}
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium text-[var(--text-tertiary)]">{ad.advertiser}</p>
+          {ad.relevance && (
+            <button
+              onClick={() => setShowRelevanceInfo(!showRelevanceInfo)}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all hover:scale-105 ${relevanceStyle.bg} ${relevanceStyle.text}`}
+              title={`Relevance: ${relevanceScore}% - Click for details`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              {relevanceStyle.label}
+              <span className="opacity-70">{relevanceScore}%</span>
+            </button>
+          )}
+        </div>
+
+        {/* Relevance explanation (expandable) */}
+        {showRelevanceInfo && ad.relevance && (
+          <div className={`p-3 rounded-lg border animate-in slide-in-from-top-2 duration-200 ${
+            isLowRelevance
+              ? 'bg-red-500/5 border-red-500/20'
+              : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)]'
+          }`}>
+            <p className="text-sm text-[var(--text-secondary)] mb-2">
+              {ad.relevance.explanation}
+            </p>
+            {ad.relevance.signals.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {ad.relevance.signals.map((signal, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-tertiary)] text-xs"
+                  >
+                    {signal}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Headline */}
         {ad.headline && (
