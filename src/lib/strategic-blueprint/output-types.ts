@@ -1,7 +1,7 @@
 // Strategic Blueprint Output Types
 // Based on the Strategic Blueprint Template v1.0
 
-import type { AdCreative } from '@/lib/ad-library';
+import type { EnrichedAdCreative } from '@/lib/foreplay/types';
 
 // =============================================================================
 // Section 1: Industry & Market Overview
@@ -258,8 +258,14 @@ export interface PricingTier {
   tier: string;
   /** Price string (e.g., "$99/mo", "$299/mo", "Custom") */
   price: string;
-  /** Key features at this tier */
+  /** Brief description of what this tier offers */
+  description?: string;
+  /** Target audience for this tier (e.g., "Small teams", "Growing businesses", "Enterprise") */
+  targetAudience?: string;
+  /** Key features included at this tier - should be concrete deliverables */
   features?: string[];
+  /** Usage limitations (e.g., "Up to 5 users", "10,000 contacts/mo") */
+  limitations?: string;
 }
 
 /** Structured offer extracted from competitor ads */
@@ -291,8 +297,8 @@ export interface CompetitorSnapshot {
   strengths: string[];
   /** Key weaknesses */
   weaknesses: string[];
-  /** Real ad creatives fetched from ad libraries */
-  adCreatives?: AdCreative[];
+  /** Real ad creatives fetched from ad libraries (enriched with Foreplay intelligence when available) */
+  adCreatives?: EnrichedAdCreative[];
   /** Structured pricing tiers extracted from research + ad mentions */
   pricingTiers?: PricingTier[];
   /** Structured main offer from ad patterns */

@@ -3,8 +3,9 @@
 
 import { createResearchAgent } from "@/lib/research";
 import { MODELS } from "@/lib/openrouter/client";
-import { createAdLibraryService } from "@/lib/ad-library";
+import { createEnhancedAdLibraryService, assessAdRelevance } from "@/lib/ad-library";
 import type { AdCreative } from "@/lib/ad-library";
+import type { EnrichedAdCreative } from "@/lib/foreplay/types";
 import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot, PricingTier, CompetitorOffer } from "../output-types";
 
 /**
@@ -38,7 +39,14 @@ REQUIRED JSON STRUCTURE (follow EXACTLY):
       "strengths": ["array of 2-3 verified strengths from reviews/market presence"],
       "weaknesses": ["array of 2-3 weaknesses from reviews/user feedback"],
       "pricingTiers": [
-        { "tier": "string e.g. Starter", "price": "string e.g. $99/mo", "features": ["key feature 1", "key feature 2"] }
+        {
+          "tier": "string e.g. Starter, Pro, Enterprise",
+          "price": "string e.g. $99/mo, $299/mo, Custom pricing",
+          "description": "string - brief summary of what this tier includes, e.g. 'Essential analytics for small teams'",
+          "targetAudience": "string - who this tier is for, e.g. 'Small teams', 'Growing businesses', 'Enterprise companies'",
+          "features": ["array of 3-5 specific features included, e.g. 'Multi-touch attribution', 'CRM integration', 'Custom reports'"],
+          "limitations": "string - usage limits if any, e.g. 'Up to 5 users, 10K contacts/mo'"
+        }
       ],
       "mainOffer": {
         "headline": "string - primary value proposition from their marketing",
@@ -82,7 +90,13 @@ RESEARCH INSTRUCTIONS:
 5. Include 3-5 competitors with verified information from web sources
 6. Use actual hook text and headlines from ads you find online
 7. Be specific with real data - avoid generic or made-up information
-8. IMPORTANT: Search competitor pricing pages for actual pricing tiers (Starter, Pro, Enterprise, etc.)
+8. CRITICAL - PRICING TIER EXTRACTION: Visit competitor pricing pages and extract:
+   - All tier names (e.g., Free, Starter, Pro, Enterprise)
+   - Exact prices or "Custom pricing" if applicable
+   - Description of what each tier offers
+   - Target audience for each tier (who it's designed for)
+   - 3-5 KEY FEATURES per tier that differentiate it from other tiers
+   - Any usage limitations (users, contacts, API calls, etc.)
 9. Extract main offer/value proposition from their landing pages and ads
 
 OUTPUT ONLY THE JSON OBJECT. No explanations, no markdown code blocks.`;
@@ -115,10 +129,10 @@ Return the analysis as a JSON object following the exact structure specified.`;
   // Parse JSON from research response
   let data = parseCompetitorAnalysisJSON(response.content);
 
-  // Fetch real ads for each competitor (graceful degradation if API key missing)
-  let competitorAds = new Map<string, AdCreative[]>();
+  // Fetch real ads for each competitor with Foreplay enrichment (graceful degradation if API key missing)
+  let competitorAds = new Map<string, EnrichedAdCreative[]>();
   try {
-    const adService = createAdLibraryService();
+    const adService = createEnhancedAdLibraryService();
     competitorAds = await fetchCompetitorAds(adService, data.competitors);
     console.log(`[Competitor Research] Fetched ads for ${competitorAds.size} competitors`);
   } catch (error) {
@@ -377,9 +391,12 @@ function parsePricingTiers(raw: unknown): PricingTier[] | undefined {
         tiers.push({
           tier,
           price,
+          description: typeof obj.description === 'string' ? obj.description.trim() : undefined,
+          targetAudience: typeof obj.targetAudience === 'string' ? obj.targetAudience.trim() : undefined,
           features: Array.isArray(obj.features)
             ? obj.features.filter((f): f is string => typeof f === 'string')
             : undefined,
+          limitations: typeof obj.limitations === 'string' ? obj.limitations.trim() : undefined,
         });
       }
     }
@@ -530,16 +547,24 @@ const STOP_WORDS = new Set([
 // =============================================================================
 
 /**
- * Fetch ads for each competitor from all ad library platforms
+ * Fetch ads for each competitor from all ad library platforms with Foreplay enrichment
  *
- * FIX: Now passes domain to improve ad filtering and validation
- * Service handles request-scoped rate limiting to prevent ad mixing between competitors
+ * Uses EnhancedAdLibraryService which:
+ * 1. Fetches ads from SearchAPI (LinkedIn, Meta, Google)
+ * 2. Enriches with Foreplay intelligence (transcripts, hooks, emotional analysis)
+ * 3. Optionally includes Foreplay as additional ad source
  */
 async function fetchCompetitorAds(
-  adService: ReturnType<typeof createAdLibraryService>,
+  adService: ReturnType<typeof createEnhancedAdLibraryService>,
   competitors: CompetitorSnapshot[]
-): Promise<Map<string, AdCreative[]>> {
-  const adsMap = new Map<string, AdCreative[]>();
+): Promise<Map<string, EnrichedAdCreative[]>> {
+  const adsMap = new Map<string, EnrichedAdCreative[]>();
+
+  // Calculate date range for Foreplay (last 90 days)
+  const dateRange = {
+    from: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    to: new Date().toISOString().split('T')[0],
+  };
 
   // Fetch ads for each competitor in parallel
   // Each competitor gets its own request context (no shared state)
@@ -548,24 +573,39 @@ async function fetchCompetitorAds(
       // Extract domain from website URL if available
       const domain = extractDomainFromURL(competitor.website);
 
+      // Extract clean company name from domain for better search results
+      // This matches the test environment approach: "dreamdata" from "dreamdata.io"
+      // Using domain-based extraction avoids false positives from partial name matches
+      // (e.g., "Windsor.ai" would match "Windsor Airport Limo" but "windsor" from domain won't)
+      const companyName = domain
+        ? domain.split('.')[0]
+        : competitor.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      // Use enhanced service with Foreplay enrichment AND Foreplay as ad source
       const response = await adService.fetchAllPlatforms({
-        query: competitor.name,
+        query: companyName,
         domain, // Pass domain for better Google Ads filtering and validation
         limit: 10, // 10 ads per platform max
+        enableForeplayEnrichment: true, // Enrich with transcripts, hooks, emotional analysis
+        includeForeplayAsSource: true, // Also fetch unique historical ads from Foreplay database
+        foreplayDateRange: dateRange,
+        maxEnrichments: 10, // Control costs - max 10 ads enriched per competitor
       });
 
-      // Combine all successful platform results
-      // Ads are already filtered by the service to match the competitor name
-      const allAds = response.results
-        .filter(r => r.success)
-        .flatMap(r => r.ads);
+      // Enhanced service returns ads directly (not results array)
+      const allAds = response.ads;
 
       adsMap.set(competitor.name, allAds);
 
       // Log summary for this competitor
+      console.log(
+        `[Competitor Research] ${competitor.name}: Searched "${companyName}" (domain: ${domain || 'none'}) → Found ${allAds.length} ads`
+      );
       if (allAds.length > 0) {
+        const enrichedCount = allAds.filter(ad => ad.foreplay).length;
+        const uniqueAdvertisers = [...new Set(allAds.map(ad => ad.advertiser))];
         console.log(
-          `[Competitor Research] ${competitor.name}: Found ${allAds.length} validated ads across platforms`
+          `[Competitor Research] ${competitor.name}: ${enrichedCount} enriched, advertisers: [${uniqueAdvertisers.join(', ')}]`
         );
       }
     } catch (error) {
@@ -606,13 +646,50 @@ function extractDomainFromURL(url: string | undefined): string | undefined {
 
 /**
  * Merge fetched ads into competitor snapshots and analyze ad messaging
+ * Applies relevance scoring to each ad to help identify cross-brand contamination
+ * and lead magnet ads that may not directly relate to the competitor's core product
+ * Includes Foreplay enrichment data when available (transcripts, hooks, emotional analysis)
  */
 function mergeAdsIntoCompetitors(
   competitors: CompetitorSnapshot[],
-  adsMap: Map<string, AdCreative[]>
+  adsMap: Map<string, EnrichedAdCreative[]>
 ): CompetitorSnapshot[] {
   return competitors.map(competitor => {
-    const ads = adsMap.get(competitor.name) || [];
+    const rawAds = adsMap.get(competitor.name) || [];
+
+    // Extract domain for relevance scoring
+    const domain = extractDomainFromURL(competitor.website);
+
+    // Apply relevance scoring to each ad
+    // This helps identify:
+    // - Direct ads (clearly from this competitor)
+    // - Lead magnets (educational content like books, webinars)
+    // - Subsidiary/related brand ads (e.g., Slack for Salesforce)
+    // - Unclear matches (may be API false positives)
+    const scoredAds = rawAds.map(ad => ({
+      ...ad,
+      relevance: ad.relevance ?? assessAdRelevance(ad, competitor.name, domain),
+    }));
+
+    // Filter out ads with very low relevance (< 40 score)
+    // These are likely false positives from the ad library API
+    // e.g., "Windsor Airport Limo" for "Windsor.ai" search
+    const MIN_RELEVANCE_SCORE = 40;
+    const ads = scoredAds.filter(ad => (ad.relevance?.score ?? 50) >= MIN_RELEVANCE_SCORE);
+
+    // Log filtered ads count
+    const filteredCount = scoredAds.length - ads.length;
+    if (filteredCount > 0) {
+      const filteredAdvertisers = scoredAds
+        .filter(ad => (ad.relevance?.score ?? 50) < MIN_RELEVANCE_SCORE)
+        .map(ad => `${ad.advertiser} (${ad.relevance?.score ?? 0})`);
+      console.log(
+        `[Competitor Research] ${competitor.name}: Filtered out ${filteredCount} low-relevance ads: [${filteredAdvertisers.join(', ')}]`
+      );
+    }
+
+    // Sort by relevance score (highest first)
+    ads.sort((a, b) => (b.relevance?.score ?? 50) - (a.relevance?.score ?? 50));
 
     // Analyze ad messaging if we have ads
     let adMessagingThemes: string[] | undefined;
@@ -637,6 +714,13 @@ function mergeAdsIntoCompetitors(
           enhancedPricingTiers = extractedTiers;
           console.log(`[Competitor Research] ${competitor.name} - Extracted ${extractedTiers.length} pricing tiers from ad text`);
         }
+      }
+
+      // Log relevance scoring summary
+      const highRelevance = ads.filter(a => (a.relevance?.score ?? 0) >= 70).length;
+      const lowRelevance = ads.filter(a => (a.relevance?.score ?? 0) < 40).length;
+      if (lowRelevance > 0) {
+        console.log(`[Competitor Research] ${competitor.name} - Relevance: ${highRelevance} high, ${lowRelevance} low (may need manual review)`);
       }
     }
 

@@ -898,20 +898,59 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                       className="text-sm"
                     />
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {comp.pricingTiers.map((tier, j) => (
                         <div
                           key={j}
-                          className="py-1.5 px-3 rounded text-xs break-words"
+                          className="p-3 rounded text-xs break-words"
                           style={{
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             borderWidth: '1px',
                             borderColor: 'rgba(34, 197, 94, 0.3)',
-                            fontFamily: 'var(--font-mono), monospace',
-                            color: 'var(--text-secondary)',
                           }}
                         >
-                          {tier.tier}: {tier.price}
+                          {/* Tier name and price */}
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>
+                              {tier.tier}
+                            </span>
+                            <span
+                              style={{
+                                fontFamily: 'var(--font-mono), monospace',
+                                color: 'var(--success)',
+                              }}
+                            >
+                              {tier.price}
+                            </span>
+                          </div>
+                          {/* Target audience */}
+                          {tier.targetAudience && (
+                            <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              For: {tier.targetAudience}
+                            </p>
+                          )}
+                          {/* Description */}
+                          {tier.description && (
+                            <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+                              {tier.description}
+                            </p>
+                          )}
+                          {/* Features list */}
+                          {tier.features && tier.features.length > 0 && (
+                            <ul className="text-xs space-y-0.5 pl-3" style={{ color: 'var(--text-secondary)' }}>
+                              {tier.features.map((feature, k) => (
+                                <li key={k} className="list-disc list-outside">
+                                  {feature}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {/* Limitations */}
+                          {tier.limitations && (
+                            <p className="text-xs mt-2 italic" style={{ color: 'var(--text-tertiary)' }}>
+                              Limits: {tier.limitations}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>

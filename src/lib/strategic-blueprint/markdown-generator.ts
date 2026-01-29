@@ -459,8 +459,18 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
       lines.push('**Pricing Tiers:**');
       safeArray(comp.pricingTiers).forEach((tier) => {
         lines.push(`- **${tier.tier}:** ${tier.price}`);
+        if (tier.targetAudience) {
+          lines.push(`  - *For:* ${tier.targetAudience}`);
+        }
+        if (tier.description) {
+          lines.push(`  - ${tier.description}`);
+        }
         if (safeArray(tier.features).length > 0) {
-          safeArray(tier.features).forEach((f) => lines.push(`  - ${f}`));
+          lines.push(`  - **Key Features:**`);
+          safeArray(tier.features).forEach((f) => lines.push(`    - ${f}`));
+        }
+        if (tier.limitations) {
+          lines.push(`  - *Limits:* ${tier.limitations}`);
         }
       });
       lines.push('');
