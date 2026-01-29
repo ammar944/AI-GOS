@@ -386,11 +386,14 @@ export function OnboardingWizard({
         <div className="hidden md:block">
           <div className="flex justify-between">
             {STEPS.map((step, index) => {
-              const isCompleted = completedSteps.has(index);
               const isCurrent = index === currentStep;
               // A step is clickable if it's within the highest step reached
               const isClickable = index <= highestStepReached;
               const isFuture = !isClickable;
+              // Completed and behind current step (only steps we've actually completed AND are now behind us)
+              const isCompletedBehind = completedSteps.has(index) && index < currentStep;
+              // Visited ahead: steps we've visited before but are now ahead of current position
+              const isVisitedAhead = index > currentStep && index <= highestStepReached;
 
               return (
                 <div
@@ -406,7 +409,7 @@ export function OnboardingWizard({
                       <div
                         className="h-0.5 w-full transition-colors duration-300"
                         style={{
-                          background: isCompleted
+                          background: isCompletedBehind || isVisitedAhead
                             ? "rgb(54, 94, 255)"
                             : "rgb(31, 31, 31)",
                         }}
@@ -422,39 +425,53 @@ export function OnboardingWizard({
                     aria-label={
                       isCurrent
                         ? `Current step: ${step.title}`
-                        : isClickable
-                          ? `Go to ${step.title}${isCompleted ? " (completed)" : ""}`
-                          : `${step.title} (not yet available)`
+                        : isVisitedAhead
+                          ? `Go to ${step.title} (previously visited)`
+                          : isClickable
+                            ? `Go to ${step.title}${isCompletedBehind ? " (completed)" : ""}`
+                            : `${step.title} (not yet available)`
                     }
                     aria-current={isCurrent ? "step" : undefined}
                     className={cn(
-                      "relative flex h-8 w-8 items-center justify-center rounded-full border",
+                      "relative flex h-8 w-8 items-center justify-center rounded-full border-2",
                       "transition-all duration-200",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]",
                       isClickable && "cursor-pointer hover:scale-110",
                       isFuture && "cursor-not-allowed"
                     )}
                     style={{
-                      borderColor: isCompleted
-                        ? "rgb(54, 94, 255)"
-                        : isCurrent
+                      // Priority: isCurrent > isCompletedBehind > isVisitedAhead > future
+                      borderColor: isCurrent
+                        ? "rgb(205, 208, 213)"
+                        : isCompletedBehind
                           ? "rgb(54, 94, 255)"
-                          : "rgb(31, 31, 31)",
-                      background: isCompleted
-                        ? "rgb(54, 94, 255)"
-                        : isCurrent
-                          ? "rgba(54, 94, 255, 0.15)"
-                          : "rgb(20, 23, 30)",
-                      color: isCompleted
-                        ? "#ffffff"
-                        : isCurrent
+                          : isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : "rgb(31, 31, 31)",
+                      background: isCurrent
+                        ? "rgb(205, 208, 213)"
+                        : isCompletedBehind
                           ? "rgb(54, 94, 255)"
-                          : "rgb(100, 105, 115)",
+                          : isVisitedAhead
+                            ? "rgba(54, 94, 255, 0.15)"
+                            : "rgb(20, 23, 30)",
+                      color: isCurrent
+                        ? "rgb(20, 23, 30)"
+                        : isCompletedBehind
+                          ? "#ffffff"
+                          : isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : "rgb(100, 105, 115)",
+                      boxShadow: isCurrent
+                        ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
+                        : isVisitedAhead
+                          ? "0 0 8px rgba(54, 94, 255, 0.4)"
+                          : undefined,
                     }}
                     animate={
                       isCurrent
-                        ? { opacity: [1, 0.8, 1] }
-                        : { opacity: 1 }
+                        ? { scale: [1, 1.05, 1] }
+                        : { scale: 1 }
                     }
                     transition={
                       isCurrent
@@ -464,7 +481,10 @@ export function OnboardingWizard({
                     whileHover={isClickable ? { scale: 1.1 } : undefined}
                     whileTap={isClickable ? { scale: 0.95 } : undefined}
                   >
-                    {isCompleted ? (
+                    {/* Show step icon when current or visited ahead, checkmark when completed behind */}
+                    {isCurrent ? (
+                      step.icon
+                    ) : isCompletedBehind ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       step.icon
@@ -485,17 +505,23 @@ export function OnboardingWizard({
                     }}
                     className={cn(
                       "text-xs transition-all duration-200",
-                      isCurrent ? "font-semibold" : "font-medium",
+                      isCurrent ? "font-bold" : "font-medium",
                       isClickable && "cursor-pointer hover:text-[rgb(252,252,250)]",
                       isFuture && "cursor-not-allowed",
                       "focus-visible:outline-none focus-visible:underline focus-visible:underline-offset-2"
                     )}
                     style={{
+                      // Priority: isCurrent > isCompletedBehind > isVisitedAhead > future
                       color: isCurrent
                         ? "rgb(252, 252, 250)"
-                        : isCompleted
+                        : isCompletedBehind
                           ? "rgb(205, 208, 213)"
-                          : "rgb(100, 105, 115)",
+                          : isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : "rgb(100, 105, 115)",
+                      textShadow: isCurrent
+                        ? "0 0 8px rgba(205, 208, 213, 0.5)"
+                        : undefined,
                     }}
                   >
                     {step.shortTitle}
@@ -511,18 +537,19 @@ export function OnboardingWizard({
           {/* Current Step Info */}
           <div className="flex items-center gap-3">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-full"
+              className="flex h-10 w-10 items-center justify-center rounded-full border-2"
               style={{
-                background: "rgba(54, 94, 255, 0.15)",
-                border: "1px solid rgb(54, 94, 255)",
-                color: "rgb(54, 94, 255)",
+                background: "rgb(205, 208, 213)",
+                borderColor: "rgb(205, 208, 213)",
+                color: "rgb(20, 23, 30)",
+                boxShadow: "0 0 0 3px rgba(205, 208, 213, 0.2)",
               }}
             >
               {STEPS[currentStep].icon}
             </div>
             <div>
               <p
-                className="text-[16px] font-medium"
+                className="text-[16px] font-bold"
                 style={{ color: "rgb(252, 252, 250)" }}
               >
                 {STEPS[currentStep].title}
@@ -543,11 +570,14 @@ export function OnboardingWizard({
               }}
             >
               {STEPS.map((step, index) => {
-                const isCompleted = completedSteps.has(index);
                 const isCurrent = index === currentStep;
                 // A step is clickable if it's within the highest step reached
                 const isClickable = index <= highestStepReached;
                 const isFuture = !isClickable;
+                // Completed and behind current step (only steps we've actually completed AND are now behind us)
+                const isCompletedBehind = completedSteps.has(index) && index < currentStep;
+                // Visited ahead: steps we've visited before but are now ahead of current position
+                const isVisitedAhead = index > currentStep && index <= highestStepReached;
 
                 return (
                   <motion.button
@@ -558,38 +588,68 @@ export function OnboardingWizard({
                     aria-label={
                       isCurrent
                         ? `Current step: ${step.title}`
-                        : isClickable
-                          ? `Go to ${step.title}${isCompleted ? " (completed)" : ""}`
-                          : `${step.title} (not yet available)`
+                        : isVisitedAhead
+                          ? `Go to ${step.title} (previously visited)`
+                          : isClickable
+                            ? `Go to ${step.title}${isCompletedBehind ? " (completed)" : ""}`
+                            : `${step.title} (not yet available)`
                     }
                     aria-current={isCurrent ? "step" : undefined}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap min-h-[36px]",
-                      "border transition-all duration-200 flex-shrink-0",
+                      "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs whitespace-nowrap min-h-[36px]",
+                      "border-2 transition-all duration-200 flex-shrink-0",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2 focus-visible:ring-offset-black",
                       isClickable && "cursor-pointer active:scale-95",
-                      isFuture && "cursor-not-allowed opacity-50"
+                      isFuture && "cursor-not-allowed opacity-50",
+                      isCurrent ? "font-bold" : "font-medium"
                     )}
                     style={{
-                      borderColor: isCompleted
-                        ? "var(--success)"
-                        : isCurrent
-                          ? "rgba(255,255,255,0.5)"
-                          : "var(--border-default)",
-                      background: isCompleted
-                        ? "rgba(34, 197, 94, 0.15)"
-                        : isCurrent
-                          ? "rgba(255,255,255,0.15)"
-                          : "var(--bg-hover)",
-                      color: isCompleted
-                        ? "var(--success)"
-                        : isCurrent
-                          ? "#ffffff"
-                          : "var(--text-tertiary)",
+                      // Priority: isCurrent > isCompletedBehind > isVisitedAhead > future
+                      borderColor: isCurrent
+                        ? "rgb(205, 208, 213)"
+                        : isCompletedBehind
+                          ? "rgb(54, 94, 255)"
+                          : isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : "var(--border-default)",
+                      background: isCurrent
+                        ? "rgb(205, 208, 213)"
+                        : isCompletedBehind
+                          ? "rgba(54, 94, 255, 0.15)"
+                          : isVisitedAhead
+                            ? "rgba(54, 94, 255, 0.15)"
+                            : "var(--bg-hover)",
+                      color: isCurrent
+                        ? "rgb(20, 23, 30)"
+                        : isCompletedBehind
+                          ? "rgb(54, 94, 255)"
+                          : isVisitedAhead
+                            ? "rgb(54, 94, 255)"
+                            : "var(--text-tertiary)",
+                      boxShadow: isCurrent
+                        ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
+                        : isVisitedAhead
+                          ? "0 0 8px rgba(54, 94, 255, 0.4)"
+                          : undefined,
                     }}
                     whileTap={isClickable ? { scale: 0.95 } : undefined}
+                    animate={
+                      isCurrent
+                        ? { scale: [1, 1.02, 1] }
+                        : { scale: 1 }
+                    }
+                    transition={
+                      isCurrent
+                        ? { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                        : { duration: 0.3 }
+                    }
                   >
-                    {isCompleted ? (
+                    {/* Show step number when current or visited ahead, checkmark when completed behind */}
+                    {isCurrent ? (
+                      <span className="h-3 w-3 flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                    ) : isCompletedBehind ? (
                       <Check className="h-3 w-3" />
                     ) : (
                       <span className="h-3 w-3 flex items-center justify-center">
