@@ -15,6 +15,7 @@ import {
   calculateSimilarity,
   extractCompanyFromDomain,
 } from './name-matcher';
+import { assessAdRelevance, sortByRelevance } from './relevance-scorer';
 import {
   createAdFetchContext,
   logRequest,
@@ -137,15 +138,17 @@ export class AdLibraryService {
       const filteredAds = this.filterValidAds(normalizedAds, 'linkedin', context);
 
       // Filter out LinkedIn ads without image preview
-      // Some ads only have a link to view on LinkedIn but no embedded image
+      // EXCEPT for text/message ads which are intentionally text-based
       const adsWithImages = filteredAds.filter(ad => {
         const hasVisual = !!ad.imageUrl || !!ad.videoUrl;
-        if (!hasVisual) {
+        const isTextAd = ad.format === 'text' || ad.format === 'message';
+
+        if (!hasVisual && !isTextAd) {
           console.log(
             `[AdLibrary:${context.requestId}] [LINKEDIN] Filtering out ad without image: "${ad.headline?.slice(0, 50) || ad.id}..."`
           );
         }
-        return hasVisual;
+        return hasVisual || isTextAd;
       });
 
       console.log(
@@ -591,24 +594,40 @@ export class AdLibraryService {
     // Deduplicate ads across platforms (removes same creative appearing on multiple platforms)
     const dedupedAds = deduplicateAds(allAds);
 
-    // Rebuild per-platform results with deduplicated ads
+    // Apply relevance scoring to all ads
+    const scoredAds = dedupedAds.map(ad => ({
+      ...ad,
+      relevance: assessAdRelevance(ad, context.searchedCompany, context.searchedDomain),
+    }));
+
+    // Sort by relevance (highest first) so most relevant ads appear at top
+    const sortedAds = sortByRelevance(scoredAds);
+
+    console.log(
+      `[AdLibrary:${context.requestId}] Relevance scoring complete: ` +
+      `${sortedAds.filter(a => (a.relevance?.score ?? 0) >= 70).length} high, ` +
+      `${sortedAds.filter(a => (a.relevance?.score ?? 0) >= 40 && (a.relevance?.score ?? 0) < 70).length} medium, ` +
+      `${sortedAds.filter(a => (a.relevance?.score ?? 0) < 40).length} low relevance`
+    );
+
+    // Rebuild per-platform results with scored and sorted ads
     const dedupedResults: AdLibraryResponse[] = [
       {
         ...linkedinResult,
-        ads: dedupedAds.filter((ad) => ad.platform === 'linkedin'),
+        ads: sortedAds.filter((ad) => ad.platform === 'linkedin'),
       },
       {
         ...metaResult,
-        ads: dedupedAds.filter((ad) => ad.platform === 'meta'),
+        ads: sortedAds.filter((ad) => ad.platform === 'meta'),
       },
       {
         ...googleResult,
-        ads: dedupedAds.filter((ad) => ad.platform === 'google'),
+        ads: sortedAds.filter((ad) => ad.platform === 'google'),
       },
     ];
 
-    const totalAds = dedupedAds.length;
-    const hasCreatives = dedupedAds.some((ad) => ad.imageUrl || ad.videoUrl);
+    const totalAds = sortedAds.length;
+    const hasCreatives = sortedAds.some((ad) => ad.imageUrl || ad.videoUrl);
 
     logMultiPlatformSummary(context, dedupedResults);
 
@@ -852,8 +871,20 @@ export class AdLibraryService {
       }
       case 'linkedin': {
         // LinkedIn: check ad_type FIRST (authoritative field from SearchAPI)
-        // This is critical because video ads also have cover images
         const adType = (ad.ad_type as string | undefined)?.toLowerCase();
+
+        // Check for message/text ad types BEFORE video/image
+        // These are text-based ads that may have thumbnails but aren't image ads
+        if (adType === 'message_ad' || adType === 'message' || adType === 'sponsored_inmail') {
+          return 'message';
+        }
+        if (adType === 'text_ad' || adType === 'text') {
+          return 'text';
+        }
+        if (adType === 'conversation_ad' || adType === 'conversation') {
+          return 'message'; // Conversation ads are similar to message ads
+        }
+
         if (adType === 'video') return 'video';
 
         // Then check content.type as fallback

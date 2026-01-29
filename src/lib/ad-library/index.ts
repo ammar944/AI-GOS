@@ -16,6 +16,8 @@ export type {
   AdLibraryOptions,
   AdLibraryResponse,
   MultiPlatformAdResponse,
+  AdRelevanceCategory,
+  AdRelevance,
 } from './types';
 
 // Export name matching utilities (useful for testing and validation)
@@ -26,6 +28,13 @@ export {
   generateCompanyAliases,
   extractCompanyFromDomain,
 } from './name-matcher';
+
+// Export relevance scoring utilities
+export {
+  assessAdRelevance,
+  filterByRelevance,
+  sortByRelevance,
+} from './relevance-scorer';
 
 // Export logger utilities and types (useful for custom logging)
 export type { AdFetchContext } from './logger';

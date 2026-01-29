@@ -7,9 +7,34 @@
 export type AdPlatform = 'linkedin' | 'meta' | 'google';
 
 /**
+ * Ad relevance category - describes the relationship between the ad and searched company
+ */
+export type AdRelevanceCategory =
+  | 'direct'           // Ad clearly promotes company's core product/service
+  | 'lead_magnet'      // Educational content for lead gen (books, webinars, guides)
+  | 'brand_awareness'  // General brand content, not product-focused
+  | 'subsidiary'       // Ad from an owned/related brand (e.g., Slack for Salesforce)
+  | 'unclear';         // Couldn't determine relationship with confidence
+
+/**
+ * Relevance assessment for an ad
+ * Helps users understand why an ad appears and how it relates to their search
+ */
+export interface AdRelevance {
+  /** Relevance score 0-100, higher = more clearly related to searched company */
+  score: number;
+  /** Category of ad relationship to searched company */
+  category: AdRelevanceCategory;
+  /** Human-readable explanation of the relevance assessment */
+  explanation: string;
+  /** Signals that contributed to the assessment */
+  signals: string[];
+}
+
+/**
  * Ad format/type classification
  */
-export type AdFormat = 'video' | 'image' | 'carousel' | 'unknown';
+export type AdFormat = 'video' | 'image' | 'carousel' | 'text' | 'message' | 'unknown';
 
 /**
  * Unified ad creative interface
@@ -42,6 +67,8 @@ export interface AdCreative {
   platforms?: string[];
   /** URL to view ad details on the platform */
   detailsUrl?: string;
+  /** Relevance assessment - how related this ad is to the searched company */
+  relevance?: AdRelevance;
   /** Original API response data for debugging/advanced use */
   rawData: unknown;
 }

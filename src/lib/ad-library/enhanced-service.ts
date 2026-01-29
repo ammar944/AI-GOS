@@ -18,6 +18,7 @@ import type {
   AdSource,
 } from '@/lib/foreplay/types';
 import { calculateSimilarity, normalizeCompanyName } from './name-matcher';
+import { assessAdRelevance, sortByRelevance } from './relevance-scorer';
 
 /**
  * Extended options for enhanced ad library operations
@@ -225,12 +226,23 @@ export class EnhancedAdLibraryService {
       console.log('[EnhancedAdLibrary] Skipping Foreplay operations:', reason);
     }
 
+    // Apply relevance scoring to all ads (both SearchAPI and Foreplay-sourced)
+    const domain = options.domain || this.extractDomainFromQuery(options.query);
+    const adsWithRelevance = allAds.map(ad => ({
+      ...ad,
+      // Only score if not already scored (SearchAPI ads may already have scores from base service)
+      relevance: ad.relevance ?? assessAdRelevance(ad, options.query, domain),
+    }));
+
+    // Sort by relevance (highest first)
+    const sortedAds = sortByRelevance(adsWithRelevance);
+
     // Build final response
     const totalForeplayCredits = this.foreplayService?.getTotalCreditsUsed() ?? 0;
     const foreplayCostFinal = totalForeplayCredits * COST_PER_CREDIT;
 
     return {
-      ads: allAds,
+      ads: sortedAds,
       metadata: {
         searchapi: searchapiMetadata,
         foreplay: foreplayMetadata,
@@ -609,15 +621,16 @@ export class EnhancedAdLibraryService {
     const videoUrl = creative.type === 'video' ? creative.url : undefined;
 
     // Construct platform ad library URL
-    // Note: Foreplay doesn't store Meta's actual ad library IDs, so we can't link to specific ads.
-    // Instead, we link to the advertiser's page in the ad library or search by brand name.
+    // Priority: 1) Direct ad link via ad_library_id, 2) Page view, 3) Search by name
     let detailsUrl: string | undefined;
 
     if (metadata.platform === 'facebook' || metadata.platform === 'instagram') {
-      // Meta Ad Library - link to advertiser's page or search
-      // page_id from Foreplay might be the Facebook page ID
-      if (brand.page_id && /^\d+$/.test(brand.page_id)) {
-        // If page_id looks like a numeric Facebook page ID, link to all their ads
+      // Meta Ad Library - try direct link first, then page, then search
+      if (fpAd.ad_library_id) {
+        // Direct link to the specific ad using Meta's ad library ID
+        detailsUrl = `https://www.facebook.com/ads/library/?id=${fpAd.ad_library_id}`;
+      } else if (brand.page_id && /^\d+$/.test(brand.page_id)) {
+        // Link to advertiser's page showing all their ads
         detailsUrl = `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&view_all_page_id=${brand.page_id}&search_type=page&media_type=all`;
       } else if (brand.name) {
         // Fall back to search by brand name
