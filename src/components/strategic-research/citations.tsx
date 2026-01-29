@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link2, ExternalLink, ChevronDown, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,57 +18,28 @@ import { cn } from "@/lib/utils";
 import type { Citation } from "@/lib/strategic-blueprint/output-types";
 
 // =============================================================================
-// Subscript Reference Styling - Highlights [1], [2], etc. in text
+// Citation Reference Handling - Strips [1], [2], etc. from text
 // =============================================================================
 
 /**
- * Parses text and wraps subscript references like [1], [2] with styled spans.
- * Returns an array of ReactNodes with styled subscripts.
+ * Strips numbered references like [1], [2] from text.
+ * These references are removed to avoid confusion since sources
+ * are shown in a separate collapsible list without numbered mapping.
  */
-function parseSubscriptReferences(text: string): ReactNode[] {
-  // Match [N] where N is one or more digits
-  const pattern = /\[(\d+)\]/g;
-  const parts: ReactNode[] = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = pattern.exec(text)) !== null) {
-    // Add text before the match
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    // Add the styled subscript
-    parts.push(
-      <span
-        key={`sub-${match.index}`}
-        className="font-medium text-[0.85em] align-super"
-        style={{ color: 'var(--accent-blue)' }}
-      >
-        [{match[1]}]
-      </span>
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Add remaining text after last match
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts.length > 0 ? parts : [text];
+function stripNumberedReferences(text: string): string {
+  // Match [N] where N is one or more digits, including any trailing whitespace
+  // This prevents double spaces when references are removed
+  return text.replace(/\[(\d+)\]\s*/g, '').trim();
 }
 
 /**
- * Recursively processes children to style subscript references.
+ * Processes children to remove numbered references.
  * Handles both string children and nested ReactNodes.
  * Exported for use in chat messages and other components.
  */
 export function renderWithSubscripts(children: ReactNode): ReactNode {
   if (typeof children === "string") {
-    const parts = parseSubscriptReferences(children);
-    return parts.length === 1 && typeof parts[0] === "string"
-      ? parts[0]
-      : <>{parts}</>;
+    return stripNumberedReferences(children);
   }
   // For non-string children, return as-is (they may contain their own styled content)
   return children;
@@ -122,7 +93,7 @@ export interface SourcedTextProps {
  * Wraps text with a subtle indicator showing it's research-backed.
  * Shows a small globe icon on hover with tooltip.
  * Uses dotted underline to indicate sourced data.
- * Highlights subscript references like [1], [2] in cyan.
+ * Numbered references like [1], [2] are stripped for clarity.
  */
 export function SourcedText({ children, className }: SourcedTextProps) {
   return (
@@ -152,7 +123,7 @@ export function SourcedText({ children, className }: SourcedTextProps) {
 /**
  * Wraps list item text with citation indicator.
  * More compact version for use in lists.
- * Highlights subscript references like [1], [2] in cyan.
+ * Numbered references like [1], [2] are stripped for clarity.
  */
 export function SourcedListItem({ children, className }: SourcedTextProps) {
   return (
