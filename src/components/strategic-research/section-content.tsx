@@ -804,35 +804,41 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                 )}
               </div>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p style={{ color: 'var(--text-tertiary)' }}>Offer</p>
-                  {isEditing && onFieldChange ? (
-                    <EditableText
-                      value={safeRender(comp?.offer)}
-                      onSave={(v) => onFieldChange(`competitors.${i}.offer`, v)}
-                    />
-                  ) : (
-                    <p><SourcedListItem>{safeRender(comp?.offer)}</SourcedListItem></p>
-                  )}
-                </div>
-                <div>
-                  <p style={{ color: 'var(--text-tertiary)' }}>Price</p>
-                  {isEditing && onFieldChange ? (
-                    <EditableText
-                      value={safeRender(comp?.price)}
-                      onSave={(v) => onFieldChange(`competitors.${i}.price`, v)}
-                    />
-                  ) : (
-                    <p
-                      style={{
-                        fontFamily: 'var(--font-mono), monospace',
-                        color: 'var(--text-heading)'
-                      }}
-                    >
-                      <SourcedText>{safeRender(comp?.price)}</SourcedText>
-                    </p>
-                  )}
-                </div>
+                {/* Only show simple Offer if no detailed mainOffer exists */}
+                {!comp?.mainOffer && (
+                  <div>
+                    <p style={{ color: 'var(--text-tertiary)' }}>Offer</p>
+                    {isEditing && onFieldChange ? (
+                      <EditableText
+                        value={safeRender(comp?.offer)}
+                        onSave={(v) => onFieldChange(`competitors.${i}.offer`, v)}
+                      />
+                    ) : (
+                      <p><SourcedListItem>{safeRender(comp?.offer)}</SourcedListItem></p>
+                    )}
+                  </div>
+                )}
+                {/* Only show simple Price if no detailed pricingTiers exist */}
+                {!(comp?.pricingTiers && comp.pricingTiers.length > 0) && (
+                  <div>
+                    <p style={{ color: 'var(--text-tertiary)' }}>Price</p>
+                    {isEditing && onFieldChange ? (
+                      <EditableText
+                        value={safeRender(comp?.price)}
+                        onSave={(v) => onFieldChange(`competitors.${i}.price`, v)}
+                      />
+                    ) : (
+                      <p
+                        style={{
+                          fontFamily: 'var(--font-mono), monospace',
+                          color: 'var(--text-heading)'
+                        }}
+                      >
+                        <SourcedText>{safeRender(comp?.price)}</SourcedText>
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div>
                   <p style={{ color: 'var(--text-tertiary)' }}>Platforms</p>
                   <div className="flex gap-1 flex-wrap">
