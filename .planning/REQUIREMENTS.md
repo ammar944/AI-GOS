@@ -1,77 +1,79 @@
-# Requirements: AI-GOS v2.1
+# Requirements: AI-GOS v2.2
 
-**Defined:** 2026-01-20
-**Core Value:** Users get polished, shareable strategic blueprints with intuitive AI-assisted editing
+**Defined:** 2026-01-30
+**Core Value:** Accurate competitor pricing extraction from actual pricing pages with confidence scoring
 
-## v2.1 Requirements
+## v2.2 Requirements
 
-Requirements for UX Polish milestone. Each maps to roadmap phases.
+Requirements for Pricing Intelligence milestone. Each maps to roadmap phases.
 
-### Output Page
+### Scraping
 
-- [x] **OUT-01**: Complete page displays blueprint in polished card-based layout (not markdown document editor)
-- [x] **OUT-02**: Section cards show all 5 strategic research sections with same content renderers as review page
-- [x] **OUT-03**: Header includes success indicator, metadata (time, cost, sections), and action buttons
-- [x] **OUT-04**: Share button generates shareable link with copy functionality
-- [x] **OUT-05**: Export PDF button generates PDF matching polished layout
-- [x] **OUT-06**: New Blueprint and Back to Review buttons navigate correctly
-- [x] **OUT-07**: Design follows SaaSLaunch design language (colors, typography, spacing)
+- [ ] **SCRP-01**: Firecrawl service scrapes pricing page URL with JavaScript rendering
+- [ ] **SCRP-02**: Scraping errors are handled gracefully with logging
 
-### Chat Panel
+### Extraction
 
-- [x] **CHAT-01**: Review page uses 30/70 split layout (chat left, blueprint right) instead of overlay
-- [x] **CHAT-02**: Chat panel is permanently visible sidebar during review (not triggered by button)
-- [x] **CHAT-03**: Blueprint content scrolls independently within 70% right panel
-- [x] **CHAT-04**: Chat panel includes input, message history, and suggestion pills
-- [x] **CHAT-05**: Responsive layout: vertical stack on mobile (chat above/below blueprint), side-by-side on desktop (lg breakpoint)
-- [x] **CHAT-06**: Chat panel hidden on complete page (only visible during review)
-- [x] **CHAT-07**: Design follows SaaSLaunch design language with v0/Lovable inspiration
+- [ ] **EXTR-01**: LLM extracts structured PricingTier[] from scraped content
+- [ ] **EXTR-02**: Extracted data is validated against Zod schema
+- [ ] **EXTR-03**: Confidence score calculated for extracted pricing data
 
-## v2.2 Requirements (Deferred)
+### Integration
 
-### Persistence
+- [ ] **INTG-01**: Firecrawl pricing replaces Perplexity pricing in Section 4 pipeline
+- [ ] **INTG-02**: Pipeline falls back to Perplexity if Firecrawl extraction fails
 
-- **PERS-01**: Save blueprints to Supabase with user association
-- **PERS-02**: User project history with list view
-- **PERS-03**: Re-generate from saved inputs
+## Future Requirements (Deferred)
 
-### E2E Testing
+### Discovery
 
-- **E2E-01**: Critical user flow E2E tests with Playwright
+- **DISC-01**: Multi-URL pricing page discovery (not just /pricing)
+- **DISC-02**: Sitemap parsing for pricing URLs
+- **DISC-03**: Navigation link analysis for pricing pages
+- **DISC-04**: LLM-assisted page classification
+
+### Advanced Scraping
+
+- **SCRP-03**: Parallel processing for multiple competitors
+- **SCRP-04**: Screenshot capture for visual verification
+
+### Advanced Extraction
+
+- **EXTR-04**: Multi-signal confidence scoring
+- **EXTR-05**: Field-level confidence breakdown
+- **EXTR-06**: Source text attribution (anti-hallucination)
+
+### Advanced Integration
+
+- **INTG-03**: Dual-write migration with feature flag
+- **INTG-04**: Credit usage tracking per blueprint
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Chat on complete page | User specified review-only |
-| Media plan generation | Future milestone |
-| Mobile-first chat | Desktop focus for v2.1, basic responsive stacking sufficient |
+| Historical pricing tracking | Future milestone (v2.3+) |
+| Price change alerts | Future milestone |
+| Pricing trend visualization | Future milestone |
+| Full site crawling | Scope creep, use known URLs |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OUT-01 | Phase 33 | Complete |
-| OUT-02 | Phase 33 | Complete |
-| OUT-03 | Phase 33 | Complete |
-| OUT-04 | Phase 33 | Complete |
-| OUT-05 | Phase 33 | Complete |
-| OUT-06 | Phase 33 | Complete |
-| OUT-07 | Phase 33 | Complete |
-| CHAT-01 | Phase 34 | Complete |
-| CHAT-02 | Phase 34 | Complete |
-| CHAT-03 | Phase 34 | Complete |
-| CHAT-04 | Phase 34 | Complete |
-| CHAT-05 | Phase 34 | Complete |
-| CHAT-06 | Phase 34 | Complete |
-| CHAT-07 | Phase 34 | Complete |
+| SCRP-01 | TBD | Pending |
+| SCRP-02 | TBD | Pending |
+| EXTR-01 | TBD | Pending |
+| EXTR-02 | TBD | Pending |
+| EXTR-03 | TBD | Pending |
+| INTG-01 | TBD | Pending |
+| INTG-02 | TBD | Pending |
 
 **Coverage:**
-- v2.1 requirements: 14 total
-- Mapped to phases: 14
-- Complete: 14 ✓
-- Unmapped: 0 ✓
+- v2.2 requirements: 7 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 7
 
 ---
-*Requirements defined: 2026-01-20*
-*Last updated: 2026-01-20 after Phase 34 completion (v2.1 UX Polish complete)*
+*Requirements defined: 2026-01-30*
+*Last updated: 2026-01-30 after initial definition*
