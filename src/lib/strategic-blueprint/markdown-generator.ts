@@ -431,8 +431,14 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
       lines.push(`**Website:** ${comp.website}`);
     }
     lines.push(`**Positioning:** ${safeString(comp.positioning)}`);
-    lines.push(`**Offer:** ${safeString(comp.offer)}`);
-    lines.push(`**Price:** ${safeString(comp.price)}`);
+    // Only show simple Offer if no detailed mainOffer exists
+    if (!comp.mainOffer) {
+      lines.push(`**Offer:** ${safeString(comp.offer)}`);
+    }
+    // Only show simple Price if no detailed pricingTiers exist
+    if (!safeArray(comp.pricingTiers).length) {
+      lines.push(`**Price:** ${safeString(comp.price)}`);
+    }
     lines.push(`**Funnels:** ${safeString(comp.funnels)}`);
     lines.push(`**Ad Platforms:** ${safeArray(comp.adPlatforms).join(', ') || 'N/A'}`);
     lines.push('');
