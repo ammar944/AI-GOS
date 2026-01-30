@@ -1,7 +1,7 @@
 # Project State
 
 **Last Updated:** 2026-01-31
-**Current Phase:** Phase 35 - Firecrawl Foundation
+**Current Phase:** Phase 36 - LLM Extraction & Confidence
 **Current Plan:** —
 
 ## Project Reference
@@ -73,11 +73,11 @@ Milestone 11: Pricing Intelligence (v2.2) IN PROGRESS
 └── Phase 37: Pipeline Integration (0/? plans) PENDING
 ```
 
-Phase: 35 - Firecrawl Foundation
-Plan: 1 of 1 (Complete)
-Status: Phase complete - FirecrawlClient service operational
-Progress: █▱▱▱▱▱▱▱▱▱ 10%
-Last activity: 2026-01-31 — Completed 35-01-PLAN.md
+Phase: 36 - LLM Extraction & Confidence
+Plan: —
+Status: Ready to plan - Phase 35 complete, need execution plans
+Progress: ███▱▱▱▱▱▱▱ 33%
+Last activity: 2026-01-31 — Phase 35 verified and complete
 
 ## Performance Metrics
 
@@ -88,7 +88,7 @@ Last activity: 2026-01-31 — Completed 35-01-PLAN.md
 - Target accuracy: 95%+ pricing extraction (vs 60-70% Perplexity baseline)
 
 **Overall project:**
-- Phases complete: 34/37 (92%)
+- Phases complete: 35/37 (95%)
 - Milestones shipped: 10/11 (v1.0-v2.1 complete)
 - Current milestone: v2.2 Pricing Intelligence (just started)
 
