@@ -68,16 +68,16 @@ Milestone 10: UX Polish (v2.1) COMPLETE
 └── Phase 34: Chat Panel Redesign (2/2 plans) DONE
 
 Milestone 11: Pricing Intelligence (v2.2) IN PROGRESS
-├── Phase 35: Firecrawl Foundation (0/? plans) ← YOU ARE HERE
-├── Phase 36: LLM Extraction & Confidence (0/? plans) PENDING
+├── Phase 35: Firecrawl Foundation (1/1 plans) DONE
+├── Phase 36: LLM Extraction & Confidence (0/? plans) ← YOU ARE HERE
 └── Phase 37: Pipeline Integration (0/? plans) PENDING
 ```
 
 Phase: 35 - Firecrawl Foundation
-Plan: —
-Status: Ready to plan - Requirements defined, research complete
-Progress: ▱▱▱▱▱▱▱▱▱▱ 0%
-Last activity: 2026-01-31 — Roadmap created for v2.2 Pricing Intelligence
+Plan: 1 of 1 (Complete)
+Status: Phase complete - FirecrawlClient service operational
+Progress: █▱▱▱▱▱▱▱▱▱ 10%
+Last activity: 2026-01-31 — Completed 35-01-PLAN.md
 
 ## Performance Metrics
 
@@ -223,12 +223,15 @@ Last activity: 2026-01-31 — Roadmap created for v2.2 Pricing Intelligence
 | 2026-01-31 | v2.2 | Firecrawl over Perplexity for pricing | Direct scraping (95%+ accuracy) vs AI synthesis (60-70% accuracy) |
 | 2026-01-31 | v2.2 | Gemini 2.0 Flash for extraction | Cost-efficient LLM choice, retry with Claude Haiku if validation fails |
 | 2026-01-31 | v2.2 | Graceful degradation pattern | Matches ad library integration, Perplexity fallback on Firecrawl failure |
+| 2026-01-31 | 35-01 | 30s scraping timeout | Matches research recommendation for JS-heavy pricing pages |
+| 2026-01-31 | 35-01 | 3 concurrent scrapes | Leaves headroom for Hobby plan's 5 browser limit |
+| 2026-01-31 | 35-01 | /pricing → /plans → /buy fallback | Most common pricing URL patterns |
+| 2026-01-31 | 35-01 | getEnv() for optional API key | Graceful degradation when FIRECRAWL_API_KEY missing |
 
 ### TODOs
 
 | Priority | Phase | Task | Context |
 |----------|-------|------|---------|
-| HIGH | 35 | Plan Phase 35: Firecrawl Foundation | Define implementation plans for scraping service |
 | HIGH | 36 | Plan Phase 36: LLM Extraction & Confidence | Define extraction and validation plans |
 | HIGH | 37 | Plan Phase 37: Pipeline Integration | Define integration plans for competitor-research.ts |
 
@@ -259,8 +262,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: v2.2 roadmap created, Phase 35 ready for planning
-Resume with: `/gsd:plan-phase 35` to create implementation plans
+Stopped at: Completed Phase 35 Plan 01 - FirecrawlClient service operational
+Resume with: `/gsd:plan-phase 36` to create LLM extraction plans
 
 ---
 
