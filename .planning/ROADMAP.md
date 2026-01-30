@@ -12,6 +12,7 @@
 - ✅ **v1.8 Ad Intelligence** - Phases 23-26 - SHIPPED 2026-01-09
 - ✅ **v2.0 Design Refresh** - Phases 27-32 - SHIPPED 2026-01-13
 - ✅ **v2.1 UX Polish** - Phases 33-34 - SHIPPED 2026-01-20
+- 🚧 **v2.2 Pricing Intelligence** - Phases 35-37 - IN PROGRESS
 
 ## Phases
 
@@ -495,6 +496,77 @@ Plans:
 
 ---
 
+### 🚧 v2.2 Pricing Intelligence (In Progress)
+
+Replace inaccurate Perplexity pricing extraction (60-70% accuracy from AI synthesis of reviews/articles) with direct scraping of competitor pricing pages via Firecrawl + LLM extraction for 95%+ accuracy.
+
+**Milestone Goal:** Accurate competitor pricing extraction from actual pricing pages with confidence scoring, integrated into Section 4 competitor analysis pipeline.
+
+**Stack:**
+- **Firecrawl SDK:** @mendable/firecrawl-js v4.12.0 (JavaScript rendering, anti-bot bypass)
+- **LLM Extraction:** Existing OpenRouter client (Gemini 2.0 Flash for cost efficiency)
+- **Integration:** competitor-research.ts (graceful degradation pattern)
+
+**Cost Impact:** +$0.02-$0.03 per blueprint (+13% increase)
+
+**Research:** [research/SUMMARY.md](.planning/research/SUMMARY.md)
+
+#### Phase 35: Firecrawl Foundation
+**Goal**: Firecrawl service scrapes pricing pages with JavaScript rendering and graceful error handling
+**Depends on**: v2.1 complete
+**Research**: Unlikely (Firecrawl SDK documented, patterns established)
+**Plans**: TBD
+
+Requirements covered: SCRP-01, SCRP-02
+
+Success criteria:
+1. FirecrawlClient wraps SDK with AI-GOS error handling patterns
+2. Pricing page discovery tries /pricing, /plans, /buy fallback URLs
+3. Batch scraping returns clean markdown for LLM extraction
+4. Scraping errors are logged and handled gracefully without crashing pipeline
+5. Missing FIRECRAWL_API_KEY allows pipeline to continue without Firecrawl
+
+Plans:
+- [ ] 35-01: TBD
+
+#### Phase 36: LLM Extraction & Confidence
+**Goal**: Extract structured PricingTier[] from scraped content with validation and confidence scoring
+**Depends on**: Phase 35
+**Research**: Unlikely (existing OpenRouter patterns, Zod validation)
+**Plans**: TBD
+
+Requirements covered: EXTR-01, EXTR-02, EXTR-03
+
+Success criteria:
+1. LLM extracts PricingTier[] with strict schema prompting
+2. Extracted data validates against existing Zod PricingTier schema
+3. Confidence score (0-100) calculated from source text overlap and completeness
+4. Validation failures trigger retry with adjusted prompt (max 1 retry)
+5. Contact sales / custom pricing detected and handled (price: null, confidence: LOW)
+
+Plans:
+- [ ] 36-01: TBD
+
+#### Phase 37: Pipeline Integration
+**Goal**: Firecrawl pricing replaces Perplexity pricing in Section 4 with graceful Perplexity fallback
+**Depends on**: Phase 36
+**Research**: Unlikely (matches ad library integration pattern)
+**Plans**: TBD
+
+Requirements covered: INTG-01, INTG-02
+
+Success criteria:
+1. fetchCompetitorPricing() called in competitor-research.ts pipeline
+2. Firecrawl pricing merged into CompetitorSnapshot.pricingTiers
+3. Pipeline falls back to Perplexity pricing if Firecrawl extraction fails
+4. Parallel processing: Firecrawl + ad library run concurrently via Promise.all
+5. Section 4 output includes pricing with confidence scores displayed
+
+Plans:
+- [ ] 37-01: TBD
+
+---
+
 ### Future Milestones
 
 #### v1.6 Persistence
@@ -502,8 +574,11 @@ Plans:
 - User project history
 - Re-generate from saved inputs
 
-#### v2.2 E2E Testing
-- Complete Phase 22 E2E tests with Playwright
+#### v2.3 Advanced Pricing Intelligence
+- Multi-currency detection and normalization
+- Intelligent pricing page discovery (sitemap parsing, navigation analysis)
+- Feature list extraction per tier
+- Historical pricing tracking
 
 ---
 
@@ -545,8 +620,11 @@ Plans:
 | 32. Chat Panel | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 33. Output Page Polish | v2.1 | 2/2 | Complete | 2026-01-20 |
 | 34. Chat Panel Redesign | v2.1 | 2/2 | Complete | 2026-01-20 |
+| 35. Firecrawl Foundation | v2.2 | 0/? | Not started | - |
+| 36. LLM Extraction & Confidence | v2.2 | 0/? | Not started | - |
+| 37. Pipeline Integration | v2.2 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-20 (Phase 34 Chat Panel Redesign complete, v2.1 milestone complete)*
+*Updated: 2026-01-31 (v2.2 Pricing Intelligence roadmap added, Phases 35-37 defined)*

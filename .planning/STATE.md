@@ -1,10 +1,16 @@
 # Project State
 
-**Last Updated:** 2026-01-30
-**Current Phase:** — (Defining requirements)
+**Last Updated:** 2026-01-31
+**Current Phase:** Phase 35 - Firecrawl Foundation
 **Current Plan:** —
 
-## Position
+## Project Reference
+
+**Core Value:** AI-GOS generates strategic blueprints for businesses using multi-model AI pipeline with real-time market intelligence.
+
+**Current Focus:** v2.2 Pricing Intelligence - Replace Perplexity pricing extraction (60-70% accuracy) with direct Firecrawl scraping of competitor pricing pages for 95%+ accuracy.
+
+## Current Position
 
 ```
 Milestone 1: Stabilization COMPLETE (archived)
@@ -62,15 +68,33 @@ Milestone 10: UX Polish (v2.1) COMPLETE
 └── Phase 34: Chat Panel Redesign (2/2 plans) DONE
 
 Milestone 11: Pricing Intelligence (v2.2) IN PROGRESS
-└── (Defining requirements)
+├── Phase 35: Firecrawl Foundation (0/? plans) ← YOU ARE HERE
+├── Phase 36: LLM Extraction & Confidence (0/? plans) PENDING
+└── Phase 37: Pipeline Integration (0/? plans) PENDING
 ```
 
-Phase: — (Defining requirements for v2.2)
+Phase: 35 - Firecrawl Foundation
 Plan: —
-Status: Defining requirements for milestone v2.2 Pricing Intelligence
-Last activity: 2026-01-30 — Milestone v2.2 started
+Status: Ready to plan - Requirements defined, research complete
+Progress: ▱▱▱▱▱▱▱▱▱▱ 0%
+Last activity: 2026-01-31 — Roadmap created for v2.2 Pricing Intelligence
 
-## Decisions
+## Performance Metrics
+
+**v2.2 Pricing Intelligence (3 phases):**
+- Requirement coverage: 7/7 mapped (100%)
+- Phase structure: Scraping → Extraction → Integration
+- Cost impact: +$0.02-$0.03 per blueprint (+13%)
+- Target accuracy: 95%+ pricing extraction (vs 60-70% Perplexity baseline)
+
+**Overall project:**
+- Phases complete: 34/37 (92%)
+- Milestones shipped: 10/11 (v1.0-v2.1 complete)
+- Current milestone: v2.2 Pricing Intelligence (just started)
+
+## Accumulated Context
+
+### Decisions
 
 | Date | Phase | Decision | Rationale |
 |------|-------|----------|-----------|
@@ -196,22 +220,27 @@ Last activity: 2026-01-30 — Milestone v2.2 started
 | 2026-01-20 | 33-02 | 5 buttons: 4 outline + 1 gradient pill | Primary action (New Blueprint) stands out |
 | 2026-01-20 | 34-01 | v4 API for react-resizable-panels | Group/Panel/Separator over deprecated PanelGroup/PanelResizeHandle |
 | 2026-01-20 | 34-02 | Auto-load conversation on mount | ChatSidebar is always visible, unlike BlueprintChat which loaded when panel opened |
+| 2026-01-31 | v2.2 | Firecrawl over Perplexity for pricing | Direct scraping (95%+ accuracy) vs AI synthesis (60-70% accuracy) |
+| 2026-01-31 | v2.2 | Gemini 2.0 Flash for extraction | Cost-efficient LLM choice, retry with Claude Haiku if validation fails |
+| 2026-01-31 | v2.2 | Graceful degradation pattern | Matches ad library integration, Perplexity fallback on Firecrawl failure |
 
-## Deferred Issues
+### TODOs
 
-| ID | From | Description | Priority |
-|----|------|-------------|----------|
-| - | - | No deferred issues | - |
+| Priority | Phase | Task | Context |
+|----------|-------|------|---------|
+| HIGH | 35 | Plan Phase 35: Firecrawl Foundation | Define implementation plans for scraping service |
+| HIGH | 36 | Plan Phase 36: LLM Extraction & Confidence | Define extraction and validation plans |
+| HIGH | 37 | Plan Phase 37: Pipeline Integration | Define integration plans for competitor-research.ts |
 
-## Blockers
+### Blockers
 
 None.
 
 ## Brief Alignment
 
-- **On track:** Yes - Defining requirements for v2.2 Pricing Intelligence
-- **Scope creep:** None
-- **Technical concerns:** None
+- **On track:** Yes - v2.2 roadmap created, 3 phases derived from 7 requirements
+- **Scope creep:** None - tight scope, advanced features deferred to v2.3
+- **Technical concerns:** None - research complete, patterns established
 
 ## Roadmap Evolution
 
@@ -225,14 +254,14 @@ None.
 - v1.8 Ad Intelligence: 4 phases (Phase 23-26) - SHIPPED 2026-01-09
 - v2.0 Design Refresh: 6 phases (Phase 27-32) - SHIPPED 2026-01-13
 - v2.1 UX Polish: 2 phases (Phase 33-34) - SHIPPED 2026-01-20
-- v2.2 Pricing Intelligence: TBD phases - Started 2026-01-30
+- v2.2 Pricing Intelligence: 3 phases (Phase 35-37) - Started 2026-01-31
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Defining requirements for v2.2 Pricing Intelligence
-Resume file: None
+Last session: 2026-01-31
+Stopped at: v2.2 roadmap created, Phase 35 ready for planning
+Resume with: `/gsd:plan-phase 35` to create implementation plans
 
 ---
 
-*v2.2 Pricing Intelligence: Defining requirements. Firecrawl-based pricing extraction with confidence scoring.*
+*v2.2 Pricing Intelligence: Firecrawl-based pricing extraction with confidence scoring (Phases 35-37)*

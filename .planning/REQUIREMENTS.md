@@ -61,19 +61,24 @@ Requirements for Pricing Intelligence milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCRP-01 | TBD | Pending |
-| SCRP-02 | TBD | Pending |
-| EXTR-01 | TBD | Pending |
-| EXTR-02 | TBD | Pending |
-| EXTR-03 | TBD | Pending |
-| INTG-01 | TBD | Pending |
-| INTG-02 | TBD | Pending |
+| SCRP-01 | Phase 35 | Pending |
+| SCRP-02 | Phase 35 | Pending |
+| EXTR-01 | Phase 36 | Pending |
+| EXTR-02 | Phase 36 | Pending |
+| EXTR-03 | Phase 36 | Pending |
+| INTG-01 | Phase 37 | Pending |
+| INTG-02 | Phase 37 | Pending |
 
 **Coverage:**
 - v2.2 requirements: 7 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 7
+- Mapped to phases: 7 (100%)
+- Unmapped: 0
+
+**Phase breakdown:**
+- Phase 35 (Firecrawl Foundation): 2 requirements (SCRP-01, SCRP-02)
+- Phase 36 (LLM Extraction & Confidence): 3 requirements (EXTR-01, EXTR-02, EXTR-03)
+- Phase 37 (Pipeline Integration): 2 requirements (INTG-01, INTG-02)
 
 ---
 *Requirements defined: 2026-01-30*
-*Last updated: 2026-01-30 after initial definition*
+*Last updated: 2026-01-31 after roadmap creation (100% coverage achieved)*
