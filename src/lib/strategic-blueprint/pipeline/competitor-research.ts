@@ -1,9 +1,12 @@
 // Competitor Research with Perplexity Deep Research
 // Real-time competitor intelligence with web search and citations
+// NOTE: Firecrawl pricing extraction (v2.2) disabled - using Perplexity pricing only
 
 import { createResearchAgent } from "@/lib/research";
 import { MODELS } from "@/lib/openrouter/client";
 import { createEnhancedAdLibraryService, assessAdRelevance } from "@/lib/ad-library";
+import { createFirecrawlClient } from "@/lib/firecrawl";
+import { extractPricing, type ScoredPricingResult } from "@/lib/pricing";
 import type { AdCreative } from "@/lib/ad-library";
 import type { EnrichedAdCreative } from "@/lib/foreplay/types";
 import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot, PricingTier, CompetitorOffer } from "../output-types";
@@ -129,24 +132,13 @@ Return the analysis as a JSON object following the exact structure specified.`;
   // Parse JSON from research response
   let data = parseCompetitorAnalysisJSON(response.content);
 
-  // Fetch real ads for each competitor with Foreplay enrichment (graceful degradation if API key missing)
-  let competitorAds = new Map<string, EnrichedAdCreative[]>();
-  try {
-    const adService = createEnhancedAdLibraryService();
-    competitorAds = await fetchCompetitorAds(adService, data.competitors);
-    console.log(`[Competitor Research] Fetched ads for ${competitorAds.size} competitors`);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  // Fetch competitor ads (Firecrawl pricing extraction disabled - v2.2 reverted)
+  // TODO: Rebuild pricing extraction with better approach
+  const competitorAds = await fetchCompetitorAdsWithFallback(data.competitors);
 
-    // Differentiate between missing API key (expected) vs actual errors (unexpected)
-    if (errorMessage.includes('SEARCHAPI_KEY') || errorMessage.includes('Environment variable')) {
-      // Expected: API key not configured - this is fine, just skip ad library
-      console.info('[Competitor Research] SEARCHAPI_KEY not configured - skipping ad library search');
-    } else {
-      // Unexpected error - log as error for investigation but continue
-      console.error('[Competitor Research] Ad library search failed:', errorMessage);
-    }
-  }
+  // Log summary of fetched data
+  console.log(`[Competitor Research] Fetched ads for ${competitorAds.size} competitors`);
+  // Firecrawl pricing disabled - using Perplexity pricing only
 
   // Merge ads into competitor snapshots
   data = {
@@ -154,17 +146,25 @@ Return the analysis as a JSON object following the exact structure specified.`;
     competitors: mergeAdsIntoCompetitors(data.competitors, competitorAds),
   };
 
-  // Log summary of ads fetched
+  // Firecrawl pricing merge disabled - keeping Perplexity pricing from initial research
+  // const competitorPricing = await fetchCompetitorPricingWithFallback(data.competitors);
+  // data = { ...data, competitors: mergeFirecrawlPricingIntoCompetitors(data.competitors, competitorPricing) };
+
+  // Log summary of final data
   const totalAds = data.competitors.reduce((sum, c) => sum + (c.adCreatives?.length || 0), 0);
+  const totalPricingTiers = data.competitors.reduce((sum, c) => sum + (c.pricingTiers?.length || 0), 0);
   if (totalAds > 0) {
     console.log(`[Competitor Research] Total ads attached: ${totalAds} across ${data.competitors.length} competitors`);
+  }
+  if (totalPricingTiers > 0) {
+    console.log(`[Competitor Research] Total pricing tiers: ${totalPricingTiers} across ${data.competitors.length} competitors`);
   }
 
   return {
     data,
     citations: response.citations,
     model: response.model,
-    cost: response.cost.totalCost, // Ad library calls have no additional cost (included in SearchAPI.io subscription)
+    cost: response.cost.totalCost, // Ad library and Firecrawl costs tracked separately
   };
 }
 
@@ -729,6 +729,182 @@ function mergeAdsIntoCompetitors(
       adCreatives: ads,
       pricingTiers: enhancedPricingTiers,
       adMessagingThemes,
+    };
+  });
+}
+
+// =============================================================================
+// Firecrawl Pricing Integration (v2.2)
+// =============================================================================
+
+/**
+ * Wrapper for fetchCompetitorAds with graceful degradation
+ */
+async function fetchCompetitorAdsWithFallback(
+  competitors: CompetitorSnapshot[]
+): Promise<Map<string, EnrichedAdCreative[]>> {
+  try {
+    const adService = createEnhancedAdLibraryService();
+    return await fetchCompetitorAds(adService, competitors);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Differentiate between missing API key (expected) vs actual errors (unexpected)
+    if (errorMessage.includes('SEARCHAPI_KEY') || errorMessage.includes('Environment variable')) {
+      // Expected: API key not configured - this is fine, just skip ad library
+      console.info('[Competitor Research] SEARCHAPI_KEY not configured - skipping ad library search');
+    } else {
+      // Unexpected error - log as error for investigation but continue
+      console.error('[Competitor Research] Ad library search failed:', errorMessage);
+    }
+    return new Map();
+  }
+}
+
+/**
+ * Fetch pricing from competitor pricing pages using Firecrawl + LLM extraction
+ *
+ * Graceful degradation:
+ * - If FIRECRAWL_API_KEY is not set, returns empty map (Perplexity pricing is used as fallback)
+ * - Individual competitor failures don't affect others
+ * - Low confidence extractions are flagged but still returned
+ */
+async function fetchCompetitorPricingWithFallback(
+  competitors: CompetitorSnapshot[]
+): Promise<Map<string, ScoredPricingResult>> {
+  const pricingMap = new Map<string, ScoredPricingResult>();
+
+  const firecrawlClient = createFirecrawlClient();
+
+  // Check if Firecrawl is available
+  if (!firecrawlClient.isAvailable()) {
+    console.info('[Competitor Research] FIRECRAWL_API_KEY not configured - using Perplexity pricing fallback');
+    return pricingMap;
+  }
+
+  console.log(`[Competitor Research] Starting Firecrawl pricing extraction for ${competitors.length} competitors`);
+
+  // Fetch pricing for each competitor in parallel (with concurrency control)
+  const fetchPromises = competitors.map(async (competitor) => {
+    try {
+      // Skip if no website URL
+      if (!competitor.website) {
+        console.log(`[Competitor Research] ${competitor.name}: No website URL - skipping pricing scrape`);
+        return { name: competitor.name, result: null };
+      }
+
+      // Scrape pricing page
+      const scrapeResult = await firecrawlClient.scrapePricingPage(competitor.website);
+
+      if (!scrapeResult.found || !scrapeResult.markdown) {
+        console.log(`[Competitor Research] ${competitor.name}: No pricing page found`);
+        return { name: competitor.name, result: null };
+      }
+
+      // Extract pricing using LLM
+      const extractionResult = await extractPricing({
+        markdown: scrapeResult.markdown,
+        sourceUrl: scrapeResult.url,
+        companyName: competitor.name,
+      });
+
+      // Log extraction result
+      if (extractionResult.success) {
+        console.log(
+          `[Competitor Research] ${competitor.name}: Extracted ${extractionResult.tiers.length} tiers ` +
+          `(confidence: ${extractionResult.confidence}% ${extractionResult.confidenceLevel})`
+        );
+      } else {
+        console.log(`[Competitor Research] ${competitor.name}: Extraction failed - ${extractionResult.error}`);
+      }
+
+      return { name: competitor.name, result: extractionResult };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Competitor Research] ${competitor.name}: Pricing extraction error - ${errorMessage}`);
+      return { name: competitor.name, result: null };
+    }
+  });
+
+  const results = await Promise.all(fetchPromises);
+
+  // Build pricing map from results
+  for (const { name, result } of results) {
+    if (result) {
+      pricingMap.set(name, result);
+    }
+  }
+
+  return pricingMap;
+}
+
+/**
+ * Merge Firecrawl-extracted pricing into competitor snapshots
+ *
+ * Strategy:
+ * - If Firecrawl extraction succeeded with medium/high confidence, use it
+ * - If Firecrawl extraction failed or has low confidence, keep Perplexity pricing
+ * - Log when Firecrawl pricing replaces Perplexity pricing
+ */
+function mergeFirecrawlPricingIntoCompetitors(
+  competitors: CompetitorSnapshot[],
+  pricingMap: Map<string, ScoredPricingResult>
+): CompetitorSnapshot[] {
+  const MIN_CONFIDENCE_TO_REPLACE = 50; // Medium confidence threshold
+
+  return competitors.map(competitor => {
+    const firecrawlResult = pricingMap.get(competitor.name);
+
+    // No Firecrawl result - keep existing pricing
+    if (!firecrawlResult) {
+      return competitor;
+    }
+
+    // Firecrawl extraction failed - keep existing pricing
+    if (!firecrawlResult.success || firecrawlResult.tiers.length === 0) {
+      console.log(
+        `[Competitor Research] ${competitor.name}: Keeping Perplexity pricing ` +
+        `(Firecrawl: ${firecrawlResult.error || 'no tiers'})`
+      );
+      return competitor;
+    }
+
+    // Low confidence - keep existing pricing if available
+    if (firecrawlResult.confidence < MIN_CONFIDENCE_TO_REPLACE && competitor.pricingTiers?.length) {
+      console.log(
+        `[Competitor Research] ${competitor.name}: Keeping Perplexity pricing ` +
+        `(Firecrawl confidence too low: ${firecrawlResult.confidence}%)`
+      );
+      return competitor;
+    }
+
+    // Convert Firecrawl tiers to PricingTier format
+    const firecrawlTiers: PricingTier[] = firecrawlResult.tiers.map(tier => ({
+      tier: tier.tier,
+      price: tier.price,
+      description: tier.description,
+      targetAudience: tier.targetAudience,
+      features: tier.features,
+      limitations: tier.limitations,
+    }));
+
+    // Log replacement
+    const hadPerplexityPricing = competitor.pricingTiers && competitor.pricingTiers.length > 0;
+    if (hadPerplexityPricing) {
+      console.log(
+        `[Competitor Research] ${competitor.name}: Replaced ${competitor.pricingTiers?.length || 0} Perplexity tiers ` +
+        `with ${firecrawlTiers.length} Firecrawl tiers (confidence: ${firecrawlResult.confidence}%)`
+      );
+    } else {
+      console.log(
+        `[Competitor Research] ${competitor.name}: Added ${firecrawlTiers.length} Firecrawl tiers ` +
+        `(confidence: ${firecrawlResult.confidence}%)`
+      );
+    }
+
+    return {
+      ...competitor,
+      pricingTiers: firecrawlTiers,
     };
   });
 }

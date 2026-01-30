@@ -9,19 +9,19 @@ Requirements for Pricing Intelligence milestone. Each maps to roadmap phases.
 
 ### Scraping
 
-- [ ] **SCRP-01**: Firecrawl service scrapes pricing page URL with JavaScript rendering
-- [ ] **SCRP-02**: Scraping errors are handled gracefully with logging
+- [x] **SCRP-01**: Firecrawl service scrapes pricing page URL with JavaScript rendering
+- [x] **SCRP-02**: Scraping errors are handled gracefully with logging
 
 ### Extraction
 
-- [ ] **EXTR-01**: LLM extracts structured PricingTier[] from scraped content
-- [ ] **EXTR-02**: Extracted data is validated against Zod schema
-- [ ] **EXTR-03**: Confidence score calculated for extracted pricing data
+- [x] **EXTR-01**: LLM extracts structured PricingTier[] from scraped content
+- [x] **EXTR-02**: Extracted data is validated against Zod schema
+- [x] **EXTR-03**: Confidence score calculated for extracted pricing data
 
 ### Integration
 
-- [ ] **INTG-01**: Firecrawl pricing replaces Perplexity pricing in Section 4 pipeline
-- [ ] **INTG-02**: Pipeline falls back to Perplexity if Firecrawl extraction fails
+- [x] **INTG-01**: Firecrawl pricing replaces Perplexity pricing in Section 4 pipeline
+- [x] **INTG-02**: Pipeline falls back to Perplexity if Firecrawl extraction fails
 
 ## Future Requirements (Deferred)
 
@@ -61,13 +61,13 @@ Requirements for Pricing Intelligence milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCRP-01 | Phase 35 | Pending |
-| SCRP-02 | Phase 35 | Pending |
-| EXTR-01 | Phase 36 | Pending |
-| EXTR-02 | Phase 36 | Pending |
-| EXTR-03 | Phase 36 | Pending |
-| INTG-01 | Phase 37 | Pending |
-| INTG-02 | Phase 37 | Pending |
+| SCRP-01 | Phase 35 | ✅ Complete |
+| SCRP-02 | Phase 35 | ✅ Complete |
+| EXTR-01 | Phase 36 | ✅ Complete |
+| EXTR-02 | Phase 36 | ✅ Complete |
+| EXTR-03 | Phase 36 | ✅ Complete |
+| INTG-01 | Phase 37 | ✅ Complete |
+| INTG-02 | Phase 37 | ✅ Complete |
 
 **Coverage:**
 - v2.2 requirements: 7 total
