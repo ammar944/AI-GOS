@@ -12,7 +12,7 @@
 - ✅ **v1.8 Ad Intelligence** - Phases 23-26 - SHIPPED 2026-01-09
 - ✅ **v2.0 Design Refresh** - Phases 27-32 - SHIPPED 2026-01-13
 - ✅ **v2.1 UX Polish** - Phases 33-34 - SHIPPED 2026-01-20
-- 🚧 **v2.2 Pricing Intelligence** - Phases 35-37 - IN PROGRESS
+- ✅ **v2.2 Pricing Intelligence** - Phases 35-37 - SHIPPED 2026-01-31
 
 ## Phases
 
@@ -496,7 +496,7 @@ Plans:
 
 ---
 
-### 🚧 v2.2 Pricing Intelligence (In Progress)
+### ✅ v2.2 Pricing Intelligence (SHIPPED 2026-01-31)
 
 Replace inaccurate Perplexity pricing extraction (60-70% accuracy from AI synthesis of reviews/articles) with direct scraping of competitor pricing pages via Firecrawl + LLM extraction for 95%+ accuracy.
 
@@ -529,41 +529,41 @@ Success criteria:
 Plans:
 - [x] 35-01: FirecrawlClient SDK wrapper (types, client, graceful degradation)
 
-#### Phase 36: LLM Extraction & Confidence
+#### Phase 36: LLM Extraction & Confidence ✅
 **Goal**: Extract structured PricingTier[] from scraped content with validation and confidence scoring
 **Depends on**: Phase 35
-**Research**: Unlikely (existing OpenRouter patterns, Zod validation)
-**Plans**: TBD
+**Completed**: 2026-01-31
+**Plans**: 1/1
 
 Requirements covered: EXTR-01, EXTR-02, EXTR-03
 
 Success criteria:
-1. LLM extracts PricingTier[] with strict schema prompting
-2. Extracted data validates against existing Zod PricingTier schema
-3. Confidence score (0-100) calculated from source text overlap and completeness
-4. Validation failures trigger retry with adjusted prompt (max 1 retry)
-5. Contact sales / custom pricing detected and handled (price: null, confidence: LOW)
+1. ✅ LLM extracts PricingTier[] with strict schema prompting (Gemini 2.0 Flash)
+2. ✅ Extracted data validates against Zod schema (PricingExtractionResultSchema)
+3. ✅ Confidence score (0-100) calculated from multi-signal scoring (source overlap 40%, completeness 20%, plausibility 20%, tier count 10%, price format 10%)
+4. ✅ Validation failures trigger retry with adjusted prompt (max 1 retry via chatJSONValidated)
+5. ✅ Contact sales / custom pricing detected (hasCustomPricing flag, confidence: LOW)
 
 Plans:
-- [ ] 36-01: TBD
+- [x] 36-01: Pricing extraction service (types, extraction, index barrel exports)
 
-#### Phase 37: Pipeline Integration
+#### Phase 37: Pipeline Integration ✅
 **Goal**: Firecrawl pricing replaces Perplexity pricing in Section 4 with graceful Perplexity fallback
 **Depends on**: Phase 36
-**Research**: Unlikely (matches ad library integration pattern)
-**Plans**: TBD
+**Completed**: 2026-01-31
+**Plans**: 1/1
 
 Requirements covered: INTG-01, INTG-02
 
 Success criteria:
-1. fetchCompetitorPricing() called in competitor-research.ts pipeline
-2. Firecrawl pricing merged into CompetitorSnapshot.pricingTiers
-3. Pipeline falls back to Perplexity pricing if Firecrawl extraction fails
-4. Parallel processing: Firecrawl + ad library run concurrently via Promise.all
-5. Section 4 output includes pricing with confidence scores displayed
+1. ✅ fetchCompetitorPricingWithFallback() called in competitor-research.ts pipeline
+2. ✅ Firecrawl pricing merged via mergeFirecrawlPricingIntoCompetitors()
+3. ✅ Pipeline falls back to Perplexity pricing if Firecrawl extraction fails or confidence <50%
+4. ✅ Parallel processing: Firecrawl + ad library run concurrently via Promise.all
+5. ✅ Detailed logging of pricing source decisions
 
 Plans:
-- [ ] 37-01: TBD
+- [x] 37-01: Pipeline integration (competitor-research.ts modifications)
 
 ---
 
@@ -621,10 +621,10 @@ Plans:
 | 33. Output Page Polish | v2.1 | 2/2 | Complete | 2026-01-20 |
 | 34. Chat Panel Redesign | v2.1 | 2/2 | Complete | 2026-01-20 |
 | 35. Firecrawl Foundation | v2.2 | 1/1 | Complete | 2026-01-31 |
-| 36. LLM Extraction & Confidence | v2.2 | 0/? | Not started | - |
-| 37. Pipeline Integration | v2.2 | 0/? | Not started | - |
+| 36. LLM Extraction & Confidence | v2.2 | 1/1 | Complete | 2026-01-31 |
+| 37. Pipeline Integration | v2.2 | 1/1 | Complete | 2026-01-31 |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-31 (Phase 35 complete)*
+*Updated: 2026-01-31 (v2.2 Pricing Intelligence shipped)*
