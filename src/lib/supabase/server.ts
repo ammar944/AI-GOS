@@ -14,7 +14,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       async accessToken() {
-        return (await getToken()) ?? null;
+        return (await getToken({ template: "supabase" })) ?? null;
       },
     }
   );

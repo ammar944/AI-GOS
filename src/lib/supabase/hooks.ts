@@ -33,8 +33,8 @@ export function useSupabaseClient() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         async accessToken() {
-          // Get the Clerk session token to pass to Supabase
-          const token = await session?.getToken();
+          // Get the Clerk session token using the Supabase JWT template
+          const token = await session?.getToken({ template: "supabase" });
           return token ?? null;
         },
       }
