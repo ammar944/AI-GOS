@@ -6,37 +6,40 @@
 **Status:** Production-ready with premium design system
 **Codebase:** TypeScript/TSX, Next.js 16 + React 19 + Supabase
 
-## Current Milestone: v2.1 UX Polish
+## Current Milestone: v2.2 Pricing Intelligence
 
-**Goal:** Polish the output page and redesign the AI chat panel for better UX
+**Goal:** Accurate competitor pricing extraction through intelligent page discovery and direct scraping
 
 **Target features:**
-- Output page shows finished polished view (not markdown format) after approval
-- AI chat panel integrated as 30/70 split sidebar on review page (not overlay)
-- Consistent SaaSLaunch design language throughout
+- Intelligent pricing page discovery (find where pricing lives, not just /pricing)
+- Firecrawl-based direct page scraping for real-time data
+- LLM-powered structured pricing extraction from scraped content
+- Confidence scoring for extracted pricing data
+- Replace Perplexity pricing in Section 4 competitor analysis pipeline
 
 **Motivation:**
-- After clicking "Continue" from review, the complete page shows raw markdown-style document
-- Users expect a polished, presentation-ready view of their blueprint
-- The slide-in chat panel feels disconnected; v0/Lovable style side-by-side is more intuitive
+- Current Perplexity-based pricing extraction produces inaccurate data
+- AI synthesis pulls from reviews/articles instead of actual pricing pages
+- Need direct source of truth: the actual competitor pricing page
+- Confidence scores help users know when to verify manually
 
 ## Requirements — Active
 
-- [ ] Output page displays blueprint in polished card-based layout (not markdown document editor)
-- [ ] Output page includes share/export/new actions with SaaSLaunch styling
-- [ ] Chat panel is 30% sidebar on left during review (not slide-in overlay)
-- [ ] Blueprint content takes 70% right side during review
-- [ ] Responsive layout: stack on mobile, side-by-side on desktop
-- [ ] Chat hidden on complete page (only visible during review)
+- [ ] Intelligent pricing page discovery from competitor URL
+- [ ] Firecrawl integration for direct page scraping
+- [ ] LLM-powered structured pricing extraction
+- [ ] Confidence scoring for extracted pricing data
+- [ ] Replace Perplexity pricing in Section 4 pipeline
 
 ## Requirements — Validated
 
-- ✓ v1.0-v2.0 features (see archived milestones)
+- ✓ v1.0-v2.1 features (see archived milestones)
 
 ## Out of Scope
 
-- Chat on complete page — User specified review-only
-- Resizable panels — Keep fixed 30/70 split for simplicity
+- Historical pricing tracking — Future milestone (v2.3+)
+- Price change alerts — Future milestone
+- Pricing trend visualization — Future milestone
 - Media plan generation — Future milestone
 
 ---
@@ -76,4 +79,4 @@ AI-GOS (AI-powered Go-to-Market Operations System) is a SaaS platform that gener
 ---
 
 *Created: 2025-12-24*
-*Updated: 2025-12-29 (v1.1 shipped)*
+*Updated: 2026-01-30 (v2.2 Pricing Intelligence milestone started)*
