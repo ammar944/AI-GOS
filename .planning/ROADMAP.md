@@ -515,7 +515,7 @@ Replace inaccurate Perplexity pricing extraction (60-70% accuracy from AI synthe
 **Goal**: Firecrawl service scrapes pricing pages with JavaScript rendering and graceful error handling
 **Depends on**: v2.1 complete
 **Research**: Unlikely (Firecrawl SDK documented, patterns established)
-**Plans**: TBD
+**Plans**: 1
 
 Requirements covered: SCRP-01, SCRP-02
 
@@ -527,7 +527,7 @@ Success criteria:
 5. Missing FIRECRAWL_API_KEY allows pipeline to continue without Firecrawl
 
 Plans:
-- [ ] 35-01: TBD
+- [ ] 35-01: FirecrawlClient SDK wrapper (types, client, graceful degradation)
 
 #### Phase 36: LLM Extraction & Confidence
 **Goal**: Extract structured PricingTier[] from scraped content with validation and confidence scoring
@@ -620,11 +620,11 @@ Plans:
 | 32. Chat Panel | v2.0 | 2/2 | Complete | 2026-01-13 |
 | 33. Output Page Polish | v2.1 | 2/2 | Complete | 2026-01-20 |
 | 34. Chat Panel Redesign | v2.1 | 2/2 | Complete | 2026-01-20 |
-| 35. Firecrawl Foundation | v2.2 | 0/? | Not started | - |
+| 35. Firecrawl Foundation | v2.2 | 0/1 | Not started | - |
 | 36. LLM Extraction & Confidence | v2.2 | 0/? | Not started | - |
 | 37. Pipeline Integration | v2.2 | 0/? | Not started | - |
 
 ---
 
 *Created: 2025-12-24*
-*Updated: 2026-01-31 (v2.2 Pricing Intelligence roadmap added, Phases 35-37 defined)*
+*Updated: 2026-01-31 (Phase 35 plan created)*
