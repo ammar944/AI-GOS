@@ -23,6 +23,7 @@ const OPTIONAL_ENV_VARS = {
   server: [
     "FOREPLAY_API_KEY",     // Foreplay API key for creative intelligence
     "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
+    "FIRECRAWL_API_KEY",    // Firecrawl API key for pricing page scraping
   ] as const,
   public: ["NEXT_PUBLIC_APP_URL"] as const,
 } as const;
