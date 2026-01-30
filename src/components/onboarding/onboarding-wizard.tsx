@@ -390,10 +390,18 @@ export function OnboardingWizard({
               // A step is clickable if it's within the highest step reached
               const isClickable = index <= highestStepReached;
               const isFuture = !isClickable;
-              // Completed and behind current step (only steps we've actually completed AND are now behind us)
-              const isCompletedBehind = completedSteps.has(index) && index < currentStep;
-              // Visited ahead: steps we've visited before but are now ahead of current position
-              const isVisitedAhead = index > currentStep && index <= highestStepReached;
+              // Completed = user pressed Continue on this step
+              const isCompleted = completedSteps.has(index);
+              // Current and making progress (first time at this step) = WHITE glow
+              const isCurrentNew = isCurrent && currentStep === highestStepReached;
+              // Current but revisiting (went back) = BLUE hue
+              const isCurrentRevisiting = isCurrent && currentStep < highestStepReached;
+              // Completed and not current = show checkmark
+              const showCheckmark = isCompleted && !isCurrent;
+              // Visited but ahead of current position (not current)
+              const isVisitedAhead = !isCurrent && index > currentStep && index <= highestStepReached;
+              // Completed and behind current (not current)
+              const isCompletedBehind = isCompleted && !isCurrent && index < currentStep;
 
               return (
                 <div
@@ -409,7 +417,7 @@ export function OnboardingWizard({
                       <div
                         className="h-0.5 w-full transition-colors duration-300"
                         style={{
-                          background: isCompletedBehind || isVisitedAhead
+                          background: isCompletedBehind || isVisitedAhead || isCompleted
                             ? "rgb(54, 94, 255)"
                             : "rgb(31, 31, 31)",
                         }}
@@ -423,12 +431,14 @@ export function OnboardingWizard({
                     onClick={() => isClickable && goToStep(index)}
                     disabled={!isClickable}
                     aria-label={
-                      isCurrent
+                      isCurrentNew
                         ? `Current step: ${step.title}`
-                        : isVisitedAhead
-                          ? `Go to ${step.title} (previously visited)`
-                          : isClickable
-                            ? `Go to ${step.title}${isCompletedBehind ? " (completed)" : ""}`
+                        : isCurrentRevisiting
+                          ? `Reviewing: ${step.title}`
+                        : showCheckmark
+                          ? `Go to ${step.title} (completed)`
+                          : isVisitedAhead
+                            ? `Go to ${step.title} (visited)`
                             : `${step.title} (not yet available)`
                     }
                     aria-current={isCurrent ? "step" : undefined}
@@ -440,31 +450,37 @@ export function OnboardingWizard({
                       isFuture && "cursor-not-allowed"
                     )}
                     style={{
-                      // Priority: isCurrent > isCompletedBehind > isVisitedAhead > future
-                      borderColor: isCurrent
+                      // Priority: isCurrentNew (white) > isCurrentRevisiting (blue) > showCheckmark > isVisitedAhead > future
+                      borderColor: isCurrentNew
                         ? "rgb(205, 208, 213)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgb(54, 94, 255)"
+                        : showCheckmark
                           ? "rgb(54, 94, 255)"
                           : isVisitedAhead
                             ? "rgb(54, 94, 255)"
                             : "rgb(31, 31, 31)",
-                      background: isCurrent
+                      background: isCurrentNew
                         ? "rgb(205, 208, 213)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgba(54, 94, 255, 0.15)"
+                        : showCheckmark
                           ? "rgb(54, 94, 255)"
                           : isVisitedAhead
                             ? "rgba(54, 94, 255, 0.15)"
                             : "rgb(20, 23, 30)",
-                      color: isCurrent
+                      color: isCurrentNew
                         ? "rgb(20, 23, 30)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgb(54, 94, 255)"
+                        : showCheckmark
                           ? "#ffffff"
                           : isVisitedAhead
                             ? "rgb(54, 94, 255)"
                             : "rgb(100, 105, 115)",
-                      boxShadow: isCurrent
+                      boxShadow: isCurrentNew
                         ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
-                        : isVisitedAhead
+                        : (isCurrentRevisiting || isVisitedAhead)
                           ? "0 0 8px rgba(54, 94, 255, 0.4)"
                           : undefined,
                     }}
@@ -481,10 +497,8 @@ export function OnboardingWizard({
                     whileHover={isClickable ? { scale: 1.1 } : undefined}
                     whileTap={isClickable ? { scale: 0.95 } : undefined}
                   >
-                    {/* Show step icon when current or visited ahead, checkmark when completed behind */}
-                    {isCurrent ? (
-                      step.icon
-                    ) : isCompletedBehind ? (
+                    {/* Show checkmark only for completed steps that are NOT current */}
+                    {showCheckmark ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       step.icon
@@ -511,15 +525,17 @@ export function OnboardingWizard({
                       "focus-visible:outline-none focus-visible:underline focus-visible:underline-offset-2"
                     )}
                     style={{
-                      // Priority: isCurrent > isCompletedBehind > isVisitedAhead > future
-                      color: isCurrent
+                      // Priority: isCurrentNew (white) > isCurrentRevisiting (blue) > showCheckmark > isVisitedAhead > future
+                      color: isCurrentNew
                         ? "rgb(252, 252, 250)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgb(54, 94, 255)"
+                        : showCheckmark
                           ? "rgb(205, 208, 213)"
                           : isVisitedAhead
                             ? "rgb(54, 94, 255)"
                             : "rgb(100, 105, 115)",
-                      textShadow: isCurrent
+                      textShadow: isCurrentNew
                         ? "0 0 8px rgba(205, 208, 213, 0.5)"
                         : undefined,
                     }}
@@ -535,30 +551,37 @@ export function OnboardingWizard({
         {/* Mobile Step Indicator with Navigation - SaaSLaunch Style */}
         <div className="space-y-3 md:hidden">
           {/* Current Step Info */}
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full border-2"
-              style={{
-                background: "rgb(205, 208, 213)",
-                borderColor: "rgb(205, 208, 213)",
-                color: "rgb(20, 23, 30)",
-                boxShadow: "0 0 0 3px rgba(205, 208, 213, 0.2)",
-              }}
-            >
-              {STEPS[currentStep].icon}
-            </div>
-            <div>
-              <p
-                className="text-[16px] font-bold"
-                style={{ color: "rgb(252, 252, 250)" }}
-              >
-                {STEPS[currentStep].title}
-              </p>
-              <p className="text-[14px]" style={{ color: "rgb(100, 105, 115)" }}>
-                Step {currentStep + 1} of {STEPS.length}
-              </p>
-            </div>
-          </div>
+          {(() => {
+            const isRevisiting = currentStep < highestStepReached;
+            return (
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full border-2"
+                  style={{
+                    background: isRevisiting ? "rgba(54, 94, 255, 0.15)" : "rgb(205, 208, 213)",
+                    borderColor: isRevisiting ? "rgb(54, 94, 255)" : "rgb(205, 208, 213)",
+                    color: isRevisiting ? "rgb(54, 94, 255)" : "rgb(20, 23, 30)",
+                    boxShadow: isRevisiting
+                      ? "0 0 8px rgba(54, 94, 255, 0.4)"
+                      : "0 0 0 3px rgba(205, 208, 213, 0.2)",
+                  }}
+                >
+                  {STEPS[currentStep].icon}
+                </div>
+                <div>
+                  <p
+                    className="text-[16px] font-bold"
+                    style={{ color: isRevisiting ? "rgb(54, 94, 255)" : "rgb(252, 252, 250)" }}
+                  >
+                    {STEPS[currentStep].title}
+                  </p>
+                  <p className="text-[14px]" style={{ color: "rgb(100, 105, 115)" }}>
+                    {isRevisiting ? "Reviewing • " : ""}Step {currentStep + 1} of {STEPS.length}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Horizontal Scrollable Step Pills */}
           <div className="relative -mx-4 px-4">
@@ -574,10 +597,16 @@ export function OnboardingWizard({
                 // A step is clickable if it's within the highest step reached
                 const isClickable = index <= highestStepReached;
                 const isFuture = !isClickable;
-                // Completed and behind current step (only steps we've actually completed AND are now behind us)
-                const isCompletedBehind = completedSteps.has(index) && index < currentStep;
-                // Visited ahead: steps we've visited before but are now ahead of current position
-                const isVisitedAhead = index > currentStep && index <= highestStepReached;
+                // Completed = user pressed Continue on this step
+                const isCompleted = completedSteps.has(index);
+                // Current and making progress (first time at this step) = WHITE glow
+                const isCurrentNew = isCurrent && currentStep === highestStepReached;
+                // Current but revisiting (went back) = BLUE hue
+                const isCurrentRevisiting = isCurrent && currentStep < highestStepReached;
+                // Completed and not current = show checkmark
+                const showCheckmark = isCompleted && !isCurrent;
+                // Visited but ahead of current position (not current)
+                const isVisitedAhead = !isCurrent && index > currentStep && index <= highestStepReached;
 
                 return (
                   <motion.button
@@ -586,12 +615,14 @@ export function OnboardingWizard({
                     onClick={() => isClickable && goToStep(index)}
                     disabled={!isClickable}
                     aria-label={
-                      isCurrent
+                      isCurrentNew
                         ? `Current step: ${step.title}`
-                        : isVisitedAhead
-                          ? `Go to ${step.title} (previously visited)`
-                          : isClickable
-                            ? `Go to ${step.title}${isCompletedBehind ? " (completed)" : ""}`
+                        : isCurrentRevisiting
+                          ? `Reviewing: ${step.title}`
+                        : showCheckmark
+                          ? `Go to ${step.title} (completed)`
+                          : isVisitedAhead
+                            ? `Go to ${step.title} (visited)`
                             : `${step.title} (not yet available)`
                     }
                     aria-current={isCurrent ? "step" : undefined}
@@ -604,31 +635,37 @@ export function OnboardingWizard({
                       isCurrent ? "font-bold" : "font-medium"
                     )}
                     style={{
-                      // Priority: isCurrent > isCompletedBehind > isVisitedAhead > future
-                      borderColor: isCurrent
+                      // Priority: isCurrentNew (white) > isCurrentRevisiting (blue) > showCheckmark > isVisitedAhead > future
+                      borderColor: isCurrentNew
                         ? "rgb(205, 208, 213)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgb(54, 94, 255)"
+                        : showCheckmark
                           ? "rgb(54, 94, 255)"
                           : isVisitedAhead
                             ? "rgb(54, 94, 255)"
                             : "var(--border-default)",
-                      background: isCurrent
+                      background: isCurrentNew
                         ? "rgb(205, 208, 213)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgba(54, 94, 255, 0.15)"
+                        : showCheckmark
                           ? "rgba(54, 94, 255, 0.15)"
                           : isVisitedAhead
                             ? "rgba(54, 94, 255, 0.15)"
                             : "var(--bg-hover)",
-                      color: isCurrent
+                      color: isCurrentNew
                         ? "rgb(20, 23, 30)"
-                        : isCompletedBehind
+                        : isCurrentRevisiting
+                          ? "rgb(54, 94, 255)"
+                        : showCheckmark
                           ? "rgb(54, 94, 255)"
                           : isVisitedAhead
                             ? "rgb(54, 94, 255)"
                             : "var(--text-tertiary)",
-                      boxShadow: isCurrent
+                      boxShadow: isCurrentNew
                         ? "0 0 0 3px rgba(205, 208, 213, 0.2)"
-                        : isVisitedAhead
+                        : (isCurrentRevisiting || isVisitedAhead)
                           ? "0 0 8px rgba(54, 94, 255, 0.4)"
                           : undefined,
                     }}
@@ -644,12 +681,8 @@ export function OnboardingWizard({
                         : { duration: 0.3 }
                     }
                   >
-                    {/* Show step number when current or visited ahead, checkmark when completed behind */}
-                    {isCurrent ? (
-                      <span className="h-3 w-3 flex items-center justify-center">
-                        {index + 1}
-                      </span>
-                    ) : isCompletedBehind ? (
+                    {/* Show checkmark only for completed steps that are NOT current */}
+                    {showCheckmark ? (
                       <Check className="h-3 w-3" />
                     ) : (
                       <span className="h-3 w-3 flex items-center justify-center">
