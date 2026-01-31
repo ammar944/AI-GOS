@@ -278,6 +278,9 @@ export interface CompetitorOffer {
   cta: string;
 }
 
+/** How pricing data was obtained */
+export type PricingSource = 'scraped' | 'unavailable';
+
 export interface CompetitorSnapshot {
   /** Competitor name */
   name: string;
@@ -299,12 +302,18 @@ export interface CompetitorSnapshot {
   weaknesses: string[];
   /** Real ad creatives fetched from ad libraries (enriched with Foreplay intelligence when available) */
   adCreatives?: EnrichedAdCreative[];
-  /** Structured pricing tiers extracted from research + ad mentions */
+  /** Structured pricing tiers extracted from pricing page scraping */
   pricingTiers?: PricingTier[];
   /** Structured main offer from ad patterns */
   mainOffer?: CompetitorOffer;
   /** Recurring messaging themes extracted from ad copy (3-5 themes) */
   adMessagingThemes?: string[];
+  /** Source of pricing data: 'scraped' from actual page or 'unavailable' */
+  pricingSource?: PricingSource;
+  /** Confidence score for scraped pricing (0-100) */
+  pricingConfidence?: number;
+  /** Note about pricing (e.g., verification URL if unavailable) */
+  pricingNote?: string;
 }
 
 export interface CompetitorCreativeLibrary {

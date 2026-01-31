@@ -1,15 +1,20 @@
 // Competitor Research with Perplexity Deep Research
 // Real-time competitor intelligence with web search and citations
-// NOTE: Firecrawl pricing extraction (v2.2) disabled - using Perplexity pricing only
+// Pricing extraction: Uses Firecrawl scraping + LLM extraction (no Perplexity pricing)
 
 import { createResearchAgent } from "@/lib/research";
 import { MODELS } from "@/lib/openrouter/client";
 import { createEnhancedAdLibraryService, assessAdRelevance } from "@/lib/ad-library";
 import { createFirecrawlClient } from "@/lib/firecrawl";
-import { extractPricing, type ScoredPricingResult } from "@/lib/pricing";
+import {
+  extractPricing,
+  filterRelevantPricing,
+  type ScoredPricingResult,
+  type ScoredPricingTier,
+} from "@/lib/pricing";
 import type { AdCreative } from "@/lib/ad-library";
 import type { EnrichedAdCreative } from "@/lib/foreplay/types";
-import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot, PricingTier, CompetitorOffer } from "../output-types";
+import type { CitedSectionOutput, CompetitorAnalysis, CompetitorSnapshot, PricingTier, CompetitorOffer, PricingSource } from "../output-types";
 
 /**
  * Research competitors using Perplexity Deep Research for real-time web search.
@@ -132,13 +137,17 @@ Return the analysis as a JSON object following the exact structure specified.`;
   // Parse JSON from research response
   let data = parseCompetitorAnalysisJSON(response.content);
 
-  // Fetch competitor ads (Firecrawl pricing extraction disabled - v2.2 reverted)
-  // TODO: Rebuild pricing extraction with better approach
-  const competitorAds = await fetchCompetitorAdsWithFallback(data.competitors);
+  // Fetch competitor ads in parallel with pricing scraping
+  console.log(`[Competitor Research] Starting parallel fetch: ads + pricing for ${data.competitors.length} competitors`);
+  
+  const [competitorAds, pricingResults] = await Promise.all([
+    fetchCompetitorAdsWithFallback(data.competitors),
+    scrapePricingForCompetitors(data.competitors),
+  ]);
 
   // Log summary of fetched data
   console.log(`[Competitor Research] Fetched ads for ${competitorAds.size} competitors`);
-  // Firecrawl pricing disabled - using Perplexity pricing only
+  console.log(`[Competitor Research] Scraped pricing for ${pricingResults.size} competitors`);
 
   // Merge ads into competitor snapshots
   data = {
@@ -146,19 +155,72 @@ Return the analysis as a JSON object following the exact structure specified.`;
     competitors: mergeAdsIntoCompetitors(data.competitors, competitorAds),
   };
 
-  // Firecrawl pricing merge disabled - keeping Perplexity pricing from initial research
-  // const competitorPricing = await fetchCompetitorPricingWithFallback(data.competitors);
-  // data = { ...data, competitors: mergeFirecrawlPricingIntoCompetitors(data.competitors, competitorPricing) };
+  // Merge scraped pricing, REPLACING any Perplexity-generated pricing
+  // (Perplexity pricing is unreliable and often hallucinated)
+  data = {
+    ...data,
+    competitors: data.competitors.map((comp) => {
+      const scraped = pricingResults.get(comp.name);
+      
+      if (scraped && scraped.success && scraped.confidence >= 60) {
+        // Use scraped pricing - deduplicate and convert to PricingTier format
+        const deduplicatedTiers = deduplicatePricingTiers(scraped.tiers);
+        
+        console.log(
+          `[Competitor Research] ${comp.name}: Using scraped pricing - ` +
+          `${deduplicatedTiers.length} tiers (confidence: ${scraped.confidence}%)`
+        );
+        
+        return {
+          ...comp,
+          pricingTiers: deduplicatedTiers,
+          pricingSource: 'scraped' as PricingSource,
+          pricingConfidence: scraped.confidence,
+          pricingNote: scraped.sourceUrl ? `Scraped from ${scraped.sourceUrl}` : undefined,
+        };
+      } else {
+        // Scraping failed or low confidence - set to unavailable
+        // NEVER use Perplexity-generated pricing
+        const reason = !scraped 
+          ? 'scraping failed' 
+          : scraped.error 
+            ? scraped.error 
+            : `low confidence (${scraped.confidence}%)`;
+        
+        console.log(
+          `[Competitor Research] ${comp.name}: Pricing unavailable - ${reason}`
+        );
+        
+        const pricingUrl = comp.website 
+          ? `${comp.website.replace(/\/$/, '')}/pricing`
+          : undefined;
+        
+        return {
+          ...comp,
+          pricingTiers: [], // Don't use Perplexity's hallucinated pricing
+          pricingSource: 'unavailable' as PricingSource,
+          pricingConfidence: 0,
+          pricingNote: pricingUrl 
+            ? `Pricing unavailable - verify at ${pricingUrl}` 
+            : 'Pricing unavailable - no website URL',
+        };
+      }
+    }),
+  };
 
   // Log summary of final data
   const totalAds = data.competitors.reduce((sum, c) => sum + (c.adCreatives?.length || 0), 0);
   const totalPricingTiers = data.competitors.reduce((sum, c) => sum + (c.pricingTiers?.length || 0), 0);
+  const scrapedCount = data.competitors.filter(c => c.pricingSource === 'scraped').length;
+  
   if (totalAds > 0) {
     console.log(`[Competitor Research] Total ads attached: ${totalAds} across ${data.competitors.length} competitors`);
   }
-  if (totalPricingTiers > 0) {
-    console.log(`[Competitor Research] Total pricing tiers: ${totalPricingTiers} across ${data.competitors.length} competitors`);
-  }
+  console.log(
+    `[Competitor Research] Pricing summary: ${scrapedCount} scraped, ` +
+    `${data.competitors.length - scrapedCount} unavailable, ` +
+    `${totalPricingTiers} total tiers`
+  );
 
   return {
     data,
@@ -761,74 +823,284 @@ async function fetchCompetitorAdsWithFallback(
   }
 }
 
+// =============================================================================
+// Pricing Scraping (New Implementation - v3)
+// =============================================================================
+
+/** Common pricing page paths to try in order of priority */
+const PRICING_PATHS = ['/pricing', '/plans', '/price', '/buy', '/pricing-plans'] as const;
+
 /**
- * Fetch pricing from competitor pricing pages using Firecrawl + LLM extraction
- *
- * Graceful degradation:
- * - If FIRECRAWL_API_KEY is not set, returns empty map (Perplexity pricing is used as fallback)
- * - Individual competitor failures don't affect others
- * - Low confidence extractions are flagged but still returned
+ * Extended pricing result with filtering metadata
  */
-async function fetchCompetitorPricingWithFallback(
+interface FilteredPricingResult extends ScoredPricingResult {
+  /** Tiers that passed relevance filtering */
+  filteredTiers: PricingTier[];
+}
+
+/**
+ * Find pricing URL from sitemap or common paths
+ */
+async function findPricingUrl(baseUrl: string): Promise<string | null> {
+  // First try sitemap discovery
+  const sitemapUrl = await findPricingUrlFromSitemap(baseUrl);
+  if (sitemapUrl) return sitemapUrl;
+  
+  // Fallback to common paths with HEAD requests
+  return findPricingUrlFromCommonPaths(baseUrl);
+}
+
+/**
+ * Discover pricing URL from sitemap.xml
+ */
+async function findPricingUrlFromSitemap(baseUrl: string): Promise<string | null> {
+  const sitemapUrls = [
+    `${baseUrl}/sitemap.xml`,
+    `${baseUrl}/sitemap_index.xml`,
+    `${baseUrl}/sitemap-0.xml`,
+  ];
+
+  const EXCLUDE_PATHS = [
+    '/blog', '/help', '/docs', '/academy', '/learn', '/guide',
+    '/tutorial', '/article', '/support', '/faq', '/changelog',
+    '/templates', '/examples', '/community', '/resources'
+  ];
+
+  for (const sitemapUrl of sitemapUrls) {
+    try {
+      const response = await fetch(sitemapUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PricingBot/1.0)' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) continue;
+
+      const xml = await response.text();
+      const urlMatches = xml.match(/<loc>(.*?)<\/loc>/gi);
+      if (!urlMatches) continue;
+
+      // Score candidates by URL simplicity
+      const pricingCandidates: Array<{ url: string; score: number }> = [];
+
+      for (const match of urlMatches) {
+        const url = match.replace(/<\/?loc>/gi, '');
+        const lowerUrl = url.toLowerCase();
+
+        if (EXCLUDE_PATHS.some(path => lowerUrl.includes(path))) continue;
+
+        if (
+          lowerUrl.includes('/pricing') ||
+          lowerUrl.includes('/plans') ||
+          lowerUrl.includes('/price')
+        ) {
+          const pathDepth = (url.match(/\//g) || []).length;
+          const score = 100 - pathDepth * 10;
+          
+          if (lowerUrl.endsWith('/pricing') || lowerUrl.endsWith('/pricing/')) {
+            pricingCandidates.push({ url, score: score + 50 });
+          } else if (lowerUrl.endsWith('/plans') || lowerUrl.endsWith('/plans/')) {
+            pricingCandidates.push({ url, score: score + 40 });
+          } else {
+            pricingCandidates.push({ url, score });
+          }
+        }
+      }
+
+      if (pricingCandidates.length > 0) {
+        pricingCandidates.sort((a, b) => b.score - a.score);
+        return pricingCandidates[0].url;
+      }
+    } catch {
+      // Continue to next sitemap URL
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find pricing URL by checking common paths
+ */
+async function findPricingUrlFromCommonPaths(baseUrl: string): Promise<string | null> {
+  for (const path of PRICING_PATHS) {
+    const url = `${baseUrl}${path}`;
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PricingBot/1.0)' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (response.ok) {
+        return url;
+      }
+    } catch {
+      // Path doesn't exist, try next
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normalize base URL (strip path, ensure https)
+ */
+function normalizeBaseUrl(url: string): string {
+  let normalized = url.startsWith('http') ? url : `https://${url}`;
+  normalized = normalized.replace(/\/+$/, '');
+  
+  try {
+    const parsed = new URL(normalized);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return normalized;
+  }
+}
+
+/**
+ * Scrape pricing for all competitors in parallel
+ * 
+ * Flow:
+ * 1. Discover pricing URL (sitemap → common paths)
+ * 2. Scrape with Firecrawl (handles JS rendering)
+ * 3. Extract with LLM (strict, no hallucination)
+ * 4. Filter by relevance (core product tiers only)
+ */
+async function scrapePricingForCompetitors(
   competitors: CompetitorSnapshot[]
 ): Promise<Map<string, ScoredPricingResult>> {
   const pricingMap = new Map<string, ScoredPricingResult>();
-
   const firecrawlClient = createFirecrawlClient();
 
   // Check if Firecrawl is available
   if (!firecrawlClient.isAvailable()) {
-    console.info('[Competitor Research] FIRECRAWL_API_KEY not configured - using Perplexity pricing fallback');
+    console.warn('[Competitor Research] FIRECRAWL_API_KEY not configured - skipping pricing scrape');
     return pricingMap;
   }
 
-  console.log(`[Competitor Research] Starting Firecrawl pricing extraction for ${competitors.length} competitors`);
+  console.log(`[Competitor Research] Starting pricing scrape for ${competitors.length} competitors`);
 
-  // Fetch pricing for each competitor in parallel (with concurrency control)
-  const fetchPromises = competitors.map(async (competitor) => {
+  // Process competitors in parallel (Firecrawl has its own concurrency limits)
+  const scrapePromises = competitors.map(async (competitor) => {
     try {
       // Skip if no website URL
       if (!competitor.website) {
-        console.log(`[Competitor Research] ${competitor.name}: No website URL - skipping pricing scrape`);
+        console.log(`[Competitor Research] ${competitor.name}: No website URL - skipping`);
         return { name: competitor.name, result: null };
       }
 
-      // Scrape pricing page
-      const scrapeResult = await firecrawlClient.scrapePricingPage(competitor.website);
+      const baseUrl = normalizeBaseUrl(competitor.website);
 
-      if (!scrapeResult.found || !scrapeResult.markdown) {
-        console.log(`[Competitor Research] ${competitor.name}: No pricing page found`);
-        return { name: competitor.name, result: null };
+      // Step 1: Discover pricing URL
+      const pricingUrl = await findPricingUrl(baseUrl);
+      
+      if (!pricingUrl) {
+        // Try Firecrawl's built-in pricing page discovery as fallback
+        console.log(`[Competitor Research] ${competitor.name}: Trying Firecrawl pricing discovery...`);
+        const firecrawlResult = await firecrawlClient.scrapePricingPage(competitor.website);
+        
+        if (!firecrawlResult.found || !firecrawlResult.markdown) {
+          console.log(`[Competitor Research] ${competitor.name}: No pricing page found`);
+          return {
+            name: competitor.name,
+            result: {
+              success: false,
+              tiers: [],
+              confidence: 0,
+              confidenceLevel: 'low' as const,
+              confidenceBreakdown: {
+                sourceOverlap: 0,
+                schemaCompleteness: 0,
+                fieldPlausibility: 0,
+                tierCountReasonable: 0,
+                priceFormatValid: 0,
+              },
+              hasCustomPricing: false,
+              error: 'No pricing page found',
+              cost: 0,
+            },
+          };
+        }
+        
+        // Extract from Firecrawl result
+        const extractionResult = await extractAndFilterPricing(
+          firecrawlResult.markdown,
+          firecrawlResult.url || `${baseUrl}/pricing`,
+          competitor.name
+        );
+        return { name: competitor.name, result: extractionResult };
       }
 
-      // Extract pricing using LLM
-      const extractionResult = await extractPricing({
-        markdown: scrapeResult.markdown,
-        sourceUrl: scrapeResult.url,
-        companyName: competitor.name,
+      console.log(`[Competitor Research] ${competitor.name}: Found pricing URL - ${pricingUrl}`);
+
+      // Step 2: Scrape with Firecrawl
+      const scrapeResult = await firecrawlClient.scrape({
+        url: pricingUrl,
+        timeout: 30000,
       });
 
-      // Log extraction result
-      if (extractionResult.success) {
-        console.log(
-          `[Competitor Research] ${competitor.name}: Extracted ${extractionResult.tiers.length} tiers ` +
-          `(confidence: ${extractionResult.confidence}% ${extractionResult.confidenceLevel})`
-        );
-      } else {
-        console.log(`[Competitor Research] ${competitor.name}: Extraction failed - ${extractionResult.error}`);
+      if (!scrapeResult.success || !scrapeResult.markdown) {
+        console.log(`[Competitor Research] ${competitor.name}: Scrape failed - ${scrapeResult.error}`);
+        return {
+          name: competitor.name,
+          result: {
+            success: false,
+            tiers: [],
+            confidence: 0,
+            confidenceLevel: 'low' as const,
+            confidenceBreakdown: {
+              sourceOverlap: 0,
+              schemaCompleteness: 0,
+              fieldPlausibility: 0,
+              tierCountReasonable: 0,
+              priceFormatValid: 0,
+            },
+            hasCustomPricing: false,
+            error: scrapeResult.error || 'Scrape failed',
+            cost: 0,
+          },
+        };
       }
 
+      console.log(`[Competitor Research] ${competitor.name}: Scraped ${scrapeResult.markdown.length} chars`);
+
+      // Step 3 & 4: Extract and filter
+      const extractionResult = await extractAndFilterPricing(
+        scrapeResult.markdown,
+        pricingUrl,
+        competitor.name
+      );
+      
       return { name: competitor.name, result: extractionResult };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[Competitor Research] ${competitor.name}: Pricing extraction error - ${errorMessage}`);
-      return { name: competitor.name, result: null };
+      console.error(`[Competitor Research] ${competitor.name}: Error - ${errorMessage}`);
+      return {
+        name: competitor.name,
+        result: {
+          success: false,
+          tiers: [],
+          confidence: 0,
+          confidenceLevel: 'low' as const,
+          confidenceBreakdown: {
+            sourceOverlap: 0,
+            schemaCompleteness: 0,
+            fieldPlausibility: 0,
+            tierCountReasonable: 0,
+            priceFormatValid: 0,
+          },
+          hasCustomPricing: false,
+          error: errorMessage,
+          cost: 0,
+        },
+      };
     }
   });
 
-  const results = await Promise.all(fetchPromises);
+  const results = await Promise.all(scrapePromises);
 
-  // Build pricing map from results
+  // Build the pricing map
   for (const { name, result } of results) {
     if (result) {
       pricingMap.set(name, result);
@@ -839,72 +1111,103 @@ async function fetchCompetitorPricingWithFallback(
 }
 
 /**
- * Merge Firecrawl-extracted pricing into competitor snapshots
- *
- * Strategy:
- * - If Firecrawl extraction succeeded with medium/high confidence, use it
- * - If Firecrawl extraction failed or has low confidence, keep Perplexity pricing
- * - Log when Firecrawl pricing replaces Perplexity pricing
+ * Extract pricing with LLM and filter by relevance
  */
-function mergeFirecrawlPricingIntoCompetitors(
-  competitors: CompetitorSnapshot[],
-  pricingMap: Map<string, ScoredPricingResult>
-): CompetitorSnapshot[] {
-  const MIN_CONFIDENCE_TO_REPLACE = 50; // Medium confidence threshold
-
-  return competitors.map(competitor => {
-    const firecrawlResult = pricingMap.get(competitor.name);
-
-    // No Firecrawl result - keep existing pricing
-    if (!firecrawlResult) {
-      return competitor;
-    }
-
-    // Firecrawl extraction failed - keep existing pricing
-    if (!firecrawlResult.success || firecrawlResult.tiers.length === 0) {
-      console.log(
-        `[Competitor Research] ${competitor.name}: Keeping Perplexity pricing ` +
-        `(Firecrawl: ${firecrawlResult.error || 'no tiers'})`
-      );
-      return competitor;
-    }
-
-    // Low confidence - keep existing pricing if available
-    if (firecrawlResult.confidence < MIN_CONFIDENCE_TO_REPLACE && competitor.pricingTiers?.length) {
-      console.log(
-        `[Competitor Research] ${competitor.name}: Keeping Perplexity pricing ` +
-        `(Firecrawl confidence too low: ${firecrawlResult.confidence}%)`
-      );
-      return competitor;
-    }
-
-    // Convert Firecrawl tiers to PricingTier format
-    const firecrawlTiers: PricingTier[] = firecrawlResult.tiers.map(tier => ({
-      tier: tier.tier,
-      price: tier.price,
-      description: tier.description,
-      targetAudience: tier.targetAudience,
-      features: tier.features,
-      limitations: tier.limitations,
-    }));
-
-    // Log replacement
-    const hadPerplexityPricing = competitor.pricingTiers && competitor.pricingTiers.length > 0;
-    if (hadPerplexityPricing) {
-      console.log(
-        `[Competitor Research] ${competitor.name}: Replaced ${competitor.pricingTiers?.length || 0} Perplexity tiers ` +
-        `with ${firecrawlTiers.length} Firecrawl tiers (confidence: ${firecrawlResult.confidence}%)`
-      );
-    } else {
-      console.log(
-        `[Competitor Research] ${competitor.name}: Added ${firecrawlTiers.length} Firecrawl tiers ` +
-        `(confidence: ${firecrawlResult.confidence}%)`
-      );
-    }
-
-    return {
-      ...competitor,
-      pricingTiers: firecrawlTiers,
-    };
+async function extractAndFilterPricing(
+  markdown: string,
+  sourceUrl: string,
+  companyName: string
+): Promise<ScoredPricingResult> {
+  // Extract pricing using LLM
+  const extractionResult = await extractPricing({
+    markdown,
+    sourceUrl,
+    companyName,
+    timeout: 45000,
   });
+
+  if (!extractionResult.success || extractionResult.tiers.length === 0) {
+    console.log(
+      `[Competitor Research] ${companyName}: Extraction ${extractionResult.success ? 'succeeded but found 0 tiers' : 'failed'}`
+    );
+    return extractionResult;
+  }
+
+  // Apply relevance filtering - keep only core product tiers
+  const relevantTiers = filterRelevantPricing(extractionResult.tiers, {
+    competitorName: companyName,
+    competitorUrl: sourceUrl,
+    minScore: 50, // Medium threshold
+    includeAddOns: false, // Only core product tiers
+  });
+
+  const coreProductTiers = relevantTiers.filter(
+    (t) => t.relevance?.category === 'core_product'
+  );
+
+  console.log(
+    `[Competitor Research] ${companyName}: Extracted ${extractionResult.tiers.length} tiers, ` +
+    `${coreProductTiers.length} passed relevance filter (confidence: ${extractionResult.confidence}%)`
+  );
+
+  // Return with filtered tiers
+  return {
+    ...extractionResult,
+    tiers: coreProductTiers,
+  };
+}
+
+/**
+ * Deduplicate pricing tiers
+ * Removes tiers with same name + price, keeping the one with more complete data
+ */
+function deduplicatePricingTiers(tiers: ScoredPricingTier[]): PricingTier[] {
+  const seen = new Map<string, PricingTier>();
+
+  for (const tier of tiers) {
+    // Create unique key from tier name + price
+    const key = `${tier.tier.toLowerCase().trim()}:${tier.price.toLowerCase().trim()}`;
+
+    const existing = seen.get(key);
+    if (!existing) {
+      // Convert ScoredPricingTier to PricingTier
+      seen.set(key, {
+        tier: tier.tier,
+        price: tier.price,
+        description: tier.description || undefined,
+        targetAudience: tier.targetAudience || undefined,
+        features: tier.features || undefined,
+        limitations: tier.limitations || undefined,
+      });
+    } else {
+      // Keep the one with more complete data
+      const existingCompleteness = countFilledFields(existing);
+      const newCompleteness = countFilledFields(tier);
+
+      if (newCompleteness > existingCompleteness) {
+        seen.set(key, {
+          tier: tier.tier,
+          price: tier.price,
+          description: tier.description || undefined,
+          targetAudience: tier.targetAudience || undefined,
+          features: tier.features || undefined,
+          limitations: tier.limitations || undefined,
+        });
+      }
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+/**
+ * Count filled optional fields in a pricing tier
+ */
+function countFilledFields(tier: PricingTier | ScoredPricingTier): number {
+  let count = 0;
+  if (tier.description) count++;
+  if (tier.targetAudience) count++;
+  if (tier.features && tier.features.length > 0) count++;
+  if (tier.limitations) count++;
+  return count;
 }
