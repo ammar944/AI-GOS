@@ -33,12 +33,18 @@ CRITICAL RULES:
 7. Extract billing period if mentioned (monthly, annual, yearly, one-time, per user/seat).
 8. Extract currency if identifiable from price symbols or text.
 
+IMPORTANT - Price field requirements:
+- The "price" field is REQUIRED and must ALWAYS be a non-empty string.
+- For Enterprise/Custom tiers with no listed price, use: "Custom" or "Contact sales"
+- For free tiers, use: "Free" or "$0"
+- NEVER return null, undefined, or empty string for the price field.
+
 REQUIRED JSON OUTPUT STRUCTURE:
 {
   "tiers": [
     {
       "tier": "string - tier name exactly as shown",
-      "price": "string - price exactly as shown (e.g., '$99/mo', 'Free', 'Custom')",
+      "price": "string - REQUIRED, price exactly as shown (e.g., '$99/mo', 'Free', 'Custom', 'Contact sales')",
       "description": "string - brief description if available",
       "targetAudience": "string - who this tier is for if mentioned",
       "features": ["array of key features if listed"],
@@ -126,8 +132,8 @@ export async function extractPricing(
       confidenceLevel,
       confidenceBreakdown,
       hasCustomPricing: extractionResult.hasCustomPricing,
-      currency: extractionResult.currency,
-      billingPeriod: extractionResult.billingPeriod,
+      currency: extractionResult.currency ?? undefined,
+      billingPeriod: extractionResult.billingPeriod ?? undefined,
       sourceUrl,
       cost: response.cost,
     };

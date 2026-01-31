@@ -7,6 +7,18 @@ export {
 } from './extraction';
 
 export {
+  scorePricingRelevance,
+  filterRelevantPricing,
+  groupByRelevanceCategory,
+  getCoreProductTiers,
+  type PricingRelevanceCategory,
+  type PricingRelevance,
+  type PricingRelevanceOptions,
+  type FilterPricingOptions,
+  type ScoredPricingTier,
+} from './relevance-scorer';
+
+export {
   ExtractedPricingTierSchema,
   PricingExtractionResultSchema,
   type ExtractedPricingTier,

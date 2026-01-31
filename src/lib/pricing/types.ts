@@ -11,26 +11,32 @@ export type ConfidenceLevel = 'high' | 'medium' | 'low';
 /**
  * Zod schema for a single extracted pricing tier
  * Used for LLM extraction validation
+ * Note: Using .nullish() allows both null and undefined from LLM responses
  */
 export const ExtractedPricingTierSchema = z.object({
   /** Tier name (e.g., "Starter", "Pro", "Enterprise") */
   tier: z.string().min(1),
   /** Price string (e.g., "$99/mo", "Custom pricing", "Free") */
-  price: z.string().min(1),
+  price: z.preprocess(
+    // Transform null/undefined to "Custom" as a fallback
+    (val) => (val === null || val === undefined || val === '') ? 'Custom' : val,
+    z.string().min(1)
+  ),
   /** Brief description of what this tier offers */
-  description: z.string().optional(),
+  description: z.string().nullish(),
   /** Target audience for this tier */
-  targetAudience: z.string().optional(),
+  targetAudience: z.string().nullish(),
   /** Key features included at this tier */
-  features: z.array(z.string()).optional(),
+  features: z.array(z.string()).nullish(),
   /** Usage limitations */
-  limitations: z.string().optional(),
+  limitations: z.string().nullish(),
   /** Source quote from the markdown where this tier was found (anti-hallucination) */
-  sourceQuote: z.string().optional(),
+  sourceQuote: z.string().nullish(),
 });
 
 /**
  * Zod schema for the complete extraction result from LLM
+ * Note: Using .nullish() allows both null and undefined from LLM responses
  */
 export const PricingExtractionResultSchema = z.object({
   /** Extracted pricing tiers */
@@ -38,9 +44,9 @@ export const PricingExtractionResultSchema = z.object({
   /** Whether "Contact sales" or custom pricing was detected */
   hasCustomPricing: z.boolean(),
   /** Currency detected (e.g., "USD", "EUR", "GBP") */
-  currency: z.string().optional(),
+  currency: z.string().nullish(),
   /** Billing period detected (e.g., "monthly", "annual", "one-time") */
-  billingPeriod: z.string().optional(),
+  billingPeriod: z.string().nullish(),
 });
 
 /**
