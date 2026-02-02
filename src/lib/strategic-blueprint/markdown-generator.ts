@@ -462,7 +462,7 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
     }
 
     if (safeArray(comp.pricingTiers).length > 0) {
-      lines.push('**Pricing Tiers:**');
+      lines.push('**Pricing Tiers:** *(prices may vary by region)*');
       safeArray(comp.pricingTiers).forEach((tier) => {
         lines.push(`- **${tier.tier}:** ${tier.price}`);
         if (tier.targetAudience) {

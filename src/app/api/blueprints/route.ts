@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { generateShareToken } from "@/lib/blueprints/share-token";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type {
@@ -37,8 +37,8 @@ export async function POST(
       blueprint.industryMarketOverview?.categorySnapshot?.category ||
       "Strategic Blueprint";
 
-    // Save to Supabase
-    const supabase = await createClient();
+    // Save to Supabase (use admin client - shared blueprints are public)
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("shared_blueprints")
       .insert({

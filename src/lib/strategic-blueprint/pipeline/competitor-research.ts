@@ -1033,10 +1033,11 @@ async function scrapePricingForCompetitors(
 
       console.log(`[Competitor Research] ${competitor.name}: Found pricing URL - ${pricingUrl}`);
 
-      // Step 2: Scrape with Firecrawl
+      // Step 2: Scrape with Firecrawl (US location for consistent USD pricing)
       const scrapeResult = await firecrawlClient.scrape({
         url: pricingUrl,
         timeout: 30000,
+        forceUSLocation: true,
       });
 
       if (!scrapeResult.success || !scrapeResult.markdown) {

@@ -62,6 +62,19 @@ export class FirecrawlClient {
 
       const document = await this.client.scrape(options.url, {
         formats: ['markdown'],
+        // Force US geolocation to get consistent pricing (avoid regional price variations)
+        // NOTE: Full geo-location requires Firecrawl Growth plan ($99/mo)
+        // Headers help hint US locale even on hobby plan
+        ...(options.forceUSLocation && { 
+          location: { country: 'US', languages: ['en-US'] },
+          headers: {
+            'Accept-Language': 'en-US,en;q=0.9',
+            'CF-IPCountry': 'US', // Cloudflare country hint
+          },
+          // Don't use cached data - force fresh scrape
+          storeInCache: false,
+          maxAge: 0,
+        }),
       });
 
       clearTimeout(timeoutId);
@@ -140,7 +153,8 @@ export class FirecrawlClient {
 
       console.log(`[Firecrawl] Trying pricing page: ${url}`);
 
-      const result = await this.scrape({ url });
+      // Always use US location for pricing pages to get consistent USD pricing
+      const result = await this.scrape({ url, forceUSLocation: true });
 
       if (result.success && result.markdown) {
         console.log(`[Firecrawl] Found pricing page: ${url} (${result.markdown.length} chars)`);

@@ -892,9 +892,12 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               {/* Pricing Tiers - only render if available */}
               {comp?.pricingTiers && comp.pricingTiers.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                  <p className="text-sm font-medium mb-1 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
                     <DollarSign className="h-4 w-4" style={{ color: 'var(--success)' }} />
                     Pricing Tiers
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                    Prices may vary by region
                   </p>
                   {isEditing && onFieldChange ? (
                     <EditableList

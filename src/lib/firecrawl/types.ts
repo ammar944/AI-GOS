@@ -11,6 +11,8 @@ export interface ScrapeOptions {
   timeout?: number;
   /** Whether to wait for JavaScript rendering (default: true) */
   waitForJs?: boolean;
+  /** Force US geolocation for consistent pricing data (default: false) */
+  forceUSLocation?: boolean;
 }
 
 /**
