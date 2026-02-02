@@ -70,28 +70,32 @@ export default function Home() {
           </p>
 
           {/* Features - Clean inline */}
-          <div className="mt-14 flex flex-col md:flex-row items-start justify-center gap-8 md:gap-16 max-w-3xl mx-auto">
-            <div className="flex items-start gap-3">
-              <Zap className="size-4 text-primary mt-0.5 shrink-0" />
+          <div className="mt-14 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 max-w-3xl mx-auto">
+            <div className="flex items-center gap-2.5">
+              <span className="text-primary text-lg">⚡</span>
               <div>
-                <h3 className="font-medium text-sm text-white">Lightning Fast</h3>
-                <p className="text-muted-foreground text-xs mt-1">Under 60 seconds</p>
+                <span className="font-medium text-sm text-white">Lightning Fast</span>
+                <span className="text-muted-foreground text-xs ml-1.5">60s</span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <Target className="size-4 text-primary mt-0.5 shrink-0" />
+            <div className="hidden md:block w-px h-4 bg-border/50" />
+
+            <div className="flex items-center gap-2.5">
+              <span className="text-primary text-lg">📊</span>
               <div>
-                <h3 className="font-medium text-sm text-white">Strategic Insights</h3>
-                <p className="text-muted-foreground text-xs mt-1">Data-driven recommendations</p>
+                <span className="font-medium text-sm text-white">Strategic</span>
+                <span className="text-muted-foreground text-xs ml-1.5">Data-driven</span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <Sparkles className="size-4 text-primary mt-0.5 shrink-0" />
+            <div className="hidden md:block w-px h-4 bg-border/50" />
+
+            <div className="flex items-center gap-2.5">
+              <span className="text-primary text-lg">🎯</span>
               <div>
-                <h3 className="font-medium text-sm text-white">Full Funnel</h3>
-                <p className="text-muted-foreground text-xs mt-1">Awareness to conversion</p>
+                <span className="font-medium text-sm text-white">Full Funnel</span>
+                <span className="text-muted-foreground text-xs ml-1.5">End-to-end</span>
               </div>
             </div>
           </div>
