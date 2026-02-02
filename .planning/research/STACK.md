@@ -170,8 +170,8 @@ const pricingTiers = await openrouter.chat.completions.create({
 
 **Already configured in `.env.local`:**
 ```bash
-FIRECRAWL_API_KEY=fc-f58614066d60417b8af83de0d7aafd70
-OPENROUTER_API_KEY=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
+FIRECRAWL_API_KEY=your-firecrawl-key
+OPENROUTER_API_KEY=your-openrouter-key
 ```
 
 **No additional keys required.**
