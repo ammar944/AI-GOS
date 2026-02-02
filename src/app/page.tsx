@@ -49,25 +49,15 @@ export default function Home() {
             <span className="text-primary font-semibold">60 seconds</span>.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 animate-slide-up" style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}>
+          {/* CTA Button */}
+          <div className="mt-10 animate-slide-up" style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}>
             <Link href="/generate">
               <Button size="lg" className="group bg-primary text-white hover:bg-primary/90">
                 Generate Media Plan
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Button>
             </Link>
-            <Link href="/media-plan">
-              <Button variant="ghost" size="lg" className="text-muted-foreground hover:text-white">
-                Quick Plan
-              </Button>
-            </Link>
           </div>
-
-          {/* Trust indicator */}
-          <p className="mt-4 text-xs text-muted-foreground/60 animate-fade-scale" style={{ animationDelay: '500ms', animationFillMode: 'backwards' }}>
-            No account required to get started
-          </p>
 
           {/* Features - Clean inline */}
           <div className="mt-14 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 max-w-3xl mx-auto">
