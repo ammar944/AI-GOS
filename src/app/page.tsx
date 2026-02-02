@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Sparkles, Zap, Target } from "lucide-react";
+import { ArrowRight, Timer, BarChart3, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlobBackground } from "@/components/ui/blob-background";
 import { GradientText } from "@/components/ui/gradient-text";
@@ -60,32 +60,34 @@ export default function Home() {
           </div>
 
           {/* Features - Clean inline */}
-          <div className="mt-14 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 max-w-3xl mx-auto">
-            <div className="flex items-center gap-2.5">
-              <span className="text-primary text-lg">⚡</span>
+          <div className="mt-14 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 max-w-3xl mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 border border-primary/20">
+                <Timer className="size-4 text-primary" />
+              </div>
               <div>
                 <span className="font-medium text-sm text-white">Lightning Fast</span>
-                <span className="text-muted-foreground text-xs ml-1.5">60s</span>
+                <span className="text-muted-foreground text-xs ml-1.5">· 60s</span>
               </div>
             </div>
 
-            <div className="hidden md:block w-px h-4 bg-border/50" />
-
-            <div className="flex items-center gap-2.5">
-              <span className="text-primary text-lg">📊</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 border border-primary/20">
+                <BarChart3 className="size-4 text-primary" />
+              </div>
               <div>
                 <span className="font-medium text-sm text-white">Strategic</span>
-                <span className="text-muted-foreground text-xs ml-1.5">Data-driven</span>
+                <span className="text-muted-foreground text-xs ml-1.5">· Data-driven</span>
               </div>
             </div>
 
-            <div className="hidden md:block w-px h-4 bg-border/50" />
-
-            <div className="flex items-center gap-2.5">
-              <span className="text-primary text-lg">🎯</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 border border-primary/20">
+                <Layers className="size-4 text-primary" />
+              </div>
               <div>
                 <span className="font-medium text-sm text-white">Full Funnel</span>
-                <span className="text-muted-foreground text-xs ml-1.5">End-to-end</span>
+                <span className="text-muted-foreground text-xs ml-1.5">· End-to-end</span>
               </div>
             </div>
           </div>
