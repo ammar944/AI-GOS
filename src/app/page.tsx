@@ -16,7 +16,7 @@ export default function Home() {
             <Logo size="md" />
           </Link>
           <Link href="/sign-in">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white">
+            <Button size="sm" variant="outline" className="border-primary/50 text-white hover:bg-primary/10 hover:border-primary">
               Sign In
             </Button>
           </Link>
