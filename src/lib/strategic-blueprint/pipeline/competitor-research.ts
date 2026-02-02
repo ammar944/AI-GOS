@@ -1133,27 +1133,24 @@ async function extractAndFilterPricing(
     return extractionResult;
   }
 
-  // Apply relevance filtering - keep only core product tiers
+  // Apply relevance filtering - keep tiers with score >= 40
+  // Don't filter by category - standard tiers like "Starter" won't match company name
   const relevantTiers = filterRelevantPricing(extractionResult.tiers, {
     competitorName: companyName,
     competitorUrl: sourceUrl,
-    minScore: 50, // Medium threshold
-    includeAddOns: false, // Only core product tiers
+    minScore: 40, // Lower threshold - standard tiers score ~50
+    includeAddOns: false,
   });
-
-  const coreProductTiers = relevantTiers.filter(
-    (t) => t.relevance?.category === 'core_product'
-  );
 
   console.log(
     `[Competitor Research] ${companyName}: Extracted ${extractionResult.tiers.length} tiers, ` +
-    `${coreProductTiers.length} passed relevance filter (confidence: ${extractionResult.confidence}%)`
+    `${relevantTiers.length} passed relevance filter (confidence: ${extractionResult.confidence}%)`
   );
 
   // Return with filtered tiers
   return {
     ...extractionResult,
-    tiers: coreProductTiers,
+    tiers: relevantTiers,
   };
 }
 
