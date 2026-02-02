@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BlobBackground } from "@/components/ui/blob-background";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Logo } from "@/components/ui/logo";
-import { GlowCard, GlowCardContent } from "@/components/ui/glow-card";
+// GlowCard available but using custom cards for homepage features
 
 export default function Home() {
   return (
@@ -71,41 +71,58 @@ export default function Home() {
 
           {/* Features Grid */}
           <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <GlowCard variant="glass" glow="md" className="p-8 text-left animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
-              <GlowCardContent className="p-0">
-                <div className="inline-flex items-center justify-center size-14 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 text-primary mb-5 ring-1 ring-primary/20">
-                  <Zap className="size-7" />
+            {/* Card 1 */}
+            <div className="group relative animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
+              {/* Gradient border wrapper */}
+              <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-primary/50 via-primary/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative p-8 rounded-2xl bg-gradient-to-b from-[oklch(0.16_0.03_265)] to-[oklch(0.12_0.02_265)] backdrop-blur-xl h-full transition-transform duration-200 group-hover:scale-[1.02]">
+                {/* Inner glow */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <div className="inline-flex items-center justify-center size-14 rounded-xl bg-gradient-to-br from-primary/40 to-primary/10 text-primary mb-5 shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.3)]">
+                    <Zap className="size-7" />
+                  </div>
+                  <h3 className="font-semibold text-xl mb-3 text-white">Lightning Fast</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Get comprehensive media plans in under a minute, powered by advanced AI models.
+                  </p>
                 </div>
-                <h3 className="font-semibold text-xl mb-3 text-white">Lightning Fast</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Get comprehensive media plans in under a minute, powered by advanced AI models.
-                </p>
-              </GlowCardContent>
-            </GlowCard>
+              </div>
+            </div>
 
-            <GlowCard variant="glass" glow="md" className="p-8 text-left animate-slide-up" style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}>
-              <GlowCardContent className="p-0">
-                <div className="inline-flex items-center justify-center size-14 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 text-primary mb-5 ring-1 ring-primary/20">
-                  <Target className="size-7" />
+            {/* Card 2 */}
+            <div className="group relative animate-slide-up" style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}>
+              <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-primary/50 via-primary/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative p-8 rounded-2xl bg-gradient-to-b from-[oklch(0.16_0.03_265)] to-[oklch(0.12_0.02_265)] backdrop-blur-xl h-full transition-transform duration-200 group-hover:scale-[1.02]">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <div className="inline-flex items-center justify-center size-14 rounded-xl bg-gradient-to-br from-primary/40 to-primary/10 text-primary mb-5 shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.3)]">
+                    <Target className="size-7" />
+                  </div>
+                  <h3 className="font-semibold text-xl mb-3 text-white">Strategic Insights</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Data-driven recommendations for platform selection, budget allocation, and targeting.
+                  </p>
                 </div>
-                <h3 className="font-semibold text-xl mb-3 text-white">Strategic Insights</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Data-driven recommendations for platform selection, budget allocation, and targeting.
-                </p>
-              </GlowCardContent>
-            </GlowCard>
+              </div>
+            </div>
 
-            <GlowCard variant="glass" glow="md" className="p-8 text-left animate-slide-up" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
-              <GlowCardContent className="p-0">
-                <div className="inline-flex items-center justify-center size-14 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 text-primary mb-5 ring-1 ring-primary/20">
-                  <Sparkles className="size-7" />
+            {/* Card 3 */}
+            <div className="group relative animate-slide-up" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
+              <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-primary/50 via-primary/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative p-8 rounded-2xl bg-gradient-to-b from-[oklch(0.16_0.03_265)] to-[oklch(0.12_0.02_265)] backdrop-blur-xl h-full transition-transform duration-200 group-hover:scale-[1.02]">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <div className="inline-flex items-center justify-center size-14 rounded-xl bg-gradient-to-br from-primary/40 to-primary/10 text-primary mb-5 shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.3)]">
+                    <Sparkles className="size-7" />
+                  </div>
+                  <h3 className="font-semibold text-xl mb-3 text-white">Full Funnel Coverage</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    From awareness to conversion, get strategies tailored to every stage of the customer journey.
+                  </p>
                 </div>
-                <h3 className="font-semibold text-xl mb-3 text-white">Full Funnel Coverage</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  From awareness to conversion, get strategies tailored to every stage of the customer journey.
-                </p>
-              </GlowCardContent>
-            </GlowCard>
+              </div>
+            </div>
           </div>
         </main>
       </BlobBackground>
