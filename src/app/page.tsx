@@ -10,13 +10,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="relative z-50 border-b border-border/50 backdrop-blur-sm bg-background/80">
+      <header className="relative z-50 border-b border-primary/20 backdrop-blur-xl bg-[oklch(0.12_0.03_265_/_0.7)] shadow-[0_1px_20px_oklch(0.62_0.19_255_/_0.1)]">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="transition-opacity hover:opacity-80">
             <Logo size="md" />
           </Link>
           <Link href="/sign-in">
-            <Button variant="glow" size="sm">
+            <Button variant="outline" size="sm" className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/60">
               Sign In
             </Button>
           </Link>
@@ -52,13 +52,13 @@ export default function Home() {
           {/* CTA Buttons */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}>
             <Link href="/generate">
-              <Button variant="gradient" size="xl" className="group shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.3)]">
+              <Button variant="gradient" size="xl" className="group shadow-[0_0_40px_oklch(0.62_0.19_255_/_0.4)] hover:shadow-[0_0_50px_oklch(0.62_0.19_255_/_0.5)]">
                 Generate Media Plan
                 <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
             <Link href="/media-plan">
-              <Button variant="glow" size="lg">
+              <Button variant="outline" size="lg" className="border-primary/30 bg-[oklch(0.15_0.03_265_/_0.5)] text-white hover:bg-[oklch(0.18_0.04_265_/_0.6)] hover:border-primary/50 backdrop-blur-sm">
                 Quick Plan
               </Button>
             </Link>

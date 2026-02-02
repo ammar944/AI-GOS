@@ -13,7 +13,7 @@ const glowCardVariants = cva(
         default:
           "bg-card text-card-foreground border-border hover:border-primary/30",
         glass:
-          "bg-[oklch(0.15_0.03_265_/_0.6)] backdrop-blur-2xl border-[oklch(0.62_0.19_255_/_0.15)] hover:border-[oklch(0.62_0.19_255_/_0.4)] hover:bg-[oklch(0.18_0.04_265_/_0.7)]",
+          "bg-[oklch(0.12_0.02_265_/_0.4)] backdrop-blur-2xl border-[oklch(0.62_0.19_255_/_0.2)] hover:border-[oklch(0.62_0.19_255_/_0.5)] hover:bg-[oklch(0.15_0.03_265_/_0.5)]",
         solid:
           "bg-[oklch(0.18_0.04_265)] border-[oklch(0.30_0.04_265)] hover:border-primary/40",
       },
