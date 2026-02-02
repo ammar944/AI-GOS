@@ -8,7 +8,6 @@ import { createEnhancedAdLibraryService, assessAdRelevance } from "@/lib/ad-libr
 import { createFirecrawlClient } from "@/lib/firecrawl";
 import {
   extractPricing,
-  filterRelevantPricing,
   type ScoredPricingResult,
   type ScoredPricingTier,
 } from "@/lib/pricing";
@@ -1111,7 +1110,48 @@ async function scrapePricingForCompetitors(
 }
 
 /**
- * Extract pricing with LLM and filter by relevance
+ * Keywords that indicate add-on/supplementary pricing (not main product tiers)
+ */
+const ADD_ON_KEYWORDS = [
+  'add-on', 'addon', 'add on',
+  'storage', 'gb', 'tb',
+  'credits', 'credit pack',
+  'api calls', 'api requests',
+  'extra', 'additional',
+  'overage', 'usage',
+  'support', 'sla',
+  'training', 'onboarding',
+  'migration', 'setup fee',
+];
+
+/**
+ * Check if a tier looks like an add-on rather than a main product tier
+ */
+function isAddOnTier(tier: { tier: string; description?: string | null; price?: string | null }): boolean {
+  const text = `${tier.tier} ${tier.description || ''} ${tier.price || ''}`.toLowerCase();
+  
+  // Check for add-on keywords
+  for (const keyword of ADD_ON_KEYWORDS) {
+    if (text.includes(keyword)) {
+      return true;
+    }
+  }
+  
+  // Per-unit pricing patterns (likely add-ons)
+  if (/\/gb|\/tb|\/user\/|\/seat\/|\/credit|\/call|\/request/i.test(text)) {
+    // Exception: /user/month or /seat/month is valid subscription pricing
+    if (/\/user\/mo|\/seat\/mo|\/user\/year|\/seat\/year/i.test(text)) {
+      return false;
+    }
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Extract pricing with LLM and filter out add-ons
+ * Simple approach: trust LLM extraction, just remove obvious add-ons
  */
 async function extractAndFilterPricing(
   markdown: string,
@@ -1133,24 +1173,21 @@ async function extractAndFilterPricing(
     return extractionResult;
   }
 
-  // Apply relevance filtering - keep tiers with score >= 40
-  // Don't filter by category - standard tiers like "Starter" won't match company name
-  const relevantTiers = filterRelevantPricing(extractionResult.tiers, {
-    competitorName: companyName,
-    competitorUrl: sourceUrl,
-    minScore: 40, // Lower threshold - standard tiers score ~50
-    includeAddOns: false,
-  });
+  // Simple filter: remove obvious add-ons, keep main product tiers
+  const mainTiers = extractionResult.tiers.filter(tier => !isAddOnTier(tier));
+  const addOnCount = extractionResult.tiers.length - mainTiers.length;
 
   console.log(
     `[Competitor Research] ${companyName}: Extracted ${extractionResult.tiers.length} tiers, ` +
-    `${relevantTiers.length} passed relevance filter (confidence: ${extractionResult.confidence}%)`
+    `kept ${mainTiers.length} main tiers` +
+    (addOnCount > 0 ? `, filtered ${addOnCount} add-ons` : '') +
+    ` (confidence: ${extractionResult.confidence}%)`
   );
 
-  // Return with filtered tiers
+  // Return with filtered tiers (cast to expected type)
   return {
     ...extractionResult,
-    tiers: relevantTiers,
+    tiers: mainTiers as ScoredPricingTier[],
   };
 }
 

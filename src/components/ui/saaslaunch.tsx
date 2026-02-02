@@ -27,4 +27,5 @@ export {
 export { SectionDivider, SectionHeader } from "./section-divider"
 
 // Re-export enhanced base components
-export { GlassCard } from "./card"
+// Card now uses variant="glass" instead of separate GlassCard
+export { Card, CardContent, CardHeader, CardFooter, cardVariants } from "./card"
