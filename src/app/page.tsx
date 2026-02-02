@@ -65,47 +65,35 @@ export default function Home() {
           </div>
 
           {/* Trust indicator */}
-          <p className="mt-6 text-sm text-muted-foreground animate-fade-scale" style={{ animationDelay: '500ms', animationFillMode: 'backwards' }}>
+          <p className="mt-4 text-xs text-muted-foreground/60 animate-fade-scale" style={{ animationDelay: '500ms', animationFillMode: 'backwards' }}>
             No account required to get started
           </p>
 
-          {/* Features Grid - Miana-style cards */}
-          <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <Card variant="glass" hover="glow" className="animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
-              <CardContent className="p-6 space-y-4">
-                <div className="text-primary">
-                  <Zap className="size-5" strokeWidth={1.5} />
-                </div>
-                <h3 className="font-medium text-white">Lightning Fast</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Get comprehensive media plans in under a minute, powered by advanced AI models.
-                </p>
-              </CardContent>
-            </Card>
+          {/* Features - Clean inline */}
+          <div className="mt-14 flex flex-col md:flex-row items-start justify-center gap-8 md:gap-16 max-w-3xl mx-auto">
+            <div className="flex items-start gap-3">
+              <Zap className="size-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-medium text-sm text-white">Lightning Fast</h3>
+                <p className="text-muted-foreground text-xs mt-1">Under 60 seconds</p>
+              </div>
+            </div>
 
-            <Card variant="glass" hover="glow" className="animate-slide-up" style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}>
-              <CardContent className="p-6 space-y-4">
-                <div className="text-primary">
-                  <Target className="size-5" strokeWidth={1.5} />
-                </div>
-                <h3 className="font-medium text-white">Strategic Insights</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Data-driven recommendations for platform selection, budget allocation, and targeting.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="flex items-start gap-3">
+              <Target className="size-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-medium text-sm text-white">Strategic Insights</h3>
+                <p className="text-muted-foreground text-xs mt-1">Data-driven recommendations</p>
+              </div>
+            </div>
 
-            <Card variant="glass" hover="glow" className="animate-slide-up" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
-              <CardContent className="p-6 space-y-4">
-                <div className="text-primary">
-                  <Sparkles className="size-5" strokeWidth={1.5} />
-                </div>
-                <h3 className="font-medium text-white">Full Funnel Coverage</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  From awareness to conversion, get strategies tailored to every stage of the customer journey.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="flex items-start gap-3">
+              <Sparkles className="size-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-medium text-sm text-white">Full Funnel</h3>
+                <p className="text-muted-foreground text-xs mt-1">Awareness to conversion</p>
+              </div>
+            </div>
           </div>
         </main>
       </BlobBackground>
