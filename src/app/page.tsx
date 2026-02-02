@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BlobBackground } from "@/components/ui/blob-background";
 import { GradientText } from "@/components/ui/gradient-text";
 import { Logo } from "@/components/ui/logo";
-// GlowCard available but using custom cards for homepage features
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function Home() {
   return (
@@ -69,37 +69,43 @@ export default function Home() {
             No account required to get started
           </p>
 
-          {/* Features Grid - Clean Firecrawl style */}
-          <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-12 max-w-5xl mx-auto text-left">
-            <div className="space-y-4 animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
-              <div className="text-primary">
-                <Zap className="size-6" strokeWidth={1.5} />
-              </div>
-              <h3 className="font-medium text-lg text-white">Lightning Fast</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Get comprehensive media plans in under a minute, powered by advanced AI models.
-              </p>
-            </div>
+          {/* Features Grid - Miana-style cards */}
+          <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <Card variant="glass" hover="glow" className="animate-slide-up" style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}>
+              <CardContent className="p-6 space-y-4">
+                <div className="text-primary">
+                  <Zap className="size-5" strokeWidth={1.5} />
+                </div>
+                <h3 className="font-medium text-white">Lightning Fast</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Get comprehensive media plans in under a minute, powered by advanced AI models.
+                </p>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-4 animate-slide-up" style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}>
-              <div className="text-primary">
-                <Target className="size-6" strokeWidth={1.5} />
-              </div>
-              <h3 className="font-medium text-lg text-white">Strategic Insights</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Data-driven recommendations for platform selection, budget allocation, and targeting.
-              </p>
-            </div>
+            <Card variant="glass" hover="glow" className="animate-slide-up" style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}>
+              <CardContent className="p-6 space-y-4">
+                <div className="text-primary">
+                  <Target className="size-5" strokeWidth={1.5} />
+                </div>
+                <h3 className="font-medium text-white">Strategic Insights</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Data-driven recommendations for platform selection, budget allocation, and targeting.
+                </p>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-4 animate-slide-up" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
-              <div className="text-primary">
-                <Sparkles className="size-6" strokeWidth={1.5} />
-              </div>
-              <h3 className="font-medium text-lg text-white">Full Funnel Coverage</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                From awareness to conversion, get strategies tailored to every stage of the customer journey.
-              </p>
-            </div>
+            <Card variant="glass" hover="glow" className="animate-slide-up" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
+              <CardContent className="p-6 space-y-4">
+                <div className="text-primary">
+                  <Sparkles className="size-5" strokeWidth={1.5} />
+                </div>
+                <h3 className="font-medium text-white">Full Funnel Coverage</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  From awareness to conversion, get strategies tailored to every stage of the customer journey.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </BlobBackground>
