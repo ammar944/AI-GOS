@@ -45,15 +45,15 @@ function formatDate(dateString: string): string {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-8 animate-pulse">
+    <div className="space-y-8">
       <div className="space-y-4">
-        <div className="h-6 w-32 bg-muted rounded" />
-        <div className="h-10 w-80 bg-muted rounded" />
-        <div className="h-5 w-96 bg-muted rounded" />
+        <div className="h-6 w-32 bg-muted rounded animate-skeleton" />
+        <div className="h-10 w-80 bg-muted rounded animate-skeleton" style={{ animationDelay: '100ms' }} />
+        <div className="h-5 w-96 bg-muted rounded animate-skeleton" style={{ animationDelay: '200ms' }} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="h-48 bg-muted rounded-xl" />
-        <div className="h-48 bg-muted rounded-xl" />
+        <div className="h-48 bg-muted rounded-xl border border-border/50 animate-skeleton" style={{ animationDelay: '300ms' }} />
+        <div className="h-48 bg-muted rounded-xl border border-border/50 animate-skeleton" style={{ animationDelay: '400ms' }} />
       </div>
     </div>
   );
