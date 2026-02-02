@@ -2,12 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({ className, hoverable = true, ...props }: React.ComponentProps<"div"> & { hoverable?: boolean }) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border/70 py-6 shadow-[0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-200 hover:border-border",
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border/70 py-6 shadow-[0_1px_0_rgba(255,255,255,0.03)]",
+        hoverable && "transition-all duration-200 hover:border-border hover:scale-[1.02] hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)]",
+        !hoverable && "transition-colors duration-200 hover:border-border",
         className
       )}
       {...props}
@@ -15,15 +17,16 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function GlassCard({ className, ...props }: React.ComponentProps<"div">) {
+function GlassCard({ className, hoverable = true, ...props }: React.ComponentProps<"div"> & { hoverable?: boolean }) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col gap-6 rounded-xl py-6 shadow-sm transition-all duration-300",
+        "flex flex-col gap-6 rounded-xl py-6 shadow-sm",
         "bg-[oklch(0.18_0.04_265_/_0.8)] backdrop-blur-xl",
         "border border-border/60",
-        "hover:border-border",
+        hoverable && "transition-all duration-200 hover:border-border hover:scale-[1.02] hover:shadow-[0_8px_30px_rgba(0,0,0,0.15)]",
+        !hoverable && "transition-all duration-300 hover:border-border",
         className
       )}
       {...props}
