@@ -6,22 +6,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const glowCardVariants = cva(
-  "relative rounded-xl border transition-all duration-300",
+  "relative rounded-xl border transition-all duration-200 hover:scale-[1.02]",
   {
     variants: {
       variant: {
         default:
           "bg-card text-card-foreground border-border hover:border-primary/30",
         glass:
-          "bg-[oklch(0.18_0.04_265_/_0.8)] backdrop-blur-xl border-[oklch(0.62_0.19_255_/_0.1)] hover:border-[oklch(0.62_0.19_255_/_0.25)]",
+          "bg-[oklch(0.15_0.03_265_/_0.6)] backdrop-blur-2xl border-[oklch(0.62_0.19_255_/_0.15)] hover:border-[oklch(0.62_0.19_255_/_0.4)] hover:bg-[oklch(0.18_0.04_265_/_0.7)]",
         solid:
           "bg-[oklch(0.18_0.04_265)] border-[oklch(0.30_0.04_265)] hover:border-primary/40",
       },
       glow: {
         none: "",
-        sm: "shadow-[0_0_15px_oklch(0.62_0.19_255_/_0.15)] hover:shadow-[0_0_25px_oklch(0.62_0.19_255_/_0.25)]",
-        md: "shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.2)] hover:shadow-[0_0_35px_oklch(0.62_0.19_255_/_0.35)]",
-        lg: "shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.25)] hover:shadow-[0_0_50px_oklch(0.62_0.19_255_/_0.4)]",
+        sm: "shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.1)] hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.3)]",
+        md: "shadow-[0_0_25px_oklch(0.62_0.19_255_/_0.15)] hover:shadow-[0_0_40px_oklch(0.62_0.19_255_/_0.4)]",
+        lg: "shadow-[0_0_35px_oklch(0.62_0.19_255_/_0.2)] hover:shadow-[0_0_60px_oklch(0.62_0.19_255_/_0.5)]",
         pulse:
           "animate-pulse-glow",
       },
