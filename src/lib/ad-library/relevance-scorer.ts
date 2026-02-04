@@ -31,6 +31,31 @@ const LEAD_MAGNET_KEYWORDS = [
 ];
 
 /**
+ * Product-related keywords that should appear in relevant SaaS/marketing ads
+ * Used to detect partnership/sponsored ads that promote unrelated products
+ */
+const PRODUCT_KEYWORDS = [
+  'attribution',
+  'analytics',
+  'dashboard',
+  'roi',
+  'revenue',
+  'marketing',
+  'data',
+  'tracking',
+  'metrics',
+  'report',
+  'platform',
+  'software',
+  'tool',
+  'solution',
+  'automation',
+  'insight',
+  'performance',
+  'conversion',
+];
+
+/**
  * Known subsidiary/parent company relationships
  * Maps subsidiary brand → parent company
  */
@@ -195,9 +220,27 @@ export function assessAdRelevance(
     }
   }
 
-  // 6. Determine category based on signals
+  // 6. Product-content alignment check
+  // Detect ads where advertiser matches but content is about something else entirely
+  // Example: "SegMetrics" running "Get Dan Martell's book" ads (partnership/sponsored content)
+  if (advertiserSimilarity >= 0.8 && !contentContainsCompany && !isLeadMagnet) {
+    // Check if ad content contains product-related keywords
+    const hasProductKeywords = PRODUCT_KEYWORDS.some(kw => adContent.includes(kw));
+
+    if (!hasProductKeywords) {
+      // This is likely a partnership/sponsored ad for an unrelated product
+      score -= 25;
+      signals.push('Ad content appears unrelated to company product (possible partnership/sponsored ad)');
+      // Note: Category will be set to 'lead_magnet' in the category determination logic below
+    }
+  }
+
+  // 7. Determine category based on signals
   let category: AdRelevanceCategory;
   let explanation: string;
+
+  // Check if this is a partnership/sponsored ad (detected in step 6)
+  const isPartnershipAd = signals.some(s => s.includes('possible partnership/sponsored ad'));
 
   if (advertiserSimilarity >= 0.8 && contentContainsCompany) {
     category = 'direct';
@@ -205,6 +248,10 @@ export function assessAdRelevance(
   } else if (advertiserSimilarity >= 0.8 && isLeadMagnet) {
     category = 'lead_magnet';
     explanation = `This appears to be a lead generation ad from ${ad.advertiser}. It may promote educational content (book, guide, webinar) rather than their core product.`;
+  } else if (isPartnershipAd) {
+    // Partnership/sponsored ads should be categorized as lead_magnet
+    category = 'lead_magnet';
+    explanation = `This ad is from ${ad.advertiser} but promotes unrelated content (likely a partnership or sponsored ad). The content doesn't mention their product or relevant keywords.`;
   } else if (advertiserSimilarity >= 0.8 && !contentContainsCompany) {
     category = 'brand_awareness';
     explanation = `This ad is from ${ad.advertiser} but doesn't mention their product directly. It may be brand awareness or top-of-funnel content.`;

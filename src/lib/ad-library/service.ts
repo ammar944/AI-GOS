@@ -698,6 +698,21 @@ export class AdLibraryService {
         }
       }
 
+      // STRICT CHECK 4: Require meaningful content (headline OR body OR visual)
+      const headlineLength = ad.headline?.trim().length ?? 0;
+      const bodyLength = ad.body?.trim().length ?? 0;
+      const hasVisual = !!ad.imageUrl || !!ad.videoUrl;
+      const hasText = headlineLength >= 10 || bodyLength >= 20;
+
+      if (!hasText && !hasVisual) {
+        filteredOut.push({
+          advertiser: ad.advertiser || '(empty)',
+          similarity: 0,
+          reason: 'insufficient_content',
+        });
+        continue;
+      }
+
       // Ad passed all checks
       validAds.push(ad);
     }

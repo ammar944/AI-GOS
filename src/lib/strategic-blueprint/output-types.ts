@@ -377,6 +377,46 @@ export interface CrossAnalysisSynthesis {
   }[];
   /** Recommended positioning */
   recommendedPositioning: string;
+  /** Positioning strategy with alternatives */
+  positioningStrategy?: {
+    primary: string;
+    alternatives: string[];
+    differentiators: string[];
+    avoidPositions: string[];
+  };
+  /** Messaging framework with ad hooks */
+  messagingFramework?: {
+    coreMessage: string;
+    supportingMessages: string[];
+    proofPoints: string[];
+    tonalGuidelines: string[];
+    adHooks: {
+      hook: string;
+      technique: "controversial" | "revelation" | "myth-bust" | "status-quo-challenge" | "curiosity-gap" | "story";
+      targetAwareness: "unaware" | "problem-aware" | "solution-aware" | "product-aware" | "most-aware";
+      source?: {
+        type: "extracted" | "inspired" | "generated";
+        competitors?: string[];
+        platform?: "linkedin" | "meta" | "google";
+      };
+    }[];
+    angles: {
+      name: string;
+      description: string;
+      targetEmotion: string;
+      exampleHeadline: string;
+    }[];
+    proofPointsDetailed: {
+      claim: string;
+      evidence: string;
+      source?: string;
+    }[];
+    objectionHandlers: {
+      objection: string;
+      response: string;
+      reframe: string;
+    }[];
+  };
   /** Primary messaging angles */
   primaryMessagingAngles: string[];
   /** Recommended platforms based on analysis */

@@ -2,7 +2,7 @@
 // Combines SearchAPI (discovery) with Foreplay (intelligence) for enriched ad analysis
 
 import { AdLibraryService } from './service';
-import type { AdCreative, AdLibraryOptions, MultiPlatformAdResponse } from './types';
+import type { AdCreative, AdLibraryOptions, MultiPlatformAdResponse, AdRelevanceCategory } from './types';
 import {
   createForeplayService,
   isForeplayEnabled,
@@ -41,6 +41,12 @@ export interface EnhancedAdLibraryOptions extends AdLibraryOptions {
   skipAnalytics?: boolean;
   /** Maximum ads to enrich (for cost control) */
   maxEnrichments?: number;
+  /** Minimum relevance score (0-100) for ads to be included. Default: 50 */
+  minRelevanceScore?: number;
+  /** Relevance categories to exclude from results. Default: ['unclear'] */
+  excludeCategories?: AdRelevanceCategory[];
+  /** Whether to include subsidiary brand ads (e.g., Slack for Salesforce). Default: false */
+  includeSubsidiaries?: boolean;
 }
 
 /**
@@ -234,8 +240,34 @@ export class EnhancedAdLibraryService {
       relevance: ad.relevance ?? assessAdRelevance(ad, options.query, domain),
     }));
 
+    // Apply relevance filtering
+    const minScore = options.minRelevanceScore ?? 50;
+    const excludeCategories = options.excludeCategories ?? ['unclear'];
+    const includeSubsidiaries = options.includeSubsidiaries ?? false;
+
+    // Filter ads by relevance criteria
+    let filteredAds = adsWithRelevance.filter(ad => {
+      // Check minimum score
+      if ((ad.relevance?.score ?? 0) < minScore) return false;
+
+      // Check excluded categories
+      const category = ad.relevance?.category;
+      if (category && excludeCategories.includes(category)) return false;
+
+      // Check subsidiary filter
+      if (!includeSubsidiaries && category === 'subsidiary') return false;
+
+      return true;
+    });
+
+    // Log filtering results
+    console.log(
+      `[EnhancedAdLibrary] Relevance filtering: ${adsWithRelevance.length} → ${filteredAds.length} ads ` +
+      `(minScore: ${minScore}, excluded: ${excludeCategories.join(', ')})`
+    );
+
     // Sort by relevance (highest first)
-    const sortedAds = sortByRelevance(adsWithRelevance);
+    const sortedAds = sortByRelevance(filteredAds);
 
     // Build final response
     const totalForeplayCredits = this.foreplayService?.getTotalCreditsUsed() ?? 0;

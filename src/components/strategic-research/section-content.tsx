@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import {
   TrendingUp,
   Target,
@@ -761,6 +762,20 @@ interface CompetitorAnalysisContentProps extends EditableContentProps {
 }
 
 function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: CompetitorAnalysisContentProps) {
+  // Debug: Log competitor data including ads
+  React.useEffect(() => {
+    const totalAds = data?.competitors?.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0) ?? 0;
+    console.log('[CompetitorAnalysisContent] Rendering with data:', {
+      competitorCount: data?.competitors?.length ?? 0,
+      totalAds,
+      competitors: data?.competitors?.map(c => ({
+        name: c.name,
+        adCount: c.adCreatives?.length ?? 0,
+        pricingTiers: c.pricingTiers?.length ?? 0,
+      })),
+    });
+  }, [data]);
+
   return (
     <div className="space-y-6">
       {/* Competitor Snapshots */}
@@ -1351,6 +1366,58 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
           </div>
         )}
       </SubSection>
+
+      {/* Ad Hooks with Source Attribution (from messagingFramework) */}
+      {data?.messagingFramework?.adHooks && data.messagingFramework.adHooks.length > 0 && (
+        <SubSection title="Ad Hooks (from Competitor Ads)">
+          <p className="text-sm mb-3" style={{ color: 'var(--text-tertiary)' }}>
+            Hooks extracted or inspired by real competitor ads. Green = verbatim, Blue = inspired, Gray = generated.
+          </p>
+          <div className="space-y-3">
+            {data.messagingFramework.adHooks.map((hookItem: any, i: number) => (
+              <div
+                key={i}
+                className="p-3 rounded-lg"
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  borderWidth: '2px',
+                  borderColor: hookItem.source?.type === 'extracted'
+                    ? '#22c55e'
+                    : hookItem.source?.type === 'inspired'
+                      ? 'var(--accent-blue)'
+                      : 'var(--border-default)',
+                }}
+              >
+                <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
+                  &quot;{typeof hookItem === 'string' ? hookItem : hookItem.hook}&quot;
+                </p>
+                {typeof hookItem !== 'string' && (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                      <Badge variant={hookItem.source?.type === 'extracted' ? 'default' : 'secondary'}>
+                        {hookItem.source?.type || 'generated'}
+                      </Badge>
+                      {hookItem.source?.competitors && hookItem.source.competitors.length > 0 && (
+                        <span style={{ color: 'var(--text-tertiary)' }}>
+                          from: {hookItem.source.competitors.join(', ')}
+                        </span>
+                      )}
+                      {hookItem.source?.platform && (
+                        <Badge variant="outline">{hookItem.source.platform}</Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      {hookItem.technique && <span>Technique: {hookItem.technique}</span>}
+                      {hookItem.technique && hookItem.targetAwareness && <span>•</span>}
+                      {hookItem.targetAwareness && <span>Awareness: {hookItem.targetAwareness}</span>}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </SubSection>
+      )}
 
       {/* Recommended Platforms */}
       <SubSection title="Recommended Platforms">
