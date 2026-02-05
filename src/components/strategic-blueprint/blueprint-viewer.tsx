@@ -595,7 +595,7 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
     lines.push("");
     lines.push(`Generated: ${new Date(metadata.generatedAt).toLocaleString()}`);
     lines.push(`Version: ${metadata.version}`);
-    lines.push(`Confidence: ${metadata.overallConfidence}%`);
+    lines.push(`Confidence: ${metadata.overallConfidence ?? 'N/A'}%`);
     lines.push("");
 
     // Add each section
@@ -751,7 +751,7 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
               </span>
               <span className="flex items-center gap-1">
                 <BarChart3 className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                Confidence: {metadata.overallConfidence}%
+                Confidence: {metadata.overallConfidence ?? 'N/A'}%
               </span>
             </div>
           </div>

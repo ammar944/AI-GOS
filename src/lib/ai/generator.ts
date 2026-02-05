@@ -9,6 +9,7 @@ import {
   researchCompetitors,
   synthesizeCrossAnalysis,
 } from './research';
+import { reconcileICPAndOffer, type ReconciliationResult } from './reconciliation';
 import type {
   IndustryMarketResult,
   ICPAnalysisResult,
@@ -19,33 +20,14 @@ import type {
   AllSectionResults,
 } from './types';
 import type {
-  IndustryMarketOverview,
-  ICPAnalysisValidation,
-  OfferAnalysisViability,
   CompetitorAnalysis,
-  CrossAnalysisSynthesis,
 } from './schemas';
+import type {
+  StrategicBlueprintOutput,
+} from '@/lib/strategic-blueprint/output-types';
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface StrategicBlueprintOutput {
-  industryMarketOverview: IndustryMarketOverview;
-  icpAnalysisValidation: ICPAnalysisValidation;
-  offerAnalysisViability: OfferAnalysisViability;
-  competitorAnalysis: CompetitorAnalysis;
-  crossAnalysisSynthesis: CrossAnalysisSynthesis;
-  metadata: {
-    generatedAt: string;
-    version: string;
-    processingTime: number;
-    totalCost: number;
-    modelsUsed: string[];
-    sectionTimings: Record<string, number>;
-    sectionCitations: Record<string, { url: string; title?: string }[]>;
-  };
-}
+// Re-export for consumers
+export type { StrategicBlueprintOutput } from '@/lib/strategic-blueprint/output-types';
 
 export interface GeneratorOptions {
   onProgress?: ProgressCallback;
@@ -69,7 +51,7 @@ export interface GeneratorResult {
  * 
  * Pipeline:
  * - Phase 1 (parallel): Industry/Market + Competitors base research
- * - Phase 2 (sequential): ICP Validation → Offer Analysis
+ * - Phase 2 (parallel): ICP Validation + Offer Analysis → Reconciliation
  * - Phase 3: Cross-Analysis Synthesis
  * 
  * Note: Competitor enrichment (Firecrawl pricing, Ad Library creatives)
@@ -162,36 +144,79 @@ export async function generateStrategicBlueprint(
     checkAbort();
 
     // =========================================================================
-    // PHASE 2: Sequential Analysis (ICP → Offer)
+    // PHASE 2: Parallel ICP + Offer Analysis → Reconciliation
     // =========================================================================
-    progress(2, 'phase2', 'starting', 'Starting analysis phase...');
-
     const phase2Start = Date.now();
 
-    // Section 2: ICP Analysis (needs Section 1 context)
-    progress(2, 'icpValidation', 'starting', 'Analyzing ICP with reasoning...');
-    const icpStart = Date.now();
-    const icpResult = await researchICPAnalysis(context, industryResult.data);
-    sectionTimings.icpValidation = Date.now() - icpStart;
-    sectionCitations.icpValidation = icpResult.sources;
-    modelsUsed.add(icpResult.model);
-    totalCost += icpResult.cost;
-    progress(2, 'icpValidation', 'complete', `ICP validation: ${icpResult.data.finalVerdict.status}`);
+    progress(2, 'phase2', 'starting', 'Starting parallel ICP and Offer analysis...');
+
+    // Run ICP and Offer in parallel - both use industry context
+    const [icpResult, offerResult] = await Promise.all([
+      // Section 2: ICP Analysis (uses industry context)
+      (async () => {
+        checkAbort();
+        progress(2, 'icpValidation', 'starting', 'Analyzing ICP with reasoning...');
+        const start = Date.now();
+        const result = await researchICPAnalysis(context, industryResult.data);
+        sectionTimings.icpValidation = Date.now() - start;
+        sectionCitations.icpValidation = result.sources;
+        modelsUsed.add(result.model);
+        totalCost += result.cost;
+        progress(2, 'icpValidation', 'complete', `ICP validation: ${result.data.finalVerdict.status}`);
+        return result;
+      })(),
+
+      // Section 3: Offer Analysis (uses industry context, not ICP)
+      (async () => {
+        checkAbort();
+        progress(2, 'offerAnalysis', 'starting', 'Analyzing offer with reasoning...');
+        const start = Date.now();
+        const result = await researchOfferAnalysis(context, industryResult.data);
+        sectionTimings.offerAnalysis = Date.now() - start;
+        sectionCitations.offerAnalysis = result.sources;
+        modelsUsed.add(result.model);
+        totalCost += result.cost;
+        progress(2, 'offerAnalysis', 'complete', `Offer score: ${result.data.offerStrength.overallScore}/10`);
+        return result;
+      })(),
+    ]);
 
     checkAbort();
 
-    // Section 3: Offer Analysis (needs Section 2 context)
-    progress(2, 'offerAnalysis', 'starting', 'Analyzing offer with reasoning...');
-    const offerStart = Date.now();
-    const offerResult = await researchOfferAnalysis(context, icpResult.data);
-    sectionTimings.offerAnalysis = Date.now() - offerStart;
-    sectionCitations.offerAnalysis = offerResult.sources;
-    modelsUsed.add(offerResult.model);
-    totalCost += offerResult.cost;
-    progress(2, 'offerAnalysis', 'complete', `Offer score: ${offerResult.data.offerStrength.overallScore}/10`);
+    // Apply reconciliation rules to ensure consistency
+    progress(2, 'reconciliation', 'starting', 'Applying reconciliation rules...');
+    const reconciliation = reconcileICPAndOffer(icpResult.data, offerResult.data);
+    sectionTimings.reconciliation = reconciliation.reconciliationTimeMs;
+
+    // Use reconciled offer for rest of pipeline
+    const finalOfferData = reconciliation.adjustedOffer;
+
+    if (reconciliation.conflictsDetected > 0) {
+      progress(2, 'reconciliation', 'complete',
+        `Reconciliation applied ${reconciliation.conflictsDetected} adjustments`);
+    } else {
+      progress(2, 'reconciliation', 'complete', 'No conflicts detected');
+    }
 
     sectionTimings.phase2 = Date.now() - phase2Start;
-    progress(2, 'phase2', 'complete', `Phase 2 complete in ${Math.round(sectionTimings.phase2 / 1000)}s`);
+    // Emit Phase 2 complete with all sections for route to use with enriched data
+    onProgress?.({
+      phase: 2,
+      section: 'phase2',
+      status: 'complete',
+      message: `Phase 2 complete in ${Math.round(sectionTimings.phase2 / 1000)}s${
+        reconciliation.conflictsDetected > 0 ? ` (${reconciliation.conflictsDetected} reconciliations)` : ''
+      }`,
+      elapsedMs: Date.now() - startTime,
+      cost: totalCost,
+      allSectionsData: {
+        industryMarket: industryResult.data,
+        icpAnalysis: icpResult.data,
+        offerAnalysis: finalOfferData, // Use reconciled offer
+        competitorAnalysis: competitorResult.data,
+      },
+      reconciliationResult: reconciliation.conflictsDetected > 0 ? reconciliation : undefined,
+    });
 
     checkAbort();
 
@@ -208,7 +233,7 @@ export async function generateStrategicBlueprint(
     const allSections: AllSectionResults = {
       industryMarket: industryResult.data,
       icpAnalysis: icpResult.data,
-      offerAnalysis: offerResult.data,
+      offerAnalysis: finalOfferData, // Use reconciled offer
       competitorAnalysis: finalCompetitorData,
     };
 
@@ -228,17 +253,22 @@ export async function generateStrategicBlueprint(
     const blueprint: StrategicBlueprintOutput = {
       industryMarketOverview: industryResult.data,
       icpAnalysisValidation: icpResult.data,
-      offerAnalysisViability: offerResult.data,
+      offerAnalysisViability: finalOfferData, // Use reconciled offer
       competitorAnalysis: finalCompetitorData,
       crossAnalysisSynthesis: synthesisResult.data,
       metadata: {
         generatedAt: new Date().toISOString(),
-        version: '2.0', // Vercel AI SDK migration
+        version: '2.1', // Parallel Phase 2 with reconciliation
         processingTime: sectionTimings.total,
         totalCost: Math.round(totalCost * 10000) / 10000,
         modelsUsed: Array.from(modelsUsed),
         sectionTimings,
         sectionCitations,
+        // Reconciliation metadata (only included if there were adjustments)
+        ...(reconciliation.conflictsDetected > 0 && {
+          reconciliationNotes: reconciliation.reconciliationNotes,
+          reconciliationAdjustments: reconciliation.conflictsDetected,
+        }),
       },
     };
 

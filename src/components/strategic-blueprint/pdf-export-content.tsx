@@ -339,7 +339,7 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           <h1 style={styles.headerTitle}>Strategic Blueprint</h1>
           <div style={styles.headerMeta}>
             Generated: {new Date(metadata.generatedAt).toLocaleDateString()} |
-            Confidence: {metadata.overallConfidence}%
+            Confidence: {metadata.overallConfidence ?? 'N/A'}%
           </div>
         </div>
 

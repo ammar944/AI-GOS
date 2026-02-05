@@ -174,9 +174,9 @@ export class AdLibraryService {
   /**
    * Fetch ads from Meta Ad Library (Facebook/Instagram) with validation
    *
-   * FIX: Two-step approach to get ONLY ads from the specific advertiser:
-   * 1. First, search for the page using meta_ad_library_page_search to get page_id
-   * 2. Then, fetch ads using that page_id (guarantees ads are from that advertiser only)
+   * Two-step approach to get ONLY ads from the specific advertiser:
+   * 1. Search for pages using meta_ad_library_page_search to get page_ids (top 2)
+   * 2. Fetch ads from each page in parallel (catches regional/product-line pages)
    *
    * The 'q' parameter alone searches ALL ad content, returning unrelated ads.
    * Using page_id ensures we only get ads from the exact advertiser we want.
@@ -190,12 +190,12 @@ export class AdLibraryService {
     await this.enforceRateLimit('meta', context, rateLimitState);
 
     try {
-      // Step 1: Search for the advertiser's page to get their page_id
-      const pageId = await this.lookupMetaPageId(options.query, context);
+      // Step 1: Search for the advertiser's pages (returns top 2 matching pages)
+      const pageIds = await this.lookupMetaPageIds(options.query, context);
 
-      if (!pageId) {
+      if (pageIds.length === 0) {
         // No matching page found - this is not an error, company may not have a Meta page
-        console.log(`[AdLibrary:${context.requestId}] [META] No page found for "${options.query}"`);
+        console.log(`[AdLibrary:${context.requestId}] [META] No pages found for "${options.query}"`);
         return {
           platform: 'meta',
           success: true,
@@ -204,30 +204,40 @@ export class AdLibraryService {
         };
       }
 
-      console.log(`[AdLibrary:${context.requestId}] [META] Found page_id ${pageId} for "${options.query}"`);
+      console.log(`[AdLibrary:${context.requestId}] [META] Found ${pageIds.length} page(s) for "${options.query}": [${pageIds.join(', ')}]`);
 
-      // Step 2: Fetch ads using the page_id (guarantees ads are from this advertiser only)
-      const params = new URLSearchParams({
-        engine: 'meta_ad_library',
-        page_id: pageId,
-        country: options.country || DEFAULT_COUNTRY,
-        api_key: this.apiKey,
-      });
+      // Step 2: Fetch ads from each page in parallel
+      const pageAdResults = await Promise.all(
+        pageIds.map(async (pageId) => {
+          const params = new URLSearchParams({
+            engine: 'meta_ad_library',
+            page_id: pageId,
+            country: options.country || DEFAULT_COUNTRY,
+            api_key: this.apiKey,
+          });
 
-      const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
+          const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
 
-      if (data.error) {
-        const errorMsg = String(data.error);
-        logError(context, 'meta', errorMsg);
-        return this.errorResponse('meta', errorMsg);
-      }
+          if (data.error) {
+            console.warn(`[AdLibrary:${context.requestId}] [META] Error fetching page ${pageId}: ${data.error}`);
+            return [];
+          }
 
-      const totalCount = data.search_information?.total_results || data.ads?.length || 0;
-      const rawAds = data.ads || [];
+          return data.ads || [];
+        })
+      );
+
+      // Merge all raw ads from all pages
+      const allRawAds = pageAdResults.flat();
+      const totalCount = allRawAds.length;
       const limit = options.limit || DEFAULT_LIMIT;
 
+      console.log(
+        `[AdLibrary:${context.requestId}] [META] Merged ${totalCount} raw ads from ${pageIds.length} page(s)`
+      );
+
       // Normalize ads - these are guaranteed to be from the correct advertiser
-      const normalizedAds = rawAds
+      const normalizedAds = allRawAds
         .slice(0, limit)
         .map((ad: unknown) => this.normalizeAd('meta', ad));
 
@@ -267,14 +277,14 @@ export class AdLibraryService {
   }
 
   /**
-   * Look up Meta page_id for an advertiser name
-   * Uses meta_ad_library_page_search to find the official page
-   * Returns the best matching page_id or undefined if not found
+   * Look up Meta page_ids for an advertiser name
+   * Uses meta_ad_library_page_search to find official pages
+   * Returns top 2 matching page_ids sorted by composite score, or empty array if none found
    *
-   * FIX: API returns 'page_results' not 'pages'
-   * FIX: Prefer verified pages over unverified ones
+   * Multi-page discovery catches companies with regional or product-line pages
+   * (e.g., "Acme" and "Acme EMEA" both have ads)
    */
-  private async lookupMetaPageId(advertiserName: string, context: AdFetchContext): Promise<string | undefined> {
+  private async lookupMetaPageIds(advertiserName: string, context: AdFetchContext): Promise<string[]> {
     try {
       const params = new URLSearchParams({
         engine: 'meta_ad_library_page_search',
@@ -294,27 +304,26 @@ export class AdLibraryService {
 
       if (data.error) {
         console.warn(`[AdLibrary:${context.requestId}] [META] Page search error: ${data.error}`);
-        return undefined;
+        return [];
       }
 
       // API returns 'page_results' not 'pages'
       const pages = data.page_results || data.pages || [];
       if (pages.length === 0) {
         console.log(`[AdLibrary:${context.requestId}] [META] No pages found for "${advertiserName}"`);
-        return undefined;
+        return [];
       }
 
       console.log(`[AdLibrary:${context.requestId}] [META] Found ${pages.length} page candidates`);
 
-      // Find the best matching page using fuzzy matching
-      // Prefer: 1) Verified pages, 2) High similarity, 3) More followers/likes
-      let bestMatch: {
+      // Collect all pages above similarity threshold with their scores
+      const matches: Array<{
         pageId: string;
         pageName: string;
         similarity: number;
         isVerified: boolean;
         score: number;
-      } | undefined;
+      }> = [];
 
       for (const page of pages) {
         const pageName = (page as { name?: string; page_name?: string }).name ||
@@ -345,25 +354,30 @@ export class AdLibraryService {
 
         // Only consider pages with reasonable similarity
         if (similarity >= SIMILARITY_THRESHOLD) {
-          if (!bestMatch || score > bestMatch.score) {
-            bestMatch = { pageId, pageName, similarity, isVerified, score };
-          }
+          matches.push({ pageId, pageName, similarity, isVerified, score });
         }
       }
 
-      if (bestMatch) {
-        console.log(
-          `[AdLibrary:${context.requestId}] [META] Selected page: "${bestMatch.pageName}" ` +
-          `(id: ${bestMatch.pageId}) - verified: ${bestMatch.isVerified}, score: ${bestMatch.score.toFixed(1)}`
-        );
-        return bestMatch.pageId;
+      if (matches.length === 0) {
+        console.log(`[AdLibrary:${context.requestId}] [META] No pages matched similarity threshold for "${advertiserName}"`);
+        return [];
       }
 
-      console.log(`[AdLibrary:${context.requestId}] [META] No pages matched similarity threshold for "${advertiserName}"`);
-      return undefined;
+      // Sort by composite score (highest first) and take top 2
+      matches.sort((a, b) => b.score - a.score);
+      const topMatches = matches.slice(0, 2);
+
+      for (const match of topMatches) {
+        console.log(
+          `[AdLibrary:${context.requestId}] [META] Selected page: "${match.pageName}" ` +
+          `(id: ${match.pageId}) - verified: ${match.isVerified}, score: ${match.score.toFixed(1)}`
+        );
+      }
+
+      return topMatches.map(m => m.pageId);
     } catch (error) {
       console.warn(`[AdLibrary:${context.requestId}] [META] Page lookup failed:`, error);
-      return undefined;
+      return [];
     }
   }
 
@@ -490,13 +504,8 @@ export class AdLibraryService {
         );
       }
 
-      // Add format filter to exclude text-only ads (domain sponsor garbage)
-      // Default to 'image' if not specified - we only want ads with visual previews
-      const adFormat = options.googleAdFormat || 'image';
-      params.set('ad_format', adFormat);
-      console.log(
-        `[AdLibrary:${context.requestId}] [GOOGLE] Filtering by format: ${adFormat}`
-      );
+      // No ad_format filter — fetch both image and video ads.
+      // Text-only ads are caught by the visual filter downstream (hasVisual check at line 533+).
 
       // Add optional platform filter
       if (options.googlePlatform) {

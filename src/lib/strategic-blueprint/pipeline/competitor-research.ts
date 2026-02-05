@@ -646,7 +646,7 @@ async function fetchCompetitorAds(
       const response = await adService.fetchAllPlatforms({
         query: companyName,
         domain, // Pass domain for better Google Ads filtering and validation
-        limit: 10, // 10 ads per platform max
+        limit: 30, // 30 ads per platform - more candidates for quality filtering
         enableForeplayEnrichment: true, // Enrich with transcripts, hooks, emotional analysis
         includeForeplayAsSource: true, // Also fetch unique historical ads from Foreplay database
         foreplayDateRange: dateRange,

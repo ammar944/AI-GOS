@@ -384,7 +384,7 @@ export class ForeplayService {
     // Build params - only include date filters if provided
     const requestParams: Record<string, string | number | boolean | string[] | undefined> = {
       brand_ids: [params.brand_id], // API expects array format
-      limit: params.limit ?? 50,
+      limit: params.limit ?? 100,
       order: 'newest',
     };
 
@@ -410,7 +410,7 @@ export class ForeplayService {
       console.log('[Foreplay] No ads found with date filter, retrying without date constraints...');
       const retryParams = {
         brand_ids: [params.brand_id],
-        limit: params.limit ?? 50,
+        limit: params.limit ?? 100,
         order: 'newest',
       };
       response = await this.fetch<unknown>('/api/brand/getAdsByBrandId', {

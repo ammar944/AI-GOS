@@ -9,6 +9,7 @@ import {
   createBusinessContext,
   validateOnboardingData,
   enrichCompetitors,
+  extractAdHooksFromAds,
   type StrategicBlueprintOutput,
   type GenerationProgress,
   type EnrichmentResult,
@@ -46,23 +47,50 @@ const SECTION_LABELS: Record<BlueprintSection, string> = {
   crossAnalysisSynthesis: 'Cross-Analysis Synthesis',
 };
 
+// Map generator section names → frontend BlueprintSection keys
+const GENERATOR_TO_SECTION: Record<string, BlueprintSection> = {
+  industryMarket: 'industryMarketOverview',
+  industryMarketOverview: 'industryMarketOverview',
+  icpValidation: 'icpAnalysisValidation',
+  icpAnalysisValidation: 'icpAnalysisValidation',
+  offerAnalysis: 'offerAnalysisViability',
+  offerAnalysisViability: 'offerAnalysisViability',
+  competitorAnalysis: 'competitorAnalysis',
+  crossAnalysis: 'crossAnalysisSynthesis',
+  crossAnalysisSynthesis: 'crossAnalysisSynthesis',
+};
+
+const TOTAL_SECTIONS = 5;
+
 // =============================================================================
-// SSE Event Types
+// SSE Event Types (must match frontend generate/page.tsx definitions)
 // =============================================================================
 
-interface SSEProgressEvent {
-  type: 'progress';
-  phase: number;
-  section: string;
-  message: string;
-  elapsedTime: number;
-  estimatedCost: number;
+interface SSESectionStartEvent {
+  type: 'section-start';
+  section: BlueprintSection;
+  label: string;
 }
 
 interface SSESectionCompleteEvent {
   type: 'section-complete';
   section: BlueprintSection;
   label: string;
+  data: unknown;
+}
+
+interface SSEProgressEvent {
+  type: 'progress';
+  percentage: number;
+  message: string;
+}
+
+interface SSEMetadataEvent {
+  type: 'metadata';
+  elapsedTime: number;
+  estimatedCost: number;
+  completedSections: number;
+  totalSections: number;
 }
 
 interface SSEDoneEvent {
@@ -81,7 +109,13 @@ interface SSEErrorEvent {
   code?: string;
 }
 
-type SSEEvent = SSEProgressEvent | SSESectionCompleteEvent | SSEDoneEvent | SSEErrorEvent;
+type SSEEvent =
+  | SSESectionStartEvent
+  | SSESectionCompleteEvent
+  | SSEProgressEvent
+  | SSEMetadataEvent
+  | SSEDoneEvent
+  | SSEErrorEvent;
 
 function createSSEMessage(event: SSEEvent): string {
   return `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
@@ -130,68 +164,88 @@ export async function POST(request: NextRequest) {
       const encoder = new TextEncoder();
       let streamClosed = false;
       let enrichmentPromise: Promise<EnrichmentResult> | null = null;
-      let enrichmentCostEstimate = 0;
+      const completedSections = new Set<BlueprintSection>();
+
+      // Helper to send SSE and track completions
+      const emit = (event: SSEEvent) => {
+        if (streamClosed) return;
+        controller.enqueue(encoder.encode(createSSEMessage(event)));
+      };
+
+      // Declared here so emit can reference it
+      let controller: ReadableStreamDefaultController;
 
       const stream = new ReadableStream({
-        async start(controller) {
+        async start(ctrl) {
+          controller = ctrl;
           try {
-            // Progress callback for SSE updates - also triggers early enrichment
+            // Progress callback — translates generator events into frontend SSE events
             const onProgress = (progress: GenerationProgress) => {
               if (streamClosed) return;
 
-              const event: SSEProgressEvent = {
+              const mappedSection = GENERATOR_TO_SECTION[progress.section];
+
+              // Section starting → emit section-start
+              if (progress.status === 'starting' && mappedSection) {
+                emit({
+                  type: 'section-start',
+                  section: mappedSection,
+                  label: SECTION_LABELS[mappedSection],
+                });
+              }
+
+              // Always emit a progress event with percentage and message
+              const pct = Math.round((completedSections.size / TOTAL_SECTIONS) * 100);
+              emit({
                 type: 'progress',
-                phase: progress.phase,
-                section: progress.section,
+                percentage: pct,
                 message: progress.message,
-                elapsedTime: progress.elapsedMs,
-                estimatedCost: progress.cost,
-              };
-              controller.enqueue(encoder.encode(createSSEMessage(event)));
+              });
+
+              // Section complete → emit section-complete + metadata
+              if (progress.status === 'complete' && mappedSection) {
+                completedSections.add(mappedSection);
+                emit({
+                  type: 'section-complete',
+                  section: mappedSection,
+                  label: SECTION_LABELS[mappedSection],
+                  data: null, // Section data arrives in the final 'done' event
+                });
+                emit({
+                  type: 'metadata',
+                  elapsedTime: progress.elapsedMs,
+                  estimatedCost: progress.cost,
+                  completedSections: completedSections.size,
+                  totalSections: TOTAL_SECTIONS,
+                });
+              }
 
               // START ENRICHMENT EARLY: When Phase 1 completes, kick off enrichment
               // This runs PARALLEL to Phase 2/3, saving ~40-60 seconds
               if (progress.section === 'phase1' && progress.status === 'complete' && progress.competitorData) {
                 console.log('[Route] Phase 1 complete - starting enrichment in parallel with Phase 2/3');
-                const enrichStartEvent: SSEProgressEvent = {
+                emit({
                   type: 'progress',
-                  phase: 1,
-                  section: 'enrichment',
+                  percentage: pct,
                   message: 'Starting competitor enrichment (parallel)...',
-                  elapsedTime: progress.elapsedMs,
-                  estimatedCost: progress.cost,
-                };
-                controller.enqueue(encoder.encode(createSSEMessage(enrichStartEvent)));
+                });
 
                 // Start enrichment - don't await, let it run parallel
                 enrichmentPromise = enrichCompetitors(
                   progress.competitorData,
                   (msg) => {
-                    if (streamClosed) return;
-                    const enrichEvent: SSEProgressEvent = {
+                    emit({
                       type: 'progress',
-                      phase: 1, // Keep as phase 1 since it started there
-                      section: 'enrichment',
+                      percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
                       message: msg,
-                      elapsedTime: Date.now() - startTime,
-                      estimatedCost: enrichmentCostEstimate,
-                    };
-                    controller.enqueue(encoder.encode(createSSEMessage(enrichEvent)));
+                    });
                   }
                 );
               }
 
-              // Send section-complete when a section finishes
-              if (progress.status === 'complete' && progress.section !== 'phase1' && progress.section !== 'phase2' && progress.section !== 'error') {
-                const sectionKey = progress.section as BlueprintSection;
-                if (SECTION_LABELS[sectionKey]) {
-                  const completeEvent: SSESectionCompleteEvent = {
-                    type: 'section-complete',
-                    section: sectionKey,
-                    label: SECTION_LABELS[sectionKey],
-                  };
-                  controller.enqueue(encoder.encode(createSSEMessage(completeEvent)));
-                }
+              // Capture Phase 2 completion
+              if (progress.section === 'phase2' && progress.status === 'complete') {
+                console.log('[Route] Phase 2 complete');
               }
             };
 
@@ -199,13 +253,9 @@ export async function POST(request: NextRequest) {
             const result = await generateStrategicBlueprint(context, { onProgress });
 
             if (!result.success || !result.blueprint) {
-              const errorEvent: SSEErrorEvent = {
-                type: 'error',
-                message: result.error || 'Generation failed',
-              };
-              controller.enqueue(encoder.encode(createSSEMessage(errorEvent)));
+              emit({ type: 'error', message: result.error || 'Generation failed' });
               streamClosed = true;
-              controller.close();
+              ctrl.close();
               return;
             }
 
@@ -220,34 +270,67 @@ export async function POST(request: NextRequest) {
               enrichment = await enrichCompetitors(
                 result.blueprint.competitorAnalysis,
                 (msg) => {
-                  if (streamClosed) return;
-                  const event: SSEProgressEvent = {
+                  emit({
                     type: 'progress',
-                    phase: 3,
-                    section: 'enrichment',
+                    percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
                     message: msg,
-                    elapsedTime: Date.now() - startTime,
-                    estimatedCost: result.blueprint!.metadata.totalCost,
-                  };
-                  controller.enqueue(encoder.encode(createSSEMessage(event)));
+                  });
                 }
               );
             }
 
-            // Debug: Log enrichment result before merge
+            // Debug: Log enrichment result
             const totalEnrichedAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
             console.log(`[Route] Enrichment returned ${totalEnrichedAds} total ads across ${enrichment.competitors.length} competitors`);
 
-            // Merge enriched competitors into blueprint
+            // RE-RUN SYNTHESIS with enriched competitor data
+            let finalSynthesis = result.blueprint.crossAnalysisSynthesis;
+            let resynthesisCost = 0;
+
+            // LIGHTWEIGHT HOOK EXTRACTION (replaces full re-synthesis for ~80% cost/time reduction)
+            if (totalEnrichedAds > 0) {
+              console.log('[Route] Extracting hooks from competitor ads (lightweight)...');
+
+              emit({
+                type: 'progress',
+                percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                message: 'Extracting ad hooks from competitor creatives...',
+              });
+
+              try {
+                const extractionStart = Date.now();
+                const extractionResult = await extractAdHooksFromAds(
+                  enrichment.competitors,
+                  finalSynthesis.messagingFramework?.adHooks ?? []
+                );
+
+                // Update only adHooks field with extracted hooks
+                finalSynthesis = {
+                  ...finalSynthesis,
+                  messagingFramework: {
+                    ...finalSynthesis.messagingFramework!,
+                    adHooks: extractionResult.hooks,
+                  },
+                };
+                resynthesisCost = extractionResult.cost;
+
+                console.log(`[Route] Hook extraction complete in ${Date.now() - extractionStart}ms, cost: $${resynthesisCost.toFixed(4)}, extracted: ${extractionResult.extractedCount}, inspired: ${extractionResult.inspiredCount}`);
+              } catch (error) {
+                console.error('[Route] Hook extraction failed, using original hooks:', error);
+              }
+            }
+
+            // Build final blueprint with enriched competitors and (potentially) re-synthesized analysis
             const finalBlueprint: StrategicBlueprintOutput = {
               ...result.blueprint,
               competitorAnalysis: {
                 ...result.blueprint.competitorAnalysis,
                 competitors: enrichment.competitors as any,
               },
+              crossAnalysisSynthesis: finalSynthesis,
               metadata: {
                 ...result.blueprint.metadata,
-                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost,
+                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + resynthesisCost,
                 processingTime: Date.now() - startTime,
               },
             };
@@ -259,7 +342,7 @@ export async function POST(request: NextRequest) {
             console.log(`[Route] Final blueprint contains ${finalBlueprintAds} total ads`);
 
             // Send done event
-            const doneEvent: SSEDoneEvent = {
+            emit({
               type: 'done',
               success: true,
               strategicBlueprint: finalBlueprint,
@@ -267,8 +350,7 @@ export async function POST(request: NextRequest) {
                 totalTime: finalBlueprint.metadata.processingTime,
                 totalCost: finalBlueprint.metadata.totalCost,
               },
-            };
-            controller.enqueue(encoder.encode(createSSEMessage(doneEvent)));
+            });
 
             logInfo(
               {
@@ -280,20 +362,17 @@ export async function POST(request: NextRequest) {
             );
 
             streamClosed = true;
-            controller.close();
+            ctrl.close();
           } catch (error) {
             streamClosed = true;
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            // Direct console output for debugging
             console.error('\n[BLUEPRINT_GENERATION_ERROR]', errorMessage);
             console.error('[FULL_ERROR]', error);
-            const errorEvent: SSEErrorEvent = {
-              type: 'error',
-              message: errorMessage,
-            };
-            controller.enqueue(encoder.encode(createSSEMessage(errorEvent)));
+            try {
+              ctrl.enqueue(encoder.encode(createSSEMessage({ type: 'error', message: errorMessage })));
+            } catch { /* stream may already be closed */ }
             logError({ ...logContext, errorCode: ErrorCode.INTERNAL_ERROR }, error instanceof Error ? error : errorMessage);
-            controller.close();
+            ctrl.close();
           }
         },
         cancel() {

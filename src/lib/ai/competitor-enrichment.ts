@@ -155,7 +155,7 @@ export async function enrichCompetitors(
             const adResponse = await adLibraryService.fetchAllPlatforms({
               query: competitor.name,
               domain: competitor.website,  // Pass website for domain validation
-              limit: 20,  // Increase limit to have more candidates before filtering
+              limit: 30,  // More candidates before quality filtering (minRelevanceScore: 70 protects quality)
               minRelevanceScore: 70,      // Raised from 60 for stricter filtering
               excludeCategories: ['unclear', 'lead_magnet'],  // Also exclude lead magnets/partnership ads
               includeSubsidiaries: false,  // Don't include subsidiary brand ads

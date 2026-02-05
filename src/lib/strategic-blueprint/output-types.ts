@@ -464,9 +464,15 @@ export interface StrategicBlueprintMetadata {
   /** Models used */
   modelsUsed: string[];
   /** Overall confidence score (0-100) */
-  overallConfidence: number;
+  overallConfidence?: number;
+  /** Per-section timing data in ms */
+  sectionTimings?: Record<string, number>;
   /** Citations collected during research (keyed by section) */
-  sectionCitations?: Record<string, Citation[]>;
+  sectionCitations?: Record<string, Citation[] | { url: string; title?: string }[]>;
+  /** Reconciliation notes from parallel Phase 2 execution (if any conflicts detected) */
+  reconciliationNotes?: string[];
+  /** Number of reconciliation adjustments made */
+  reconciliationAdjustments?: number;
 }
 
 // =============================================================================
