@@ -7,6 +7,7 @@ import type {
   CompetitorAnalysis,
   CrossAnalysisSynthesis,
 } from './schemas';
+import type { ReconciliationResult } from './reconciliation';
 
 // =============================================================================
 // Research Result Types
@@ -66,6 +67,10 @@ export interface GenerationProgress {
   cost: number;
   /** Competitor data available after Phase 1 for early enrichment */
   competitorData?: CompetitorAnalysis;
+  /** All sections data available after Phase 2 for synthesis with enriched data */
+  allSectionsData?: AllSectionResults;
+  /** Reconciliation result if conflicts were detected in Phase 2 */
+  reconciliationResult?: ReconciliationResult;
 }
 
 export type ProgressCallback = (progress: GenerationProgress) => void;

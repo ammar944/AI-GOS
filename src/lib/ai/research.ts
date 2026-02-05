@@ -162,22 +162,23 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 // =============================================================================
 // Section 3: Offer Analysis & Viability
 // Model: Sonar Pro (research + structured JSON output)
+// Note: Uses industry context (not ICP) to enable parallel Phase 2 execution
 // =============================================================================
 
 export async function researchOfferAnalysis(
   context: string,
-  icpContext: ICPAnalysisResult['data']
+  industryContext: IndustryMarketResult['data']
 ): Promise<OfferAnalysisResult> {
   const model = SECTION_MODELS.offerAnalysis;
 
-  // Build context from Section 2
+  // Build context from Section 1 (market context for parallel execution)
   const previousContext = `
-ICP CONTEXT (from previous analysis):
-- Validation Status: ${icpContext.finalVerdict.status}
-- Pain-Solution Fit: ${icpContext.painSolutionFit.fitAssessment}
-- Primary Pain: ${icpContext.painSolutionFit.primaryPain}
-- Reachability Risk: ${icpContext.riskAssessment.reachability}
-- Budget Risk: ${icpContext.riskAssessment.budget}
+MARKET CONTEXT (from industry research):
+- Category: ${industryContext.categorySnapshot.category}
+- Market Maturity: ${industryContext.categorySnapshot.marketMaturity}
+- Buying Behavior: ${industryContext.categorySnapshot.buyingBehavior}
+- Awareness Level: ${industryContext.categorySnapshot.awarenessLevel}
+- Top Pain Points: ${industryContext.painPoints.primary.slice(0, 4).join('; ')}
 `;
 
   try {
