@@ -30,3 +30,9 @@ export {
   crossAnalysisSchema,
   type CrossAnalysisSynthesis,
 } from './cross-analysis';
+
+// Hook Extraction (lightweight re-synthesis optimization)
+export {
+  hookExtractionResultSchema,
+  type HookExtractionResult,
+} from './ad-hook-extraction';

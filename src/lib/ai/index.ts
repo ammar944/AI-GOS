@@ -30,6 +30,19 @@ export {
   type EnrichmentResult,
 } from './competitor-enrichment';
 
+// Reconciliation (Phase 2 parallel execution)
+export {
+  reconcileICPAndOffer,
+  type ReconciliationResult,
+  type ReconciliationAdjustment,
+} from './reconciliation';
+
+// Hook Extraction (lightweight re-synthesis optimization)
+export {
+  extractAdHooksFromAds,
+  type ExtractAdHooksResult,
+} from './hook-extraction';
+
 // Types
 export type {
   ResearchSource,
