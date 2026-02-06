@@ -23,7 +23,7 @@ import { createRoot } from "react-dom/client";
 import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
 import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import { BlueprintDocument } from "@/components/strategic-research";
-import { ChatSidebar } from "@/components/chat";
+import { AgentChat } from "@/components/chat";
 import { SplitChatLayout } from "@/components/layout";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { GradientBorder } from "@/components/ui/gradient-border";
@@ -868,7 +868,7 @@ export default function GeneratePage() {
         <div className="flex-1 min-h-0">
           <SplitChatLayout
             chatContent={
-              <ChatSidebar
+              <AgentChat
                 blueprint={strategicBlueprint as unknown as Record<string, unknown>}
                 onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
               />

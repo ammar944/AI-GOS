@@ -57,6 +57,17 @@ function safeRender(value: unknown): string {
 function safeArray(value: unknown): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value.map(safeRender);
+  // Handle JSON string arrays (e.g. from chat edit tool)
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(safeRender);
+      } catch { /* not valid JSON, fall through */ }
+    }
+    return [value];
+  }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
     for (const key of ["items", "values", "list"]) {
