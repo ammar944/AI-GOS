@@ -5,19 +5,36 @@ import { motion } from "framer-motion";
 import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
-import type { MarketCompetitionData } from "@/lib/onboarding/types";
+import type { MarketCompetitionData, OnboardingFormData } from "@/lib/onboarding/types";
+import { useStepSuggestion } from "@/hooks/use-step-suggestion";
+import { AISuggestButton } from "./ai-suggest-button";
+import { FieldSuggestion } from "./field-suggestion";
 
 interface StepMarketCompetitionProps {
   initialData?: Partial<MarketCompetitionData>;
   onSubmit: (data: MarketCompetitionData) => void;
   onBack?: () => void;
+  wizardFormData?: Partial<OnboardingFormData>;
 }
 
 export function StepMarketCompetition({
   initialData,
   onSubmit,
   onBack,
+  wizardFormData,
 }: StepMarketCompetitionProps) {
+  const { suggestions, submit: submitSuggestion, isLoading: isSuggesting, stop, fieldsFound } = useStepSuggestion('marketCompetition');
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  function hasSuggestion(fieldKey: string): boolean {
+    if (dismissed.has(fieldKey)) return false;
+    const field = suggestions?.[fieldKey];
+    return field?.value != null && field.value !== '';
+  }
+  function getSuggestion(fieldKey: string) {
+    return suggestions?.[fieldKey];
+  }
+
   const [formData, setFormData] = useState<MarketCompetitionData>({
     topCompetitors: initialData?.topCompetitors || "",
     uniqueEdge: initialData?.uniqueEdge || "",
@@ -80,12 +97,20 @@ export function StepMarketCompetition({
         initial="initial"
         animate="animate"
       >
-        <h2
-          className="text-[24px] font-bold tracking-tight"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Market & Competition
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-[24px] font-bold tracking-tight"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Market & Competition
+          </h2>
+          <AISuggestButton
+            onClick={() => wizardFormData && submitSuggestion(wizardFormData)}
+            isLoading={isSuggesting}
+            fieldsFound={fieldsFound}
+            disabled={!wizardFormData?.businessBasics?.businessName}
+          />
+        </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Tell us about your market landscape and competitors
         </p>
@@ -111,6 +136,18 @@ export function StepMarketCompetition({
               {errors.topCompetitors}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('topCompetitors')?.value ?? ''}
+            reasoning={getSuggestion('topCompetitors')?.reasoning ?? ''}
+            confidence={getSuggestion('topCompetitors')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('topCompetitors')?.value;
+              if (val) updateField('topCompetitors', val);
+              setDismissed(prev => new Set(prev).add('topCompetitors'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('topCompetitors'))}
+            isVisible={hasSuggestion('topCompetitors')}
+          />
         </motion.div>
 
         {/* Unique Edge */}
@@ -127,6 +164,18 @@ export function StepMarketCompetition({
               {errors.uniqueEdge}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('uniqueEdge')?.value ?? ''}
+            reasoning={getSuggestion('uniqueEdge')?.reasoning ?? ''}
+            confidence={getSuggestion('uniqueEdge')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('uniqueEdge')?.value;
+              if (val) updateField('uniqueEdge', val);
+              setDismissed(prev => new Set(prev).add('uniqueEdge'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('uniqueEdge'))}
+            isVisible={hasSuggestion('uniqueEdge')}
+          />
         </motion.div>
 
         {/* Competitor Frustrations */}
@@ -155,6 +204,18 @@ export function StepMarketCompetition({
               {errors.marketBottlenecks}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('marketBottlenecks')?.value ?? ''}
+            reasoning={getSuggestion('marketBottlenecks')?.reasoning ?? ''}
+            confidence={getSuggestion('marketBottlenecks')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('marketBottlenecks')?.value;
+              if (val) updateField('marketBottlenecks', val);
+              setDismissed(prev => new Set(prev).add('marketBottlenecks'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('marketBottlenecks'))}
+            isVisible={hasSuggestion('marketBottlenecks')}
+          />
         </motion.div>
 
         {/* Proprietary Tech */}

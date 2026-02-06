@@ -1,12 +1,13 @@
 // Company Intelligence Research Service
-// Uses Perplexity via OpenRouter to research companies for onboarding auto-fill
+// Uses Perplexity via Vercel AI SDK generateObject for structured company extraction
 
-import { createOpenRouterClient, MODELS, extractCitations } from '@/lib/openrouter/client';
+import { generateObject } from 'ai';
+import { perplexity, MODELS } from '@/lib/ai/providers';
+import { companyResearchSchema, type CompanyResearchOutput, type ResearchedField } from './schemas';
 import type {
   PrefillOnboardingInput,
   PrefillOnboardingResponse,
   CompanyResearchResult,
-  RawCompanyExtraction,
   FieldExtraction,
   ConfidenceLevel,
   DataSource,
@@ -14,8 +15,9 @@ import type {
 import type { OnboardingFormData, CompanySize } from '@/lib/onboarding/types';
 
 /**
- * Research prompt for Perplexity
- * Designed to extract factual, verifiable information only
+ * Research prompt for Perplexity structured extraction.
+ * The schema .describe() hints reinforce factual-only behaviour;
+ * this prompt provides the research target context.
  */
 function buildResearchPrompt(input: PrefillOnboardingInput): string {
   const { websiteUrl, linkedinUrl, companyName } = input;
@@ -32,117 +34,97 @@ Research this company thoroughly and extract ONLY verifiable facts. Visit the we
 
 CRITICAL RULES:
 1. ONLY include information you can VERIFY from actual sources
-2. If you cannot find something, return null for that field
-3. DO NOT guess, infer, or make up ANY information
-4. DO NOT use generic descriptions - be specific to this company
-5. For competitor information, only include if explicitly mentioned or clearly identifiable
-6. Include direct quotes for testimonials when available
-7. Note URLs for case studies, testimonials, pricing, and demo pages if you find them
-
-EXTRACT THIS INFORMATION (return null if not found):
-
-{
-  "company_name": "Official company name",
-  "industry": "Primary industry/vertical they operate in",
-  "description": "What the company does - from their own description",
-  "target_customers": "Who they sell to (industries, company types)",
-  "target_job_titles": "Job titles they target (if mentioned)",
-  "company_size": "Employee count or range (e.g., '50-100' or '500+')",
-  "headquarters_location": "City, State/Country",
-  "product_description": "What their product/service does",
-  "core_features": "Main features or deliverables they highlight",
-  "value_proposition": "Their main value prop or tagline",
-  "pricing": "Pricing information if publicly available",
-  "competitors": "Named competitors (only if mentioned or obvious)",
-  "unique_differentiator": "What makes them different (their words)",
-  "market_problem": "The problem they solve (their words)",
-  "customer_transformation": "The outcome/result they promise",
-  "common_objections": "Any objections they address on site",
-  "brand_positioning": "How they position themselves",
-  "testimonial_quote": "A real customer quote if found",
-  "case_studies_url": "URL to case studies page if exists",
-  "testimonials_url": "URL to testimonials/reviews page if exists",
-  "pricing_url": "URL to pricing page if exists",
-  "demo_url": "URL to demo/trial page if exists",
-  "confidence_notes": "Brief notes on what you found vs couldn't verify"
-}
-
-Respond with ONLY the JSON object, no other text.`;
+2. If you cannot find something, the value MUST be null
+3. DO NOT guess, infer, or make up ANY information — null is always better than a guess
+4. DO NOT use generic descriptions — be specific to this company
+5. Every non-null field MUST have a real sourceUrl pointing to the page where you found it
+6. Use the company's own words whenever possible, not your paraphrasing
+7. Confidence scores must honestly reflect certainty — do not inflate scores
+8. For competitor information, only include if explicitly mentioned or clearly identifiable
+9. Include direct quotes for testimonials when available`;
 }
 
 /**
- * Clean citation markers from Perplexity responses
- * e.g., "All-in-one workspace[2]" -> "All-in-one workspace"
+ * Map a single ResearchedField to a FieldExtraction, using the model-assessed
+ * confidence score and deriving the DataSource from the sourceUrl.
  */
-function cleanCitationMarkers(text: string): string {
-  return text.replace(/\[\d+\]/g, '').trim();
-}
-
-/**
- * Map raw extraction to structured CompanyResearchResult
- */
-function mapToResearchResult(
-  raw: RawCompanyExtraction,
+function mapField(
+  field: ResearchedField,
   websiteUrl: string,
-  linkedinUrl?: string
-): CompanyResearchResult {
-  const createField = <T>(
-    value: T | null,
-    source: DataSource = 'website'
-  ): FieldExtraction<T> | null => {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
+): FieldExtraction<string> | null {
+  if (field.value === null || field.value === '') {
+    return null;
+  }
 
-    // Clean citation markers if it's a string
-    let cleanedValue: T = value;
-    if (typeof value === 'string') {
-      const cleaned = cleanCitationMarkers(value);
-      if (cleaned === '') return null;
-      cleanedValue = cleaned as unknown as T;
-    }
+  // Map 0-100 numeric confidence to categorical level
+  let confidence: ConfidenceLevel;
+  if (field.confidence >= 90) {
+    confidence = 'high';
+  } else if (field.confidence >= 50) {
+    confidence = 'medium';
+  } else {
+    confidence = 'low';
+  }
 
-    // Determine confidence based on content characteristics
-    let confidence: ConfidenceLevel = 'medium';
-    if (typeof cleanedValue === 'string') {
-      // High confidence for specific, detailed content
-      if (cleanedValue.length > 50 || cleanedValue.includes('"') || cleanedValue.includes('$')) {
-        confidence = 'high';
+  // Derive DataSource from sourceUrl
+  let source: DataSource = 'search';
+  if (field.sourceUrl) {
+    if (field.sourceUrl.includes('linkedin.com')) {
+      source = 'linkedin';
+    } else {
+      try {
+        const sourceHost = new URL(field.sourceUrl).hostname;
+        const companyHost = new URL(websiteUrl).hostname;
+        if (sourceHost === companyHost) {
+          source = 'website';
+        }
+      } catch {
+        // If URL parsing fails, keep 'search'
       }
-      // Low confidence for vague content
-      if (cleanedValue.toLowerCase().includes('likely') || cleanedValue.toLowerCase().includes('probably')) {
-        confidence = 'low';
-      }
     }
-    return { value: cleanedValue, confidence, source };
-  };
-
-  // Determine primary source
-  const source: DataSource = linkedinUrl ? 'multiple' : 'website';
+  }
 
   return {
-    businessName: createField(raw.company_name, source),
-    websiteUrl: createField(websiteUrl, 'website'),
-    industryVertical: createField(raw.industry, source),
-    primaryIcpDescription: createField(raw.target_customers, source),
-    jobTitles: createField(raw.target_job_titles, source),
-    companySize: createField(raw.company_size, linkedinUrl ? 'linkedin' : 'search'),
-    geography: createField(raw.headquarters_location, source),
-    productDescription: createField(raw.product_description, 'website'),
-    coreDeliverables: createField(raw.core_features, 'website'),
-    valueProp: createField(raw.value_proposition, 'website'),
-    pricingInfo: createField(raw.pricing, 'website'),
-    topCompetitors: createField(raw.competitors, 'search'),
-    uniqueEdge: createField(raw.unique_differentiator, 'website'),
-    marketBottlenecks: createField(raw.market_problem, 'website'),
-    desiredTransformation: createField(raw.customer_transformation, 'website'),
-    commonObjections: createField(raw.common_objections, 'website'),
-    brandPositioning: createField(raw.brand_positioning, 'website'),
-    customerVoice: createField(raw.testimonial_quote, 'website'),
-    detectedCaseStudiesUrl: createField(raw.case_studies_url, 'website'),
-    detectedTestimonialsUrl: createField(raw.testimonials_url, 'website'),
-    detectedPricingUrl: createField(raw.pricing_url, 'website'),
-    detectedDemoUrl: createField(raw.demo_url, 'website'),
+    value: field.value,
+    confidence,
+    source,
+    sourceUrl: field.sourceUrl ?? undefined,
+    reasoning: field.reasoning,
+  };
+}
+
+/**
+ * Map structured CompanyResearchOutput to CompanyResearchResult
+ */
+function mapToResearchResult(
+  output: CompanyResearchOutput,
+  websiteUrl: string,
+): CompanyResearchResult {
+  const m = (field: ResearchedField) => mapField(field, websiteUrl);
+
+  return {
+    businessName: m(output.companyName),
+    websiteUrl: { value: websiteUrl, confidence: 'high', source: 'website' },
+    industryVertical: m(output.industry),
+    primaryIcpDescription: m(output.targetCustomers),
+    jobTitles: m(output.targetJobTitles),
+    companySize: m(output.companySize),
+    geography: m(output.headquartersLocation),
+    productDescription: m(output.productDescription),
+    coreDeliverables: m(output.coreFeatures),
+    valueProp: m(output.valueProposition),
+    pricingInfo: m(output.pricing),
+    topCompetitors: m(output.competitors),
+    uniqueEdge: m(output.uniqueDifferentiator),
+    marketBottlenecks: m(output.marketProblem),
+    desiredTransformation: m(output.customerTransformation),
+    commonObjections: m(output.commonObjections),
+    brandPositioning: m(output.brandPositioning),
+    customerVoice: m(output.testimonialQuote),
+    detectedCaseStudiesUrl: m(output.caseStudiesUrl),
+    detectedTestimonialsUrl: m(output.testimonialsUrl),
+    detectedPricingUrl: m(output.pricingUrl),
+    detectedDemoUrl: m(output.demoUrl),
   };
 }
 
@@ -276,95 +258,28 @@ function countFields(result: CompanyResearchResult): { found: number; missing: n
 }
 
 /**
- * Main research function - uses Perplexity to research a company
+ * Main research function - uses Perplexity via Vercel AI SDK generateObject
  */
 export async function researchCompanyForOnboarding(
   input: PrefillOnboardingInput
 ): Promise<PrefillOnboardingResponse> {
-  const client = createOpenRouterClient();
-
   console.log('[CompanyIntel] Starting research for:', input.websiteUrl);
 
-  // Use Perplexity Sonar for web research with citations
-  const response = await client.chat({
-    model: MODELS.PERPLEXITY_SONAR,
-    messages: [
-      {
-        role: 'user',
-        content: buildResearchPrompt(input),
-      },
-    ],
-    temperature: 0.1, // Low temp for factual extraction
-    maxTokens: 2000,
-    timeout: 60000, // 60s timeout for research
+  const { object: output, usage } = await generateObject({
+    model: perplexity(MODELS.SONAR_PRO),
+    schema: companyResearchSchema,
+    prompt: buildResearchPrompt(input),
+    temperature: 0.1,
+    maxOutputTokens: 4000,
   });
 
-  console.log('[CompanyIntel] Perplexity response received, parsing...');
-
-  // Extract citations from Perplexity response
-  const citations = extractCitations(response);
-
-  // Parse the JSON response
-  let rawExtraction: RawCompanyExtraction;
-  try {
-    // Clean the response - remove markdown code blocks if present
-    let content = response.content.trim();
-    if (content.startsWith('```')) {
-      content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-    }
-    rawExtraction = JSON.parse(content);
-  } catch (error) {
-    console.error('[CompanyIntel] Failed to parse response:', error);
-    console.error('[CompanyIntel] Raw response:', response.content);
-
-    // Return empty result on parse failure
-    return {
-      extracted: {
-        businessName: null,
-        websiteUrl: { value: input.websiteUrl, confidence: 'high', source: 'website' },
-        industryVertical: null,
-        primaryIcpDescription: null,
-        jobTitles: null,
-        companySize: null,
-        geography: null,
-        productDescription: null,
-        coreDeliverables: null,
-        valueProp: null,
-        pricingInfo: null,
-        topCompetitors: null,
-        uniqueEdge: null,
-        marketBottlenecks: null,
-        desiredTransformation: null,
-        commonObjections: null,
-        brandPositioning: null,
-        customerVoice: null,
-        detectedCaseStudiesUrl: null,
-        detectedTestimonialsUrl: null,
-        detectedPricingUrl: null,
-        detectedDemoUrl: null,
-      },
-      prefilled: {
-        businessBasics: {
-          businessName: '',
-          websiteUrl: input.websiteUrl,
-        },
-      },
-      citations: citations.map(c => ({
-        url: c.url,
-        title: c.title,
-        snippet: c.snippet,
-      })),
-      summary: {
-        fieldsFound: 1,
-        fieldsMissing: 20,
-        primarySource: 'website',
-      },
-      warnings: ['Failed to parse research response. Please fill in fields manually.'],
-    };
-  }
+  console.log('[CompanyIntel] Perplexity response received', {
+    inputTokens: usage?.inputTokens,
+    outputTokens: usage?.outputTokens,
+  });
 
   // Map to structured result
-  const extracted = mapToResearchResult(rawExtraction, input.websiteUrl, input.linkedinUrl);
+  const extracted = mapToResearchResult(output, input.websiteUrl);
   const prefilled = mapToOnboardingData(extracted);
   const { found, missing } = countFields(extracted);
 
@@ -372,21 +287,30 @@ export async function researchCompanyForOnboarding(
 
   // Build warnings
   const warnings: string[] = [];
-  if (rawExtraction.confidence_notes) {
-    warnings.push(rawExtraction.confidence_notes);
+  if (output.confidenceNotes) {
+    warnings.push(output.confidenceNotes);
   }
   if (found < 5) {
     warnings.push('Limited information found. The website may have minimal public content.');
   }
 
+  // Collect source URLs from all non-null fields as citations
+  const citations: Array<{ url: string; title?: string; snippet?: string }> = [];
+  const seenUrls = new Set<string>();
+
+  for (const field of Object.values(output)) {
+    if (typeof field === 'object' && field !== null && 'sourceUrl' in field && field.sourceUrl) {
+      if (!seenUrls.has(field.sourceUrl)) {
+        seenUrls.add(field.sourceUrl);
+        citations.push({ url: field.sourceUrl });
+      }
+    }
+  }
+
   return {
     extracted,
     prefilled,
-    citations: citations.map(c => ({
-      url: c.url,
-      title: c.title,
-      snippet: c.snippet,
-    })),
+    citations,
     summary: {
       fieldsFound: found,
       fieldsMissing: missing,

@@ -17,22 +17,28 @@ import type {
   ProductOfferData,
   PricingModel,
   FunnelType,
+  OnboardingFormData,
 } from "@/lib/onboarding/types";
 import {
   PRICING_MODEL_OPTIONS,
   FUNNEL_TYPE_OPTIONS,
 } from "@/lib/onboarding/types";
+import { useStepSuggestion } from "@/hooks/use-step-suggestion";
+import { AISuggestButton } from "./ai-suggest-button";
+import { FieldSuggestion } from "./field-suggestion";
 
 interface StepProductOfferProps {
   initialData?: Partial<ProductOfferData>;
   onSubmit: (data: ProductOfferData) => void;
   onBack?: () => void;
+  wizardFormData?: Partial<OnboardingFormData>;
 }
 
 export function StepProductOffer({
   initialData,
   onSubmit,
   onBack,
+  wizardFormData,
 }: StepProductOfferProps) {
   const [formData, setFormData] = useState<ProductOfferData>({
     productDescription: initialData?.productDescription || "",
@@ -47,6 +53,18 @@ export function StepProductOffer({
     initialData?.offerPrice?.toString() || ""
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { suggestions, submit: submitSuggestion, isLoading: isSuggesting, stop, fieldsFound } = useStepSuggestion('productOffer');
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  function hasSuggestion(fieldKey: string): boolean {
+    if (dismissed.has(fieldKey)) return false;
+    const field = suggestions?.[fieldKey];
+    return field?.value != null && field.value !== '';
+  }
+
+  function getSuggestion(fieldKey: string) {
+    return suggestions?.[fieldKey];
+  }
 
   function updateField<K extends keyof ProductOfferData>(
     field: K,
@@ -105,12 +123,24 @@ export function StepProductOffer({
         initial="initial"
         animate="animate"
       >
-        <h2
-          className="text-[24px] font-bold tracking-tight"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Product & Offer
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-[24px] font-bold tracking-tight"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Product & Offer
+          </h2>
+          <AISuggestButton
+            onClick={() => {
+              if (!wizardFormData) return;
+              setDismissed(new Set());
+              submitSuggestion(wizardFormData);
+            }}
+            isLoading={isSuggesting}
+            fieldsFound={fieldsFound}
+            disabled={!wizardFormData?.businessBasics?.businessName || !wizardFormData?.icp?.primaryIcpDescription}
+          />
+        </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Tell us about what you sell and the value you provide
         </p>
@@ -136,6 +166,18 @@ export function StepProductOffer({
               {errors.productDescription}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('productDescription')?.value ?? ''}
+            reasoning={getSuggestion('productDescription')?.reasoning ?? ''}
+            confidence={getSuggestion('productDescription')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('productDescription')?.value;
+              if (val) updateField('productDescription', val);
+              setDismissed(prev => new Set(prev).add('productDescription'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('productDescription'))}
+            isVisible={hasSuggestion('productDescription')}
+          />
         </motion.div>
 
         {/* Core Deliverables */}
@@ -152,6 +194,18 @@ export function StepProductOffer({
               {errors.coreDeliverables}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('coreDeliverables')?.value ?? ''}
+            reasoning={getSuggestion('coreDeliverables')?.reasoning ?? ''}
+            confidence={getSuggestion('coreDeliverables')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('coreDeliverables')?.value;
+              if (val) updateField('coreDeliverables', val);
+              setDismissed(prev => new Set(prev).add('coreDeliverables'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('coreDeliverables'))}
+            isVisible={hasSuggestion('coreDeliverables')}
+          />
         </motion.div>
 
         {/* Price & Pricing Model Row */}
@@ -239,6 +293,18 @@ export function StepProductOffer({
               {errors.valueProp}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('valueProp')?.value ?? ''}
+            reasoning={getSuggestion('valueProp')?.reasoning ?? ''}
+            confidence={getSuggestion('valueProp')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('valueProp')?.value;
+              if (val) updateField('valueProp', val);
+              setDismissed(prev => new Set(prev).add('valueProp'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('valueProp'))}
+            isVisible={hasSuggestion('valueProp')}
+          />
         </motion.div>
 
         {/* Current Funnel Type */}

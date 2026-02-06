@@ -25,6 +25,8 @@ export interface FieldExtraction<T = string> {
   source: DataSource;
   /** Specific URL or source reference */
   sourceUrl?: string;
+  /** Why the model extracted this value or why it is null */
+  reasoning?: string;
 }
 
 /**
@@ -107,31 +109,3 @@ export interface PrefillOnboardingInput {
   companyName?: string;
 }
 
-/**
- * Raw extraction schema for AI - matches what we ask Perplexity to return
- */
-export interface RawCompanyExtraction {
-  company_name: string | null;
-  industry: string | null;
-  description: string | null;
-  target_customers: string | null;
-  target_job_titles: string | null;
-  company_size: string | null;
-  headquarters_location: string | null;
-  product_description: string | null;
-  core_features: string | null;
-  value_proposition: string | null;
-  pricing: string | null;
-  competitors: string | null;
-  unique_differentiator: string | null;
-  market_problem: string | null;
-  customer_transformation: string | null;
-  common_objections: string | null;
-  brand_positioning: string | null;
-  testimonial_quote: string | null;
-  case_studies_url: string | null;
-  testimonials_url: string | null;
-  pricing_url: string | null;
-  demo_url: string | null;
-  confidence_notes: string;
-}

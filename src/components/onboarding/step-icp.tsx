@@ -14,19 +14,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
-import type { ICPData, CompanySize, ClientSource } from "@/lib/onboarding/types";
+import type { ICPData, CompanySize, ClientSource, OnboardingFormData } from "@/lib/onboarding/types";
 import {
   COMPANY_SIZE_OPTIONS,
   CLIENT_SOURCE_OPTIONS,
 } from "@/lib/onboarding/types";
+import { useStepSuggestion } from "@/hooks/use-step-suggestion";
+import { AISuggestButton } from "./ai-suggest-button";
+import { FieldSuggestion } from "./field-suggestion";
 
 interface StepICPProps {
   initialData?: Partial<ICPData>;
   onSubmit: (data: ICPData) => void;
   onBack?: () => void;
+  wizardFormData?: Partial<OnboardingFormData>;
 }
 
-export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
+export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepICPProps) {
   const [formData, setFormData] = useState<ICPData>({
     primaryIcpDescription: initialData?.primaryIcpDescription || "",
     industryVertical: initialData?.industryVertical || "",
@@ -40,6 +44,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
     systemsPlatforms: initialData?.systemsPlatforms || "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { suggestions, submit: submitSuggestion, isLoading: isSuggesting, stop, fieldsFound } = useStepSuggestion('icp');
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  function hasSuggestion(fieldKey: string): boolean {
+    if (dismissed.has(fieldKey)) return false;
+    const field = suggestions?.[fieldKey];
+    return field?.value != null && field.value !== '';
+  }
+
+  function getSuggestion(fieldKey: string) {
+    return suggestions?.[fieldKey];
+  }
 
   function updateField<K extends keyof ICPData>(field: K, value: ICPData[K]) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -118,12 +134,24 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
         initial="initial"
         animate="animate"
       >
-        <h2
-          className="text-[24px] font-bold tracking-tight"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Ideal Customer Profile
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-[24px] font-bold tracking-tight"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Ideal Customer Profile
+          </h2>
+          <AISuggestButton
+            onClick={() => {
+              if (!wizardFormData) return;
+              setDismissed(new Set());
+              submitSuggestion(wizardFormData);
+            }}
+            isLoading={isSuggesting}
+            fieldsFound={fieldsFound}
+            disabled={!wizardFormData?.businessBasics?.businessName}
+          />
+        </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Define who your best customers are and how to reach them
         </p>
@@ -151,6 +179,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
               {errors.primaryIcpDescription}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('primaryIcpDescription')?.value ?? ''}
+            reasoning={getSuggestion('primaryIcpDescription')?.reasoning ?? ''}
+            confidence={getSuggestion('primaryIcpDescription')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('primaryIcpDescription')?.value;
+              if (val) updateField('primaryIcpDescription', val);
+              setDismissed(prev => new Set(prev).add('primaryIcpDescription'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('primaryIcpDescription'))}
+            isVisible={hasSuggestion('primaryIcpDescription')}
+          />
         </motion.div>
 
         {/* Industry & Job Titles Row */}
@@ -167,6 +207,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
                 {errors.industryVertical}
               </p>
             )}
+            <FieldSuggestion
+              suggestedValue={getSuggestion('industryVertical')?.value ?? ''}
+              reasoning={getSuggestion('industryVertical')?.reasoning ?? ''}
+              confidence={getSuggestion('industryVertical')?.confidence ?? 0}
+              onAccept={() => {
+                const val = getSuggestion('industryVertical')?.value;
+                if (val) updateField('industryVertical', val);
+                setDismissed(prev => new Set(prev).add('industryVertical'));
+              }}
+              onReject={() => setDismissed(prev => new Set(prev).add('industryVertical'))}
+              isVisible={hasSuggestion('industryVertical')}
+            />
           </div>
 
           <div>
@@ -181,6 +233,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
                 {errors.jobTitles}
               </p>
             )}
+            <FieldSuggestion
+              suggestedValue={getSuggestion('jobTitles')?.value ?? ''}
+              reasoning={getSuggestion('jobTitles')?.reasoning ?? ''}
+              confidence={getSuggestion('jobTitles')?.confidence ?? 0}
+              onAccept={() => {
+                const val = getSuggestion('jobTitles')?.value;
+                if (val) updateField('jobTitles', val);
+                setDismissed(prev => new Set(prev).add('jobTitles'));
+              }}
+              onReject={() => setDismissed(prev => new Set(prev).add('jobTitles'))}
+              isVisible={hasSuggestion('jobTitles')}
+            />
           </div>
         </motion.div>
 
@@ -240,6 +304,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
                 {errors.geography}
               </p>
             )}
+            <FieldSuggestion
+              suggestedValue={getSuggestion('geography')?.value ?? ''}
+              reasoning={getSuggestion('geography')?.reasoning ?? ''}
+              confidence={getSuggestion('geography')?.confidence ?? 0}
+              onAccept={() => {
+                const val = getSuggestion('geography')?.value;
+                if (val) updateField('geography', val);
+                setDismissed(prev => new Set(prev).add('geography'));
+              }}
+              onReject={() => setDismissed(prev => new Set(prev).add('geography'))}
+              isVisible={hasSuggestion('geography')}
+            />
           </div>
         </motion.div>
 
@@ -257,6 +333,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
               {errors.easiestToClose}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('easiestToClose')?.value ?? ''}
+            reasoning={getSuggestion('easiestToClose')?.reasoning ?? ''}
+            confidence={getSuggestion('easiestToClose')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('easiestToClose')?.value;
+              if (val) updateField('easiestToClose', val);
+              setDismissed(prev => new Set(prev).add('easiestToClose'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('easiestToClose'))}
+            isVisible={hasSuggestion('easiestToClose')}
+          />
         </motion.div>
 
         {/* Buying Triggers */}
@@ -273,6 +361,18 @@ export function StepICP({ initialData, onSubmit, onBack }: StepICPProps) {
               {errors.buyingTriggers}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('buyingTriggers')?.value ?? ''}
+            reasoning={getSuggestion('buyingTriggers')?.reasoning ?? ''}
+            confidence={getSuggestion('buyingTriggers')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('buyingTriggers')?.value;
+              if (val) updateField('buyingTriggers', val);
+              setDismissed(prev => new Set(prev).add('buyingTriggers'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('buyingTriggers'))}
+            isVisible={hasSuggestion('buyingTriggers')}
+          />
         </motion.div>
 
         {/* Best Client Sources */}

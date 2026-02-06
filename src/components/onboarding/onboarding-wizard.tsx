@@ -290,6 +290,7 @@ export function OnboardingWizard({
             initialData={formData.icp}
             onSubmit={handleICP}
             onBack={goToPreviousStep}
+            wizardFormData={formData}
           />
         );
       case "product_offer":
@@ -298,6 +299,7 @@ export function OnboardingWizard({
             initialData={formData.productOffer}
             onSubmit={handleProductOffer}
             onBack={goToPreviousStep}
+            wizardFormData={formData}
           />
         );
       case "market_competition":
@@ -306,6 +308,7 @@ export function OnboardingWizard({
             initialData={formData.marketCompetition}
             onSubmit={handleMarketCompetition}
             onBack={goToPreviousStep}
+            wizardFormData={formData}
           />
         );
       case "customer_journey":
@@ -314,6 +317,7 @@ export function OnboardingWizard({
             initialData={formData.customerJourney}
             onSubmit={handleCustomerJourney}
             onBack={goToPreviousStep}
+            wizardFormData={formData}
           />
         );
       case "brand_positioning":
@@ -322,6 +326,7 @@ export function OnboardingWizard({
             initialData={formData.brandPositioning}
             onSubmit={handleBrandPositioning}
             onBack={goToPreviousStep}
+            wizardFormData={formData}
           />
         );
       case "assets_proof":

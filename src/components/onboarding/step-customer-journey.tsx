@@ -12,20 +12,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
-import type { CustomerJourneyData, SalesCycleLength } from "@/lib/onboarding/types";
+import type { CustomerJourneyData, SalesCycleLength, OnboardingFormData } from "@/lib/onboarding/types";
 import { SALES_CYCLE_OPTIONS } from "@/lib/onboarding/types";
+import { useStepSuggestion } from "@/hooks/use-step-suggestion";
+import { AISuggestButton } from "./ai-suggest-button";
+import { FieldSuggestion } from "./field-suggestion";
 
 interface StepCustomerJourneyProps {
   initialData?: Partial<CustomerJourneyData>;
   onSubmit: (data: CustomerJourneyData) => void;
   onBack?: () => void;
+  wizardFormData?: Partial<OnboardingFormData>;
 }
 
 export function StepCustomerJourney({
   initialData,
   onSubmit,
   onBack,
+  wizardFormData,
 }: StepCustomerJourneyProps) {
+  const { suggestions, submit: submitSuggestion, isLoading: isSuggesting, stop, fieldsFound } = useStepSuggestion('customerJourney');
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  function hasSuggestion(fieldKey: string): boolean {
+    if (dismissed.has(fieldKey)) return false;
+    const field = suggestions?.[fieldKey];
+    return field?.value != null && field.value !== '';
+  }
+  function getSuggestion(fieldKey: string) {
+    return suggestions?.[fieldKey];
+  }
+
   const [formData, setFormData] = useState<CustomerJourneyData>({
     situationBeforeBuying: initialData?.situationBeforeBuying || "",
     desiredTransformation: initialData?.desiredTransformation || "",
@@ -87,12 +104,20 @@ export function StepCustomerJourney({
         initial="initial"
         animate="animate"
       >
-        <h2
-          className="text-[24px] font-bold tracking-tight"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Customer Journey
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-[24px] font-bold tracking-tight"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Customer Journey
+          </h2>
+          <AISuggestButton
+            onClick={() => wizardFormData && submitSuggestion(wizardFormData)}
+            isLoading={isSuggesting}
+            fieldsFound={fieldsFound}
+            disabled={!wizardFormData?.businessBasics?.businessName}
+          />
+        </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Map out how customers discover and buy from you
         </p>
@@ -120,6 +145,18 @@ export function StepCustomerJourney({
               {errors.situationBeforeBuying}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('situationBeforeBuying')?.value ?? ''}
+            reasoning={getSuggestion('situationBeforeBuying')?.reasoning ?? ''}
+            confidence={getSuggestion('situationBeforeBuying')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('situationBeforeBuying')?.value;
+              if (val) updateField('situationBeforeBuying', val);
+              setDismissed(prev => new Set(prev).add('situationBeforeBuying'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('situationBeforeBuying'))}
+            isVisible={hasSuggestion('situationBeforeBuying')}
+          />
         </motion.div>
 
         {/* Desired Transformation */}
@@ -138,6 +175,18 @@ export function StepCustomerJourney({
               {errors.desiredTransformation}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('desiredTransformation')?.value ?? ''}
+            reasoning={getSuggestion('desiredTransformation')?.reasoning ?? ''}
+            confidence={getSuggestion('desiredTransformation')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('desiredTransformation')?.value;
+              if (val) updateField('desiredTransformation', val);
+              setDismissed(prev => new Set(prev).add('desiredTransformation'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('desiredTransformation'))}
+            isVisible={hasSuggestion('desiredTransformation')}
+          />
         </motion.div>
 
         {/* Common Objections */}
@@ -154,6 +203,18 @@ export function StepCustomerJourney({
               {errors.commonObjections}
             </p>
           )}
+          <FieldSuggestion
+            suggestedValue={getSuggestion('commonObjections')?.value ?? ''}
+            reasoning={getSuggestion('commonObjections')?.reasoning ?? ''}
+            confidence={getSuggestion('commonObjections')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('commonObjections')?.value;
+              if (val) updateField('commonObjections', val);
+              setDismissed(prev => new Set(prev).add('commonObjections'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('commonObjections'))}
+            isVisible={hasSuggestion('commonObjections')}
+          />
         </motion.div>
 
         {/* Sales Cycle Length */}
