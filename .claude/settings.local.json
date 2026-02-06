@@ -67,7 +67,14 @@
       "Bash(npx supabase:*)",
       "Bash(git -C /Users/ammar/Dev-Projects/AI-GOS-main log --oneline --all)",
       "Bash(git -C /Users/ammar/Dev-Projects/AI-GOS-main show ddae0cd --stat)",
-      "Bash(git -C /Users/ammar/Dev-Projects/AI-GOS-main show 30895fc --stat)"
+      "Bash(git -C /Users/ammar/Dev-Projects/AI-GOS-main show 30895fc --stat)",
+      "Bash(npx madge:*)",
+      "mcp__ide__getDiagnostics",
+      "WebFetch(domain:ai-sdk.dev)",
+      "WebFetch(domain:vercel.com)",
+      "Bash(python3:*)",
+      "WebFetch(domain:sdk.vercel.ai)",
+      "mcp__plugin_playwright_playwright__browser_wait_for"
     ]
   },
   "enableAllProjectMcpServers": true,
