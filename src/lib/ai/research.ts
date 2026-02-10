@@ -144,7 +144,7 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
       prompt: `Validate the ICP for paid media:\n\n${context}`,
       ...GENERATION_SETTINGS.research,
-      maxTokens: 4096,  // Override: ICP output is ~2-4K tokens
+      maxOutputTokens: 4096,  // Override: ICP output is ~2-4K tokens
     });
 
     return {
@@ -206,7 +206,7 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
       prompt: `Analyze offer viability for paid media:\n\n${context}`,
       ...GENERATION_SETTINGS.research,
-      maxTokens: 4096,  // Override: Offer output is ~2-4K tokens
+      maxOutputTokens: 4096,  // Override: Offer output is ~2-4K tokens
     });
 
     return {
