@@ -4,6 +4,8 @@
 import { createFirecrawlClient } from '@/lib/firecrawl';
 import { createEnhancedAdLibraryService } from '@/lib/ad-library';
 import { extractPricing, type ScoredPricingResult, type ExtractedPricingTier } from '@/lib/pricing';
+import { mineCompetitorReviews } from './review-mining';
+import type { CompetitorReviewData } from '@/lib/strategic-blueprint/output-types';
 import type { CompetitorAnalysis } from './schemas';
 
 // =============================================================================
@@ -55,6 +57,7 @@ interface EnrichedCompetitor {
   pricingSource: 'scraped' | 'unavailable';
   pricingConfidence?: number;
   adCreatives: AdCreative[];
+  reviewData?: CompetitorReviewData;
 }
 
 export interface EnrichmentResult {
@@ -62,6 +65,7 @@ export interface EnrichmentResult {
   enrichmentCost: number;
   pricingSuccessCount: number;
   adSuccessCount: number;
+  reviewSuccessCount: number;
 }
 
 // =============================================================================
@@ -79,6 +83,7 @@ export async function enrichCompetitors(
   let enrichmentCost = 0;
   let pricingSuccessCount = 0;
   let adSuccessCount = 0;
+  let reviewSuccessCount = 0;
 
   onProgress?.(`Starting enrichment for ${competitors.length} competitors...`);
 
@@ -105,7 +110,7 @@ export async function enrichCompetitors(
       // =====================================================================
       // PARALLEL: Fetch pricing AND ads simultaneously
       // =====================================================================
-      const [pricingResult, adResult] = await Promise.all([
+      const [pricingResult, adResult, reviewResult] = await Promise.all([
         // Task 1: Scrape Pricing (Firecrawl)
         (async () => {
           if (!firecrawlAvailable || !competitor.website?.trim()) {
@@ -194,6 +199,22 @@ export async function enrichCompetitors(
             return { success: false as const };
           }
         })(),
+
+        // Task 3: Review Mining (Trustpilot + G2) - runs in parallel
+        (async () => {
+          try {
+            onProgress?.(`Mining reviews for ${competitor.name}...`);
+            const result = await mineCompetitorReviews(
+              competitor.name,
+              competitor.website,
+              onProgress,
+            );
+            return { success: true as const, ...result };
+          } catch (error) {
+            console.error(`[Competitor Enrichment] Review mining error for ${competitor.name}:`, error);
+            return { success: false as const, cost: 0 };
+          }
+        })(),
       ]);
 
       // Apply results
@@ -223,17 +244,30 @@ export async function enrichCompetitors(
         onProgress?.(`${competitor.name}: No ads found`);
       }
 
+      if (reviewResult.success) {
+        enriched.reviewData = reviewResult.reviewData;
+        enrichmentCost += reviewResult.cost;
+        reviewSuccessCount++;
+        const tp = reviewResult.reviewData.trustpilot;
+        const g2 = reviewResult.reviewData.g2;
+        const parts: string[] = [];
+        if (tp) parts.push(`Trustpilot ${tp.trustScore}/5`);
+        if (g2) parts.push(`G2 ${g2.rating}/5`);
+        onProgress?.(`${competitor.name}: Reviews found (${parts.join(', ') || 'partial'})`);
+      }
+
       return enriched;
     })
   );
 
-  onProgress?.(`Enrichment complete: ${pricingSuccessCount}/${competitors.length} pricing, ${adSuccessCount}/${competitors.length} ads`);
+  onProgress?.(`Enrichment complete: ${pricingSuccessCount}/${competitors.length} pricing, ${adSuccessCount}/${competitors.length} ads, ${reviewSuccessCount}/${competitors.length} reviews`);
 
   // Debug: Log final enriched data
   const totalAdsStored = enrichedCompetitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
   console.log(`[Competitor Enrichment] Final result: ${totalAdsStored} total ads stored across ${enrichedCompetitors.length} competitors`);
   enrichedCompetitors.forEach(c => {
-    console.log(`[Competitor Enrichment] - ${c.name}: ${c.adCreatives?.length ?? 0} ads, ${c.pricingTiers?.length ?? 0} pricing tiers`);
+    const hasReviews = c.reviewData?.trustpilot || c.reviewData?.g2;
+    console.log(`[Competitor Enrichment] - ${c.name}: ${c.adCreatives?.length ?? 0} ads, ${c.pricingTiers?.length ?? 0} pricing tiers, reviews: ${hasReviews ? 'yes' : 'no'}`);
   });
 
   return {
@@ -241,5 +275,6 @@ export async function enrichCompetitors(
     enrichmentCost,
     pricingSuccessCount,
     adSuccessCount,
+    reviewSuccessCount,
   };
 }

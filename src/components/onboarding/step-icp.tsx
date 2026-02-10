@@ -6,13 +6,6 @@ import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { ICPData, CompanySize, ClientSource, OnboardingFormData } from "@/lib/onboarding/types";
 import {
@@ -35,7 +28,7 @@ export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepI
     primaryIcpDescription: initialData?.primaryIcpDescription || "",
     industryVertical: initialData?.industryVertical || "",
     jobTitles: initialData?.jobTitles || "",
-    companySize: initialData?.companySize || "11-50",
+    companySize: initialData?.companySize || [],
     geography: initialData?.geography || "",
     easiestToClose: initialData?.easiestToClose || "",
     buyingTriggers: initialData?.buyingTriggers || "",
@@ -65,6 +58,18 @@ export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepI
         delete next[field];
         return next;
       });
+    }
+  }
+
+  function toggleCompanySize(size: CompanySize) {
+    const current = formData.companySize;
+    if (current.includes(size)) {
+      updateField(
+        "companySize",
+        current.filter((s) => s !== size)
+      );
+    } else {
+      updateField("companySize", [...current, size]);
     }
   }
 
@@ -100,6 +105,9 @@ export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepI
     }
     if (!formData.buyingTriggers.trim()) {
       newErrors.buyingTriggers = "Buying triggers are required";
+    }
+    if (formData.companySize.length === 0) {
+      newErrors.companySize = "Select at least one company size";
     }
     if (formData.bestClientSources.length === 0) {
       newErrors.bestClientSources = "Select at least one source";
@@ -248,50 +256,68 @@ export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepI
           </div>
         </motion.div>
 
-        {/* Company Size & Geography Row */}
-        <motion.div className="grid gap-6 md:grid-cols-2" variants={staggerItem}>
-          <div className="space-y-2">
-            <label
-              className="text-[14px] font-medium"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              Company Size
-            </label>
-            <Select
-              value={formData.companySize}
-              onValueChange={(value) =>
-                updateField("companySize", value as CompanySize)
-              }
-            >
-              <SelectTrigger
-                className="h-12 rounded-lg"
+        {/* Company Size */}
+        <motion.div className="space-y-3" variants={staggerItem}>
+          <label
+            className="text-[14px] font-medium"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            Target Company Size
+          </label>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {COMPANY_SIZE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-all"
                 style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-default)',
-                  color: 'var(--text-primary)',
+                  border: '1px solid',
+                  borderColor: formData.companySize.includes(option.value)
+                    ? 'var(--accent-blue)'
+                    : 'var(--border-default)',
+                  background: formData.companySize.includes(option.value)
+                    ? 'var(--accent-blue-subtle)'
+                    : 'transparent',
                 }}
               >
-                <SelectValue placeholder="Select company size" />
-              </SelectTrigger>
-              <SelectContent
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                }}
-              >
-                {COMPANY_SIZE_OPTIONS.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    className="hover:bg-[var(--bg-hover)]"
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Checkbox
+                  checked={formData.companySize.includes(option.value)}
+                  onCheckedChange={() => toggleCompanySize(option.value)}
+                />
+                <span
+                  className="text-sm"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {option.label}
+                </span>
+              </label>
+            ))}
           </div>
+          {errors.companySize && (
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.companySize}
+            </p>
+          )}
+          <FieldSuggestion
+            suggestedValue={(() => {
+              const val = getSuggestion('companySize')?.value;
+              if (Array.isArray(val)) return val.map((v: string) => COMPANY_SIZE_OPTIONS.find(o => o.value === v)?.label ?? v).join(', ');
+              return String(val ?? '');
+            })()}
+            reasoning={getSuggestion('companySize')?.reasoning ?? ''}
+            confidence={getSuggestion('companySize')?.confidence ?? 0}
+            onAccept={() => {
+              const val = getSuggestion('companySize')?.value;
+              if (Array.isArray(val)) updateField('companySize', val as CompanySize[]);
+              else if (val) updateField('companySize', [val] as CompanySize[]);
+              setDismissed(prev => new Set(prev).add('companySize'));
+            }}
+            onReject={() => setDismissed(prev => new Set(prev).add('companySize'))}
+            isVisible={hasSuggestion('companySize')}
+          />
+        </motion.div>
 
+        {/* Geography */}
+        <motion.div variants={staggerItem}>
           <div>
             <FloatingLabelInput
               label="Geography"

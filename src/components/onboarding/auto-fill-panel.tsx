@@ -157,7 +157,8 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
           ? trimmed
           : "https://" + trimmed;
       const urlObj = new URL(urlWithProtocol);
-      if (!urlObj.hostname.includes("linkedin.com")) {
+      const lnHost = urlObj.hostname.toLowerCase();
+      if (lnHost !== "linkedin.com" && lnHost !== "www.linkedin.com") {
         return { valid: false, error: "Please enter a valid LinkedIn URL" };
       }
       if (!urlObj.pathname.startsWith("/company/")) {
@@ -255,7 +256,7 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
           primaryIcpDescription: isSelected("targetCustomers") ? v("targetCustomers") : "",
           industryVertical: isSelected("industry") ? v("industry") : "",
           jobTitles: isSelected("targetJobTitles") ? v("targetJobTitles") : "",
-          companySize: isSelected("companySize") ? parseSize(v("companySize")) : "11-50",
+          companySize: isSelected("companySize") ? (() => { const p = parseSize(v("companySize")); return [p]; })() : [],
           geography: isSelected("headquartersLocation") ? v("headquartersLocation") : "",
           easiestToClose: "",
           buyingTriggers: "",
@@ -270,9 +271,9 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
           productDescription: isSelected("productDescription") ? v("productDescription") : "",
           coreDeliverables: isSelected("coreFeatures") ? v("coreFeatures") : "",
           offerPrice: 0,
-          pricingModel: "monthly",
+          pricingModel: [],
           valueProp: isSelected("valueProposition") ? v("valueProposition") : "",
-          currentFunnelType: "lead_form",
+          currentFunnelType: [],
         };
       }
 

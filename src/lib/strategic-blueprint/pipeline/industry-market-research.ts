@@ -157,7 +157,6 @@ function parseIndustryMarketJSON(content: string): IndustryMarketOverview {
         objections: ensureObjectionsArray(parsed.audienceObjections?.objections),
       },
       messagingOpportunities: {
-        opportunities: ensureArray(parsed.messagingOpportunities?.opportunities),
         summaryRecommendations: ensureArray(parsed.messagingOpportunities?.summaryRecommendations),
       },
     };

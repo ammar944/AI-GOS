@@ -6,11 +6,13 @@ import {
   Package,
   Swords,
   Lightbulb,
+  Search,
 } from "lucide-react";
 import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
 import { CitationBadge, SourcesList } from "./citations";
+import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
 // Section icons mapping
 const SECTION_ICONS: Record<StrategicBlueprintSection, React.ReactNode> = {
@@ -19,6 +21,7 @@ const SECTION_ICONS: Record<StrategicBlueprintSection, React.ReactNode> = {
   offerAnalysisViability: <Package className="h-5 w-5" />,
   competitorAnalysis: <Swords className="h-5 w-5" />,
   crossAnalysisSynthesis: <Lightbulb className="h-5 w-5" />,
+  keywordIntelligence: <Search className="h-5 w-5" />,
 };
 
 // Section labels
@@ -28,6 +31,7 @@ const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
   offerAnalysisViability: "Offer Analysis & Viability",
   competitorAnalysis: "Competitor Analysis",
   crossAnalysisSynthesis: "Cross-Analysis Synthesis",
+  keywordIntelligence: "Keyword Intelligence",
 };
 
 export interface OutputSectionCardProps {
@@ -68,15 +72,10 @@ export function OutputSectionCard({
     <section
       id={sectionKey}
       data-section
-      className="rounded-xl p-6 md:p-8"
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-default)',
-        boxShadow: 'var(--shadow-card)',
-      }}
+      className={`${RESEARCH_SHELL_CLASS} rounded-xl p-6 md:p-8`}
     >
       {/* Section Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="mb-6 flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
         <div className="flex items-center gap-4">
           {/* Section number - blue accent background */}
           <span
@@ -90,12 +89,12 @@ export function OutputSectionCard({
           </span>
 
           {/* Section icon and title */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span style={{ color: 'var(--accent-blue)' }}>
               {sectionIcon}
             </span>
             <h2
-              className="text-xl font-semibold"
+              className="text-xl font-semibold leading-tight"
               style={{
                 color: 'var(--text-heading)',
                 fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',

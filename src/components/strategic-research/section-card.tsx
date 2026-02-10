@@ -9,6 +9,7 @@ import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-bluepr
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
 import { CitationBadge, SourcesList } from "./citations";
+import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
 // Section icons mapping - reused from strategic-blueprint-display.tsx
 import {
@@ -17,6 +18,7 @@ import {
   Package,
   Swords,
   Lightbulb,
+  Search,
 } from "lucide-react";
 
 const SECTION_ICONS: Record<StrategicBlueprintSection, React.ReactNode> = {
@@ -25,6 +27,7 @@ const SECTION_ICONS: Record<StrategicBlueprintSection, React.ReactNode> = {
   offerAnalysisViability: <Package className="h-5 w-5" />,
   competitorAnalysis: <Swords className="h-5 w-5" />,
   crossAnalysisSynthesis: <Lightbulb className="h-5 w-5" />,
+  keywordIntelligence: <Search className="h-5 w-5" />,
 };
 
 const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
@@ -33,6 +36,7 @@ const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
   offerAnalysisViability: "Offer Analysis & Viability",
   competitorAnalysis: "Competitor Analysis",
   crossAnalysisSynthesis: "Cross-Analysis Synthesis",
+  keywordIntelligence: "Keyword Intelligence",
 };
 
 export interface SectionCardProps {
@@ -69,16 +73,14 @@ export function SectionCard({
 
   return (
     <Card
-      style={{
-        background: 'var(--bg-surface)',
-        borderColor: isReviewed
-          ? 'var(--success)'
-          : isEditing
-          ? 'var(--accent-blue)'
-          : 'var(--border-default)',
-      }}
       className={cn(
+        RESEARCH_SHELL_CLASS,
         "transition-all duration-300",
+        isReviewed
+          ? "border-[var(--success)]"
+          : isEditing
+          ? "border-[var(--accent-blue)]"
+          : "border-[var(--border-default)]",
         isReviewed && "shadow-[0_0_20px_rgba(34,197,94,0.1)]",
         isEditing && "shadow-[0_0_20px_rgba(54,94,255,0.1)] ring-1 ring-[var(--accent-blue)]/20"
       )}

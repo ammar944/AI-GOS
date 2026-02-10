@@ -69,8 +69,8 @@ export const positioningStrategySchema = z.object({
 export const adHookSchema = z.object({
   hook: z.string()
     .describe('The attention-grabbing hook text. Should stop the scroll and create immediate curiosity or emotion.'),
-  technique: z.enum(['controversial', 'revelation', 'myth-bust', 'status-quo-challenge', 'curiosity-gap', 'story'])
-    .describe('The pattern interrupt technique used: controversial=challenges beliefs, revelation=shares surprising data, myth-bust=debunks common advice, status-quo-challenge=questions current approach, curiosity-gap=creates open loop, story=starts narrative'),
+  technique: z.enum(['controversial', 'revelation', 'myth-bust', 'status-quo-challenge', 'curiosity-gap', 'story', 'fear', 'social-proof', 'urgency', 'authority', 'comparison'])
+    .describe('The pattern interrupt technique used: controversial=challenges beliefs, revelation=shares surprising data, myth-bust=debunks common advice, status-quo-challenge=questions current approach, curiosity-gap=creates open loop, story=starts narrative, fear=triggers loss aversion, social-proof=leverages peer behavior, urgency=creates time pressure, authority=leverages expert credibility, comparison=contrasts with alternatives'),
   targetAwareness: z.enum(['unaware', 'problem-aware', 'solution-aware', 'product-aware', 'most-aware'])
     .describe('Eugene Schwartz awareness level this hook targets. Unaware needs education, most-aware needs offer details.'),
   source: z.object({
@@ -181,10 +181,6 @@ export const crossAnalysisSchema = z.object({
 
   messagingFramework: messagingFrameworkSchema
     .describe('Comprehensive messaging framework for ad copy and content'),
-
-  primaryMessagingAngles: z.array(z.string())
-    .min(2).max(7)
-    .describe('3-5 specific, testable messaging angles for ads. Each should be a complete hook concept (e.g., "Speed: From signup to insights in 48 hours", "Proof: Join 500+ marketing teams who...").'),
 
   recommendedPlatforms: z.array(recommendedPlatformSchema)
     .min(1).max(5)

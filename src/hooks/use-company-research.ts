@@ -129,7 +129,7 @@ export function useCompanyResearch(): UseCompanyResearchReturn {
         primaryIcpDescription: icpPrimary,
         industryVertical: icpIndustry,
         jobTitles: v('targetJobTitles'),
-        companySize: parseCompanySize(v('companySize')) || '11-50',
+        companySize: (() => { const p = parseCompanySize(v('companySize')); return p ? [p] : []; })(),
         geography: v('headquartersLocation'),
         easiestToClose: '',
         buyingTriggers: '',
@@ -145,9 +145,9 @@ export function useCompanyResearch(): UseCompanyResearchReturn {
         productDescription: productDesc,
         coreDeliverables: v('coreFeatures'),
         offerPrice: 0,
-        pricingModel: 'monthly',
+        pricingModel: [],
         valueProp: valueProp,
-        currentFunnelType: 'lead_form',
+        currentFunnelType: [],
       };
     }
 

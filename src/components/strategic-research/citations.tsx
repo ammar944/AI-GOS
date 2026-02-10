@@ -65,11 +65,9 @@ export function CitationBadge({ count }: CitationBadgeProps) {
   return (
     <Badge
       variant="outline"
-      className="gap-1"
+      className="gap-1 rounded-full border-[var(--border-subtle)] bg-[rgba(54,94,255,0.1)] text-[var(--accent-blue)]"
       style={{
-        borderColor: 'var(--accent-blue)',
-        color: 'var(--accent-blue)',
-        background: 'rgba(54, 94, 255, 0.1)',
+        fontFamily: 'var(--font-sans), Inter, sans-serif',
       }}
     >
       <Link2 className="h-3 w-3" />
@@ -192,13 +190,10 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-4">
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors",
+          "flex w-full items-center justify-between rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-subtle)] hover:text-[var(--text-primary)]",
           isOpen && "rounded-b-none border-b-0"
         )}
         style={{
-          border: '1px solid var(--border-default)',
-          background: 'var(--bg-hover)',
-          color: 'var(--text-secondary)',
           fontFamily: 'var(--font-sans), Inter, sans-serif',
         }}
         aria-label={`Toggle sources for ${sectionLabel}`}
@@ -216,9 +211,7 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
       </CollapsibleTrigger>
 
       <CollapsibleContent
-        className={cn(
-          "rounded-b-lg border border-t-0"
-        )}
+        className={cn("rounded-b-lg border border-t-0")}
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border-default)',
@@ -232,13 +225,10 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
                 href={citation.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-start gap-2 text-sm font-medium transition-colors duration-200"
+                className="group flex items-start gap-2 text-sm font-medium text-[var(--text-primary)] transition-colors duration-200 hover:text-[var(--accent-blue)]"
                 style={{
-                  color: 'var(--text-primary)',
                   fontFamily: 'var(--font-sans), Inter, sans-serif',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-blue)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
               >
                 <span className="flex-1">
                   {citation.title

@@ -276,9 +276,6 @@ function parseCompetitorAnalysisJSON(content: string): CompetitorAnalysis {
         // adMessagingThemes will be populated from ad analysis later
       })),
       creativeLibrary: {
-        adHooks: Array.isArray(parsed.creativeLibrary.adHooks)
-          ? parsed.creativeLibrary.adHooks
-          : [],
         creativeFormats: {
           ugc: Boolean(parsed.creativeLibrary.creativeFormats?.ugc),
           carousels: Boolean(parsed.creativeLibrary.creativeFormats?.carousels),

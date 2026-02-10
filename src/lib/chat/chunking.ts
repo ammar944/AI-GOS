@@ -141,7 +141,7 @@ function chunkIndustryMarketOverview(
     blueprintId,
     sectionName,
     'messagingOpportunities',
-    `Messaging Opportunities: ${mo.opportunities.join('; ')}. Recommendations: ${mo.summaryRecommendations.join('; ')}`,
+    `Key Recommendations: ${mo.summaryRecommendations.join('; ')}`,
     'array',
     sectionTitle,
     'Angles to leverage in advertising and funnels',
@@ -403,21 +403,6 @@ function chunkCompetitorAnalysis(
     ));
   });
 
-  // Ad hooks as array
-  if (section.creativeLibrary.adHooks.length > 0) {
-    chunks.push(createChunk(
-      blueprintId,
-      sectionName,
-      'creativeLibrary.adHooks',
-      `Competitor Ad Hooks: ${section.creativeLibrary.adHooks.join('; ')}`,
-      'array',
-      sectionTitle,
-      'Ad hooks used by competitors',
-      true,
-      section.creativeLibrary.adHooks
-    ));
-  }
-
   // Creative formats
   const cf = section.creativeLibrary.creativeFormats;
   chunks.push(createChunk(
@@ -526,19 +511,6 @@ function chunkCrossAnalysis(
     'Recommended market positioning',
     true,
     section.recommendedPositioning
-  ));
-
-  // Messaging angles as array
-  chunks.push(createChunk(
-    blueprintId,
-    sectionName,
-    'primaryMessagingAngles',
-    `Primary Messaging Angles: ${section.primaryMessagingAngles.join('; ')}`,
-    'array',
-    sectionTitle,
-    'Key messaging angles to use',
-    true,
-    section.primaryMessagingAngles
   ));
 
   // Platforms as array (each platform individually for better retrieval)

@@ -65,8 +65,6 @@ export interface AudienceObjections {
 }
 
 export interface MessagingOpportunities {
-  /** Angles to leverage in ads and funnels */
-  opportunities: string[];
   /** Summary messaging recommendations */
   summaryRecommendations: string[];
 }
@@ -278,6 +276,40 @@ export interface CompetitorOffer {
   cta: string;
 }
 
+// =============================================================================
+// Review Mining Types
+// =============================================================================
+
+export interface TrustpilotReviewData {
+  url: string;
+  trustScore: number | null;
+  totalReviews: number | null;
+  /** Trustpilot's own AI summary, not ours */
+  aiSummary: string | null;
+  reviews: TrustpilotReview[];
+}
+
+export interface TrustpilotReview {
+  /** 1-5 star rating */
+  rating: number;
+  /** Review text, capped at 500 chars */
+  text: string;
+  date?: string;
+}
+
+export interface G2ReviewMetadata {
+  url?: string;
+  rating: number | null;
+  reviewCount: number | null;
+  productCategory?: string;
+}
+
+export interface CompetitorReviewData {
+  trustpilot: TrustpilotReviewData | null;
+  g2: G2ReviewMetadata | null;
+  collectedAt: string;
+}
+
 /** How pricing data was obtained */
 export type PricingSource = 'scraped' | 'unavailable';
 
@@ -314,11 +346,11 @@ export interface CompetitorSnapshot {
   pricingConfidence?: number;
   /** Note about pricing (e.g., verification URL if unavailable) */
   pricingNote?: string;
+  /** Customer review data from Trustpilot and G2 */
+  reviewData?: CompetitorReviewData;
 }
 
 export interface CompetitorCreativeLibrary {
-  /** Ad hooks competitors use */
-  adHooks: string[];
   /** Creative formats used */
   creativeFormats: {
     ugc: boolean;
@@ -392,7 +424,7 @@ export interface CrossAnalysisSynthesis {
     tonalGuidelines: string[];
     adHooks: {
       hook: string;
-      technique: "controversial" | "revelation" | "myth-bust" | "status-quo-challenge" | "curiosity-gap" | "story";
+      technique: "controversial" | "revelation" | "myth-bust" | "status-quo-challenge" | "curiosity-gap" | "story" | "fear" | "social-proof" | "urgency" | "authority" | "comparison";
       targetAwareness: "unaware" | "problem-aware" | "solution-aware" | "product-aware" | "most-aware";
       source?: {
         type: "extracted" | "inspired" | "generated";
@@ -417,8 +449,6 @@ export interface CrossAnalysisSynthesis {
       reframe: string;
     }[];
   };
-  /** Primary messaging angles */
-  primaryMessagingAngles: string[];
   /** Recommended platforms based on analysis */
   recommendedPlatforms: {
     platform: string;
@@ -431,6 +461,99 @@ export interface CrossAnalysisSynthesis {
   potentialBlockers: string[];
   /** Next steps recommendations */
   nextSteps: string[];
+}
+
+// =============================================================================
+// Section 6: Keyword Intelligence (SpyFu)
+// =============================================================================
+
+export type KeywordSource = 'gap_organic' | 'gap_paid' | 'competitor_top' | 'related' | 'shared';
+
+export interface KeywordOpportunity {
+  keyword: string;
+  searchVolume: number;
+  cpc: number;
+  /** Ranking difficulty 1-100 */
+  difficulty: number;
+  clicksPerMonth?: number;
+  source: KeywordSource;
+  /** Which competitors rank for this keyword */
+  competitors?: string[];
+}
+
+export interface DomainKeywordStats {
+  domain: string;
+  organicKeywords: number;
+  paidKeywords: number;
+  monthlyOrganicClicks: number;
+  monthlyPaidClicks: number;
+  /** Estimated monthly value of organic traffic */
+  organicClicksValue: number;
+  /** Estimated monthly PPC spend */
+  paidClicksValue: number;
+}
+
+export interface ContentTopicCluster {
+  theme: string;
+  keywords: string[];
+  searchVolumeTotal: number;
+  /** Recommended content format: blog, landing page, comparison, guide */
+  recommendedFormat: string;
+}
+
+export interface KeywordStrategicRecommendations {
+  organicStrategy: string[];
+  paidSearchStrategy: string[];
+  competitivePositioning: string[];
+  quickWinActions: string[];
+}
+
+/**
+ * Keyword Intelligence section — populated asynchronously by SpyFu enrichment
+ * (parallel with Phase 2/3) and merged at the API route level.
+ * All fields are populated by SpyFu API data + deterministic categorization rules.
+ * Phase 3 synthesis reads this data to inform strategic recommendations
+ * but does NOT modify these fields.
+ */
+export interface KeywordIntelligence {
+  /** Client domain stats (null if no data available) */
+  clientDomain: DomainKeywordStats | null;
+  /** Competitor domain stats */
+  competitorDomains: DomainKeywordStats[];
+
+  /** Raw opportunities from SpyFu */
+  organicGaps: KeywordOpportunity[];
+  paidGaps: KeywordOpportunity[];
+  sharedKeywords: KeywordOpportunity[];
+  relatedExpansions: KeywordOpportunity[];
+  /** Keywords only the client ranks for (competitors don't) — defensive strengths */
+  clientStrengths: KeywordOpportunity[];
+  /** Top keywords per competitor (most valuable organic keywords) */
+  competitorTopKeywords: {
+    competitorName: string;
+    domain: string;
+    keywords: KeywordOpportunity[];
+  }[];
+
+  /** Categorized opportunities (deterministic rules in enrichment module) */
+  quickWins: KeywordOpportunity[];
+  longTermPlays: KeywordOpportunity[];
+  highIntentKeywords: KeywordOpportunity[];
+
+  /** Thematic content clusters */
+  contentTopicClusters: ContentTopicCluster[];
+
+  /** Strategic recommendations */
+  strategicRecommendations: KeywordStrategicRecommendations;
+
+  /** Collection metadata */
+  metadata: {
+    clientDomain: string;
+    competitorDomainsAnalyzed: string[];
+    totalKeywordsAnalyzed: number;
+    spyfuCost: number;
+    collectedAt: string;
+  };
 }
 
 // =============================================================================
@@ -448,6 +571,8 @@ export interface StrategicBlueprintOutput {
   competitorAnalysis: CompetitorAnalysis;
   /** Section 5: Cross-Analysis Synthesis */
   crossAnalysisSynthesis: CrossAnalysisSynthesis;
+  /** Section 6: Keyword Intelligence (optional - requires client URL + SpyFu API key) */
+  keywordIntelligence?: KeywordIntelligence;
   /** Metadata */
   metadata: StrategicBlueprintMetadata;
 }
@@ -506,6 +631,7 @@ export const STRATEGIC_BLUEPRINT_SECTION_ORDER: StrategicBlueprintSection[] = [
   "offerAnalysisViability",
   "competitorAnalysis",
   "crossAnalysisSynthesis",
+  "keywordIntelligence",
 ];
 
 export const STRATEGIC_BLUEPRINT_SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
@@ -514,6 +640,7 @@ export const STRATEGIC_BLUEPRINT_SECTION_LABELS: Record<StrategicBlueprintSectio
   offerAnalysisViability: "Offer Analysis & Viability",
   competitorAnalysis: "Competitor Analysis",
   crossAnalysisSynthesis: "Cross-Analysis Synthesis",
+  keywordIntelligence: "Keyword Intelligence",
 };
 
 // =============================================================================

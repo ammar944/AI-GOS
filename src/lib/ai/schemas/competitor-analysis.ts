@@ -47,10 +47,6 @@ export const competitorSnapshotSchema = z.object({
 // =============================================================================
 
 export const creativeLibrarySchema = z.object({
-  adHooks: z.array(z.string())
-    .min(2).max(10)
-    .describe('5-7 ACTUAL hook examples from competitor ads found in ad libraries. Copy the exact text or describe the hook format (e.g., "Stop wasting money on ads that don\'t convert", "What if you could 3x your pipeline in 30 days?").'),
-
   creativeFormats: z.object({
     ugc: z.boolean()
       .describe('Do competitors use user-generated content (talking head videos, testimonial clips)?'),

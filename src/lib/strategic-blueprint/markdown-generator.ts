@@ -12,6 +12,7 @@ import type {
   OfferAnalysisViability,
   CompetitorAnalysis,
   CrossAnalysisSynthesis,
+  KeywordIntelligence,
   StrategicBlueprintMetadata,
   RiskRating,
   OfferRedFlag,
@@ -210,17 +211,10 @@ function generateIndustryMarketOverview(section: IndustryMarketOverview): string
   });
   lines.push('');
 
-  // Messaging Opportunities
+  // Key Recommendations
   const messaging = section.messagingOpportunities;
-  lines.push('### Messaging Opportunities\n');
+  lines.push('### Key Recommendations\n');
 
-  lines.push('**Opportunities:**');
-  safeArray(messaging?.opportunities).forEach((opp) => {
-    lines.push(`- ${opp}`);
-  });
-  lines.push('');
-
-  lines.push('**Summary Recommendations:**');
   safeArray(messaging?.summaryRecommendations).forEach((rec) => {
     lines.push(`- ${rec}`);
   });
@@ -489,19 +483,43 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
       lines.push(`- CTA: ${safeString(comp.mainOffer.cta)}`);
       lines.push('');
     }
+
+    // Customer Reviews
+    const rd = (comp as any)?.reviewData;
+    if (rd?.trustpilot || rd?.g2) {
+      lines.push('**Customer Reviews:**');
+      if (rd.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0)) {
+        const g2Link = rd.g2.url ? `[G2](${rd.g2.url})` : 'G2';
+        lines.push(`- ${g2Link}: ${rd.g2.rating}/5 (${rd.g2.reviewCount} reviews)${rd.g2.productCategory ? ` — ${rd.g2.productCategory}` : ''}`);
+      }
+      if (rd.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0)) {
+        const tpLink = rd.trustpilot.url ? `[Trustpilot](${rd.trustpilot.url})` : 'Trustpilot';
+        lines.push(`- ${tpLink}: ${rd.trustpilot.trustScore}/5 (${rd.trustpilot.totalReviews} reviews)`);
+        if (rd.trustpilot.aiSummary) {
+          lines.push(`  - *${rd.trustpilot.aiSummary.slice(0, 200)}${rd.trustpilot.aiSummary.length > 200 ? '...' : ''}*`);
+        }
+        const complaints = rd.trustpilot.reviews?.filter((r: any) => r.rating <= 2).slice(0, 2);
+        if (complaints?.length > 0) {
+          lines.push('  - **Complaints:**');
+          for (const r of complaints) {
+            lines.push(`    - ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}`);
+          }
+        }
+        const praise = rd.trustpilot.reviews?.filter((r: any) => r.rating >= 4).slice(0, 2);
+        if (praise?.length > 0) {
+          lines.push('  - **Praised For:**');
+          for (const r of praise) {
+            lines.push(`    - ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}`);
+          }
+        }
+      }
+      lines.push('');
+    }
   });
 
   // Creative Library
   const creative = section.creativeLibrary;
   lines.push('### Creative Library Insights\n');
-
-  if (safeArray(creative?.adHooks).length > 0) {
-    lines.push('**Ad Hooks Used:**');
-    safeArray(creative?.adHooks).forEach((hook) => {
-      lines.push(`- ${hook}`);
-    });
-    lines.push('');
-  }
 
   lines.push('**Creative Formats:**');
   const formats = creative?.creativeFormats;
@@ -615,14 +633,6 @@ function generateCrossAnalysis(section: CrossAnalysisSynthesis): string {
   lines.push(safeString(section.recommendedPositioning));
   lines.push('');
 
-  // Messaging Angles
-  const angles = safeArray(section.primaryMessagingAngles);
-  lines.push('### Primary Messaging Angles\n');
-  angles.forEach((angle, index) => {
-    lines.push(`${index + 1}. ${angle}`);
-  });
-  lines.push('');
-
   // Recommended Platforms
   const platforms = safeArray(section.recommendedPlatforms);
   lines.push('### Recommended Platforms\n');
@@ -661,6 +671,135 @@ function generateCrossAnalysis(section: CrossAnalysisSynthesis): string {
     lines.push(`${index + 1}. ${step}`);
   });
   lines.push('');
+
+  return lines.join('\n');
+}
+
+function generateKeywordIntelligence(section: KeywordIntelligence): string {
+  const lines: string[] = [];
+
+  lines.push('## Section 6: Keyword Intelligence\n');
+
+  // Domain Overview
+  lines.push('### Domain Overview\n');
+  if (section.clientDomain) {
+    const cd = section.clientDomain;
+    lines.push(`**Client Domain:** ${cd.domain}\n`);
+    lines.push(
+      createTable(
+        ['Metric', 'Value'],
+        [
+          ['Organic Keywords', String(cd.organicKeywords?.toLocaleString() ?? 'N/A')],
+          ['Paid Keywords', String(cd.paidKeywords?.toLocaleString() ?? 'N/A')],
+          ['Monthly Organic Clicks', String(cd.monthlyOrganicClicks?.toLocaleString() ?? 'N/A')],
+          ['Monthly Paid Clicks', String(cd.monthlyPaidClicks?.toLocaleString() ?? 'N/A')],
+          ['Organic Traffic Value', cd.organicClicksValue ? `$${cd.organicClicksValue.toLocaleString()}/mo` : 'N/A'],
+          ['Estimated Ad Spend', cd.paidClicksValue ? `$${cd.paidClicksValue.toLocaleString()}/mo` : 'N/A'],
+        ]
+      )
+    );
+    lines.push('');
+  }
+
+  if (safeArray(section.competitorDomains).length > 0) {
+    lines.push('**Competitor Domains:**\n');
+    lines.push(
+      createTable(
+        ['Domain', 'Organic KWs', 'Paid KWs', 'Organic Clicks/mo', 'Paid Clicks/mo', 'Traffic Value/mo', 'Ad Spend/mo'],
+        safeArray(section.competitorDomains).map((c) => [
+          c.domain,
+          String(c.organicKeywords?.toLocaleString() ?? 'N/A'),
+          String(c.paidKeywords?.toLocaleString() ?? 'N/A'),
+          String(c.monthlyOrganicClicks?.toLocaleString() ?? 'N/A'),
+          String(c.monthlyPaidClicks?.toLocaleString() ?? 'N/A'),
+          c.organicClicksValue ? `$${c.organicClicksValue.toLocaleString()}` : 'N/A',
+          c.paidClicksValue ? `$${c.paidClicksValue.toLocaleString()}` : 'N/A',
+        ])
+      )
+    );
+    lines.push('');
+  }
+
+  // Keyword Gaps
+  const formatKwTable = (keywords: typeof section.organicGaps, title: string) => {
+    if (!safeArray(keywords).length) return;
+    lines.push(`### ${title}\n`);
+    lines.push(
+      createTable(
+        ['Keyword', 'Volume', 'CPC', 'Difficulty', 'Source'],
+        safeArray(keywords).slice(0, 20).map((kw) => [
+          kw.keyword,
+          String(kw.searchVolume?.toLocaleString() ?? 'N/A'),
+          `$${kw.cpc?.toFixed(2) ?? 'N/A'}`,
+          String(kw.difficulty ?? 'N/A'),
+          kw.source?.replace(/_/g, ' ') ?? 'N/A',
+        ])
+      )
+    );
+    if (safeArray(keywords).length > 20) {
+      lines.push(`\n*Showing 20 of ${safeArray(keywords).length} keywords*`);
+    }
+    lines.push('');
+  };
+
+  formatKwTable(section.organicGaps, 'Organic Keyword Gaps');
+  formatKwTable(section.paidGaps, 'Paid Keyword Gaps');
+  formatKwTable(section.sharedKeywords, 'Shared Keywords (Competitive Battlegrounds)');
+  formatKwTable(section.clientStrengths, 'Your Keyword Strengths');
+  formatKwTable(section.quickWins, 'Quick Win Opportunities');
+  formatKwTable(section.longTermPlays, 'Long-Term Plays');
+  formatKwTable(section.highIntentKeywords, 'High-Intent Keywords');
+  formatKwTable(section.relatedExpansions, 'Related Keyword Expansions');
+
+  // Content Topic Clusters
+  if (safeArray(section.contentTopicClusters).length > 0) {
+    lines.push('### Content Topic Clusters\n');
+    safeArray(section.contentTopicClusters).forEach((cluster) => {
+      lines.push(`#### ${cluster.theme}\n`);
+      lines.push(`- **Total Volume:** ${cluster.searchVolumeTotal?.toLocaleString()}`);
+      lines.push(`- **Recommended Format:** ${cluster.recommendedFormat}`);
+      lines.push(`- **Keywords:** ${cluster.keywords.join(', ')}`);
+      lines.push('');
+    });
+  }
+
+  // Strategic Recommendations
+  if (section.strategicRecommendations) {
+    const recs = section.strategicRecommendations;
+    lines.push('### Strategic Recommendations\n');
+
+    if (safeArray(recs.organicStrategy).length > 0) {
+      lines.push('**Organic Strategy:**');
+      safeArray(recs.organicStrategy).forEach((item) => lines.push(`- ${item}`));
+      lines.push('');
+    }
+    if (safeArray(recs.paidSearchStrategy).length > 0) {
+      lines.push('**Paid Search Strategy:**');
+      safeArray(recs.paidSearchStrategy).forEach((item) => lines.push(`- ${item}`));
+      lines.push('');
+    }
+    if (safeArray(recs.competitivePositioning).length > 0) {
+      lines.push('**Competitive Positioning:**');
+      safeArray(recs.competitivePositioning).forEach((item) => lines.push(`- ${item}`));
+      lines.push('');
+    }
+    if (safeArray(recs.quickWinActions).length > 0) {
+      lines.push('**Quick Win Actions:**');
+      safeArray(recs.quickWinActions).forEach((item) => lines.push(`- ${item}`));
+      lines.push('');
+    }
+  }
+
+  // Metadata
+  if (section.metadata) {
+    lines.push('### Collection Metadata\n');
+    lines.push(`- **Client Domain:** ${section.metadata.clientDomain}`);
+    lines.push(`- **Competitors Analyzed:** ${safeArray(section.metadata.competitorDomainsAnalyzed).join(', ')}`);
+    lines.push(`- **Total Keywords Analyzed:** ${section.metadata.totalKeywordsAnalyzed?.toLocaleString()}`);
+    lines.push(`- **SpyFu Cost:** $${section.metadata.spyfuCost?.toFixed(4)}`);
+    lines.push(`- **Collected At:** ${section.metadata.collectedAt}`);
+    lines.push('');
+  }
 
   return lines.join('\n');
 }
@@ -729,6 +868,11 @@ export function generateBlueprintMarkdown(blueprint: StrategicBlueprintOutput): 
   // Section 5: Cross-Analysis Synthesis
   if (blueprint.crossAnalysisSynthesis) {
     sections.push(generateCrossAnalysis(blueprint.crossAnalysisSynthesis));
+  }
+
+  // Section 6: Keyword Intelligence (optional)
+  if (blueprint.keywordIntelligence) {
+    sections.push(generateKeywordIntelligence(blueprint.keywordIntelligence));
   }
 
   // Footer with metadata

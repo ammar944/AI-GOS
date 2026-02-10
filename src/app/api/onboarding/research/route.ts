@@ -36,6 +36,10 @@ const SCRAPE_PATHS = [
   '/products',
   '/customers',
   '/case-studies',
+  '/solutions',
+  '/services',
+  '/why-us',
+  '/testimonials',
 ] as const;
 
 // Max chars per scraped page to stay within token limits
@@ -54,6 +58,27 @@ function isValidUrl(str: string): boolean {
   }
 }
 
+async function callWithRetry<T>(
+  fn: () => T,
+  label: string,
+  maxRetries = 2,
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries) {
+        const delay = 1000 * Math.pow(2, attempt);
+        console.warn(`[onboarding/research] ${label} attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError ?? new Error(`${label} failed after retries`);
+}
+
 function isLinkedInCompanyUrl(str: string): boolean {
   try {
     const url = new URL(str);
@@ -61,6 +86,22 @@ function isLinkedInCompanyUrl(str: string): boolean {
       (url.hostname === 'linkedin.com' || url.hostname === 'www.linkedin.com') &&
       url.pathname.startsWith('/company/')
     );
+  } catch {
+    return false;
+  }
+}
+
+async function checkDomainReachable(baseUrl: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    await fetch(baseUrl, {
+      method: 'HEAD',
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    clearTimeout(timeoutId);
+    return true;
   } catch {
     return false;
   }
@@ -81,6 +122,13 @@ async function scrapeWebsiteContent(websiteUrl: string): Promise<string> {
     // Derive base URL (strip paths, query params)
     const parsed = new URL(websiteUrl);
     const baseUrl = `${parsed.protocol}//${parsed.host}`;
+
+    // Pre-check: skip Firecrawl if domain is unreachable
+    const reachable = await checkDomainReachable(baseUrl);
+    if (!reachable) {
+      console.warn(`[onboarding/research] Domain unreachable: ${baseUrl} — skipping Firecrawl`);
+      return '';
+    }
 
     // Build unique URLs to scrape
     const urlsToScrape = [...new Set(
@@ -178,15 +226,18 @@ ${scrapedContent
 For any field you cannot verify from actual sources, set the value to null.
 Be thorough but honest — a null value is better than a fabricated one.`;
 
-  // Step 3: Stream structured extraction
-  const result = streamObject({
-    model: perplexity(MODELS.SONAR_PRO),
-    schema: companyResearchSchema,
-    system: SYSTEM_PROMPT,
-    prompt: userPrompt,
-    temperature: 0.1,
-    maxOutputTokens: 4000,
-  });
+  // Step 3: Stream structured extraction (with retry on transient failures)
+  const result = await callWithRetry(
+    () => streamObject({
+      model: perplexity(MODELS.SONAR_PRO),
+      schema: companyResearchSchema,
+      system: SYSTEM_PROMPT,
+      prompt: userPrompt,
+      temperature: 0.1,
+      maxOutputTokens: 4000,
+    }),
+    'Perplexity streamObject',
+  );
 
   return result.toTextStreamResponse();
 }

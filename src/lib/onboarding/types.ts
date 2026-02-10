@@ -58,7 +58,7 @@ export interface ICPData {
   primaryIcpDescription: string;
   industryVertical: string;
   jobTitles: string;
-  companySize: CompanySize;
+  companySize: CompanySize[];
   geography: string;
   easiestToClose: string;
   buyingTriggers: string;
@@ -116,10 +116,10 @@ export interface ProductOfferData {
   productDescription: string;
   coreDeliverables: string;
   offerPrice: number;
-  pricingModel: PricingModel;
+  pricingModel: PricingModel[];
   valueProp: string;
   guarantees?: string;
-  currentFunnelType: FunnelType;
+  currentFunnelType: FunnelType[];
 }
 
 // =============================================================================
@@ -337,7 +337,7 @@ export const SAMPLE_ONBOARDING_DATA: OnboardingFormData = {
     primaryIcpDescription: "B2B SaaS founders and marketing leaders at growth-stage companies ($1M-$20M ARR) who are struggling to attribute revenue to their marketing efforts and need a unified analytics dashboard to prove ROI to their board.",
     industryVertical: "B2B SaaS, Technology, Marketing Technology",
     jobTitles: "VP of Marketing, Head of Growth, CMO, Demand Gen Director, Marketing Operations Manager",
-    companySize: "51-200",
+    companySize: ["51-200", "201-1000"],
     geography: "United States, Canada, United Kingdom, Australia",
     easiestToClose: "Series A/B funded SaaS companies that just hired their first marketing leader and are being asked to prove marketing ROI. They typically have 3-5 marketing tools but no unified view of performance.",
     buyingTriggers: "New CMO/VP Marketing hire, board pressure for attribution, failed marketing hires, scaling paid ads, preparing for Series B fundraise",
@@ -349,10 +349,10 @@ export const SAMPLE_ONBOARDING_DATA: OnboardingFormData = {
     productDescription: "FlowMetrics is an AI-powered marketing attribution and analytics platform that connects all your marketing tools, CRM, and revenue data into a single dashboard. We use machine learning to show which campaigns, channels, and content actually drive pipeline and closed revenue - not just vanity metrics.",
     coreDeliverables: "1) Unified marketing dashboard connecting 50+ integrations, 2) Multi-touch attribution modeling (first-touch, last-touch, linear, custom), 3) Revenue forecasting based on pipeline velocity, 4) Automated weekly board-ready reports, 5) Slack alerts for campaign performance anomalies",
     offerPrice: 997,
-    pricingModel: "monthly",
+    pricingModel: ["monthly", "annual"],
     valueProp: "Stop guessing which marketing works. FlowMetrics shows you exactly which campaigns drive revenue so you can double down on winners and cut losers - typically saving clients 30% of wasted ad spend in the first 90 days.",
     guarantees: "30-day money back guarantee. If you don't see at least 3 actionable insights in your first month, we'll refund 100% - no questions asked.",
-    currentFunnelType: "demo",
+    currentFunnelType: ["demo", "free_trial"],
   },
   marketCompetition: {
     topCompetitors: "HubSpot Attribution, Dreamdata, Bizible (Marketo), Factors.ai, Windsor.ai",
@@ -409,7 +409,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingFormData = {
     primaryIcpDescription: "",
     industryVertical: "",
     jobTitles: "",
-    companySize: "11-50",
+    companySize: [],
     geography: "",
     easiestToClose: "",
     buyingTriggers: "",
@@ -421,10 +421,10 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingFormData = {
     productDescription: "",
     coreDeliverables: "",
     offerPrice: 0,
-    pricingModel: "monthly",
+    pricingModel: [],
     valueProp: "",
     guarantees: "",
-    currentFunnelType: "lead_form",
+    currentFunnelType: [],
   },
   marketCompetition: {
     topCompetitors: "",

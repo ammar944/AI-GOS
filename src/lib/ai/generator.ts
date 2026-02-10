@@ -34,6 +34,12 @@ export interface GeneratorOptions {
   abortSignal?: AbortSignal;
   /** Optional: Pre-enriched competitor data (pricing + ads already added) */
   enrichedCompetitors?: CompetitorAnalysis;
+  /** Optional: Pre-fetched keyword intelligence data (from SpyFu) */
+  keywordIntelligenceData?: import('@/lib/strategic-blueprint/output-types').KeywordIntelligence;
+  /** Async provider for enriched competitors — called between Phase 2 and Phase 3 (zero delay if enrichment already finished) */
+  getEnrichedCompetitors?: () => Promise<CompetitorAnalysis | undefined>;
+  /** Async provider for keyword intelligence — called between Phase 2 and Phase 3 */
+  getKeywordIntelligence?: () => Promise<import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined>;
 }
 
 export interface GeneratorResult {
@@ -93,53 +99,56 @@ export async function generateStrategicBlueprint(
 
   try {
     // =========================================================================
-    // PHASE 1: Parallel Research (Industry + Competitors base)
+    // PHASE 1: Industry + Competitors (concurrent, but decoupled)
+    // Phase 2 only needs industryResult, so we don't wait for competitors.
+    // Competitors resolve independently and emit competitorData for enrichment.
     // =========================================================================
     progress(1, 'phase1', 'starting', 'Starting parallel research...');
 
     const phase1Start = Date.now();
-    
-    const [industryResult, competitorResult] = await Promise.all([
-      // Section 1: Industry & Market
-      (async () => {
-        checkAbort();
-        progress(1, 'industryMarket', 'starting', 'Researching industry & market...');
-        const start = Date.now();
-        const result = await researchIndustryMarket(context);
-        sectionTimings.industryMarket = Date.now() - start;
-        sectionCitations.industryMarket = result.sources;
-        modelsUsed.add(result.model);
-        totalCost += result.cost;
-        progress(1, 'industryMarket', 'complete', `Industry research complete (${result.sources.length} sources)`);
-        return result;
-      })(),
 
-      // Section 4: Competitors (base research, without enrichment)
-      (async () => {
-        checkAbort();
-        progress(1, 'competitorAnalysis', 'starting', 'Researching competitors...');
-        const start = Date.now();
-        const result = await researchCompetitors(context);
-        sectionTimings.competitorAnalysis = Date.now() - start;
-        sectionCitations.competitorAnalysis = result.sources;
-        modelsUsed.add(result.model);
-        totalCost += result.cost;
-        progress(1, 'competitorAnalysis', 'complete', `Competitor research complete (${result.data.competitors.length} found)`);
-        return result;
-      })(),
-    ]);
+    // Start both concurrently — but DON'T Promise.all them
+    const industryPromise = (async () => {
+      checkAbort();
+      progress(1, 'industryMarket', 'starting', 'Researching industry & market...');
+      const start = Date.now();
+      const result = await researchIndustryMarket(context);
+      sectionTimings.industryMarket = Date.now() - start;
+      sectionCitations.industryMarket = result.sources;
+      modelsUsed.add(result.model);
+      totalCost += result.cost;
+      progress(1, 'industryMarket', 'complete', `Industry research complete (${result.sources.length} sources)`);
+      return result;
+    })();
 
-    sectionTimings.phase1 = Date.now() - phase1Start;
-    // Emit Phase 1 complete WITH competitor data for early enrichment
-    onProgress?.({
-      phase: 1,
-      section: 'phase1',
-      status: 'complete',
-      message: `Phase 1 complete in ${Math.round(sectionTimings.phase1 / 1000)}s`,
-      elapsedMs: Date.now() - startTime,
-      cost: totalCost,
-      competitorData: competitorResult.data, // Enable early enrichment!
-    });
+    const competitorPromise = (async () => {
+      checkAbort();
+      progress(1, 'competitorAnalysis', 'starting', 'Researching competitors...');
+      const start = Date.now();
+      const result = await researchCompetitors(context);
+      sectionTimings.competitorAnalysis = Date.now() - start;
+      sectionCitations.competitorAnalysis = result.sources;
+      modelsUsed.add(result.model);
+      totalCost += result.cost;
+      progress(1, 'competitorAnalysis', 'complete', `Competitor research complete (${result.data.competitors.length} found)`);
+
+      // Emit competitor data immediately so route.ts can start enrichment
+      onProgress?.({
+        phase: 1,
+        section: 'phase1',
+        status: 'complete',
+        message: `Competitor research complete — enrichment can begin`,
+        elapsedMs: Date.now() - startTime,
+        cost: totalCost,
+        competitorData: result.data,
+      });
+
+      return result;
+    })();
+
+    // Only wait for industry before starting Phase 2
+    const industryResult = await industryPromise;
+    sectionTimings.phase1Industry = Date.now() - phase1Start;
 
     checkAbort();
 
@@ -199,7 +208,32 @@ export async function generateStrategicBlueprint(
     }
 
     sectionTimings.phase2 = Date.now() - phase2Start;
-    // Emit Phase 2 complete with all sections for route to use with enriched data
+
+    checkAbort();
+
+    // =========================================================================
+    // PRE-SYNTHESIS: Await competitors + parallel enrichments + keywords
+    // Competitors started in Phase 1 and run concurrently — almost certainly
+    // finished by now (Phase 2 takes ~8-15s), but we must await to be safe.
+    // =========================================================================
+    progress(3, 'crossAnalysis', 'starting', 'Syncing enrichment data for synthesis...');
+
+    const syncStart = Date.now();
+    const [competitorResult, asyncEnrichedCompetitors, asyncKeywordData] = await Promise.all([
+      competitorPromise,
+      options.getEnrichedCompetitors?.() ?? Promise.resolve(undefined as CompetitorAnalysis | undefined),
+      options.getKeywordIntelligence?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined),
+    ]);
+
+    const enrichedParts: string[] = [];
+    if (asyncEnrichedCompetitors) enrichedParts.push('competitors');
+    if (asyncKeywordData) enrichedParts.push('keywords');
+    const syncMs = Date.now() - syncStart;
+    console.log(`[Generator] Pre-synthesis sync: competitors + ${enrichedParts.join(', ') || 'no enrichment'} (${syncMs}ms wait)`);
+
+    sectionTimings.phase1 = Date.now() - phase1Start;
+
+    // Emit Phase 2 complete with all sections (competitors now guaranteed available)
     onProgress?.({
       phase: 2,
       section: 'phase2',
@@ -218,8 +252,6 @@ export async function generateStrategicBlueprint(
       reconciliationResult: reconciliation.conflictsDetected > 0 ? reconciliation : undefined,
     });
 
-    checkAbort();
-
     // =========================================================================
     // PHASE 3: Synthesis (Claude Sonnet)
     // =========================================================================
@@ -227,8 +259,9 @@ export async function generateStrategicBlueprint(
 
     const phase3Start = Date.now();
 
-    // Use enriched competitor data if provided, otherwise use base research
-    const finalCompetitorData = options.enrichedCompetitors ?? competitorResult.data;
+    // Use enriched competitor data if available (async > static > base research)
+    const finalCompetitorData = asyncEnrichedCompetitors ?? options.enrichedCompetitors ?? competitorResult.data;
+    const finalKeywordData = asyncKeywordData ?? options.keywordIntelligenceData;
 
     const allSections: AllSectionResults = {
       industryMarket: industryResult.data,
@@ -237,7 +270,7 @@ export async function generateStrategicBlueprint(
       competitorAnalysis: finalCompetitorData,
     };
 
-    const synthesisResult = await synthesizeCrossAnalysis(context, allSections);
+    const synthesisResult = await synthesizeCrossAnalysis(context, allSections, finalKeywordData);
     sectionTimings.crossAnalysis = Date.now() - phase3Start;
     modelsUsed.add(synthesisResult.model);
     totalCost += synthesisResult.cost;

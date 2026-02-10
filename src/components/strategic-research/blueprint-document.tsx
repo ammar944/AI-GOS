@@ -12,6 +12,7 @@ import type {
 } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { createApprovedBlueprint } from "@/lib/strategic-blueprint/approval";
+import { RESEARCH_TRANSPARENT_PANEL_CLASS } from "./ui-tokens";
 
 // Helper to deep-merge edits at a field path into an object
 function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
@@ -267,11 +268,16 @@ export function BlueprintDocument({
 
       <div className="flex gap-8" style={{ background: 'var(--bg-base)' }}>
         {/* Main document content */}
-        <div ref={containerRef} className="flex-1 max-w-4xl min-w-0">
+        <div ref={containerRef} className="min-w-0 max-w-5xl flex-1">
           {/* Header */}
-          <div className="mb-8 pb-6 border-b" style={{ borderColor: 'var(--border-default)' }}>
+          <div
+            className={`mb-8 px-6 py-5 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}
+            style={{
+              borderColor: "var(--border-default)",
+            }}
+          >
             <h1
-              className="text-3xl font-bold mb-2"
+              className="mb-2 text-3xl font-bold"
               style={{
                 color: 'var(--text-heading)',
                 fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
@@ -322,7 +328,7 @@ export function BlueprintDocument({
         </div>
 
         {/* Sticky navigation sidebar */}
-        <div className="w-56 shrink-0">
+        <div className="w-60 shrink-0">
           <SectionNav
             activeSection={activeSection}
             reviewedSections={reviewedSections}

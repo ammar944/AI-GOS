@@ -23,6 +23,7 @@ import { createRoot } from "react-dom/client";
 import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
 import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import { BlueprintDocument } from "@/components/strategic-research";
+import { RESEARCH_TRANSPARENT_PANEL_CLASS } from "@/components/strategic-research/ui-tokens";
 import { AgentChat } from "@/components/chat";
 import { SplitChatLayout } from "@/components/layout";
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -132,7 +133,7 @@ type PageState =
   | "error";
 
 // Pipeline stages for generation progress visualization
-const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Synthesis"];
+const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Synthesis", "Keywords"];
 
 // Map page state to header stage
 function getHeaderStage(pageState: PageState): GenerateStage {
@@ -855,7 +856,7 @@ export default function GeneratePage() {
   // Review Blueprint State
   if (pageState === "review-blueprint" && strategicBlueprint) {
     return (
-      <div className="h-screen flex flex-col" style={{ background: 'var(--bg-base)' }}>
+      <div className="relative flex h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
         {/* Persistent Navigation Header */}
         <GenerateHeader
           currentStage={getHeaderStage(pageState)}
@@ -864,8 +865,11 @@ export default function GeneratePage() {
           exitUrl="/dashboard"
         />
 
+        <ShaderMeshBackground variant="page" />
+        <BackgroundPattern opacity={0.015} />
+
         {/* Main content area */}
-        <div className="flex-1 min-h-0">
+        <div className="z-10 flex min-h-0 flex-1">
           <SplitChatLayout
             chatContent={
               <AgentChat
@@ -874,9 +878,9 @@ export default function GeneratePage() {
               />
             }
             blueprintContent={
-              <div className="container mx-auto px-4 py-8 md:py-12 pb-32">
+              <div className="container mx-auto px-5 pb-32 pt-8 md:px-8 md:py-12">
                 {/* Review Component */}
-                <div className="mx-auto max-w-6xl">
+                <div className={`mx-auto max-w-7xl p-4 md:p-6 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}>
                   <BlueprintDocument
                     strategicBlueprint={strategicBlueprint}
                     onApprove={handleApprove}
@@ -894,7 +898,7 @@ export default function GeneratePage() {
   // Complete State - Show Strategic Blueprint
   if (pageState === "complete" && strategicBlueprint) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)' }}>
+      <div className="relative flex min-h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
         {/* Persistent Navigation Header */}
         <GenerateHeader
           currentStage={getHeaderStage(pageState)}
@@ -902,10 +906,13 @@ export default function GeneratePage() {
           exitUrl="/dashboard"
         />
 
-        <div className="container mx-auto px-4 py-8 md:py-12">
+        <ShaderMeshBackground variant="page" />
+        <BackgroundPattern opacity={0.015} />
+
+        <div className="container relative z-10 mx-auto px-5 py-8 md:px-8 md:py-12">
           {/* Success Header */}
           <motion.div
-            className="mx-auto max-w-5xl mb-8"
+            className="mx-auto mb-8 max-w-6xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: durations.normal, ease: easings.out }}
@@ -949,7 +956,7 @@ export default function GeneratePage() {
                           fontFamily: 'var(--font-sans), Inter, sans-serif',
                         }}
                       >
-                        5-section strategic analysis ready
+                        {strategicBlueprint?.keywordIntelligence ? '6' : '5'}-section strategic analysis ready
                       </p>
                     </div>
                   </div>
@@ -977,7 +984,7 @@ export default function GeneratePage() {
                       </MagneticButton>
                     </a>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleBackToReview}
                       style={{
                         border: '1px solid var(--border-default)',
@@ -990,7 +997,7 @@ export default function GeneratePage() {
                       Back to Review
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleExportPDF}
                       disabled={isExporting}
                       style={{
@@ -1008,7 +1015,7 @@ export default function GeneratePage() {
                       {isExporting ? 'Exporting...' : 'Export PDF'}
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleShare}
                       disabled={isSharing || !!shareUrl}
                       style={{
@@ -1028,7 +1035,7 @@ export default function GeneratePage() {
                       {isSharing ? 'Sharing...' : shareUrl ? 'Shared' : 'Share'}
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleRegenerateBlueprint}
                       style={{
                         border: '1px solid var(--border-default)',
@@ -1041,7 +1048,7 @@ export default function GeneratePage() {
                       Regenerate
                     </MagneticButton>
                     <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                       onClick={handleStartOver}
                       style={{
                         border: '1px solid var(--border-default)',
@@ -1098,7 +1105,7 @@ export default function GeneratePage() {
                           fontFamily: 'var(--font-sans), Inter, sans-serif',
                         }}
                       >
-                        5 sections analyzed
+                        {strategicBlueprint?.keywordIntelligence ? '6' : '5'} sections analyzed
                       </span>
                     </div>
                   </motion.div>
@@ -1143,7 +1150,7 @@ export default function GeneratePage() {
                           }}
                         />
                         <MagneticButton
-                          className="h-9 px-4 rounded-md text-sm font-medium"
+                          className="h-9 rounded-full px-4 text-sm font-medium"
                           onClick={handleCopyLink}
                           style={{
                             background: 'var(--gradient-primary)',
@@ -1205,12 +1212,14 @@ export default function GeneratePage() {
 
           {/* Polished Blueprint View - Card-based layout */}
           <motion.div
-            className="mx-auto max-w-5xl"
+            className="mx-auto max-w-6xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
           >
-            <PolishedBlueprintView strategicBlueprint={strategicBlueprint} />
+            <div className={`p-4 md:p-6 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}>
+              <PolishedBlueprintView strategicBlueprint={strategicBlueprint} />
+            </div>
           </motion.div>
         </div>
       </div>

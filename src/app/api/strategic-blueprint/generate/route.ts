@@ -10,9 +10,13 @@ import {
   validateOnboardingData,
   enrichCompetitors,
   extractAdHooksFromAds,
+  enrichKeywordIntelligence,
   type StrategicBlueprintOutput,
   type GenerationProgress,
   type EnrichmentResult,
+  type ExtractAdHooksResult,
+  type KeywordIntelligenceResult,
+  type KeywordBusinessContext,
 } from '@/lib/ai';
 import {
   createErrorResponse,
@@ -37,7 +41,8 @@ type BlueprintSection =
   | 'icpAnalysisValidation'
   | 'offerAnalysisViability'
   | 'competitorAnalysis'
-  | 'crossAnalysisSynthesis';
+  | 'crossAnalysisSynthesis'
+  | 'keywordIntelligence';
 
 const SECTION_LABELS: Record<BlueprintSection, string> = {
   industryMarketOverview: 'Industry & Market Overview',
@@ -45,6 +50,7 @@ const SECTION_LABELS: Record<BlueprintSection, string> = {
   offerAnalysisViability: 'Offer Analysis & Viability',
   competitorAnalysis: 'Competitor Analysis',
   crossAnalysisSynthesis: 'Cross-Analysis Synthesis',
+  keywordIntelligence: 'Keyword Intelligence',
 };
 
 // Map generator section names → frontend BlueprintSection keys
@@ -58,9 +64,10 @@ const GENERATOR_TO_SECTION: Record<string, BlueprintSection> = {
   competitorAnalysis: 'competitorAnalysis',
   crossAnalysis: 'crossAnalysisSynthesis',
   crossAnalysisSynthesis: 'crossAnalysisSynthesis',
+  keywordIntelligence: 'keywordIntelligence',
 };
 
-const TOTAL_SECTIONS = 5;
+const TOTAL_SECTIONS = 6;
 
 // =============================================================================
 // SSE Event Types (must match frontend generate/page.tsx definitions)
@@ -164,6 +171,11 @@ export async function POST(request: NextRequest) {
       const encoder = new TextEncoder();
       let streamClosed = false;
       let enrichmentPromise: Promise<EnrichmentResult> | null = null;
+      let keywordPromise: Promise<KeywordIntelligenceResult | null> | null = null;
+      let hookPromise: Promise<ExtractAdHooksResult | null> | null = null;
+      let baseCompetitorData: any = null; // Captured from Phase 1 for enrichment merge
+      let storedEnrichment: EnrichmentResult | null = null;
+      let storedKeywordResult: KeywordIntelligenceResult | null = null;
       const completedSections = new Set<BlueprintSection>();
 
       // Helper to send SSE and track completions
@@ -221,8 +233,9 @@ export async function POST(request: NextRequest) {
               }
 
               // START ENRICHMENT EARLY: When Phase 1 completes, kick off enrichment
-              // This runs PARALLEL to Phase 2/3, saving ~40-60 seconds
+              // Enrichment runs PARALLEL to Phase 2, then feeds into Phase 3 synthesis
               if (progress.section === 'phase1' && progress.status === 'complete' && progress.competitorData) {
+                baseCompetitorData = progress.competitorData;
                 console.log('[Route] Phase 1 complete - starting enrichment in parallel with Phase 2/3');
                 emit({
                   type: 'progress',
@@ -241,6 +254,41 @@ export async function POST(request: NextRequest) {
                     });
                   }
                 );
+
+                // Start keyword intelligence enrichment in parallel (requires client URL + SpyFu key)
+                const clientDomain = onboardingData.businessBasics?.websiteUrl;
+                if (clientDomain && process.env.SPYFU_API_KEY) {
+                  console.log('[Route] Starting keyword intelligence enrichment (parallel)...');
+                  emit({
+                    type: 'section-start',
+                    section: 'keywordIntelligence',
+                    label: SECTION_LABELS.keywordIntelligence,
+                  });
+
+                  // Build business context for keyword relevance filtering
+                  const keywordBusinessContext: KeywordBusinessContext = {
+                    industry: onboardingData.icp?.industryVertical || '',
+                    productDescription: onboardingData.productOffer?.productDescription || '',
+                    companyName: onboardingData.businessBasics?.businessName || '',
+                    competitorNames: progress.competitorData.competitors.map((c: any) => c.name),
+                  };
+
+                  keywordPromise = enrichKeywordIntelligence(
+                    clientDomain,
+                    progress.competitorData.competitors,
+                    (msg) => {
+                      emit({
+                        type: 'progress',
+                        percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                        message: msg,
+                      });
+                    },
+                    keywordBusinessContext,
+                  ).catch(error => {
+                    console.error('[Route] Keyword intelligence failed (non-fatal):', error);
+                    return null;
+                  });
+                }
               }
 
               // Capture Phase 2 completion
@@ -250,7 +298,56 @@ export async function POST(request: NextRequest) {
             };
 
             // Generate blueprint (Phase 1/2/3)
-            const result = await generateStrategicBlueprint(context, { onProgress });
+            // Enrichment callbacks let synthesis access reviews/pricing/ads/keywords
+            // with zero delay (enrichment finishes during Phase 2, well before Phase 3)
+            const result = await generateStrategicBlueprint(context, {
+              onProgress,
+              getEnrichedCompetitors: async () => {
+                if (!enrichmentPromise || !baseCompetitorData) return undefined;
+                const enrichment = await enrichmentPromise;
+                storedEnrichment = enrichment;
+                console.log(`[Route] Enrichment ready for synthesis: ${enrichment.reviewSuccessCount} reviews, ${enrichment.pricingSuccessCount} pricing, ${enrichment.adSuccessCount} ads`);
+
+                // Start hook extraction in parallel with synthesis (don't await)
+                const totalAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
+                if (totalAds > 0 && !hookPromise) {
+                  console.log('[Route] Starting hook extraction parallel to synthesis...');
+                  emit({
+                    type: 'progress',
+                    percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                    message: 'Extracting ad hooks from competitor creatives (parallel)...',
+                  });
+                  hookPromise = extractAdHooksFromAds(
+                    enrichment.competitors,
+                    [] // No synthesis hooks yet — will merge after both finish
+                  ).catch(error => {
+                    console.error('[Route] Hook extraction failed (non-fatal):', error);
+                    return null;
+                  });
+                }
+
+                return {
+                  ...baseCompetitorData,
+                  competitors: enrichment.competitors,
+                } as any;
+              },
+              getKeywordIntelligence: async () => {
+                if (!keywordPromise) return undefined;
+                const kwResult = await keywordPromise;
+                if (kwResult) {
+                  storedKeywordResult = kwResult;
+                  completedSections.add('keywordIntelligence');
+                  emit({
+                    type: 'section-complete',
+                    section: 'keywordIntelligence',
+                    label: SECTION_LABELS.keywordIntelligence,
+                    data: null,
+                  });
+                  console.log(`[Route] Keyword intelligence ready for synthesis: ${kwResult.keywordIntelligence.metadata.totalKeywordsAnalyzed} keywords`);
+                }
+                return kwResult?.keywordIntelligence;
+              },
+            });
 
             if (!result.success || !result.blueprint) {
               emit({ type: 'error', message: result.error || 'Generation failed' });
@@ -259,68 +356,62 @@ export async function POST(request: NextRequest) {
               return;
             }
 
-            // Wait for enrichment to complete (it started during Phase 1)
-            let enrichment: EnrichmentResult;
-            if (enrichmentPromise) {
-              console.log('[Route] Waiting for parallel enrichment to complete...');
-              enrichment = await enrichmentPromise;
-            } else {
-              // Fallback: if enrichment didn't start early, do it now
-              console.log('[Route] Enrichment did not start early - running now');
-              enrichment = await enrichCompetitors(
-                result.blueprint.competitorAnalysis,
-                (msg) => {
-                  emit({
-                    type: 'progress',
-                    percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
-                    message: msg,
-                  });
-                }
-              );
-            }
+            // Enrichment + keywords already awaited inside generator via callbacks
+            // Re-await is instant (promises already resolved)
+            const enrichment = storedEnrichment ?? (enrichmentPromise ? await enrichmentPromise : await enrichCompetitors(
+              result.blueprint.competitorAnalysis,
+              (msg) => {
+                emit({
+                  type: 'progress',
+                  percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                  message: msg,
+                });
+              }
+            ));
+            const keywordResult = storedKeywordResult ?? (keywordPromise ? await keywordPromise : null);
 
             // Debug: Log enrichment result
             const totalEnrichedAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
-            console.log(`[Route] Enrichment returned ${totalEnrichedAds} total ads across ${enrichment.competitors.length} competitors`);
+            console.log(`[Route] Enrichment: ${totalEnrichedAds} ads, ${enrichment.reviewSuccessCount}/${enrichment.competitors.length} reviews, ${enrichment.pricingSuccessCount}/${enrichment.competitors.length} pricing`);
 
-            // RE-RUN SYNTHESIS with enriched competitor data
+            // Synthesis already had enriched data (reviews, pricing, ads, keywords)
+            // Hook extraction ran in parallel with synthesis — merge results now
             let finalSynthesis = result.blueprint.crossAnalysisSynthesis;
             let resynthesisCost = 0;
 
-            // LIGHTWEIGHT HOOK EXTRACTION (replaces full re-synthesis for ~80% cost/time reduction)
-            if (totalEnrichedAds > 0) {
-              console.log('[Route] Extracting hooks from competitor ads (lightweight)...');
-
-              emit({
-                type: 'progress',
-                percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
-                message: 'Extracting ad hooks from competitor creatives...',
-              });
-
+            // Await parallel hook extraction and merge with synthesis hooks
+            if (hookPromise) {
               try {
-                const extractionStart = Date.now();
-                const extractionResult = await extractAdHooksFromAds(
-                  enrichment.competitors,
-                  finalSynthesis.messagingFramework?.adHooks ?? []
-                );
+                const hookResult = await hookPromise;
+                if (hookResult && hookResult.hooks.length > 0) {
+                  const synthesisHooks = finalSynthesis.messagingFramework?.adHooks ?? [];
+                  // Extracted/inspired hooks (from ads) take priority, then fill with synthesis-generated hooks
+                  const generatedOnly = synthesisHooks.filter(
+                    h => !h.source || h.source.type === 'generated'
+                  );
+                  const mergedHooks = [
+                    ...hookResult.hooks, // extracted + inspired (high priority)
+                    ...generatedOnly.slice(0, 12 - hookResult.hooks.length),
+                  ].slice(0, 12);
 
-                // Update only adHooks field with extracted hooks
-                finalSynthesis = {
-                  ...finalSynthesis,
-                  messagingFramework: {
-                    ...finalSynthesis.messagingFramework!,
-                    adHooks: extractionResult.hooks,
-                  },
-                };
-                resynthesisCost = extractionResult.cost;
+                  finalSynthesis = {
+                    ...finalSynthesis,
+                    messagingFramework: {
+                      ...finalSynthesis.messagingFramework!,
+                      adHooks: mergedHooks,
+                    },
+                  };
+                  resynthesisCost = hookResult.cost;
 
-                console.log(`[Route] Hook extraction complete in ${Date.now() - extractionStart}ms, cost: $${resynthesisCost.toFixed(4)}, extracted: ${extractionResult.extractedCount}, inspired: ${extractionResult.inspiredCount}`);
+                  console.log(`[Route] Hook extraction merged: cost=$${resynthesisCost.toFixed(4)}, extracted=${hookResult.extractedCount}, inspired=${hookResult.inspiredCount}, synthesis-generated=${generatedOnly.length}, final=${mergedHooks.length}`);
+                }
               } catch (error) {
-                console.error('[Route] Hook extraction failed, using original hooks:', error);
+                console.error('[Route] Hook extraction merge failed, using synthesis hooks:', error);
               }
             }
 
-            // Build final blueprint with enriched competitors and (potentially) re-synthesized analysis
+            // Build final blueprint with enriched competitors, keyword intelligence, and (potentially) re-synthesized analysis
+            const keywordCost = keywordResult?.cost ?? 0;
             const finalBlueprint: StrategicBlueprintOutput = {
               ...result.blueprint,
               competitorAnalysis: {
@@ -328,9 +419,10 @@ export async function POST(request: NextRequest) {
                 competitors: enrichment.competitors as any,
               },
               crossAnalysisSynthesis: finalSynthesis,
+              ...(keywordResult && { keywordIntelligence: keywordResult.keywordIntelligence }),
               metadata: {
                 ...result.blueprint.metadata,
-                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + resynthesisCost,
+                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + resynthesisCost + keywordCost,
                 processingTime: Date.now() - startTime,
               },
             };
@@ -403,23 +495,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enrich competitors
-    const enrichment = await enrichCompetitors(result.blueprint.competitorAnalysis);
+    // Enrich competitors + keyword intelligence (parallel)
+    const clientDomainNonStream = onboardingData.businessBasics?.websiteUrl;
+    const keywordBusinessContextNonStream: KeywordBusinessContext = {
+      industry: onboardingData.icp?.industryVertical || '',
+      productDescription: onboardingData.productOffer?.productDescription || '',
+      companyName: onboardingData.businessBasics?.businessName || '',
+      competitorNames: result.blueprint.competitorAnalysis.competitors.map((c: any) => c.name),
+    };
+    const [enrichment, keywordResultNonStream] = await Promise.all([
+      enrichCompetitors(result.blueprint.competitorAnalysis),
+      (clientDomainNonStream && process.env.SPYFU_API_KEY)
+        ? enrichKeywordIntelligence(clientDomainNonStream, result.blueprint.competitorAnalysis.competitors, undefined, keywordBusinessContextNonStream).catch(() => null)
+        : Promise.resolve(null),
+    ]);
 
     // Debug: Log enrichment result before merge
     const totalEnrichedAdsNonStream = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
     console.log(`[Route/NonStream] Enrichment returned ${totalEnrichedAdsNonStream} total ads across ${enrichment.competitors.length} competitors`);
+    if (keywordResultNonStream) {
+      console.log(`[Route/NonStream] Keyword intelligence: ${keywordResultNonStream.keywordIntelligence.metadata.totalKeywordsAnalyzed} keywords`);
+    }
 
     // Merge enriched data
+    const keywordCostNonStream = keywordResultNonStream?.cost ?? 0;
     const finalBlueprint: StrategicBlueprintOutput = {
       ...result.blueprint,
       competitorAnalysis: {
         ...result.blueprint.competitorAnalysis,
         competitors: enrichment.competitors as any,
       },
+      ...(keywordResultNonStream && { keywordIntelligence: keywordResultNonStream.keywordIntelligence }),
       metadata: {
         ...result.blueprint.metadata,
-        totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost,
+        totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + keywordCostNonStream,
         processingTime: Date.now() - startTime,
       },
     };

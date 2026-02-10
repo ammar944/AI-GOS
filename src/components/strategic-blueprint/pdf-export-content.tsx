@@ -447,25 +447,8 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
             ))}
           </SubSection>
 
-          <SubSection title="Messaging Opportunities">
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-              {safeArray(industryMarketOverview?.messagingOpportunities?.opportunities).map((item, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    backgroundColor: printColors.muted,
-                    fontSize: 13,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
+          <SubSection title="Key Recommendations">
             <div style={{ ...styles.card, backgroundColor: printColors.primaryLight, border: `1px solid ${printColors.primary}` }}>
-              <div style={{ fontWeight: 500, marginBottom: 8 }}>Key Recommendations</div>
               {safeArray(industryMarketOverview?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
                 <ListItem key={i}>{item}</ListItem>
               ))}
@@ -705,27 +688,6 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           <SubSection title="Recommended Positioning">
             <div style={{ ...styles.card, backgroundColor: printColors.primaryLight, border: `1px solid ${printColors.primary}` }}>
               <div style={{ fontSize: 16 }}>{safeRender(crossAnalysisSynthesis?.recommendedPositioning)}</div>
-            </div>
-          </SubSection>
-
-          <SubSection title="Primary Messaging Angles">
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {safeArray(crossAnalysisSynthesis?.primaryMessagingAngles).map((angle, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: 8,
-                    backgroundColor: printColors.primary,
-                    color: "white",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {angle}
-                </div>
-              ))}
             </div>
           </SubSection>
 

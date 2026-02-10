@@ -103,14 +103,10 @@ export const audienceObjectionsSchema = z.object({
 // =============================================================================
 
 export const messagingOpportunitiesSchema = z.object({
-  opportunities: z.array(z.string())
-    .min(3).max(10)
-    .describe('6-8 specific messaging angles based on market gaps. Each should be a testable ad concept (e.g., "Speed-to-value: Live in 2 weeks vs competitor 3+ months", "ROI transparency: Show exact revenue impact").'),
-
   summaryRecommendations: z.array(z.string())
     .min(2).max(5)
     .describe('Top 3 strategic recommendations synthesized from all analysis. These are the priority actions for the marketing strategy.'),
-}).describe('Messaging opportunities and strategic recommendations for paid media');
+}).describe('Strategic recommendations for paid media');
 
 // =============================================================================
 // Complete Industry & Market Overview Schema

@@ -45,6 +45,18 @@ CRITICAL RULES:
 }
 
 /**
+ * Normalize a URL's hostname by stripping the www. prefix.
+ * Returns empty string on parse failure.
+ */
+function normalizeHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Map a single ResearchedField to a FieldExtraction, using the model-assessed
  * confidence score and deriving the DataSource from the sourceUrl.
  */
@@ -69,17 +81,14 @@ function mapField(
   // Derive DataSource from sourceUrl
   let source: DataSource = 'search';
   if (field.sourceUrl) {
-    if (field.sourceUrl.includes('linkedin.com')) {
+    const lnHost = normalizeHostname(field.sourceUrl);
+    if (lnHost === 'linkedin.com') {
       source = 'linkedin';
     } else {
-      try {
-        const sourceHost = new URL(field.sourceUrl).hostname;
-        const companyHost = new URL(websiteUrl).hostname;
-        if (sourceHost === companyHost) {
-          source = 'website';
-        }
-      } catch {
-        // If URL parsing fails, keep 'search'
+      const sourceHost = normalizeHostname(field.sourceUrl);
+      const companyHost = normalizeHostname(websiteUrl);
+      if (sourceHost && companyHost && sourceHost === companyHost) {
+        source = 'website';
       }
     }
   }
@@ -175,7 +184,7 @@ function mapToOnboardingData(
     primaryIcpDescription: result.primaryIcpDescription?.value || '',
     industryVertical: result.industryVertical?.value || '',
     jobTitles: result.jobTitles?.value || '',
-    companySize: parseCompanySize(result.companySize?.value || null) || '11-50',
+    companySize: (() => { const p = parseCompanySize(result.companySize?.value || null); return p ? [p] : []; })(),
     geography: result.geography?.value || '',
     easiestToClose: '', // Requires human input
     buyingTriggers: '', // Requires human input
@@ -191,9 +200,9 @@ function mapToOnboardingData(
     productDescription: result.productDescription?.value || '',
     coreDeliverables: result.coreDeliverables?.value || '',
     offerPrice: 0, // Requires human input (we don't parse prices)
-    pricingModel: 'monthly' as const, // Default
+    pricingModel: [], // Default — user selects from checkboxes
     valueProp: result.valueProp?.value || '',
-    currentFunnelType: 'lead_form' as const, // Default
+    currentFunnelType: [], // Default — user selects from checkboxes
   };
 
   if (productFields.productDescription || productFields.valueProp) {
@@ -339,8 +348,8 @@ export function isLinkedInCompanyUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return (
-      parsed.hostname.includes('linkedin.com') &&
-      parsed.pathname.includes('/company/')
+      (parsed.hostname === 'linkedin.com' || parsed.hostname === 'www.linkedin.com') &&
+      parsed.pathname.startsWith('/company/')
     );
   } catch {
     return false;

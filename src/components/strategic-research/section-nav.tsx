@@ -11,14 +11,16 @@ import {
 } from "@/components/ui/tooltip";
 import type { StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
+import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
-const SECTION_NAV_ITEMS: { id: StrategicBlueprintSection; label: string }[] = [
-  { id: "industryMarketOverview", label: "Industry & Market" },
-  { id: "icpAnalysisValidation", label: "ICP Analysis" },
-  { id: "offerAnalysisViability", label: "Offer Analysis" },
-  { id: "competitorAnalysis", label: "Competitors" },
-  { id: "crossAnalysisSynthesis", label: "Synthesis" },
-];
+const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
+  industryMarketOverview: "Industry & Market",
+  icpAnalysisValidation: "ICP Analysis",
+  offerAnalysisViability: "Offer Analysis",
+  competitorAnalysis: "Competitors",
+  crossAnalysisSynthesis: "Synthesis",
+  keywordIntelligence: "Keywords",
+};
 
 interface SectionNavProps {
   activeSection: StrategicBlueprintSection;
@@ -54,6 +56,8 @@ export function SectionNav({
   onRegenerate,
   onApprove,
 }: SectionNavProps) {
+  const totalSections = STRATEGIC_BLUEPRINT_SECTION_ORDER.length;
+
   const handleClick = (sectionId: StrategicBlueprintSection) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -67,23 +71,22 @@ export function SectionNav({
   return (
     <nav className="sticky top-6 hidden lg:block">
       <div
-        className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-default)] shadow-[var(--shadow-card)]"
+        className={`${RESEARCH_SHELL_CLASS} rounded-xl p-4`}
       >
-      <div className="space-y-1">
-        {SECTION_NAV_ITEMS.map((section, i) => {
-          const isActive = activeSection === section.id;
-          const isReviewed = reviewedSections.has(section.id);
+      <div className="space-y-1.5">
+        {STRATEGIC_BLUEPRINT_SECTION_ORDER.map((section, i) => {
+          const isActive = activeSection === section;
+          const isReviewed = reviewedSections.has(section);
 
           return (
             <button
-              key={section.id}
-              onClick={() => handleClick(section.id)}
+              key={section}
+              onClick={() => handleClick(section)}
               className={cn(
-                "flex items-center gap-3 w-full px-3 py-2.5 text-sm transition-all duration-200",
-                "rounded-lg text-left",
-                "hover:bg-[var(--bg-hover)]",
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-200",
+                "border border-transparent hover:bg-[var(--bg-hover)]",
                 isActive
-                  ? "bg-[var(--bg-active)] text-[var(--text-primary)]"
+                  ? "border-[var(--border-subtle)] bg-[var(--bg-active)] text-[var(--text-primary)]"
                   : "text-[var(--text-tertiary)]"
               )}
             >
@@ -118,14 +121,14 @@ export function SectionNav({
                   i + 1
                 )}
               </span>
-              <span className="truncate">{section.label}</span>
+              <span className="truncate">{SECTION_LABELS[section]}</span>
             </button>
           );
         })}
       </div>
 
       {/* Progress summary */}
-      <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+      <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
         <div
           className="text-xs mb-2"
           style={{
@@ -140,7 +143,7 @@ export function SectionNav({
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${(reviewedSections.size / 5) * 100}%`,
+                width: `${(reviewedSections.size / totalSections) * 100}%`,
                 background: 'var(--gradient-primary)',
                 boxShadow: '0 0 8px rgba(54, 94, 255, 0.3)',
               }}
@@ -153,7 +156,7 @@ export function SectionNav({
               fontFamily: 'var(--font-mono), monospace',
             }}
           >
-            {reviewedSections.size}/5
+            {reviewedSections.size}/{totalSections}
           </span>
         </div>
       </div>

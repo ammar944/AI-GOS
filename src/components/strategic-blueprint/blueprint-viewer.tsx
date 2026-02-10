@@ -16,6 +16,7 @@ import type {
   OfferAnalysisViability,
   CompetitorAnalysis,
   CrossAnalysisSynthesis,
+  KeywordIntelligence,
 } from "@/lib/strategic-blueprint/output-types";
 
 interface BlueprintViewerProps {
@@ -173,18 +174,11 @@ function formatIndustryMarketOverview(section: IndustryMarketOverview): string[]
   }
   lines.push("");
 
-  // Messaging Opportunities
+  // Key Recommendations
   lines.push(DIVIDER_SINGLE);
-  lines.push("MESSAGING OPPORTUNITIES");
+  lines.push("KEY RECOMMENDATIONS");
   lines.push(DIVIDER_SINGLE);
   if (section.messagingOpportunities) {
-    lines.push("");
-    lines.push("Opportunities:");
-    for (const item of safeArray(section.messagingOpportunities.opportunities)) {
-      lines.push(`  • ${item}`);
-    }
-    lines.push("");
-    lines.push("Summary Recommendations:");
     for (const item of safeArray(section.messagingOpportunities.summaryRecommendations)) {
       lines.push(`  • ${item}`);
     }
@@ -394,6 +388,34 @@ function formatCompetitorAnalysis(section: CompetitorAnalysis): string[] {
           lines.push(`     - ${w}`);
         }
       }
+      // Customer Reviews
+      const rd = (comp as any)?.reviewData;
+      if (rd?.trustpilot || rd?.g2) {
+        lines.push("   Customer Reviews:");
+        if (rd.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0)) {
+          lines.push(`     G2: ${rd.g2.rating}/5 (${rd.g2.reviewCount} reviews)${rd.g2.productCategory ? ` — ${rd.g2.productCategory}` : ''}`);
+        }
+        if (rd.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0)) {
+          lines.push(`     Trustpilot: ${rd.trustpilot.trustScore}/5 (${rd.trustpilot.totalReviews} reviews)`);
+          if (rd.trustpilot.aiSummary) {
+            lines.push(`     Summary: "${rd.trustpilot.aiSummary.slice(0, 150)}${rd.trustpilot.aiSummary.length > 150 ? '...' : ''}"`);
+          }
+          const complaints = rd.trustpilot.reviews?.filter((r: any) => r.rating <= 2).slice(0, 2);
+          if (complaints?.length > 0) {
+            lines.push("     Complaints:");
+            for (const r of complaints) {
+              lines.push(`       ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.text.slice(0, 120)}${r.text.length > 120 ? '...' : ''}`);
+            }
+          }
+          const praise = rd.trustpilot.reviews?.filter((r: any) => r.rating >= 4).slice(0, 2);
+          if (praise?.length > 0) {
+            lines.push("     Praised For:");
+            for (const r of praise) {
+              lines.push(`       ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.text.slice(0, 120)}${r.text.length > 120 ? '...' : ''}`);
+            }
+          }
+        }
+      }
     }
   }
   lines.push("");
@@ -403,11 +425,6 @@ function formatCompetitorAnalysis(section: CompetitorAnalysis): string[] {
   lines.push("CREATIVE LIBRARY");
   lines.push(DIVIDER_SINGLE);
   if (section.creativeLibrary) {
-    lines.push("");
-    lines.push("Ad Hooks:");
-    for (const hook of safeArray(section.creativeLibrary.adHooks)) {
-      lines.push(`  • "${hook}"`);
-    }
     lines.push("");
     lines.push("Creative Formats:");
     if (section.creativeLibrary.creativeFormats) {
@@ -518,15 +535,6 @@ function formatCrossAnalysis(section: CrossAnalysisSynthesis): string[] {
   lines.push(safeString(section.recommendedPositioning));
   lines.push("");
 
-  // Primary Messaging Angles
-  lines.push(DIVIDER_SINGLE);
-  lines.push("PRIMARY MESSAGING ANGLES");
-  lines.push(DIVIDER_SINGLE);
-  for (const angle of safeArray(section.primaryMessagingAngles)) {
-    lines.push(`  • ${angle}`);
-  }
-  lines.push("");
-
   // Recommended Platforms
   lines.push(DIVIDER_SINGLE);
   lines.push("RECOMMENDED PLATFORMS");
@@ -573,6 +581,117 @@ function formatCrossAnalysis(section: CrossAnalysisSynthesis): string[] {
   return lines;
 }
 
+function formatKeywordIntelligence(section: KeywordIntelligence): string[] {
+  const lines: string[] = [];
+
+  lines.push(DIVIDER_DOUBLE);
+  lines.push("SECTION 6: KEYWORD INTELLIGENCE");
+  lines.push(DIVIDER_DOUBLE);
+  lines.push("");
+
+  // Domain Overview
+  lines.push(DIVIDER_SINGLE);
+  lines.push("DOMAIN OVERVIEW");
+  lines.push(DIVIDER_SINGLE);
+  if (section.clientDomain) {
+    const cd = section.clientDomain;
+    lines.push(`Client: ${cd.domain}`);
+    lines.push(`  Organic Keywords: ${cd.organicKeywords?.toLocaleString()}`);
+    lines.push(`  Paid Keywords: ${cd.paidKeywords?.toLocaleString()}`);
+    lines.push(`  Monthly Organic Clicks: ${cd.monthlyOrganicClicks?.toLocaleString()}`);
+    lines.push(`  Monthly Paid Clicks: ${cd.monthlyPaidClicks?.toLocaleString()}`);
+    if (cd.organicClicksValue) lines.push(`  Organic Traffic Value: $${cd.organicClicksValue.toLocaleString()}/mo`);
+    if (cd.paidClicksValue) lines.push(`  Estimated Ad Spend: $${cd.paidClicksValue.toLocaleString()}/mo`);
+  }
+  for (const comp of section.competitorDomains ?? []) {
+    lines.push("");
+    lines.push(`Competitor: ${comp.domain}`);
+    lines.push(`  Organic Keywords: ${comp.organicKeywords?.toLocaleString()}`);
+    lines.push(`  Paid Keywords: ${comp.paidKeywords?.toLocaleString()}`);
+    lines.push(`  Monthly Organic Clicks: ${comp.monthlyOrganicClicks?.toLocaleString()}`);
+    lines.push(`  Monthly Paid Clicks: ${comp.monthlyPaidClicks?.toLocaleString()}`);
+    if (comp.organicClicksValue) lines.push(`  Organic Traffic Value: $${comp.organicClicksValue.toLocaleString()}/mo`);
+    if (comp.paidClicksValue) lines.push(`  Estimated Ad Spend: $${comp.paidClicksValue.toLocaleString()}/mo`);
+  }
+  lines.push("");
+
+  // Keyword Gaps
+  const formatKwList = (keywords: typeof section.organicGaps, title: string) => {
+    if (!keywords?.length) return;
+    lines.push(DIVIDER_SINGLE);
+    lines.push(title);
+    lines.push(DIVIDER_SINGLE);
+    for (const kw of keywords.slice(0, 15)) {
+      lines.push(`  ${kw.keyword}  [vol: ${kw.searchVolume} | CPC: $${kw.cpc.toFixed(2)} | diff: ${kw.difficulty}]`);
+    }
+    if (keywords.length > 15) {
+      lines.push(`  ... and ${keywords.length - 15} more`);
+    }
+    lines.push("");
+  };
+
+  formatKwList(section.organicGaps, "ORGANIC KEYWORD GAPS");
+  formatKwList(section.paidGaps, "PAID KEYWORD GAPS");
+  formatKwList(section.sharedKeywords, "SHARED KEYWORDS (COMPETITIVE BATTLEGROUNDS)");
+  formatKwList(section.clientStrengths, "YOUR KEYWORD STRENGTHS");
+  formatKwList(section.quickWins, "QUICK WIN OPPORTUNITIES");
+  formatKwList(section.longTermPlays, "LONG-TERM PLAYS");
+  formatKwList(section.highIntentKeywords, "HIGH-INTENT KEYWORDS");
+  formatKwList(section.relatedExpansions, "RELATED KEYWORD EXPANSIONS");
+
+  // Content Clusters
+  if (section.contentTopicClusters?.length) {
+    lines.push(DIVIDER_SINGLE);
+    lines.push("CONTENT TOPIC CLUSTERS");
+    lines.push(DIVIDER_SINGLE);
+    for (const cluster of section.contentTopicClusters) {
+      lines.push(`  ${cluster.theme} (${cluster.searchVolumeTotal?.toLocaleString()} total vol) → ${cluster.recommendedFormat}`);
+      lines.push(`    Keywords: ${cluster.keywords.slice(0, 5).join(', ')}${cluster.keywords.length > 5 ? '...' : ''}`);
+    }
+    lines.push("");
+  }
+
+  // Strategic Recommendations
+  if (section.strategicRecommendations) {
+    const recs = section.strategicRecommendations;
+    lines.push(DIVIDER_SINGLE);
+    lines.push("STRATEGIC RECOMMENDATIONS");
+    lines.push(DIVIDER_SINGLE);
+    if (recs.organicStrategy?.length) {
+      lines.push("Organic Strategy:");
+      for (const item of recs.organicStrategy) lines.push(`  • ${item}`);
+    }
+    if (recs.paidSearchStrategy?.length) {
+      lines.push("Paid Search Strategy:");
+      for (const item of recs.paidSearchStrategy) lines.push(`  • ${item}`);
+    }
+    if (recs.competitivePositioning?.length) {
+      lines.push("Competitive Positioning:");
+      for (const item of recs.competitivePositioning) lines.push(`  • ${item}`);
+    }
+    if (recs.quickWinActions?.length) {
+      lines.push("Quick Win Actions:");
+      for (const item of recs.quickWinActions) lines.push(`  • ${item}`);
+    }
+    lines.push("");
+  }
+
+  // Metadata
+  if (section.metadata) {
+    lines.push(DIVIDER_SINGLE);
+    lines.push("COLLECTION METADATA");
+    lines.push(DIVIDER_SINGLE);
+    lines.push(`Client Domain: ${section.metadata.clientDomain}`);
+    lines.push(`Competitors Analyzed: ${section.metadata.competitorDomainsAnalyzed.join(', ')}`);
+    lines.push(`Total Keywords Analyzed: ${section.metadata.totalKeywordsAnalyzed.toLocaleString()}`);
+    lines.push(`SpyFu Cost: $${section.metadata.spyfuCost.toFixed(4)}`);
+    lines.push(`Collected At: ${section.metadata.collectedAt}`);
+    lines.push("");
+  }
+
+  return lines;
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -590,6 +709,7 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
     offerAnalysisViability,
     competitorAnalysis,
     crossAnalysisSynthesis,
+    keywordIntelligence,
     metadata,
   } = strategicBlueprint;
 
@@ -625,6 +745,9 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
     if (crossAnalysisSynthesis) {
       lines.push(...formatCrossAnalysis(crossAnalysisSynthesis));
     }
+    if (keywordIntelligence) {
+      lines.push(...formatKeywordIntelligence(keywordIntelligence));
+    }
 
     // Footer
     lines.push(DIVIDER_DOUBLE);
@@ -639,6 +762,7 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
     offerAnalysisViability,
     competitorAnalysis,
     crossAnalysisSynthesis,
+    keywordIntelligence,
     metadata,
   ]);
 

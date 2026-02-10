@@ -5,13 +5,7 @@ import { motion } from "framer-motion";
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
 import { MagneticButton } from "@/components/ui/magnetic-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type {
   ProductOfferData,
@@ -44,10 +38,10 @@ export function StepProductOffer({
     productDescription: initialData?.productDescription || "",
     coreDeliverables: initialData?.coreDeliverables || "",
     offerPrice: initialData?.offerPrice || 0,
-    pricingModel: initialData?.pricingModel || "monthly",
+    pricingModel: initialData?.pricingModel || [],
     valueProp: initialData?.valueProp || "",
     guarantees: initialData?.guarantees || "",
-    currentFunnelType: initialData?.currentFunnelType || "lead_form",
+    currentFunnelType: initialData?.currentFunnelType || [],
   });
   const [priceInput, setPriceInput] = useState(
     initialData?.offerPrice?.toString() || ""
@@ -80,6 +74,24 @@ export function StepProductOffer({
     }
   }
 
+  function togglePricingModel(model: PricingModel) {
+    const current = formData.pricingModel;
+    if (current.includes(model)) {
+      updateField("pricingModel", current.filter((m) => m !== model));
+    } else {
+      updateField("pricingModel", [...current, model]);
+    }
+  }
+
+  function toggleFunnelType(ftype: FunnelType) {
+    const current = formData.currentFunnelType;
+    if (current.includes(ftype)) {
+      updateField("currentFunnelType", current.filter((f) => f !== ftype));
+    } else {
+      updateField("currentFunnelType", [...current, ftype]);
+    }
+  }
+
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
 
@@ -93,8 +105,14 @@ export function StepProductOffer({
     if (!priceInput || isNaN(price) || price <= 0) {
       newErrors.offerPrice = "Please enter a valid price";
     }
+    if (formData.pricingModel.length === 0) {
+      newErrors.pricingModel = "Select at least one pricing model";
+    }
     if (!formData.valueProp.trim()) {
       newErrors.valueProp = "Value proposition is required";
+    }
+    if (formData.currentFunnelType.length === 0) {
+      newErrors.currentFunnelType = "Select at least one funnel type";
     }
 
     setErrors(newErrors);
@@ -208,75 +226,74 @@ export function StepProductOffer({
           />
         </motion.div>
 
-        {/* Price & Pricing Model Row */}
-        <motion.div className="grid gap-6 md:grid-cols-2" variants={staggerItem}>
-          <div>
-            <div className="relative">
-              <span
-                className="absolute left-0 top-4 text-[16px]"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                $
-              </span>
-              <FloatingLabelInput
-                label="Offer Price (USD)"
-                type="number"
-                min="1"
-                step="any"
-                value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
-                className="pl-4"
-                aria-invalid={!!errors.offerPrice}
-              />
-            </div>
-            {errors.offerPrice && (
-              <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
-                {errors.offerPrice}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <label
-              className="text-[14px] font-medium"
+        {/* Offer Price */}
+        <motion.div variants={staggerItem}>
+          <div className="relative">
+            <span
+              className="absolute left-0 top-4 text-[16px]"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              How does your pricing work?
-            </label>
-            <Select
-              value={formData.pricingModel}
-              onValueChange={(value) =>
-                updateField("pricingModel", value as PricingModel)
-              }
-            >
-              <SelectTrigger
-                className="h-12 rounded-lg"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <SelectValue placeholder="Select pricing model" />
-              </SelectTrigger>
-              <SelectContent
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                }}
-              >
-                {PRICING_MODEL_OPTIONS.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    className="hover:bg-[var(--bg-hover)]"
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              $
+            </span>
+            <FloatingLabelInput
+              label="Offer Price (USD)"
+              type="number"
+              min="1"
+              step="any"
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              className="pl-4"
+              aria-invalid={!!errors.offerPrice}
+            />
           </div>
+          {errors.offerPrice && (
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.offerPrice}
+            </p>
+          )}
+        </motion.div>
+
+        {/* Pricing Model */}
+        <motion.div className="space-y-3" variants={staggerItem}>
+          <label
+            className="text-[14px] font-medium"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            How does your pricing work? (select all that apply)
+          </label>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {PRICING_MODEL_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-all"
+                style={{
+                  border: '1px solid',
+                  borderColor: formData.pricingModel.includes(option.value)
+                    ? 'var(--accent-blue)'
+                    : 'var(--border-default)',
+                  background: formData.pricingModel.includes(option.value)
+                    ? 'var(--accent-blue-subtle)'
+                    : 'transparent',
+                }}
+              >
+                <Checkbox
+                  checked={formData.pricingModel.includes(option.value)}
+                  onCheckedChange={() => togglePricingModel(option.value)}
+                />
+                <span
+                  className="text-sm"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {option.label}
+                </span>
+              </label>
+            ))}
+          </div>
+          {errors.pricingModel && (
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.pricingModel}
+            </p>
+          )}
         </motion.div>
 
         {/* Value Proposition */}
@@ -308,46 +325,46 @@ export function StepProductOffer({
         </motion.div>
 
         {/* Current Funnel Type */}
-        <motion.div className="space-y-2" variants={staggerItem}>
+        <motion.div className="space-y-3" variants={staggerItem}>
           <label
             className="text-[14px] font-medium"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            What type of funnel are you currently using?
+            What type of funnel are you currently using? (select all that apply)
           </label>
-          <Select
-            value={formData.currentFunnelType}
-            onValueChange={(value) =>
-              updateField("currentFunnelType", value as FunnelType)
-            }
-          >
-            <SelectTrigger
-              className="h-12 rounded-lg"
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-default)',
-                color: 'var(--text-primary)',
-              }}
-            >
-              <SelectValue placeholder="Select funnel type" />
-            </SelectTrigger>
-            <SelectContent
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-default)',
-              }}
-            >
-              {FUNNEL_TYPE_OPTIONS.map((option) => (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                  className="hover:bg-[var(--bg-hover)]"
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {FUNNEL_TYPE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-all"
+                style={{
+                  border: '1px solid',
+                  borderColor: formData.currentFunnelType.includes(option.value)
+                    ? 'var(--accent-blue)'
+                    : 'var(--border-default)',
+                  background: formData.currentFunnelType.includes(option.value)
+                    ? 'var(--accent-blue-subtle)'
+                    : 'transparent',
+                }}
+              >
+                <Checkbox
+                  checked={formData.currentFunnelType.includes(option.value)}
+                  onCheckedChange={() => toggleFunnelType(option.value)}
+                />
+                <span
+                  className="text-sm"
+                  style={{ color: 'var(--text-primary)' }}
                 >
                   {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </span>
+              </label>
+            ))}
+          </div>
+          {errors.currentFunnelType && (
+            <p className="text-[13px] mt-2" style={{ color: 'var(--error)' }}>
+              {errors.currentFunnelType}
+            </p>
+          )}
         </motion.div>
 
         {/* Guarantees */}

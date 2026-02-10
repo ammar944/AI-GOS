@@ -30,6 +30,12 @@ export {
   type EnrichmentResult,
 } from './competitor-enrichment';
 
+// Review mining (Trustpilot + G2)
+export {
+  mineCompetitorReviews,
+  type ReviewMiningResult,
+} from './review-mining';
+
 // Reconciliation (Phase 2 parallel execution)
 export {
   reconcileICPAndOffer,
@@ -42,6 +48,13 @@ export {
   extractAdHooksFromAds,
   type ExtractAdHooksResult,
 } from './hook-extraction';
+
+// Keyword Intelligence (SpyFu competitive analysis)
+export {
+  enrichKeywordIntelligence,
+  type KeywordIntelligenceResult,
+  type KeywordBusinessContext,
+} from './keyword-intelligence';
 
 // Types
 export type {

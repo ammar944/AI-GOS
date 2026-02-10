@@ -14,6 +14,50 @@ import type {
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const PRICING_PATHS = ['/pricing', '/plans', '/buy'] as const;
 
+const MAX_RETRIES = 2;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+function isTransientError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes('timeout') ||
+    msg.includes('abort') ||
+    msg.includes('econnreset') ||
+    msg.includes('enotfound') ||
+    msg.includes('rate limit') ||
+    msg.includes('429') ||
+    msg.includes('503') ||
+    msg.includes('502') ||
+    msg.includes('fetch failed')
+  );
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = MAX_RETRIES,
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries && isTransientError(error)) {
+        const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        console.warn(
+          `[Firecrawl] ${label} attempt ${attempt + 1} failed: ${lastError.message.slice(0, 200)}, retrying in ${delay}ms...`
+        );
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw lastError;
+      }
+    }
+  }
+  throw lastError ?? new Error(`${label} failed after ${maxRetries + 1} attempts`);
+}
+
 /**
  * Firecrawl client for scraping web pages with JavaScript rendering
  *
@@ -60,22 +104,25 @@ export class FirecrawlClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      const document = await this.client.scrape(options.url, {
-        formats: ['markdown'],
-        // Force US geolocation to get consistent pricing (avoid regional price variations)
-        // NOTE: Full geo-location requires Firecrawl Growth plan ($99/mo)
-        // Headers help hint US locale even on hobby plan
-        ...(options.forceUSLocation && { 
-          location: { country: 'US', languages: ['en-US'] },
-          headers: {
-            'Accept-Language': 'en-US,en;q=0.9',
-            'CF-IPCountry': 'US', // Cloudflare country hint
-          },
-          // Don't use cached data - force fresh scrape
-          storeInCache: false,
-          maxAge: 0,
+      const document = await withRetry(
+        () => this.client!.scrape(options.url, {
+          formats: ['markdown'],
+          // Force US geolocation to get consistent pricing (avoid regional price variations)
+          // NOTE: Full geo-location requires Firecrawl Growth plan ($99/mo)
+          // Headers help hint US locale even on hobby plan
+          ...(options.forceUSLocation && {
+            location: { country: 'US', languages: ['en-US'] },
+            headers: {
+              'Accept-Language': 'en-US,en;q=0.9',
+              'CF-IPCountry': 'US', // Cloudflare country hint
+            },
+            // Don't use cached data - force fresh scrape
+            storeInCache: false,
+            maxAge: 0,
+          }),
         }),
-      });
+        `scrape ${options.url}`,
+      );
 
       clearTimeout(timeoutId);
 

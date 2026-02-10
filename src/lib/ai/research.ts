@@ -144,6 +144,7 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
       prompt: `Validate the ICP for paid media:\n\n${context}`,
       ...GENERATION_SETTINGS.research,
+      maxTokens: 4096,  // Override: ICP output is ~2-4K tokens
     });
 
     return {
@@ -205,6 +206,7 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
       prompt: `Analyze offer viability for paid media:\n\n${context}`,
       ...GENERATION_SETTINGS.research,
+      maxTokens: 4096,  // Override: Offer output is ~2-4K tokens
     });
 
     return {
@@ -301,7 +303,8 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
 export async function synthesizeCrossAnalysis(
   context: string,
-  sections: AllSectionResults
+  sections: AllSectionResults,
+  keywordData?: import('@/lib/strategic-blueprint/output-types').KeywordIntelligence,
 ): Promise<CrossAnalysisResult> {
   const model = SECTION_MODELS.crossAnalysis;
 
@@ -319,8 +322,8 @@ Sales Cycle: ${sections.industryMarket.categorySnapshot.averageSalesCycle}
 Top Pain Points:
 ${sections.industryMarket.painPoints.primary.map((p, i) => `${i + 1}. ${p}`).join('\n')}
 
-Key Messaging Opportunities:
-${sections.industryMarket.messagingOpportunities.opportunities.slice(0, 4).map((o, i) => `${i + 1}. ${o}`).join('\n')}
+Key Recommendations:
+${sections.industryMarket.messagingOpportunities.summaryRecommendations.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}
 
 ═══════════════════════════════════════════════════════════════════════════════
 SECTION 2: ICP ANALYSIS & VALIDATION
@@ -392,8 +395,116 @@ ${(() => {
   }).join('\n\n');
 })()}
 
+${keywordData ? `
+═══════════════════════════════════════════════════════════════════════════════
+KEYWORD INTELLIGENCE (SpyFu competitive keyword data)
+═══════════════════════════════════════════════════════════════════════════════
+
+DOMAIN COMPARISON:
+${keywordData.clientDomain ? `Client (${keywordData.clientDomain.domain}): ${keywordData.clientDomain.organicKeywords} organic KWs, ${keywordData.clientDomain.paidKeywords} paid KWs, ~${keywordData.clientDomain.monthlyOrganicClicks.toLocaleString()} organic clicks/mo ($${keywordData.clientDomain.organicClicksValue.toLocaleString()} value), ~${keywordData.clientDomain.monthlyPaidClicks.toLocaleString()} paid clicks/mo ($${keywordData.clientDomain.paidClicksValue.toLocaleString()} ad spend)` : 'Client domain: N/A'}
+${keywordData.competitorDomains.map(c => `Competitor (${c.domain}): ${c.organicKeywords} organic KWs, ${c.paidKeywords} paid KWs, ~${c.monthlyOrganicClicks.toLocaleString()} organic clicks/mo ($${c.organicClicksValue.toLocaleString()} value), ~${c.monthlyPaidClicks.toLocaleString()} paid clicks/mo ($${c.paidClicksValue.toLocaleString()} ad spend)`).join('\n') || '  No competitor domain data'}
+
+TOP ORGANIC GAPS (competitors rank, client doesn't — content creation targets):
+${keywordData.organicGaps.slice(0, 10).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC${k.clicksPerMonth ? `, ~${k.clicksPerMonth} clicks/mo` : ''}`).join('\n') || '  None found'}
+
+TOP PAID GAPS (competitors bid, client doesn't — PPC opportunities):
+${keywordData.paidGaps.slice(0, 10).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, $${k.cpc.toFixed(2)} CPC, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+
+SHARED KEYWORDS (both client and competitors rank — competitive battlegrounds):
+${keywordData.sharedKeywords.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+
+CLIENT STRENGTHS (only client ranks, competitors don't — DEFEND these):
+${keywordData.clientStrengths.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+
+QUICK WIN KEYWORDS (difficulty ≤40, volume ≥100 — immediate organic targets):
+${keywordData.quickWins.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC`).join('\n') || '  None found'}
+
+LONG-TERM PLAYS (difficulty >40, volume ≥500 — build authority over 3-6 months):
+${keywordData.longTermPlays.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+
+HIGH-INTENT KEYWORDS (CPC ≥$3 = strong commercial/buying intent):
+${keywordData.highIntentKeywords.slice(0, 7).map(k => `  • "${k.keyword}" — $${k.cpc.toFixed(2)} CPC, ${k.searchVolume}/mo`).join('\n') || '  None found'}
+
+RELATED KEYWORD EXPANSIONS (thematic opportunities beyond direct gaps):
+${keywordData.relatedExpansions.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+
+CONTENT TOPIC CLUSTERS (grouped keyword themes):
+${keywordData.contentTopicClusters.slice(0, 5).map(c => `  • "${c.theme}" — ${c.searchVolumeTotal.toLocaleString()} total vol, ${c.keywords.length} keywords, recommended: ${c.recommendedFormat}`).join('\n') || '  None found'}
+
+${keywordData.competitorTopKeywords?.length > 0 ? `COMPETITOR TOP KEYWORDS:
+${keywordData.competitorTopKeywords.map(c => `  ${c.competitorName} (${c.domain}): ${c.keywords.slice(0, 3).map(k => `"${k.keyword}" (${k.searchVolume}/mo)`).join(', ')}`).join('\n')}` : ''}
+
+SUMMARY STATS: ${keywordData.metadata.totalKeywordsAnalyzed} keywords analyzed across ${keywordData.metadata.competitorDomainsAnalyzed.length} competitor domains
+
+KEYWORD DATA USAGE:
+- Map organic gaps (difficulty <30) to quick-win content targets with exact keywords and volumes
+- Use high-CPC keywords ($5+) as PPC campaign targets — proven commercial intent
+- Cross-reference gaps with Section 1 pain points to find critical content gaps
+- Use topic clusters for 3-month content calendar recommendations
+- Include 3+ keyword-specific next steps with exact keywords, volumes, difficulty scores
+- If 80%+ gaps have difficulty >60, prioritize PPC over organic; if <40, prioritize content
+` : ''}
 IMPORTANT: When creating adHooks in messagingFramework, prioritize EXTRACTING hooks from the real ads above.
 Mark each hook's source.type as "extracted" (verbatim), "inspired" (based on pattern), or "generated" (no matching ad).
+
+═══════════════════════════════════════════════════════════════════════════════
+COMPETITOR CUSTOMER REVIEWS (Ground truth from Trustpilot scrapes + G2 metadata)
+═══════════════════════════════════════════════════════════════════════════════
+${(() => {
+  const competitors = sections.competitorAnalysis.competitors as any[];
+  const competitorsWithReviews = competitors.filter(
+    (c) => c.reviewData?.trustpilot || c.reviewData?.g2,
+  );
+
+  if (competitorsWithReviews.length === 0) {
+    return 'No competitor review data available.';
+  }
+
+  return competitorsWithReviews
+    .map((c) => {
+      const parts: string[] = [`${c.name}:`];
+      const rd = c.reviewData;
+
+      if (rd?.g2) {
+        parts.push(`  G2: ${rd.g2.rating}/5 from ${rd.g2.reviewCount} reviews${rd.g2.productCategory ? ` (${rd.g2.productCategory})` : ''}`);
+      }
+      if (rd?.trustpilot) {
+        parts.push(`  Trustpilot: ${rd.trustpilot.trustScore}/5 from ${rd.trustpilot.totalReviews} reviews`);
+        if (rd.trustpilot.aiSummary) {
+          parts.push(`  Trustpilot AI Summary: "${rd.trustpilot.aiSummary.slice(0, 300)}${rd.trustpilot.aiSummary.length > 300 ? '...' : ''}"`);
+        }
+        // Key complaints (1-2★) — gold for messaging angles
+        const complaints = rd.trustpilot.reviews
+          ?.filter((r: any) => r.rating <= 2)
+          .slice(0, 2);
+        if (complaints?.length > 0) {
+          parts.push('  Key Complaints:');
+          for (const r of complaints) {
+            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}"`);
+          }
+        }
+        // What customers love (4-5★)
+        const praise = rd.trustpilot.reviews
+          ?.filter((r: any) => r.rating >= 4)
+          .slice(0, 1);
+        if (praise?.length > 0) {
+          parts.push('  What Customers Love:');
+          for (const r of praise) {
+            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}"`);
+          }
+        }
+      }
+
+      return parts.join('\n');
+    })
+    .join('\n\n');
+})()}
+
+REVIEW DATA USAGE:
+- Turn competitor complaints into positioning angles (poor support → "white-glove service")
+- Use verbatim customer language in ad hooks — their words resonate more than marketer-speak
+- Cite specific ratings (e.g., "rated 2.1/5 on Trustpilot") as proof points
+- Use praise to identify confirmed buying criteria the market rewards
 `;
 
   try {
@@ -413,15 +524,16 @@ SYNTHESIS APPROACH:
 1. Extract 5-7 key insights (at least one from each section)
 2. Develop a clear positioning strategy with 2-3 alternatives to test
 3. Use your copywriting expertise for the messaging framework
+4. Mine competitor reviews for positioning gold — at least ONE key insight must reference specific review data (ratings, complaint patterns, or customer language). Competitor review complaints are GROUND TRUTH weaknesses, more reliable than inferred ones.
 
 ${MESSAGING_ANGLES_PROMPT}
 
 MESSAGING FRAMEWORK REQUIREMENTS:
 - Core message: One memorable takeaway
-- Ad hooks: 5-10 using pattern interrupt techniques (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story)
+- Ad hooks: 5-10 using pattern interrupt techniques (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison). When review data is available, at least 2 hooks should use verbatim customer language or pain points from competitor reviews.
 - Angles: 4-6 distinct advertising angles with target emotions and example headlines
-- Proof points: 3-6 claims backed by evidence from the research
-- Objection handlers: 4-8 common objections with responses AND reframes
+- Proof points: 3-6 claims backed by evidence from the research. Include competitor review ratings/scores as concrete evidence where available (e.g., "Competitor X rated 2.1/5 on Trustpilot for support").
+- Objection handlers: 4-8 common objections with responses AND reframes. Use competitor review complaints to inform responses — if customers complain about a competitor's flaw, reference that reality when handling the same objection for our client.
 - Tonal guidelines: Voice, words to avoid, power words to use
 
 QUALITY STANDARDS:
@@ -429,8 +541,11 @@ QUALITY STANDARDS:
 - Angles must be specific to THIS business
 - Proof points need real evidence from the research
 - Objection reframes should turn negatives into positives
+- When review data is available, at least one key insight and one positioning angle must explicitly cite review findings (e.g., "Competitor X's Trustpilot complaints about [issue] reveal...")
+- Objection reframes should reference competitor review failures as cautionary evidence
 - Platform recommendations need clear reasoning
-- Next steps achievable in 2 weeks`,
+- Next steps achievable in 2 weeks
+- When keyword intelligence is available: include at least 3 keyword-specific next steps with exact keywords, volumes, and difficulty scores. Reference keyword data in platform recommendations (difficulty distribution informs organic vs PPC priority). Use high-CPC keywords as evidence of commercial intent in messaging angles.`,
 
       prompt: `Create a strategic paid media blueprint for:\n\n${context}`,
       ...GENERATION_SETTINGS.synthesis,

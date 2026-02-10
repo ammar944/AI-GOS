@@ -75,7 +75,7 @@ export function createBusinessContext(data: OnboardingFormData): string {
 - Primary ICP: ${s(icp.primaryIcpDescription)}
 - Industry: ${s(icp.industryVertical)}
 - Target Job Titles: ${s(icp.jobTitles)}
-- Company Size: ${s(icp.companySize)}
+- Company Size: ${Array.isArray(icp.companySize) ? icp.companySize.join(', ') : icp.companySize || 'Not specified'}
 - Geography: ${s(icp.geography)}
 - Easiest to Close: ${s(icp.easiestToClose)}
 - Buying Triggers: ${s(icp.buyingTriggers)}
@@ -87,9 +87,9 @@ ${icp.systemsPlatforms ? `- Systems & Platforms Used: ${s(icp.systemsPlatforms)}
 - Product Description: ${s(productOffer.productDescription)}
 - Core Deliverables: ${s(productOffer.coreDeliverables)}
 - Offer Price: $${n(productOffer.offerPrice)}
-- Pricing Model: ${s(productOffer.pricingModel)}
+- Pricing Model: ${Array.isArray(productOffer.pricingModel) ? productOffer.pricingModel.join(', ') : productOffer.pricingModel || 'Not specified'}
 - Value Proposition: ${s(productOffer.valueProp)}
-- Current Funnel Type: ${s(productOffer.currentFunnelType)}
+- Current Funnel Type: ${Array.isArray(productOffer.currentFunnelType) ? productOffer.currentFunnelType.join(', ') : productOffer.currentFunnelType || 'Not specified'}
 ${productOffer.guarantees ? `- Guarantees: ${s(productOffer.guarantees)}` : ''}
 
 ### Market & Competition

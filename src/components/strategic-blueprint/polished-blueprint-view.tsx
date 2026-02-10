@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { fadeUp, easings } from "@/lib/motion";
+import { easings } from "@/lib/motion";
 import { OutputSectionCard } from "@/components/strategic-research/output-section-card";
 import {
   STRATEGIC_BLUEPRINT_SECTION_ORDER,
@@ -72,7 +72,7 @@ export function PolishedBlueprintView({
 
   return (
     <motion.div
-      className="w-full max-w-4xl mx-auto space-y-6"
+      className="mx-auto w-full max-w-5xl space-y-5"
       variants={containerVariants}
       initial="hidden"
       animate="visible"

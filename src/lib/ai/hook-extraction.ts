@@ -21,6 +21,15 @@ interface AdCreativeInput {
 interface CompetitorWithAds {
   name: string;
   adCreatives?: AdCreativeInput[];
+  reviewData?: {
+    trustpilot?: {
+      reviews?: Array<{ rating: number; text: string }>;
+    } | null;
+    g2?: {
+      rating?: number | null;
+      reviewCount?: number | null;
+    } | null;
+  };
 }
 
 export interface ExtractAdHooksResult {
@@ -83,6 +92,23 @@ export async function extractAdHooksFromAds(
     })
     .join('\n\n');
 
+  // Gather competitor review complaints (1-2 star) for hook inspiration
+  const complaintsData: Array<{ competitor: string; text: string; rating: number }> = [];
+  for (const competitor of competitors) {
+    const reviews = competitor.reviewData?.trustpilot?.reviews ?? [];
+    const complaints = reviews.filter(r => r.rating <= 2).slice(0, 2);
+    for (const review of complaints) {
+      complaintsData.push({ competitor: competitor.name, text: review.text.slice(0, 200), rating: review.rating });
+    }
+  }
+  // Cap at 10 complaints for token efficiency
+  const cappedComplaints = complaintsData.slice(0, 10);
+  const complaintsText = cappedComplaints.length > 0
+    ? cappedComplaints.map(c =>
+      `${c.competitor}: ${'★'.repeat(c.rating)}${'☆'.repeat(5 - c.rating)} "${c.text}"`
+    ).join('\n')
+    : '';
+
   const prompt = `Analyze these competitor ads and extract attention-grabbing hooks.
 
 ## Competitor Ads
@@ -92,10 +118,19 @@ ${adsText}
 1. Extract hooks that are verbatim from ads (source.type = "extracted")
 2. Create inspired hooks based on observed patterns (source.type = "inspired")
 3. For each hook, identify:
-   - The pattern interrupt technique used (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story)
+   - The pattern interrupt technique used (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison)
    - The target awareness level (unaware, problem-aware, solution-aware, product-aware, most-aware)
    - Source attribution (competitor name and platform)
 
+${complaintsText ? `
+## Customer Complaints from Competitor Reviews
+${complaintsText}
+
+When review complaints are available:
+- Create 2-3 "inspired" hooks from customer pain language (source.type = "inspired", source.competitor = the competitor name + " Reviews")
+- Turn complaints into positioning hooks (e.g., complaint about "unethical billing" → hook about transparent pricing)
+- Verbatim customer words make powerful hooks — quote or closely mirror complaint language
+` : ''}
 Focus on hooks that stop the scroll - look for:
 - Controversial claims or statistics
 - Pattern interrupts that break expectations
