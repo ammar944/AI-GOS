@@ -1724,7 +1724,9 @@ function DomainStatCard({ stats, label }: { stats: DomainKeywordStats; label?: s
         </div>
         {stats.organicClicksValue > 0 && (
           <div>
-            <p style={{ color: 'var(--text-tertiary)' }}>Organic Value/mo</p>
+            <p style={{ color: 'var(--text-tertiary)' }} title="Estimated cost to buy this organic traffic via Google Ads (clicks × CPC). Not actual revenue.">
+              Est. Traffic Value
+            </p>
             <p className="font-medium" style={{ color: 'var(--success)', fontFamily: 'var(--font-mono), monospace' }}>
               ${formatNumber(stats.organicClicksValue)}
             </p>
@@ -1732,7 +1734,9 @@ function DomainStatCard({ stats, label }: { stats: DomainKeywordStats; label?: s
         )}
         {stats.paidClicksValue > 0 && (
           <div>
-            <p style={{ color: 'var(--text-tertiary)' }}>Ad Spend/mo</p>
+            <p style={{ color: 'var(--text-tertiary)' }} title="Estimated monthly ad spend based on paid keyword bids and click volume.">
+              Ad Spend/mo
+            </p>
             <p className="font-medium" style={{ color: 'var(--accent-blue)', fontFamily: 'var(--font-mono), monospace' }}>
               ${formatNumber(stats.paidClicksValue)}
             </p>
