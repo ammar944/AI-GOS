@@ -56,6 +56,12 @@ export {
   type KeywordBusinessContext,
 } from './keyword-intelligence';
 
+// SEO Audit (Technical SEO + PageSpeed Insights)
+export {
+  runSEOAudit,
+  type SEOAuditResult,
+} from './seo-audit';
+
 // Types
 export type {
   ResearchSource,

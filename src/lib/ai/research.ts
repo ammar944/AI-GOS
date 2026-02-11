@@ -305,6 +305,7 @@ export async function synthesizeCrossAnalysis(
   context: string,
   sections: AllSectionResults,
   keywordData?: import('@/lib/strategic-blueprint/output-types').KeywordIntelligence,
+  seoAuditData?: import('@/lib/strategic-blueprint/output-types').SEOAuditData,
 ): Promise<CrossAnalysisResult> {
   const model = SECTION_MODELS.crossAnalysis;
 
@@ -444,6 +445,35 @@ KEYWORD DATA USAGE:
 - Include 3+ keyword-specific next steps with exact keywords, volumes, difficulty scores
 - If 80%+ gaps have difficulty >60, prioritize PPC over organic; if <40, prioritize content
 ` : ''}
+${seoAuditData ? `
+═══════════════════════════════════════════════════════════════════════════════
+SEO TECHNICAL AUDIT (Firecrawl HTML crawl + PageSpeed Insights — real data)
+═══════════════════════════════════════════════════════════════════════════════
+Overall SEO Score: ${seoAuditData.overallScore}/100 (Technical: ${seoAuditData.technical.overallScore}/100, Performance: ${seoAuditData.performance.mobile?.performanceScore ?? seoAuditData.performance.desktop?.performanceScore ?? 'N/A'}/100)
+
+TECHNICAL ISSUES:
+• ${seoAuditData.technical.issueCount.critical} critical issues, ${seoAuditData.technical.issueCount.warning} warnings, ${seoAuditData.technical.issueCount.pass} passed checks
+• Sitemap: ${seoAuditData.technical.sitemapFound ? 'Found' : 'MISSING'}
+• Robots.txt: ${seoAuditData.technical.robotsTxtFound ? 'Found' : 'MISSING'}
+${seoAuditData.technical.pages.slice(0, 5).map(p => {
+  const issues: string[] = [];
+  if (!p.title.pass) issues.push(`title ${p.title.length === 0 ? 'missing' : `${p.title.length} chars`}`);
+  if (!p.metaDescription.pass) issues.push(`meta desc ${p.metaDescription.length === 0 ? 'missing' : `${p.metaDescription.length} chars`}`);
+  if (!p.h1.pass) issues.push(`${p.h1.values.length} H1 tags`);
+  if (!p.canonical.pass) issues.push('no canonical');
+  if (p.images.coveragePercent < 80) issues.push(`${p.images.coveragePercent}% img alt coverage`);
+  return issues.length > 0 ? `  ${p.url}: ${issues.join(', ')}` : null;
+}).filter(Boolean).join('\n')}
+
+PAGESPEED:
+${seoAuditData.performance.mobile ? `• Mobile: ${seoAuditData.performance.mobile.performanceScore}/100 — LCP ${seoAuditData.performance.mobile.lcp}s, CLS ${seoAuditData.performance.mobile.cls}, FCP ${seoAuditData.performance.mobile.fcp}s` : '• Mobile: Not available'}
+${seoAuditData.performance.desktop ? `• Desktop: ${seoAuditData.performance.desktop.performanceScore}/100 — LCP ${seoAuditData.performance.desktop.lcp}s, CLS ${seoAuditData.performance.desktop.cls}, FCP ${seoAuditData.performance.desktop.fcp}s` : '• Desktop: Not available'}
+
+SEO DATA USAGE:
+- Reference specific technical issues in nextSteps (e.g., "Fix missing meta descriptions on /about and /blog")
+- Tie performance scores to criticalSuccessFactors
+- Cross-reference keyword gaps with missing page titles to identify SEO quick wins
+` : ''}
 IMPORTANT: When creating adHooks in messagingFramework, prioritize EXTRACTING hooks from the real ads above.
 Mark each hook's source.type as "extracted" (verbatim), "inspired" (based on pattern), or "generated" (no matching ad).
 
@@ -545,7 +575,8 @@ QUALITY STANDARDS:
 - Objection reframes should reference competitor review failures as cautionary evidence
 - Platform recommendations need clear reasoning
 - Next steps achievable in 2 weeks
-- When keyword intelligence is available: include at least 3 keyword-specific next steps with exact keywords, volumes, and difficulty scores. Reference keyword data in platform recommendations (difficulty distribution informs organic vs PPC priority). Use high-CPC keywords as evidence of commercial intent in messaging angles.`,
+- When keyword intelligence is available: include at least 3 keyword-specific next steps with exact keywords, volumes, and difficulty scores. Reference keyword data in platform recommendations (difficulty distribution informs organic vs PPC priority). Use high-CPC keywords as evidence of commercial intent in messaging angles.
+- When SEO audit data is available: reference specific technical issues (missing meta descriptions, missing H1 tags, slow LCP) in nextSteps as actionable items. Include PageSpeed scores in criticalSuccessFactors if performance is poor (<70). Cross-reference keyword gaps with pages that have weak/missing titles for quick-win SEO fixes.`,
 
       prompt: `Create a strategic paid media blueprint for:\n\n${context}`,
       ...GENERATION_SETTINGS.synthesis,

@@ -63,7 +63,7 @@ describe('GET /api/health', () => {
     it('returns 503 with status "error" when required vars missing', async () => {
       mockValidateEnv.mockReturnValue({
         valid: false,
-        missing: ['OPENROUTER_API_KEY', 'SEARCHAPI_KEY'],
+        missing: ['ANTHROPIC_API_KEY', 'SEARCHAPI_KEY'],
         warnings: [],
       });
 
@@ -73,7 +73,7 @@ describe('GET /api/health', () => {
       const json = await response.json();
       expect(json.status).toBe('error');
       expect(json.checks.environment.status).toBe('error');
-      expect(json.checks.environment.missing).toContain('OPENROUTER_API_KEY');
+      expect(json.checks.environment.missing).toContain('ANTHROPIC_API_KEY');
       expect(json.checks.environment.missing).toContain('SEARCHAPI_KEY');
     });
   });

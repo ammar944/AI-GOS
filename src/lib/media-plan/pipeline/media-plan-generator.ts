@@ -2,8 +2,9 @@
 // Generates comprehensive 11-section Media Plan from onboarding data
 // Now enhanced with optional Strategic Blueprint context for more accurate plans
 
-import { createOpenRouterClient, MODELS, TimeoutError, type ChatMessage } from "@/lib/openrouter/client";
-import { CircuitBreaker, CircuitOpenError } from "@/lib/openrouter/circuit-breaker";
+import { generateObject } from "ai";
+import { anthropic, MODELS, estimateCost } from "@/lib/ai/providers";
+import { CircuitBreaker, CircuitOpenError } from "@/lib/ai/circuit-breaker";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import {
@@ -274,8 +275,13 @@ ${competitorAnalysis?.competitors?.slice(0, 3).map(c => `- ${c?.name}: ${c?.posi
 `.trim();
 }
 
+interface PromptMessage {
+  role: "system" | "user";
+  content: string;
+}
+
 // Section-specific prompts - Simplified and focused for reliable JSON output
-const SECTION_PROMPTS: Record<MediaPlanSection, (context: string, previousSections?: Partial<MediaPlanOutput>) => ChatMessage[]> = {
+const SECTION_PROMPTS: Record<MediaPlanSection, (context: string, previousSections?: Partial<MediaPlanOutput>) => PromptMessage[]> = {
   executiveSummary: (context) => [
     {
       role: "system",
@@ -511,8 +517,6 @@ export async function generateMediaPlan(
   const completedSections: MediaPlanSection[] = [];
   const partialOutput: Partial<MediaPlanOutput> = {};
 
-  const client = createOpenRouterClient();
-
   // Build context - include strategic blueprint if available
   let context = createBusinessContext(onboardingData);
   if (strategicBlueprint) {
@@ -554,23 +558,40 @@ export async function generateMediaPlan(
         // Get the schema for this section (cast to unknown for dynamic lookup)
         const schema = MEDIA_PLAN_SECTION_SCHEMAS[section] as z.ZodType<unknown>;
 
-        // Use Claude Sonnet with schema validation, protected by circuit breaker
-        const response = await aiCircuitBreaker.execute(() =>
-          client.chatJSONValidated(
-            {
-              model: MODELS.CLAUDE_SONNET,
-              messages,
-              temperature: 0.4,
-              maxTokens: 4096,
-              timeout: SECTION_TIMEOUT_MS,
-            },
-            schema
-          )
-        );
+        // Extract system and user messages from the ChatMessage array
+        const systemMessage = messages.find(m => m.role === "system")?.content || "";
+        const userMessage = messages.find(m => m.role === "user")?.content || "";
 
-        // @ts-expect-error - Dynamic assignment
-        partialOutput[section] = response.data;
-        totalCost += response.cost;
+        // Use Claude Sonnet with schema validation, protected by circuit breaker
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), SECTION_TIMEOUT_MS);
+
+        try {
+          const result = await aiCircuitBreaker.execute(() =>
+            generateObject({
+              model: anthropic(MODELS.CLAUDE_SONNET),
+              schema,
+              system: systemMessage,
+              prompt: userMessage,
+              temperature: 0.4,
+              maxOutputTokens: 4096,
+              abortSignal: controller.signal,
+            })
+          );
+
+          clearTimeout(timeoutId);
+
+          // @ts-expect-error - Dynamic assignment
+          partialOutput[section] = result.object;
+          const sectionCost = estimateCost(
+            MODELS.CLAUDE_SONNET,
+            result.usage.inputTokens ?? 0,
+            result.usage.outputTokens ?? 0
+          );
+          totalCost += sectionCost;
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         const sectionTime = Date.now() - sectionStart;
         sectionTimings[section] = sectionTime;
@@ -586,7 +607,7 @@ export async function generateMediaPlan(
       } catch (sectionError) {
         // Determine error type, message, and failure reason
         const isCircuitOpen = sectionError instanceof CircuitOpenError;
-        const isTimeout = sectionError instanceof TimeoutError;
+        const isTimeout = sectionError instanceof Error && sectionError.name === "AbortError";
         const isValidation = sectionError instanceof Error &&
           (sectionError.message.includes("validation") ||
            sectionError.message.includes("parse") ||
@@ -602,8 +623,8 @@ export async function generateMediaPlan(
           failureReason = "circuit_open";
           console.log(`[Generator] Circuit breaker open - returning partial result`);
         } else if (isTimeout) {
-          errorMessage = sectionError.message;
-          userMessage = `Section timed out after ${(sectionError as TimeoutError).timeout}ms`;
+          errorMessage = `Section timed out after ${SECTION_TIMEOUT_MS}ms`;
+          userMessage = errorMessage;
           failureReason = "timeout";
         } else if (isValidation) {
           errorMessage = sectionError.message;
@@ -676,7 +697,7 @@ export async function generateMediaPlan(
         version: "1.0",
         processingTime: totalTime,
         totalCost: Math.round(totalCost * 10000) / 10000,
-        modelsUsed: [MODELS.CLAUDE_SONNET],
+        modelsUsed: [`anthropic:${MODELS.CLAUDE_SONNET}`],
         overallConfidence: 75,
       },
     };
@@ -711,7 +732,7 @@ export async function generateMediaPlan(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     const isCircuitOpen = error instanceof CircuitOpenError;
-    const isTimeout = error instanceof TimeoutError;
+    const isTimeout = error instanceof Error && error.name === "AbortError";
 
     // Determine failure reason from error type
     let failureReason: "timeout" | "circuit_open" | "validation" | "api_error" | "unknown";

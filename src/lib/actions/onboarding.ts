@@ -17,6 +17,7 @@ const onboardingDataSchema = z.object({
   assetsProof: z.record(z.string(), z.any()).optional(),
   budgetTargets: z.record(z.string(), z.any()).optional(),
   compliance: z.record(z.string(), z.any()).optional(),
+  currentStep: z.number().int().min(0).max(8).optional(),
 })
 
 /**

@@ -108,19 +108,27 @@ const STEPS: {
 
 interface OnboardingWizardProps {
   initialData?: Partial<OnboardingFormData>;
+  initialStep?: number;
   onComplete: (data: OnboardingFormData) => void;
   onStepChange?: (step: number, data: Partial<OnboardingFormData>) => void;
 }
 
 export function OnboardingWizard({
   initialData,
+  initialStep,
   onComplete,
   onStepChange,
 }: OnboardingWizardProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const startStep = initialStep ?? 0;
+  const [currentStep, setCurrentStep] = useState(startStep);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => {
+    // Pre-mark steps 0 through initialStep - 1 as completed
+    const set = new Set<number>();
+    for (let i = 0; i < startStep; i++) set.add(i);
+    return set;
+  });
   // Track the highest step reached to allow forward navigation to visited steps
-  const [highestStepReached, setHighestStepReached] = useState(0);
+  const [highestStepReached, setHighestStepReached] = useState(startStep);
   const [formData, setFormData] = useState<OnboardingFormData>({
     ...DEFAULT_ONBOARDING_DATA,
     ...initialData,

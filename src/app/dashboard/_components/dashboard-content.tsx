@@ -16,6 +16,8 @@ import {
   Sparkles,
   BarChart3,
   Trash2,
+  CheckCircle2,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlowCard, GlowCardContent } from "@/components/ui/glow-card";
@@ -27,6 +29,7 @@ import {
 } from "@/lib/storage/local-storage";
 import { getUserBlueprints, deleteBlueprint, type BlueprintRecord } from "@/lib/actions/blueprints";
 import { getOnboardingStatus } from "@/lib/actions/onboarding";
+import { mapDbToFormData, getOnboardingProgress } from "@/lib/onboarding/utils";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 
@@ -64,6 +67,7 @@ export function DashboardContent() {
   const [savedBlueprint, setSavedBlueprint] = useState<StrategicBlueprintOutput | null>(null);
   const [blueprints, setBlueprints] = useState<BlueprintRecord[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [onboardingProgress, setOnboardingProgress] = useState<{ currentStep: number; completedSections: number; totalSections: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -75,19 +79,9 @@ export function DashboardContent() {
         setOnboardingCompleted(onboardingResult.data.completed);
         // If onboarding data exists in DB, use it
         if (onboardingResult.data.onboardingData) {
-          // Map DB format to form format (use unknown cast for JSON data)
           const dbData = onboardingResult.data.onboardingData;
-          setOnboardingData({
-            businessBasics: dbData.businessBasics as unknown as OnboardingFormData['businessBasics'],
-            icp: dbData.icpData as unknown as OnboardingFormData['icp'],
-            productOffer: dbData.productOffer as unknown as OnboardingFormData['productOffer'],
-            marketCompetition: dbData.marketCompetition as unknown as OnboardingFormData['marketCompetition'],
-            customerJourney: dbData.customerJourney as unknown as OnboardingFormData['customerJourney'],
-            brandPositioning: dbData.brandPositioning as unknown as OnboardingFormData['brandPositioning'],
-            assetsProof: dbData.assetsProof as unknown as OnboardingFormData['assetsProof'],
-            budgetTargets: dbData.budgetTargets as unknown as OnboardingFormData['budgetTargets'],
-            compliance: dbData.compliance as unknown as OnboardingFormData['compliance'],
-          } as OnboardingFormData);
+          setOnboardingData(mapDbToFormData(dbData) as OnboardingFormData);
+          setOnboardingProgress(getOnboardingProgress(dbData));
         }
       }
 
@@ -204,28 +198,100 @@ export function DashboardContent() {
           </GlowCard>
         </motion.div>
 
-        {/* Edit Onboarding Card */}
+        {/* Business Profile Card */}
         <motion.div variants={staggerItem} transition={springs.smooth}>
           <GlowCard variant="glass" glow="sm" className="p-6 h-full">
             <GlowCardContent className="p-0">
               <div className="flex items-start gap-4">
-                <div className="inline-flex items-center justify-center size-12 rounded-lg bg-sky-500/20 text-sky-400 shrink-0">
-                  <ClipboardEdit className="size-6" />
+                <div className={`inline-flex items-center justify-center size-12 rounded-lg shrink-0 ${
+                  onboardingCompleted || (onboardingProgress && onboardingProgress.completedSections >= 9)
+                    ? "bg-green-500/20 text-green-400"
+                    : onboardingProgress && onboardingProgress.completedSections > 0
+                      ? "bg-sky-500/20 text-sky-400"
+                      : "bg-sky-500/20 text-sky-400"
+                }`}>
+                  {onboardingCompleted || (onboardingProgress && onboardingProgress.completedSections >= 9) ? (
+                    <CheckCircle2 className="size-6" />
+                  ) : (
+                    <ClipboardEdit className="size-6" />
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-white mb-2">
-                    {hasOnboardingData ? "Edit Business Profile" : "Complete Onboarding"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {hasOnboardingData
-                      ? `Update ${companyName}'s details to refine future blueprints and ensure accurate research.`
-                      : "Tell us about your business to generate accurate, personalized research and recommendations."}
-                  </p>
-                  <Link href={hasOnboardingData ? "/onboarding/edit" : "/generate"}>
-                    <Button variant="outline" size="default">
-                      {hasOnboardingData ? "Edit Profile" : "Get Started"}
-                    </Button>
-                  </Link>
+                  {/* No data — fresh start */}
+                  {!hasOnboardingData && (
+                    <>
+                      <h3 className="font-semibold text-lg text-white mb-2">
+                        Complete Onboarding
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Tell us about your business to generate accurate, personalized research and recommendations.
+                      </p>
+                      <Link href="/generate">
+                        <Button variant="outline" size="default">
+                          Get Started
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+
+                  {/* Partial data — show progress and resume */}
+                  {hasOnboardingData && onboardingProgress && onboardingProgress.completedSections < 9 && !onboardingCompleted && (
+                    <>
+                      <h3 className="font-semibold text-lg text-white mb-1">
+                        {companyName}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Step {onboardingProgress.currentStep + 1} of {onboardingProgress.totalSections} complete
+                      </p>
+                      {/* Progress bar */}
+                      <div className="w-full h-1.5 rounded-full bg-muted mb-4 overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full bg-primary"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(onboardingProgress.completedSections / onboardingProgress.totalSections) * 100}%` }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
+                        />
+                      </div>
+                      <Link href="/generate">
+                        <Button variant="gradient" size="default" className="group">
+                          <Play className="size-4 mr-2" />
+                          Resume Onboarding
+                          <ArrowRight className="size-4 ml-1 transition-transform group-hover:translate-x-1" />
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+
+                  {/* Complete data */}
+                  {hasOnboardingData && (onboardingCompleted || (onboardingProgress && onboardingProgress.completedSections >= 9)) && (
+                    <>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-lg text-white">
+                          {companyName}
+                        </h3>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-400">
+                          <CheckCircle2 className="size-3" />
+                          Complete
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Business profile is complete. Generate a new blueprint or edit your details.
+                      </p>
+                      <div className="flex gap-2">
+                        <Link href="/generate">
+                          <Button variant="gradient" size="default" className="group">
+                            <Wand2 className="size-4 mr-2" />
+                            Generate Blueprint
+                          </Button>
+                        </Link>
+                        <Link href="/onboarding/edit">
+                          <Button variant="outline" size="default">
+                            Edit Profile
+                          </Button>
+                        </Link>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </GlowCardContent>

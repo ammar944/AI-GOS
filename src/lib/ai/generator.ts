@@ -40,6 +40,8 @@ export interface GeneratorOptions {
   getEnrichedCompetitors?: () => Promise<CompetitorAnalysis | undefined>;
   /** Async provider for keyword intelligence — called between Phase 2 and Phase 3 */
   getKeywordIntelligence?: () => Promise<import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined>;
+  /** Async provider for SEO audit data — called between Phase 2 and Phase 3 */
+  getSEOAudit?: () => Promise<import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined>;
 }
 
 export interface GeneratorResult {
@@ -219,15 +221,17 @@ export async function generateStrategicBlueprint(
     progress(3, 'crossAnalysis', 'starting', 'Syncing enrichment data for synthesis...');
 
     const syncStart = Date.now();
-    const [competitorResult, asyncEnrichedCompetitors, asyncKeywordData] = await Promise.all([
+    const [competitorResult, asyncEnrichedCompetitors, asyncKeywordData, asyncSEOAuditData] = await Promise.all([
       competitorPromise,
       options.getEnrichedCompetitors?.() ?? Promise.resolve(undefined as CompetitorAnalysis | undefined),
       options.getKeywordIntelligence?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined),
+      options.getSEOAudit?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined),
     ]);
 
     const enrichedParts: string[] = [];
     if (asyncEnrichedCompetitors) enrichedParts.push('competitors');
     if (asyncKeywordData) enrichedParts.push('keywords');
+    if (asyncSEOAuditData) enrichedParts.push('seo-audit');
     const syncMs = Date.now() - syncStart;
     console.log(`[Generator] Pre-synthesis sync: competitors + ${enrichedParts.join(', ') || 'no enrichment'} (${syncMs}ms wait)`);
 
@@ -270,7 +274,7 @@ export async function generateStrategicBlueprint(
       competitorAnalysis: finalCompetitorData,
     };
 
-    const synthesisResult = await synthesizeCrossAnalysis(context, allSections, finalKeywordData);
+    const synthesisResult = await synthesizeCrossAnalysis(context, allSections, finalKeywordData, asyncSEOAuditData);
     sectionTimings.crossAnalysis = Date.now() - phase3Start;
     modelsUsed.add(synthesisResult.model);
     totalCost += synthesisResult.cost;

@@ -1,7 +1,7 @@
 // Shared utilities for chat tools
 // Extracted from edit-agent.ts, qa-agent.ts, chat-sidebar.tsx, and stream/route.ts
 
-import type { BlueprintChunk, ConfidenceFactors, ConfidenceResult, SourceQuality, PendingEdit } from '@/lib/chat/types';
+import type { BlueprintChunk, ConfidenceFactors, ConfidenceResult, SourceQuality, PendingEdit } from './types';
 
 // Similarity thresholds for quality classification
 const HIGH_QUALITY_THRESHOLD = 0.85;

@@ -203,6 +203,7 @@ describe('POST /api/media-plan/generate', () => {
       mockRunMediaPlanPipeline.mockResolvedValue({
         success: true,
         blueprint: mockBlueprint,
+        metadata: { totalTime: 5000, totalCost: 0.024, stageTimings: { extract: 1000, research: 2000, logic: 1000, synthesize: 1000, complete: 0 } },
       });
 
       const response = await callRoute(createValidRequest());
@@ -220,6 +221,7 @@ describe('POST /api/media-plan/generate', () => {
       mockRunMediaPlanPipeline.mockResolvedValue({
         success: false,
         error: 'Pipeline stage failed',
+        metadata: { totalTime: 2000, totalCost: 0.005, stageTimings: { extract: 1000, research: 1000, logic: 0, synthesize: 0, complete: 0 } },
       });
 
       const response = await callRoute(createValidRequest());

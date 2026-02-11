@@ -709,6 +709,145 @@ export const mediaPlanProgressSchema = z.object({
 }).passthrough();
 
 // =============================================================================
+// 4-Stage Pipeline Schemas (Extract → Research → Logic → Synthesize)
+// =============================================================================
+
+export const extractedDataSchema = z.object({
+  industry: z.object({
+    name: z.string(),
+    vertical: z.string(),
+    subNiche: z.string(),
+  }),
+  audience: z.object({
+    demographics: z.string(),
+    psychographics: z.string(),
+    painPoints: z.array(z.string()),
+  }),
+  icp: z.object({
+    description: z.string(),
+    characteristics: z.array(z.string()),
+    buyingBehavior: z.string(),
+  }),
+  budget: z.object({
+    total: z.number(),
+    currency: z.string(),
+  }),
+  offer: z.object({
+    price: z.number(),
+    type: z.enum(["low_ticket", "mid_ticket", "high_ticket"]),
+  }),
+  salesCycle: z.object({
+    length: z.string(),
+    daysEstimate: z.number(),
+    complexity: z.enum(["simple", "moderate", "complex"]),
+  }),
+}).passthrough();
+
+const benchmarkRangeSchema = z.object({
+  low: z.number(),
+  high: z.number(),
+  average: z.number(),
+});
+
+export const researchDataSchema = z.object({
+  marketOverview: z.object({
+    size: z.string(),
+    trends: z.array(z.string()),
+    growth: z.string(),
+  }),
+  competitors: z.array(z.object({
+    name: z.string(),
+    positioning: z.string(),
+    channels: z.array(z.string()),
+  })),
+  benchmarks: z.object({
+    cpc: benchmarkRangeSchema,
+    cpm: benchmarkRangeSchema,
+    ctr: benchmarkRangeSchema,
+    conversionRate: benchmarkRangeSchema,
+  }),
+  audienceInsights: z.object({
+    platforms: z.array(z.string()),
+    contentPreferences: z.array(z.string()),
+    peakEngagementTimes: z.array(z.string()),
+  }),
+  sources: z.array(z.object({
+    title: z.string(),
+    url: z.string(),
+  })),
+}).passthrough();
+
+export const logicDataSchema = z.object({
+  platforms: z.array(z.object({
+    name: z.string(),
+    priority: z.enum(["primary", "secondary"]),
+    reason: z.string(),
+    budgetPercentage: z.number(),
+  })),
+  budgetAllocation: z.array(z.object({
+    platform: z.string(),
+    amount: z.number(),
+    percentage: z.number(),
+  })),
+  funnelType: z.object({
+    name: z.string(),
+    stages: z.array(z.string()),
+    reason: z.string(),
+  }),
+  kpiTargets: z.array(z.object({
+    metric: z.string(),
+    target: z.number(),
+    unit: z.string(),
+    rationale: z.string(),
+  })),
+}).passthrough();
+
+export const mediaPlanBlueprintSchema = z.object({
+  executiveSummary: z.string(),
+  platformStrategy: z.array(z.object({
+    platform: z.string(),
+    rationale: z.string(),
+    tactics: z.array(z.string()),
+    budget: z.number(),
+  })),
+  budgetBreakdown: z.array(z.object({
+    category: z.string(),
+    amount: z.number(),
+    percentage: z.number(),
+    notes: z.string(),
+  })),
+  funnelStrategy: z.object({
+    type: z.string(),
+    stages: z.array(z.object({
+      name: z.string(),
+      objective: z.string(),
+      channels: z.array(z.string()),
+      content: z.array(z.string()),
+    })),
+  }),
+  adAngles: z.array(z.object({
+    angle: z.string(),
+    hook: z.string(),
+    targetEmotion: z.string(),
+    example: z.string(),
+  })),
+  kpiTargets: z.array(z.object({
+    metric: z.string(),
+    target: z.string(),
+    benchmark: z.string(),
+  })),
+  sources: z.array(z.object({
+    title: z.string(),
+    url: z.string(),
+  })),
+  metadata: z.object({
+    generatedAt: z.string(),
+    totalCost: z.number(),
+    processingTime: z.number(),
+  }),
+}).passthrough();
+
+// =============================================================================
 // Exported Schema Names Array
 // =============================================================================
 

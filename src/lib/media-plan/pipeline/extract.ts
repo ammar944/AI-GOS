@@ -1,7 +1,9 @@
 // Pipeline Stage 1: EXTRACT
-// Model: Gemini Flash - Parse form inputs into structured data
+// Model: Claude Haiku - Parse form inputs into structured data
 
-import { createOpenRouterClient, MODELS } from "@/lib/openrouter/client";
+import { generateObject } from "ai";
+import { anthropic, MODELS, estimateCost } from "@/lib/ai/providers";
+import { extractedDataSchema } from "../schemas";
 import type {
   NicheFormData,
   BriefingFormData,
@@ -85,8 +87,8 @@ Return a JSON object with this exact structure:
 export interface ExtractStageResult {
   data: ExtractedData;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
   cost: number;
@@ -98,20 +100,18 @@ export async function runExtractStage(
   briefing: BriefingFormData
 ): Promise<ExtractStageResult> {
   const startTime = Date.now();
-  const client = createOpenRouterClient();
 
-  const response = await client.chatJSON<ExtractedData>({
-    model: MODELS.GEMINI_FLASH,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(niche, briefing) },
-    ],
-    temperature: 0.3, // Lower temperature for more consistent extraction
-    maxTokens: 2048,
+  const result = await generateObject({
+    model: anthropic(MODELS.CLAUDE_HAIKU),
+    schema: extractedDataSchema,
+    system: SYSTEM_PROMPT,
+    prompt: buildUserPrompt(niche, briefing),
+    temperature: 0.3,
+    maxOutputTokens: 2048,
   });
 
   // Validate and ensure required fields
-  const data = response.data;
+  const data = result.object as ExtractedData;
 
   // Ensure sales cycle has correct values from input
   data.salesCycle.length = briefing.salesCycleLength;
@@ -121,10 +121,18 @@ export async function runExtractStage(
   data.budget.total = briefing.budget;
   data.offer.price = briefing.offerPrice;
 
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const cost = estimateCost(MODELS.CLAUDE_HAIKU, inputTokens, outputTokens);
+
   return {
     data,
-    usage: response.usage,
-    cost: response.cost,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    cost,
     duration: Date.now() - startTime,
   };
 }

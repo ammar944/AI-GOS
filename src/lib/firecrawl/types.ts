@@ -13,6 +13,8 @@ export interface ScrapeOptions {
   waitForJs?: boolean;
   /** Force US geolocation for consistent pricing data (default: false) */
   forceUSLocation?: boolean;
+  /** Content formats to return (default: ['markdown']) */
+  formats?: ('markdown' | 'html')[];
 }
 
 /**
@@ -23,6 +25,20 @@ export interface ScrapeResult {
   success: boolean;
   /** Scraped content as markdown (undefined if failed) */
   markdown?: string;
+  /** Raw HTML content (only when formats includes 'html') */
+  html?: string;
+  /** Page metadata extracted by Firecrawl */
+  metadata?: {
+    title?: string;
+    description?: string;
+    language?: string;
+    robots?: string;
+    ogTitle?: string;
+    ogDescription?: string;
+    ogUrl?: string;
+    ogImage?: string;
+    sourceURL?: string;
+  };
   /** Page title if available */
   title?: string;
   /** Page URL (may differ from input if redirected) */
@@ -59,6 +75,8 @@ export interface BatchScrapeOptions {
   urls: string[];
   /** Timeout per URL in milliseconds (default: 30000) */
   timeout?: number;
+  /** Content formats to return (default: ['markdown']) */
+  formats?: ('markdown' | 'html')[];
 }
 
 /**

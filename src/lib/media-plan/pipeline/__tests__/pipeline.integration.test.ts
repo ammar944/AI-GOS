@@ -61,25 +61,25 @@ function createSuccessfulStageResults() {
   return {
     extract: {
       data: createMockExtractedData(),
-      usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+      usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
       cost: 0.001,
       duration: 1000,
     },
     research: {
       data: createMockResearchData(),
-      usage: { promptTokens: 200, completionTokens: 400, totalTokens: 600 },
+      usage: { inputTokens: 200, outputTokens: 400, totalTokens: 600 },
       cost: 0.005,
       duration: 2000,
     },
     logic: {
       data: createMockLogicData(),
-      usage: { promptTokens: 150, completionTokens: 300, totalTokens: 450 },
+      usage: { inputTokens: 150, outputTokens: 300, totalTokens: 450 },
       cost: 0.003,
       duration: 1500,
     },
     synthesize: {
       data: createMockMediaPlanBlueprint(),
-      usage: { promptTokens: 300, completionTokens: 800, totalTokens: 1100 },
+      usage: { inputTokens: 300, outputTokens: 800, totalTokens: 1100 },
       cost: 0.015,
       duration: 3000,
     },

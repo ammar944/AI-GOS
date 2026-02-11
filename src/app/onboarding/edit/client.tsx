@@ -33,6 +33,8 @@ export function EditOnboardingClient({ initialData }: Props) {
         assetsProof: data.assetsProof ? JSON.parse(JSON.stringify(data.assetsProof)) : undefined,
         budgetTargets: data.budgetTargets ? JSON.parse(JSON.stringify(data.budgetTargets)) : undefined,
         compliance: data.compliance ? JSON.parse(JSON.stringify(data.compliance)) : undefined,
+        // _step is the step that was just completed; save next step so user resumes there
+        currentStep: Math.min(_step + 1, 8),
       };
 
       const filteredData = Object.fromEntries(

@@ -19,7 +19,7 @@ describe("env.ts", () => {
   describe("validateEnv", () => {
     it("returns valid: true when all required vars are present", () => {
       // Arrange: Set all required environment variables
-      process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+      process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
       process.env.SEARCHAPI_KEY = "test-searchapi-key";
       process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
@@ -34,10 +34,10 @@ describe("env.ts", () => {
     });
 
     it("returns valid: false with missing server vars listed", () => {
-      // Arrange: Missing OPENROUTER_API_KEY and SEARCHAPI_KEY
+      // Arrange: Missing ANTHROPIC_API_KEY and SEARCHAPI_KEY
       process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
-      delete process.env.OPENROUTER_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
       delete process.env.SEARCHAPI_KEY;
 
       // Act
@@ -45,13 +45,13 @@ describe("env.ts", () => {
 
       // Assert
       expect(result.valid).toBe(false);
-      expect(result.missing).toContain("OPENROUTER_API_KEY");
+      expect(result.missing).toContain("ANTHROPIC_API_KEY");
       expect(result.missing).toContain("SEARCHAPI_KEY");
     });
 
     it("returns valid: false with missing public vars listed", () => {
       // Arrange: Missing NEXT_PUBLIC_* vars
-      process.env.OPENROUTER_API_KEY = "test-key";
+      process.env.ANTHROPIC_API_KEY = "test-key";
       process.env.SEARCHAPI_KEY = "test-key";
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -67,7 +67,7 @@ describe("env.ts", () => {
 
     it("treats empty strings as missing", () => {
       // Arrange: Set vars to empty strings
-      process.env.OPENROUTER_API_KEY = "";
+      process.env.ANTHROPIC_API_KEY = "";
       process.env.SEARCHAPI_KEY = "   "; // whitespace only
       process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
@@ -77,13 +77,13 @@ describe("env.ts", () => {
 
       // Assert
       expect(result.valid).toBe(false);
-      expect(result.missing).toContain("OPENROUTER_API_KEY");
+      expect(result.missing).toContain("ANTHROPIC_API_KEY");
       expect(result.missing).toContain("SEARCHAPI_KEY");
     });
 
     it("includes warnings for missing optional vars", () => {
       // Arrange: All required present, optional missing
-      process.env.OPENROUTER_API_KEY = "test-key";
+      process.env.ANTHROPIC_API_KEY = "test-key";
       process.env.SEARCHAPI_KEY = "test-key";
       process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";

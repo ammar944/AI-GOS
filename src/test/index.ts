@@ -4,7 +4,7 @@
  * Central export point for all test utilities, mocks, and helpers.
  *
  * Usage:
- *   import { createMockOpenRouterClient, createTestFormData } from "@/test";
+ *   import { createTestFormData, createMockSupabaseClient } from "@/test";
  */
 
 // =============================================================================
@@ -25,32 +25,6 @@ export {
   spyOnConsole,
   createMockFetch,
 } from "./utils";
-
-// =============================================================================
-// OpenRouter Mocks
-// =============================================================================
-
-export {
-  // Mock client and factory
-  MockOpenRouterClient,
-  createMockOpenRouterClient,
-  createOpenRouterClientMock,
-  // Response factories
-  createMockChatResponse,
-  createMockJSONResponse,
-  createMockEmbeddings,
-  createMockCitations,
-  createMockSearchResults,
-  createMockPerplexityResponse,
-  // Error classes (re-exported for convenience)
-  TimeoutError,
-  APIError,
-  // Types
-  type MockCallRecord,
-  type ChatCallRecord,
-  type EmbeddingCallRecord,
-  type MockOpenRouterConfig,
-} from "./mocks/openrouter";
 
 // =============================================================================
 // Supabase Mocks

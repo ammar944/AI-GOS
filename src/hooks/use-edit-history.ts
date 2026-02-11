@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { EditHistoryEntry, EditHistoryState, PendingEdit } from '@/lib/chat/types';
+import type { EditHistoryEntry, EditHistoryState, PendingEdit } from '@/lib/ai/chat-tools/types';
 import { SECTION_LABELS } from '@/lib/ai/chat-tools/utils';
 
 /**

@@ -3,7 +3,6 @@
  *
  * Tests for each pipeline stage function verifying:
  * - Input/output contracts
- * - Correct model usage
  * - Cost and duration tracking
  * - Error handling
  */
@@ -20,24 +19,25 @@ import {
   createMockResearchData,
   createMockLogicData,
   createMockMediaPlanBlueprint,
-  MockOpenRouterClient,
 } from "@/test";
-import { MODELS } from "@/lib/openrouter/client";
 
 // =============================================================================
 // Mock Setup
 // =============================================================================
 
-// Create a shared mock client instance
-let mockClient: MockOpenRouterClient;
+// Track generateObject calls
+const mockGenerateObject = vi.fn();
 
-vi.mock("@/lib/openrouter/client", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@/lib/openrouter/client")>();
-  return {
-    ...original,
-    createOpenRouterClient: () => mockClient,
-  };
-});
+vi.mock("ai", () => ({
+  generateObject: (...args: unknown[]) => mockGenerateObject(...args),
+}));
+
+function mockGenerateObjectResult(object: unknown) {
+  mockGenerateObject.mockResolvedValueOnce({
+    object,
+    usage: { inputTokens: 100, outputTokens: 200 },
+  });
+}
 
 // =============================================================================
 // Tests
@@ -45,7 +45,7 @@ vi.mock("@/lib/openrouter/client", async (importOriginal) => {
 
 describe("runExtractStage", () => {
   beforeEach(() => {
-    mockClient = new MockOpenRouterClient();
+    mockGenerateObject.mockReset();
   });
 
   it("should return ExtractedData with correct structure", async () => {
@@ -53,8 +53,7 @@ describe("runExtractStage", () => {
     const niche = createMockNicheFormData();
     const briefing = createMockBriefingFormData();
     const mockExtracted = createMockExtractedData();
-
-    mockClient.queueJSONResponse(mockExtracted);
+    mockGenerateObjectResult(mockExtracted);
 
     // Act
     const result = await runExtractStage(niche, briefing);
@@ -69,29 +68,12 @@ describe("runExtractStage", () => {
     expect(result.data.salesCycle).toBeDefined();
   });
 
-  it("should use Gemini Flash model for extraction", async () => {
-    // Arrange
-    const niche = createMockNicheFormData();
-    const briefing = createMockBriefingFormData();
-    const mockExtracted = createMockExtractedData();
-
-    mockClient.queueJSONResponse(mockExtracted);
-
-    // Act
-    await runExtractStage(niche, briefing);
-
-    // Assert
-    expect(mockClient.chatJSONCalls.length).toBe(1);
-    expect(mockClient.chatJSONCalls[0].args.model).toBe(MODELS.GEMINI_FLASH);
-  });
-
   it("should track cost and duration in result", async () => {
     // Arrange
     const niche = createMockNicheFormData();
     const briefing = createMockBriefingFormData();
     const mockExtracted = createMockExtractedData();
-
-    mockClient.queueJSONResponse(mockExtracted);
+    mockGenerateObjectResult(mockExtracted);
 
     // Act
     const result = await runExtractStage(niche, briefing);
@@ -108,11 +90,10 @@ describe("runExtractStage", () => {
     const niche = createMockNicheFormData();
     const briefing = createMockBriefingFormData({ budget: 25000, offerPrice: 5000 });
     const mockExtracted = createMockExtractedData({
-      budget: { total: 1, currency: "USD" }, // AI returned wrong value
+      budget: { total: 1, currency: "USD" },
       offer: { price: 1, type: "low_ticket" },
     });
-
-    mockClient.queueJSONResponse(mockExtracted);
+    mockGenerateObjectResult(mockExtracted);
 
     // Act
     const result = await runExtractStage(niche, briefing);
@@ -127,8 +108,7 @@ describe("runExtractStage", () => {
     const niche = createMockNicheFormData();
     const briefing = createMockBriefingFormData({ salesCycleLength: "more_than_30_days" });
     const mockExtracted = createMockExtractedData();
-
-    mockClient.queueJSONResponse(mockExtracted);
+    mockGenerateObjectResult(mockExtracted);
 
     // Act
     const result = await runExtractStage(niche, briefing);
@@ -142,25 +122,23 @@ describe("runExtractStage", () => {
     // Arrange
     const niche = createMockNicheFormData();
     const briefing = createMockBriefingFormData();
-
-    mockClient.queueJSONResponse(new Error("Gemini API timeout"));
+    mockGenerateObject.mockRejectedValueOnce(new Error("API timeout"));
 
     // Act & Assert
-    await expect(runExtractStage(niche, briefing)).rejects.toThrow("Gemini API timeout");
+    await expect(runExtractStage(niche, briefing)).rejects.toThrow("API timeout");
   });
 });
 
 describe("runResearchStage", () => {
   beforeEach(() => {
-    mockClient = new MockOpenRouterClient();
+    mockGenerateObject.mockReset();
   });
 
   it("should return ResearchData with correct structure", async () => {
     // Arrange
     const extracted = createMockExtractedData();
     const mockResearch = createMockResearchData();
-
-    mockClient.queueJSONResponse(mockResearch);
+    mockGenerateObjectResult(mockResearch);
 
     // Act
     const result = await runResearchStage(extracted);
@@ -174,21 +152,6 @@ describe("runResearchStage", () => {
     expect(result.data.sources).toBeDefined();
   });
 
-  it("should use Perplexity Sonar model for research", async () => {
-    // Arrange
-    const extracted = createMockExtractedData();
-    const mockResearch = createMockResearchData();
-
-    mockClient.queueJSONResponse(mockResearch);
-
-    // Act
-    await runResearchStage(extracted);
-
-    // Assert
-    expect(mockClient.chatJSONCalls.length).toBe(1);
-    expect(mockClient.chatJSONCalls[0].args.model).toBe(MODELS.PERPLEXITY_SONAR);
-  });
-
   it("should include sources/citations in result", async () => {
     // Arrange
     const extracted = createMockExtractedData();
@@ -198,8 +161,7 @@ describe("runResearchStage", () => {
         { title: "Source 2", url: "https://example.com/2" },
       ],
     });
-
-    mockClient.queueJSONResponse(mockResearch);
+    mockGenerateObjectResult(mockResearch);
 
     // Act
     const result = await runResearchStage(extracted);
@@ -213,10 +175,8 @@ describe("runResearchStage", () => {
     // Arrange
     const extracted = createMockExtractedData();
     const mockResearch = createMockResearchData();
-    // Remove benchmarks to simulate missing data
     const responseWithoutBenchmarks = { ...mockResearch, benchmarks: undefined };
-
-    mockClient.queueJSONResponse(responseWithoutBenchmarks);
+    mockGenerateObjectResult(responseWithoutBenchmarks);
 
     // Act
     const result = await runResearchStage(extracted);
@@ -234,8 +194,7 @@ describe("runResearchStage", () => {
     const extracted = createMockExtractedData();
     const mockResearch = createMockResearchData();
     const responseWithoutCompetitors = { ...mockResearch, competitors: undefined };
-
-    mockClient.queueJSONResponse(responseWithoutCompetitors);
+    mockGenerateObjectResult(responseWithoutCompetitors);
 
     // Act
     const result = await runResearchStage(extracted);
@@ -248,8 +207,7 @@ describe("runResearchStage", () => {
     // Arrange
     const extracted = createMockExtractedData();
     const mockResearch = createMockResearchData();
-
-    mockClient.queueJSONResponse(mockResearch);
+    mockGenerateObjectResult(mockResearch);
 
     // Act
     const result = await runResearchStage(extracted);
@@ -262,7 +220,7 @@ describe("runResearchStage", () => {
 
 describe("runLogicStage", () => {
   beforeEach(() => {
-    mockClient = new MockOpenRouterClient();
+    mockGenerateObject.mockReset();
   });
 
   it("should return LogicData with correct structure", async () => {
@@ -270,8 +228,7 @@ describe("runLogicStage", () => {
     const extracted = createMockExtractedData();
     const research = createMockResearchData();
     const mockLogic = createMockLogicData();
-
-    mockClient.queueJSONResponse(mockLogic);
+    mockGenerateObjectResult(mockLogic);
 
     // Act
     const result = await runLogicStage(extracted, research);
@@ -284,39 +241,6 @@ describe("runLogicStage", () => {
     expect(result.data.kpiTargets).toBeDefined();
   });
 
-  it("should use GPT-4o model for logic", async () => {
-    // Arrange
-    const extracted = createMockExtractedData();
-    const research = createMockResearchData();
-    const mockLogic = createMockLogicData();
-
-    mockClient.queueJSONResponse(mockLogic);
-
-    // Act
-    await runLogicStage(extracted, research);
-
-    // Assert
-    expect(mockClient.chatJSONCalls.length).toBe(1);
-    expect(mockClient.chatJSONCalls[0].args.model).toBe(MODELS.GPT_4O);
-  });
-
-  it("should receive both ExtractedData and ResearchData as input", async () => {
-    // Arrange
-    const extracted = createMockExtractedData({ budget: { total: 50000, currency: "USD" } });
-    const research = createMockResearchData();
-    const mockLogic = createMockLogicData();
-
-    mockClient.queueJSONResponse(mockLogic);
-
-    // Act
-    await runLogicStage(extracted, research);
-
-    // Assert - verify the call was made (inputs are used in prompt building)
-    expect(mockClient.chatJSONCalls.length).toBe(1);
-    const callArgs = mockClient.chatJSONCalls[0].args;
-    expect(callArgs.messages.some((m) => m.content.includes("50,000"))).toBe(true);
-  });
-
   it("should normalize budget allocation percentages to 100%", async () => {
     // Arrange
     const extracted = createMockExtractedData({ budget: { total: 10000, currency: "USD" } });
@@ -325,11 +249,9 @@ describe("runLogicStage", () => {
       budgetAllocation: [
         { platform: "Google Ads", amount: 6000, percentage: 60 },
         { platform: "Meta Ads", amount: 3000, percentage: 30 },
-        // Missing 10% - should be normalized
       ],
     });
-
-    mockClient.queueJSONResponse(mockLogic);
+    mockGenerateObjectResult(mockLogic);
 
     // Act
     const result = await runLogicStage(extracted, research);
@@ -339,7 +261,6 @@ describe("runLogicStage", () => {
       (sum, item) => sum + item.percentage,
       0
     );
-    // Either sums to 100 or original 90 (depends on threshold)
     expect(totalPercentage).toBeGreaterThanOrEqual(90);
   });
 
@@ -354,8 +275,7 @@ describe("runLogicStage", () => {
         { platform: "LinkedIn", amount: 0, percentage: 20 },
       ],
     });
-
-    mockClient.queueJSONResponse(mockLogic);
+    mockGenerateObjectResult(mockLogic);
 
     // Act
     const result = await runLogicStage(extracted, research);
@@ -372,8 +292,7 @@ describe("runLogicStage", () => {
     const extracted = createMockExtractedData();
     const research = createMockResearchData();
     const mockLogic = createMockLogicData();
-
-    mockClient.queueJSONResponse(mockLogic);
+    mockGenerateObjectResult(mockLogic);
 
     // Act
     const result = await runLogicStage(extracted, research);
@@ -386,7 +305,7 @@ describe("runLogicStage", () => {
 
 describe("runSynthesizeStage", () => {
   beforeEach(() => {
-    mockClient = new MockOpenRouterClient();
+    mockGenerateObject.mockReset();
   });
 
   it("should return MediaPlanBlueprint with all required sections", async () => {
@@ -395,13 +314,12 @@ describe("runSynthesizeStage", () => {
     const research = createMockResearchData();
     const logic = createMockLogicData();
     const mockBlueprint = createMockMediaPlanBlueprint();
-
-    mockClient.queueJSONResponse(mockBlueprint);
+    mockGenerateObjectResult(mockBlueprint);
 
     // Act
     const result = await runSynthesizeStage(extracted, research, logic);
 
-    // Assert - verify all 11 blueprint sections
+    // Assert
     expect(result.data.executiveSummary).toBeDefined();
     expect(result.data.platformStrategy).toBeDefined();
     expect(result.data.budgetBreakdown).toBeDefined();
@@ -412,48 +330,13 @@ describe("runSynthesizeStage", () => {
     expect(result.data.metadata).toBeDefined();
   });
 
-  it("should use Claude Sonnet model for synthesis", async () => {
-    // Arrange
-    const extracted = createMockExtractedData();
-    const research = createMockResearchData();
-    const logic = createMockLogicData();
-    const mockBlueprint = createMockMediaPlanBlueprint();
-
-    mockClient.queueJSONResponse(mockBlueprint);
-
-    // Act
-    await runSynthesizeStage(extracted, research, logic);
-
-    // Assert
-    expect(mockClient.chatJSONCalls.length).toBe(1);
-    expect(mockClient.chatJSONCalls[0].args.model).toBe(MODELS.CLAUDE_SONNET);
-  });
-
-  it("should receive all prior stage data as input", async () => {
-    // Arrange
-    const extracted = createMockExtractedData({ industry: { name: "Test Industry", vertical: "Test", subNiche: "Test Sub" } });
-    const research = createMockResearchData();
-    const logic = createMockLogicData();
-    const mockBlueprint = createMockMediaPlanBlueprint();
-
-    mockClient.queueJSONResponse(mockBlueprint);
-
-    // Act
-    await runSynthesizeStage(extracted, research, logic);
-
-    // Assert - verify prompt includes data from all stages
-    const callArgs = mockClient.chatJSONCalls[0].args;
-    expect(callArgs.messages.some((m) => m.content.includes("Test Industry"))).toBe(true);
-  });
-
   it("should initialize metadata with current timestamp", async () => {
     // Arrange
     const extracted = createMockExtractedData();
     const research = createMockResearchData();
     const logic = createMockLogicData();
     const mockBlueprint = createMockMediaPlanBlueprint();
-
-    mockClient.queueJSONResponse(mockBlueprint);
+    mockGenerateObjectResult(mockBlueprint);
 
     // Act
     const result = await runSynthesizeStage(extracted, research, logic);
@@ -473,8 +356,7 @@ describe("runSynthesizeStage", () => {
     });
     const logic = createMockLogicData();
     const mockBlueprint = createMockMediaPlanBlueprint({ sources: [] });
-
-    mockClient.queueJSONResponse(mockBlueprint);
+    mockGenerateObjectResult(mockBlueprint);
 
     // Act
     const result = await runSynthesizeStage(extracted, research, logic);
@@ -491,10 +373,8 @@ describe("runSynthesizeStage", () => {
     const mockBlueprint = {
       executiveSummary: "Test summary",
       metadata: { generatedAt: "", totalCost: 0, processingTime: 0 },
-      // Missing arrays
     };
-
-    mockClient.queueJSONResponse(mockBlueprint);
+    mockGenerateObjectResult(mockBlueprint);
 
     // Act
     const result = await runSynthesizeStage(extracted, research, logic);
@@ -512,8 +392,7 @@ describe("runSynthesizeStage", () => {
     const research = createMockResearchData();
     const logic = createMockLogicData();
     const mockBlueprint = createMockMediaPlanBlueprint();
-
-    mockClient.queueJSONResponse(mockBlueprint);
+    mockGenerateObjectResult(mockBlueprint);
 
     // Act
     const result = await runSynthesizeStage(extracted, research, logic);

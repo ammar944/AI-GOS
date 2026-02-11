@@ -25,8 +25,9 @@ export const MODELS = {
   SONAR_PRO: 'sonar-pro',
   SONAR_REASONING: 'sonar-reasoning-pro',
 
-  // Synthesis model (Anthropic)
+  // Anthropic models
   CLAUDE_SONNET: 'claude-sonnet-4-20250514',
+  CLAUDE_HAIKU: 'claude-haiku-4-5-20251001',
 } as const;
 
 // =============================================================================
@@ -71,6 +72,12 @@ export const GENERATION_SETTINGS = {
     temperature: 0.5,
     maxTokens: 8192,
   },
+
+  // Claude Haiku - fast extraction tasks
+  extraction: {
+    temperature: 0.1,
+    maxTokens: 2048,
+  },
 } as const;
 
 // =============================================================================
@@ -91,6 +98,11 @@ export const MODEL_COSTS = {
   [MODELS.CLAUDE_SONNET]: {
     input: 3.0,
     output: 15.0,
+    requestFee: 0,
+  },
+  [MODELS.CLAUDE_HAIKU]: {
+    input: 0.8,
+    output: 4.0,
     requestFee: 0,
   },
 } as const;

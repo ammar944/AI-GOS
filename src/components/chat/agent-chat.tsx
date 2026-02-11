@@ -19,7 +19,7 @@ import { ResearchResultCard } from './research-result-card';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { applyEdits } from '@/lib/ai/chat-tools/utils';
-import type { PendingEdit } from '@/lib/chat/types';
+import type { PendingEdit } from '@/lib/ai/chat-tools/types';
 
 interface AgentChatProps {
   blueprint: Record<string, unknown>;

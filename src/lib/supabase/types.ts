@@ -17,6 +17,7 @@ export interface OnboardingData {
   assetsProof?: Record<string, Json>;
   budgetTargets?: Record<string, Json>;
   compliance?: Record<string, Json>;
+  currentStep?: number;
 }
 
 export interface Database {

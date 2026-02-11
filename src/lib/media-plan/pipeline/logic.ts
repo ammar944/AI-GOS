@@ -1,7 +1,9 @@
 // Pipeline Stage 3: APPLY LOGIC
-// Model: GPT-4o - Apply decision rules for platform selection, budget, funnel, KPIs
+// Model: Claude Sonnet - Apply decision rules for platform selection, budget, funnel, KPIs
 
-import { createOpenRouterClient, MODELS } from "@/lib/openrouter/client";
+import { generateObject } from "ai";
+import { anthropic, MODELS, estimateCost } from "@/lib/ai/providers";
+import { logicDataSchema } from "../schemas";
 import type { ExtractedData, ResearchData, LogicData } from "../types";
 
 const SYSTEM_PROMPT = `You are a media planning strategist who applies proven decision frameworks to create advertising strategies. Your job is to take research data and apply logical rules to determine:
@@ -100,8 +102,8 @@ Include 2-4 platforms, ensure budget percentages sum to exactly 100, and provide
 export interface LogicStageResult {
   data: LogicData;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
   cost: number;
@@ -113,19 +115,17 @@ export async function runLogicStage(
   research: ResearchData
 ): Promise<LogicStageResult> {
   const startTime = Date.now();
-  const client = createOpenRouterClient();
 
-  const response = await client.chatJSON<LogicData>({
-    model: MODELS.GPT_4O,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(extracted, research) },
-    ],
+  const result = await generateObject({
+    model: anthropic(MODELS.CLAUDE_SONNET),
+    schema: logicDataSchema,
+    system: SYSTEM_PROMPT,
+    prompt: buildUserPrompt(extracted, research),
     temperature: 0.4,
-    maxTokens: 3072,
+    maxOutputTokens: 3072,
   });
 
-  const data = response.data;
+  const data = result.object as LogicData;
 
   // Validate budget allocation sums to 100%
   const totalPercentage = data.budgetAllocation.reduce(
@@ -159,10 +159,18 @@ export async function runLogicStage(
       platformBudgets.get(p.name.toLowerCase()) || p.budgetPercentage,
   }));
 
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const cost = estimateCost(MODELS.CLAUDE_SONNET, inputTokens, outputTokens);
+
   return {
     data,
-    usage: response.usage,
-    cost: response.cost,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    cost,
     duration: Date.now() - startTime,
   };
 }

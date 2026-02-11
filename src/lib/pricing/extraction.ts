@@ -1,7 +1,8 @@
 // Pricing Extraction Service
 // LLM-based pricing extraction with Zod validation and confidence scoring
 
-import { createOpenRouterClient, MODELS } from '@/lib/openrouter/client';
+import { generateObject } from 'ai';
+import { anthropic, MODELS, estimateCost } from '@/lib/ai/providers';
 import {
   PricingExtractionResultSchema,
   type PricingExtractionOptions,
@@ -14,7 +15,6 @@ import {
 } from './types';
 
 const DEFAULT_TIMEOUT = 30000;
-const DEFAULT_MAX_RETRIES = 1;
 const DEFAULT_CONCURRENCY = 3;
 
 /**
@@ -73,7 +73,6 @@ export async function extractPricing(
     sourceUrl,
     companyName,
     timeout = DEFAULT_TIMEOUT,
-    maxRetries = DEFAULT_MAX_RETRIES,
   } = options;
 
   // Validate input
@@ -90,53 +89,60 @@ export async function extractPricing(
   }
 
   try {
-    const client = createOpenRouterClient();
-
     // Build user prompt with context
     const userPrompt = buildUserPrompt(markdown, companyName);
 
-    // Use Gemini 2.0 Flash for cost-efficient extraction
-    const response = await client.chatJSONValidated(
-      {
-        model: MODELS.GEMINI_FLASH,
-        messages: [
-          { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.1, // Low temperature for deterministic extraction
-        maxTokens: 2048,
-        timeout,
-      },
-      PricingExtractionResultSchema,
-      maxRetries
-    );
+    // Use Claude Haiku for cost-efficient extraction with AbortSignal timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const extractionResult = response.data;
+    try {
+      const result = await generateObject({
+        model: anthropic(MODELS.CLAUDE_HAIKU),
+        schema: PricingExtractionResultSchema,
+        system: EXTRACTION_SYSTEM_PROMPT,
+        prompt: userPrompt,
+        temperature: 0.1,
+        maxOutputTokens: 2048,
+        abortSignal: controller.signal,
+      });
 
-    // Calculate confidence score
-    const confidenceBreakdown = calculateConfidenceBreakdown(
-      extractionResult.tiers,
-      markdown
-    );
-    const confidence = calculateOverallConfidence(confidenceBreakdown);
-    const confidenceLevel = getConfidenceLevel(confidence);
+      clearTimeout(timeoutId);
 
-    console.log(
-      `[Pricing Extraction] Extracted ${extractionResult.tiers.length} tiers for ${sourceUrl || 'unknown'} (confidence: ${confidence}%)`
-    );
+      const extractionResult = result.object;
+      const cost = estimateCost(
+        MODELS.CLAUDE_HAIKU,
+        result.usage.inputTokens ?? 0,
+        result.usage.outputTokens ?? 0
+      );
 
-    return {
-      success: true,
-      tiers: extractionResult.tiers,
-      confidence,
-      confidenceLevel,
-      confidenceBreakdown,
-      hasCustomPricing: extractionResult.hasCustomPricing,
-      currency: extractionResult.currency ?? undefined,
-      billingPeriod: extractionResult.billingPeriod ?? undefined,
-      sourceUrl,
-      cost: response.cost,
-    };
+      // Calculate confidence score
+      const confidenceBreakdown = calculateConfidenceBreakdown(
+        extractionResult.tiers,
+        markdown
+      );
+      const confidence = calculateOverallConfidence(confidenceBreakdown);
+      const confidenceLevel = getConfidenceLevel(confidence);
+
+      console.log(
+        `[Pricing Extraction] Extracted ${extractionResult.tiers.length} tiers for ${sourceUrl || 'unknown'} (confidence: ${confidence}%)`
+      );
+
+      return {
+        success: true,
+        tiers: extractionResult.tiers,
+        confidence,
+        confidenceLevel,
+        confidenceBreakdown,
+        hasCustomPricing: extractionResult.hasCustomPricing,
+        currency: extractionResult.currency ?? undefined,
+        billingPeriod: extractionResult.billingPeriod ?? undefined,
+        sourceUrl,
+        cost,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[Pricing Extraction] Failed for ${sourceUrl || 'unknown'}:`, errorMessage);

@@ -106,7 +106,7 @@ export class FirecrawlClient {
 
       const document = await withRetry(
         () => this.client!.scrape(options.url, {
-          formats: ['markdown'],
+          formats: options.formats ?? ['markdown'],
           // Force US geolocation to get consistent pricing (avoid regional price variations)
           // NOTE: Full geo-location requires Firecrawl Growth plan ($99/mo)
           // Headers help hint US locale even on hobby plan
@@ -147,6 +147,18 @@ export class FirecrawlClient {
       return {
         success: true,
         markdown,
+        html: (document as any).html ?? undefined,
+        metadata: document.metadata ? {
+          title: document.metadata.title,
+          description: document.metadata.description,
+          language: document.metadata.language,
+          robots: document.metadata.robots,
+          ogTitle: document.metadata.ogTitle,
+          ogDescription: document.metadata.ogDescription,
+          ogUrl: document.metadata.ogUrl,
+          ogImage: document.metadata.ogImage,
+          sourceURL: document.metadata.sourceURL,
+        } : undefined,
         title: document.metadata?.title,
         url: document.metadata?.url ?? options.url,
       };
@@ -250,6 +262,7 @@ export class FirecrawlClient {
     }
 
     const timeout = options.timeout ?? DEFAULT_TIMEOUT;
+    const formats = options.formats;
     const results = new Map<string, ScrapeResult>();
 
     // Scrape all URLs in parallel with concurrency limit of 3
@@ -259,7 +272,7 @@ export class FirecrawlClient {
 
     for (const chunk of chunks) {
       const chunkResults = await Promise.all(
-        chunk.map(url => this.scrape({ url, timeout }))
+        chunk.map(url => this.scrape({ url, timeout, ...(formats && { formats }) }))
       );
 
       for (let i = 0; i < chunk.length; i++) {

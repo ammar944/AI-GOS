@@ -74,7 +74,15 @@
       "WebFetch(domain:vercel.com)",
       "Bash(python3:*)",
       "WebFetch(domain:sdk.vercel.ai)",
-      "mcp__plugin_playwright_playwright__browser_wait_for"
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(npx dotenv:*)",
+      "WebFetch(domain:developer.spyfu.com)",
+      "Bash(npx next dev:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(lsof:*)",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_close"
     ]
   },
   "enableAllProjectMcpServers": true,

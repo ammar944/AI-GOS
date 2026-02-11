@@ -6,7 +6,7 @@
  */
 const REQUIRED_ENV_VARS = {
   // Server-only variables (not prefixed with NEXT_PUBLIC_)
-  server: ["OPENROUTER_API_KEY", "SEARCHAPI_KEY"] as const,
+  server: ["ANTHROPIC_API_KEY", "SEARCHAPI_KEY"] as const,
 
   // Public variables (accessible in browser)
   public: [
@@ -21,6 +21,7 @@ const REQUIRED_ENV_VARS = {
 const OPTIONAL_ENV_VARS = {
   // Server-only optional variables
   server: [
+    "PERPLEXITY_API_KEY",   // Perplexity API key for research queries
     "FOREPLAY_API_KEY",     // Foreplay API key for creative intelligence
     "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
     "FIRECRAWL_API_KEY",    // Firecrawl API key for pricing page scraping

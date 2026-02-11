@@ -1,7 +1,9 @@
 // Pipeline Stage 4: SYNTHESIZE
-// Model: Claude 3.5 Sonnet - Generate the final Strategic Research Blueprint
+// Model: Claude Sonnet - Generate the final Strategic Research Blueprint
 
-import { createOpenRouterClient, MODELS } from "@/lib/openrouter/client";
+import { generateObject } from "ai";
+import { anthropic, MODELS, estimateCost } from "@/lib/ai/providers";
+import { mediaPlanBlueprintSchema } from "../schemas";
 import type {
   ExtractedData,
   ResearchData,
@@ -142,8 +144,8 @@ Create 3-5 ad angles with compelling hooks. Make the executive summary persuasiv
 export interface SynthesizeStageResult {
   data: MediaPlanBlueprint;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
   cost: number;
@@ -156,19 +158,17 @@ export async function runSynthesizeStage(
   logic: LogicData
 ): Promise<SynthesizeStageResult> {
   const startTime = Date.now();
-  const client = createOpenRouterClient();
 
-  const response = await client.chatJSON<MediaPlanBlueprint>({
-    model: MODELS.CLAUDE_SONNET,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(extracted, research, logic) },
-    ],
+  const result = await generateObject({
+    model: anthropic(MODELS.CLAUDE_SONNET),
+    schema: mediaPlanBlueprintSchema,
+    system: SYSTEM_PROMPT,
+    prompt: buildUserPrompt(extracted, research, logic),
     temperature: 0.6,
-    maxTokens: 4096,
+    maxOutputTokens: 4096,
   });
 
-  const data = response.data;
+  const data = result.object as MediaPlanBlueprint;
 
   // Ensure metadata is set
   data.metadata = {
@@ -188,10 +188,18 @@ export async function runSynthesizeStage(
   if (!data.adAngles) data.adAngles = [];
   if (!data.kpiTargets) data.kpiTargets = [];
 
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const cost = estimateCost(MODELS.CLAUDE_SONNET, inputTokens, outputTokens);
+
   return {
     data,
-    usage: response.usage,
-    cost: response.cost,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    cost,
     duration: Date.now() - startTime,
   };
 }

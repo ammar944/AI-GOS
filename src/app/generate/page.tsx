@@ -32,7 +32,8 @@ import { ApiErrorDisplay, parseApiError, type ParsedApiError } from "@/component
 import { Pipeline, GenerationStats } from "@/components/pipeline";
 import { SaaSLaunchBackground, ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import { GenerateHeader, type GenerateStage } from "@/components/generate";
-import { updateOnboardingData as persistOnboardingData, completeOnboarding } from "@/lib/actions/onboarding";
+import { updateOnboardingData as persistOnboardingData, completeOnboarding, getOnboardingStatus } from "@/lib/actions/onboarding";
+import { mapDbToFormData, getOnboardingProgress } from "@/lib/onboarding/utils";
 import { saveBlueprint } from "@/lib/actions/blueprints";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
@@ -127,6 +128,7 @@ function parseSSEEvent(eventStr: string): SSEEvent | null {
 
 type PageState =
   | "onboarding"
+  | "profile-complete"
   | "generating-blueprint"
   | "review-blueprint"
   | "complete"
@@ -139,6 +141,8 @@ const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Synthesis"
 function getHeaderStage(pageState: PageState): GenerateStage {
   switch (pageState) {
     case "onboarding":
+      return "onboarding";
+    case "profile-complete":
       return "onboarding";
     case "generating-blueprint":
       return "generate";
@@ -162,6 +166,8 @@ export default function GeneratePage() {
   const [blueprintMeta, setBlueprintMeta] = useState<{ totalTime: number; totalCost: number } | null>(null);
   const [wizardKey, setWizardKey] = useState(0);
   const [initialData, setInitialData] = useState<OnboardingFormData | undefined>(undefined);
+  const [initialStep, setInitialStep] = useState<number | undefined>(undefined);
+  const [isLoadingSavedData, setIsLoadingSavedData] = useState(true);
 
   // Generation elapsed time tracking
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -204,6 +210,38 @@ export default function GeneratePage() {
     }
   }, [pageState]);
 
+  // Load saved onboarding data from Supabase on mount
+  useEffect(() => {
+    async function loadSavedData() {
+      try {
+        const result = await getOnboardingStatus();
+        if (result.data?.onboardingData) {
+          const dbData = result.data.onboardingData;
+          const formData = mapDbToFormData(dbData) as OnboardingFormData;
+          const progress = getOnboardingProgress(dbData);
+
+          // If onboarding is complete and all 9 sections have data, go to profile-complete
+          if (result.data.completed && progress.completedSections === 9) {
+            setOnboardingData(formData);
+            setInitialData(formData);
+            setPageState("profile-complete");
+          } else if (progress.completedSections > 0) {
+            // Partial data — resume at saved step
+            setInitialData(formData);
+            setInitialStep(progress.currentStep);
+            setWizardKey((prev) => prev + 1);
+          }
+        }
+      } catch (err) {
+        console.error("[Generate] Failed to load saved onboarding data:", err);
+      } finally {
+        setIsLoadingSavedData(false);
+      }
+    }
+
+    loadSavedData();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleAutoFill = useCallback(() => {
     setInitialData(SAMPLE_ONBOARDING_DATA);
     setWizardKey((prev) => prev + 1);
@@ -227,6 +265,8 @@ export default function GeneratePage() {
         assetsProof: data.assetsProof ? JSON.parse(JSON.stringify(data.assetsProof)) : undefined,
         budgetTargets: data.budgetTargets ? JSON.parse(JSON.stringify(data.budgetTargets)) : undefined,
         compliance: data.compliance ? JSON.parse(JSON.stringify(data.compliance)) : undefined,
+        // _step is the step that was just completed; save next step so user resumes there
+        currentStep: Math.min(_step + 1, 8),
       };
 
       // Filter out undefined values
@@ -243,10 +283,38 @@ export default function GeneratePage() {
     }
   }, []);
 
-  // Onboarding complete → Generate Strategic Blueprint (with SSE streaming)
-  const handleOnboardingComplete = useCallback(async (data: OnboardingFormData) => {
+  // Onboarding complete → Save profile and show intermediate screen
+  const handleOnboardingFinish = useCallback(async (data: OnboardingFormData) => {
     setOnboardingData(data);
     saveOnboardingData(data);
+
+    // Persist final data to Supabase
+    try {
+      const dbData = {
+        businessBasics: JSON.parse(JSON.stringify(data.businessBasics)),
+        icpData: JSON.parse(JSON.stringify(data.icp)),
+        productOffer: JSON.parse(JSON.stringify(data.productOffer)),
+        marketCompetition: JSON.parse(JSON.stringify(data.marketCompetition)),
+        customerJourney: JSON.parse(JSON.stringify(data.customerJourney)),
+        brandPositioning: JSON.parse(JSON.stringify(data.brandPositioning)),
+        assetsProof: JSON.parse(JSON.stringify(data.assetsProof)),
+        budgetTargets: JSON.parse(JSON.stringify(data.budgetTargets)),
+        compliance: JSON.parse(JSON.stringify(data.compliance)),
+        currentStep: 8,
+      };
+      await persistOnboardingData(dbData);
+    } catch (err) {
+      console.error("[Generate] Failed to persist final onboarding data:", err);
+    }
+
+    setPageState("profile-complete");
+  }, []);
+
+  // Generate Strategic Blueprint from stored onboarding data (with SSE streaming)
+  const handleGenerateBlueprint = useCallback(async () => {
+    const data = onboardingData;
+    if (!data) return;
+
     setPageState("generating-blueprint");
     setError(null);
     setStreamingSections(new Map());
@@ -390,13 +458,11 @@ export default function GeneratePage() {
       });
       setPageState("error");
     }
-  }, []);
+  }, [onboardingData]);
 
   const handleRetryBlueprint = useCallback(() => {
-    if (onboardingData) {
-      handleOnboardingComplete(onboardingData);
-    }
-  }, [onboardingData, handleOnboardingComplete]);
+    handleGenerateBlueprint();
+  }, [handleGenerateBlueprint]);
 
   const handleStartOver = useCallback(() => {
     setPageState("onboarding");
@@ -406,16 +472,15 @@ export default function GeneratePage() {
     setError(null);
     setBlueprintMeta(null);
     setInitialData(undefined);
+    setInitialStep(undefined);
     setWizardKey((prev) => prev + 1);
     setHasStartedOnboarding(false);
     clearAllSavedData();
   }, []);
 
   const handleRegenerateBlueprint = useCallback(() => {
-    if (onboardingData) {
-      handleOnboardingComplete(onboardingData);
-    }
-  }, [onboardingData, handleOnboardingComplete]);
+    handleGenerateBlueprint();
+  }, [handleGenerateBlueprint]);
 
   const handleBackToReview = useCallback(() => {
     setPageState("review-blueprint");
@@ -609,6 +674,28 @@ export default function GeneratePage() {
     (pageState === "generating-blueprint")
   );
 
+  // Loading State — while checking for saved onboarding data
+  if (isLoadingSavedData && pageState === "onboarding") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: 'rgb(7, 9, 14)' }}>
+        <ShaderMeshBackground variant="hero" />
+        <BackgroundPattern opacity={0.02} />
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'rgb(54, 94, 255)' }} />
+          <p
+            className="text-sm"
+            style={{
+              color: 'rgb(205, 208, 213)',
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
+            }}
+          >
+            Loading your business profile...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Onboarding State
   if (pageState === "onboarding") {
     return (
@@ -723,9 +810,126 @@ export default function GeneratePage() {
           <OnboardingWizard
             key={wizardKey}
             initialData={initialData}
-            onComplete={handleOnboardingComplete}
+            initialStep={initialStep}
+            onComplete={handleOnboardingFinish}
             onStepChange={handleStepChange}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // Profile Complete — intermediate screen before generating
+  if (pageState === "profile-complete") {
+    const businessName = onboardingData?.businessBasics?.businessName || initialData?.businessBasics?.businessName || "Your Company";
+    return (
+      <div className="min-h-screen relative flex flex-col" style={{ background: 'rgb(7, 9, 14)' }}>
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={false}
+          exitUrl="/dashboard"
+        />
+
+        <ShaderMeshBackground variant="hero" />
+        <BackgroundPattern opacity={0.02} />
+
+        <div className="flex-1 flex items-center justify-center">
+          <div className="container mx-auto px-4 py-8 max-w-lg relative z-10">
+            <motion.div
+              variants={fadeUp}
+              initial="initial"
+              animate="animate"
+              transition={{ duration: durations.normal }}
+            >
+              <GradientBorder>
+                <div className="p-8 space-y-6 text-center">
+                  {/* Success indicator */}
+                  <div className="flex justify-center">
+                    <div className="relative">
+                      <div
+                        className="flex h-16 w-16 items-center justify-center rounded-full"
+                        style={{ background: 'rgba(34, 197, 94, 0.15)' }}
+                      >
+                        <CheckCircle2 className="h-8 w-8" style={{ color: 'rgb(34, 197, 94)' }} />
+                      </div>
+                      <motion.div
+                        className="absolute inset-0 rounded-full"
+                        style={{ border: '2px solid rgb(34, 197, 94)' }}
+                        initial={{ opacity: 0.5, scale: 1 }}
+                        animate={{ opacity: 0, scale: 1.5 }}
+                        transition={{ duration: 1.5, repeat: 2 }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2
+                      className="text-2xl font-bold"
+                      style={{
+                        color: 'rgb(252, 252, 250)',
+                        fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                        letterSpacing: '-0.02em',
+                      }}
+                    >
+                      Business Profile Saved
+                    </h2>
+                    <p
+                      className="mt-2 text-sm"
+                      style={{
+                        color: 'rgb(205, 208, 213)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      {businessName}&apos;s profile is complete and ready for blueprint generation.
+                    </p>
+                  </div>
+
+                  {/* Stats */}
+                  <div
+                    className="flex items-center justify-center gap-6 py-3 rounded-lg"
+                    style={{ background: 'rgba(54, 94, 255, 0.05)', border: '1px solid rgba(54, 94, 255, 0.1)' }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" style={{ color: 'rgb(34, 197, 94)' }} />
+                      <span className="text-sm" style={{ color: 'rgb(205, 208, 213)' }}>
+                        9/9 steps complete
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-3">
+                    <MagneticButton
+                      className="w-full h-12 rounded-full text-base font-medium flex items-center justify-center gap-2"
+                      onClick={handleGenerateBlueprint}
+                      style={{
+                        background: 'var(--gradient-primary)',
+                        color: 'white',
+                        fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                      }}
+                    >
+                      <Wand2 className="h-5 w-5" />
+                      Generate Strategic Blueprint
+                    </MagneticButton>
+                    <a href="/dashboard" className="w-full">
+                      <MagneticButton
+                        className="w-full h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
+                        style={{
+                          border: '1px solid rgb(31, 31, 31)',
+                          color: 'rgb(205, 208, 213)',
+                          background: 'transparent',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
+                        }}
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Back to Dashboard
+                      </MagneticButton>
+                    </a>
+                  </div>
+                </div>
+              </GradientBorder>
+            </motion.div>
+          </div>
         </div>
       </div>
     );

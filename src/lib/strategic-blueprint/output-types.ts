@@ -464,6 +464,55 @@ export interface CrossAnalysisSynthesis {
 }
 
 // =============================================================================
+// SEO Audit Types (Technical SEO + Performance)
+// =============================================================================
+
+export interface SEOPageCheck {
+  url: string;
+  title: { value: string | null; length: number; pass: boolean };
+  metaDescription: { value: string | null; length: number; pass: boolean };
+  h1: { values: string[]; pass: boolean };
+  canonical: { value: string | null; pass: boolean };
+  robots: { value: string | null; indexable: boolean };
+  images: { total: number; withAlt: number; coveragePercent: number };
+  internalLinks: number;
+  schemaTypes: string[];
+  hasViewport: boolean;
+  isHttps: boolean;
+}
+
+export interface SEOTechnicalAudit {
+  pages: SEOPageCheck[];
+  sitemapFound: boolean;
+  robotsTxtFound: boolean;
+  overallScore: number;
+  issueCount: { critical: number; warning: number; pass: number };
+}
+
+export interface PageSpeedMetrics {
+  performanceScore: number;
+  lcp: number;
+  fid: number;
+  cls: number;
+  fcp: number;
+  tti: number;
+  speedIndex: number;
+}
+
+export interface SEOPerformanceAudit {
+  mobile: PageSpeedMetrics | null;
+  desktop: PageSpeedMetrics | null;
+  url: string;
+}
+
+export interface SEOAuditData {
+  technical: SEOTechnicalAudit;
+  performance: SEOPerformanceAudit;
+  overallScore: number;
+  collectedAt: string;
+}
+
+// =============================================================================
 // Section 6: Keyword Intelligence (SpyFu)
 // =============================================================================
 
@@ -554,6 +603,9 @@ export interface KeywordIntelligence {
     spyfuCost: number;
     collectedAt: string;
   };
+
+  /** SEO Audit data (optional - requires client URL) */
+  seoAudit?: SEOAuditData;
 }
 
 // =============================================================================

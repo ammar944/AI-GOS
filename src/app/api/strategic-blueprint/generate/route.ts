@@ -11,12 +11,14 @@ import {
   enrichCompetitors,
   extractAdHooksFromAds,
   enrichKeywordIntelligence,
+  runSEOAudit,
   type StrategicBlueprintOutput,
   type GenerationProgress,
   type EnrichmentResult,
   type ExtractAdHooksResult,
   type KeywordIntelligenceResult,
   type KeywordBusinessContext,
+  type SEOAuditResult,
 } from '@/lib/ai';
 import {
   createErrorResponse,
@@ -173,9 +175,11 @@ export async function POST(request: NextRequest) {
       let enrichmentPromise: Promise<EnrichmentResult> | null = null;
       let keywordPromise: Promise<KeywordIntelligenceResult | null> | null = null;
       let hookPromise: Promise<ExtractAdHooksResult | null> | null = null;
+      let seoAuditPromise: Promise<SEOAuditResult | null> | null = null;
       let baseCompetitorData: any = null; // Captured from Phase 1 for enrichment merge
       let storedEnrichment: EnrichmentResult | null = null;
       let storedKeywordResult: KeywordIntelligenceResult | null = null;
+      let storedSEOAuditResult: SEOAuditResult | null = null;
       const completedSections = new Set<BlueprintSection>();
 
       // Helper to send SSE and track completions
@@ -289,6 +293,24 @@ export async function POST(request: NextRequest) {
                     return null;
                   });
                 }
+
+                // Start SEO audit in parallel (requires client URL, uses Firecrawl + PageSpeed)
+                if (clientDomain) {
+                  console.log('[Route] Starting SEO audit (parallel)...');
+                  seoAuditPromise = runSEOAudit(
+                    clientDomain,
+                    (msg) => {
+                      emit({
+                        type: 'progress',
+                        percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                        message: msg,
+                      });
+                    },
+                  ).catch(error => {
+                    console.error('[Route] SEO audit failed (non-fatal):', error);
+                    return null;
+                  });
+                }
               }
 
               // Capture Phase 2 completion
@@ -347,6 +369,15 @@ export async function POST(request: NextRequest) {
                 }
                 return kwResult?.keywordIntelligence;
               },
+              getSEOAudit: async () => {
+                if (!seoAuditPromise) return undefined;
+                const result = await seoAuditPromise;
+                if (result) {
+                  storedSEOAuditResult = result;
+                  console.log(`[Route] SEO audit ready for synthesis: score ${result.seoAudit.overallScore}/100, ${result.seoAudit.technical.pages.length} pages`);
+                }
+                return result?.seoAudit;
+              },
             });
 
             if (!result.success || !result.blueprint) {
@@ -356,7 +387,7 @@ export async function POST(request: NextRequest) {
               return;
             }
 
-            // Enrichment + keywords already awaited inside generator via callbacks
+            // Enrichment + keywords + SEO audit already awaited inside generator via callbacks
             // Re-await is instant (promises already resolved)
             const enrichment = storedEnrichment ?? (enrichmentPromise ? await enrichmentPromise : await enrichCompetitors(
               result.blueprint.competitorAnalysis,
@@ -369,6 +400,7 @@ export async function POST(request: NextRequest) {
               }
             ));
             const keywordResult = storedKeywordResult ?? (keywordPromise ? await keywordPromise : null);
+            const seoAuditResult = storedSEOAuditResult ?? (seoAuditPromise ? await seoAuditPromise : null);
 
             // Debug: Log enrichment result
             const totalEnrichedAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
@@ -410,8 +442,19 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // Build final blueprint with enriched competitors, keyword intelligence, and (potentially) re-synthesized analysis
+            // Build final blueprint with enriched competitors, keyword intelligence, SEO audit, and (potentially) re-synthesized analysis
             const keywordCost = keywordResult?.cost ?? 0;
+            const seoAuditCost = seoAuditResult?.cost ?? 0;
+
+            // Merge SEO audit into keyword intelligence (or create a minimal wrapper if no keyword data)
+            let finalKeywordIntelligence = keywordResult?.keywordIntelligence ?? result.blueprint.keywordIntelligence;
+            if (seoAuditResult && finalKeywordIntelligence) {
+              finalKeywordIntelligence = {
+                ...finalKeywordIntelligence,
+                seoAudit: seoAuditResult.seoAudit,
+              };
+            }
+
             const finalBlueprint: StrategicBlueprintOutput = {
               ...result.blueprint,
               competitorAnalysis: {
@@ -419,10 +462,10 @@ export async function POST(request: NextRequest) {
                 competitors: enrichment.competitors as any,
               },
               crossAnalysisSynthesis: finalSynthesis,
-              ...(keywordResult && { keywordIntelligence: keywordResult.keywordIntelligence }),
+              ...(finalKeywordIntelligence && { keywordIntelligence: finalKeywordIntelligence }),
               metadata: {
                 ...result.blueprint.metadata,
-                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + resynthesisCost + keywordCost,
+                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + resynthesisCost + keywordCost + seoAuditCost,
                 processingTime: Date.now() - startTime,
               },
             };
@@ -495,7 +538,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enrich competitors + keyword intelligence (parallel)
+    // Enrich competitors + keyword intelligence + SEO audit (parallel)
     const clientDomainNonStream = onboardingData.businessBasics?.websiteUrl;
     const keywordBusinessContextNonStream: KeywordBusinessContext = {
       industry: onboardingData.icp?.industryVertical || '',
@@ -503,10 +546,13 @@ export async function POST(request: NextRequest) {
       companyName: onboardingData.businessBasics?.businessName || '',
       competitorNames: result.blueprint.competitorAnalysis.competitors.map((c: any) => c.name),
     };
-    const [enrichment, keywordResultNonStream] = await Promise.all([
+    const [enrichment, keywordResultNonStream, seoAuditResultNonStream] = await Promise.all([
       enrichCompetitors(result.blueprint.competitorAnalysis),
       (clientDomainNonStream && process.env.SPYFU_API_KEY)
         ? enrichKeywordIntelligence(clientDomainNonStream, result.blueprint.competitorAnalysis.competitors, undefined, keywordBusinessContextNonStream).catch(() => null)
+        : Promise.resolve(null),
+      clientDomainNonStream
+        ? runSEOAudit(clientDomainNonStream).catch(error => { console.error('[Route/NonStream] SEO audit failed:', error); return null; })
         : Promise.resolve(null),
     ]);
 
@@ -519,16 +565,24 @@ export async function POST(request: NextRequest) {
 
     // Merge enriched data
     const keywordCostNonStream = keywordResultNonStream?.cost ?? 0;
+    const seoAuditCostNonStream = seoAuditResultNonStream?.cost ?? 0;
+
+    // Merge SEO audit into keyword intelligence
+    let finalKwIntelNonStream = keywordResultNonStream?.keywordIntelligence;
+    if (seoAuditResultNonStream && finalKwIntelNonStream) {
+      finalKwIntelNonStream = { ...finalKwIntelNonStream, seoAudit: seoAuditResultNonStream.seoAudit };
+    }
+
     const finalBlueprint: StrategicBlueprintOutput = {
       ...result.blueprint,
       competitorAnalysis: {
         ...result.blueprint.competitorAnalysis,
         competitors: enrichment.competitors as any,
       },
-      ...(keywordResultNonStream && { keywordIntelligence: keywordResultNonStream.keywordIntelligence }),
+      ...(finalKwIntelNonStream && { keywordIntelligence: finalKwIntelNonStream }),
       metadata: {
         ...result.blueprint.metadata,
-        totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + keywordCostNonStream,
+        totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + keywordCostNonStream + seoAuditCostNonStream,
         processingTime: Date.now() - startTime,
       },
     };

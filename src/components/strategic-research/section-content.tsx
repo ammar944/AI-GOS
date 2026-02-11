@@ -46,6 +46,9 @@ import type {
   OfferRecommendation,
   PricingTier,
   CompetitorOffer,
+  SEOAuditData,
+  SEOPageCheck,
+  PageSpeedMetrics,
 } from "@/lib/strategic-blueprint/output-types";
 
 // =============================================================================
@@ -1841,6 +1844,193 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
   );
 }
 
+// =============================================================================
+// SEO Audit Sub-components
+// =============================================================================
+
+function SEOScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" | "lg" }) {
+  const color = score >= 80 ? 'var(--success)' : score >= 50 ? 'rgb(245, 158, 11)' : 'var(--destructive)';
+  const bgColor = score >= 80 ? 'rgba(34, 197, 94, 0.12)' : score >= 50 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)';
+  const sizes = { sm: 'text-sm px-2 py-0.5', md: 'text-lg px-3 py-1', lg: 'text-2xl px-4 py-2 font-bold' };
+  return (
+    <span
+      className={cn("rounded-md font-semibold inline-flex items-center", sizes[size])}
+      style={{ color, backgroundColor: bgColor, fontFamily: 'var(--font-mono), monospace' }}
+    >
+      {score}/100
+    </span>
+  );
+}
+
+function PassFailIcon({ pass }: { pass: boolean }) {
+  return pass
+    ? <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: 'var(--success)' }} />
+    : <XCircle className="h-4 w-4 shrink-0" style={{ color: 'var(--destructive)' }} />;
+}
+
+function CoreWebVitalCard({ label, value, unit, thresholds }: {
+  label: string;
+  value: number;
+  unit: string;
+  thresholds: { good: number; poor: number };
+}) {
+  const isGood = value <= thresholds.good;
+  const isPoor = value > thresholds.poor;
+  const color = isGood ? 'var(--success)' : isPoor ? 'var(--destructive)' : 'rgb(245, 158, 11)';
+  const bg = isGood ? 'rgba(34, 197, 94, 0.08)' : isPoor ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+
+  return (
+    <div className="p-3 rounded-lg text-center" style={{ backgroundColor: bg, border: `1px solid ${color}20` }}>
+      <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+      <p className="text-lg font-bold" style={{ color, fontFamily: 'var(--font-mono), monospace' }}>
+        {value}{unit}
+      </p>
+    </div>
+  );
+}
+
+function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] }) {
+  return (
+    <SubSection title="Technical SEO Audit">
+      {/* Overview badges */}
+      <div className="flex flex-wrap items-center gap-4 mb-4">
+        <SEOScoreBadge score={audit.overallScore} />
+        <div className="flex gap-3 text-xs">
+          <span className="flex items-center gap-1">
+            <XCircle className="h-3.5 w-3.5" style={{ color: 'var(--destructive)' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{audit.issueCount.critical} critical</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <AlertTriangle className="h-3.5 w-3.5" style={{ color: 'rgb(245, 158, 11)' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{audit.issueCount.warning} warnings</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" style={{ color: 'var(--success)' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{audit.issueCount.pass} passed</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Site-level checks */}
+      <div className="flex gap-3 mb-4">
+        <Badge className={cn("text-xs", audit.sitemapFound ? STATUS_BADGE_COLORS.success : STATUS_BADGE_COLORS.danger)}>
+          {audit.sitemapFound ? '✓' : '✗'} Sitemap
+        </Badge>
+        <Badge className={cn("text-xs", audit.robotsTxtFound ? STATUS_BADGE_COLORS.success : STATUS_BADGE_COLORS.danger)}>
+          {audit.robotsTxtFound ? '✓' : '✗'} Robots.txt
+        </Badge>
+      </div>
+
+      {/* Page-by-page table */}
+      {audit.pages.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-default)' }}>
+                <th className="text-left py-2 pr-3 font-medium" style={{ color: 'var(--text-tertiary)' }}>Page</th>
+                <th className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>Title</th>
+                <th className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>Meta Desc</th>
+                <th className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>H1</th>
+                <th className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>Canonical</th>
+                <th className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>Images</th>
+                <th className="text-center py-2 px-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>Schema</th>
+                <th className="text-center py-2 pl-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>HTTPS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.pages.map((page, i) => {
+                // Display short path from URL
+                let shortUrl: string;
+                try {
+                  shortUrl = new URL(page.url).pathname || '/';
+                } catch {
+                  shortUrl = page.url;
+                }
+
+                return (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td className="py-2 pr-3 font-medium truncate max-w-[120px]" style={{ color: 'var(--text-heading)' }} title={page.url}>
+                      {shortUrl}
+                    </td>
+                    <td className="text-center py-2 px-2"><PassFailIcon pass={page.title.pass} /></td>
+                    <td className="text-center py-2 px-2"><PassFailIcon pass={page.metaDescription.pass} /></td>
+                    <td className="text-center py-2 px-2"><PassFailIcon pass={page.h1.pass} /></td>
+                    <td className="text-center py-2 px-2"><PassFailIcon pass={page.canonical.pass} /></td>
+                    <td className="text-center py-2 px-2">
+                      <span style={{
+                        color: page.images.coveragePercent >= 80 ? 'var(--success)' : page.images.coveragePercent >= 50 ? 'rgb(245, 158, 11)' : 'var(--destructive)',
+                        fontFamily: 'var(--font-mono), monospace',
+                      }}>
+                        {page.images.coveragePercent}%
+                      </span>
+                    </td>
+                    <td className="text-center py-2 px-2">
+                      {page.schemaTypes.length > 0
+                        ? <CheckCircle2 className="h-4 w-4 inline" style={{ color: 'var(--success)' }} />
+                        : <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                      }
+                    </td>
+                    <td className="text-center py-2 pl-2"><PassFailIcon pass={page.isHttps} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SubSection>
+  );
+}
+
+function PerformanceAuditSection({ performance }: { performance: SEOAuditData['performance'] }) {
+  const hasData = performance.mobile || performance.desktop;
+
+  if (!hasData) {
+    return (
+      <SubSection title="Performance (PageSpeed Insights)">
+        <div
+          className="p-4 rounded-lg text-sm flex items-center gap-2"
+          style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+        >
+          <span style={{ color: 'var(--accent-yellow)' }}>&#9888;</span>
+          PageSpeed data unavailable — the site may be unreachable, behind authentication, or the API timed out. The overall SEO score reflects technical checks only.
+        </div>
+      </SubSection>
+    );
+  }
+
+  const renderMetrics = (metrics: PageSpeedMetrics, label: string) => (
+    <div
+      className="p-4 rounded-lg flex-1"
+      style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-medium text-sm" style={{ color: 'var(--text-heading)' }}>{label}</p>
+        <SEOScoreBadge score={metrics.performanceScore} size="sm" />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <CoreWebVitalCard label="LCP" value={metrics.lcp} unit="s" thresholds={{ good: 2.5, poor: 4 }} />
+        <CoreWebVitalCard label="CLS" value={metrics.cls} unit="" thresholds={{ good: 0.1, poor: 0.25 }} />
+        <CoreWebVitalCard label="FCP" value={metrics.fcp} unit="s" thresholds={{ good: 1.8, poor: 3 }} />
+      </div>
+      <div className="grid grid-cols-3 gap-2 mt-2">
+        <CoreWebVitalCard label="TTI" value={metrics.tti} unit="s" thresholds={{ good: 3.8, poor: 7.3 }} />
+        <CoreWebVitalCard label="Speed Index" value={metrics.speedIndex} unit="s" thresholds={{ good: 3.4, poor: 5.8 }} />
+        <CoreWebVitalCard label="TBT" value={metrics.fid} unit="ms" thresholds={{ good: 200, poor: 600 }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <SubSection title="Performance (PageSpeed Insights)">
+      <div className="flex flex-col md:flex-row gap-4">
+        {performance.mobile && renderMetrics(performance.mobile, 'Mobile')}
+        {performance.desktop && renderMetrics(performance.desktop, 'Desktop')}
+      </div>
+    </SubSection>
+  );
+}
+
 function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordIntelligenceContentProps) {
   const [activeTab, setActiveTab] = React.useState<'organic' | 'paid' | 'shared'>('organic');
 
@@ -1850,6 +2040,33 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
 
   return (
     <div className="space-y-6">
+      {/* SEO Audit: Technical */}
+      {data?.seoAudit?.technical && (
+        <TechnicalSEOAuditSection audit={data.seoAudit.technical} />
+      )}
+
+      {/* SEO Audit: Performance */}
+      {data?.seoAudit?.performance && (
+        <PerformanceAuditSection performance={data.seoAudit.performance} />
+      )}
+
+      {/* SEO Audit: Overall Score */}
+      {data?.seoAudit && (() => {
+        const hasPerf = data.seoAudit!.performance.mobile || data.seoAudit!.performance.desktop;
+        return (
+          <div
+            className="p-3 rounded-lg flex items-center justify-between text-sm"
+            style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+          >
+            <span style={{ color: 'var(--text-secondary)' }}>
+              Overall SEO Score
+              {hasPerf ? ' (60% Technical + 40% Performance)' : ' (Technical only — PageSpeed unavailable)'}
+            </span>
+            <SEOScoreBadge score={data.seoAudit!.overallScore} />
+          </div>
+        );
+      })()}
+
       {/* Domain Overview */}
       <SubSection title="Domain Overview">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,7 +1,9 @@
 // Pipeline Stage 2: RESEARCH
-// Model: Perplexity Sonar - Market research with real-time data and sources
+// Model: Perplexity Sonar Pro - Market research with real-time data and sources
 
-import { createOpenRouterClient, MODELS } from "@/lib/openrouter/client";
+import { generateObject } from "ai";
+import { perplexity, MODELS, estimateCost } from "@/lib/ai/providers";
+import { researchDataSchema } from "../schemas";
 import type { ExtractedData, ResearchData } from "../types";
 
 const SYSTEM_PROMPT = `You are a market research analyst specializing in digital advertising and go-to-market strategy. Your job is to research markets, analyze competitors, and provide industry benchmarks.
@@ -77,8 +79,8 @@ For benchmarks, use decimals for percentages (e.g., 0.02 for 2% CTR, 0.03 for 3%
 export interface ResearchStageResult {
   data: ResearchData;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
   cost: number;
@@ -89,20 +91,18 @@ export async function runResearchStage(
   extracted: ExtractedData
 ): Promise<ResearchStageResult> {
   const startTime = Date.now();
-  const client = createOpenRouterClient();
 
-  const response = await client.chatJSON<ResearchData>({
-    model: MODELS.PERPLEXITY_SONAR,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(extracted) },
-    ],
+  const result = await generateObject({
+    model: perplexity(MODELS.SONAR_PRO),
+    schema: researchDataSchema,
+    system: SYSTEM_PROMPT,
+    prompt: buildUserPrompt(extracted),
     temperature: 0.5,
-    maxTokens: 4096,
+    maxOutputTokens: 4096,
   });
 
   // Validate benchmarks have reasonable values
-  const data = response.data;
+  const data = result.object as ResearchData;
 
   // Ensure benchmarks are present and have valid numbers
   if (!data.benchmarks) {
@@ -124,10 +124,18 @@ export async function runResearchStage(
     data.competitors = [];
   }
 
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const cost = estimateCost(MODELS.SONAR_PRO, inputTokens, outputTokens);
+
   return {
     data,
-    usage: response.usage,
-    cost: response.cost,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    cost,
     duration: Date.now() - startTime,
   };
 }
