@@ -19,28 +19,7 @@ interface PricingTier {
   features?: string[];
 }
 
-// Import types for proper carousel compatibility
-import type { AdPlatform, AdFormat, AdRelevance } from '@/lib/ad-library/types';
-import type { ForeplayEnrichment, AdSource } from '@/lib/foreplay/types';
-
-// AdCreative type matching what the carousel expects
-interface AdCreative {
-  id: string;
-  platform: AdPlatform;
-  advertiser?: string;
-  headline?: string;
-  body?: string;
-  imageUrl?: string;
-  videoUrl?: string;
-  format: AdFormat;
-  isActive: boolean;
-  firstSeen?: string;
-  lastSeen?: string;
-  detailsUrl?: string;
-  relevance?: AdRelevance;
-  foreplay?: ForeplayEnrichment;
-  source?: AdSource;
-}
+import type { EnrichedAdCreative } from '@/lib/foreplay/types';
 
 interface EnrichedCompetitor {
   name: string;
@@ -56,7 +35,7 @@ interface EnrichedCompetitor {
   pricingTiers: PricingTier[];
   pricingSource: 'scraped' | 'unavailable';
   pricingConfidence?: number;
-  adCreatives: AdCreative[];
+  adCreatives: EnrichedAdCreative[];
   reviewData?: CompetitorReviewData;
 }
 
@@ -90,6 +69,9 @@ export async function enrichCompetitors(
   // Initialize clients
   const firecrawlClient = createFirecrawlClient();
   const adLibraryService = createEnhancedAdLibraryService();
+
+  const foreplayAvailable = adLibraryService.isForeplayAvailable();
+  console.log(`[Competitor Enrichment] Foreplay available: ${foreplayAvailable}`);
 
   // Check if Firecrawl is available
   const firecrawlAvailable = firecrawlClient.isAvailable();
@@ -160,10 +142,13 @@ export async function enrichCompetitors(
             const adResponse = await adLibraryService.fetchAllPlatforms({
               query: competitor.name,
               domain: competitor.website,  // Pass website for domain validation
-              limit: 30,  // More candidates before quality filtering (minRelevanceScore: 70 protects quality)
-              minRelevanceScore: 70,      // Raised from 60 for stricter filtering
-              excludeCategories: ['unclear', 'lead_magnet'],  // Also exclude lead magnets/partnership ads
-              includeSubsidiaries: false,  // Don't include subsidiary brand ads
+              limit: 50,
+              minRelevanceScore: 50,
+              excludeCategories: ['unclear'],
+              includeSubsidiaries: false,
+              enableForeplayEnrichment: true,
+              includeForeplayAsSource: true,
+              foreplayDateRange: { from: get90DaysAgo(), to: getToday() },
             });
 
             console.log(`[Competitor Enrichment] ${competitor.name}: Ad response received`, {
@@ -174,7 +159,7 @@ export async function enrichCompetitors(
             if (adResponse.ads && adResponse.ads.length > 0) {
               return {
                 success: true as const,
-                ads: adResponse.ads.slice(0, 10).map((ad): AdCreative => ({
+                ads: adResponse.ads.slice(0, 15).map((ad): EnrichedAdCreative => ({
                   id: ad.id,
                   platform: ad.platform,
                   advertiser: ad.advertiser,
@@ -188,8 +173,9 @@ export async function enrichCompetitors(
                   lastSeen: ad.lastSeen,
                   detailsUrl: ad.detailsUrl,
                   relevance: ad.relevance,
-                  foreplay: (ad as any).foreplay,
-                  source: (ad as any).source,
+                  rawData: ad.rawData,
+                  foreplay: ad.foreplay,
+                  source: ad.source,
                 })),
               };
             }
@@ -277,4 +263,14 @@ export async function enrichCompetitors(
     adSuccessCount,
     reviewSuccessCount,
   };
+}
+
+function get90DaysAgo(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 90);
+  return d.toISOString().split('T')[0];
+}
+
+function getToday(): string {
+  return new Date().toISOString().split('T')[0];
 }

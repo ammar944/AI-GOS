@@ -9,9 +9,9 @@ describe('Ad Library - Name Matcher', () => {
       expect(normalizeCompanyName('Apple Corp')).toBe('apple');
     });
 
-    it('should remove punctuation', () => {
-      // Note: dots are removed completely, no space
-      expect(normalizeCompanyName('Amazon.com')).toBe('amazoncom');
+    it('should remove TLDs and punctuation', () => {
+      // TLD .com is stripped first, then punctuation removed
+      expect(normalizeCompanyName('Amazon.com')).toBe('amazon');
       expect(normalizeCompanyName('Tesla, Inc.')).toBe('tesla');
     });
 
@@ -29,16 +29,16 @@ describe('Ad Library - Name Matcher', () => {
       expect(calculateSimilarity('Nike Inc', 'Nike Inc.')).toBe(1);
     });
 
-    it('should return 0.75 for substring matches (lowered score)', () => {
-      // This tests the fix where substring match score was lowered from 0.85 to 0.75
-      expect(calculateSimilarity('Nike', 'Nike Store')).toBe(0.75);
-      expect(calculateSimilarity('Nike Store', 'Nike')).toBe(0.75);
+    it('should return appropriate scores for substring matches', () => {
+      // Nike is a prefix with 1 extra word -> 0.85
+      expect(calculateSimilarity('Nike', 'Nike Store')).toBe(0.85);
+      expect(calculateSimilarity('Nike Store', 'Nike')).toBe(0.85);
     });
 
-    it('should return 0.75 for substring matches with punctuation', () => {
-      // Amazon vs Amazoncom (after normalization) is a substring match
+    it('should return 1.0 for TLD variations (exact match after normalization)', () => {
+      // Amazon.com normalizes to "amazon", so it's an exact match
       const result = calculateSimilarity('Amazon', 'Amazon.com');
-      expect(result).toBe(0.75);
+      expect(result).toBe(1.0);
     });
 
     it('should return low similarity for different names', () => {

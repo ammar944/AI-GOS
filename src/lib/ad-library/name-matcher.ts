@@ -34,6 +34,9 @@ export function normalizeCompanyName(name: string): string {
     normalized = normalized.replace(suffix, '');
   }
 
+  // Remove common TLD suffixes (e.g., "Salesforce.com" → "salesforce", "Windsor.ai" → "windsor")
+  normalized = normalized.replace(/\.(com|io|ai|co|net|org|app|dev|tech|us|me|xyz)$/i, '');
+
   // Remove punctuation except spaces
   normalized = normalized.replace(/[^\w\s]/g, '');
 
@@ -41,6 +44,23 @@ export function normalizeCompanyName(name: string): string {
   normalized = normalized.replace(/\s+/g, ' ').trim();
 
   return normalized;
+}
+
+/**
+ * Calculate what fraction of the longer string's words overlap with the shorter string.
+ * "funnel" vs "ar funnel" -> 1/2 = 0.5
+ * "funnel" vs "funnel" -> 1/1 = 1.0
+ */
+function calculateWordOverlapRatio(shorter: string, longer: string): number {
+  const shortWords = shorter.split(/\s+/).filter(w => w.length > 0);
+  const longWords = longer.split(/\s+/).filter(w => w.length > 0);
+  if (longWords.length === 0) return 0;
+
+  const matchedCount = longWords.filter(lw =>
+    shortWords.some(sw => sw === lw || sw.includes(lw) || lw.includes(sw))
+  ).length;
+
+  return matchedCount / longWords.length;
 }
 
 /**
@@ -67,33 +87,38 @@ export function calculateSimilarity(str1: string, str2: string): number {
   const longer = s1.length <= s2.length ? s2 : s1;
 
   if (shorter.length <= 5) {
-    // Check if longer string starts with shorter (e.g., "huel" matches "huel nutrition")
-    if (longer.startsWith(shorter + ' ') || longer === shorter) {
-      return 0.95;
+    if (longer === shorter) {
+      return 1.0;
     }
-    // Check if shorter is an exact word within longer (e.g., "huel" in "the huel company")
+    if (longer.startsWith(shorter + ' ')) {
+      // Short name is prefix of longer — penalize based on extra words
+      const extraPart = longer.substring(shorter.length + 1).trim();
+      const extraWordCount = extraPart.split(/\s+/).filter(w => w.length > 0).length;
+      return extraWordCount <= 1 ? 0.85 : 0.75;
+    }
     const words = longer.split(' ');
     if (words.some(word => word === shorter)) {
-      return 0.9;
+      return 0.80;
     }
-    // For short queries, reject if first 2 chars don't match (prevents "huel" matching "hula")
     if (s1.substring(0, 2) !== s2.substring(0, 2)) {
-      return 0.3; // Low score for different prefixes on short strings
+      return 0.3;
     }
   }
 
   // Check if one string contains the other (substring match)
-  // Only allow if the shorter string is a complete word/prefix in the longer
   if (s1.includes(s2)) {
-    // Check if s2 is a word boundary match (not a random substring)
     const wordBoundaryMatch = s1.startsWith(s2 + ' ') || s1.endsWith(' ' + s2) ||
                               s1.includes(' ' + s2 + ' ') || s1 === s2;
-    return wordBoundaryMatch ? 0.85 : 0.5;
+    if (!wordBoundaryMatch) return 0.5;
+    const overlapRatio = calculateWordOverlapRatio(s2, s1);
+    return Math.min(0.95, 0.55 + 0.40 * overlapRatio);
   }
   if (s2.includes(s1)) {
     const wordBoundaryMatch = s2.startsWith(s1 + ' ') || s2.endsWith(' ' + s1) ||
                               s2.includes(' ' + s1 + ' ') || s2 === s1;
-    return wordBoundaryMatch ? 0.85 : 0.5;
+    if (!wordBoundaryMatch) return 0.5;
+    const overlapRatio = calculateWordOverlapRatio(s1, s2);
+    return Math.min(0.95, 0.55 + 0.40 * overlapRatio);
   }
 
   // Calculate Jaro similarity

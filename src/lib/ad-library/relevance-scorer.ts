@@ -150,22 +150,36 @@ export function assessAdRelevance(
   score += advertiserScore;
 
   // Check if advertiser contains extra words that indicate a different company
-  // e.g., "Windsor Airport Limo" vs "Windsor.ai" - "Airport Limo" indicates different company
-  const advertiserWords = advertiserCore.split(/\s+/).filter(w => w.length > 2);
-  const searchedWords = searchedCore.split(/\s+/).filter(w => w.length > 2);
-  const extraWords = advertiserWords.filter(w => !searchedWords.some(sw => sw.includes(w) || w.includes(sw)));
-  const hasSignificantExtraWords = extraWords.length >= 2; // e.g., "Airport Limo" = 2 extra words
+  const advertiserWords = advertiserCore.split(/\s+/).filter(w => w.length > 0);
+  const searchedWords = searchedCore.split(/\s+/).filter(w => w.length > 0);
+  const extraWords = advertiserWords.filter(w =>
+    !searchedWords.some(sw => sw === w || sw.includes(w) || w.includes(sw))
+  );
+  const missingFromAdvertiser = searchedWords.filter(w =>
+    !advertiserWords.some(aw => aw === w || aw.includes(w) || w.includes(aw))
+  );
 
-  if (advertiserSimilarity >= 0.9) {
+  // Calculate word set overlap
+  const totalUniqueWords = new Set([...advertiserWords, ...searchedWords]).size;
+  const sharedWords = advertiserWords.filter(w =>
+    searchedWords.some(sw => sw === w || sw.includes(w) || w.includes(sw))
+  ).length;
+  const wordOverlap = totalUniqueWords > 0 ? sharedWords / totalUniqueWords : 0;
+
+  const hasExtraWords = extraWords.length >= 1;
+  const hasSignificantExtraWords = extraWords.length >= 2;
+  const isLikelyDifferentCompany = hasExtraWords && wordOverlap < 0.7;
+
+  if (advertiserSimilarity >= 0.9 && !isLikelyDifferentCompany) {
     signals.push('Advertiser name closely matches search');
-  } else if (advertiserSimilarity >= 0.7) {
+  } else if (advertiserSimilarity >= 0.7 && !isLikelyDifferentCompany) {
     signals.push('Advertiser name partially matches search');
-  } else if (advertiserSimilarity < 0.5 || hasSignificantExtraWords) {
+  } else {
     signals.push('Advertiser name differs from search');
-    // Penalize if advertiser has significant extra words (likely different company)
-    if (hasSignificantExtraWords) {
-      score -= 20;
-      signals.push(`Different company detected: "${extraWords.join(' ')}"`);
+    if (isLikelyDifferentCompany) {
+      const penalty = hasSignificantExtraWords ? 25 : 15;
+      score -= penalty;
+      signals.push(`Likely different company: extra words "${extraWords.join(' ')}"`);
     }
   }
 
@@ -190,18 +204,25 @@ export function assessAdRelevance(
     signals.push('Ad content does not mention searched company');
   }
 
-  // 4. Domain match (0-20 points)
+  // 4. Domain match (0-20 points) / Domain mismatch penalty
   if (searchedDomain) {
     const domainCompany = extractCompanyFromDomain(searchedDomain);
     if (domainCompany) {
-      // Check if details URL contains the domain
       const detailsUrlMatch = ad.detailsUrl?.toLowerCase().includes(domainCompany.toLowerCase());
-      // Check if advertiser matches domain company
       const advertiserMatchesDomain = calculateSimilarity(advertiserCore, domainCompany) >= 0.7;
 
       if (detailsUrlMatch || advertiserMatchesDomain) {
         score += 20;
         signals.push('Domain association confirmed');
+
+        // Revoke bonus if advertiser has extra words (different entity with similar name)
+        if (isLikelyDifferentCompany) {
+          score -= 20;
+          signals.push('Domain match revoked: advertiser has extra identifying words');
+        }
+      } else {
+        score -= 10;
+        signals.push('Domain association not confirmed');
       }
     }
   }

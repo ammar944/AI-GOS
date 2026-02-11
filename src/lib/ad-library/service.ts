@@ -14,6 +14,7 @@ import {
   isAdvertiserMatch,
   calculateSimilarity,
   extractCompanyFromDomain,
+  normalizeCompanyName,
 } from './name-matcher';
 import { assessAdRelevance, sortByRelevance } from './relevance-scorer';
 import {
@@ -342,8 +343,28 @@ export class AdLibraryService {
         // - Similarity is most important (0-1, scaled to 0-100)
         // - Verified pages get a big bonus (+50)
         // - More followers/likes is a tiebreaker (log scale)
+        // - Domain penalty for extra words not in search term
         const followerScore = Math.log10(Math.max(igFollowers, likes, 1)) / 10; // 0-1 range roughly
-        const score = (similarity * 100) + (isVerified ? 50 : 0) + followerScore;
+
+        // Domain cross-validation: penalize pages with extra words not in search term
+        let domainPenalty = 0;
+        if (context.searchedDomain) {
+          const pageNameNorm = normalizeCompanyName(pageName);
+          const searchNameNorm = normalizeCompanyName(advertiserName);
+          const pageWords = pageNameNorm.split(/\s+/).filter(w => w.length > 0);
+          const searchWords = searchNameNorm.split(/\s+/).filter(w => w.length > 0);
+          const extraPageWords = pageWords.filter(pw =>
+            !searchWords.some(sw => sw === pw || sw.includes(pw) || pw.includes(sw))
+          );
+          if (extraPageWords.length > 0) {
+            domainPenalty = 20 * extraPageWords.length;
+            console.log(
+              `[AdLibrary:${context.requestId}] [META] Page "${pageName}" has extra words: "${extraPageWords.join(' ')}" - penalty: ${domainPenalty}`
+            );
+          }
+        }
+
+        const score = (similarity * 100) + (isVerified ? 50 : 0) + followerScore - domainPenalty;
 
         // Log each candidate for debugging
         console.log(
@@ -352,8 +373,8 @@ export class AdLibraryService {
           `likes: ${likes}, ig_followers: ${igFollowers}, score: ${score.toFixed(1)}`
         );
 
-        // Only consider pages with reasonable similarity
-        if (similarity >= SIMILARITY_THRESHOLD) {
+        // Only consider pages with reasonable similarity and minimum score
+        if (similarity >= SIMILARITY_THRESHOLD && score >= 70) {
           matches.push({ pageId, pageName, similarity, isVerified, score });
         }
       }
@@ -690,12 +711,37 @@ export class AdLibraryService {
         continue;
       }
 
-      // STRICT CHECK 3: If we have a domain, also validate against it
+      // STRICT CHECK 3: Domain cross-validation with structural comparison
       if (context.searchedDomain) {
         const domainCompany = extractCompanyFromDomain(context.searchedDomain);
         if (domainCompany) {
+          // Structural word comparison: check for extra words
+          const advertiserNorm = normalizeCompanyName(ad.advertiser);
+          const searchedNorm = normalizeCompanyName(context.searchedCompany);
+          const advWords = advertiserNorm.split(/\s+/).filter(w => w.length > 0);
+          const searchWords = searchedNorm.split(/\s+/).filter(w => w.length > 0);
+          const extraWords = advWords.filter(w =>
+            !searchWords.some(sw => sw === w || sw.includes(w) || w.includes(sw))
+          );
+
+          // If advertiser has extra words, verify it's not a different company
+          if (extraWords.length > 0 && similarity < 0.95) {
+            const advertiserDomainGuess = advWords.join('');
+            const searchedDomainClean = domainCompany.toLowerCase();
+
+            if (advertiserDomainGuess !== searchedDomainClean &&
+                !advertiserDomainGuess.startsWith(searchedDomainClean)) {
+              filteredOut.push({
+                advertiser: ad.advertiser,
+                similarity,
+                reason: `extra_words_domain_mismatch: "${extraWords.join(' ')}"`,
+              });
+              continue;
+            }
+          }
+
+          // Fallback: low domain similarity check
           const domainSimilarity = calculateSimilarity(ad.advertiser, domainCompany);
-          // If domain-based similarity is very low, be suspicious
           if (domainSimilarity < 0.5 && similarity < 0.9) {
             filteredOut.push({
               advertiser: ad.advertiser,

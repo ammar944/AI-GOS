@@ -12,6 +12,12 @@ const SPYFU_BASE_URL = 'https://api.spyfu.com/apis';
 const MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY_MS = 1000;
 
+/** Informational/navigational terms to exclude from keyword discovery */
+const EXCLUDE_TERMS = 'jobs,job,salary,salaries,career,careers,hiring,internship,course,courses,certification,tutorial,near me,reddit,quora,agency,agencies,consultant,freelancer';
+
+/** Minimum search volume threshold to filter out ultra-low-volume keywords */
+const MIN_SEARCH_VOLUME = 50;
+
 // =============================================================================
 // Types — Raw SpyFu API Responses
 // =============================================================================
@@ -456,6 +462,8 @@ export async function getMostValuableKeywords(
     {
       query: cleanDomain,
       pageSize: maxResults,
+      excludeTerms: EXCLUDE_TERMS,
+      'searchVolume.min': MIN_SEARCH_VOLUME,
     },
   );
 
@@ -476,6 +484,8 @@ export async function getRelatedKeywords(
     {
       query: keyword,
       pageSize: maxResults,
+      excludeTerms: EXCLUDE_TERMS,
+      'searchVolume.min': MIN_SEARCH_VOLUME,
     },
   );
 

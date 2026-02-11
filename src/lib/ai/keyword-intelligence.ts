@@ -217,6 +217,64 @@ const DEFAULT_NOISE_TERMS = new Set([
   'facebook', 'twitter', 'reddit', 'youtube', 'twitch',
 ]);
 
+/** Category of non-buyer intent terms with context-aware override */
+interface IntentExclusionCategory {
+  name: string;
+  terms: Set<string>;
+  contextOverrideTerms: string[];
+}
+
+/** Non-buyer intent categories — skipped when contextOverrideTerms match business context */
+const NON_BUYER_INTENT_CATEGORIES: IntentExclusionCategory[] = [
+  {
+    name: 'job_career',
+    terms: new Set([
+      'jobs', 'job', 'careers', 'career', 'hiring', 'salary', 'salaries',
+      'internship', 'internships', 'resume', 'resumes', 'employment',
+      'recruiting', 'recruitment', 'recruiter', 'vacancy', 'vacancies',
+      'staffing', 'apprenticeship',
+    ]),
+    contextOverrideTerms: ['recruitment', 'recruiting', 'hiring', 'staffing', 'talent', 'applicant', 'hr'],
+  },
+  {
+    name: 'educational',
+    terms: new Set([
+      'course', 'courses', 'certification', 'certifications', 'tutorial',
+      'tutorials', 'degree', 'degrees', 'curriculum', 'syllabus', 'textbook',
+      'homework', 'college', 'university', 'student', 'students',
+    ]),
+    contextOverrideTerms: ['education', 'learning', 'course', 'training', 'certification', 'tutorial', 'edtech', 'lms'],
+  },
+  {
+    name: 'free_diy',
+    terms: new Set([
+      'freeware', 'printable', 'diy', 'homemade', 'cheap', 'cheapest',
+      'coupon', 'coupons',
+    ]),
+    contextOverrideTerms: ['free', 'freemium', 'marketplace', 'download'],
+  },
+  {
+    name: 'service_provider',
+    terms: new Set([
+      'agency', 'agencies', 'consultant', 'consultants', 'consulting',
+      'contractor', 'contractors',
+    ]),
+    contextOverrideTerms: ['agency', 'consultant', 'consulting', 'freelance', 'contractor'],
+  },
+];
+
+/** Non-buyer intent phrases — rejected if found anywhere in the keyword */
+const NON_BUYER_INTENT_PHRASES: string[] = [
+  'near me', 'nearby', 'in my area', 'entry level', 'part time',
+  'full time', 'work from home',
+];
+
+/** Non-buyer intent prefixes — rejected if keyword starts with these */
+const NON_BUYER_INTENT_PREFIXES: string[] = [
+  'what is ', 'what are ', 'define ', 'meaning of ',
+  'how to become ', 'how to learn ', 'how to start ',
+];
+
 // Generic terms excluded from core terms — too broad to indicate specific relevance
 const GENERIC_TERMS = new Set([
   'software', 'platform', 'tool', 'tools', 'solution', 'solutions',
@@ -234,6 +292,9 @@ interface RelevanceFilterConfig {
   coreTerms: Set<string>;       // Specific terms from productDescription (strict filter bypass)
   noiseTerms: Set<string>;      // Default noise minus business context terms
   competitorNames: string[];
+  intentExclusionTerms: Set<string>;  // Flattened active exclusion terms
+  intentExclusionPhrases: string[];   // Active phrase patterns
+  intentExclusionPrefixes: string[];  // Active prefix patterns
 }
 
 /** Build filter config from business context. Noise/core terms adapt to the business. */
@@ -260,7 +321,25 @@ function buildRelevanceFilter(context: KeywordBusinessContext): RelevanceFilterC
     if (contextWords.has(term)) noiseTerms.delete(term);
   }
 
-  return { relevanceTerms, coreTerms, noiseTerms, competitorNames: context.competitorNames };
+  // Compute active intent exclusion terms — skip categories whose override terms
+  // appear in the business context (e.g. a recruiting tool keeps "hiring" keywords).
+  const intentExclusionTerms = new Set<string>();
+  for (const category of NON_BUYER_INTENT_CATEGORIES) {
+    const overridden = category.contextOverrideTerms.some(t => contextWords.has(t));
+    if (!overridden) {
+      for (const term of category.terms) {
+        intentExclusionTerms.add(term);
+      }
+    }
+  }
+
+  const intentExclusionPhrases = NON_BUYER_INTENT_PHRASES;
+  const intentExclusionPrefixes = NON_BUYER_INTENT_PREFIXES;
+
+  return {
+    relevanceTerms, coreTerms, noiseTerms, competitorNames: context.competitorNames,
+    intentExclusionTerms, intentExclusionPhrases, intentExclusionPrefixes,
+  };
 }
 
 /** Common checks shared by both relevance filters */
@@ -273,6 +352,15 @@ function baseRelevanceCheck(keyword: string, config: RelevanceFilterConfig): { p
 
   // Reject keywords containing noise terms (adapted to business context)
   if (kwWords.some(w => config.noiseTerms.has(w))) return false;
+
+  // Reject keywords with non-buyer intent terms (adapted to business context)
+  if (kwWords.some(w => config.intentExclusionTerms.has(w))) return false;
+
+  // Reject multi-word intent phrases (e.g., "near me")
+  if (config.intentExclusionPhrases.some(phrase => kwLower.includes(phrase))) return false;
+
+  // Reject definitional/educational prefix patterns
+  if (config.intentExclusionPrefixes.some(prefix => kwLower.startsWith(prefix))) return false;
 
   // Exclude competitor brand names used as generic terms
   const competitorBrands = config.competitorNames.map(n => n.toLowerCase().split(/[\s.]+/)[0]);
