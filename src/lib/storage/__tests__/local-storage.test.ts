@@ -29,7 +29,7 @@ import {
 } from "../local-storage";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
-import type { MediaPlanOutput } from "@/lib/media-plan/output-types";
+import type { MediaPlanOutput } from "@/lib/media-plan/types";
 
 // =============================================================================
 // Mock Data Factories
@@ -262,522 +262,89 @@ function createMockBlueprint(): StrategicBlueprintOutput {
 function createMockMediaPlan(): MediaPlanOutput {
   return {
     executiveSummary: {
-      strategyOverview: "Launch strategy",
-      timelineFocus: "90-day sprint",
-      strategicPriorities: ["Awareness", "Leads"],
-      expectedOutcome: "100 leads",
-      positioningStatement: "The fastest solution",
+      overview: "Launch strategy",
+      primaryObjective: "Generate 100 MQLs",
+      recommendedMonthlyBudget: 5000,
+      timelineToResults: "4-6 weeks",
+      topPriorities: ["Awareness", "Leads", "Optimization"],
     },
-    campaignObjectiveSelection: {
-      businessGoal: {
-        goal: "lead_generation",
-        description: "Generate qualified leads",
-      },
-      marketingObjective: {
-        objective: "conversion",
-        description: "Drive conversions",
-      },
-      platformLogic: {
-        salesCycleConsideration: "30 days",
-        platformImplications: "Multi-touch needed",
-        recommendedPlatform: "meta",
-        reasoning: "Best for B2B SaaS",
-      },
-      finalObjective: {
-        statement: "Generate 100 MQLs",
-        reasoning: "Aligned with growth goals",
-        successCriteria: ["100 MQLs", "$50 CAC"],
-      },
-    },
-    keyInsightsFromResearch: {
-      painPoints: {
-        primary: "Efficiency",
-        secondary: ["Cost", "Speed"],
-        howToAddress: "Emphasize ROI",
-      },
-      differentiation: {
-        uniqueStrengths: ["Speed"],
-        competitiveAdvantages: ["Price"],
-        messagingOpportunities: ["Fast setup"],
-      },
-      competitorAngles: {
-        commonApproaches: ["Enterprise focus"],
-        gaps: ["SMB market"],
-        opportunities: ["Self-serve"],
-      },
-      icpClarity: {
-        primaryProfile: "SMB CTO",
-        buyingBehavior: "ROI-focused",
-        decisionMakers: ["CTO"],
-        influencers: ["Dev team"],
-      },
-      offerStrengths: {
-        valueProposition: "Fast automation",
-        proofPoints: ["Case studies"],
-        guarantees: ["30-day trial"],
-      },
-      topInsights: [
-        {
-          category: "pain_point",
-          insight: "Efficiency is key",
-          implication: "Lead with speed messaging",
-          confidence: "high",
-        },
-      ],
-    },
-    icpAndTargetingStrategy: {
-      primaryAudience: {
-        name: "SMB CTOs",
-        description: "Tech leaders at growing companies",
-        demographics: {
-          location: ["US"],
-        },
-        psychographics: {
-          interests: ["Technology"],
-          values: ["Efficiency"],
-          behaviors: ["Early adopter"],
-          painPoints: ["Manual processes"],
-        },
+    platformStrategy: [
+      {
+        platform: "Meta",
+        rationale: "Best for B2B SaaS",
+        budgetPercentage: 60,
+        monthlySpend: 3000,
+        campaignTypes: ["Lead Gen", "Retargeting"],
+        targetingApproach: "Lookalike audiences based on CRM data",
+        expectedCplRange: { min: 35, max: 60 },
         priority: "primary",
-        estimatedSize: "500K",
       },
-      secondaryAudiences: [],
-      targetingMethods: [
-        {
-          method: "job_title",
-          configuration: "CTO, VP Engineering",
-          platform: "linkedin",
-          expectedEffectiveness: "high",
-          rationale: "Direct decision makers",
-        },
+      {
+        platform: "LinkedIn",
+        rationale: "Direct access to decision makers",
+        budgetPercentage: 40,
+        monthlySpend: 2000,
+        campaignTypes: ["Sponsored Content"],
+        targetingApproach: "Job title targeting",
+        expectedCplRange: { min: 50, max: 90 },
+        priority: "secondary",
+      },
+    ],
+    budgetAllocation: {
+      totalMonthlyBudget: 5000,
+      platformBreakdown: [
+        { platform: "Meta", monthlyBudget: 3000, percentage: 60 },
+        { platform: "LinkedIn", monthlyBudget: 2000, percentage: 40 },
       ],
-      audienceReachability: {
-        totalAddressableAudience: "1M",
-        reachableAudience: "500K",
-        platformBreakdown: [
-          {
-            platform: "meta",
-            estimatedReach: "300K",
-            cpmEstimate: "$15",
-          },
-        ],
-      },
-      exclusions: {
-        audiences: ["Enterprise"],
-        reasons: ["Different sales cycle"],
-      },
+      dailyCeiling: 200,
+      rampUpStrategy: "Start at 50% budget for week 1, scale to 100% by week 3",
     },
-    platformAndChannelStrategy: {
-      platforms: [
-        {
-          platform: "meta",
-          role: "primary_acquisition",
-          whySelected: ["Scale", "Targeting"],
-          expectedContribution: [
-            {
-              metric: "Leads",
-              contribution: "60%",
-              percentage: 60,
-            },
-          ],
-          tactics: ["Lookalike audiences"],
-          campaignTypes: ["Conversions"],
-          adFormats: ["Video", "Carousel"],
-          placements: ["Feed", "Stories"],
-          bestPractices: ["Test creative weekly"],
-        },
-      ],
-      primaryPlatform: {
-        platform: "meta",
-        rationale: "Best ROI for B2B SaaS",
+    campaignPhases: [
+      {
+        name: "Foundation & Testing",
+        phase: 1,
+        durationWeeks: 4,
+        objective: "Find winning audiences and creatives",
+        activities: ["Launch test campaigns", "A/B test creatives"],
+        successCriteria: ["CPL below $60", "3+ winning ad sets identified"],
+        estimatedBudget: 5000,
       },
-      platformSynergy: "Meta drives awareness, LinkedIn nurtures",
-      crossPlatformConsiderations: ["Consistent messaging"],
-      priorityOrder: ["meta", "linkedin"],
-    },
-    funnelStrategy: {
-      funnelFlow: "Awareness -> Consideration -> Conversion",
-      stages: [
-        {
-          stage: "tofu",
-          label: "Top of Funnel",
-          objective: "Awareness",
-          contentTypes: ["Video"],
-          channels: ["Meta"],
-          keyMessages: ["Speed"],
-          cta: "Learn More",
-          expectedConversionRate: "5%",
-        },
-      ],
-      conversionPath: [
-        {
-          step: 1,
-          action: "Click ad",
-          touchpoint: "Meta ad",
-          expectedDropoff: "50%",
-        },
-      ],
-      landingPageRequirements: {
-        pageType: "Lead capture",
-        requiredElements: ["Headline", "Form"],
-        headlineRecommendations: ["Problem-focused"],
-        aboveFold: ["Value prop"],
-        socialProofNeeded: ["Logos"],
-        pageSpeedTarget: "< 3s",
-        mobileOptimization: ["Responsive"],
+      {
+        name: "Scale Winners",
+        phase: 2,
+        durationWeeks: 4,
+        objective: "Scale winning campaigns to target volume",
+        activities: ["Increase budget on winners", "Expand lookalikes"],
+        successCriteria: ["100 leads/month", "CPL below $50"],
+        estimatedBudget: 5000,
       },
-      leadQualification: {
-        scoringCriteria: [
-          {
-            criterion: "Company size",
-            points: 10,
-            rationale: "Fits ICP",
-          },
-        ],
-        mqlThreshold: 50,
-        sqlThreshold: 80,
-        qualificationQuestions: ["Budget?"],
-        disqualifiers: ["No budget"],
+    ],
+    kpiTargets: [
+      {
+        metric: "Cost Per Lead",
+        target: "<$50",
+        timeframe: "Month 2",
+        measurementMethod: "Platform + CRM tracking",
       },
-      retargetingPaths: [
-        {
-          window: "7_day",
-          label: "Hot retarget",
-          audienceDefinition: "Page visitors",
-          messageFocus: "Urgency",
-          creativeApproach: "Direct CTA",
-          frequencyCap: "3/day",
-          expectedEngagement: "10%",
-        },
-      ],
-      attributionModel: "Last touch",
-    },
-    creativeStrategy: {
-      primaryAngles: [
-        {
-          name: "Speed",
-          description: "Emphasize fast results",
-          targetEmotion: "Relief",
-          keyMessage: "Get results in days",
-          exampleHooks: ["Stop waiting"],
-          bestPlatforms: ["meta"],
-          funnelStage: "tofu",
-          priority: "primary",
-        },
-      ],
-      hookPatterns: [
-        {
-          name: "Problem-Solution",
-          description: "State problem, offer solution",
-          examples: ["Tired of X? Try Y"],
-          whyItWorks: "Relatable",
-          bestFormats: ["Video"],
-        },
-      ],
-      formatsNeeded: [
-        {
-          format: "Video",
-          platform: "meta",
-          specs: {
-            dimensions: "1080x1080",
-            duration: "15-30s",
-          },
-          bestPractices: ["Hook in 3s"],
-          priority: "must_have",
-          quantityNeeded: 5,
-        },
-      ],
-      testingPlan: {
-        methodology: "A/B testing",
-        variablesToTest: [
-          {
-            variable: "Hook",
-            variations: ["Problem", "Outcome"],
-            priority: "high",
-          },
-        ],
-        timeline: "2 weeks",
-        successCriteria: "10% lift",
-        significanceThreshold: "95%",
-        budgetAllocation: "20%",
+      {
+        metric: "Monthly Leads",
+        target: "100",
+        timeframe: "Month 3",
+        measurementMethod: "CRM pipeline",
       },
-      expectedWinners: [
-        {
-          angle: "Speed",
-          reasoning: "Resonates with ICP",
-          confidenceLevel: "high",
-        },
-      ],
-      refreshCadence: "Every 2 weeks",
-      brandGuidelines: {
-        mustInclude: ["Logo"],
-        mustAvoid: ["Competitor mentions"],
-        toneOfVoice: "Professional but friendly",
+      {
+        metric: "SQL Rate",
+        target: "15%",
+        timeframe: "Ongoing",
+        measurementMethod: "CRM qualification tracking",
       },
-    },
-    campaignStructure: {
-      coldStructure: [
-        {
-          temperature: "cold",
-          name: "Prospecting",
-          audienceDefinition: "Lookalikes",
-          objective: "Conversions",
-          budgetAllocation: 60,
-          bidStrategy: "Lowest cost",
-          targeting: {
-            includes: ["Interests"],
-            excludes: ["Customers"],
-          },
-          expectedCpm: "$15",
-          expectedResults: "50 leads",
-        },
-      ],
-      warmStructure: [],
-      hotStructure: [],
-      retargetingSegments: [
-        {
-          name: "Website visitors",
-          source: "Pixel",
-          timeWindow: "30 days",
-          message: "Come back",
-          creativeApproach: "Testimonial",
-          frequencyCap: "3/day",
-          priority: 1,
-        },
-      ],
-      scalingStructure: {
-        scalingTriggers: [
-          {
-            metric: "CPA",
-            threshold: "< $40",
-            action: "Increase budget 20%",
-          },
-        ],
-        approach: "Gradual",
-        budgetIncrements: "20%",
-        monitoringFrequency: "Daily",
-        rollbackCriteria: ["CPA > $60"],
-      },
-      namingConventions: {
-        campaignPattern: "[Platform]_[Objective]_[Audience]",
-        campaignExample: "META_CONV_LOOKALIKE",
-        adSetPattern: "[Targeting]_[Creative]",
-        adSetExample: "INT_VIDEO",
-        adPattern: "[Hook]_[Format]_[Date]",
-        adExample: "SPEED_VIDEO_0101",
-        utmStructure: {
-          source: "meta",
-          medium: "paid",
-          campaign: "prospecting",
-          content: "video",
-        },
-      },
-      accountStructureOverview: "Campaign > Ad Set > Ad",
-    },
-    kpisAndPerformanceModel: {
-      primaryKpis: [
-        {
-          metric: "Cost per Lead",
-          target: "$50",
-          unit: "USD",
-          benchmark: "$40-60",
-          measurementMethod: "Platform + CRM",
-          reportingFrequency: "daily",
-        },
-      ],
-      secondaryKpis: [],
-      benchmarkExpectations: [
-        {
-          metric: "CPL",
-          pessimistic: "$70",
-          realistic: "$50",
-          optimistic: "$35",
-        },
-      ],
-      cacModel: {
-        targetCac: 200,
-        calculation: [
-          {
-            component: "Ad spend",
-            value: "$150",
-            percentage: 75,
-          },
-        ],
-        byChannel: [
-          {
-            channel: "meta",
-            estimatedCac: 180,
-            rationale: "Efficient for B2B",
-          },
-        ],
-        optimizationLevers: ["Creative testing"],
-      },
-      breakEvenMath: {
-        breakEvenPoint: {
-          customers: 50,
-          revenue: 25000,
-          timeframe: "3 months",
-        },
-        revenuePerCustomer: 500,
-        contributionMargin: "70%",
-        timeToBreakEven: "2 months",
-        assumptions: ["$500 ACV"],
-        sensitivityAnalysis: [
-          {
-            variable: "CAC",
-            impact: "10% change = 1 month delay",
-          },
-        ],
-      },
-      metricsSchedule: {
-        daily: [
-          {
-            metric: "Spend",
-            threshold: "$200",
-            action: "Monitor",
-          },
-        ],
-        weekly: [
-          {
-            metric: "CPL",
-            threshold: "$60",
-            action: "Optimize",
-          },
-        ],
-        monthly: [
-          {
-            metric: "CAC",
-            target: "$200",
-            reviewProcess: "Strategy review",
-          },
-        ],
-      },
-      northStarMetric: {
-        metric: "MQLs",
-        target: "100/month",
-        rationale: "Drives pipeline",
-      },
-    },
-    budgetAllocationAndScaling: {
-      initialBudget: {
-        totalMonthly: 5000,
-        daily: 166,
-        currency: "USD",
-        testingPhase: {
-          duration: "2 weeks",
-          budget: 2000,
-          objective: "Find winners",
-        },
-        scalingPhase: {
-          budget: 3000,
-          objective: "Scale winners",
-        },
-      },
-      platformAllocation: [
-        {
-          platform: "meta",
-          amount: 4000,
-          percentage: 80,
-          rationale: "Primary acquisition",
-          expectedReturn: "60 leads",
-          minimumViableSpend: 2000,
-        },
-      ],
-      funnelAllocation: [
-        {
-          stage: "tofu",
-          percentage: 60,
-          amount: 3000,
-          rationale: "Awareness focus",
-        },
-      ],
-      scalingRules: [
-        {
-          name: "Performance scale",
-          trigger: "CPA < $40",
-          action: "Increase 20%",
-          budgetChange: "+20%",
-          validationPeriod: "3 days",
-          riskLevel: "low",
-        },
-      ],
-      efficiencyCurves: [
-        {
-          spendLevel: "$5K",
-          expectedEfficiency: "High",
-          marginalCpa: "$45",
-          notes: "Sweet spot",
-        },
-      ],
-      reallocationTriggers: [
-        {
-          trigger: "Meta CPL > $70",
-          from: "meta",
-          to: "linkedin",
-          condition: "2 weeks sustained",
-        },
-      ],
-      monthlyRoadmap: [
-        {
-          month: 1,
-          budget: 5000,
-          focus: "Testing",
-          expectedResults: "50 leads",
-        },
-      ],
-    },
-    risksAndMitigation: {
-      topRisks: [
-        {
-          id: "R1",
-          category: "budget",
-          description: "CPL exceeds target",
-          severity: "medium",
-          likelihood: "possible",
-          impact: "Reduced lead volume",
-          warningSignals: ["CPL trending up"],
-        },
-      ],
-      mitigationSteps: [
-        {
-          riskId: "R1",
-          action: "Pause underperformers",
-          timing: "reactive",
-          owner: "Media buyer",
-          resourcesNeeded: ["Dashboard"],
-          successCriteria: "CPL < $60",
-        },
-      ],
-      dependencies: [
-        {
-          name: "Landing page",
-          description: "Needs to be ready",
-          type: "internal",
-          status: "met",
-          mitigation: "Use existing page",
-          impactIfNotMet: "Campaign delay",
-        },
-      ],
-      contingencyPlans: [
-        {
-          scenario: "Platform ban",
-          response: "Shift to LinkedIn",
-          trigger: "Account suspension",
-        },
-      ],
-      riskMonitoring: {
-        frequency: "Daily",
-        metrics: ["CPL", "Spend"],
-        escalationPath: "Media buyer -> Manager",
-      },
-    },
+    ],
     metadata: {
       generatedAt: new Date().toISOString(),
-      version: "1.0",
+      version: "1.0.0",
       processingTime: 10000,
-      totalCost: 1.5,
-      modelsUsed: ["claude-sonnet", "gpt-4o"],
-      overallConfidence: 80,
+      totalCost: 0.15,
+      modelUsed: "claude-sonnet-4-20250514",
     },
   };
 }
@@ -955,7 +522,7 @@ describe("LocalStorage", () => {
 
         const state = getGenerationState();
         expect(state).not.toBeNull();
-        expect(state?.currentStage).toBe("plan-complete");
+        expect(state?.currentStage).toBe("media-plan-complete");
       });
     });
   });
@@ -976,7 +543,7 @@ describe("LocalStorage", () => {
 
       // Set media plan
       setMediaPlan(createMockMediaPlan());
-      expect(getGenerationState()?.currentStage).toBe("plan-complete");
+      expect(getGenerationState()?.currentStage).toBe("media-plan-complete");
     });
 
     it("includes lastUpdated timestamp in state", () => {
@@ -1052,7 +619,7 @@ describe("LocalStorage", () => {
       expect(progress.strategicBlueprint).toEqual(mockBlueprint);
       expect(progress.mediaPlan).toEqual(mockPlan);
       expect(progress.state).not.toBeNull();
-      expect(progress.state?.currentStage).toBe("plan-complete");
+      expect(progress.state?.currentStage).toBe("media-plan-complete");
     });
 
     it("returns partial data when only some data exists", () => {
@@ -1127,7 +694,7 @@ describe("LocalStorage", () => {
       setStrategicBlueprint(createMockBlueprint());
       setMediaPlan(createMockMediaPlan());
 
-      expect(getGenerationState()?.currentStage).toBe("plan-complete");
+      expect(getGenerationState()?.currentStage).toBe("media-plan-complete");
 
       clearMediaPlan();
 
@@ -1142,14 +709,14 @@ describe("LocalStorage", () => {
       );
       localStorage.setItem(
         STORAGE_KEYS.GENERATION_STATE,
-        JSON.stringify({ currentStage: "plan-complete", lastUpdated: new Date().toISOString() })
+        JSON.stringify({ currentStage: "media-plan-complete", lastUpdated: new Date().toISOString() })
       );
 
       clearMediaPlan();
 
       // State should remain plan-complete because no blueprint to revert to
       const state = getGenerationState();
-      expect(state?.currentStage).toBe("plan-complete");
+      expect(state?.currentStage).toBe("media-plan-complete");
     });
   });
 
@@ -1186,7 +753,7 @@ describe("LocalStorage", () => {
       setStrategicBlueprint(createMockBlueprint());
       setMediaPlan(createMockMediaPlan());
 
-      expect(getGenerationState()?.currentStage).toBe("plan-complete");
+      expect(getGenerationState()?.currentStage).toBe("media-plan-complete");
 
       clearBlueprintAndPlan();
 
@@ -1267,8 +834,8 @@ describe("LocalStorage", () => {
 
       const retrieved = getMediaPlan();
 
-      expect(Array.isArray(retrieved?.executiveSummary.strategicPriorities)).toBe(true);
-      expect(retrieved?.executiveSummary.strategicPriorities).toContain("Awareness");
+      expect(Array.isArray(retrieved?.executiveSummary.topPriorities)).toBe(true);
+      expect(retrieved?.executiveSummary.topPriorities).toContain("Awareness");
     });
   });
 });

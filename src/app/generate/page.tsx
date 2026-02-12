@@ -42,8 +42,11 @@ import type { StrategicBlueprintOutput, StrategicBlueprintProgress, StrategicBlu
 import {
   setOnboardingData as saveOnboardingData,
   setStrategicBlueprint as saveStrategicBlueprint,
+  setMediaPlan as saveMediaPlan,
   clearAllSavedData,
 } from "@/lib/storage/local-storage";
+import { useMediaPlanGeneration } from "@/hooks/use-media-plan-generation";
+import { MEDIA_PLAN_STAGES } from "@/lib/media-plan/types";
 
 // =============================================================================
 // SSE Event Types (match server-side definitions)
@@ -132,6 +135,8 @@ type PageState =
   | "generating-blueprint"
   | "review-blueprint"
   | "complete"
+  | "generating-media-plan"
+  | "media-plan-complete"
   | "error";
 
 // Pipeline stages for generation progress visualization
@@ -150,8 +155,12 @@ function getHeaderStage(pageState: PageState): GenerateStage {
       return "review";
     case "complete":
       return "complete";
+    case "generating-media-plan":
+      return "generate";
+    case "media-plan-complete":
+      return "complete";
     case "error":
-      return "generate"; // Show generate stage during error
+      return "generate";
     default:
       return "onboarding";
   }
@@ -184,6 +193,9 @@ export default function GeneratePage() {
 
   // PDF export state
   const [isExporting, setIsExporting] = useState(false);
+
+  // Media plan generation
+  const mediaPlanGen = useMediaPlanGeneration();
 
   // Streaming state for real-time section display
   const [streamingSections, setStreamingSections] = useState<Map<StrategicBlueprintSection, unknown>>(new Map());
@@ -531,6 +543,28 @@ export default function GeneratePage() {
     setShareUrl(null);
     setShareError(null);
   }, [onboardingData, blueprintMeta]);
+
+  // Generate Media Plan from approved blueprint
+  const handleGenerateMediaPlan = useCallback(async () => {
+    if (!strategicBlueprint || !onboardingData) return;
+
+    setPageState("generating-media-plan");
+    await mediaPlanGen.generate(strategicBlueprint, onboardingData);
+
+    // Check result after generation completes
+    if (mediaPlanGen.error) {
+      // Stay on generating-media-plan state — error is shown inline
+      return;
+    }
+  }, [strategicBlueprint, onboardingData, mediaPlanGen]);
+
+  // Save media plan when generation completes
+  useEffect(() => {
+    if (mediaPlanGen.mediaPlan && pageState === "generating-media-plan") {
+      saveMediaPlan(mediaPlanGen.mediaPlan);
+      setPageState("media-plan-complete");
+    }
+  }, [mediaPlanGen.mediaPlan, pageState]);
 
   // Share blueprint
   const handleShare = useCallback(async () => {
@@ -1174,13 +1208,26 @@ export default function GeneratePage() {
                        6. New Blueprint (secondary outline)
                   */}
                   <div className="flex flex-wrap items-center gap-3">
+                    <MagneticButton
+                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                      onClick={handleGenerateMediaPlan}
+                      style={{
+                        background: 'var(--gradient-primary)',
+                        color: 'white',
+                        fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                      }}
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      Generate Media Plan
+                    </MagneticButton>
                     <a href="/dashboard">
                       <MagneticButton
-                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                         style={{
-                          background: 'var(--gradient-primary)',
-                          color: 'white',
-                          fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                          border: '1px solid var(--border-default)',
+                          color: 'var(--text-secondary)',
+                          background: 'transparent',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
                         }}
                       >
                         <LayoutDashboard className="h-4 w-4" />
@@ -1424,6 +1471,349 @@ export default function GeneratePage() {
             <div className={`p-4 md:p-6 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}>
               <PolishedBlueprintView strategicBlueprint={strategicBlueprint} />
             </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Generating Media Plan State
+  if (pageState === "generating-media-plan") {
+    return (
+      <div className="min-h-screen flex flex-col relative" style={{ background: 'var(--bg-base)' }}>
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={true}
+          onExit={handleStartOver}
+          exitUrl="/dashboard"
+          collapsible={true}
+        />
+
+        <ShaderMeshBackground variant="page" />
+        <BackgroundPattern opacity={0.02} />
+
+        <div className="flex-1 flex items-center justify-center">
+          <div className="container mx-auto px-4 py-8 max-w-2xl relative z-10">
+            <motion.div
+              variants={fadeUp}
+              initial="initial"
+              animate="animate"
+              transition={{ duration: durations.normal }}
+            >
+              <GradientBorder animate={true}>
+                <div className="p-6 space-y-6">
+                  <motion.div
+                    className="text-center"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1, duration: durations.normal }}
+                  >
+                    <h2
+                      className="text-xl font-semibold"
+                      style={{
+                        color: 'var(--text-heading)',
+                        fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                      }}
+                    >
+                      Generating Media Plan
+                    </h2>
+                    <p
+                      className="text-sm mt-1"
+                      style={{
+                        color: 'var(--text-tertiary)',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      {mediaPlanGen.progress.message || "Starting..."}
+                    </p>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2, duration: durations.normal }}
+                  >
+                    <Pipeline
+                      stages={[...MEDIA_PLAN_STAGES]}
+                      currentStageIndex={mediaPlanGen.mediaPlan ? 1 : 0}
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: durations.normal }}
+                  >
+                    <GenerationStats
+                      elapsedTime={0}
+                      estimatedCost={0}
+                      completedSections={mediaPlanGen.mediaPlan ? 1 : 0}
+                      totalSections={1}
+                    />
+                  </motion.div>
+
+                  {/* Error inline */}
+                  {mediaPlanGen.error && (
+                    <motion.div
+                      className="p-4 rounded-lg"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgb(239, 68, 68)',
+                      }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      <p className="text-sm" style={{ color: 'rgb(239, 68, 68)' }}>
+                        {mediaPlanGen.error}
+                      </p>
+                      <div className="flex gap-2 mt-3">
+                        <MagneticButton
+                          className="h-8 px-4 rounded-full text-sm font-medium"
+                          onClick={handleGenerateMediaPlan}
+                          style={{
+                            background: 'var(--gradient-primary)',
+                            color: 'white',
+                          }}
+                        >
+                          Retry
+                        </MagneticButton>
+                        <MagneticButton
+                          className="h-8 px-4 rounded-full text-sm font-medium"
+                          onClick={() => setPageState("complete")}
+                          style={{
+                            border: '1px solid var(--border-default)',
+                            color: 'var(--text-secondary)',
+                            background: 'transparent',
+                          }}
+                        >
+                          Back
+                        </MagneticButton>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </GradientBorder>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Media Plan Complete State
+  if (pageState === "media-plan-complete" && mediaPlanGen.mediaPlan) {
+    return (
+      <div className="relative flex min-h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
+        <GenerateHeader
+          currentStage={getHeaderStage(pageState)}
+          hasUnsavedProgress={false}
+          exitUrl="/dashboard"
+        />
+
+        <ShaderMeshBackground variant="page" />
+        <BackgroundPattern opacity={0.015} />
+
+        <div className="container relative z-10 mx-auto px-5 py-8 md:px-8 md:py-12">
+          <motion.div
+            className="mx-auto mb-8 max-w-6xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: durations.normal, ease: easings.out }}
+          >
+            <GradientBorder>
+              <div className="p-6">
+                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-full"
+                        style={{ background: 'rgba(34, 197, 94, 0.15)' }}
+                      >
+                        <CheckCircle2 className="h-6 w-6" style={{ color: 'rgb(34, 197, 94)' }} />
+                      </div>
+                      <motion.div
+                        className="absolute inset-0 rounded-full"
+                        style={{ border: '2px solid rgb(34, 197, 94)' }}
+                        initial={{ opacity: 0.5, scale: 1 }}
+                        animate={{ opacity: 0, scale: 1.5 }}
+                        transition={{ duration: 1.5, repeat: 2 }}
+                      />
+                    </div>
+                    <div>
+                      <h2
+                        className="text-xl font-semibold"
+                        style={{
+                          color: 'var(--text-heading)',
+                          fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                        }}
+                      >
+                        Media Plan Ready
+                      </h2>
+                      <p
+                        className="text-sm"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          fontFamily: 'var(--font-sans), Inter, sans-serif',
+                        }}
+                      >
+                        {mediaPlanGen.mediaPlan.platformStrategy.length} platforms, {mediaPlanGen.mediaPlan.campaignPhases.length} phases
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a href="/dashboard">
+                      <MagneticButton
+                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                        style={{
+                          background: 'var(--gradient-primary)',
+                          color: 'white',
+                          fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                        }}
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Back to Dashboard
+                      </MagneticButton>
+                    </a>
+                    <MagneticButton
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      onClick={() => setPageState("complete")}
+                      style={{
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-secondary)',
+                        background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back to Blueprint
+                    </MagneticButton>
+                  </div>
+                </div>
+
+                {/* Stats row */}
+                {mediaPlanGen.meta && (
+                  <motion.div
+                    className="flex flex-wrap gap-6 mt-6 pt-6"
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="text-sm font-mono" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                        {Math.round(mediaPlanGen.meta.totalTime / 1000)}s
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="text-sm font-mono" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                        ${mediaPlanGen.meta.totalCost.toFixed(4)}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </GradientBorder>
+          </motion.div>
+
+          {/* Media Plan JSON Preview (placeholder — proper rendering will be built later) */}
+          <motion.div
+            className="mx-auto max-w-6xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
+          >
+            <GradientBorder>
+              <div className="p-6">
+                <h3
+                  className="text-lg font-semibold mb-4"
+                  style={{
+                    color: 'var(--text-heading)',
+                    fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+                  }}
+                >
+                  {mediaPlanGen.mediaPlan.executiveSummary.primaryObjective}
+                </h3>
+                <p
+                  className="text-sm mb-6"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    lineHeight: '1.6em',
+                  }}
+                >
+                  {mediaPlanGen.mediaPlan.executiveSummary.overview}
+                </p>
+
+                {/* Platform summary cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {mediaPlanGen.mediaPlan.platformStrategy.map((platform) => (
+                    <div
+                      key={platform.platform}
+                      className="p-4 rounded-lg"
+                      style={{
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-default)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {platform.platform}
+                        </span>
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full"
+                          style={{
+                            background: platform.priority === 'primary'
+                              ? 'rgba(54, 94, 255, 0.15)'
+                              : 'rgba(100, 105, 115, 0.15)',
+                            color: platform.priority === 'primary'
+                              ? 'rgb(54, 94, 255)'
+                              : 'var(--text-tertiary)',
+                          }}
+                        >
+                          {platform.priority}
+                        </span>
+                      </div>
+                      <p
+                        className="text-sm font-mono"
+                        style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}
+                      >
+                        ${platform.monthlySpend.toLocaleString()}/mo ({platform.budgetPercentage}%)
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Raw JSON toggle */}
+                <details className="mt-4">
+                  <summary
+                    className="text-sm cursor-pointer"
+                    style={{
+                      color: 'var(--text-tertiary)',
+                      fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    }}
+                  >
+                    View raw JSON
+                  </summary>
+                  <pre
+                    className="mt-2 p-4 rounded-lg text-xs overflow-auto max-h-96"
+                    style={{
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-default)',
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {JSON.stringify(mediaPlanGen.mediaPlan, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            </GradientBorder>
           </motion.div>
         </div>
       </div>

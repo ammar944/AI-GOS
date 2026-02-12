@@ -1,150 +1,158 @@
-// API Route: POST /api/media-plan/generate
-// Generates a media plan from form inputs
+// Media Plan Generation API Endpoint
+// POST /api/media-plan/generate
+// SSE streaming — single-phase generateObject with Claude Sonnet
 
-import { NextResponse } from "next/server";
-import { runMediaPlanPipeline } from "@/lib/media-plan/pipeline";
-import type {
-  GenerateMediaPlanRequest,
-  GenerateMediaPlanResponse,
-  NicheFormData,
-  BriefingFormData,
-  SalesCycleLength,
-} from "@/lib/media-plan/types";
+import { NextRequest, NextResponse } from 'next/server';
+import type { StrategicBlueprintOutput } from '@/lib/strategic-blueprint/output-types';
+import type { OnboardingFormData } from '@/lib/onboarding/types';
+import { buildMediaPlanContext } from '@/lib/media-plan/context-builder';
+import { generateMediaPlan } from '@/lib/media-plan/generator';
+import type { MediaPlanSSEEvent } from '@/lib/media-plan/types';
+import { MEDIA_PLAN_SECTION_LABELS } from '@/lib/media-plan/types';
+import { createErrorResponse, ErrorCode } from '@/lib/errors';
 
-// Vercel Pro tier allows up to 300 seconds (5 minutes) for serverless functions
-// This accommodates the multi-stage AI pipeline with retries
-export const maxDuration = 300;
+export const maxDuration = 120;
 
-// Timeout for the entire pipeline (60 seconds as per MVP requirements)
-const PIPELINE_TIMEOUT = 60000;
+// =============================================================================
+// SSE Helper
+// =============================================================================
 
-// Valid sales cycle values
-const VALID_SALES_CYCLES: SalesCycleLength[] = [
-  "less_than_7_days",
-  "7_to_14_days",
-  "14_to_30_days",
-  "more_than_30_days",
-];
-
-function validateNicheForm(data: unknown): data is NicheFormData {
-  if (!data || typeof data !== "object") return false;
-  const niche = data as Record<string, unknown>;
-  return (
-    typeof niche.industry === "string" &&
-    niche.industry.trim().length > 0 &&
-    typeof niche.audience === "string" &&
-    niche.audience.trim().length > 0 &&
-    typeof niche.icp === "string" &&
-    niche.icp.trim().length > 0
-  );
+function createSSEMessage(event: MediaPlanSSEEvent): string {
+  return `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
-function validateBriefingForm(data: unknown): data is BriefingFormData {
-  if (!data || typeof data !== "object") return false;
-  const briefing = data as Record<string, unknown>;
-  return (
-    typeof briefing.budget === "number" &&
-    briefing.budget > 0 &&
-    typeof briefing.offerPrice === "number" &&
-    briefing.offerPrice > 0 &&
-    typeof briefing.salesCycleLength === "string" &&
-    VALID_SALES_CYCLES.includes(briefing.salesCycleLength as SalesCycleLength)
-  );
+// =============================================================================
+// Types
+// =============================================================================
+
+interface GenerateRequest {
+  blueprint: StrategicBlueprintOutput;
+  onboardingData: OnboardingFormData;
 }
 
-export async function POST(request: Request): Promise<NextResponse<GenerateMediaPlanResponse>> {
+// =============================================================================
+// POST Handler
+// =============================================================================
+
+export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
-    // Parse request body
-    const body: unknown = await request.json();
+    const body = (await request.json()) as GenerateRequest;
+    const { blueprint, onboardingData } = body;
 
-    if (!body || typeof body !== "object") {
+    // Validate inputs
+    if (!blueprint) {
       return NextResponse.json(
-        { success: false, error: "Invalid request body" },
-        { status: 400 }
+        createErrorResponse(ErrorCode.INVALID_INPUT, 'Missing blueprint data'),
+        { status: 400 },
       );
     }
 
-    const { niche, briefing } = body as GenerateMediaPlanRequest;
-
-    // Validate niche form
-    if (!validateNicheForm(niche)) {
+    if (!onboardingData) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid niche form data. Required: industry, audience, icp (all non-empty strings)",
-        },
-        { status: 400 }
+        createErrorResponse(ErrorCode.INVALID_INPUT, 'Missing onboarding data'),
+        { status: 400 },
       );
     }
 
-    // Validate briefing form
-    if (!validateBriefingForm(briefing)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid briefing form data. Required: budget (number > 0), offerPrice (number > 0), salesCycleLength (valid option)",
-        },
-        { status: 400 }
-      );
-    }
+    // Build focused context
+    const { contextString, tokenEstimate } = buildMediaPlanContext(blueprint, onboardingData);
+    console.log(`[MediaPlan] Context built: ${contextString.length} chars, ~${tokenEstimate} tokens`);
 
-    // Create abort controller for timeout
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => {
-      abortController.abort();
-    }, PIPELINE_TIMEOUT);
+    // SSE streaming response
+    const encoder = new TextEncoder();
+    let streamClosed = false;
 
-    try {
-      // Run the pipeline
-      const result = await runMediaPlanPipeline(niche, briefing, {
-        abortSignal: abortController.signal,
-      });
+    // Declared here so emit can reference it
+    let controller: ReadableStreamDefaultController;
 
-      clearTimeout(timeoutId);
+    const emit = (event: MediaPlanSSEEvent) => {
+      if (streamClosed) return;
+      controller.enqueue(encoder.encode(createSSEMessage(event)));
+    };
 
-      if (!result.success) {
-        return NextResponse.json(
-          { success: false, error: result.error || "Pipeline failed" },
-          { status: 500 }
-        );
-      }
+    const stream = new ReadableStream({
+      async start(ctrl) {
+        controller = ctrl;
+        try {
+          // Emit section-start
+          emit({
+            type: 'section-start',
+            section: 'mediaPlan',
+            label: MEDIA_PLAN_SECTION_LABELS.mediaPlan,
+          });
 
-      return NextResponse.json({
-        success: true,
-        blueprint: result.blueprint,
-      });
-    } catch (pipelineError) {
-      clearTimeout(timeoutId);
+          // Generate media plan with progress callbacks
+          const result = await generateMediaPlan(contextString, {
+            onProgress: (message, percentage) => {
+              emit({
+                type: 'progress',
+                percentage,
+                message,
+              });
+            },
+          });
 
-      if (abortController.signal.aborted) {
-        return NextResponse.json(
-          { success: false, error: "Request timed out. Please try again." },
-          { status: 504 }
-        );
-      }
+          if (!result.success || !result.mediaPlan) {
+            emit({ type: 'error', message: result.error || 'Media plan generation failed' });
+            streamClosed = true;
+            ctrl.close();
+            return;
+          }
 
-      throw pipelineError;
-    }
+          // Emit section-complete
+          emit({
+            type: 'section-complete',
+            section: 'mediaPlan',
+            label: MEDIA_PLAN_SECTION_LABELS.mediaPlan,
+            data: null,
+          });
+
+          // Emit done with full media plan
+          const totalTime = Date.now() - startTime;
+          emit({
+            type: 'done',
+            success: true,
+            mediaPlan: result.mediaPlan,
+            metadata: {
+              totalTime,
+              totalCost: result.mediaPlan.metadata.totalCost,
+            },
+          });
+
+          console.log(`[MediaPlan] Generation complete: ${totalTime}ms, $${result.mediaPlan.metadata.totalCost.toFixed(4)}`);
+
+          streamClosed = true;
+          ctrl.close();
+        } catch (error) {
+          streamClosed = true;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[MediaPlan] Generation error:', errorMessage);
+          try {
+            ctrl.enqueue(encoder.encode(createSSEMessage({ type: 'error', message: errorMessage })));
+          } catch { /* stream may already be closed */ }
+          ctrl.close();
+        }
+      },
+      cancel() {
+        streamClosed = true;
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
-    console.error("Media plan generation error:", error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : "An unexpected error occurred";
-
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[MediaPlan] Route error:', errorMessage);
     return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
+      createErrorResponse(ErrorCode.INTERNAL_ERROR, errorMessage),
+      { status: 500 },
     );
   }
-}
-
-// Optionally handle other methods
-export async function GET(): Promise<NextResponse> {
-  return NextResponse.json(
-    {
-      message: "Media Plan Generator API",
-      usage: "POST /api/media-plan/generate with { niche, briefing } body",
-    },
-    { status: 200 }
-  );
 }

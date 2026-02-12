@@ -73,7 +73,7 @@ export function createErrorResponse(
 }
 
 /**
- * Failure reason values from the media plan generator.
+ * Failure reason values from the generator.
  */
 export type FailureReason = "timeout" | "circuit_open" | "validation" | "api_error" | "unknown";
 

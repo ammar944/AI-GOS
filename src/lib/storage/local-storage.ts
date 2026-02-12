@@ -1,21 +1,21 @@
 // LocalStorage utility for persisting generation data
-// Handles onboarding data, strategic blueprint, and media plan
+// Handles onboarding data and strategic blueprint
 
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
-import type { MediaPlanOutput } from "@/lib/media-plan/output-types";
+import type { MediaPlanOutput } from "@/lib/media-plan/types";
 
 // Storage keys
 export const STORAGE_KEYS = {
   ONBOARDING_DATA: "aigog_onboarding_data",
   STRATEGIC_BLUEPRINT: "aigog_strategic_blueprint",
-  MEDIA_PLAN: "aigog_media_plan",
   GENERATION_STATE: "aigog_generation_state",
+  MEDIA_PLAN: "aigog_media_plan",
 } as const;
 
 // Generation state to track progress
 export interface GenerationState {
-  currentStage: "onboarding" | "blueprint-complete" | "plan-complete";
+  currentStage: "onboarding" | "blueprint-complete" | "media-plan-complete";
   lastUpdated: string;
 }
 
@@ -101,7 +101,7 @@ export function getMediaPlan(): MediaPlanOutput | null {
 export function setMediaPlan(data: MediaPlanOutput): boolean {
   const success = setItem(STORAGE_KEYS.MEDIA_PLAN, data);
   if (success) {
-    updateGenerationState("plan-complete");
+    updateGenerationState("media-plan-complete");
   }
   return success;
 }
@@ -127,7 +127,7 @@ function updateGenerationState(stage: GenerationState["currentStage"]): boolean 
  */
 export function hasSavedProgress(): boolean {
   const state = getGenerationState();
-  return state !== null && (state.currentStage === "blueprint-complete" || state.currentStage === "plan-complete");
+  return state !== null && (state.currentStage === "blueprint-complete" || state.currentStage === "media-plan-complete");
 }
 
 /**
@@ -161,29 +161,35 @@ export function clearAllSavedData(): boolean {
 }
 
 /**
- * Clear only the media plan (for regeneration)
+ * Clear strategic blueprint (for regeneration from scratch)
  */
-export function clearMediaPlan(): boolean {
-  const removed = removeItem(STORAGE_KEYS.MEDIA_PLAN);
+export function clearBlueprint(): boolean {
+  const removed = removeItem(STORAGE_KEYS.STRATEGIC_BLUEPRINT);
   if (removed) {
-    // Revert state to blueprint-complete
-    const blueprint = getStrategicBlueprint();
-    if (blueprint) {
-      updateGenerationState("blueprint-complete");
-    }
+    updateGenerationState("onboarding");
   }
   return removed;
 }
 
 /**
- * Clear strategic blueprint and media plan (for regeneration from scratch)
+ * Clear only the media plan (revert to blueprint-complete state)
+ */
+export function clearMediaPlan(): boolean {
+  const removed = removeItem(STORAGE_KEYS.MEDIA_PLAN);
+  if (removed && getStrategicBlueprint()) {
+    updateGenerationState("blueprint-complete");
+  }
+  return removed;
+}
+
+/**
+ * Clear both blueprint and media plan (revert to onboarding state)
  */
 export function clearBlueprintAndPlan(): boolean {
   const results = [
     removeItem(STORAGE_KEYS.STRATEGIC_BLUEPRINT),
     removeItem(STORAGE_KEYS.MEDIA_PLAN),
   ];
-  // Keep onboarding data, reset state
   updateGenerationState("onboarding");
   return results.every(Boolean);
 }

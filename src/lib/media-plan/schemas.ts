@@ -1,866 +1,152 @@
-// Media Plan Zod Schemas
-// Runtime validation schemas matching output-types.ts interfaces
+// Media Plan Zod Schema for generateObject
+// Mirrors types.ts with .describe() hints for AI quality
 
-import { z } from "zod";
-
-// =============================================================================
-// Enum Schemas (String Literal Unions)
-// =============================================================================
-
-export const businessGoalSchema = z.enum([
-  "revenue_growth",
-  "lead_generation",
-  "brand_awareness",
-  "market_expansion",
-  "customer_acquisition",
-  "product_launch",
-  "customer_retention",
-  "market_share",
-]);
-
-export const marketingObjectiveSchema = z.enum([
-  "awareness",
-  "consideration",
-  "conversion",
-  "retention",
-  "advocacy",
-]);
-
-export const targetingMethodSchema = z.enum([
-  "interest_based",
-  "lookalike",
-  "retargeting",
-  "job_title",
-  "industry",
-  "company_size",
-  "behavioral",
-  "contextual",
-  "custom_audience",
-  "keyword",
-]);
-
-export const platformNameSchema = z.enum([
-  "meta",
-  "google_ads",
-  "linkedin",
-  "tiktok",
-  "youtube",
-  "twitter",
-  "pinterest",
-  "snapchat",
-  "microsoft_ads",
-  "programmatic",
-  "reddit",
-  "quora",
-]);
-
-export const platformRoleSchema = z.enum([
-  "primary_acquisition",
-  "secondary_acquisition",
-  "retargeting",
-  "awareness",
-  "consideration",
-  "remarketing",
-  "testing",
-]);
-
-export const funnelStageSchema = z.enum(["tofu", "mofu", "bofu"]);
-
-export const audienceTemperatureSchema = z.enum(["cold", "warm", "hot"]);
-
-export const riskCategorySchema = z.enum([
-  "budget",
-  "creative",
-  "targeting",
-  "platform",
-  "market",
-  "technical",
-  "compliance",
-  "competition",
-  "timing",
-]);
-
-export const riskSeveritySchema = z.enum([
-  "low",
-  "medium",
-  "high",
-  "critical",
-]);
-
-export const riskLikelihoodSchema = z.enum([
-  "unlikely",
-  "possible",
-  "likely",
-  "very_likely",
-]);
+import { z } from 'zod';
 
 // =============================================================================
-// Section 1: Executive Summary
+// Executive Summary
 // =============================================================================
 
 export const executiveSummarySchema = z.object({
-  strategyOverview: z.string(),
-  timelineFocus: z.string(),
-  strategicPriorities: z.array(z.string()),
-  expectedOutcome: z.string(),
-  positioningStatement: z.string(),
-}).passthrough();
+  overview: z.string()
+    .describe('2-3 sentence high-level strategy overview. Mention the primary platform, campaign approach, and expected outcome.'),
+
+  primaryObjective: z.string()
+    .describe('The single most important objective (e.g., "Generate 40 SQLs/month at <$75 CPL via Meta + LinkedIn").'),
+
+  recommendedMonthlyBudget: z.number()
+    .describe('Recommended total monthly ad spend in USD. Must align with the client budget from onboarding data.'),
+
+  timelineToResults: z.string()
+    .describe('Realistic timeline to first meaningful results (e.g., "4-6 weeks for initial qualified leads, 90 days for steady pipeline").'),
+
+  topPriorities: z.array(z.string())
+    .min(2).max(5)
+    .describe('Top 3 strategic priorities in order of importance. Be specific and actionable.'),
+}).describe('High-level media plan executive summary');
 
 // =============================================================================
-// Section 2: Campaign Objective Selection
-// =============================================================================
-
-export const platformLogicSchema = z.object({
-  salesCycleConsideration: z.string(),
-  platformImplications: z.string(),
-  recommendedPlatform: z.string(),
-  reasoning: z.string(),
-}).passthrough();
-
-export const campaignObjectiveSelectionSchema = z.object({
-  businessGoal: z.object({
-    goal: businessGoalSchema,
-    description: z.string(),
-  }),
-  marketingObjective: z.object({
-    objective: marketingObjectiveSchema,
-    description: z.string(),
-  }),
-  platformLogic: platformLogicSchema,
-  finalObjective: z.object({
-    statement: z.string(),
-    reasoning: z.string(),
-    successCriteria: z.array(z.string()),
-  }),
-}).passthrough();
-
-// =============================================================================
-// Section 3: Key Insights From Strategic Research
-// =============================================================================
-
-export const strategicInsightSchema = z.object({
-  category: z.enum(["pain_point", "differentiation", "competitor", "icp", "offer"]),
-  insight: z.string(),
-  implication: z.string(),
-  confidence: z.enum(["high", "medium", "low"]),
-  source: z.string().optional(),
-}).passthrough();
-
-export const keyInsightsFromResearchSchema = z.object({
-  painPoints: z.object({
-    primary: z.string(),
-    secondary: z.array(z.string()),
-    howToAddress: z.string(),
-  }),
-  differentiation: z.object({
-    uniqueStrengths: z.array(z.string()),
-    competitiveAdvantages: z.array(z.string()),
-    messagingOpportunities: z.array(z.string()),
-  }),
-  competitorAngles: z.object({
-    commonApproaches: z.array(z.string()),
-    gaps: z.array(z.string()),
-    opportunities: z.array(z.string()),
-  }),
-  icpClarity: z.object({
-    primaryProfile: z.string(),
-    buyingBehavior: z.string(),
-    decisionMakers: z.array(z.string()),
-    influencers: z.array(z.string()),
-  }),
-  offerStrengths: z.object({
-    valueProposition: z.string(),
-    proofPoints: z.array(z.string()),
-    guarantees: z.array(z.string()),
-  }),
-  topInsights: z.array(strategicInsightSchema),
-}).passthrough();
-
-// =============================================================================
-// Section 4: ICP and Targeting Strategy
-// =============================================================================
-
-export const audienceSegmentSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  demographics: z.object({
-    ageRange: z.string().optional(),
-    gender: z.string().optional(),
-    location: z.array(z.string()),
-    income: z.string().optional(),
-    education: z.string().optional(),
-  }),
-  psychographics: z.object({
-    interests: z.array(z.string()),
-    values: z.array(z.string()),
-    behaviors: z.array(z.string()),
-    painPoints: z.array(z.string()),
-  }),
-  professional: z.object({
-    jobTitles: z.array(z.string()),
-    industries: z.array(z.string()),
-    companySize: z.array(z.string()),
-    seniorityLevel: z.array(z.string()),
-  }).optional(),
-  priority: z.enum(["primary", "secondary", "tertiary"]),
-  estimatedSize: z.string(),
-}).passthrough();
-
-export const targetingMethodConfigSchema = z.object({
-  method: targetingMethodSchema,
-  configuration: z.string(),
-  platform: z.string(),
-  expectedEffectiveness: z.enum(["high", "medium", "low"]),
-  rationale: z.string(),
-}).passthrough();
-
-export const icpAndTargetingStrategySchema = z.object({
-  primaryAudience: audienceSegmentSchema,
-  secondaryAudiences: z.array(audienceSegmentSchema),
-  targetingMethods: z.array(targetingMethodConfigSchema),
-  audienceReachability: z.object({
-    totalAddressableAudience: z.string(),
-    reachableAudience: z.string(),
-    platformBreakdown: z.array(z.object({
-      platform: z.string(),
-      estimatedReach: z.string(),
-      cpmEstimate: z.string(),
-    })),
-  }),
-  exclusions: z.object({
-    audiences: z.array(z.string()),
-    reasons: z.array(z.string()),
-  }),
-}).passthrough();
-
-// =============================================================================
-// Section 5: Platform and Channel Strategy
+// Platform Strategy
 // =============================================================================
 
 export const platformStrategySchema = z.object({
-  platform: platformNameSchema,
-  role: platformRoleSchema,
-  whySelected: z.array(z.string()),
-  expectedContribution: z.array(z.object({
-    metric: z.string(),
-    contribution: z.string(),
-    percentage: z.number(),
-  })),
-  tactics: z.array(z.string()),
-  campaignTypes: z.array(z.string()),
-  adFormats: z.array(z.string()),
-  placements: z.array(z.string()),
-  bestPractices: z.array(z.string()),
-}).passthrough();
+  platform: z.string()
+    .describe('Advertising platform name (e.g., "Meta", "LinkedIn", "Google Ads", "YouTube", "TikTok").'),
 
-export const platformAndChannelStrategySchema = z.object({
-  platforms: z.array(platformStrategySchema),
-  primaryPlatform: z.object({
-    platform: platformNameSchema,
-    rationale: z.string(),
-  }),
-  platformSynergy: z.string(),
-  crossPlatformConsiderations: z.array(z.string()),
-  priorityOrder: z.array(platformNameSchema),
-}).passthrough();
+  rationale: z.string()
+    .describe('Why this platform is recommended for this specific client. Reference ICP data, competitor activity, and offer fit.'),
 
-// =============================================================================
-// Section 6: Funnel Strategy
-// =============================================================================
+  budgetPercentage: z.number().min(0).max(100)
+    .describe('Percentage of total budget allocated to this platform (0-100). All platforms must sum to 100.'),
 
-export const funnelStageConfigSchema = z.object({
-  stage: funnelStageSchema,
-  label: z.string(),
-  objective: z.string(),
-  contentTypes: z.array(z.string()),
-  channels: z.array(z.string()),
-  keyMessages: z.array(z.string()),
-  cta: z.string(),
-  expectedConversionRate: z.string(),
-}).passthrough();
+  monthlySpend: z.number()
+    .describe('Monthly dollar amount for this platform. Must equal totalBudget * budgetPercentage / 100.'),
 
-export const landingPageRequirementsSchema = z.object({
-  pageType: z.string(),
-  requiredElements: z.array(z.string()),
-  headlineRecommendations: z.array(z.string()),
-  aboveFold: z.array(z.string()),
-  socialProofNeeded: z.array(z.string()),
-  formFields: z.array(z.string()).optional(),
-  pageSpeedTarget: z.string(),
-  mobileOptimization: z.array(z.string()),
-}).passthrough();
+  campaignTypes: z.array(z.string())
+    .min(1).max(5)
+    .describe('Campaign types to run (e.g., "Lead Gen", "Retargeting", "Brand Awareness", "Conversion").'),
 
-export const leadQualificationSchema = z.object({
-  scoringCriteria: z.array(z.object({
-    criterion: z.string(),
-    points: z.number(),
-    rationale: z.string(),
-  })),
-  mqlThreshold: z.number(),
-  sqlThreshold: z.number(),
-  qualificationQuestions: z.array(z.string()),
-  disqualifiers: z.array(z.string()),
-}).passthrough();
+  targetingApproach: z.string()
+    .describe('How to target the ICP on this platform. Be specific about audiences, interests, job titles, etc.'),
 
-export const retargetingPathSchema = z.object({
-  window: z.enum(["7_day", "14_day", "30_day", "60_day", "90_day", "180_day"]),
-  label: z.string(),
-  audienceDefinition: z.string(),
-  messageFocus: z.string(),
-  offer: z.string().optional(),
-  creativeApproach: z.string(),
-  frequencyCap: z.string(),
-  expectedEngagement: z.string(),
-}).passthrough();
+  expectedCplRange: z.object({
+    min: z.number().describe('Low end of expected CPL range in USD'),
+    max: z.number().describe('High end of expected CPL range in USD'),
+  }).describe('Expected cost-per-lead range based on industry benchmarks and platform.'),
 
-export const funnelStrategySchema = z.object({
-  funnelFlow: z.string(),
-  stages: z.array(funnelStageConfigSchema),
-  conversionPath: z.array(z.object({
-    step: z.number(),
-    action: z.string(),
-    touchpoint: z.string(),
-    expectedDropoff: z.string(),
-  })),
-  landingPageRequirements: landingPageRequirementsSchema,
-  leadQualification: leadQualificationSchema,
-  retargetingPaths: z.array(retargetingPathSchema),
-  attributionModel: z.string(),
-}).passthrough();
+  priority: z.enum(['primary', 'secondary', 'testing'])
+    .describe('"primary" = main spend allocation. "secondary" = meaningful but smaller budget. "testing" = experimental.'),
+}).describe('Per-platform advertising strategy with budget allocation');
 
 // =============================================================================
-// Section 7: Creative Strategy
+// Budget Allocation
 // =============================================================================
 
-export const creativeAngleSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  targetEmotion: z.string(),
-  keyMessage: z.string(),
-  exampleHooks: z.array(z.string()),
-  bestPlatforms: z.array(platformNameSchema),
-  funnelStage: funnelStageSchema,
-  priority: z.enum(["primary", "secondary", "tertiary"]),
-}).passthrough();
+export const budgetAllocationSchema = z.object({
+  totalMonthlyBudget: z.number()
+    .describe('Total monthly ad spend in USD. Must match the client budget from onboarding.'),
 
-export const hookPatternSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  examples: z.array(z.string()),
-  whyItWorks: z.string(),
-  bestFormats: z.array(z.string()),
-}).passthrough();
+  platformBreakdown: z.array(z.object({
+    platform: z.string().describe('Platform name'),
+    monthlyBudget: z.number().describe('Monthly spend for this platform in USD'),
+    percentage: z.number().describe('Percentage of total budget (0-100)'),
+  })).min(1).max(5)
+    .describe('Budget breakdown by platform. Must sum to totalMonthlyBudget.'),
 
-export const creativeFormatSchema = z.object({
-  format: z.string(),
-  platform: platformNameSchema,
-  specs: z.object({
-    dimensions: z.string().optional(),
-    duration: z.string().optional(),
-    fileType: z.string().optional(),
-    maxFileSize: z.string().optional(),
-  }),
-  bestPractices: z.array(z.string()),
-  priority: z.enum(["must_have", "should_have", "nice_to_have"]),
-  quantityNeeded: z.number(),
-}).passthrough();
+  dailyCeiling: z.number()
+    .describe('Maximum daily spend across all platforms in USD.'),
 
-export const creativeTestingPlanSchema = z.object({
-  methodology: z.string(),
-  variablesToTest: z.array(z.object({
-    variable: z.string(),
-    variations: z.array(z.string()),
-    priority: z.enum(["high", "medium", "low"]),
-  })),
-  timeline: z.string(),
-  successCriteria: z.string(),
-  significanceThreshold: z.string(),
-  budgetAllocation: z.string(),
-}).passthrough();
-
-export const creativeStrategySchema = z.object({
-  primaryAngles: z.array(creativeAngleSchema),
-  hookPatterns: z.array(hookPatternSchema),
-  formatsNeeded: z.array(creativeFormatSchema),
-  testingPlan: creativeTestingPlanSchema,
-  expectedWinners: z.array(z.object({
-    angle: z.string(),
-    reasoning: z.string(),
-    confidenceLevel: z.enum(["high", "medium", "low"]),
-  })),
-  refreshCadence: z.string(),
-  brandGuidelines: z.object({
-    mustInclude: z.array(z.string()),
-    mustAvoid: z.array(z.string()),
-    toneOfVoice: z.string(),
-  }),
-}).passthrough();
+  rampUpStrategy: z.string()
+    .describe('How to ramp up spend over the first 30 days. Be specific about daily budget progression.'),
+}).describe('Overall budget allocation and spending strategy');
 
 // =============================================================================
-// Section 8: Campaign Structure
+// Campaign Phases
 // =============================================================================
 
-export const campaignStructureSegmentSchema = z.object({
-  temperature: audienceTemperatureSchema,
-  name: z.string(),
-  audienceDefinition: z.string(),
-  objective: z.string(),
-  budgetAllocation: z.number(),
-  bidStrategy: z.string(),
-  targeting: z.object({
-    includes: z.array(z.string()),
-    excludes: z.array(z.string()),
-  }),
-  expectedCpm: z.string(),
-  expectedResults: z.string(),
-}).passthrough();
+export const campaignPhaseSchema = z.object({
+  name: z.string()
+    .describe('Phase name (e.g., "Foundation & Testing", "Scale Winners", "Optimize & Expand").'),
 
-export const retargetingSegmentSchema = z.object({
-  name: z.string(),
-  source: z.string(),
-  timeWindow: z.string(),
-  message: z.string(),
-  creativeApproach: z.string(),
-  frequencyCap: z.string(),
-  priority: z.number(),
-}).passthrough();
+  phase: z.number().min(1).max(6)
+    .describe('Phase number (1-based sequential).'),
 
-export const scalingStructureSchema = z.object({
-  scalingTriggers: z.array(z.object({
-    metric: z.string(),
-    threshold: z.string(),
-    action: z.string(),
-  })),
-  approach: z.string(),
-  budgetIncrements: z.string(),
-  monitoringFrequency: z.string(),
-  rollbackCriteria: z.array(z.string()),
-}).passthrough();
+  durationWeeks: z.number().min(1).max(12)
+    .describe('Duration of this phase in weeks.'),
 
-export const namingConventionsSchema = z.object({
-  campaignPattern: z.string(),
-  campaignExample: z.string(),
-  adSetPattern: z.string(),
-  adSetExample: z.string(),
-  adPattern: z.string(),
-  adExample: z.string(),
-  utmStructure: z.object({
-    source: z.string(),
-    medium: z.string(),
-    campaign: z.string(),
-    content: z.string(),
-    term: z.string().optional(),
-  }),
-}).passthrough();
+  objective: z.string()
+    .describe('Primary objective for this phase. Be specific about what success looks like.'),
 
-export const campaignStructureSchema = z.object({
-  coldStructure: z.array(campaignStructureSegmentSchema),
-  warmStructure: z.array(campaignStructureSegmentSchema),
-  hotStructure: z.array(campaignStructureSegmentSchema),
-  retargetingSegments: z.array(retargetingSegmentSchema),
-  scalingStructure: scalingStructureSchema,
-  namingConventions: namingConventionsSchema,
-  accountStructureOverview: z.string(),
-}).passthrough();
+  activities: z.array(z.string())
+    .min(2).max(8)
+    .describe('Key activities during this phase. Concrete actions the media buyer should take.'),
+
+  successCriteria: z.array(z.string())
+    .min(1).max(5)
+    .describe('Measurable criteria for moving to the next phase.'),
+
+  estimatedBudget: z.number()
+    .describe('Total estimated budget for this entire phase in USD.'),
+}).describe('Campaign phase with objectives, activities, and success criteria');
 
 // =============================================================================
-// Section 9: KPIs and Performance Model
+// KPI Targets
 // =============================================================================
 
-export const kpiDefinitionSchema = z.object({
-  metric: z.string(),
-  target: z.string(),
-  unit: z.string(),
-  benchmark: z.string(),
-  measurementMethod: z.string(),
-  reportingFrequency: z.enum(["daily", "weekly", "monthly"]),
-}).passthrough();
+export const kpiTargetSchema = z.object({
+  metric: z.string()
+    .describe('KPI metric name (e.g., "Cost Per Lead", "SQL Rate", "ROAS", "Demo Booking Rate").'),
 
-export const cacModelSchema = z.object({
-  targetCac: z.number(),
-  calculation: z.array(z.object({
-    component: z.string(),
-    value: z.string(),
-    percentage: z.number(),
-  })),
-  byChannel: z.array(z.object({
-    channel: z.string(),
-    estimatedCac: z.number(),
-    rationale: z.string(),
-  })),
-  optimizationLevers: z.array(z.string()),
-}).passthrough();
+  target: z.string()
+    .describe('Target value with units (e.g., "<$75", "15%", "3.5x", "80/month").'),
 
-export const breakEvenAnalysisSchema = z.object({
-  breakEvenPoint: z.object({
-    customers: z.number(),
-    revenue: z.number(),
-    timeframe: z.string(),
-  }),
-  revenuePerCustomer: z.number(),
-  contributionMargin: z.string(),
-  timeToBreakEven: z.string(),
-  assumptions: z.array(z.string()),
-  sensitivityAnalysis: z.array(z.object({
-    variable: z.string(),
-    impact: z.string(),
-  })),
-}).passthrough();
+  timeframe: z.string()
+    .describe('When this target should be achieved (e.g., "Month 2", "By end of Phase 2", "Ongoing").'),
 
-export const metricsScheduleSchema = z.object({
-  daily: z.array(z.object({
-    metric: z.string(),
-    threshold: z.string(),
-    action: z.string(),
-  })),
-  weekly: z.array(z.object({
-    metric: z.string(),
-    threshold: z.string(),
-    action: z.string(),
-  })),
-  monthly: z.array(z.object({
-    metric: z.string(),
-    target: z.string(),
-    reviewProcess: z.string(),
-  })),
-}).passthrough();
-
-export const kpisAndPerformanceModelSchema = z.object({
-  primaryKpis: z.array(kpiDefinitionSchema),
-  secondaryKpis: z.array(kpiDefinitionSchema),
-  benchmarkExpectations: z.array(z.object({
-    metric: z.string(),
-    pessimistic: z.string(),
-    realistic: z.string(),
-    optimistic: z.string(),
-  })),
-  cacModel: cacModelSchema,
-  breakEvenMath: breakEvenAnalysisSchema,
-  metricsSchedule: metricsScheduleSchema,
-  northStarMetric: z.object({
-    metric: z.string(),
-    target: z.string(),
-    rationale: z.string(),
-  }),
-}).passthrough();
+  measurementMethod: z.string()
+    .describe('How to measure this KPI. Be specific about tools and attribution (e.g., "HubSpot CRM pipeline tracking").'),
+}).describe('KPI target with measurement methodology');
 
 // =============================================================================
-// Section 10: Budget Allocation and Scaling Roadmap
+// Complete Media Plan Schema (excludes metadata — populated post-generation)
 // =============================================================================
 
-export const initialBudgetSchema = z.object({
-  totalMonthly: z.number(),
-  daily: z.number(),
-  currency: z.string(),
-  testingPhase: z.object({
-    duration: z.string(),
-    budget: z.number(),
-    objective: z.string(),
-  }),
-  scalingPhase: z.object({
-    budget: z.number(),
-    objective: z.string(),
-  }),
-}).passthrough();
+export const mediaPlanSchema = z.object({
+  executiveSummary: executiveSummarySchema
+    .describe('High-level strategy overview and priorities'),
 
-export const platformBudgetAllocationSchema = z.object({
-  platform: platformNameSchema,
-  amount: z.number(),
-  percentage: z.number(),
-  rationale: z.string(),
-  expectedReturn: z.string(),
-  minimumViableSpend: z.number(),
-}).passthrough();
+  platformStrategy: z.array(platformStrategySchema)
+    .min(1).max(5)
+    .describe('Per-platform strategy. Include 2-4 platforms ordered by priority. Primary platform first.'),
 
-export const scalingRuleSchema = z.object({
-  name: z.string(),
-  trigger: z.string(),
-  action: z.string(),
-  budgetChange: z.string(),
-  validationPeriod: z.string(),
-  riskLevel: z.enum(["low", "medium", "high"]),
-}).passthrough();
+  budgetAllocation: budgetAllocationSchema
+    .describe('Budget allocation across platforms with ramp-up strategy'),
 
-export const efficiencyCurveSchema = z.object({
-  spendLevel: z.string(),
-  expectedEfficiency: z.string(),
-  marginalCpa: z.string(),
-  notes: z.string(),
-}).passthrough();
+  campaignPhases: z.array(campaignPhaseSchema)
+    .min(2).max(6)
+    .describe('3-4 phased campaign rollout. Start with testing/foundation, then scale, then optimize.'),
 
-export const budgetAllocationAndScalingSchema = z.object({
-  initialBudget: initialBudgetSchema,
-  platformAllocation: z.array(platformBudgetAllocationSchema),
-  funnelAllocation: z.array(z.object({
-    stage: funnelStageSchema,
-    percentage: z.number(),
-    amount: z.number(),
-    rationale: z.string(),
-  })),
-  scalingRules: z.array(scalingRuleSchema),
-  efficiencyCurves: z.array(efficiencyCurveSchema),
-  reallocationTriggers: z.array(z.object({
-    trigger: z.string(),
-    from: z.string(),
-    to: z.string(),
-    condition: z.string(),
-  })),
-  monthlyRoadmap: z.array(z.object({
-    month: z.number(),
-    budget: z.number(),
-    focus: z.string(),
-    expectedResults: z.string(),
-  })),
-}).passthrough();
-
-// =============================================================================
-// Section 11: Risks and Mitigation
-// =============================================================================
-
-export const riskSchema = z.object({
-  id: z.string(),
-  category: riskCategorySchema,
-  description: z.string(),
-  severity: riskSeveritySchema,
-  likelihood: riskLikelihoodSchema,
-  impact: z.string(),
-  warningSignals: z.array(z.string()),
-}).passthrough();
-
-export const mitigationStepSchema = z.object({
-  riskId: z.string(),
-  action: z.string(),
-  timing: z.enum(["preventive", "reactive", "contingent"]),
-  owner: z.string(),
-  resourcesNeeded: z.array(z.string()),
-  successCriteria: z.string(),
-}).passthrough();
-
-export const dependencySchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  type: z.enum(["internal", "external", "technical", "resource"]),
-  status: z.enum(["met", "in_progress", "at_risk", "blocked"]),
-  mitigation: z.string(),
-  impactIfNotMet: z.string(),
-}).passthrough();
-
-export const risksAndMitigationSchema = z.object({
-  topRisks: z.array(riskSchema),
-  mitigationSteps: z.array(mitigationStepSchema),
-  dependencies: z.array(dependencySchema),
-  contingencyPlans: z.array(z.object({
-    scenario: z.string(),
-    response: z.string(),
-    trigger: z.string(),
-  })),
-  riskMonitoring: z.object({
-    frequency: z.string(),
-    metrics: z.array(z.string()),
-    escalationPath: z.string(),
-  }),
-}).passthrough();
-
-// =============================================================================
-// Metadata Schema
-// =============================================================================
-
-export const mediaPlanMetadataSchema = z.object({
-  generatedAt: z.string(),
-  version: z.string(),
-  processingTime: z.number(),
-  totalCost: z.number(),
-  inputHash: z.string().optional(),
-  modelsUsed: z.array(z.string()),
-  overallConfidence: z.number(),
-  validUntil: z.string().optional(),
-}).passthrough();
-
-// =============================================================================
-// Complete Media Plan Output Schema
-// =============================================================================
-
-export const mediaPlanOutputSchema = z.object({
-  executiveSummary: executiveSummarySchema,
-  campaignObjectiveSelection: campaignObjectiveSelectionSchema,
-  keyInsightsFromResearch: keyInsightsFromResearchSchema,
-  icpAndTargetingStrategy: icpAndTargetingStrategySchema,
-  platformAndChannelStrategy: platformAndChannelStrategySchema,
-  funnelStrategy: funnelStrategySchema,
-  creativeStrategy: creativeStrategySchema,
-  campaignStructure: campaignStructureSchema,
-  kpisAndPerformanceModel: kpisAndPerformanceModelSchema,
-  budgetAllocationAndScaling: budgetAllocationAndScalingSchema,
-  risksAndMitigation: risksAndMitigationSchema,
-  metadata: mediaPlanMetadataSchema,
-}).passthrough();
-
-// =============================================================================
-// Progress Schema
-// =============================================================================
-
-export const mediaPlanProgressSchema = z.object({
-  currentSection: z.string().nullable(),
-  completedSections: z.array(z.string()),
-  partialOutput: z.record(z.string(), z.any()),
-  progressPercentage: z.number(),
-  progressMessage: z.string(),
-  error: z.string().optional(),
-}).passthrough();
-
-// =============================================================================
-// 4-Stage Pipeline Schemas (Extract → Research → Logic → Synthesize)
-// =============================================================================
-
-export const extractedDataSchema = z.object({
-  industry: z.object({
-    name: z.string(),
-    vertical: z.string(),
-    subNiche: z.string(),
-  }),
-  audience: z.object({
-    demographics: z.string(),
-    psychographics: z.string(),
-    painPoints: z.array(z.string()),
-  }),
-  icp: z.object({
-    description: z.string(),
-    characteristics: z.array(z.string()),
-    buyingBehavior: z.string(),
-  }),
-  budget: z.object({
-    total: z.number(),
-    currency: z.string(),
-  }),
-  offer: z.object({
-    price: z.number(),
-    type: z.enum(["low_ticket", "mid_ticket", "high_ticket"]),
-  }),
-  salesCycle: z.object({
-    length: z.string(),
-    daysEstimate: z.number(),
-    complexity: z.enum(["simple", "moderate", "complex"]),
-  }),
-}).passthrough();
-
-const benchmarkRangeSchema = z.object({
-  low: z.number(),
-  high: z.number(),
-  average: z.number(),
-});
-
-export const researchDataSchema = z.object({
-  marketOverview: z.object({
-    size: z.string(),
-    trends: z.array(z.string()),
-    growth: z.string(),
-  }),
-  competitors: z.array(z.object({
-    name: z.string(),
-    positioning: z.string(),
-    channels: z.array(z.string()),
-  })),
-  benchmarks: z.object({
-    cpc: benchmarkRangeSchema,
-    cpm: benchmarkRangeSchema,
-    ctr: benchmarkRangeSchema,
-    conversionRate: benchmarkRangeSchema,
-  }),
-  audienceInsights: z.object({
-    platforms: z.array(z.string()),
-    contentPreferences: z.array(z.string()),
-    peakEngagementTimes: z.array(z.string()),
-  }),
-  sources: z.array(z.object({
-    title: z.string(),
-    url: z.string(),
-  })),
-}).passthrough();
-
-export const logicDataSchema = z.object({
-  platforms: z.array(z.object({
-    name: z.string(),
-    priority: z.enum(["primary", "secondary"]),
-    reason: z.string(),
-    budgetPercentage: z.number(),
-  })),
-  budgetAllocation: z.array(z.object({
-    platform: z.string(),
-    amount: z.number(),
-    percentage: z.number(),
-  })),
-  funnelType: z.object({
-    name: z.string(),
-    stages: z.array(z.string()),
-    reason: z.string(),
-  }),
-  kpiTargets: z.array(z.object({
-    metric: z.string(),
-    target: z.number(),
-    unit: z.string(),
-    rationale: z.string(),
-  })),
-}).passthrough();
-
-export const mediaPlanBlueprintSchema = z.object({
-  executiveSummary: z.string(),
-  platformStrategy: z.array(z.object({
-    platform: z.string(),
-    rationale: z.string(),
-    tactics: z.array(z.string()),
-    budget: z.number(),
-  })),
-  budgetBreakdown: z.array(z.object({
-    category: z.string(),
-    amount: z.number(),
-    percentage: z.number(),
-    notes: z.string(),
-  })),
-  funnelStrategy: z.object({
-    type: z.string(),
-    stages: z.array(z.object({
-      name: z.string(),
-      objective: z.string(),
-      channels: z.array(z.string()),
-      content: z.array(z.string()),
-    })),
-  }),
-  adAngles: z.array(z.object({
-    angle: z.string(),
-    hook: z.string(),
-    targetEmotion: z.string(),
-    example: z.string(),
-  })),
-  kpiTargets: z.array(z.object({
-    metric: z.string(),
-    target: z.string(),
-    benchmark: z.string(),
-  })),
-  sources: z.array(z.object({
-    title: z.string(),
-    url: z.string(),
-  })),
-  metadata: z.object({
-    generatedAt: z.string(),
-    totalCost: z.number(),
-    processingTime: z.number(),
-  }),
-}).passthrough();
-
-// =============================================================================
-// Exported Schema Names Array
-// =============================================================================
-
-export const MEDIA_PLAN_SECTION_SCHEMAS = {
-  executiveSummary: executiveSummarySchema,
-  campaignObjectiveSelection: campaignObjectiveSelectionSchema,
-  keyInsightsFromResearch: keyInsightsFromResearchSchema,
-  icpAndTargetingStrategy: icpAndTargetingStrategySchema,
-  platformAndChannelStrategy: platformAndChannelStrategySchema,
-  funnelStrategy: funnelStrategySchema,
-  creativeStrategy: creativeStrategySchema,
-  campaignStructure: campaignStructureSchema,
-  kpisAndPerformanceModel: kpisAndPerformanceModelSchema,
-  budgetAllocationAndScaling: budgetAllocationAndScalingSchema,
-  risksAndMitigation: risksAndMitigationSchema,
-} as const;
+  kpiTargets: z.array(kpiTargetSchema)
+    .min(3).max(10)
+    .describe('5-8 KPI targets covering cost efficiency, volume, quality, and ROI metrics.'),
+}).describe('Complete media plan for paid advertising campaign');
