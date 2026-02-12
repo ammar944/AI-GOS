@@ -602,6 +602,8 @@ export interface KeywordIntelligence {
     totalKeywordsAnalyzed: number;
     spyfuCost: number;
     collectedAt: string;
+    /** Number of keywords removed by B2B volume ceiling (>50K/mo) */
+    volumeCappedKeywords?: number;
   };
 
   /** SEO Audit data (optional - requires client URL) */

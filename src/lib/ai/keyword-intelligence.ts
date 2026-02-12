@@ -205,6 +205,17 @@ function generateRelevanceTerms(context: KeywordBusinessContext): Set<string> {
 // Maximum word count for a valid keyword (rejects full sentences / homework questions)
 const MAX_KEYWORD_WORDS = 6;
 
+// Consumer-navigational detection — keywords with massive volume but near-zero
+// CPC are brand-navigational queries (e.g., "chick fil a menu" at 203K/mo, $0.15 CPC).
+// Unlike a hard volume cap, this preserves legitimate B2B head terms like
+// "email marketing" (60K/mo, $5+ CPC) that have real commercial intent.
+const NAVIGATIONAL_VOLUME_FLOOR = 50_000;
+const NAVIGATIONAL_CPC_CEILING = 1.00;
+
+function isConsumerNavigational(kw: SpyFuKeywordResult): boolean {
+  return kw.searchVolume > NAVIGATIONAL_VOLUME_FLOOR && kw.cpc < NAVIGATIONAL_CPC_CEILING;
+}
+
 // Default noise terms — consumer/lifestyle terms unlikely relevant in B2B contexts.
 // Terms that appear in the business context (industry/productDescription) are automatically
 // excluded at runtime, so e.g. an Instagram analytics tool won't block "instagram".
@@ -535,10 +546,18 @@ export async function enrichKeywordIntelligence(
 
   const filterConfig = businessContext ? buildRelevanceFilter(businessContext) : null;
 
-  // Filter function — passes everything through if no business context provided
+  // Filter function — navigational detection runs unconditionally, relevance filter only with business context
+  let navigationalFilteredCount = 0;
   const filterRelevant = (keywords: SpyFuKeywordResult[]): SpyFuKeywordResult[] => {
-    if (!filterConfig) return keywords;
-    return keywords.filter(kw => isKeywordRelevant(kw.keyword, filterConfig));
+    const navFiltered = keywords.filter(kw => {
+      if (isConsumerNavigational(kw)) {
+        navigationalFilteredCount++;
+        return false;
+      }
+      return true;
+    });
+    if (!filterConfig) return navFiltered;
+    return navFiltered.filter(kw => isKeywordRelevant(kw.keyword, filterConfig));
   };
 
   // Apply relevance filtering to all keyword gap lists
@@ -554,7 +573,7 @@ export async function enrichKeywordIntelligence(
   const clientStrengthKeywords = [
     ...(organicGaps?.strengths ?? []),
     ...(paidGaps?.strengths ?? []),
-  ];
+  ].filter(kw => !isConsumerNavigational(kw));
 
   // Convert competitor top keywords to opportunities (filtered for relevance)
   const competitorTopKeywordEntries = competitorTopKeywords.map(c => ({
@@ -595,11 +614,19 @@ export async function enrichKeywordIntelligence(
       .flatMap(r => r.value);
   }
 
-  // Filter related keywords with STRICT relevance (2+ term match or core term bypass)
+  // Filter related keywords with navigational detection + STRICT relevance (2+ term match or core term bypass)
   // Related expansions are inherently noisier than gap keywords
-  const filteredRelated = filterConfig
-    ? relatedKeywords.filter(kw => isKeywordRelevantStrict(kw.keyword, filterConfig))
-    : relatedKeywords;
+  const filteredRelated = relatedKeywords.filter(kw => {
+    if (isConsumerNavigational(kw)) {
+      navigationalFilteredCount++;
+      return false;
+    }
+    return filterConfig ? isKeywordRelevantStrict(kw.keyword, filterConfig) : true;
+  });
+
+  if (navigationalFilteredCount > 0) {
+    onProgress?.(`Navigational filter: ${navigationalFilteredCount} high-volume/low-CPC keywords removed (likely consumer brand queries)`);
+  }
 
   // =========================================================================
   // Step 4: Bulk enrich top opportunities with full metrics
@@ -746,6 +773,7 @@ export async function enrichKeywordIntelligence(
       totalKeywordsAnalyzed: allKeywords.length,
       spyfuCost: estimatedCost,
       collectedAt: new Date().toISOString(),
+      ...(navigationalFilteredCount > 0 && { volumeCappedKeywords: navigationalFilteredCount }),
     },
   };
 
