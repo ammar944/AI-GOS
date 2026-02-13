@@ -3,6 +3,7 @@
 
 import type { StrategicBlueprintOutput } from '@/lib/strategic-blueprint/output-types';
 import type { OnboardingFormData } from '@/lib/onboarding/types';
+import type { AdFormat } from '@/lib/ad-library/types';
 
 export interface MediaPlanContext {
   contextString: string;
@@ -143,16 +144,57 @@ function buildOfferSection(blueprint: StrategicBlueprintOutput): string {
 }
 
 function buildCompetitorSection(blueprint: StrategicBlueprintOutput): string {
-  const { competitors, gapsAndOpportunities } = blueprint.competitorAnalysis;
+  const { competitors, creativeLibrary, funnelBreakdown, gapsAndOpportunities } = blueprint.competitorAnalysis;
   const lines: string[] = ['## Competitor Landscape'];
 
-  // Per-competitor summary (name, positioning, platforms, strengths/weaknesses only)
+  // Per-competitor summary (name, positioning, platforms, strengths/weaknesses + creative data)
   for (const comp of competitors.slice(0, 5)) {
     lines.push(`### ${comp.name}`);
     lines.push(`- Positioning: ${comp.positioning}`);
     lines.push(`- Ad Platforms: ${comp.adPlatforms.join(', ')}`);
     lines.push(`- Strengths: ${comp.strengths.slice(0, 3).join('; ')}`);
     lines.push(`- Weaknesses: ${comp.weaknesses.slice(0, 3).join('; ')}`);
+
+    // Ad creative formats in use
+    if (comp.adCreatives && comp.adCreatives.length > 0) {
+      const formats = extractCreativeFormats(comp.adCreatives);
+      if (formats.length > 0) {
+        lines.push(`- Ad Formats Used: ${formats.join(', ')}`);
+      }
+      const hooks = extractTopHooks(comp.adCreatives);
+      if (hooks.length > 0) {
+        lines.push(`- Top Hooks: ${hooks.join('; ')}`);
+      }
+    }
+
+    // Messaging themes
+    if (comp.adMessagingThemes && comp.adMessagingThemes.length > 0) {
+      lines.push(`- Messaging Themes: ${comp.adMessagingThemes.slice(0, 3).join('; ')}`);
+    }
+  }
+
+  // Creative library data (aggregate across competitors)
+  const formatFlags = creativeLibrary.creativeFormats;
+  const activeFormats = Object.entries(formatFlags)
+    .filter(([, active]) => active)
+    .map(([format]) => format);
+  if (activeFormats.length > 0) {
+    lines.push('### Competitor Creative Formats');
+    lines.push(`- Formats in Use: ${activeFormats.join(', ')}`);
+  }
+
+  // Funnel breakdown insights
+  if (funnelBreakdown.headlineStructure.length > 0 || funnelBreakdown.ctaHierarchy.length > 0) {
+    lines.push('### Competitor Funnel Patterns');
+    if (funnelBreakdown.headlineStructure.length > 0) {
+      lines.push(`- Headline Patterns: ${funnelBreakdown.headlineStructure.slice(0, 3).join('; ')}`);
+    }
+    if (funnelBreakdown.ctaHierarchy.length > 0) {
+      lines.push(`- CTA Hierarchy: ${funnelBreakdown.ctaHierarchy.slice(0, 3).join('; ')}`);
+    }
+    if (funnelBreakdown.socialProofPatterns.length > 0) {
+      lines.push(`- Social Proof Patterns: ${funnelBreakdown.socialProofPatterns.slice(0, 3).join('; ')}`);
+    }
   }
 
   // Market gaps
@@ -161,6 +203,33 @@ function buildCompetitorSection(blueprint: StrategicBlueprintOutput): string {
   lines.push(`- Creative Opportunities: ${gapsAndOpportunities.creativeOpportunities.slice(0, 3).join('; ')}`);
 
   return lines.join('\n');
+}
+
+// =============================================================================
+// Helper Functions for Creative Data Extraction
+// =============================================================================
+
+/** Extract unique ad format types from creative array */
+function extractCreativeFormats(adCreatives: { format: AdFormat }[]): string[] {
+  const formats = new Set<string>();
+  for (const ad of adCreatives) {
+    if (ad.format) formats.add(ad.format);
+  }
+  return Array.from(formats);
+}
+
+/** Extract top hooks/headlines from creatives (deduplicated, max 3) */
+function extractTopHooks(adCreatives: { headline?: string }[]): string[] {
+  const hooks: string[] = [];
+  const seen = new Set<string>();
+  for (const ad of adCreatives) {
+    if (ad.headline && !seen.has(ad.headline.toLowerCase())) {
+      seen.add(ad.headline.toLowerCase());
+      hooks.push(ad.headline);
+      if (hooks.length >= 3) break;
+    }
+  }
+  return hooks;
 }
 
 function buildSynthesisSection(blueprint: StrategicBlueprintOutput): string {

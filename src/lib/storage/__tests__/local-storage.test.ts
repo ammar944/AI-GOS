@@ -278,6 +278,9 @@ function createMockMediaPlan(): MediaPlanOutput {
         targetingApproach: "Lookalike audiences based on CRM data",
         expectedCplRange: { min: 35, max: 60 },
         priority: "primary",
+        adFormats: ["Single Image", "Carousel"],
+        placements: ["Facebook News Feed", "Instagram Stories"],
+        synergiesWithOtherPlatforms: "Retargets LinkedIn traffic",
       },
       {
         platform: "LinkedIn",
@@ -288,6 +291,9 @@ function createMockMediaPlan(): MediaPlanOutput {
         targetingApproach: "Job title targeting",
         expectedCplRange: { min: 50, max: 90 },
         priority: "secondary",
+        adFormats: ["Sponsored Content"],
+        placements: ["LinkedIn Feed"],
+        synergiesWithOtherPlatforms: "Feeds Meta retargeting pool",
       },
     ],
     budgetAllocation: {
@@ -298,6 +304,16 @@ function createMockMediaPlan(): MediaPlanOutput {
       ],
       dailyCeiling: 200,
       rampUpStrategy: "Start at 50% budget for week 1, scale to 100% by week 3",
+      funnelSplit: [
+        { stage: "cold", percentage: 60, rationale: "New brand" },
+        { stage: "warm", percentage: 25, rationale: "Retargeting" },
+        { stage: "hot", percentage: 15, rationale: "Conversion" },
+      ],
+      monthlyRoadmap: [
+        { month: 1, budget: 3000, focus: "Testing", scalingTriggers: ["CPL <$60"] },
+        { month: 2, budget: 4000, focus: "Scale", scalingTriggers: ["ROAS >2x"] },
+        { month: 3, budget: 5000, focus: "Optimize", scalingTriggers: ["SQL rate >12%"] },
+      ],
     },
     campaignPhases: [
       {
@@ -325,23 +341,81 @@ function createMockMediaPlan(): MediaPlanOutput {
         target: "<$50",
         timeframe: "Month 2",
         measurementMethod: "Platform + CRM tracking",
+        type: "primary",
+        benchmark: "Industry avg $85-120",
       },
       {
         metric: "Monthly Leads",
         target: "100",
         timeframe: "Month 3",
         measurementMethod: "CRM pipeline",
+        type: "primary",
+        benchmark: "Typical for $5K/mo B2B spend",
       },
       {
         metric: "SQL Rate",
         target: "15%",
         timeframe: "Ongoing",
         measurementMethod: "CRM qualification tracking",
+        type: "secondary",
+        benchmark: "B2B SaaS avg 10-20%",
       },
     ],
+    icpTargeting: {
+      segments: [
+        { name: "VP Marketing SaaS", description: "Mid-market VP Marketing", targetingParameters: ["Job Title: VP Marketing"], estimatedReach: "120K-250K on Meta", funnelPosition: "cold" },
+        { name: "Website Retarget", description: "Past visitors", targetingParameters: ["Website Visitors 30d"], estimatedReach: "1K-5K", funnelPosition: "warm" },
+      ],
+      platformTargeting: [
+        { platform: "Meta", interests: ["SaaS"], jobTitles: ["VP Marketing"], customAudiences: ["Website visitors"], lookalikeAudiences: ["1% Lookalike"], exclusions: ["Existing customers"] },
+      ],
+      demographics: "25-55, US, B2B decision makers",
+      psychographics: "ROI-focused, tech-savvy",
+      geographicTargeting: "US only",
+      reachabilityAssessment: "High reachability via Meta and LinkedIn",
+    },
+    campaignStructure: {
+      campaigns: [
+        { name: "Meta_Cold_VPMarketing_LeadGen", objective: "Lead Generation", platform: "Meta", funnelStage: "cold", dailyBudget: 100, adSets: [{ name: "Interest Targeting", targeting: "SaaS interests", adsToTest: 4, bidStrategy: "Lowest Cost" }] },
+        { name: "Meta_Warm_Retarget", objective: "Conversions", platform: "Meta", funnelStage: "warm", dailyBudget: 50, adSets: [{ name: "Website Retarget 30d", targeting: "Website visitors", adsToTest: 3, bidStrategy: "Cost Cap $50" }] },
+      ],
+      namingConvention: { campaignPattern: "[Platform]_[Funnel]_[Audience]", adSetPattern: "[Audience]_[Type]", adPattern: "[Angle]_[Format]_[Version]", utmStructure: { source: "facebook", medium: "paid_social", campaign: "{{campaign.name}}", content: "{{ad.name}}" } },
+      retargetingSegments: [{ name: "Website 30d", source: "Website pixel", lookbackDays: 30, messagingApproach: "Social proof + urgency" }],
+      negativeKeywords: [],
+    },
+    creativeStrategy: {
+      angles: [
+        { name: "Pain Agitation", description: "Highlight ICP pain points", exampleHook: "87% of VPs waste $50K/year", bestForFunnelStages: ["cold"], platforms: ["Meta"] },
+        { name: "Social Proof", description: "Leverage customer results", exampleHook: "How Company X cut CPL by 40%", bestForFunnelStages: ["cold", "warm"], platforms: ["Meta", "LinkedIn"] },
+        { name: "Authority", description: "Expert positioning", exampleHook: "The framework 500+ SaaS companies use", bestForFunnelStages: ["cold"], platforms: ["LinkedIn"] },
+      ],
+      formatSpecs: [
+        { format: "Single Image", dimensions: "1080x1080", platform: "Meta", copyGuideline: "125-150 chars primary text" },
+        { format: "Carousel", dimensions: "1080x1080", platform: "Meta", copyGuideline: "5-7 cards, story arc" },
+      ],
+      testingPlan: [
+        { phase: "Week 1-2: Hook Testing", variantsToTest: 4, methodology: "A/B test hooks", testingBudget: 500, durationDays: 14, successCriteria: "CTR >1.5%" },
+        { phase: "Week 3-4: Format Testing", variantsToTest: 3, methodology: "Test formats", testingBudget: 500, durationDays: 14, successCriteria: "CPL <$60" },
+      ],
+      refreshCadence: [{ platform: "Meta", refreshIntervalDays: 21, fatigueSignals: ["CTR drops >30%"] }],
+      brandGuidelines: [{ category: "Tone", guideline: "Professional but approachable" }],
+    },
+    performanceModel: {
+      cacModel: { targetCAC: 500, targetCPL: 50, leadToSqlRate: 15, sqlToCustomerRate: 25, expectedMonthlyLeads: 100, expectedMonthlySQLs: 15, expectedMonthlyCustomers: 4, estimatedLTV: 5000, ltvToCacRatio: "10:1" },
+      monitoringSchedule: { daily: ["Check spend pacing", "Review disapprovals"], weekly: ["Analyze creative performance", "Review search terms"], monthly: ["Full funnel analysis", "Budget reallocation"] },
+    },
+    riskMonitoring: {
+      risks: [
+        { risk: "Meta CPL exceeds $100", category: "budget", severity: "high", likelihood: "medium", mitigation: "Start with $50/day cap", contingency: "Shift to Google Search" },
+        { risk: "Creative fatigue within 14 days", category: "creative", severity: "medium", likelihood: "medium", mitigation: "Prepare 3 backup creatives", contingency: "Pause and refresh" },
+        { risk: "Audience too narrow on LinkedIn", category: "audience", severity: "medium", likelihood: "low", mitigation: "Expand job titles", contingency: "Reallocate to Meta" },
+        { risk: "Platform policy change", category: "platform", severity: "high", likelihood: "low", mitigation: "Diversify across 2+ platforms", contingency: "Shift budget to compliant channels" },
+      ],
+      assumptions: ["Landing page converts at >2%", "CRM data available within 2 weeks"],
+    },
     metadata: {
       generatedAt: new Date().toISOString(),
-      version: "1.0.0",
+      version: "2.0.0",
       processingTime: 10000,
       totalCost: 0.15,
       modelUsed: "claude-sonnet-4-20250514",
