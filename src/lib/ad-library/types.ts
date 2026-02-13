@@ -98,6 +98,11 @@ export interface AdLibraryOptions {
   /** Country filter (default: US) */
   country?: string;
   /**
+   * Multi-country fetch list (ISO country codes like US, CA, GB, AU).
+   * If provided, platform fetchers may query each country and merge results.
+   */
+  countries?: string[];
+  /**
    * Google Ads Transparency: ad formats to include
    * Default: 'image' (excludes text-only domain sponsor ads which are useless)
    * Set to 'video' for video-only, or 'text' if you really want text ads
@@ -109,6 +114,17 @@ export interface AdLibraryOptions {
    * Default: undefined (all platforms)
    */
   googlePlatform?: GoogleAdPlatform;
+  /**
+   * Advertiser-name fuzzy match threshold (0-1).
+   * Higher = stricter precision, lower = higher recall.
+   * Default: 0.8
+   */
+  similarityThreshold?: number;
+  /**
+   * Number of Meta pages to fetch ads from after page search.
+   * Default: 2
+   */
+  metaPageLimit?: number;
 }
 
 /**

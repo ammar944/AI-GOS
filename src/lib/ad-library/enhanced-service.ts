@@ -24,6 +24,12 @@ import { assessAdRelevance, sortByRelevance } from './relevance-scorer';
  * Extended options for enhanced ad library operations
  */
 export interface EnhancedAdLibraryOptions extends AdLibraryOptions {
+  /**
+   * Recall mode for discovery quality.
+   * - strict: higher precision, lower recall
+   * - high: higher recall, more noisy ads allowed
+   */
+  recallMode?: 'strict' | 'high';
   /** Enable Foreplay enrichment (requires FOREPLAY_API_KEY and ENABLE_FOREPLAY=true) */
   enableForeplayEnrichment?: boolean;
   /**
@@ -101,9 +107,16 @@ export class EnhancedAdLibraryService {
     options: EnhancedAdLibraryOptions
   ): Promise<EnhancedAdLibraryResponse> {
     const startTime = Date.now();
+    const recallMode = options.recallMode ?? 'strict';
+
+    const searchOptions: AdLibraryOptions = {
+      ...options,
+      // High-recall mode relaxes advertiser-name matching to recover variants/sub-brands.
+      similarityThreshold: options.similarityThreshold ?? (recallMode === 'high' ? 0.7 : 0.8),
+    };
 
     // Step 1: Get ads from SearchAPI (existing logic)
-    const searchResults = await this.searchApiService.fetchAllPlatforms(options);
+    const searchResults = await this.searchApiService.fetchAllPlatforms(searchOptions);
 
     const searchapiMetadata = {
       total_ads: searchResults.totalAds,
@@ -136,7 +149,6 @@ export class EnhancedAdLibraryService {
     let allAds: EnrichedAdCreative[] = [];
     let foreplayMetadata: ForeplayMetadata | undefined;
     let foreplaySourceMetadata: { total_ads: number; unique_ads: number; duration_ms?: number } | undefined;
-    let totalForeplayCost = 0;
 
     // Mark SearchAPI ads with source
     const searchApiAds = this.flattenResults(searchResults).map((ad) => ({
@@ -173,7 +185,6 @@ export class EnhancedAdLibraryService {
           duration_ms: foreplayResult.durationMs,
         };
 
-        totalForeplayCost = foreplayResult.creditsUsed * COST_PER_CREDIT;
       } catch (error) {
         console.error('[EnhancedAdLibrary] Foreplay source fetch failed:', error);
         allAds = searchApiAds;
@@ -211,7 +222,7 @@ export class EnhancedAdLibraryService {
         // Calculate enrichment cost (credits used after source fetch)
         const enrichmentCredits =
           (this.foreplayService?.getTotalCreditsUsed() ?? 0) - preEnrichCredits;
-        totalForeplayCost += enrichmentCredits * COST_PER_CREDIT;
+        console.log(`[EnhancedAdLibrary] Foreplay enrichment credits used: ${Math.max(0, enrichmentCredits)}`);
       } catch (error) {
         console.error('[EnhancedAdLibrary] Foreplay enrichment failed:', error);
         foreplayMetadata = {
@@ -241,30 +252,60 @@ export class EnhancedAdLibraryService {
     }));
 
     // Apply relevance filtering
-    const minScore = options.minRelevanceScore ?? 50;
-    const excludeCategories = options.excludeCategories ?? ['unclear'];
-    const includeSubsidiaries = options.includeSubsidiaries ?? false;
+    const minScore = options.minRelevanceScore ?? (recallMode === 'high' ? 35 : 50);
+    const excludeCategories = options.excludeCategories ?? (recallMode === 'high' ? [] : ['unclear']);
+    const includeSubsidiaries = options.includeSubsidiaries ?? (recallMode === 'high');
 
     // Filter ads by relevance criteria
-    let filteredAds = adsWithRelevance.filter(ad => {
+    const dropReasonCounts = {
+      belowMinScore: 0,
+      excludedCategory: 0,
+      subsidiaryExcluded: 0,
+    };
+
+    const filteredAds = adsWithRelevance.filter(ad => {
       // Check minimum score
-      if ((ad.relevance?.score ?? 0) < minScore) return false;
+      if ((ad.relevance?.score ?? 0) < minScore) {
+        dropReasonCounts.belowMinScore++;
+        return false;
+      }
 
       // Check excluded categories
       const category = ad.relevance?.category;
-      if (category && excludeCategories.includes(category)) return false;
+      if (category && excludeCategories.includes(category)) {
+        dropReasonCounts.excludedCategory++;
+        return false;
+      }
 
       // Check subsidiary filter
-      if (!includeSubsidiaries && category === 'subsidiary') return false;
+      if (!includeSubsidiaries && category === 'subsidiary') {
+        dropReasonCounts.subsidiaryExcluded++;
+        return false;
+      }
 
       return true;
     });
 
+    const categoryCounts = adsWithRelevance.reduce<Record<string, number>>((acc, ad) => {
+      const key = ad.relevance?.category ?? 'unknown';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const platformCounts = adsWithRelevance.reduce<Record<string, number>>((acc, ad) => {
+      const key = ad.platform ?? 'unknown';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+
     // Log filtering results
     console.log(
       `[EnhancedAdLibrary] Relevance filtering: ${adsWithRelevance.length} → ${filteredAds.length} ads ` +
-      `(minScore: ${minScore}, excluded: ${excludeCategories.join(', ')})`
+      `(mode: ${recallMode}, minScore: ${minScore}, excluded: ${excludeCategories.join(', ') || 'none'}, includeSubsidiaries: ${includeSubsidiaries})`
     );
+    console.log('[EnhancedAdLibrary] Relevance category distribution:', categoryCounts);
+    console.log('[EnhancedAdLibrary] Platform distribution before relevance filter:', platformCounts);
+    console.log('[EnhancedAdLibrary] Relevance drop reasons:', dropReasonCounts);
 
     // Sort by relevance (highest first)
     const sortedAds = sortByRelevance(filteredAds);

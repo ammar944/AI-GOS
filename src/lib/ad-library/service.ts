@@ -33,7 +33,7 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const DEFAULT_LIMIT = 50;
 const DEFAULT_COUNTRY = 'US';
 const MIN_REQUEST_INTERVAL = 100; // 100ms between requests to same platform
-const SIMILARITY_THRESHOLD = 0.8; // Minimum similarity score - stricter to avoid false positives like "huel" matching "hula"
+const DEFAULT_SIMILARITY_THRESHOLD = 0.8; // Minimum similarity score - stricter to avoid false positives like "huel" matching "hula"
 
 /**
  * SearchAPI.io response structure
@@ -94,6 +94,14 @@ export class AdLibraryService {
     this.apiKey = getRequiredEnv('SEARCHAPI_KEY');
   }
 
+  private getSimilarityThreshold(options: AdLibraryOptions): number {
+    const threshold = options.similarityThreshold;
+    if (typeof threshold !== 'number' || Number.isNaN(threshold)) {
+      return DEFAULT_SIMILARITY_THRESHOLD;
+    }
+    return Math.max(0.5, Math.min(0.95, threshold));
+  }
+
   /**
    * Fetch ads from LinkedIn Ad Library with validation
    *
@@ -136,7 +144,8 @@ export class AdLibraryService {
         .map((ad: unknown) => this.normalizeAd('linkedin', ad));
 
       // Filter ads to only include those matching the searched company
-      const filteredAds = this.filterValidAds(normalizedAds, 'linkedin', context);
+      const similarityThreshold = this.getSimilarityThreshold(options);
+      const filteredAds = this.filterValidAds(normalizedAds, 'linkedin', context, similarityThreshold);
 
       // Filter out LinkedIn ads without image preview
       // EXCEPT for text/message ads which are intentionally text-based
@@ -192,7 +201,17 @@ export class AdLibraryService {
 
     try {
       // Step 1: Search for the advertiser's pages (returns top 2 matching pages)
-      const pageIds = await this.lookupMetaPageIds(options.query, context);
+      const similarityThreshold = this.getSimilarityThreshold(options);
+      const maxPageMatches = options.metaPageLimit ?? 2;
+      const pageIds = await this.lookupMetaPageIds(options.query, context, similarityThreshold, maxPageMatches);
+      const countries = Array.from(
+        new Set(
+          (options.countries && options.countries.length > 0
+            ? options.countries
+            : [options.country || DEFAULT_COUNTRY]
+          ).map((c) => c.toUpperCase())
+        )
+      );
 
       if (pageIds.length === 0) {
         // No matching page found - this is not an error, company may not have a Meta page
@@ -206,26 +225,29 @@ export class AdLibraryService {
       }
 
       console.log(`[AdLibrary:${context.requestId}] [META] Found ${pageIds.length} page(s) for "${options.query}": [${pageIds.join(', ')}]`);
+      console.log(`[AdLibrary:${context.requestId}] [META] Countries: [${countries.join(', ')}]`);
 
-      // Step 2: Fetch ads from each page in parallel
+      // Step 2: Fetch ads from each page and country in parallel
       const pageAdResults = await Promise.all(
-        pageIds.map(async (pageId) => {
-          const params = new URLSearchParams({
-            engine: 'meta_ad_library',
-            page_id: pageId,
-            country: options.country || DEFAULT_COUNTRY,
-            api_key: this.apiKey,
-          });
+        pageIds.flatMap((pageId) =>
+          countries.map(async (country) => {
+            const params = new URLSearchParams({
+              engine: 'meta_ad_library',
+              page_id: pageId,
+              country,
+              api_key: this.apiKey,
+            });
 
-          const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
+            const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
 
-          if (data.error) {
-            console.warn(`[AdLibrary:${context.requestId}] [META] Error fetching page ${pageId}: ${data.error}`);
-            return [];
-          }
+            if (data.error) {
+              console.warn(`[AdLibrary:${context.requestId}] [META] Error fetching page ${pageId} (${country}): ${data.error}`);
+              return [];
+            }
 
-          return data.ads || [];
-        })
+            return data.ads || [];
+          })
+        )
       );
 
       // Merge all raw ads from all pages
@@ -239,11 +261,19 @@ export class AdLibraryService {
 
       // Normalize ads - these are guaranteed to be from the correct advertiser
       const normalizedAds = allRawAds
-        .slice(0, limit)
         .map((ad: unknown) => this.normalizeAd('meta', ad));
 
+      // Deduplicate before limiting so duplicates across countries don't crowd out unique ads
+      const uniqueById = new Map<string, AdCreative>();
+      for (const ad of normalizedAds) {
+        if (!uniqueById.has(ad.id)) {
+          uniqueById.set(ad.id, ad);
+        }
+      }
+      const limitedAds = Array.from(uniqueById.values()).slice(0, limit);
+
       // Still run validation as a safety net (should pass since we used page_id)
-      const filteredAds = this.filterValidAds(normalizedAds, 'meta', context);
+      const filteredAds = this.filterValidAds(limitedAds, 'meta', context, similarityThreshold);
 
       // Filter out Meta ads without image preview
       // Some ads are dynamic catalog templates without embedded images
@@ -265,10 +295,10 @@ export class AdLibraryService {
         platform: 'meta',
         success: true,
         ads: adsWithImages,
-        totalCount,
+        totalCount: uniqueById.size,
       };
 
-      logResponse(context, 'meta', response, normalizedAds.length, adsWithImages.length);
+      logResponse(context, 'meta', response, limitedAds.length, adsWithImages.length);
       return response;
     } catch (error) {
       const errorMsg = this.getErrorMessage(error);
@@ -285,7 +315,12 @@ export class AdLibraryService {
    * Multi-page discovery catches companies with regional or product-line pages
    * (e.g., "Acme" and "Acme EMEA" both have ads)
    */
-  private async lookupMetaPageIds(advertiserName: string, context: AdFetchContext): Promise<string[]> {
+  private async lookupMetaPageIds(
+    advertiserName: string,
+    context: AdFetchContext,
+    similarityThreshold: number,
+    maxPageMatches: number
+  ): Promise<string[]> {
     try {
       const params = new URLSearchParams({
         engine: 'meta_ad_library_page_search',
@@ -374,7 +409,7 @@ export class AdLibraryService {
         );
 
         // Only consider pages with reasonable similarity and minimum score
-        if (similarity >= SIMILARITY_THRESHOLD && score >= 70) {
+        if (similarity >= similarityThreshold && score >= 70) {
           matches.push({ pageId, pageName, similarity, isVerified, score });
         }
       }
@@ -384,9 +419,9 @@ export class AdLibraryService {
         return [];
       }
 
-      // Sort by composite score (highest first) and take top 2
+      // Sort by composite score (highest first) and take top N
       matches.sort((a, b) => b.score - a.score);
-      const topMatches = matches.slice(0, 2);
+      const topMatches = matches.slice(0, Math.max(1, Math.min(10, maxPageMatches)));
 
       for (const match of topMatches) {
         console.log(
@@ -414,7 +449,8 @@ export class AdLibraryService {
    */
   private async lookupGoogleAdvertiserId(
     companyName: string,
-    context: AdFetchContext
+    context: AdFetchContext,
+    similarityThreshold: number
   ): Promise<{ advertiserId: string; advertiserName: string } | undefined> {
     try {
       const params = new URLSearchParams({
@@ -455,7 +491,7 @@ export class AdLibraryService {
         );
 
         // Only consider advertisers with reasonable similarity
-        if (similarity >= SIMILARITY_THRESHOLD) {
+        if (similarity >= similarityThreshold) {
           if (!bestMatch || similarity > bestMatch.similarity) {
             bestMatch = { advertiserId: advId, advertiserName: advName, similarity };
           }
@@ -496,7 +532,8 @@ export class AdLibraryService {
 
     try {
       // Step 1: Look up advertiser_id by company name (more accurate than domain)
-      const advertiserInfo = await this.lookupGoogleAdvertiserId(options.query, context);
+      const similarityThreshold = this.getSimilarityThreshold(options);
+      const advertiserInfo = await this.lookupGoogleAdvertiserId(options.query, context, similarityThreshold);
 
       // Build request parameters
       const params = new URLSearchParams({
@@ -536,27 +573,79 @@ export class AdLibraryService {
         );
       }
 
-      const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
+      const countries = Array.from(
+        new Set(
+          (options.countries && options.countries.length > 0
+            ? options.countries
+            : options.country
+              ? [options.country]
+              : []
+          ).map((c) => c.toUpperCase())
+        )
+      );
 
-      if (data.error) {
-        const errorMsg = String(data.error);
-        logError(context, 'google', errorMsg);
-        return this.errorResponse('google', errorMsg);
+      const allRawAds: unknown[] = [];
+      let hadSuccessfulRegionalFetch = false;
+
+      if (countries.length > 0) {
+        console.log(`[AdLibrary:${context.requestId}] [GOOGLE] Regions: [${countries.join(', ')}]`);
+        const regionalResults = await Promise.all(
+          countries.map(async (country) => {
+            const regionalParams = new URLSearchParams(params.toString());
+            regionalParams.set('region', country);
+            const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${regionalParams}`);
+
+            if (data.error) {
+              console.warn(`[AdLibrary:${context.requestId}] [GOOGLE] Region ${country} failed: ${data.error}`);
+              return { rawAds: [] as unknown[], total: 0, success: false };
+            }
+
+            return {
+              rawAds: data.ad_creatives || [],
+              total: data.search_information?.total_results || data.ad_creatives?.length || 0,
+              success: true,
+            };
+          })
+        );
+
+        for (const item of regionalResults) {
+          if (item.success) hadSuccessfulRegionalFetch = true;
+          allRawAds.push(...item.rawAds);
+        }
+      }
+
+      // Fallback to single non-regional query when regional fetch is unavailable/unsupported
+      if (countries.length === 0 || !hadSuccessfulRegionalFetch) {
+        const data = await this.fetchWithTimeout(`${SEARCHAPI_BASE}?${params}`);
+
+        if (data.error) {
+          const errorMsg = String(data.error);
+          logError(context, 'google', errorMsg);
+          return this.errorResponse('google', errorMsg);
+        }
+
+        allRawAds.push(...(data.ad_creatives || []));
       }
 
       // Google uses "ad_creatives" instead of "ads"
-      const totalCount = data.search_information?.total_results || data.ad_creatives?.length || 0;
-      const rawAds = data.ad_creatives || [];
       const limit = options.limit || DEFAULT_LIMIT;
 
       // Normalize ads
-      const normalizedAds = rawAds
-        .slice(0, limit)
+      const normalizedAds = allRawAds
         .map((ad: unknown) => this.normalizeAd('google', ad));
+
+      // Deduplicate before limiting (important for multi-region fetches)
+      const uniqueById = new Map<string, AdCreative>();
+      for (const ad of normalizedAds) {
+        if (!uniqueById.has(ad.id)) {
+          uniqueById.set(ad.id, ad);
+        }
+      }
+      const limitedAds = Array.from(uniqueById.values()).slice(0, limit);
 
       // Filter ads to only include those matching the searched company
       // Note: When using advertiser_id, this should already be accurate
-      const filteredAds = this.filterValidAds(normalizedAds, 'google', context);
+      const filteredAds = this.filterValidAds(limitedAds, 'google', context, similarityThreshold);
 
       // CRITICAL: Remove Google ads without image preview (domain sponsor garbage)
       // Even with format=image filter, API sometimes returns text-only ads
@@ -578,10 +667,10 @@ export class AdLibraryService {
         platform: 'google',
         success: true,
         ads: adsWithImages,
-        totalCount,
+        totalCount: uniqueById.size,
       };
 
-      logResponse(context, 'google', response, normalizedAds.length, adsWithImages.length);
+      logResponse(context, 'google', response, limitedAds.length, adsWithImages.length);
       return response;
     } catch (error) {
       const errorMsg = this.getErrorMessage(error);
@@ -678,7 +767,8 @@ export class AdLibraryService {
   private filterValidAds(
     ads: AdCreative[],
     platform: AdPlatform,
-    context: AdFetchContext
+    context: AdFetchContext,
+    similarityThreshold: number
   ): AdCreative[] {
     if (!ads || ads.length === 0) {
       return [];
@@ -702,7 +792,7 @@ export class AdLibraryService {
       const similarity = calculateSimilarity(ad.advertiser, context.searchedCompany);
 
       // STRICT CHECK 2: Require high similarity match
-      if (!isAdvertiserMatch(ad.advertiser, context.searchedCompany, SIMILARITY_THRESHOLD)) {
+      if (!isAdvertiserMatch(ad.advertiser, context.searchedCompany, similarityThreshold)) {
         filteredOut.push({
           advertiser: ad.advertiser,
           similarity,
@@ -775,6 +865,15 @@ export class AdLibraryService {
     // Log filtering details if any ads were filtered out
     if (filteredOut.length > 0) {
       logFiltering(context, platform, ads.length, validAds.length, filteredOut);
+      const reasonCounts = filteredOut.reduce<Record<string, number>>((acc, item) => {
+        const key = item.reason || 'unknown';
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {});
+      console.log(
+        `[AdLibrary:${context.requestId}] [${platform.toUpperCase()}] Filter reason distribution:`,
+        reasonCounts
+      );
     }
 
     return validAds;

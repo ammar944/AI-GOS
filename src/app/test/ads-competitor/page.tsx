@@ -45,6 +45,8 @@ export default function AdsCompetitorTestPage() {
   const [domain, setDomain] = useState('');
   const [enableForeplayEnrichment, setEnableForeplayEnrichment] = useState(true);
   const [includeForeplayAsSource, setIncludeForeplayAsSource] = useState(false);
+  const [recallMode, setRecallMode] = useState<'strict' | 'high'>('high');
+  const [countriesInput, setCountriesInput] = useState('US,CA,GB,AU');
   const [result, setResult] = useState<AdsCompetitorResult | null>(null);
   const [foreplayStatus, setForeplayStatus] = useState<{
     enabled: boolean;
@@ -96,9 +98,16 @@ export default function AdsCompetitorTestPage() {
   const handleAnalyze = () => {
     if (!domain.trim()) return;
     startTransition(async () => {
+      const parsedCountries = countriesInput
+        .split(',')
+        .map((c) => c.trim().toUpperCase())
+        .filter((c) => /^[A-Z]{2}$/.test(c));
+
       const options: AnalyzeOptions = {
         enableForeplayEnrichment,
         includeForeplayAsSource,
+        recallMode,
+        countries: parsedCountries.length > 0 ? parsedCountries : ['US'],
       };
       const analysisResult = await analyzeCompetitorAds(domain, options);
       setResult(analysisResult);
@@ -224,6 +233,31 @@ export default function AdsCompetitorTestPage() {
                   <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                     Include Foreplay ads (unique historical ads)
                   </span>
+                </label>
+
+                {/* Recall mode */}
+                <label className="flex items-center gap-2">
+                  <span className="text-sm text-[var(--text-secondary)]">Recall mode</span>
+                  <select
+                    value={recallMode}
+                    onChange={(e) => setRecallMode(e.target.value as 'strict' | 'high')}
+                    className="h-8 rounded-md border border-[var(--border-line)] bg-[var(--bg-elevated)] px-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
+                  >
+                    <option value="high">High recall</option>
+                    <option value="strict">Strict precision</option>
+                  </select>
+                </label>
+
+                {/* Countries */}
+                <label className="flex items-center gap-2">
+                  <span className="text-sm text-[var(--text-secondary)]">Countries</span>
+                  <input
+                    type="text"
+                    value={countriesInput}
+                    onChange={(e) => setCountriesInput(e.target.value)}
+                    placeholder="US,CA,GB,AU"
+                    className="h-8 w-36 rounded-md border border-[var(--border-line)] bg-[var(--bg-elevated)] px-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent-blue)]"
+                  />
                 </label>
               </div>
 
@@ -670,12 +704,10 @@ function PlatformPill({
 function AdImage({
   src,
   alt,
-  platform,
   onError,
 }: {
   src: string;
   alt: string;
-  platform: string;
   onError: () => void;
 }) {
   const [fallbackLevel, setFallbackLevel] = useState(0);
@@ -812,7 +844,6 @@ function AdCard({ ad, index }: { ad: EnrichedAdCreative; index: number }) {
             <AdImage
               src={ad.imageUrl!}
               alt={ad.headline || 'Ad creative'}
-              platform={ad.platform}
               onError={() => setMediaError(true)}
             />
           ) : null

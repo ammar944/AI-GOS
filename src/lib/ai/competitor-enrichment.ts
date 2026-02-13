@@ -39,6 +39,13 @@ interface EnrichedCompetitor {
   reviewData?: CompetitorReviewData;
 }
 
+const HIGH_RECALL_FETCH_LIMIT = 200;
+const MAX_STORED_ADS_PER_COMPETITOR = 50;
+const HIGH_RECALL_MIN_RELEVANCE = 35;
+const HIGH_RECALL_META_PAGE_LIMIT = 5;
+const HIGH_RECALL_FOREPLAY_LOOKBACK_DAYS = 180;
+const HIGH_RECALL_COUNTRIES = ['US', 'CA', 'GB', 'AU'];
+
 export interface EnrichmentResult {
   competitors: EnrichedCompetitor[];
   enrichmentCost: number;
@@ -142,13 +149,16 @@ export async function enrichCompetitors(
             const adResponse = await adLibraryService.fetchAllPlatforms({
               query: competitor.name,
               domain: competitor.website,  // Pass website for domain validation
-              limit: 50,
-              minRelevanceScore: 50,
-              excludeCategories: ['unclear'],
-              includeSubsidiaries: false,
+              limit: HIGH_RECALL_FETCH_LIMIT,
+              recallMode: 'high',
+              minRelevanceScore: HIGH_RECALL_MIN_RELEVANCE,
+              excludeCategories: [],
+              includeSubsidiaries: true,
+              metaPageLimit: HIGH_RECALL_META_PAGE_LIMIT,
+              countries: HIGH_RECALL_COUNTRIES,
               enableForeplayEnrichment: true,
               includeForeplayAsSource: true,
-              foreplayDateRange: { from: get90DaysAgo(), to: getToday() },
+              foreplayDateRange: { from: getDaysAgo(HIGH_RECALL_FOREPLAY_LOOKBACK_DAYS), to: getToday() },
             });
 
             console.log(`[Competitor Enrichment] ${competitor.name}: Ad response received`, {
@@ -157,9 +167,27 @@ export async function enrichCompetitors(
             });
 
             if (adResponse.ads && adResponse.ads.length > 0) {
+              const sourceCounts = adResponse.ads.reduce<Record<string, number>>((acc, ad) => {
+                const key = ad.source ?? 'unknown';
+                acc[key] = (acc[key] ?? 0) + 1;
+                return acc;
+              }, {});
+              const platformCounts = adResponse.ads.reduce<Record<string, number>>((acc, ad) => {
+                const key = ad.platform ?? 'unknown';
+                acc[key] = (acc[key] ?? 0) + 1;
+                return acc;
+              }, {});
+
+              console.log(`[Competitor Enrichment] ${competitor.name}: Keeping top ${MAX_STORED_ADS_PER_COMPETITOR}/${adResponse.ads.length} ads`, {
+                sourceCounts,
+                platformCounts,
+                searchApiTotal: adResponse.metadata?.searchapi?.total_ads,
+                foreplayTotal: adResponse.metadata?.foreplay_source?.total_ads ?? 0,
+              });
+
               return {
                 success: true as const,
-                ads: adResponse.ads.slice(0, 15).map((ad): EnrichedAdCreative => ({
+                ads: adResponse.ads.slice(0, MAX_STORED_ADS_PER_COMPETITOR).map((ad): EnrichedAdCreative => ({
                   id: ad.id,
                   platform: ad.platform,
                   advertiser: ad.advertiser,
@@ -265,9 +293,9 @@ export async function enrichCompetitors(
   };
 }
 
-function get90DaysAgo(): string {
+function getDaysAgo(days: number): string {
   const d = new Date();
-  d.setDate(d.getDate() - 90);
+  d.setDate(d.getDate() - Math.max(1, days));
   return d.toISOString().split('T')[0];
 }
 

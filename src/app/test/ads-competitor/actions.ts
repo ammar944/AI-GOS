@@ -27,6 +27,10 @@ export interface AnalyzeOptions {
   enableForeplayEnrichment?: boolean;
   /** Include Foreplay as a direct ad source (fetches ads from Foreplay database) */
   includeForeplayAsSource?: boolean;
+  /** Ad recall mode: strict precision vs high recall */
+  recallMode?: 'strict' | 'high';
+  /** Countries/regions to query and merge */
+  countries?: string[];
 }
 
 /**
@@ -34,7 +38,12 @@ export interface AnalyzeOptions {
  */
 export async function analyzeCompetitorAds(
   domain: string,
-  options: AnalyzeOptions = { enableForeplayEnrichment: true, includeForeplayAsSource: false }
+  options: AnalyzeOptions = {
+    enableForeplayEnrichment: true,
+    includeForeplayAsSource: false,
+    recallMode: 'high',
+    countries: ['US', 'CA', 'GB', 'AU'],
+  }
 ): Promise<AdsCompetitorResult> {
   const startTime = Date.now();
 
@@ -63,13 +72,20 @@ export async function analyzeCompetitorAds(
     const foreplayEnabled = process.env.ENABLE_FOREPLAY?.toLowerCase() === 'true';
     const foreplayConfigured = !!process.env.FOREPLAY_API_KEY;
 
-    const { enableForeplayEnrichment = true, includeForeplayAsSource = false } = options;
+    const {
+      enableForeplayEnrichment = true,
+      includeForeplayAsSource = false,
+      recallMode = 'high',
+      countries = ['US', 'CA', 'GB', 'AU'],
+    } = options;
 
     console.log('[AdsCompetitor] Debug:', {
       companyName,
       cleanDomain,
       enableForeplayEnrichment,
       includeForeplayAsSource,
+      recallMode,
+      countries,
       foreplayEnabled,
       foreplayConfigured,
     });
@@ -84,7 +100,9 @@ export async function analyzeCompetitorAds(
     const result = await service.fetchAllPlatforms({
       query: companyName,
       domain: cleanDomain,
-      limit: 20,
+      limit: recallMode === 'high' ? 120 : 40,
+      recallMode,
+      countries,
       // Note: Not specifying googleAdFormat uses default 'image' which has reliable thumbnails
       enableForeplayEnrichment,
       includeForeplayAsSource,

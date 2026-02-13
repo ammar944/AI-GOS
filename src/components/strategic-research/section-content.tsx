@@ -126,6 +126,73 @@ function excerpt(text: string, max = 240): string {
   return `${text.slice(0, max).trim()}...`;
 }
 
+interface PlatformSearchLink {
+  platform: "meta_manager" | "meta_library" | "linkedin" | "google";
+  label: string;
+  url: string;
+}
+
+function extractDomainFromWebsite(website: string | undefined): string | undefined {
+  if (!website?.trim()) return undefined;
+  const value = website.trim();
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  try {
+    const parsed = new URL(withProtocol);
+    return parsed.hostname.replace(/^www\./i, "");
+  } catch {
+    return undefined;
+  }
+}
+
+function getGoogleAdvertiserUrlFromAds(
+  adCreatives: Array<{ detailsUrl?: string; platform?: string }> | undefined
+): string | undefined {
+  if (!adCreatives || adCreatives.length === 0) return undefined;
+
+  for (const ad of adCreatives) {
+    if (ad.platform !== "google" || !ad.detailsUrl) continue;
+    const match = ad.detailsUrl.match(/adstransparency\.google\.com\/advertiser\/(AR[0-9A-Z]+)/i);
+    if (match?.[1]) {
+      return `https://adstransparency.google.com/advertiser/${match[1]}?region=US`;
+    }
+  }
+
+  return undefined;
+}
+
+function buildCompetitorPlatformSearchLinks(comp: {
+  name?: string;
+  website?: string;
+  adCreatives?: Array<{ detailsUrl?: string; platform?: string }>;
+}): PlatformSearchLink[] {
+  const competitorName = (comp.name || "").trim();
+  const encodedName = encodeURIComponent(competitorName);
+  const domain = extractDomainFromWebsite(comp.website);
+
+  const metaUrl =
+    `https://www.facebook.com/adsmanager/`;
+
+  const metaLibraryUrl =
+    `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL` +
+    `&q=${encodedName}&search_type=keyword_unordered&media_type=all`;
+
+  const linkedInUrl = `https://www.linkedin.com/ad-library/search?keyword=${encodedName}`;
+
+  const advertiserUrl = getGoogleAdvertiserUrlFromAds(comp.adCreatives);
+  const googleUrl = advertiserUrl
+    ? advertiserUrl
+    : domain
+      ? `https://adstransparency.google.com/?region=US&domain=${encodeURIComponent(domain)}`
+      : `https://adstransparency.google.com/?region=US`;
+
+  return [
+    { platform: "meta_manager", label: "Meta Ad Manager", url: metaUrl },
+    { platform: "meta_library", label: "Meta Ad Library", url: metaLibraryUrl },
+    { platform: "linkedin", label: "LinkedIn Ads", url: linkedInUrl },
+    { platform: "google", label: "Google Ads", url: googleUrl },
+  ];
+}
+
 // =============================================================================
 // Helper Components (adapted from strategic-blueprint-display.tsx)
 // =============================================================================
@@ -836,6 +903,31 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   </a>
                 )}
               </h4>
+              {(() => {
+                const platformLinks = buildCompetitorPlatformSearchLinks(comp);
+                return (
+                  <div className="mt-2 mb-3 flex flex-wrap items-center gap-2">
+                    {platformLinks.map((link) => (
+                      <a
+                        key={link.platform}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors"
+                        style={{
+                          borderColor: "var(--border-default)",
+                          color: "var(--text-secondary)",
+                          backgroundColor: "var(--bg-elevated)",
+                        }}
+                        title={`Open ${link.label} with this competitor pre-filled`}
+                      >
+                        {link.label}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ))}
+                  </div>
+                );
+              })()}
               <div className="mb-3 text-sm text-[var(--text-tertiary)]">
                 {isEditing && onFieldChange ? (
                   <EditableText
