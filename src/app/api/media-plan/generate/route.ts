@@ -9,7 +9,7 @@ import { runMediaPlanPipeline, type PipelineProgress } from '@/lib/media-plan/pi
 import type { MediaPlanSSEEvent } from '@/lib/media-plan/types';
 import { createErrorResponse, ErrorCode } from '@/lib/errors';
 
-export const maxDuration = 120;
+export const maxDuration = 300; // 5min — sequential Sonnet calls + rate limit retries need headroom
 
 // =============================================================================
 // SSE Helper
