@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { DollarSign } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SectionNav } from "./section-nav";
+import { springs } from "@/lib/motion";
 import { DocumentSection } from "./document-section";
-import { ReadingProgress } from "./reading-progress";
+import { SectionPaginationNav } from "./section-pagination-nav";
+import { SectionProgressBar } from "./section-progress-bar";
 import type {
   StrategicBlueprintOutput,
   StrategicBlueprintSection,
 } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { createApprovedBlueprint } from "@/lib/strategic-blueprint/approval";
-import { RESEARCH_TRANSPARENT_PANEL_CLASS } from "./ui-tokens";
 
 // Helper to deep-merge edits at a field path into an object
 function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
@@ -42,6 +43,27 @@ function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
   return result;
 }
 
+// Slide + fade — subtle, fast, directional
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 60 : -60,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -60 : 60,
+    opacity: 0,
+  }),
+};
+
+const slideTransition = {
+  x: { type: "spring" as const, stiffness: 500, damping: 40 },
+  opacity: { duration: 0.15 },
+};
+
 export interface BlueprintDocumentProps {
   strategicBlueprint: StrategicBlueprintOutput;
   onApprove: (approvedBlueprint: StrategicBlueprintOutput) => void;
@@ -55,9 +77,9 @@ export function BlueprintDocument({
   onRegenerate,
   onEdit,
 }: BlueprintDocumentProps) {
-  // Active section for navigation highlighting
-  const [activeSection, setActiveSection] = useState<StrategicBlueprintSection>("industryMarketOverview");
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [direction, setDirection] = useState(0);
 
   // Track which sections have been reviewed
   const [reviewedSections, setReviewedSections] = useState<Set<StrategicBlueprintSection>>(new Set());
@@ -75,56 +97,69 @@ export function BlueprintDocument({
   // Track previous state before "Approve All" for undo
   const [preApproveAllState, setPreApproveAllState] = useState<Set<StrategicBlueprintSection> | null>(null);
 
+  // Filter out sections with no data (e.g. keywordIntelligence when absent)
+  const availableSections = useMemo(() => {
+    return STRATEGIC_BLUEPRINT_SECTION_ORDER.filter((section) => {
+      if (section === "keywordIntelligence") {
+        return !!strategicBlueprint.keywordIntelligence;
+      }
+      return true;
+    });
+  }, [strategicBlueprint.keywordIntelligence]);
+
   const canUndo = editHistory.length > 0;
   const canRedo = futureEdits.length > 0;
-  const allReviewed = reviewedSections.size === STRATEGIC_BLUEPRINT_SECTION_ORDER.length;
+  const allReviewed = availableSections.every((s) => reviewedSections.has(s));
 
-  // Intersection Observer to track active section
+  const currentSectionKey = availableSections[currentPage];
+
+  // Navigation helpers
+  const goToPage = useCallback(
+    (page: number) => {
+      if (page < 0 || page >= availableSections.length || page === currentPage) return;
+      setDirection(page > currentPage ? 1 : -1);
+      setCurrentPage(page);
+    },
+    [currentPage, availableSections.length]
+  );
+
+  const goNext = useCallback(() => {
+    goToPage(currentPage + 1);
+  }, [goToPage, currentPage]);
+
+  const goPrev = useCallback(() => {
+    goToPage(currentPage - 1);
+  }, [goToPage, currentPage]);
+
+  // Auto-close editing when changing pages
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id as StrategicBlueprintSection);
-          }
-        });
-      },
-      { rootMargin: "-20% 0px -60% 0px" }
-    );
+    setEditingSection(null);
+  }, [currentPage]);
 
-    const sections = containerRef.current?.querySelectorAll("[data-section]");
-    sections?.forEach((section) => observer.observe(section));
+  const handleMarkReviewed = useCallback(
+    (sectionKey: StrategicBlueprintSection) => {
+      setReviewedSections((prev) => {
+        const next = new Set(prev);
+        next.add(sectionKey);
+        return next;
+      });
 
-    return () => observer.disconnect();
-  }, []);
-
-  const handleMarkReviewed = useCallback((sectionKey: StrategicBlueprintSection) => {
-    setReviewedSections((prev) => {
-      const next = new Set(prev);
-      next.add(sectionKey);
-      return next;
-    });
-
-    // Auto-scroll to next unreviewed section
-    const currentIndex = STRATEGIC_BLUEPRINT_SECTION_ORDER.indexOf(sectionKey);
-    const nextUnreviewed = STRATEGIC_BLUEPRINT_SECTION_ORDER.find((section, index) => {
-      return index > currentIndex && !reviewedSections.has(section) && section !== sectionKey;
-    });
-
-    if (nextUnreviewed) {
-      setTimeout(() => {
-        document.getElementById(nextUnreviewed)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-    }
-  }, [reviewedSections]);
+      // Auto-advance to next page after brief delay
+      const currentIndex = availableSections.indexOf(sectionKey);
+      if (currentIndex < availableSections.length - 1) {
+        setTimeout(() => {
+          goToPage(currentIndex + 1);
+        }, 300);
+      }
+    },
+    [availableSections, goToPage]
+  );
 
   const handleApproveAll = useCallback(() => {
-    // Save current state before approving all (for undo)
     setPreApproveAllState(new Set(reviewedSections));
-    setReviewedSections(new Set(STRATEGIC_BLUEPRINT_SECTION_ORDER));
-  }, [reviewedSections]);
+    setReviewedSections(new Set(availableSections));
+  }, [reviewedSections, availableSections]);
 
-  // Undo the "Approve All" action
   const handleUndoApproveAll = useCallback(() => {
     if (preApproveAllState !== null) {
       setReviewedSections(preApproveAllState);
@@ -190,9 +225,13 @@ export function BlueprintDocument({
     });
   }, [canRedo, pendingEdits]);
 
-  // Keyboard shortcuts for undo/redo and navigation
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore if typing in an input
+      const tag = (event.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
       // Undo/Redo
       if (event.ctrlKey || event.metaKey) {
         if (event.key === "z" && !event.shiftKey) {
@@ -202,27 +241,24 @@ export function BlueprintDocument({
           event.preventDefault();
           handleRedo();
         }
+        return;
       }
 
-      // Navigation: j/k to move between sections
-      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
-        const currentIndex = STRATEGIC_BLUEPRINT_SECTION_ORDER.indexOf(activeSection);
-        const lastIndex = STRATEGIC_BLUEPRINT_SECTION_ORDER.length - 1;
-        if (event.key === "j" && currentIndex < lastIndex) {
+      // Navigation: j/k/ArrowRight/ArrowLeft
+      if (!event.altKey) {
+        if (event.key === "j" || event.key === "ArrowRight") {
           event.preventDefault();
-          const nextSection = STRATEGIC_BLUEPRINT_SECTION_ORDER[currentIndex + 1];
-          document.getElementById(nextSection)?.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else if (event.key === "k" && currentIndex > 0) {
+          goNext();
+        } else if (event.key === "k" || event.key === "ArrowLeft") {
           event.preventDefault();
-          const prevSection = STRATEGIC_BLUEPRINT_SECTION_ORDER[currentIndex - 1];
-          document.getElementById(prevSection)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          goPrev();
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeSection, handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, goNext, goPrev]);
 
   const sectionHasEdits = useCallback(
     (sectionKey: StrategicBlueprintSection): boolean => {
@@ -261,91 +297,128 @@ export function BlueprintDocument({
     onApprove(approvedBlueprint);
   }, [strategicBlueprint, pendingEdits, onApprove]);
 
+  const isFirstPage = currentPage === 0;
+  const isLastPage = currentPage === availableSections.length - 1;
+
   return (
-    <>
-      {/* Reading progress bar */}
-      <ReadingProgress />
-
-      <div className="flex gap-8" style={{ background: 'var(--bg-base)' }}>
-        {/* Main document content */}
-        <div ref={containerRef} className="min-w-0 max-w-5xl flex-1">
-          {/* Header */}
-          <div
-            className={`mb-8 px-6 py-5 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}
-            style={{
-              borderColor: "var(--border-default)",
-            }}
-          >
-            <h1
-              className="mb-2 text-3xl font-bold"
-              style={{
-                color: 'var(--text-heading)',
-                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Strategic Research Blueprint
-            </h1>
-            <p
-              className="text-base"
-              style={{
-                color: 'var(--text-secondary)',
-                fontFamily: 'var(--font-sans), Inter, sans-serif',
-                lineHeight: '1.6',
-              }}
-            >
-              Review each section below. Use <kbd className="px-1.5 py-0.5 text-xs rounded border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>j</kbd> / <kbd className="px-1.5 py-0.5 text-xs rounded border" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>k</kbd> to navigate between sections.
-            </p>
-            {strategicBlueprint.metadata.totalCost > 0 && (
-              <div
-                className="mt-3 inline-flex items-center gap-1.5 text-sm"
-                style={{
-                  color: 'var(--text-tertiary)',
-                  fontFamily: 'var(--font-sans), Inter, sans-serif',
-                }}
-              >
-                <DollarSign className="h-4 w-4" />
-                Generation cost: ${strategicBlueprint.metadata.totalCost.toFixed(4)}
-              </div>
-            )}
-          </div>
-
-          {/* All sections - continuous scroll, no collapse */}
-          {STRATEGIC_BLUEPRINT_SECTION_ORDER.map((sectionKey) => (
-            <DocumentSection
-              key={sectionKey}
-              sectionKey={sectionKey}
-              sectionData={getMergedSectionData(sectionKey)}
-              isReviewed={reviewedSections.has(sectionKey)}
-              isEditing={editingSection === sectionKey}
-              hasEdits={sectionHasEdits(sectionKey)}
-              citations={strategicBlueprint.metadata.sectionCitations?.[sectionKey] || []}
-              onMarkReviewed={() => handleMarkReviewed(sectionKey)}
-              onToggleEdit={() => handleToggleEdit(sectionKey)}
-              onFieldChange={(fieldPath, newValue) => handleFieldChange(sectionKey, fieldPath, newValue)}
-            />
-          ))}
-        </div>
-
-        {/* Sticky navigation sidebar */}
-        <div className="w-60 shrink-0">
-          <SectionNav
-            activeSection={activeSection}
-            reviewedSections={reviewedSections}
-            allReviewed={allReviewed}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            hasPendingEdits={hasPendingEdits}
-            preApproveAllState={preApproveAllState}
-            onApproveAll={handleApproveAll}
-            onUndoApproveAll={handleUndoApproveAll}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onRegenerate={onRegenerate}
-            onApprove={handleApprove}
-          />
-        </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Top progress bar — lightweight inline */}
+      <div className="shrink-0 px-6 pt-3 pb-2">
+        <SectionProgressBar
+          sections={availableSections}
+          currentPage={currentPage}
+          reviewedCount={reviewedSections.size}
+        />
       </div>
-    </>
+
+      {/* Content area — full width */}
+      <div className="relative flex-1 min-h-0 group">
+          {/* Left arrow — glass pill, hover-reveal */}
+          {!isFirstPage && (
+            <button
+              onClick={goPrev}
+              className={cn(
+                "absolute left-2 top-1/2 -translate-y-1/2 z-10",
+                "flex h-9 w-9 items-center justify-center rounded-full",
+                "border border-[var(--border-subtle)]",
+                "opacity-0 group-hover:opacity-80 hover:!opacity-100",
+                "transition-all duration-200",
+                "hover:scale-110 hover:border-[var(--accent-blue)]",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+              )}
+              style={{
+                background: "rgba(12, 14, 19, 0.7)",
+                backdropFilter: "blur(12px)",
+                color: "var(--text-secondary)",
+              }}
+              aria-label="Previous section"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Animated section content */}
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={currentPage}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={slideTransition}
+              className="absolute inset-0 overflow-y-auto"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "var(--border-default) transparent",
+              }}
+            >
+              <div className="py-4 px-8">
+                <DocumentSection
+                  sectionKey={currentSectionKey}
+                  sectionData={getMergedSectionData(currentSectionKey)}
+                  isReviewed={reviewedSections.has(currentSectionKey)}
+                  isEditing={editingSection === currentSectionKey}
+                  hasEdits={sectionHasEdits(currentSectionKey)}
+                  citations={strategicBlueprint.metadata.sectionCitations?.[currentSectionKey] || []}
+                  onMarkReviewed={() => handleMarkReviewed(currentSectionKey)}
+                  onToggleEdit={() => handleToggleEdit(currentSectionKey)}
+                  onFieldChange={(fieldPath, newValue) =>
+                    handleFieldChange(currentSectionKey, fieldPath, newValue)
+                  }
+                />
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Right arrow — glass pill, hover-reveal */}
+          {!isLastPage && (
+            <button
+              onClick={goNext}
+              className={cn(
+                "absolute right-2 top-1/2 -translate-y-1/2 z-10",
+                "flex h-9 w-9 items-center justify-center rounded-full",
+                "border border-[var(--border-subtle)]",
+                "opacity-0 group-hover:opacity-80 hover:!opacity-100",
+                "transition-all duration-200",
+                "hover:scale-110 hover:border-[var(--accent-blue)]",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+              )}
+              style={{
+                background: "rgba(12, 14, 19, 0.7)",
+                backdropFilter: "blur(12px)",
+                color: "var(--text-secondary)",
+              }}
+              aria-label="Next section"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+      </div>
+
+      {/* Bottom pagination + actions */}
+      <div
+        className="shrink-0"
+        style={{ borderTop: "1px solid var(--border-subtle)" }}
+      >
+        <SectionPaginationNav
+          sections={availableSections}
+          currentPage={currentPage}
+          reviewedSections={reviewedSections}
+          onGoToPage={goToPage}
+          allReviewed={allReviewed}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          hasPendingEdits={hasPendingEdits}
+          preApproveAllState={preApproveAllState}
+          onApproveAll={handleApproveAll}
+          onUndoApproveAll={handleUndoApproveAll}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onRegenerate={onRegenerate}
+          onApprove={handleApprove}
+        />
+      </div>
+    </div>
   );
 }

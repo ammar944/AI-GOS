@@ -199,7 +199,7 @@ function buildCompetitorPlatformSearchLinks(comp: {
 
 function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3 mb-6">
+    <div className="space-y-2.5 mb-5">
       <h3
         className="font-semibold text-sm uppercase tracking-wide border-l-4 pl-3"
         style={{
@@ -326,16 +326,16 @@ interface IndustryMarketContentProps extends EditableContentProps {
 
 function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarketContentProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Category Snapshot */}
       <SubSection title="Category Snapshot">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2.5">
           <div
-            className="p-3 rounded-lg"
+            className="px-3 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
-            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Category</p>
-            <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Category</p>
+            <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-heading)' }}>
               {isEditing && onFieldChange ? (
                 <EditableText
                   value={safeRender(data?.categorySnapshot?.category)}
@@ -347,45 +347,45 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
             </p>
           </div>
           <div
-            className="p-3 rounded-lg"
+            className="px-3 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
-            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Market Maturity</p>
-            <Badge variant="outline" className="mt-1 capitalize">
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Market Maturity</p>
+            <Badge variant="outline" className="mt-0.5 capitalize text-xs">
               {safeRender(data?.categorySnapshot?.marketMaturity)}
             </Badge>
           </div>
           <div
-            className="p-3 rounded-lg"
+            className="px-3 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
-            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Awareness Level</p>
-            <Badge variant="outline" className="mt-1 capitalize">
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Awareness Level</p>
+            <Badge variant="outline" className="mt-0.5 capitalize text-xs">
               {safeRender(data?.categorySnapshot?.awarenessLevel)}
             </Badge>
           </div>
           <div
-            className="p-3 rounded-lg"
+            className="px-3 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
-            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Buying Behavior</p>
-            <p className="font-medium capitalize" style={{ color: 'var(--text-heading)' }}>{safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}</p>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Buying Behavior</p>
+            <p className="text-sm font-medium capitalize mt-0.5" style={{ color: 'var(--text-heading)' }}>{safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}</p>
           </div>
           <div
-            className="p-3 rounded-lg"
+            className="px-3 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
-            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Sales Cycle</p>
-            <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Sales Cycle</p>
+            <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-heading)' }}>
               <SourcedText>{safeRender(data?.categorySnapshot?.averageSalesCycle)}</SourcedText>
             </p>
           </div>
           <div
-            className="p-3 rounded-lg"
+            className="px-3 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
-            <p className="text-xs uppercase" style={{ color: 'var(--text-tertiary)' }}>Seasonality</p>
-            <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Seasonality</p>
+            <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-heading)' }}>
               <SourcedText>{safeRender(data?.categorySnapshot?.seasonality)}</SourcedText>
             </p>
           </div>
@@ -394,7 +394,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
 
       {/* Market Dynamics */}
       <SubSection title="Market Dynamics">
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4">
           <div>
             <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
               <TrendingUp className="h-4 w-4" style={{ color: 'var(--success)' }} />
@@ -460,7 +460,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
 
       {/* Pain Points */}
       <SubSection title="Pain Points">
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4">
           <div>
             <h4 className="mb-2 font-medium text-[rgb(252,165,165)]">Primary Pain Points</h4>
             {isEditing && onFieldChange ? (
@@ -520,11 +520,11 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
 
       {/* Audience Objections */}
       <SubSection title="Audience Objections">
-        <div className="space-y-3">
+        <div className="space-y-2">
           {(data?.audienceObjections?.objections || []).map((obj, i) => (
             <div
               key={i}
-              className="p-4 rounded-lg"
+              className="p-3 rounded-lg"
               style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
             >
               <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
@@ -542,7 +542,7 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       {/* Key Recommendations */}
       <SubSection title="Key Recommendations">
         <div
-          className="p-4 rounded-lg"
+          className="p-3 rounded-lg"
           style={{
             backgroundColor: 'rgba(54, 94, 255, 0.05)',
             borderWidth: '1px',
@@ -578,10 +578,10 @@ interface ICPAnalysisContentProps extends EditableContentProps {
 
 function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisContentProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Final Verdict Banner */}
       <div className={cn(
-        "p-4 rounded-lg border",
+        "p-3 rounded-lg border",
         VALIDATION_STATUS_COLORS[data?.finalVerdict?.status || "workable"]
       )}>
         <div className="flex items-center gap-2 font-medium text-lg">
@@ -605,7 +605,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
 
       {/* Coherence Check */}
       <SubSection title="ICP Coherence Check">
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <BoolCheck value={data?.coherenceCheck?.clearlyDefined || false} label="Clearly Defined" />
           <BoolCheck value={data?.coherenceCheck?.reachableThroughPaidChannels || false} label="Reachable via Paid Channels" />
           <BoolCheck value={data?.coherenceCheck?.adequateScale || false} label="Adequate Scale" />
@@ -617,10 +617,10 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
       {/* Pain-Solution Fit */}
       <SubSection title="Pain-Solution Fit">
         <div
-          className="p-4 rounded-lg"
+          className="p-3 rounded-lg"
           style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
         >
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-3">
             <div>
               <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Primary Pain</p>
               <p className="font-medium" style={{ color: 'var(--text-heading)' }}>
@@ -662,7 +662,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
 
       {/* Market Reachability */}
       <SubSection title="Market Size & Reachability">
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <BoolCheck value={data?.marketReachability?.metaVolume || false} label="Meta Audience Volume" />
           <BoolCheck value={data?.marketReachability?.linkedInVolume || false} label="LinkedIn Volume" />
           <BoolCheck value={data?.marketReachability?.googleSearchDemand || false} label="Google Search Demand" />
@@ -681,7 +681,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
 
       {/* Economic Feasibility */}
       <SubSection title="Economic Feasibility">
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <BoolCheck value={data?.economicFeasibility?.hasBudget || false} label="ICP Has Budget" />
           <BoolCheck value={data?.economicFeasibility?.purchasesSimilar || false} label="Purchases Similar Solutions" />
           <BoolCheck value={data?.economicFeasibility?.tamAlignedWithCac || false} label="TAM Aligns with CAC" />
@@ -695,7 +695,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
 
       {/* Risk Assessment */}
       <SubSection title="Risk Assessment">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
             <div key={key} className="rounded-lg bg-[var(--bg-elevated)] p-3 text-center">
               <p className="text-xs uppercase text-[var(--text-tertiary)]">{key.replace(/([A-Z])/g, " $1")}</p>
@@ -739,10 +739,10 @@ interface OfferAnalysisContentProps extends EditableContentProps {
 
 function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisContentProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Recommendation Banner */}
       <div className={cn(
-        "p-4 rounded-lg border",
+        "p-3 rounded-lg border",
         OFFER_RECOMMENDATION_COLORS[data?.recommendation?.status || "proceed"]
       )}>
         <div className="font-medium text-lg capitalize">
@@ -763,7 +763,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
 
       {/* Offer Clarity */}
       <SubSection title="Offer Clarity">
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <BoolCheck value={data?.offerClarity?.clearlyArticulated || false} label="Clearly Articulated" />
           <BoolCheck value={data?.offerClarity?.solvesRealPain || false} label="Solves Real Pain" />
           <BoolCheck value={data?.offerClarity?.benefitsEasyToUnderstand || false} label="Benefits Easy to Understand" />
@@ -774,7 +774,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
 
       {/* Offer Strength Scores */}
       <SubSection title="Offer Strength Scores">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-3">
           <ScoreDisplay label="Pain Relevance" score={data?.offerStrength?.painRelevance || 0} />
           <ScoreDisplay label="Urgency" score={data?.offerStrength?.urgency || 0} />
           <ScoreDisplay label="Differentiation" score={data?.offerStrength?.differentiation || 0} />
@@ -783,7 +783,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
           <ScoreDisplay label="Pricing Logic" score={data?.offerStrength?.pricingLogic || 0} />
         </div>
         <div
-          className="mt-4 p-4 rounded-lg text-center"
+          className="mt-3 p-3 rounded-lg text-center"
           style={{
             background: 'rgba(54, 94, 255, 0.1)',
             borderWidth: '1px',
@@ -806,7 +806,7 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
 
       {/* Market-Offer Fit */}
       <SubSection title="Market-Offer Fit">
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <BoolCheck value={data?.marketOfferFit?.marketWantsNow || false} label="Market Wants This Now" />
           <BoolCheck value={data?.marketOfferFit?.competitorsOfferSimilar || false} label="Competitors Offer Similar" />
           <BoolCheck value={data?.marketOfferFit?.priceMatchesExpectations || false} label="Price Matches Expectations" />
@@ -872,14 +872,14 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
   }, [data]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Competitor Snapshots */}
       <SubSection title="Competitor Snapshots">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {(data?.competitors || []).map((comp, i) => (
             <div
               key={i}
-              className="p-4 rounded-lg"
+              className="p-3 rounded-lg"
               style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
             >
               <h4 className="font-semibold text-lg flex items-center gap-2 flex-wrap">
@@ -938,7 +938,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   <SourcedListItem>{safeRender(comp?.positioning)}</SourcedListItem>
                 )}
               </div>
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div className="grid md:grid-cols-2 gap-3 text-sm">
                 {/* Only show simple Offer if no detailed mainOffer exists */}
                 {!comp?.mainOffer && (
                   <div>
@@ -987,7 +987,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   <p style={{ color: 'var(--text-secondary)' }}>{safeRender(comp?.funnels)}</p>
                 </div>
               </div>
-              <div className="grid md:grid-cols-2 gap-4 mt-3">
+              <div className="grid md:grid-cols-2 gap-3 mt-3">
                 <div>
                   <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>Strengths</p>
                   {isEditing && onFieldChange ? (
@@ -1031,8 +1031,8 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                 const complaints = (tp?.reviews ?? []).filter(r => r.rating <= 2).slice(0, 3);
                 const praise = (tp?.reviews ?? []).filter(r => r.rating >= 4).slice(0, 2);
                 return (
-                  <div className={`mt-4 p-4 ${RESEARCH_SUBTLE_BLOCK_CLASS}`}>
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className={`mt-3 p-3 ${RESEARCH_SUBTLE_BLOCK_CLASS}`}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
                       <p className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
                         <MessageSquareQuote className="h-4 w-4 text-[rgb(245,158,11)]" />
                         Customer Reviews
@@ -1197,11 +1197,11 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                       className="text-sm"
                     />
                   ) : (
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-2.5 md:grid-cols-2">
                       {comp.pricingTiers.map((tier, j) => (
                         <div
                           key={j}
-                          className={`p-4 text-xs break-words ${RESEARCH_SUBTLE_BLOCK_CLASS}`}
+                          className={`p-3 text-xs break-words ${RESEARCH_SUBTLE_BLOCK_CLASS}`}
                         >
                           {/* Tier name and price */}
                           <div className="mb-1 flex items-center justify-between gap-2">
@@ -1385,7 +1385,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
 
       {/* Funnel Breakdown */}
       <SubSection title="Funnel Breakdown">
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4">
           <div>
             <h4 className="font-medium mb-2">Landing Page Patterns</h4>
             <ul className="space-y-1">
@@ -1437,7 +1437,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
 
       {/* Market Strengths & Weaknesses */}
       <SubSection title="Market Strengths & Weaknesses">
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4">
           <div>
             <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Market Strengths</h4>
             <ul className="space-y-1">
@@ -1465,9 +1465,9 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
 
       {/* Gaps & Opportunities */}
       <SubSection title="Gaps & Opportunities">
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-3">
           <div
-            className="p-4 rounded-lg"
+            className="p-3 rounded-lg"
             style={{
               backgroundColor: 'rgba(34, 197, 94, 0.1)',
               borderWidth: '1px',
@@ -1491,7 +1491,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
             )}
           </div>
           <div
-            className="p-4 rounded-lg"
+            className="p-3 rounded-lg"
             style={{
               backgroundColor: 'rgba(54, 94, 255, 0.1)',
               borderWidth: '1px',
@@ -1514,7 +1514,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               </ul>
             )}
           </div>
-          <div className={`p-4 ${RESEARCH_SUBTLE_BLOCK_CLASS}`} style={{ borderColor: "rgba(167,139,250,0.34)" }}>
+          <div className={`p-3 ${RESEARCH_SUBTLE_BLOCK_CLASS}`} style={{ borderColor: "rgba(167,139,250,0.34)" }}>
             <h4 className="mb-2 font-medium text-[rgb(196,181,253)]">Funnel Opportunities</h4>
             {isEditing && onFieldChange ? (
               <EditableList
@@ -1547,14 +1547,14 @@ interface CrossAnalysisContentProps extends EditableContentProps {
 
 function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisContentProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Key Insights */}
       <SubSection title="Key Strategic Insights">
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {(data?.keyInsights || []).map((insight, i) => (
             <div
               key={i}
-              className="p-4 rounded-lg border-l-4"
+              className="p-3 rounded-lg border-l-4"
               style={{
                 backgroundColor: 'var(--bg-surface)',
                 borderLeftColor: 'var(--accent-blue)'
@@ -1579,7 +1579,7 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
       {/* Recommended Positioning */}
       <SubSection title="Recommended Positioning">
         <div
-          className="p-4 rounded-lg"
+          className="p-3 rounded-lg"
           style={{
             backgroundColor: 'rgba(54, 94, 255, 0.05)',
             borderWidth: '1px',
@@ -1653,11 +1653,11 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
 
       {/* Recommended Platforms */}
       <SubSection title="Recommended Platforms">
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-3">
           {(data?.recommendedPlatforms || []).map((plat, i) => (
             <div
               key={i}
-              className={cn("p-4 rounded-lg")}
+              className={cn("p-3 rounded-lg")}
               style={plat?.priority === "primary" ? {
                 backgroundColor: 'rgba(54, 94, 255, 0.1)',
                 borderWidth: '1px',
@@ -1780,10 +1780,10 @@ function formatNumber(num: number | undefined): string {
 function DomainStatCard({ stats, label }: { stats: DomainKeywordStats; label?: string }) {
   return (
     <div
-      className="p-4 rounded-lg"
+      className="p-3 rounded-lg"
       style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
     >
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-2">
         <Globe className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
         <p className="font-medium text-sm truncate" style={{ color: 'var(--text-heading)' }}>
           {label || stats.domain}
@@ -1989,7 +1989,7 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
   return (
     <SubSection title="Technical SEO Audit">
       {/* Overview badges */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-3">
         <SEOScoreBadge score={audit.overallScore} />
         <div className="flex gap-3 text-xs">
           <span className="flex items-center gap-1">
@@ -2008,7 +2008,7 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
       </div>
 
       {/* Site-level checks */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-3">
         <Badge className={cn("text-xs", audit.sitemapFound ? STATUS_BADGE_COLORS.success : STATUS_BADGE_COLORS.danger)}>
           {audit.sitemapFound ? '✓' : '✗'} Sitemap
         </Badge>
@@ -2097,10 +2097,10 @@ function PerformanceAuditSection({ performance }: { performance: SEOAuditData['p
 
   const renderMetrics = (metrics: PageSpeedMetrics, label: string) => (
     <div
-      className="p-4 rounded-lg flex-1"
+      className="p-3 rounded-lg flex-1"
       style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <p className="font-medium text-sm" style={{ color: 'var(--text-heading)' }}>{label}</p>
         <SEOScoreBadge score={metrics.performanceScore} size="sm" />
       </div>
@@ -2135,7 +2135,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
     : data?.sharedKeywords;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* SEO Audit: Technical */}
       {data?.seoAudit?.technical && (
         <TechnicalSEOAuditSection audit={data.seoAudit.technical} />
@@ -2165,7 +2165,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
 
       {/* Domain Overview */}
       <SubSection title="Domain Overview">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {data?.clientDomain && (
             <div className="relative">
               <div
@@ -2213,7 +2213,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
           ))}
         </div>
         <div
-          className="p-4 rounded-lg"
+          className="p-3 rounded-lg"
           style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
         >
           <KeywordTable keywords={tabKeywords || []} />
@@ -2226,7 +2226,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
           <p className="text-sm mb-3" style={{ color: 'var(--text-tertiary)' }}>
             Low difficulty + decent volume — target these first for fast organic wins.
           </p>
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className="grid md:grid-cols-2 gap-2.5">
             {data.quickWins.slice(0, 8).map((kw, i) => (
               <div
                 key={i}
@@ -2259,7 +2259,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
             High-volume keywords with moderate-to-high difficulty — build authority over 3-6 months with pillar content.
           </p>
           <div
-            className="p-4 rounded-lg"
+            className="p-3 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
             <KeywordTable keywords={data.longTermPlays} maxRows={10} />
@@ -2274,7 +2274,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
             High CPC signals strong commercial intent — valuable for paid campaigns and conversion-focused content.
           </p>
           <div
-            className="p-4 rounded-lg"
+            className="p-3 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
             <KeywordTable keywords={data.highIntentKeywords} maxRows={10} />
@@ -2289,7 +2289,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
             Keywords you rank for that competitors don't — defend these positions and build on them.
           </p>
           <div
-            className="p-4 rounded-lg"
+            className="p-3 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
             <KeywordTable keywords={data.clientStrengths} maxRows={10} />
@@ -2304,7 +2304,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
             Thematic keyword opportunities beyond direct competitor gaps — expand your content footprint.
           </p>
           <div
-            className="p-4 rounded-lg"
+            className="p-3 rounded-lg"
             style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
           >
             <KeywordTable keywords={data.relatedExpansions} maxRows={10} />
@@ -2315,11 +2315,11 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
       {/* Content Topic Clusters */}
       {data?.contentTopicClusters && data.contentTopicClusters.length > 0 && (
         <SubSection title="Content Topic Clusters">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-3">
             {data.contentTopicClusters.map((cluster, i) => (
               <div
                 key={i}
-                className="p-4 rounded-lg"
+                className="p-3 rounded-lg"
                 style={{
                   backgroundColor: 'rgba(54, 94, 255, 0.05)',
                   borderWidth: '1px',
@@ -2375,7 +2375,7 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
       {/* Strategic Recommendations */}
       {data?.strategicRecommendations && (
         <SubSection title="Strategic Recommendations">
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-4">
             {data.strategicRecommendations.organicStrategy?.length > 0 && (
               <div>
                 <h4 className="font-medium mb-2 flex items-center gap-2 text-sm" style={{ color: 'var(--success)' }}>

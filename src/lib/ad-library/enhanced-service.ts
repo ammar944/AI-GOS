@@ -252,7 +252,7 @@ export class EnhancedAdLibraryService {
     }));
 
     // Apply relevance filtering
-    const minScore = options.minRelevanceScore ?? (recallMode === 'high' ? 35 : 50);
+    const minScore = options.minRelevanceScore ?? (recallMode === 'high' ? 60 : 60);
     const excludeCategories = options.excludeCategories ?? (recallMode === 'high' ? [] : ['unclear']);
     const includeSubsidiaries = options.includeSubsidiaries ?? (recallMode === 'high');
 

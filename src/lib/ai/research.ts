@@ -40,6 +40,35 @@ function logGenerationError(section: string, error: unknown): void {
 }
 
 // =============================================================================
+// Retry wrapper for schema validation failures
+// generateObject retries network errors internally but NOT schema mismatches.
+// This wraps the full call so a fresh model response is requested on mismatch.
+// =============================================================================
+const SCHEMA_RETRY_MAX = 2; // up to 2 additional attempts (3 total)
+
+async function withSchemaRetry<T>(
+  fn: () => Promise<T>,
+  section: string,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= SCHEMA_RETRY_MAX; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (error instanceof NoObjectGeneratedError && attempt < SCHEMA_RETRY_MAX) {
+        console.warn(
+          `[${section}] Schema mismatch on attempt ${attempt + 1}/${SCHEMA_RETRY_MAX + 1}, retrying...`
+        );
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError; // unreachable but satisfies TS
+}
+
+// =============================================================================
 // Section 1: Industry & Market Overview
 // Model: Sonar Pro (research aggregation)
 // =============================================================================
@@ -50,10 +79,11 @@ export async function researchIndustryMarket(
   const model = SECTION_MODELS.industryMarket;
 
   try {
-    const result = await generateObject({
-      model: perplexity(model),
-      schema: industryMarketSchema,
-      system: `You are an expert market researcher with real-time web search.
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: perplexity(model),
+        schema: industryMarketSchema,
+        system: `You are an expert market researcher with real-time web search.
 
 TASK: Research the industry and market landscape to inform a paid media strategy.
 
@@ -72,9 +102,11 @@ QUALITY STANDARDS:
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
 
-      prompt: `Research the industry and market for:\n\n${context}`,
-      ...GENERATION_SETTINGS.research,
-    });
+        prompt: `Research the industry and market for:\n\n${context}`,
+        ...GENERATION_SETTINGS.research,
+      }),
+      'industryMarket',
+    );
 
     return {
       data: result.object,
@@ -111,10 +143,11 @@ MARKET CONTEXT (from previous research):
 `;
 
   try {
-    const result = await generateObject({
-      model: perplexity(model),
-      schema: icpAnalysisSchema,
-      system: `You are an expert ICP analyst validating whether a target audience is viable for paid media.
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: perplexity(model),
+        schema: icpAnalysisSchema,
+        system: `You are an expert ICP analyst validating whether a target audience is viable for paid media.
 ${previousContext}
 
 TASK: Critically assess whether this ICP can be profitably targeted with paid ads.
@@ -142,10 +175,12 @@ PSYCHOGRAPHICS QUALITY:
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
 
-      prompt: `Validate the ICP for paid media:\n\n${context}`,
-      ...GENERATION_SETTINGS.research,
-      maxOutputTokens: 4096,  // Override: ICP output is ~2-4K tokens
-    });
+        prompt: `Validate the ICP for paid media:\n\n${context}`,
+        ...GENERATION_SETTINGS.research,
+        maxOutputTokens: 4096,  // Override: ICP output is ~2-4K tokens
+      }),
+      'icpAnalysis',
+    );
 
     return {
       data: result.object,
@@ -183,10 +218,11 @@ MARKET CONTEXT (from industry research):
 `;
 
   try {
-    const result = await generateObject({
-      model: perplexity(model),
-      schema: offerAnalysisSchema,
-      system: `You are an expert offer analyst evaluating viability for paid media campaigns.
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: perplexity(model),
+        schema: offerAnalysisSchema,
+        system: `You are an expert offer analyst evaluating viability for paid media campaigns.
 ${previousContext}
 
 TASK: Score and assess whether this offer can convert cold traffic profitably.
@@ -204,10 +240,12 @@ SCORING GUIDELINES:
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
 
-      prompt: `Analyze offer viability for paid media:\n\n${context}`,
-      ...GENERATION_SETTINGS.research,
-      maxOutputTokens: 4096,  // Override: Offer output is ~2-4K tokens
-    });
+        prompt: `Analyze offer viability for paid media:\n\n${context}`,
+        ...GENERATION_SETTINGS.research,
+        maxOutputTokens: 4096,  // Override: Offer output is ~2-4K tokens
+      }),
+      'offerAnalysis',
+    );
 
     return {
       data: result.object,
@@ -233,10 +271,11 @@ export async function researchCompetitors(
   const model = SECTION_MODELS.competitorAnalysis;
 
   try {
-    const result = await generateObject({
-      model: perplexity(model),
-      schema: competitorAnalysisSchema,
-      system: `You are an expert competitive analyst researching the competitor landscape.
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: perplexity(model),
+        schema: competitorAnalysisSchema,
+        system: `You are an expert competitive analyst researching the competitor landscape.
 
 TASK: Research competitors to inform paid media positioning and messaging.
 
@@ -274,9 +313,11 @@ QUALITY:
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
 
-      prompt: `Research competitors for:\n\n${context}`,
-      ...GENERATION_SETTINGS.research,
-    });
+        prompt: `Research competitors for:\n\n${context}`,
+        ...GENERATION_SETTINGS.research,
+      }),
+      'competitorAnalysis',
+    );
 
     // NOTE: The generator will enrich this with:
     // - scrapePricingForCompetitors() → Real pricing from Firecrawl
@@ -538,9 +579,10 @@ REVIEW DATA USAGE:
 `;
 
   try {
-    const result = await generateObject({
-      model: anthropic(model),
-      schema: crossAnalysisSchema,
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(model),
+        schema: crossAnalysisSchema,
       system: `${COPYWRITING_EXPERT_PERSONA}
 
 You are synthesizing research into an actionable paid media strategy with compelling copywriting angles.
@@ -578,9 +620,11 @@ QUALITY STANDARDS:
 - When keyword intelligence is available: include at least 3 keyword-specific next steps with exact keywords, volumes, and difficulty scores. Reference keyword data in platform recommendations (difficulty distribution informs organic vs PPC priority). Use high-CPC keywords as evidence of commercial intent in messaging angles.
 - When SEO audit data is available: reference specific technical issues (missing meta descriptions, missing H1 tags, slow LCP) in nextSteps as actionable items. Include PageSpeed scores in criticalSuccessFactors if performance is poor (<70). Cross-reference keyword gaps with pages that have weak/missing titles for quick-win SEO fixes.`,
 
-      prompt: `Create a strategic paid media blueprint for:\n\n${context}`,
-      ...GENERATION_SETTINGS.synthesis,
-    });
+        prompt: `Create a strategic paid media blueprint for:\n\n${context}`,
+        ...GENERATION_SETTINGS.synthesis,
+      }),
+      'crossAnalysis',
+    );
 
     return {
       data: result.object,
@@ -590,7 +634,52 @@ QUALITY STANDARDS:
       model,
     };
   } catch (error) {
+    // Anthropic tool-use mode sometimes wraps JSON in {"$PARAMETER_NAME": {...}}.
+    // The actual data is valid — just nested one level too deep.
+    if (error instanceof NoObjectGeneratedError && error.text) {
+      const unwrapped = tryUnwrapParameterName(error.text, crossAnalysisSchema);
+      if (unwrapped) {
+        console.warn('[crossAnalysis] Recovered from $PARAMETER_NAME wrapper — unwrapped successfully');
+        return {
+          data: unwrapped,
+          sources: [],
+          usage: { inputTokens: error.usage?.inputTokens ?? 0, outputTokens: error.usage?.outputTokens ?? 0, totalTokens: error.usage?.totalTokens ?? 0 },
+          cost: estimateCost(model, error.usage?.inputTokens ?? 0, error.usage?.outputTokens ?? 0),
+          model,
+        };
+      }
+    }
     logGenerationError('crossAnalysis', error);
     throw error;
+  }
+}
+
+/**
+ * Attempt to unwrap a `{"$PARAMETER_NAME": {...data...}}` wrapper that Anthropic
+ * sometimes emits in tool-use mode. Returns the parsed + validated inner object,
+ * or null if unwrapping fails or the inner data doesn't match the schema.
+ */
+function tryUnwrapParameterName<T>(
+  rawText: string,
+  schema: { safeParse: (v: unknown) => { success: boolean; data?: T } },
+): T | null {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+
+    const keys = Object.keys(parsed);
+    // Only unwrap if there's exactly one key and it's not a valid schema key
+    if (keys.length !== 1) return null;
+    const innerKey = keys[0];
+
+    const inner = parsed[innerKey];
+    if (typeof inner !== 'object' || inner === null) return null;
+
+    const result = schema.safeParse(inner);
+    if (result.success) return result.data as T;
+
+    return null;
+  } catch {
+    return null;
   }
 }

@@ -135,12 +135,12 @@ export function GenerateHeader({
         )}
         initial={false}
         animate={{
-          height: collapsible && isCollapsed ? "48px" : "auto",
+          height: collapsible && isCollapsed ? "40px" : "auto",
         }}
       >
         <div className="container mx-auto px-4">
           {/* Main Header Content */}
-          <div className="flex h-16 items-center justify-between">
+          <div className="flex h-12 items-center justify-between">
             {/* Left: Logo */}
             <Link
               href={exitUrl}

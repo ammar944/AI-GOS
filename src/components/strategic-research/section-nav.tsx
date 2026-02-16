@@ -59,17 +59,17 @@ export function SectionNav({
   const totalSections = STRATEGIC_BLUEPRINT_SECTION_ORDER.length;
 
   const handleClick = (sectionId: StrategicBlueprintSection) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (onNavigate) {
+      onNavigate(sectionId);
+    } else {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    onNavigate?.(sectionId);
   };
 
   const showActionBar = onApproveAll || onRegenerate || onApprove;
 
   return (
-    <nav className="sticky top-6 hidden lg:block">
+    <nav className="sticky top-6">
       <div
         className={`${RESEARCH_SHELL_CLASS} rounded-xl p-4`}
       >

@@ -49,13 +49,13 @@ export function DocumentSection({
       id={sectionKey}
       data-section
       className={cn(
-        "scroll-mt-6 mb-6 rounded-xl",
+        "rounded-xl",
         RESEARCH_SHELL_CLASS,
-        "p-6 md:p-8"
+        "p-5"
       )}
     >
       {/* Section Header */}
-      <div className="mb-6 flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+      <div className="mb-4 flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
         <div className="flex items-center gap-4">
           {/* Section number - cyan for active, green for reviewed */}
           <span
@@ -160,7 +160,7 @@ export function DocumentSection({
       </div>
 
       {/* Section Content - always visible */}
-      <div className="mt-6">
+      <div className="mt-3">
         <SectionContentRenderer
           sectionKey={sectionKey}
           data={sectionData}
@@ -176,7 +176,7 @@ export function DocumentSection({
         {/* Mark as Reviewed - positioned at bottom for natural reading flow */}
         {!isReviewed && (
           <div
-            className="mt-8 pt-6 flex justify-end"
+            className="mt-5 pt-4 flex justify-end"
             style={{ borderTop: '1px solid var(--border-default)' }}
           >
             <Button

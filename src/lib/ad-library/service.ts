@@ -1086,7 +1086,9 @@ export class AdLibraryService {
         return {
           platform,
           id: (ad.ad_id || ad.id || String(Math.random())) as string,
-          advertiser: (advertiser?.name || 'Unknown') as string,
+          // LinkedIn employee-sponsored posts have the person's name in `name`
+          // but the paying company in `promotor`. Prefer promotor for matching.
+          advertiser: (advertiser?.promotor || advertiser?.name || 'Unknown') as string,
           headline: content?.headline as string | undefined,
           body: content?.body as string | undefined,
           imageUrl,

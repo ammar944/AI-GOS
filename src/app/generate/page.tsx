@@ -47,6 +47,7 @@ import {
 } from "@/lib/storage/local-storage";
 import { useMediaPlanGeneration } from "@/hooks/use-media-plan-generation";
 import { MEDIA_PLAN_STAGES } from "@/lib/media-plan/types";
+import { MediaPlanView } from "@/components/media-plan";
 
 // =============================================================================
 // SSE Event Types (match server-side definitions)
@@ -1116,16 +1117,11 @@ export default function GeneratePage() {
               />
             }
             blueprintContent={
-              <div className="container mx-auto px-5 pb-32 pt-8 md:px-8 md:py-12">
-                {/* Review Component */}
-                <div className={`mx-auto max-w-7xl p-4 md:p-6 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}>
-                  <BlueprintDocument
-                    strategicBlueprint={strategicBlueprint}
-                    onApprove={handleApprove}
-                    onRegenerate={handleRegenerateBlueprint}
-                  />
-                </div>
-              </div>
+              <BlueprintDocument
+                strategicBlueprint={strategicBlueprint}
+                onApprove={handleApprove}
+                onRegenerate={handleRegenerateBlueprint}
+              />
             }
           />
         </div>
@@ -1718,103 +1714,8 @@ export default function GeneratePage() {
             </GradientBorder>
           </motion.div>
 
-          {/* Media Plan JSON Preview (placeholder — proper rendering will be built later) */}
-          <motion.div
-            className="mx-auto max-w-6xl"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
-          >
-            <GradientBorder>
-              <div className="p-6">
-                <h3
-                  className="text-lg font-semibold mb-4"
-                  style={{
-                    color: 'var(--text-heading)',
-                    fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                  }}
-                >
-                  {mediaPlanGen.mediaPlan.executiveSummary.primaryObjective}
-                </h3>
-                <p
-                  className="text-sm mb-6"
-                  style={{
-                    color: 'var(--text-secondary)',
-                    fontFamily: 'var(--font-sans), Inter, sans-serif',
-                    lineHeight: '1.6em',
-                  }}
-                >
-                  {mediaPlanGen.mediaPlan.executiveSummary.overview}
-                </p>
-
-                {/* Platform summary cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {mediaPlanGen.mediaPlan.platformStrategy.map((platform) => (
-                    <div
-                      key={platform.platform}
-                      className="p-4 rounded-lg"
-                      style={{
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-default)',
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span
-                          className="text-sm font-medium"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {platform.platform}
-                        </span>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full"
-                          style={{
-                            background: platform.priority === 'primary'
-                              ? 'rgba(54, 94, 255, 0.15)'
-                              : 'rgba(100, 105, 115, 0.15)',
-                            color: platform.priority === 'primary'
-                              ? 'rgb(54, 94, 255)'
-                              : 'var(--text-tertiary)',
-                          }}
-                        >
-                          {platform.priority}
-                        </span>
-                      </div>
-                      <p
-                        className="text-sm font-mono"
-                        style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}
-                      >
-                        ${platform.monthlySpend.toLocaleString()}/mo ({platform.budgetPercentage}%)
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Raw JSON toggle */}
-                <details className="mt-4">
-                  <summary
-                    className="text-sm cursor-pointer"
-                    style={{
-                      color: 'var(--text-tertiary)',
-                      fontFamily: 'var(--font-sans), Inter, sans-serif',
-                    }}
-                  >
-                    View raw JSON
-                  </summary>
-                  <pre
-                    className="mt-2 p-4 rounded-lg text-xs overflow-auto max-h-96"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border-default)',
-                      color: 'var(--text-secondary)',
-                      fontFamily: 'var(--font-mono)',
-                    }}
-                  >
-                    {JSON.stringify(mediaPlanGen.mediaPlan, null, 2)}
-                  </pre>
-                </details>
-              </div>
-            </GradientBorder>
-          </motion.div>
+          {/* Media Plan — full section rendering */}
+          <MediaPlanView mediaPlan={mediaPlanGen.mediaPlan} />
         </div>
       </div>
     );
