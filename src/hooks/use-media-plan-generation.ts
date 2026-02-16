@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { MediaPlanOutput, MediaPlanSSEEvent } from "@/lib/media-plan/types";
+import type { MediaPlanSectionKey } from "@/lib/media-plan/section-constants";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 
 // =============================================================================
-// SSE Parsing (same logic as generate/page.tsx)
+// SSE Parsing
 // =============================================================================
 
 function parseSSEEvent(eventStr: string): MediaPlanSSEEvent | null {
@@ -41,6 +42,12 @@ export interface MediaPlanGenerationState {
   progress: { percentage: number; message: string };
   error: string | null;
   meta: { totalTime: number; totalCost: number } | null;
+  /** Sections that have completed generation */
+  completedSections: Set<MediaPlanSectionKey>;
+  /** Currently generating sections */
+  activeSections: Set<MediaPlanSectionKey>;
+  /** Current pipeline phase */
+  currentPhase: 'research' | 'synthesis' | 'validation' | 'final' | null;
 }
 
 export interface UseMediaPlanGenerationReturn extends MediaPlanGenerationState {
@@ -54,6 +61,9 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
   const [progress, setProgress] = useState({ percentage: 0, message: "" });
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ totalTime: number; totalCost: number } | null>(null);
+  const [completedSections, setCompletedSections] = useState<Set<MediaPlanSectionKey>>(new Set());
+  const [activeSections, setActiveSections] = useState<Set<MediaPlanSectionKey>>(new Set());
+  const [currentPhase, setCurrentPhase] = useState<'research' | 'synthesis' | 'validation' | 'final' | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const generate = useCallback(async (
@@ -69,7 +79,10 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
     setError(null);
     setMediaPlan(null);
     setMeta(null);
-    setProgress({ percentage: 0, message: "Starting media plan generation..." });
+    setCompletedSections(new Set());
+    setActiveSections(new Set());
+    setCurrentPhase(null);
+    setProgress({ percentage: 0, message: "Starting media plan pipeline..." });
 
     try {
       const response = await fetch("/api/media-plan/generate", {
@@ -111,15 +124,29 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
 
           switch (event.type) {
             case "section-start":
-              setProgress({ percentage: 10, message: `Generating ${event.label}...` });
+              setCurrentPhase(event.phase);
+              setActiveSections(prev => {
+                const next = new Set(prev);
+                next.add(event.section);
+                return next;
+              });
+              break;
+
+            case "section-complete":
+              setActiveSections(prev => {
+                const next = new Set(prev);
+                next.delete(event.section);
+                return next;
+              });
+              setCompletedSections(prev => {
+                const next = new Set(prev);
+                next.add(event.section);
+                return next;
+              });
               break;
 
             case "progress":
               setProgress({ percentage: event.percentage, message: event.message });
-              break;
-
-            case "section-complete":
-              setProgress({ percentage: 80, message: `Completed ${event.label}` });
               break;
 
             case "done":
@@ -129,6 +156,7 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
                 totalCost: event.metadata.totalCost,
               });
               setProgress({ percentage: 100, message: "Media plan complete!" });
+              setActiveSections(new Set());
               break;
 
             case "error":
@@ -139,7 +167,6 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        // User cancelled — don't set error
         return;
       }
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -156,7 +183,21 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
     setProgress({ percentage: 0, message: "" });
     setError(null);
     setMeta(null);
+    setCompletedSections(new Set());
+    setActiveSections(new Set());
+    setCurrentPhase(null);
   }, []);
 
-  return { mediaPlan, isGenerating, progress, error, meta, generate, reset };
+  return {
+    mediaPlan,
+    isGenerating,
+    progress,
+    error,
+    meta,
+    completedSections,
+    activeSections,
+    currentPhase,
+    generate,
+    reset,
+  };
 }

@@ -4,6 +4,7 @@
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type { MediaPlanOutput } from "@/lib/media-plan/types";
+import type { AdCopyOutput } from "@/lib/media-plan/ad-copy-types";
 
 // Storage keys
 export const STORAGE_KEYS = {
@@ -11,11 +12,17 @@ export const STORAGE_KEYS = {
   STRATEGIC_BLUEPRINT: "aigog_strategic_blueprint",
   GENERATION_STATE: "aigog_generation_state",
   MEDIA_PLAN: "aigog_media_plan",
+  AD_COPY: "aigog_ad_copy",
 } as const;
 
 // Generation state to track progress
 export interface GenerationState {
-  currentStage: "onboarding" | "blueprint-complete" | "media-plan-complete";
+  currentStage:
+    | "onboarding"
+    | "blueprint-complete"
+    | "media-plan-complete"
+    | "media-plan-approved"
+    | "ad-copy-complete";
   lastUpdated: string;
 }
 
@@ -106,6 +113,19 @@ export function setMediaPlan(data: MediaPlanOutput): boolean {
   return success;
 }
 
+// Ad Copy
+export function getAdCopy(): AdCopyOutput | null {
+  return getItem<AdCopyOutput>(STORAGE_KEYS.AD_COPY);
+}
+
+export function setAdCopy(data: AdCopyOutput): boolean {
+  const success = setItem(STORAGE_KEYS.AD_COPY, data);
+  if (success) {
+    updateGenerationState("ad-copy-complete");
+  }
+  return success;
+}
+
 // Generation State
 export function getGenerationState(): GenerationState | null {
   return getItem<GenerationState>(STORAGE_KEYS.GENERATION_STATE);
@@ -127,7 +147,12 @@ function updateGenerationState(stage: GenerationState["currentStage"]): boolean 
  */
 export function hasSavedProgress(): boolean {
   const state = getGenerationState();
-  return state !== null && (state.currentStage === "blueprint-complete" || state.currentStage === "media-plan-complete");
+  return state !== null && (
+    state.currentStage === "blueprint-complete" ||
+    state.currentStage === "media-plan-complete" ||
+    state.currentStage === "media-plan-approved" ||
+    state.currentStage === "ad-copy-complete"
+  );
 }
 
 /**
@@ -137,12 +162,14 @@ export function getSavedProgress(): {
   onboardingData: OnboardingFormData | null;
   strategicBlueprint: StrategicBlueprintOutput | null;
   mediaPlan: MediaPlanOutput | null;
+  adCopy: AdCopyOutput | null;
   state: GenerationState | null;
 } {
   return {
     onboardingData: getOnboardingData(),
     strategicBlueprint: getStrategicBlueprint(),
     mediaPlan: getMediaPlan(),
+    adCopy: getAdCopy(),
     state: getGenerationState(),
   };
 }
@@ -155,13 +182,14 @@ export function clearAllSavedData(): boolean {
     removeItem(STORAGE_KEYS.ONBOARDING_DATA),
     removeItem(STORAGE_KEYS.STRATEGIC_BLUEPRINT),
     removeItem(STORAGE_KEYS.MEDIA_PLAN),
+    removeItem(STORAGE_KEYS.AD_COPY),
     removeItem(STORAGE_KEYS.GENERATION_STATE),
   ];
   return results.every(Boolean);
 }
 
 /**
- * Clear strategic blueprint (for regeneration from scratch)
+ * Clear strategic blueprint data
  */
 export function clearBlueprint(): boolean {
   const removed = removeItem(STORAGE_KEYS.STRATEGIC_BLUEPRINT);

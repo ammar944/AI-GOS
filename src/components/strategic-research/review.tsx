@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { CheckCircle2, CheckCheck, RotateCcw, ArrowRight, Undo2, Redo2, DollarSign } from "lucide-react";
+import { CheckCircle2, CheckCheck, ArrowRight, Undo2, Redo2, DollarSign } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -23,7 +23,6 @@ import { createApprovedBlueprint } from "@/lib/strategic-blueprint/approval";
 export interface StrategicResearchReviewProps {
   strategicBlueprint: StrategicBlueprintOutput;
   onApprove: (approvedBlueprint: StrategicBlueprintOutput) => void;
-  onRegenerate: () => void;
   onEdit?: (sectionKey: string, fieldPath: string, newValue: unknown) => void;
 }
 
@@ -62,7 +61,6 @@ function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
 export function StrategicResearchReview({
   strategicBlueprint,
   onApprove,
-  onRegenerate,
   onEdit,
 }: StrategicResearchReviewProps) {
   // Track which sections are expanded (allow multiple)
@@ -531,19 +529,6 @@ export function StrategicResearchReview({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 sm:h-8 sm:w-auto sm:px-3 hover:bg-[var(--bg-hover)]"
-                  onClick={onRegenerate}
-                  style={{
-                    color: 'var(--text-secondary)',
-                    fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif'
-                  }}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  <span className="sr-only sm:not-sr-only sm:ml-2">Regenerate</span>
-                </Button>
                 <Button
                   size="sm"
                   onClick={handleApprove}

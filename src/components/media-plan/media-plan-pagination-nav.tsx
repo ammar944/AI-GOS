@@ -1,11 +1,13 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
-import { CheckCheck, Undo2, Redo2 } from "lucide-react";
+import { CheckCheck, Undo2, Redo2, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import type { StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
+import type { MediaPlanSectionKey } from "@/lib/media-plan/section-constants";
+import { MEDIA_PLAN_SECTION_SHORT_LABELS } from "@/lib/media-plan/section-constants";
 import {
   Tooltip,
   TooltipContent,
@@ -13,34 +15,25 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
-  industryMarketOverview: "Industry & Market",
-  icpAnalysisValidation: "ICP Analysis",
-  offerAnalysisViability: "Offer Analysis",
-  competitorAnalysis: "Competitors",
-  crossAnalysisSynthesis: "Synthesis",
-  keywordIntelligence: "Keywords",
-};
-
-interface SectionPaginationNavProps {
-  sections: StrategicBlueprintSection[];
+interface MediaPlanPaginationNavProps {
+  sections: MediaPlanSectionKey[];
   currentPage: number;
-  reviewedSections: Set<StrategicBlueprintSection>;
+  reviewedSections: Set<MediaPlanSectionKey>;
   onGoToPage: (page: number) => void;
-  // Action bar props
   allReviewed?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
   hasPendingEdits?: boolean;
-  preApproveAllState?: Set<StrategicBlueprintSection> | null;
+  preApproveAllState?: Set<MediaPlanSectionKey> | null;
   onApproveAll?: () => void;
   onUndoApproveAll?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   onApprove?: () => void;
+  onCopy?: () => void;
 }
 
-export function SectionPaginationNav({
+export function MediaPlanPaginationNav({
   sections,
   currentPage,
   reviewedSections,
@@ -55,7 +48,16 @@ export function SectionPaginationNav({
   onUndo,
   onRedo,
   onApprove,
-}: SectionPaginationNavProps) {
+  onCopy,
+}: MediaPlanPaginationNavProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    onCopy?.();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [onCopy]);
+
   const showActions = onApproveAll || onApprove;
 
   return (
@@ -92,12 +94,12 @@ export function SectionPaginationNav({
                       }}
                       whileHover={{ scale: 1.2, opacity: 1 }}
                       transition={springs.snappy}
-                      aria-label={`Go to ${SECTION_LABELS[section]}`}
+                      aria-label={`Go to ${MEDIA_PLAN_SECTION_SHORT_LABELS[section]}`}
                       aria-current={isActive ? "step" : undefined}
                     />
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    {SECTION_LABELS[section]}
+                    {MEDIA_PLAN_SECTION_SHORT_LABELS[section]}
                   </TooltipContent>
                 </Tooltip>
               );
@@ -170,6 +172,43 @@ export function SectionPaginationNav({
                   </TooltipContent>
                 </Tooltip>
               </div>
+            </TooltipProvider>
+          )}
+
+          {/* Copy as Markdown */}
+          {onCopy && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                    style={{
+                      color: copied
+                        ? "var(--success)"
+                        : "var(--text-secondary)",
+                      borderColor: copied
+                        ? "rgba(34,197,94,0.4)"
+                        : "var(--border-default)",
+                      fontFamily: "var(--font-sans), Inter, sans-serif",
+                    }}
+                    onClick={handleCopy}
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {copied ? "Copied" : "Copy"}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Copy full media plan as markdown
+                </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           )}
 

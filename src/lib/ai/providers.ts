@@ -51,6 +51,32 @@ export const SECTION_MODELS = {
 } as const;
 
 // =============================================================================
+// Media Plan Section → Model Mapping
+// =============================================================================
+
+export const MEDIA_PLAN_SECTION_MODELS = {
+  // Phase 1: Web-grounded research (Sonar Pro)
+  platformStrategy: MODELS.SONAR_PRO,
+  icpTargeting: MODELS.SONAR_PRO,
+  kpiTargets: MODELS.SONAR_PRO,
+
+  // Phase 2A: Synthesis (Claude Sonnet)
+  campaignStructure: MODELS.CLAUDE_SONNET,
+  creativeStrategy: MODELS.CLAUDE_SONNET,
+  campaignPhases: MODELS.CLAUDE_SONNET,
+
+  // Phase 2B: Budget + Monitoring (Claude Sonnet → code validation)
+  budgetAllocation: MODELS.CLAUDE_SONNET,
+
+  // Phase 2C: Performance Model (pure code — no model)
+  performanceModel: 'deterministic' as const,
+
+  // Phase 3: Final synthesis (Claude Sonnet)
+  executiveSummary: MODELS.CLAUDE_SONNET,
+  riskMonitoring: MODELS.CLAUDE_SONNET,
+} as const;
+
+// =============================================================================
 // Generation Settings
 // =============================================================================
 

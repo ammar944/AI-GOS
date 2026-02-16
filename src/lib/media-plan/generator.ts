@@ -1,5 +1,5 @@
 // Media Plan Generator
-// Single-phase generateObject call with Claude Sonnet
+// Single-phase generateObject call
 
 import { generateObject } from 'ai';
 import { anthropic, MODELS, GENERATION_SETTINGS, estimateCost } from '@/lib/ai/providers';
@@ -79,7 +79,7 @@ Your task is to create a detailed, execution-ready media plan that a media buyin
 
 /**
  * Generate a media plan from a pre-built context string.
- * Uses a single generateObject call with Claude Sonnet.
+ * Uses a single generateObject call.
  */
 export async function generateMediaPlan(
   contextString: string,
@@ -89,9 +89,9 @@ export async function generateMediaPlan(
   const startTime = Date.now();
 
   try {
-    onProgress?.('Preparing media plan generation...', 5);
+    onProgress?.('Analyzing blueprint context...', 5);
 
-    onProgress?.('Generating 10-section media plan with Claude Sonnet...', 15);
+    onProgress?.('Building platform strategy & targeting...', 15);
 
     const result = await generateObject({
       model: anthropic(MODELS.CLAUDE_SONNET),
@@ -102,7 +102,7 @@ export async function generateMediaPlan(
       maxOutputTokens: 16384,
     });
 
-    onProgress?.('Media plan generated, finalizing...', 90);
+    onProgress?.('Validating and finalizing...', 90);
 
     // Calculate cost from usage
     const inputTokens = result.usage?.inputTokens ?? 0;

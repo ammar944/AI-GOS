@@ -634,14 +634,28 @@ QUALITY STANDARDS:
       model,
     };
   } catch (error) {
-    // Anthropic tool-use mode sometimes wraps JSON in {"$PARAMETER_NAME": {...}}.
-    // The actual data is valid — just nested one level too deep.
     if (error instanceof NoObjectGeneratedError && error.text) {
+      // Recovery 1: Anthropic tool-use mode sometimes wraps JSON in {"$PARAMETER_NAME": {...}}.
       const unwrapped = tryUnwrapParameterName(error.text, crossAnalysisSchema);
       if (unwrapped) {
         console.warn('[crossAnalysis] Recovered from $PARAMETER_NAME wrapper — unwrapped successfully');
         return {
           data: unwrapped,
+          sources: [],
+          usage: { inputTokens: error.usage?.inputTokens ?? 0, outputTokens: error.usage?.outputTokens ?? 0, totalTokens: error.usage?.totalTokens ?? 0 },
+          cost: estimateCost(model, error.usage?.inputTokens ?? 0, error.usage?.outputTokens ?? 0),
+          model,
+        };
+      }
+
+      // Recovery 2: LLMs sometimes return deeply nested objects as JSON strings
+      // (e.g. messagingFramework: "{\"coreMessage\":...}" instead of an object).
+      // Attempt to JSON.parse any string fields that should be objects.
+      const fixedStringified = tryFixStringifiedFields(error.text, crossAnalysisSchema);
+      if (fixedStringified) {
+        console.warn('[crossAnalysis] Recovered from stringified nested fields — parsed successfully');
+        return {
+          data: fixedStringified,
           sources: [],
           usage: { inputTokens: error.usage?.inputTokens ?? 0, outputTokens: error.usage?.outputTokens ?? 0, totalTokens: error.usage?.totalTokens ?? 0 },
           cost: estimateCost(model, error.usage?.inputTokens ?? 0, error.usage?.outputTokens ?? 0),
@@ -676,6 +690,50 @@ function tryUnwrapParameterName<T>(
     if (typeof inner !== 'object' || inner === null) return null;
 
     const result = schema.safeParse(inner);
+    if (result.success) return result.data as T;
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * LLMs sometimes return deeply nested objects as JSON strings instead of objects.
+ * For example: `messagingFramework: "{\"coreMessage\":...}"` instead of an object.
+ * This walks the parsed response and JSON.parses any string values that look like
+ * JSON objects or arrays, then re-validates against the schema.
+ */
+function tryFixStringifiedFields<T>(
+  rawText: string,
+  schema: { safeParse: (v: unknown) => { success: boolean; data?: T } },
+): T | null {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+
+    let didFix = false;
+    for (const key of Object.keys(parsed)) {
+      const val = parsed[key];
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (
+          (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']'))
+        ) {
+          try {
+            parsed[key] = JSON.parse(trimmed);
+            didFix = true;
+          } catch {
+            // Not valid JSON string — leave as-is
+          }
+        }
+      }
+    }
+
+    if (!didFix) return null;
+
+    const result = schema.safeParse(parsed);
     if (result.success) return result.data as T;
 
     return null;

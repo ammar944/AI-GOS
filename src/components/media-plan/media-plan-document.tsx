@@ -4,16 +4,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { springs } from "@/lib/motion";
-import { DocumentSection } from "./document-section";
-import { SectionPaginationNav } from "./section-pagination-nav";
-import { SectionProgressBar } from "./section-progress-bar";
-import type {
-  StrategicBlueprintOutput,
-  StrategicBlueprintSection,
-} from "@/lib/strategic-blueprint/output-types";
-import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
-import { createApprovedBlueprint } from "@/lib/strategic-blueprint/approval";
+import { MediaPlanDocumentSection } from "./media-plan-document-section";
+import { MediaPlanPaginationNav } from "./media-plan-pagination-nav";
+import { MediaPlanProgressBar } from "./media-plan-progress-bar";
+import type { MediaPlanOutput } from "@/lib/media-plan/types";
+import type { MediaPlanSectionKey } from "@/lib/media-plan/section-constants";
+import { MEDIA_PLAN_SECTION_ORDER } from "@/lib/media-plan/section-constants";
+import { createApprovedMediaPlan } from "@/lib/media-plan/approval";
+import { mediaPlanToMarkdown } from "@/lib/media-plan/to-markdown";
 
 // Helper to deep-merge edits at a field path into an object
 function setFieldAtPath(obj: unknown, path: string, value: unknown): unknown {
@@ -64,26 +62,26 @@ const slideTransition = {
   opacity: { duration: 0.15 },
 };
 
-export interface BlueprintDocumentProps {
-  strategicBlueprint: StrategicBlueprintOutput;
-  onApprove: (approvedBlueprint: StrategicBlueprintOutput) => void;
+export interface MediaPlanDocumentProps {
+  mediaPlan: MediaPlanOutput;
+  onApprove: (approvedMediaPlan: MediaPlanOutput) => void;
   onEdit?: (sectionKey: string, fieldPath: string, newValue: unknown) => void;
 }
 
-export function BlueprintDocument({
-  strategicBlueprint,
+export function MediaPlanDocument({
+  mediaPlan,
   onApprove,
   onEdit,
-}: BlueprintDocumentProps) {
+}: MediaPlanDocumentProps) {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
   const [direction, setDirection] = useState(0);
 
   // Track which sections have been reviewed
-  const [reviewedSections, setReviewedSections] = useState<Set<StrategicBlueprintSection>>(new Set());
+  const [reviewedSections, setReviewedSections] = useState<Set<MediaPlanSectionKey>>(new Set());
 
   // Track which section is currently being edited (only one at a time)
-  const [editingSection, setEditingSection] = useState<StrategicBlueprintSection | null>(null);
+  const [editingSection, setEditingSection] = useState<MediaPlanSectionKey | null>(null);
 
   // Track pending edits per section
   const [pendingEdits, setPendingEdits] = useState<Record<string, Record<string, unknown>>>({});
@@ -93,17 +91,10 @@ export function BlueprintDocument({
   const [futureEdits, setFutureEdits] = useState<Record<string, Record<string, unknown>>[]>([]);
 
   // Track previous state before "Approve All" for undo
-  const [preApproveAllState, setPreApproveAllState] = useState<Set<StrategicBlueprintSection> | null>(null);
+  const [preApproveAllState, setPreApproveAllState] = useState<Set<MediaPlanSectionKey> | null>(null);
 
-  // Filter out sections with no data (e.g. keywordIntelligence when absent)
-  const availableSections = useMemo(() => {
-    return STRATEGIC_BLUEPRINT_SECTION_ORDER.filter((section) => {
-      if (section === "keywordIntelligence") {
-        return !!strategicBlueprint.keywordIntelligence;
-      }
-      return true;
-    });
-  }, [strategicBlueprint.keywordIntelligence]);
+  // All 10 sections are always present in media plan
+  const availableSections = MEDIA_PLAN_SECTION_ORDER;
 
   const canUndo = editHistory.length > 0;
   const canRedo = futureEdits.length > 0;
@@ -135,7 +126,7 @@ export function BlueprintDocument({
   }, [currentPage]);
 
   const handleMarkReviewed = useCallback(
-    (sectionKey: StrategicBlueprintSection) => {
+    (sectionKey: MediaPlanSectionKey) => {
       setReviewedSections((prev) => {
         const next = new Set(prev);
         next.add(sectionKey);
@@ -165,12 +156,12 @@ export function BlueprintDocument({
     }
   }, [preApproveAllState]);
 
-  const handleToggleEdit = useCallback((sectionKey: StrategicBlueprintSection) => {
+  const handleToggleEdit = useCallback((sectionKey: MediaPlanSectionKey) => {
     setEditingSection((prev) => (prev === sectionKey ? null : sectionKey));
   }, []);
 
   const handleFieldChange = useCallback(
-    (sectionKey: StrategicBlueprintSection, fieldPath: string, newValue: unknown) => {
+    (sectionKey: MediaPlanSectionKey, fieldPath: string, newValue: unknown) => {
       setPendingEdits((prev) => {
         setEditHistory((history) => [...history, prev]);
         setFutureEdits([]);
@@ -259,30 +250,39 @@ export function BlueprintDocument({
   }, [handleUndo, handleRedo, goNext, goPrev]);
 
   const sectionHasEdits = useCallback(
-    (sectionKey: StrategicBlueprintSection): boolean => {
+    (sectionKey: MediaPlanSectionKey): boolean => {
       const sectionEdits = pendingEdits[sectionKey];
       return sectionEdits ? Object.keys(sectionEdits).length > 0 : false;
     },
     [pendingEdits]
   );
 
-  const getMergedSectionData = useMemo(() => {
-    return (sectionKey: StrategicBlueprintSection): unknown => {
-      const originalData = strategicBlueprint[sectionKey] as unknown;
-      const sectionEdits = pendingEdits[sectionKey];
+  const getMergedMediaPlan = useMemo(() => {
+    // Build a merged media plan with all pending edits applied
+    const hasAnyEdits = Object.values(pendingEdits).some(
+      (sectionEdits) => sectionEdits && Object.keys(sectionEdits).length > 0
+    );
 
-      if (!sectionEdits || Object.keys(sectionEdits).length === 0) {
-        return originalData;
-      }
+    if (!hasAnyEdits) return mediaPlan;
 
-      let mergedData: unknown = originalData;
+    // Deep clone once, then apply edits for all sections
+    const merged = JSON.parse(JSON.stringify(mediaPlan)) as MediaPlanOutput;
+
+    for (const [sectionKey, sectionEdits] of Object.entries(pendingEdits)) {
+      if (!sectionEdits || Object.keys(sectionEdits).length === 0) continue;
+
+      let sectionData = merged[sectionKey as keyof Omit<MediaPlanOutput, "metadata">] as unknown;
+
       for (const [fieldPath, newValue] of Object.entries(sectionEdits)) {
-        mergedData = setFieldAtPath(mergedData, fieldPath, newValue);
+        sectionData = setFieldAtPath(sectionData, fieldPath, newValue);
       }
 
-      return mergedData;
-    };
-  }, [strategicBlueprint, pendingEdits]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (merged as any)[sectionKey] = sectionData;
+    }
+
+    return merged;
+  }, [mediaPlan, pendingEdits]);
 
   const hasPendingEdits = useMemo(() => {
     return Object.values(pendingEdits).some(
@@ -291,27 +291,32 @@ export function BlueprintDocument({
   }, [pendingEdits]);
 
   const handleApprove = useCallback(() => {
-    const approvedBlueprint = createApprovedBlueprint(strategicBlueprint, pendingEdits);
-    onApprove(approvedBlueprint);
-  }, [strategicBlueprint, pendingEdits, onApprove]);
+    const approvedMediaPlan = createApprovedMediaPlan(mediaPlan, pendingEdits);
+    onApprove(approvedMediaPlan);
+  }, [mediaPlan, pendingEdits, onApprove]);
+
+  const handleCopy = useCallback(() => {
+    const markdown = mediaPlanToMarkdown(getMergedMediaPlan);
+    navigator.clipboard.writeText(markdown);
+  }, [getMergedMediaPlan]);
 
   const isFirstPage = currentPage === 0;
   const isLastPage = currentPage === availableSections.length - 1;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Top progress bar — lightweight inline */}
+      {/* Top progress bar -- lightweight inline */}
       <div className="shrink-0 px-6 pt-3 pb-2">
-        <SectionProgressBar
+        <MediaPlanProgressBar
           sections={availableSections}
           currentPage={currentPage}
           reviewedCount={reviewedSections.size}
         />
       </div>
 
-      {/* Content area — full width */}
+      {/* Content area -- full width */}
       <div className="relative flex-1 min-h-0 group">
-          {/* Left arrow — glass pill, hover-reveal */}
+          {/* Left arrow -- glass pill, hover-reveal */}
           {!isFirstPage && (
             <button
               onClick={goPrev}
@@ -352,13 +357,12 @@ export function BlueprintDocument({
               }}
             >
               <div className="py-4 px-8">
-                <DocumentSection
+                <MediaPlanDocumentSection
                   sectionKey={currentSectionKey}
-                  sectionData={getMergedSectionData(currentSectionKey)}
+                  mediaPlan={getMergedMediaPlan}
                   isReviewed={reviewedSections.has(currentSectionKey)}
                   isEditing={editingSection === currentSectionKey}
                   hasEdits={sectionHasEdits(currentSectionKey)}
-                  citations={strategicBlueprint.metadata.sectionCitations?.[currentSectionKey] || []}
                   onMarkReviewed={() => handleMarkReviewed(currentSectionKey)}
                   onToggleEdit={() => handleToggleEdit(currentSectionKey)}
                   onFieldChange={(fieldPath, newValue) =>
@@ -369,7 +373,7 @@ export function BlueprintDocument({
             </motion.div>
           </AnimatePresence>
 
-          {/* Right arrow — glass pill, hover-reveal */}
+          {/* Right arrow -- glass pill, hover-reveal */}
           {!isLastPage && (
             <button
               onClick={goNext}
@@ -399,7 +403,7 @@ export function BlueprintDocument({
         className="shrink-0"
         style={{ borderTop: "1px solid var(--border-subtle)" }}
       >
-        <SectionPaginationNav
+        <MediaPlanPaginationNav
           sections={availableSections}
           currentPage={currentPage}
           reviewedSections={reviewedSections}
@@ -414,6 +418,7 @@ export function BlueprintDocument({
           onUndo={handleUndo}
           onRedo={handleRedo}
           onApprove={handleApprove}
+          onCopy={handleCopy}
         />
       </div>
     </div>

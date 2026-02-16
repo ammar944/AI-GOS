@@ -1,14 +1,12 @@
 // Media Plan Generation API Endpoint
 // POST /api/media-plan/generate
-// SSE streaming — single-phase generateObject with Claude Sonnet
+// SSE streaming — multi-phase pipeline (Sonar Pro → Claude Sonnet → deterministic validation)
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { StrategicBlueprintOutput } from '@/lib/strategic-blueprint/output-types';
 import type { OnboardingFormData } from '@/lib/onboarding/types';
-import { buildMediaPlanContext } from '@/lib/media-plan/context-builder';
-import { generateMediaPlan } from '@/lib/media-plan/generator';
+import { runMediaPlanPipeline, type PipelineProgress } from '@/lib/media-plan/pipeline';
 import type { MediaPlanSSEEvent } from '@/lib/media-plan/types';
-import { MEDIA_PLAN_SECTION_LABELS } from '@/lib/media-plan/types';
 import { createErrorResponse, ErrorCode } from '@/lib/errors';
 
 export const maxDuration = 120;
@@ -56,35 +54,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build focused context
-    const { contextString, tokenEstimate } = buildMediaPlanContext(blueprint, onboardingData);
-    console.log(`[MediaPlan] Context built: ${contextString.length} chars, ~${tokenEstimate} tokens`);
+    console.log(`[MediaPlan] Starting multi-phase pipeline generation`);
 
     // SSE streaming response
     const encoder = new TextEncoder();
     let streamClosed = false;
 
-    // Declared here so emit can reference it
     let controller: ReadableStreamDefaultController;
 
     const emit = (event: MediaPlanSSEEvent) => {
       if (streamClosed) return;
-      controller.enqueue(encoder.encode(createSSEMessage(event)));
+      try {
+        controller.enqueue(encoder.encode(createSSEMessage(event)));
+      } catch { /* stream may be closed */ }
     };
 
     const stream = new ReadableStream({
       async start(ctrl) {
         controller = ctrl;
         try {
-          // Emit section-start
-          emit({
-            type: 'section-start',
-            section: 'mediaPlan',
-            label: MEDIA_PLAN_SECTION_LABELS.mediaPlan,
-          });
-
-          // Generate media plan with progress callbacks
-          const result = await generateMediaPlan(contextString, {
+          // Run the multi-phase pipeline with per-section SSE events
+          const result = await runMediaPlanPipeline(blueprint, onboardingData, {
+            onSectionProgress: (progress: PipelineProgress) => {
+              if (progress.status === 'start') {
+                emit({
+                  type: 'section-start',
+                  section: progress.section,
+                  phase: progress.phase,
+                  label: progress.label,
+                });
+              } else {
+                emit({
+                  type: 'section-complete',
+                  section: progress.section,
+                  phase: progress.phase,
+                  label: progress.label,
+                });
+              }
+            },
             onProgress: (message, percentage) => {
               emit({
                 type: 'progress',
@@ -101,14 +108,6 @@ export async function POST(request: NextRequest) {
             return;
           }
 
-          // Emit section-complete
-          emit({
-            type: 'section-complete',
-            section: 'mediaPlan',
-            label: MEDIA_PLAN_SECTION_LABELS.mediaPlan,
-            data: null,
-          });
-
           // Emit done with full media plan
           const totalTime = Date.now() - startTime;
           emit({
@@ -117,18 +116,18 @@ export async function POST(request: NextRequest) {
             mediaPlan: result.mediaPlan,
             metadata: {
               totalTime,
-              totalCost: result.mediaPlan.metadata.totalCost,
+              totalCost: result.totalCost,
             },
           });
 
-          console.log(`[MediaPlan] Generation complete: ${totalTime}ms, $${result.mediaPlan.metadata.totalCost.toFixed(4)}`);
+          console.log(`[MediaPlan] Pipeline complete: ${totalTime}ms, $${result.totalCost.toFixed(4)}`);
 
           streamClosed = true;
           ctrl.close();
         } catch (error) {
           streamClosed = true;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error('[MediaPlan] Generation error:', errorMessage);
+          console.error('[MediaPlan] Pipeline error:', errorMessage);
           try {
             ctrl.enqueue(encoder.encode(createSSEMessage({ type: 'error', message: errorMessage })));
           } catch { /* stream may already be closed */ }

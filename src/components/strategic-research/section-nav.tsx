@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, RotateCcw, Undo2, Redo2 } from "lucide-react";
+import { CheckCheck, Undo2, Redo2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -36,7 +36,6 @@ interface SectionNavProps {
   onUndoApproveAll?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
-  onRegenerate?: () => void;
   onApprove?: () => void;
 }
 
@@ -53,7 +52,6 @@ export function SectionNav({
   onUndoApproveAll,
   onUndo,
   onRedo,
-  onRegenerate,
   onApprove,
 }: SectionNavProps) {
   const totalSections = STRATEGIC_BLUEPRINT_SECTION_ORDER.length;
@@ -66,7 +64,7 @@ export function SectionNav({
     }
   };
 
-  const showActionBar = onApproveAll || onRegenerate || onApprove;
+  const showActionBar = onApproveAll || onApprove;
 
   return (
     <nav className="sticky top-6">
@@ -259,22 +257,6 @@ export function SectionNav({
                   <TooltipContent side="left">Undo Approve All</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
-            {onRegenerate && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-8 gap-2 justify-center rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                style={{
-                  color: 'var(--text-secondary)',
-                  borderColor: 'var(--border-default)',
-                  fontFamily: 'var(--font-sans), Inter, sans-serif',
-                }}
-                onClick={onRegenerate}
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>Regenerate</span>
-              </Button>
             )}
             {onApprove && (
               <Button

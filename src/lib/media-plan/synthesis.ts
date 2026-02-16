@@ -1,0 +1,386 @@
+// Media Plan Synthesis — Phase 2/3 Claude Sonnet Calls
+// Creative synthesis sections that need AI reasoning but not web research.
+// Follows src/lib/ai/research.ts pattern.
+
+import { generateObject, NoObjectGeneratedError } from 'ai';
+import {
+  anthropic,
+  MODELS,
+  GENERATION_SETTINGS,
+  estimateCost,
+} from '@/lib/ai/providers';
+import {
+  phase2CampaignStructureSchema,
+  phase2CreativeStrategySchema,
+  phase2CampaignPhasesSchema,
+  phase2BudgetMonitoringSchema,
+  phase3ExecutiveSummarySchema,
+  phase3RiskMonitoringSchema,
+  type Phase2CampaignStructureOutput,
+  type Phase2CreativeStrategyOutput,
+  type Phase2CampaignPhasesOutput,
+  type Phase2BudgetMonitoringOutput,
+  type Phase3ExecutiveSummaryOutput,
+  type Phase3RiskMonitoringOutput,
+} from './phase-schemas';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface SynthesisResult<T> {
+  data: T;
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  cost: number;
+  model: string;
+}
+
+// =============================================================================
+// Retry wrapper (handles schema mismatch + rate limit errors)
+// =============================================================================
+
+const SCHEMA_RETRY_MAX = 2;
+const RATE_LIMIT_RETRY_MAX = 3;
+const RATE_LIMIT_BASE_DELAY_MS = 15_000; // 15s base — rate limit window is per minute
+
+function isRateLimitError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('rate limit') || msg.includes('429') || msg.includes('output tokens per minute');
+  }
+  return false;
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withSchemaRetry<T>(
+  fn: () => Promise<T>,
+  section: string,
+): Promise<T> {
+  let lastError: unknown;
+  let rateLimitRetries = 0;
+
+  for (let attempt = 0; attempt <= SCHEMA_RETRY_MAX; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      // Rate limit: exponential backoff with longer delays
+      if (isRateLimitError(error) && rateLimitRetries < RATE_LIMIT_RETRY_MAX) {
+        rateLimitRetries++;
+        const delay = RATE_LIMIT_BASE_DELAY_MS * rateLimitRetries;
+        console.warn(`[MediaPlan:${section}] Rate limited (attempt ${rateLimitRetries}/${RATE_LIMIT_RETRY_MAX}), waiting ${delay / 1000}s...`);
+        await sleep(delay);
+        attempt--; // Don't count rate limit retries against schema retries
+        continue;
+      }
+
+      // Schema mismatch: immediate retry
+      if (error instanceof NoObjectGeneratedError && attempt < SCHEMA_RETRY_MAX) {
+        console.warn(`[MediaPlan:${section}] Schema mismatch on attempt ${attempt + 1}, retrying...`);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
+function logError(section: string, error: unknown): void {
+  console.error(`[MediaPlan:${section}] Synthesis failed:`, error);
+  if (error instanceof NoObjectGeneratedError) {
+    console.error(`[MediaPlan:${section}] Raw text:`, error.text?.slice(0, 2000));
+  }
+}
+
+const SONNET_MODEL = MODELS.CLAUDE_SONNET;
+
+// Per-section output token limits — generous to avoid mid-word truncation.
+// Pipeline runs Phase 2 sequentially with rate-limit retry as safety net.
+const SECTION_MAX_TOKENS: Record<string, number> = {
+  campaignStructure: 6000,   // largest section: campaigns, ad sets, naming, retargeting, negatives
+  creativeStrategy: 5000,    // angles, format specs, testing plan, refresh cadence, brand guidelines
+  campaignPhases: 4000,      // 3-4 phases with activities and criteria
+  budgetAndMonitoring: 4500, // budget allocation + monitoring schedule
+  executiveSummary: 2048,    // short summary — fine as-is
+  riskMonitoring: 3500,      // risks + assumptions
+};
+
+// =============================================================================
+// Phase 2A: Campaign Structure
+// =============================================================================
+
+export async function synthesizeCampaignStructure(
+  context: string,
+): Promise<SynthesisResult<Phase2CampaignStructureOutput>> {
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(SONNET_MODEL),
+        schema: phase2CampaignStructureSchema,
+        system: `You are a senior media buyer designing campaign structure for paid advertising.
+
+TASK: Create a detailed campaign structure with templates, naming conventions, retargeting segments, and negative keywords.
+
+RULES:
+- Minimum 3 campaigns across funnel stages: cold (prospecting), warm (retargeting), hot (conversion)
+- Cold campaigns get 50-70% of budget. Warm 20-30%. Hot 10-20%
+- 1-3 ad sets per campaign, each testing a different audience or targeting variable
+- Campaign names MUST follow the naming convention pattern exactly
+- UTM parameters are REQUIRED for every campaign
+- Include negative keywords for search campaigns (exclude job seekers, free-tier seekers)
+- All campaigns must reference ONLY platforms from the validated platform strategy
+- All targeting must reference ONLY segments from the validated ICP targeting
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
+
+        prompt: `Design campaign structure based on these validated inputs:\n\n${context}`,
+        temperature: GENERATION_SETTINGS.synthesis.temperature,
+        maxOutputTokens: SECTION_MAX_TOKENS.campaignStructure,
+      }),
+      'campaignStructure',
+    );
+
+    return {
+      data: result.object,
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(SONNET_MODEL, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model: SONNET_MODEL,
+    };
+  } catch (error) {
+    logError('campaignStructure', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// Phase 2A: Creative Strategy
+// =============================================================================
+
+export async function synthesizeCreativeStrategy(
+  context: string,
+): Promise<SynthesisResult<Phase2CreativeStrategyOutput>> {
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(SONNET_MODEL),
+        schema: phase2CreativeStrategySchema,
+        system: `You are a creative strategist for performance advertising with 10+ years of experience.
+
+TASK: Develop a creative strategy with angles, format specs, testing plan, refresh cadence, and brand guidelines.
+
+RULES:
+- Minimum 3 creative angles, each with a SPECIFIC example hook using the client's actual data
+- Do NOT use generic hooks like "Struggling with X?" — use specific statistics, competitor gaps, or ICP pain points
+- Reference competitor creative formats from the data. If competitors overuse static images, recommend UGC video
+- Testing plan must be phased: Phase 1 tests hooks/messages, Phase 2 tests formats/visuals, Phase 3 scales winners
+- Refresh cadence: Meta 14-21d, LinkedIn 30-45d, Google 30-60d, TikTok 7-14d
+- Every hook must be immediately usable by a copywriter — not a template, but a real headline/hook
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
+
+        prompt: `Develop creative strategy using this competitive intelligence and brand context:\n\n${context}`,
+        temperature: GENERATION_SETTINGS.synthesis.temperature,
+        maxOutputTokens: SECTION_MAX_TOKENS.creativeStrategy,
+      }),
+      'creativeStrategy',
+    );
+
+    return {
+      data: result.object,
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(SONNET_MODEL, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model: SONNET_MODEL,
+    };
+  } catch (error) {
+    logError('creativeStrategy', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// Phase 2A: Campaign Phases
+// =============================================================================
+
+export async function synthesizeCampaignPhases(
+  context: string,
+): Promise<SynthesisResult<Phase2CampaignPhasesOutput>> {
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(SONNET_MODEL),
+        schema: phase2CampaignPhasesSchema,
+        system: `You are a paid media strategist designing a phased campaign rollout.
+
+TASK: Create a phased rollout plan (3-4 phases) from testing to scale to optimization.
+
+RULES:
+- Phase 1: Testing/Foundation (40-50% of steady-state budget). Low daily caps. Data collection focus
+- Phase 2: Scale (75-100% of budget). Double down on winning audiences and creatives
+- Phase 3+: Optimization (100% budget). Full deployment with 15-20% continuous testing allocation
+- Each phase needs specific success criteria for advancing to the next phase
+- Activities must be concrete actions a media buyer can execute
+- Budget per phase must be realistic given the total monthly budget and phase duration
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
+
+        prompt: `Design a phased campaign rollout based on:\n\n${context}`,
+        temperature: GENERATION_SETTINGS.synthesis.temperature,
+        maxOutputTokens: SECTION_MAX_TOKENS.campaignPhases,
+      }),
+      'campaignPhases',
+    );
+
+    return {
+      data: result.object,
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(SONNET_MODEL, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model: SONNET_MODEL,
+    };
+  } catch (error) {
+    logError('campaignPhases', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// Phase 2B: Budget Allocation + Monitoring Schedule (single Sonnet call)
+// =============================================================================
+
+export async function synthesizeBudgetAndMonitoring(
+  context: string,
+): Promise<SynthesisResult<Phase2BudgetMonitoringOutput>> {
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(SONNET_MODEL),
+        schema: phase2BudgetMonitoringSchema,
+        system: `You are a media buying operations manager responsible for budget allocation and campaign monitoring.
+
+TASK: Create a budget allocation plan AND a practical monitoring schedule.
+
+BUDGET RULES:
+- totalMonthlyBudget MUST match the client's stated monthly ad budget exactly
+- Platform percentages MUST sum to 100%
+- monthlyBudget per platform = totalMonthlyBudget × percentage / 100 (exact math)
+- dailyCeiling MUST NOT exceed totalMonthlyBudget / 30
+- Funnel split: cold 50-70%, warm 20-30%, hot 10-20% — percentages must sum to 100%
+- Monthly roadmap: 3-6 months with specific scaling triggers
+
+MONITORING RULES:
+- Daily: spend pacing, ad disapprovals, CPL by campaign (reference actual campaign names)
+- Weekly: creative performance analysis, search term reports, frequency caps
+- Monthly: full funnel analysis (CPL → CAC → LTV), budget reallocation, creative refresh
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
+
+        prompt: `Create budget allocation and monitoring schedule based on:\n\n${context}`,
+        temperature: GENERATION_SETTINGS.synthesis.temperature,
+        maxOutputTokens: SECTION_MAX_TOKENS.budgetAndMonitoring,
+      }),
+      'budgetAndMonitoring',
+    );
+
+    return {
+      data: result.object,
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(SONNET_MODEL, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model: SONNET_MODEL,
+    };
+  } catch (error) {
+    logError('budgetAndMonitoring', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// Phase 3: Executive Summary
+// =============================================================================
+
+export async function synthesizeExecutiveSummary(
+  context: string,
+): Promise<SynthesisResult<Phase3ExecutiveSummaryOutput>> {
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(SONNET_MODEL),
+        schema: phase3ExecutiveSummarySchema,
+        system: `You are a media strategy director writing an executive summary of a completed media plan.
+
+TASK: Write a concise executive summary that accurately reflects the actual plan data provided below.
+
+RULES:
+- The overview must reference specific platforms, budget amounts, and expected outcomes from the plan
+- recommendedMonthlyBudget MUST match the actual budget from the plan
+- topPriorities must be specific and actionable, not generic advice
+- timelineToResults must be realistic given the phased rollout plan
+- primaryObjective should cite specific numbers (leads, SQLs, CAC) from the performance model
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
+
+        prompt: `Write an executive summary for this completed media plan:\n\n${context}`,
+        temperature: 0.4,
+        maxOutputTokens: 2048,
+      }),
+      'executiveSummary',
+    );
+
+    return {
+      data: result.object,
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(SONNET_MODEL, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model: SONNET_MODEL,
+    };
+  } catch (error) {
+    logError('executiveSummary', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// Phase 3: Risk Monitoring
+// =============================================================================
+
+export async function synthesizeRiskMonitoring(
+  context: string,
+): Promise<SynthesisResult<Phase3RiskMonitoringOutput>> {
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: anthropic(SONNET_MODEL),
+        schema: phase3RiskMonitoringSchema,
+        system: `You are a risk management specialist for paid advertising campaigns.
+
+TASK: Identify specific risks and assumptions for this media plan based on the actual plan data.
+
+RULES:
+- Must cover at least 4 of 6 categories: budget, creative, audience, platform, compliance, market
+- Every risk MUST be specific to this client — no generic risks like "ad costs may increase"
+- Reference concrete plan elements: actual platform names, budget amounts, CAC targets, audience sizes
+- Each risk needs both a mitigation (proactive) AND contingency (reactive) strategy
+- Assumptions must be specific dependencies that could invalidate the plan
+- Severity and likelihood must be justified by the plan data
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
+
+        prompt: `Identify risks and assumptions for this media plan:\n\n${context}`,
+        temperature: GENERATION_SETTINGS.synthesis.temperature,
+        maxOutputTokens: SECTION_MAX_TOKENS.riskMonitoring,
+      }),
+      'riskMonitoring',
+    );
+
+    return {
+      data: result.object,
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(SONNET_MODEL, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model: SONNET_MODEL,
+    };
+  } catch (error) {
+    logError('riskMonitoring', error);
+    throw error;
+  }
+}

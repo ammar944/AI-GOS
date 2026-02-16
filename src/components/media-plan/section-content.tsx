@@ -4,6 +4,9 @@ import * as React from "react";
 import { Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RESEARCH_SUBTLE_BLOCK_CLASS, STATUS_BADGE_COLORS } from "@/components/strategic-research/ui-tokens";
+import { EditableText } from "@/components/strategic-research/editable/editable-text";
+import { EditableList } from "@/components/strategic-research/editable/editable-list";
+import type { MediaPlanSectionKey } from "@/lib/media-plan/section-constants";
 import type {
   MediaPlanOutput,
   MediaPlanExecutiveSummary,
@@ -128,10 +131,23 @@ function fmtPct(n: number): string {
 }
 
 // =============================================================================
+// Shared editing prop types
+// =============================================================================
+
+interface EditingProps {
+  isEditing?: boolean;
+  onFieldChange?: (fieldPath: string, newValue: unknown) => void;
+}
+
+// =============================================================================
 // S1: Executive Summary
 // =============================================================================
 
-function ExecutiveSummaryContent({ data }: { data: MediaPlanExecutiveSummary }) {
+function ExecutiveSummaryContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: MediaPlanExecutiveSummary } & EditingProps) {
   return (
     <div className="space-y-6">
       {/* Hero budget */}
@@ -140,47 +156,99 @@ function ExecutiveSummaryContent({ data }: { data: MediaPlanExecutiveSummary }) 
           <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
             Recommended Monthly Budget
           </p>
-          <p
-            className="text-3xl font-bold"
-            style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono), monospace" }}
-          >
-            {fmt$(data.recommendedMonthlyBudget)}
-          </p>
+          {isEditing ? (
+            <EditableText
+              value={String(data.recommendedMonthlyBudget)}
+              onSave={(v) => onFieldChange?.("recommendedMonthlyBudget", Number(v) || 0)}
+              className="text-3xl font-bold"
+            />
+          ) : (
+            <p
+              className="text-3xl font-bold"
+              style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono), monospace" }}
+            >
+              {fmt$(data.recommendedMonthlyBudget)}
+            </p>
+          )}
         </div>
-        <InfoCard label="Timeline to Results" value={data.timelineToResults} />
+        {isEditing ? (
+          <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+            <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+              Timeline to Results
+            </p>
+            <EditableText
+              value={data.timelineToResults}
+              onSave={(v) => onFieldChange?.("timelineToResults", v)}
+            />
+          </div>
+        ) : (
+          <InfoCard label="Timeline to Results" value={data.timelineToResults} />
+        )}
       </div>
 
       {/* Objective */}
-      <p
-        className="text-base font-medium"
-        style={{
-          color: "var(--text-heading)",
-          fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-        }}
-      >
-        {data.primaryObjective}
-      </p>
+      {isEditing ? (
+        <EditableText
+          value={data.primaryObjective}
+          onSave={(v) => onFieldChange?.("primaryObjective", v)}
+          className="text-base font-medium"
+        />
+      ) : (
+        <p
+          className="text-base font-medium"
+          style={{
+            color: "var(--text-heading)",
+            fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+          }}
+        >
+          {data.primaryObjective}
+        </p>
+      )}
 
       {/* Overview */}
-      <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-        {data.overview}
-      </p>
+      {isEditing ? (
+        <EditableText
+          value={data.overview}
+          onSave={(v) => onFieldChange?.("overview", v)}
+          multiline
+          className="text-sm leading-relaxed"
+        />
+      ) : (
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          {data.overview}
+        </p>
+      )}
 
       {/* Top Priorities */}
       <SubSection title="Top Priorities">
-        <ol className="list-inside space-y-2">
-          {data.topPriorities.map((p, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+        {isEditing ? (
+          <EditableList
+            items={data.topPriorities}
+            onSave={(items) => onFieldChange?.("topPriorities", items)}
+            renderPrefix={(i) => (
               <span
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
                 style={{ background: "rgba(54,94,255,0.15)", color: "var(--accent-blue)" }}
               >
                 {i + 1}
               </span>
-              {p}
-            </li>
-          ))}
-        </ol>
+            )}
+          />
+        ) : (
+          <ol className="list-inside space-y-2">
+            {data.topPriorities.map((p, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
+                  style={{ background: "rgba(54,94,255,0.15)", color: "var(--accent-blue)" }}
+                >
+                  {i + 1}
+                </span>
+                {p}
+              </li>
+            ))}
+          </ol>
+        )}
       </SubSection>
     </div>
   );
@@ -190,10 +258,14 @@ function ExecutiveSummaryContent({ data }: { data: MediaPlanExecutiveSummary }) 
 // S2: Platform Strategy
 // =============================================================================
 
-function PlatformStrategyContent({ data }: { data: PlatformStrategy[] }) {
+function PlatformStrategyContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: PlatformStrategy[] } & EditingProps) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {data.map((ps) => (
+      {data.map((ps, idx) => (
         <div key={ps.platform} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-5 space-y-3")}>
           {/* Name + priority */}
           <div className="flex items-center justify-between">
@@ -208,25 +280,66 @@ function PlatformStrategyContent({ data }: { data: PlatformStrategy[] }) {
 
           {/* Spend */}
           <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold font-mono" style={{ color: "var(--text-heading)", fontFamily: "var(--font-mono), monospace" }}>
-              {fmt$(ps.monthlySpend)}/mo
-            </span>
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-              ({fmtPct(ps.budgetPercentage)})
-            </span>
+            {isEditing ? (
+              <EditableText
+                value={String(ps.monthlySpend)}
+                onSave={(v) => onFieldChange?.(`${idx}.monthlySpend`, Number(v) || 0)}
+                className="text-lg font-bold font-mono"
+              />
+            ) : (
+              <span className="text-lg font-bold font-mono" style={{ color: "var(--text-heading)", fontFamily: "var(--font-mono), monospace" }}>
+                {fmt$(ps.monthlySpend)}/mo
+              </span>
+            )}
+            {isEditing ? (
+              <EditableText
+                value={String(ps.budgetPercentage)}
+                onSave={(v) => onFieldChange?.(`${idx}.budgetPercentage`, Number(v) || 0)}
+                className="text-xs"
+              />
+            ) : (
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                ({fmtPct(ps.budgetPercentage)})
+              </span>
+            )}
           </div>
 
           {/* CPL */}
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            CPL: {fmt$(ps.expectedCplRange.min)} &ndash; {fmt$(ps.expectedCplRange.max)}
-          </p>
+          {isEditing ? (
+            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              <span>CPL:</span>
+              <EditableText
+                value={String(ps.expectedCplRange.min)}
+                onSave={(v) => onFieldChange?.(`${idx}.expectedCplRange.min`, Number(v) || 0)}
+              />
+              <span>&ndash;</span>
+              <EditableText
+                value={String(ps.expectedCplRange.max)}
+                onSave={(v) => onFieldChange?.(`${idx}.expectedCplRange.max`, Number(v) || 0)}
+              />
+            </div>
+          ) : (
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              CPL: {fmt$(ps.expectedCplRange.min)} &ndash; {fmt$(ps.expectedCplRange.max)}
+            </p>
+          )}
 
           {/* Campaign types */}
-          <div className="flex flex-wrap gap-1.5">
-            {ps.campaignTypes.map((ct) => (
-              <Chip key={ct}>{ct}</Chip>
-            ))}
-          </div>
+          {isEditing ? (
+            <div>
+              <p className="mb-1 text-xs font-medium" style={{ color: "var(--text-tertiary)" }}>Campaign Types</p>
+              <EditableList
+                items={ps.campaignTypes}
+                onSave={(items) => onFieldChange?.(`${idx}.campaignTypes`, items)}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {ps.campaignTypes.map((ct) => (
+                <Chip key={ct}>{ct}</Chip>
+              ))}
+            </div>
+          )}
 
           {/* Ad formats + placements */}
           {ps.adFormats.length > 0 && (
@@ -263,9 +376,18 @@ function PlatformStrategyContent({ data }: { data: PlatformStrategy[] }) {
           )}
 
           {/* Rationale */}
-          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            {ps.rationale}
-          </p>
+          {isEditing ? (
+            <EditableText
+              value={ps.rationale}
+              onSave={(v) => onFieldChange?.(`${idx}.rationale`, v)}
+              multiline
+              className="text-sm leading-relaxed"
+            />
+          ) : (
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              {ps.rationale}
+            </p>
+          )}
         </div>
       ))}
     </div>
@@ -276,7 +398,11 @@ function PlatformStrategyContent({ data }: { data: PlatformStrategy[] }) {
 // S3: ICP Targeting
 // =============================================================================
 
-function ICPTargetingContent({ data }: { data: ICPTargeting }) {
+function ICPTargetingContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: ICPTargeting } & EditingProps) {
   return (
     <div className="space-y-6">
       {/* Audience Segments */}
@@ -332,7 +458,16 @@ function ICPTargetingContent({ data }: { data: ICPTargeting }) {
               <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
                 Demographics
               </p>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.demographics}</p>
+              {isEditing ? (
+                <EditableText
+                  value={data.demographics}
+                  onSave={(v) => onFieldChange?.("demographics", v)}
+                  multiline
+                  className="text-sm"
+                />
+              ) : (
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.demographics}</p>
+              )}
             </div>
           )}
           {data.psychographics && (
@@ -340,7 +475,16 @@ function ICPTargetingContent({ data }: { data: ICPTargeting }) {
               <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
                 Psychographics
               </p>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.psychographics}</p>
+              {isEditing ? (
+                <EditableText
+                  value={data.psychographics}
+                  onSave={(v) => onFieldChange?.("psychographics", v)}
+                  multiline
+                  className="text-sm"
+                />
+              ) : (
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.psychographics}</p>
+              )}
             </div>
           )}
           {data.geographicTargeting && (
@@ -348,7 +492,15 @@ function ICPTargetingContent({ data }: { data: ICPTargeting }) {
               <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
                 Geographic Targeting
               </p>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.geographicTargeting}</p>
+              {isEditing ? (
+                <EditableText
+                  value={data.geographicTargeting}
+                  onSave={(v) => onFieldChange?.("geographicTargeting", v)}
+                  className="text-sm"
+                />
+              ) : (
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.geographicTargeting}</p>
+              )}
             </div>
           )}
         </div>
@@ -361,9 +513,18 @@ function ICPTargetingContent({ data }: { data: ICPTargeting }) {
           style={{ borderColor: "rgba(54,94,255,0.3)" }}
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--accent-blue)" }} />
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {data.reachabilityAssessment}
-          </p>
+          {isEditing ? (
+            <EditableText
+              value={data.reachabilityAssessment}
+              onSave={(v) => onFieldChange?.("reachabilityAssessment", v)}
+              multiline
+              className="text-sm flex-1"
+            />
+          ) : (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              {data.reachabilityAssessment}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -390,35 +551,61 @@ function renderChipGroup(label: string, items: string[]) {
 // S4: Campaign Structure
 // =============================================================================
 
-function CampaignStructureContent({ data }: { data: CampaignStructure }) {
+function CampaignStructureContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: CampaignStructure } & EditingProps) {
   return (
     <div className="space-y-6">
       {/* Campaigns */}
       <SubSection title="Campaigns">
         <div className="space-y-4">
-          {data.campaigns.map((c) => (
+          {data.campaigns.map((c, cIdx) => (
             <div key={c.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-3")}>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
-                  {c.name}
-                </span>
+                {isEditing ? (
+                  <EditableText
+                    value={c.name}
+                    onSave={(v) => onFieldChange?.(`campaigns.${cIdx}.name`, v)}
+                    className="text-sm font-semibold"
+                  />
+                ) : (
+                  <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
+                    {c.name}
+                  </span>
+                )}
                 <FunnelBadge stage={c.funnelStage} />
                 <Chip>{c.platform}</Chip>
               </div>
               <div className="flex flex-wrap gap-4 text-xs" style={{ color: "var(--text-tertiary)" }}>
                 <span>Objective: <strong style={{ color: "var(--text-secondary)" }}>{c.objective}</strong></span>
-                <span>Daily Budget: <strong className="font-mono" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace" }}>{fmt$(c.dailyBudget)}</strong></span>
+                <span>Daily Budget: {isEditing ? (
+                  <EditableText
+                    value={String(c.dailyBudget)}
+                    onSave={(v) => onFieldChange?.(`campaigns.${cIdx}.dailyBudget`, Number(v) || 0)}
+                  />
+                ) : (
+                  <strong className="font-mono" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace" }}>{fmt$(c.dailyBudget)}</strong>
+                )}</span>
               </div>
 
               {/* Ad sets */}
               {c.adSets.length > 0 && (
                 <div className="space-y-2 pl-4 border-l-2 border-[var(--border-subtle)]">
-                  {c.adSets.map((as) => (
+                  {c.adSets.map((as, asIdx) => (
                     <div key={as.name} className="flex flex-wrap items-center gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
                       <span className="font-medium" style={{ color: "var(--text-heading)" }}>{as.name}</span>
                       <span>{as.targeting}</span>
                       <Chip>{as.adsToTest} ads</Chip>
-                      <Chip>{as.bidStrategy}</Chip>
+                      {isEditing ? (
+                        <EditableText
+                          value={as.bidStrategy}
+                          onSave={(v) => onFieldChange?.(`campaigns.${cIdx}.adSets.${asIdx}.bidStrategy`, v)}
+                        />
+                      ) : (
+                        <Chip>{as.bidStrategy}</Chip>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -508,25 +695,48 @@ function NamingRow({ label, pattern }: { label: string; pattern: string }) {
 // S5: Creative Strategy
 // =============================================================================
 
-function CreativeStrategyContent({ data }: { data: CreativeStrategy }) {
+function CreativeStrategyContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: CreativeStrategy } & EditingProps) {
   return (
     <div className="space-y-6">
       {/* Creative Angles */}
       <SubSection title="Creative Angles">
         <div className="space-y-4">
-          {data.angles.map((a) => (
+          {data.angles.map((a, aIdx) => (
             <div key={a.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
               <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
                 {a.name}
               </span>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{a.description}</p>
+              {isEditing ? (
+                <EditableText
+                  value={a.description}
+                  onSave={(v) => onFieldChange?.(`angles.${aIdx}.description`, v)}
+                  multiline
+                  className="text-sm"
+                />
+              ) : (
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{a.description}</p>
+              )}
               {/* Hook in quote block */}
-              <blockquote
-                className="border-l-2 pl-3 text-sm italic"
-                style={{ borderColor: "var(--accent-blue)", color: "var(--text-heading)" }}
-              >
-                &ldquo;{a.exampleHook}&rdquo;
-              </blockquote>
+              {isEditing ? (
+                <div className="border-l-2 pl-3" style={{ borderColor: "var(--accent-blue)" }}>
+                  <EditableText
+                    value={a.exampleHook}
+                    onSave={(v) => onFieldChange?.(`angles.${aIdx}.exampleHook`, v)}
+                    className="text-sm italic"
+                  />
+                </div>
+              ) : (
+                <blockquote
+                  className="border-l-2 pl-3 text-sm italic"
+                  style={{ borderColor: "var(--accent-blue)", color: "var(--text-heading)" }}
+                >
+                  &ldquo;{a.exampleHook}&rdquo;
+                </blockquote>
+              )}
               <div className="flex flex-wrap gap-1.5">
                 {a.bestForFunnelStages.map((s) => (
                   <FunnelBadge key={s} stage={s} />
@@ -617,10 +827,18 @@ function CreativeStrategyContent({ data }: { data: CreativeStrategy }) {
       {data.brandGuidelines.length > 0 && (
         <SubSection title="Brand Guidelines">
           <div className="space-y-2">
-            {data.brandGuidelines.map((bg, i) => (
-              <div key={i} className="flex items-start gap-3 text-sm">
+            {data.brandGuidelines.map((bg, bgIdx) => (
+              <div key={bgIdx} className="flex items-start gap-3 text-sm">
                 <Chip>{bg.category}</Chip>
-                <span style={{ color: "var(--text-secondary)" }}>{bg.guideline}</span>
+                {isEditing ? (
+                  <EditableText
+                    value={bg.guideline}
+                    onSave={(v) => onFieldChange?.(`brandGuidelines.${bgIdx}.guideline`, v)}
+                    className="flex-1"
+                  />
+                ) : (
+                  <span style={{ color: "var(--text-secondary)" }}>{bg.guideline}</span>
+                )}
               </div>
             ))}
           </div>
@@ -634,7 +852,11 @@ function CreativeStrategyContent({ data }: { data: CreativeStrategy }) {
 // S6: Budget Allocation
 // =============================================================================
 
-function BudgetAllocationContent({ data }: { data: BudgetAllocation }) {
+function BudgetAllocationContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: BudgetAllocation } & EditingProps) {
   return (
     <div className="space-y-6">
       {/* Header budgets */}
@@ -656,15 +878,26 @@ function BudgetAllocationContent({ data }: { data: BudgetAllocation }) {
       {/* Platform Breakdown */}
       <SubSection title="Platform Breakdown">
         <div className="space-y-2">
-          {data.platformBreakdown.map((pb) => {
+          {data.platformBreakdown.map((pb, pbIdx) => {
             const pct = Math.min(pb.percentage, 100);
             return (
               <div key={pb.platform} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span style={{ color: "var(--text-heading)" }}>{pb.platform}</span>
-                  <span className="font-mono text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace" }}>
-                    {fmt$(pb.monthlyBudget)} ({fmtPct(pb.percentage)})
-                  </span>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <EditableText
+                        value={String(pb.percentage)}
+                        onSave={(v) => onFieldChange?.(`platformBreakdown.${pbIdx}.percentage`, Number(v) || 0)}
+                        className="font-mono text-xs"
+                      />
+                      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>%</span>
+                    </div>
+                  ) : (
+                    <span className="font-mono text-xs" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace" }}>
+                      {fmt$(pb.monthlyBudget)} ({fmtPct(pb.percentage)})
+                    </span>
+                  )}
                 </div>
                 <div
                   className="h-2 overflow-hidden rounded-full"
@@ -687,7 +920,7 @@ function BudgetAllocationContent({ data }: { data: BudgetAllocation }) {
       {/* Funnel Split */}
       <SubSection title="Funnel Split">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {data.funnelSplit.map((fs) => {
+          {data.funnelSplit.map((fs, fsIdx) => {
             const borderColor =
               fs.stage === "cold"
                 ? "rgba(54,94,255,0.4)"
@@ -702,12 +935,20 @@ function BudgetAllocationContent({ data }: { data: BudgetAllocation }) {
               >
                 <div className="flex items-center justify-between">
                   <FunnelBadge stage={fs.stage} />
-                  <span
-                    className="text-xl font-bold font-mono"
-                    style={{ color: "var(--text-heading)", fontFamily: "var(--font-mono), monospace" }}
-                  >
-                    {fmtPct(fs.percentage)}
-                  </span>
+                  {isEditing ? (
+                    <EditableText
+                      value={String(fs.percentage)}
+                      onSave={(v) => onFieldChange?.(`funnelSplit.${fsIdx}.percentage`, Number(v) || 0)}
+                      className="text-xl font-bold font-mono"
+                    />
+                  ) : (
+                    <span
+                      className="text-xl font-bold font-mono"
+                      style={{ color: "var(--text-heading)", fontFamily: "var(--font-mono), monospace" }}
+                    >
+                      {fmtPct(fs.percentage)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                   {fs.rationale}
@@ -753,7 +994,16 @@ function BudgetAllocationContent({ data }: { data: BudgetAllocation }) {
           <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
             Ramp-Up Strategy
           </p>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.rampUpStrategy}</p>
+          {isEditing ? (
+            <EditableText
+              value={data.rampUpStrategy}
+              onSave={(v) => onFieldChange?.("rampUpStrategy", v)}
+              multiline
+              className="text-sm"
+            />
+          ) : (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{data.rampUpStrategy}</p>
+          )}
         </div>
       )}
     </div>
@@ -764,10 +1014,14 @@ function BudgetAllocationContent({ data }: { data: BudgetAllocation }) {
 // S7: Campaign Phases
 // =============================================================================
 
-function CampaignPhasesContent({ data }: { data: CampaignPhase[] }) {
+function CampaignPhasesContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: CampaignPhase[] } & EditingProps) {
   return (
     <div className="space-y-4">
-      {data.map((phase) => (
+      {data.map((phase, pIdx) => (
         <div key={phase.phase} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-5 space-y-3")}>
           {/* Header */}
           <div className="flex flex-wrap items-center gap-3">
@@ -787,18 +1041,34 @@ function CampaignPhasesContent({ data }: { data: CampaignPhase[] }) {
           </div>
 
           {/* Objective */}
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{phase.objective}</p>
+          {isEditing ? (
+            <EditableText
+              value={phase.objective}
+              onSave={(v) => onFieldChange?.(`${pIdx}.objective`, v)}
+              multiline
+              className="text-sm"
+            />
+          ) : (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{phase.objective}</p>
+          )}
 
           {/* Activities */}
           <div>
             <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
               Activities
             </p>
-            <ul className="space-y-1">
-              {phase.activities.map((a, i) => (
-                <ListItem key={i}>{a}</ListItem>
-              ))}
-            </ul>
+            {isEditing ? (
+              <EditableList
+                items={phase.activities}
+                onSave={(items) => onFieldChange?.(`${pIdx}.activities`, items)}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {phase.activities.map((a, i) => (
+                  <ListItem key={i}>{a}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Success Criteria */}
@@ -806,11 +1076,18 @@ function CampaignPhasesContent({ data }: { data: CampaignPhase[] }) {
             <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
               Success Criteria
             </p>
-            <ul className="space-y-1">
-              {phase.successCriteria.map((sc, i) => (
-                <ListItem key={i}>{sc}</ListItem>
-              ))}
-            </ul>
+            {isEditing ? (
+              <EditableList
+                items={phase.successCriteria}
+                onSave={(items) => onFieldChange?.(`${pIdx}.successCriteria`, items)}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {phase.successCriteria.map((sc, i) => (
+                  <ListItem key={i}>{sc}</ListItem>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       ))}
@@ -822,27 +1099,51 @@ function CampaignPhasesContent({ data }: { data: CampaignPhase[] }) {
 // S8: KPI Targets
 // =============================================================================
 
-function KPITargetsContent({ data }: { data: KPITarget[] }) {
+function KPITargetsContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: KPITarget[] } & EditingProps) {
   const primary = data.filter((k) => k.type === "primary");
   const secondary = data.filter((k) => k.type === "secondary");
+
+  // We need to map back to original indices for editing
+  const primaryIndices = data.reduce<number[]>((acc, k, i) => {
+    if (k.type === "primary") acc.push(i);
+    return acc;
+  }, []);
+  const secondaryIndices = data.reduce<number[]>((acc, k, i) => {
+    if (k.type === "secondary") acc.push(i);
+    return acc;
+  }, []);
 
   return (
     <div className="space-y-6">
       {primary.length > 0 && (
         <SubSection title="Primary KPIs">
-          <KPITable kpis={primary} />
+          <KPITable kpis={primary} indices={primaryIndices} isEditing={isEditing} onFieldChange={onFieldChange} />
         </SubSection>
       )}
       {secondary.length > 0 && (
         <SubSection title="Secondary KPIs">
-          <KPITable kpis={secondary} />
+          <KPITable kpis={secondary} indices={secondaryIndices} isEditing={isEditing} onFieldChange={onFieldChange} />
         </SubSection>
       )}
     </div>
   );
 }
 
-function KPITable({ kpis }: { kpis: KPITarget[] }) {
+function KPITable({
+  kpis,
+  indices,
+  isEditing,
+  onFieldChange,
+}: {
+  kpis: KPITarget[];
+  indices: number[];
+  isEditing?: boolean;
+  onFieldChange?: (fieldPath: string, newValue: unknown) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -856,15 +1157,45 @@ function KPITable({ kpis }: { kpis: KPITarget[] }) {
           </tr>
         </thead>
         <tbody>
-          {kpis.map((k) => (
-            <tr key={k.metric} className="border-b border-[var(--border-subtle)] last:border-0">
-              <td className="py-2 pr-4 font-medium" style={{ color: "var(--text-heading)" }}>{k.metric}</td>
-              <td className="py-2 pr-4 font-mono text-xs" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--accent-blue)" }}>{k.target}</td>
-              <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-secondary)" }}>{k.timeframe}</td>
-              <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-tertiary)" }}>{k.benchmark}</td>
-              <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>{k.measurementMethod}</td>
-            </tr>
-          ))}
+          {kpis.map((k, localIdx) => {
+            const globalIdx = indices[localIdx];
+            return (
+              <tr key={k.metric} className="border-b border-[var(--border-subtle)] last:border-0">
+                <td className="py-2 pr-4 font-medium" style={{ color: "var(--text-heading)" }}>{k.metric}</td>
+                <td className="py-2 pr-4 font-mono text-xs" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--accent-blue)" }}>
+                  {isEditing ? (
+                    <EditableText
+                      value={k.target}
+                      onSave={(v) => onFieldChange?.(`${globalIdx}.target`, v)}
+                    />
+                  ) : (
+                    k.target
+                  )}
+                </td>
+                <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {isEditing ? (
+                    <EditableText
+                      value={k.timeframe}
+                      onSave={(v) => onFieldChange?.(`${globalIdx}.timeframe`, v)}
+                    />
+                  ) : (
+                    k.timeframe
+                  )}
+                </td>
+                <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                  {isEditing ? (
+                    <EditableText
+                      value={k.benchmark}
+                      onSave={(v) => onFieldChange?.(`${globalIdx}.benchmark`, v)}
+                    />
+                  ) : (
+                    k.benchmark
+                  )}
+                </td>
+                <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>{k.measurementMethod}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -875,26 +1206,81 @@ function KPITable({ kpis }: { kpis: KPITarget[] }) {
 // S9: Performance Model
 // =============================================================================
 
-function PerformanceModelContent({ data }: { data: PerformanceModel }) {
+function PerformanceModelContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: PerformanceModel } & EditingProps) {
   const m = data.cacModel;
 
   return (
     <div className="space-y-6">
       {/* CAC Funnel Model */}
       <SubSection title="CAC Funnel Model">
-        {/* Funnel flow */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <InfoCard label="Target CPL" value={fmt$(m.targetCPL)} mono />
-          <InfoCard label="Expected Leads/mo" value={m.expectedMonthlyLeads} mono />
-          <InfoCard label="Lead → SQL" value={fmtPct(m.leadToSqlRate)} mono />
-          <InfoCard label="Expected SQLs/mo" value={m.expectedMonthlySQLs} mono />
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <InfoCard label="SQL → Customer" value={fmtPct(m.sqlToCustomerRate)} mono />
-          <InfoCard label="Customers/mo" value={m.expectedMonthlyCustomers} mono />
-          <InfoCard label="Target CAC" value={fmt$(m.targetCAC)} mono />
-          <InfoCard label="Est. LTV" value={fmt$(m.estimatedLTV)} mono />
-        </div>
+        {isEditing ? (
+          <>
+            {/* Editable grid row 1 */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+                <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Target CPL</p>
+                <EditableText
+                  value={String(m.targetCPL)}
+                  onSave={(v) => onFieldChange?.("cacModel.targetCPL", Number(v) || 0)}
+                />
+              </div>
+              <InfoCard label="Expected Leads/mo" value={m.expectedMonthlyLeads} mono />
+              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+                <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Lead &rarr; SQL</p>
+                <EditableText
+                  value={String(m.leadToSqlRate)}
+                  onSave={(v) => onFieldChange?.("cacModel.leadToSqlRate", Number(v) || 0)}
+                />
+              </div>
+              <InfoCard label="Expected SQLs/mo" value={m.expectedMonthlySQLs} mono />
+            </div>
+            {/* Editable grid row 2 */}
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+                <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>SQL &rarr; Customer</p>
+                <EditableText
+                  value={String(m.sqlToCustomerRate)}
+                  onSave={(v) => onFieldChange?.("cacModel.sqlToCustomerRate", Number(v) || 0)}
+                />
+              </div>
+              <InfoCard label="Customers/mo" value={m.expectedMonthlyCustomers} mono />
+              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+                <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Target CAC</p>
+                <EditableText
+                  value={String(m.targetCAC)}
+                  onSave={(v) => onFieldChange?.("cacModel.targetCAC", Number(v) || 0)}
+                />
+              </div>
+              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+                <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Est. LTV</p>
+                <EditableText
+                  value={String(m.estimatedLTV)}
+                  onSave={(v) => onFieldChange?.("cacModel.estimatedLTV", Number(v) || 0)}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Funnel flow */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <InfoCard label="Target CPL" value={fmt$(m.targetCPL)} mono />
+              <InfoCard label="Expected Leads/mo" value={m.expectedMonthlyLeads} mono />
+              <InfoCard label="Lead → SQL" value={fmtPct(m.leadToSqlRate)} mono />
+              <InfoCard label="Expected SQLs/mo" value={m.expectedMonthlySQLs} mono />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <InfoCard label="SQL → Customer" value={fmtPct(m.sqlToCustomerRate)} mono />
+              <InfoCard label="Customers/mo" value={m.expectedMonthlyCustomers} mono />
+              <InfoCard label="Target CAC" value={fmt$(m.targetCAC)} mono />
+              <InfoCard label="Est. LTV" value={fmt$(m.estimatedLTV)} mono />
+            </div>
+          </>
+        )}
 
         {/* LTV:CAC highlight */}
         <div
@@ -959,14 +1345,18 @@ const CATEGORY_COLORS: Record<string, keyof typeof STATUS_BADGE_COLORS> = {
   market: "neutral",
 };
 
-function RiskMonitoringContent({ data }: { data: RiskMonitoring }) {
+function RiskMonitoringContent({
+  data,
+  isEditing,
+  onFieldChange,
+}: { data: RiskMonitoring } & EditingProps) {
   return (
     <div className="space-y-6">
       {/* Risks */}
       <SubSection title="Identified Risks">
         <div className="space-y-3">
-          {data.risks.map((r, i) => (
-            <div key={i} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+          {data.risks.map((r, rIdx) => (
+            <div key={rIdx} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge label={r.category} variant={CATEGORY_COLORS[r.category] ?? "neutral"} />
                 <StatusBadge label={`Severity: ${r.severity}`} variant={SEVERITY_COLORS[r.severity] ?? "neutral"} />
@@ -978,13 +1368,31 @@ function RiskMonitoringContent({ data }: { data: RiskMonitoring }) {
                   <p className="mb-0.5 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
                     Mitigation
                   </p>
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{r.mitigation}</p>
+                  {isEditing ? (
+                    <EditableText
+                      value={r.mitigation}
+                      onSave={(v) => onFieldChange?.(`risks.${rIdx}.mitigation`, v)}
+                      multiline
+                      className="text-sm"
+                    />
+                  ) : (
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{r.mitigation}</p>
+                  )}
                 </div>
                 <div>
                   <p className="mb-0.5 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
                     Contingency
                   </p>
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{r.contingency}</p>
+                  {isEditing ? (
+                    <EditableText
+                      value={r.contingency}
+                      onSave={(v) => onFieldChange?.(`risks.${rIdx}.contingency`, v)}
+                      multiline
+                      className="text-sm"
+                    />
+                  ) : (
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{r.contingency}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -995,11 +1403,18 @@ function RiskMonitoringContent({ data }: { data: RiskMonitoring }) {
       {/* Key Assumptions */}
       {data.assumptions.length > 0 && (
         <SubSection title="Key Assumptions">
-          <ul className="space-y-1">
-            {data.assumptions.map((a, i) => (
-              <ListItem key={i}>{a}</ListItem>
-            ))}
-          </ul>
+          {isEditing ? (
+            <EditableList
+              items={data.assumptions}
+              onSave={(items) => onFieldChange?.("assumptions", items)}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {data.assumptions.map((a, i) => (
+                <ListItem key={i}>{a}</ListItem>
+              ))}
+            </ul>
+          )}
         </SubSection>
       )}
     </div>
@@ -1010,45 +1425,40 @@ function RiskMonitoringContent({ data }: { data: RiskMonitoring }) {
 // Dispatcher
 // =============================================================================
 
-type MediaPlanSectionKey =
-  | "executiveSummary"
-  | "platformStrategy"
-  | "icpTargeting"
-  | "campaignStructure"
-  | "creativeStrategy"
-  | "budgetAllocation"
-  | "campaignPhases"
-  | "kpiTargets"
-  | "performanceModel"
-  | "riskMonitoring";
-
 interface MediaPlanSectionContentProps {
   sectionKey: MediaPlanSectionKey;
   mediaPlan: MediaPlanOutput;
+  isEditing?: boolean;
+  onFieldChange?: (fieldPath: string, newValue: unknown) => void;
 }
 
-export function MediaPlanSectionContent({ sectionKey, mediaPlan }: MediaPlanSectionContentProps) {
+export function MediaPlanSectionContent({
+  sectionKey,
+  mediaPlan,
+  isEditing,
+  onFieldChange,
+}: MediaPlanSectionContentProps) {
   switch (sectionKey) {
     case "executiveSummary":
-      return <ExecutiveSummaryContent data={mediaPlan.executiveSummary} />;
+      return <ExecutiveSummaryContent data={mediaPlan.executiveSummary} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "platformStrategy":
-      return <PlatformStrategyContent data={mediaPlan.platformStrategy} />;
+      return <PlatformStrategyContent data={mediaPlan.platformStrategy} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "icpTargeting":
-      return <ICPTargetingContent data={mediaPlan.icpTargeting} />;
+      return <ICPTargetingContent data={mediaPlan.icpTargeting} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "campaignStructure":
-      return <CampaignStructureContent data={mediaPlan.campaignStructure} />;
+      return <CampaignStructureContent data={mediaPlan.campaignStructure} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "creativeStrategy":
-      return <CreativeStrategyContent data={mediaPlan.creativeStrategy} />;
+      return <CreativeStrategyContent data={mediaPlan.creativeStrategy} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "budgetAllocation":
-      return <BudgetAllocationContent data={mediaPlan.budgetAllocation} />;
+      return <BudgetAllocationContent data={mediaPlan.budgetAllocation} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "campaignPhases":
-      return <CampaignPhasesContent data={mediaPlan.campaignPhases} />;
+      return <CampaignPhasesContent data={mediaPlan.campaignPhases} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "kpiTargets":
-      return <KPITargetsContent data={mediaPlan.kpiTargets} />;
+      return <KPITargetsContent data={mediaPlan.kpiTargets} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "performanceModel":
-      return <PerformanceModelContent data={mediaPlan.performanceModel} />;
+      return <PerformanceModelContent data={mediaPlan.performanceModel} isEditing={isEditing} onFieldChange={onFieldChange} />;
     case "riskMonitoring":
-      return <RiskMonitoringContent data={mediaPlan.riskMonitoring} />;
+      return <RiskMonitoringContent data={mediaPlan.riskMonitoring} isEditing={isEditing} onFieldChange={onFieldChange} />;
     default:
       return null;
   }

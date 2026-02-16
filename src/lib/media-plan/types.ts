@@ -448,21 +448,27 @@ export interface MediaPlanMetadata {
 // Section Constants
 // =============================================================================
 
+/** @deprecated Use MediaPlanSectionKey from section-constants.ts instead */
 export type MediaPlanSection = 'mediaPlan';
 
+/** @deprecated Use MEDIA_PLAN_SECTION_LABELS from section-constants.ts instead */
 export const MEDIA_PLAN_SECTION_LABELS: Record<MediaPlanSection, string> = {
   mediaPlan: 'Media Plan',
 };
 
-export const MEDIA_PLAN_STAGES = ['Media Plan'] as const;
+/** Pipeline stages displayed in the generation UI */
+export const MEDIA_PLAN_STAGES = ['Research', 'Synthesis', 'Validation', 'Summary'] as const;
 
 // =============================================================================
-// SSE Event Types (match blueprint protocol)
+// SSE Event Types (per-section streaming for multi-phase pipeline)
 // =============================================================================
+
+import type { MediaPlanSectionKey } from './section-constants';
 
 export interface MediaPlanSSESectionStartEvent {
   type: 'section-start';
-  section: MediaPlanSection;
+  section: MediaPlanSectionKey;
+  phase: 'research' | 'synthesis' | 'validation' | 'final';
   label: string;
 }
 
@@ -474,9 +480,9 @@ export interface MediaPlanSSEProgressEvent {
 
 export interface MediaPlanSSESectionCompleteEvent {
   type: 'section-complete';
-  section: MediaPlanSection;
+  section: MediaPlanSectionKey;
+  phase: 'research' | 'synthesis' | 'validation' | 'final';
   label: string;
-  data: unknown;
 }
 
 export interface MediaPlanSSEDoneEvent {
