@@ -76,7 +76,14 @@ export async function POST(request: NextRequest) {
           // Run the multi-phase pipeline with per-section SSE events
           const result = await runMediaPlanPipeline(blueprint, onboardingData, {
             onSectionProgress: (progress: PipelineProgress) => {
-              if (progress.status === 'start') {
+              if (progress.status === 'data') {
+                emit({
+                  type: 'section-data',
+                  section: progress.section,
+                  phase: progress.phase,
+                  data: progress.data,
+                });
+              } else if (progress.status === 'start') {
                 emit({
                   type: 'section-start',
                   section: progress.section,

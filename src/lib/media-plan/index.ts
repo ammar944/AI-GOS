@@ -66,6 +66,7 @@ export type {
   MediaPlanSSESectionStartEvent,
   MediaPlanSSEProgressEvent,
   MediaPlanSSESectionCompleteEvent,
+  MediaPlanSSESectionDataEvent,
   MediaPlanSSEDoneEvent,
   MediaPlanSSEErrorEvent,
 } from './types';

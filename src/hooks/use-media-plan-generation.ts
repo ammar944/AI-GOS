@@ -48,6 +48,8 @@ export interface MediaPlanGenerationState {
   activeSections: Set<MediaPlanSectionKey>;
   /** Current pipeline phase */
   currentPhase: 'research' | 'synthesis' | 'validation' | 'final' | null;
+  /** Progressive section data (available as sections complete, before final done event) */
+  sectionData: Partial<Record<MediaPlanSectionKey, unknown>>;
 }
 
 export interface UseMediaPlanGenerationReturn extends MediaPlanGenerationState {
@@ -64,6 +66,7 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
   const [completedSections, setCompletedSections] = useState<Set<MediaPlanSectionKey>>(new Set());
   const [activeSections, setActiveSections] = useState<Set<MediaPlanSectionKey>>(new Set());
   const [currentPhase, setCurrentPhase] = useState<'research' | 'synthesis' | 'validation' | 'final' | null>(null);
+  const [sectionData, setSectionData] = useState<Partial<Record<MediaPlanSectionKey, unknown>>>({});
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const generate = useCallback(async (
@@ -82,6 +85,7 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
     setCompletedSections(new Set());
     setActiveSections(new Set());
     setCurrentPhase(null);
+    setSectionData({});
     setProgress({ percentage: 0, message: "Starting media plan pipeline..." });
 
     try {
@@ -145,6 +149,10 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
               });
               break;
 
+            case "section-data":
+              setSectionData(prev => ({ ...prev, [event.section]: event.data }));
+              break;
+
             case "progress":
               setProgress({ percentage: event.percentage, message: event.message });
               break;
@@ -186,6 +194,7 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
     setCompletedSections(new Set());
     setActiveSections(new Set());
     setCurrentPhase(null);
+    setSectionData({});
   }, []);
 
   return {
@@ -197,6 +206,7 @@ export function useMediaPlanGeneration(): UseMediaPlanGenerationReturn {
     completedSections,
     activeSections,
     currentPhase,
+    sectionData,
     generate,
     reset,
   };

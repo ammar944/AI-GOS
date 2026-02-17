@@ -485,6 +485,13 @@ export interface MediaPlanSSESectionCompleteEvent {
   label: string;
 }
 
+export interface MediaPlanSSESectionDataEvent {
+  type: 'section-data';
+  section: MediaPlanSectionKey;
+  data: unknown;
+  phase: 'research' | 'synthesis' | 'validation' | 'final';
+}
+
 export interface MediaPlanSSEDoneEvent {
   type: 'done';
   success: true;
@@ -505,6 +512,7 @@ export type MediaPlanSSEEvent =
   | MediaPlanSSESectionStartEvent
   | MediaPlanSSEProgressEvent
   | MediaPlanSSESectionCompleteEvent
+  | MediaPlanSSESectionDataEvent
   | MediaPlanSSEDoneEvent
   | MediaPlanSSEErrorEvent;
 

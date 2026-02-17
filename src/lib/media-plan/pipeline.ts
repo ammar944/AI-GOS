@@ -1,5 +1,5 @@
-// Media Plan Pipeline — 4-Phase Orchestrator
-// Coordinates Phase 1 (Sonar Pro research) → Phase 2 (Sonnet synthesis + code validation)
+// Media Plan Pipeline — Wave-Based Orchestrator
+// Coordinates Phase 1 (Sonar Pro research) → Phase 2 (Sonnet synthesis in staggered waves)
 // → Phase 3 (final synthesis) following the strategic blueprint generator.ts pattern.
 
 import type { StrategicBlueprintOutput } from '@/lib/strategic-blueprint/output-types';
@@ -19,6 +19,7 @@ import type {
   RiskMonitoring,
 } from './types';
 import type { MediaPlanSectionKey } from './section-constants';
+import { executeWave } from './wave-executor';
 
 // Phase 1: Research
 import { researchPlatformStrategy, researchICPTargeting, researchKPIBenchmarks } from './research';
@@ -66,8 +67,9 @@ import { estimateCost, MODELS } from '@/lib/ai/providers';
 export interface PipelineProgress {
   section: MediaPlanSectionKey;
   phase: 'research' | 'synthesis' | 'validation' | 'final';
-  status: 'start' | 'complete';
+  status: 'start' | 'complete' | 'data';
   label: string;
+  data?: unknown;
 }
 
 export interface PipelineOptions {
@@ -118,6 +120,10 @@ export async function runMediaPlanPipeline(
     onSectionProgress?.({ section, phase, status, label: SECTION_LABELS[section] });
   };
 
+  const emitSectionData = (section: MediaPlanSectionKey, data: unknown, phase: PipelineProgress['phase']) => {
+    onSectionProgress?.({ section, phase, status: 'data', label: SECTION_LABELS[section], data });
+  };
+
   try {
     // =========================================================================
     // PHASE 1: Web-Grounded Research (Parallel, Sonar Pro)
@@ -148,68 +154,105 @@ export async function runMediaPlanPipeline(
 
     totalCost += platformResult.cost + icpResult.cost + kpiResult.cost;
 
-    // Emit section-complete for Phase 1
+    // Emit section-complete + section-data for Phase 1
     emitSection('platformStrategy', 'complete', 'research');
     emitSection('icpTargeting', 'complete', 'research');
     emitSection('kpiTargets', 'complete', 'research');
+    emitSectionData('platformStrategy', platformStrategy, 'research');
+    emitSectionData('icpTargeting', icpTargeting, 'research');
+    emitSectionData('kpiTargets', kpiTargets, 'research');
 
     phaseTimings.phase1 = Date.now() - phase1Start;
     onProgress?.('Phase 1 complete. Starting synthesis...', 30);
 
     // =========================================================================
-    // PHASE 2: Synthesis + Budget + CAC (Parallel groups after Phase 1)
+    // PHASE 2A: Synthesis in Staggered Waves (Sonnet)
+    // Wave 1: Campaign Structure + Creative Strategy (no cross-dependency)
+    // Wave 2: Campaign Phases + Budget (budget needs campaign structure from Wave 1)
     // =========================================================================
     const phase2Start = Date.now();
 
-    // --- Phase 2: Sequential Sonnet synthesis ---
-    // Sequential to stay under 8K output tokens/min rate limit.
-    // Rate-limit retry logic in synthesis.ts handles any transient 429s.
-
+    // Build contexts that only depend on Phase 1 outputs
     const campaignStructureCtx = buildCampaignStructureContext(onboarding, platformStrategy, icpTargeting);
     const creativeStrategyCtx = buildCreativeStrategyContext(blueprint, onboarding, platformStrategy);
     const campaignPhasesCtx = buildCampaignPhasesContext(onboarding, platformStrategy, kpiTargets);
-    const budgetCtx = buildBudgetMonitoringContext(onboarding, platformStrategy, kpiTargets, {
-      campaigns: [], // not yet available — budget call uses platform + KPI data
-      namingConvention: { campaignPattern: '', adSetPattern: '', adPattern: '', utmStructure: { source: '', medium: '', campaign: '', content: '' } },
-      retargetingSegments: [],
-      negativeKeywords: [],
-    });
 
-    // 1. Campaign Structure
-    emitSection('campaignStructure', 'start', 'synthesis');
-    const campaignStructureResult = await synthesizeCampaignStructure(campaignStructureCtx);
-    emitSection('campaignStructure', 'complete', 'synthesis');
-    onProgress?.('Campaign structure complete. Synthesizing creative strategy...', 38);
+    // --- Wave 1: Campaign Structure (6K) + Creative Strategy (5K), 5s stagger ---
+    onProgress?.('Synthesizing campaign structure + creative strategy...', 32);
 
-    // 2. Creative Strategy
-    emitSection('creativeStrategy', 'start', 'synthesis');
-    const creativeStrategyResult = await synthesizeCreativeStrategy(creativeStrategyCtx);
-    emitSection('creativeStrategy', 'complete', 'synthesis');
-    onProgress?.('Creative strategy complete. Planning campaign phases...', 46);
+    interface SynthesisResult<T> { data: T; cost: number }
 
-    // 3. Campaign Phases
-    emitSection('campaignPhases', 'start', 'synthesis');
-    const campaignPhasesResult = await synthesizeCampaignPhases(campaignPhasesCtx);
-    emitSection('campaignPhases', 'complete', 'synthesis');
-    onProgress?.('Campaign phases complete. Allocating budget...', 54);
+    const wave1 = await executeWave<SynthesisResult<unknown>>([
+      {
+        id: 'campaignStructure',
+        execute: () => synthesizeCampaignStructure(campaignStructureCtx),
+        onStart: () => emitSection('campaignStructure', 'start', 'synthesis'),
+        onComplete: (result) => {
+          emitSection('campaignStructure', 'complete', 'synthesis');
+          emitSectionData('campaignStructure', result.data, 'synthesis');
+        },
+      },
+      {
+        id: 'creativeStrategy',
+        execute: () => synthesizeCreativeStrategy(creativeStrategyCtx),
+        onStart: () => emitSection('creativeStrategy', 'start', 'synthesis'),
+        onComplete: (result) => {
+          emitSection('creativeStrategy', 'complete', 'synthesis');
+          emitSectionData('creativeStrategy', result.data, 'synthesis');
+        },
+      },
+    ], { staggerDelayMs: 5000 });
 
-    // 4. Budget + Monitoring
-    emitSection('budgetAllocation', 'start', 'synthesis');
-    const budgetMonitoringResult = await synthesizeBudgetAndMonitoring(budgetCtx);
+    const campaignStructure: CampaignStructure = wave1.results.get('campaignStructure')!.data as CampaignStructure;
+    const creativeStrategy: CreativeStrategy = wave1.results.get('creativeStrategy')!.data as CreativeStrategy;
+    const wave1Cost = Array.from(wave1.results.values()).reduce((sum, r) => sum + r.cost, 0);
+    totalCost += wave1Cost;
 
-    const campaignStructure: CampaignStructure = campaignStructureResult.data;
-    const creativeStrategy: CreativeStrategy = creativeStrategyResult.data;
-    const campaignPhases: CampaignPhase[] = campaignPhasesResult.data.campaignPhases;
+    onProgress?.('Wave 1 complete. Starting budget + phases...', 50);
+    console.log(`[MediaPlan:Pipeline] Wave 1 complete in ${wave1.timingMs}ms ($${wave1Cost.toFixed(4)})`);
 
-    totalCost += campaignStructureResult.cost + creativeStrategyResult.cost +
-                 campaignPhasesResult.cost + budgetMonitoringResult.cost;
+    // --- Wave 2: Campaign Phases (4K) + Budget (4.5K), 3s stagger ---
+    // Budget now gets REAL campaign structure data (quality improvement)
+    const budgetCtx = buildBudgetMonitoringContext(onboarding, platformStrategy, kpiTargets, campaignStructure);
+
+    onProgress?.('Synthesizing campaign phases + budget...', 52);
+
+    const wave2 = await executeWave<SynthesisResult<unknown>>([
+      {
+        id: 'campaignPhases',
+        execute: () => synthesizeCampaignPhases(campaignPhasesCtx),
+        onStart: () => emitSection('campaignPhases', 'start', 'synthesis'),
+        onComplete: (result) => {
+          emitSection('campaignPhases', 'complete', 'synthesis');
+          emitSectionData('campaignPhases', (result.data as { campaignPhases: CampaignPhase[] }).campaignPhases, 'synthesis');
+        },
+      },
+      {
+        id: 'budgetAllocation',
+        execute: () => synthesizeBudgetAndMonitoring(budgetCtx),
+        onStart: () => emitSection('budgetAllocation', 'start', 'synthesis'),
+        // budgetAllocation complete emitted after validation below
+      },
+    ], { staggerDelayMs: 3000 });
+
+    const campaignPhases: CampaignPhase[] = (wave2.results.get('campaignPhases')!.data as { campaignPhases: CampaignPhase[] }).campaignPhases;
+    const budgetMonitoringResult = wave2.results.get('budgetAllocation')!;
+    const wave2Cost = Array.from(wave2.results.values()).reduce((sum, r) => sum + r.cost, 0);
+    totalCost += wave2Cost;
+
+    onProgress?.('Synthesis complete. Validating...', 65);
+    console.log(`[MediaPlan:Pipeline] Wave 2 complete in ${wave2.timingMs}ms ($${wave2Cost.toFixed(4)})`);
 
     // --- Phase 2B: Validate budget ---
-    onProgress?.('Validating budget math...', 60);
+    onProgress?.('Validating budget math...', 68);
     emitSection('performanceModel', 'start', 'validation');
 
+    const budgetMonitoringData = budgetMonitoringResult.data as {
+      budgetAllocation: BudgetAllocation;
+      monitoringSchedule: { daily: string[]; weekly: string[]; monthly: string[] };
+    };
     const { budget: validatedBudget, adjustments: budgetAdjustments } = validateAndFixBudget(
-      budgetMonitoringResult.data.budgetAllocation,
+      budgetMonitoringData.budgetAllocation,
       onboarding.budgetTargets.monthlyAdBudget,
     );
     const budgetAllocation: BudgetAllocation = validatedBudget;
@@ -217,8 +260,6 @@ export async function runMediaPlanPipeline(
     if (budgetAdjustments.length > 0) {
       console.log(`[MediaPlan:Pipeline] Budget adjustments: ${budgetAdjustments.map(a => a.rule).join(', ')}`);
     }
-
-    emitSection('budgetAllocation', 'complete', 'synthesis');
 
     // --- Phase 2C: Deterministic CAC Model ---
     // Extract target CPL from KPI research or use onboarding target
@@ -233,7 +274,7 @@ export async function runMediaPlanPipeline(
 
     // Extract conversion rates from KPI research or use defaults
     let leadToSqlRate = 15; // industry default
-    let sqlToCustomerRate = 25; // industry default
+    const sqlToCustomerRate = 25; // industry default
     const sqlRateKPI = kpiTargets.find(k =>
       k.metric.toLowerCase().includes('sql') && k.metric.toLowerCase().includes('rate'),
     );
@@ -255,13 +296,16 @@ export async function runMediaPlanPipeline(
 
     const performanceModel: PerformanceModel = buildPerformanceModel(
       cacInput,
-      budgetMonitoringResult.data.monitoringSchedule,
+      budgetMonitoringData.monitoringSchedule,
     );
 
+    emitSection('budgetAllocation', 'complete', 'synthesis');
+    emitSectionData('budgetAllocation', budgetAllocation, 'synthesis');
     emitSection('performanceModel', 'complete', 'validation');
+    emitSectionData('performanceModel', performanceModel, 'validation');
 
     // --- Reconcile KPI targets against deterministic CAC model ---
-    onProgress?.('Reconciling KPI targets with computed model...', 65);
+    onProgress?.('Reconciling KPI targets with computed model...', 70);
     const { kpiTargets: reconciledKPIs, overrides: kpiOverrides } = reconcileKPITargets(
       kpiTargets,
       performanceModel.cacModel,
@@ -271,7 +315,7 @@ export async function runMediaPlanPipeline(
     }
 
     // --- Cross-section validation ---
-    onProgress?.('Validating cross-section consistency...', 70);
+    onProgress?.('Validating cross-section consistency...', 72);
     const crossValidation = validateCrossSection({
       platformStrategy,
       icpTargeting,
@@ -314,6 +358,8 @@ export async function runMediaPlanPipeline(
 
     emitSection('executiveSummary', 'complete', 'final');
     emitSection('riskMonitoring', 'complete', 'final');
+    emitSectionData('executiveSummary', executiveSummary, 'final');
+    emitSectionData('riskMonitoring', riskMonitoring, 'final');
 
     phaseTimings.phase3 = Date.now() - phase3Start;
 
