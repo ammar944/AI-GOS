@@ -537,6 +537,14 @@
     background-clip: text;
   }
 
+  /* Dashboard heading gradient - white to electric blue */
+  .text-gradient-heading {
+    background: linear-gradient(90deg, #ffffff 0%, #93c5fd 45%, #60a5fa 70%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   /* Gradient text - primary blue */
   .text-gradient-primary {
     background: linear-gradient(135deg, oklch(0.62 0.19 255), oklch(0.55 0.22 260));
@@ -999,4 +1007,69 @@
 
 .pdf-export .border-purple-500\/30 {
   border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+/* ============================================
+   Dashboard Card Hover Utilities
+   MUST be unlayered (outside @layer) to beat
+   Tailwind v4 @layer utilities specificity.
+   ============================================ */
+.show-on-card-hover {
+  opacity: 0 !important;
+  transition: opacity 0.2s ease;
+}
+.group:hover > .show-on-card-hover,
+.group:hover .show-on-card-hover,
+.show-on-card-hover:focus-visible {
+  opacity: 1 !important;
+}
+
+.accent-on-card-hover {
+  opacity: 0 !important;
+  transition: opacity 0.5s ease;
+}
+.group:hover > .accent-on-card-hover,
+.group:hover .accent-on-card-hover {
+  opacity: 1 !important;
+}
+
+/* ============================================
+   Dashboard Skeleton Shimmer
+   ============================================ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.dashboard-skeleton .skeleton-block {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 40%,
+    rgba(255,255,255,0.04) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.dashboard-skeleton .skeleton-block-subtle {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.025) 0%,
+    rgba(255,255,255,0.05) 40%,
+    rgba(255,255,255,0.025) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.dashboard-skeleton .skeleton-block-accent {
+  background: linear-gradient(
+    90deg,
+    rgba(54,94,255,0.08) 0%,
+    rgba(54,94,255,0.14) 40%,
+    rgba(54,94,255,0.08) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
 }

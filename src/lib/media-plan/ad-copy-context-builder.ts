@@ -217,11 +217,23 @@ function buildCompetitorHooksSection(
   }
 
   // Market gaps (opportunities for differentiation in copy)
-  const gaps = blueprint.competitorAnalysis.gapsAndOpportunities;
-  if (gaps.messagingOpportunities.length > 0) {
+  const whiteSpaceGaps = blueprint.competitorAnalysis.whiteSpaceGaps;
+  if (whiteSpaceGaps?.length) {
     lines.push("### Messaging Gaps to Exploit");
-    for (const opp of gaps.messagingOpportunities.slice(0, 3)) {
-      lines.push(`- ${opp}`);
+    for (const wsg of whiteSpaceGaps.filter(g => g.type === 'messaging').slice(0, 3)) {
+      lines.push(`- ${wsg.gap} — ${wsg.recommendedAction}`);
+    }
+    // Also include high-impact non-messaging gaps
+    for (const wsg of whiteSpaceGaps.filter(g => g.type !== 'messaging' && g.impact >= 7).slice(0, 2)) {
+      lines.push(`- [${wsg.type}] ${wsg.gap}`);
+    }
+  } else {
+    const gaps = blueprint.competitorAnalysis.gapsAndOpportunities;
+    if (gaps?.messagingOpportunities?.length) {
+      lines.push("### Messaging Gaps to Exploit");
+      for (const opp of gaps.messagingOpportunities.slice(0, 3)) {
+        lines.push(`- ${opp}`);
+      }
     }
   }
 

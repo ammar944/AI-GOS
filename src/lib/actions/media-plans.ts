@@ -117,6 +117,30 @@ export async function getUserMediaPlans(): Promise<{ data?: MediaPlanRecord[]; e
 }
 
 /**
+ * Delete a media plan (must belong to current user)
+ */
+export async function deleteMediaPlan(id: string): Promise<{ success: boolean; error?: string }> {
+  const { userId } = await auth()
+  if (!userId) return { success: false, error: 'Unauthorized' }
+
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('media_plans')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('[MediaPlans] Delete error:', error)
+    return { success: false, error: 'Failed to delete media plan' }
+  }
+
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+/**
  * Get a specific media plan by ID (must belong to current user)
  */
 export async function getMediaPlanById(id: string): Promise<{ data?: MediaPlanRecord; error?: string }> {
@@ -138,4 +162,28 @@ export async function getMediaPlanById(id: string): Promise<{ data?: MediaPlanRe
   }
 
   return { data: data as MediaPlanRecord }
+}
+
+/**
+ * Get media plans linked to a specific blueprint (must belong to current user)
+ */
+export async function getMediaPlansByBlueprintId(blueprintId: string): Promise<{ data?: MediaPlanRecord[]; error?: string }> {
+  const { userId } = await auth()
+  if (!userId) return { error: 'Unauthorized' }
+
+  const supabase = createAdminClient()
+
+  const { data, error } = await supabase
+    .from('media_plans')
+    .select('*')
+    .eq('blueprint_id', blueprintId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[MediaPlans] Fetch by blueprint ID error:', error)
+    return { error: 'Failed to fetch media plans' }
+  }
+
+  return { data: data as MediaPlanRecord[] }
 }

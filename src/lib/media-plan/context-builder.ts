@@ -114,17 +114,30 @@ function buildIndustrySection(blueprint: StrategicBlueprintOutput): string {
 }
 
 function buildICPSection(blueprint: StrategicBlueprintOutput): string {
-  const { finalVerdict, coherenceCheck, riskAssessment } = blueprint.icpAnalysisValidation;
+  const { finalVerdict, coherenceCheck, riskScores } = blueprint.icpAnalysisValidation;
   const lines: string[] = ['## ICP Validation'];
 
   lines.push(`- Verdict: ${finalVerdict.status}`);
   lines.push(`- Reachable via Paid Channels: ${coherenceCheck.reachableThroughPaidChannels}`);
   lines.push(`- Adequate Scale: ${coherenceCheck.adequateScale}`);
   lines.push(`- Has Budget & Authority: ${coherenceCheck.hasBudgetAndAuthority}`);
-  lines.push(`- Risk — Reachability: ${riskAssessment.reachability}`);
-  lines.push(`- Risk — Budget: ${riskAssessment.budget}`);
-  lines.push(`- Risk — Pain Strength: ${riskAssessment.painStrength}`);
-  lines.push(`- Risk — Competitiveness: ${riskAssessment.competitiveness}`);
+
+  if (riskScores?.length) {
+    for (const rs of riskScores) {
+      const score = rs.score ?? rs.probability * rs.impact;
+      const classification = rs.classification ?? (score >= 16 ? 'critical' : score >= 9 ? 'high' : score >= 4 ? 'medium' : 'low');
+      lines.push(`- Risk — ${rs.category.replace(/_/g, ' ')}: ${classification} (${rs.risk})`);
+    }
+  } else {
+    // Legacy fallback
+    const ra = (blueprint.icpAnalysisValidation as any).riskAssessment;
+    if (ra) {
+      lines.push(`- Risk — Reachability: ${ra.reachability}`);
+      lines.push(`- Risk — Budget: ${ra.budget}`);
+      lines.push(`- Risk — Pain Strength: ${ra.painStrength}`);
+      lines.push(`- Risk — Competitiveness: ${ra.competitiveness}`);
+    }
+  }
 
   return lines.join('\n');
 }
@@ -144,7 +157,7 @@ function buildOfferSection(blueprint: StrategicBlueprintOutput): string {
 }
 
 function buildCompetitorSection(blueprint: StrategicBlueprintOutput): string {
-  const { competitors, creativeLibrary, funnelBreakdown, gapsAndOpportunities } = blueprint.competitorAnalysis;
+  const { competitors, creativeLibrary, funnelBreakdown, whiteSpaceGaps, gapsAndOpportunities } = blueprint.competitorAnalysis;
   const lines: string[] = ['## Competitor Landscape'];
 
   // Per-competitor summary (name, positioning, platforms, strengths/weaknesses + creative data)
@@ -199,8 +212,14 @@ function buildCompetitorSection(blueprint: StrategicBlueprintOutput): string {
 
   // Market gaps
   lines.push('### Market Gaps');
-  lines.push(`- Messaging Opportunities: ${gapsAndOpportunities.messagingOpportunities.slice(0, 3).join('; ')}`);
-  lines.push(`- Creative Opportunities: ${gapsAndOpportunities.creativeOpportunities.slice(0, 3).join('; ')}`);
+  if (whiteSpaceGaps?.length) {
+    for (const wsg of whiteSpaceGaps.slice(0, 5)) {
+      lines.push(`- [${wsg.type}] ${wsg.gap} (exploit: ${wsg.exploitability}/10, impact: ${wsg.impact}/10) — ${wsg.recommendedAction}`);
+    }
+  } else if (gapsAndOpportunities) {
+    lines.push(`- Messaging Opportunities: ${gapsAndOpportunities.messagingOpportunities.slice(0, 3).join('; ')}`);
+    lines.push(`- Creative Opportunities: ${gapsAndOpportunities.creativeOpportunities.slice(0, 3).join('; ')}`);
+  }
 
   return lines.join('\n');
 }

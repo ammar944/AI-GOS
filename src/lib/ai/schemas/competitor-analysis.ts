@@ -4,6 +4,26 @@
 import { z } from 'zod';
 
 // =============================================================================
+// Competitor Threat Assessment
+// =============================================================================
+
+export const threatFactorsSchema = z.object({
+  marketShareRecognition: z.number().min(1).max(10).describe('Brand recognition and market share'),
+  adSpendIntensity: z.number().min(1).max(10).describe('Estimated monthly ad spend level'),
+  productOverlap: z.number().min(1).max(10).describe('Feature overlap with client offer'),
+  priceCompetitiveness: z.number().min(1).max(10).describe('Price competitiveness vs client'),
+  growthTrajectory: z.number().min(1).max(10).describe('Funding, hiring, feature velocity'),
+});
+
+export const competitorThreatSchema = z.object({
+  threatFactors: threatFactorsSchema,
+  // NOTE: weightedThreatScore and classification computed deterministically post-generation
+  topAdHooks: z.array(z.string()).max(3).optional().describe('Top 3 ad hooks from ad library — only for primary threats'),
+  likelyResponse: z.string().optional().describe('Their likely response if client gains share — only for primary threats'),
+  counterPositioning: z.string().optional().describe('Recommended counter-positioning — only for primary threats'),
+});
+
+// =============================================================================
 // Competitor Snapshot
 // =============================================================================
 
@@ -36,6 +56,8 @@ export const competitorSnapshotSchema = z.object({
   weaknesses: z.array(z.string())
     .min(1).max(5)
     .describe('2-3 weaknesses from G2/Capterra reviews or market positioning gaps. Use actual customer complaints (e.g., "Steep learning curve", "Poor customer support").'),
+
+  threatAssessment: competitorThreatSchema.optional(),
 
   // NOTE: These fields are populated by Firecrawl/Ad Library, not Perplexity
   // pricingTiers → scrapePricingForCompetitors()
@@ -91,9 +113,10 @@ export const funnelBreakdownSchema = z.object({
 }).describe('Competitor funnel and conversion patterns');
 
 // =============================================================================
-// Gaps and Opportunities
+// Gaps and Opportunities (DEPRECATED — replaced by whiteSpaceGaps)
 // =============================================================================
 
+// DEPRECATED — replaced by whiteSpaceGaps
 export const gapsAndOpportunitiesSchema = z.object({
   messagingOpportunities: z.array(z.string())
     .min(1).max(6)
@@ -107,6 +130,23 @@ export const gapsAndOpportunitiesSchema = z.object({
     .min(1).max(5)
     .describe('2-3 funnel improvement opportunities (e.g., "Faster path to value - competitors require demo calls", "Lower friction signup than market norm").'),
 }).describe('Specific opportunities based on competitive gaps');
+
+// =============================================================================
+// White Space Gaps (replaces gapsAndOpportunities)
+// =============================================================================
+
+export const whiteSpaceGapSchema = z.object({
+  gap: z.string().describe('Description of the gap'),
+  type: z.enum(['messaging', 'feature', 'audience', 'channel']),
+  evidence: z.string().describe('What competitors do instead'),
+  exploitability: z.number().min(1).max(10).describe('How easy for client to own this'),
+  impact: z.number().min(1).max(10).describe('How much this would resonate with ICP'),
+  // NOTE: compositeScore computed deterministically as exploitability × impact
+  recommendedAction: z.string().describe('Specific recommendation for media plan'),
+});
+
+export const whiteSpaceGapsSchema = z.array(whiteSpaceGapSchema).min(3).max(10)
+  .describe('Systematic gaps in competitor coverage, ranked by composite score');
 
 // =============================================================================
 // Complete Competitor Analysis Schema
@@ -129,7 +169,7 @@ export const competitorAnalysisSchema = z.object({
     .min(1).max(6)
     .describe('3-4 industry-wide weaknesses (common complaints, gaps, or underserved needs across all players).'),
 
-  gapsAndOpportunities: gapsAndOpportunitiesSchema,
+  whiteSpaceGaps: whiteSpaceGapsSchema,
 }).describe('Comprehensive competitor analysis for paid media positioning');
 
 // =============================================================================

@@ -368,6 +368,69 @@ function PlatformStrategyContent({
             </div>
           )}
 
+          {/* Competitive density + audience saturation (new) */}
+          {(ps.competitiveDensity != null || ps.audienceSaturation) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {ps.competitiveDensity != null && (
+                <span
+                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium"
+                  style={{
+                    background: ps.competitiveDensity <= 3
+                      ? "rgba(34,197,94,0.14)"
+                      : ps.competitiveDensity <= 6
+                        ? "rgba(245,158,11,0.14)"
+                        : ps.competitiveDensity <= 8
+                          ? "rgba(249,115,22,0.14)"
+                          : "rgba(239,68,68,0.14)",
+                    color: ps.competitiveDensity <= 3
+                      ? "rgb(134,239,172)"
+                      : ps.competitiveDensity <= 6
+                        ? "rgb(253,186,116)"
+                        : ps.competitiveDensity <= 8
+                          ? "rgb(253,186,116)"
+                          : "rgb(252,165,165)",
+                    borderColor: ps.competitiveDensity <= 3
+                      ? "rgba(34,197,94,0.34)"
+                      : ps.competitiveDensity <= 6
+                        ? "rgba(245,158,11,0.34)"
+                        : ps.competitiveDensity <= 8
+                          ? "rgba(249,115,22,0.34)"
+                          : "rgba(239,68,68,0.34)",
+                  }}
+                >
+                  Density: {ps.competitiveDensity}/10
+                </span>
+              )}
+              {ps.audienceSaturation && (
+                <StatusBadge
+                  label={`Saturation: ${ps.audienceSaturation}`}
+                  variant={
+                    ps.audienceSaturation === "low" ? "success"
+                      : ps.audienceSaturation === "medium" ? "warning"
+                        : "danger"
+                  }
+                />
+              )}
+            </div>
+          )}
+
+          {/* Platform risk factors (new) */}
+          {ps.platformRiskFactors && ps.platformRiskFactors.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-medium" style={{ color: "var(--text-tertiary)" }}>
+                Risk Factors
+              </p>
+              <ul className="space-y-0.5">
+                {ps.platformRiskFactors.map((rf, rfIdx) => (
+                  <li key={rfIdx} className="flex items-start gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "rgba(245,158,11,0.7)" }} />
+                    {rf}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Synergies */}
           {ps.synergiesWithOtherPlatforms && (
             <p className="text-xs italic" style={{ color: "var(--text-tertiary)" }}>
@@ -411,10 +474,51 @@ function ICPTargetingContent({
           {data.segments.map((seg) => (
             <div key={seg.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
-                  {seg.name}
-                </span>
-                <FunnelBadge stage={seg.funnelPosition} />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
+                    {seg.name}
+                  </span>
+                  {/* Priority score badge (new) */}
+                  {seg.priorityScore != null && (
+                    <span
+                      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium font-mono"
+                      style={{
+                        fontFamily: "var(--font-mono), monospace",
+                        background: seg.priorityScore >= 7
+                          ? "rgba(34,197,94,0.14)"
+                          : seg.priorityScore >= 4
+                            ? "rgba(245,158,11,0.14)"
+                            : "rgba(239,68,68,0.14)",
+                        color: seg.priorityScore >= 7
+                          ? "rgb(134,239,172)"
+                          : seg.priorityScore >= 4
+                            ? "rgb(253,186,116)"
+                            : "rgb(252,165,165)",
+                        borderColor: seg.priorityScore >= 7
+                          ? "rgba(34,197,94,0.34)"
+                          : seg.priorityScore >= 4
+                            ? "rgba(245,158,11,0.34)"
+                            : "rgba(239,68,68,0.34)",
+                      }}
+                    >
+                      Priority: {seg.priorityScore}/10
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {/* Targeting difficulty badge (new) */}
+                  {seg.targetingDifficulty && (
+                    <StatusBadge
+                      label={seg.targetingDifficulty}
+                      variant={
+                        seg.targetingDifficulty === "easy" ? "success"
+                          : seg.targetingDifficulty === "moderate" ? "warning"
+                            : "danger"
+                      }
+                    />
+                  )}
+                  <FunnelBadge stage={seg.funnelPosition} />
+                </div>
               </div>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {seg.description}
@@ -505,6 +609,28 @@ function ICPTargetingContent({
           )}
         </div>
       </SubSection>
+
+      {/* Overlap Warnings (new) */}
+      {data.overlapWarnings && data.overlapWarnings.length > 0 && (
+        <div
+          className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}
+          style={{ borderColor: "rgba(245,158,11,0.4)" }}
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: "rgb(245,158,11)" }} />
+            <p className="text-xs font-medium uppercase" style={{ color: "rgb(253,186,116)" }}>
+              Audience Overlap Warnings
+            </p>
+          </div>
+          <ul className="space-y-1 pl-6">
+            {data.overlapWarnings.map((warning, wIdx) => (
+              <li key={wIdx} className="list-disc text-sm" style={{ color: "var(--text-secondary)" }}>
+                {warning}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Reachability banner */}
       {data.reachabilityAssessment && (
@@ -1089,6 +1215,38 @@ function CampaignPhasesContent({
               </ul>
             )}
           </div>
+
+          {/* Go/No-Go Decision (new) */}
+          {phase.goNoGoDecision && (
+            <div
+              className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-3 p-3")}
+              style={{ borderColor: "rgba(245,158,11,0.4)" }}
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "rgb(245,158,11)" }} />
+              <div>
+                <p className="mb-0.5 text-xs font-medium uppercase" style={{ color: "rgb(253,186,116)" }}>
+                  Go / No-Go Decision
+                </p>
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{phase.goNoGoDecision}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Scenario Adjustment (new) */}
+          {phase.scenarioAdjustment && (
+            <div
+              className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-3 p-3")}
+              style={{ borderColor: "rgba(54,94,255,0.3)" }}
+            >
+              <span className="mt-0.5 shrink-0 text-sm" style={{ color: "var(--accent-blue)" }}>i</span>
+              <div>
+                <p className="mb-0.5 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
+                  Scenario Adjustment
+                </p>
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{phase.scenarioAdjustment}</p>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -1159,41 +1317,82 @@ function KPITable({
         <tbody>
           {kpis.map((k, localIdx) => {
             const globalIdx = indices[localIdx];
+            const hasEnrichedData = k.benchmarkRange || k.sourceConfidence != null || k.scenarioThresholds;
             return (
-              <tr key={k.metric} className="border-b border-[var(--border-subtle)] last:border-0">
-                <td className="py-2 pr-4 font-medium" style={{ color: "var(--text-heading)" }}>{k.metric}</td>
-                <td className="py-2 pr-4 font-mono text-xs" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--accent-blue)" }}>
-                  {isEditing ? (
-                    <EditableText
-                      value={k.target}
-                      onSave={(v) => onFieldChange?.(`${globalIdx}.target`, v)}
-                    />
-                  ) : (
-                    k.target
-                  )}
-                </td>
-                <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-secondary)" }}>
-                  {isEditing ? (
-                    <EditableText
-                      value={k.timeframe}
-                      onSave={(v) => onFieldChange?.(`${globalIdx}.timeframe`, v)}
-                    />
-                  ) : (
-                    k.timeframe
-                  )}
-                </td>
-                <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-tertiary)" }}>
-                  {isEditing ? (
-                    <EditableText
-                      value={k.benchmark}
-                      onSave={(v) => onFieldChange?.(`${globalIdx}.benchmark`, v)}
-                    />
-                  ) : (
-                    k.benchmark
-                  )}
-                </td>
-                <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>{k.measurementMethod}</td>
-              </tr>
+              <React.Fragment key={k.metric}>
+                <tr className={cn("border-b border-[var(--border-subtle)]", hasEnrichedData && "border-b-0")}>
+                  <td className="py-2 pr-4 font-medium" style={{ color: "var(--text-heading)" }}>{k.metric}</td>
+                  <td className="py-2 pr-4 font-mono text-xs" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--accent-blue)" }}>
+                    {isEditing ? (
+                      <EditableText
+                        value={k.target}
+                        onSave={(v) => onFieldChange?.(`${globalIdx}.target`, v)}
+                      />
+                    ) : (
+                      k.target
+                    )}
+                  </td>
+                  <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {isEditing ? (
+                      <EditableText
+                        value={k.timeframe}
+                        onSave={(v) => onFieldChange?.(`${globalIdx}.timeframe`, v)}
+                      />
+                    ) : (
+                      k.timeframe
+                    )}
+                  </td>
+                  <td className="py-2 pr-4 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                    {isEditing ? (
+                      <EditableText
+                        value={k.benchmark}
+                        onSave={(v) => onFieldChange?.(`${globalIdx}.benchmark`, v)}
+                      />
+                    ) : (
+                      k.benchmarkRange ? (
+                        <span className="font-mono" style={{ fontFamily: "var(--font-mono), monospace" }}>
+                          Low: {k.benchmarkRange.low} | Mid: {k.benchmarkRange.mid} | High: {k.benchmarkRange.high}
+                        </span>
+                      ) : (
+                        k.benchmark
+                      )
+                    )}
+                    {/* Source confidence indicator */}
+                    {k.sourceConfidence != null && (
+                      <span
+                        className="ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                        style={{
+                          background: k.sourceConfidence >= 4
+                            ? "rgba(34,197,94,0.14)"
+                            : k.sourceConfidence >= 2
+                              ? "rgba(245,158,11,0.14)"
+                              : "rgba(239,68,68,0.14)",
+                          color: k.sourceConfidence >= 4
+                            ? "rgb(134,239,172)"
+                            : k.sourceConfidence >= 2
+                              ? "rgb(253,186,116)"
+                              : "rgb(252,165,165)",
+                        }}
+                      >
+                        {k.sourceConfidence}/5
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>{k.measurementMethod}</td>
+                </tr>
+                {/* Scenario thresholds sub-row (new) */}
+                {k.scenarioThresholds && (
+                  <tr className="border-b border-[var(--border-subtle)] last:border-0">
+                    <td colSpan={5} className="pb-2 pl-4 text-xs">
+                      <span className="font-mono" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--text-tertiary)" }}>
+                        Scenarios — Best: <span style={{ color: "rgb(134,239,172)" }}>{k.scenarioThresholds.best}</span>
+                        {" | "}Base: <span style={{ color: "rgb(253,186,116)" }}>{k.scenarioThresholds.base}</span>
+                        {" | "}Worst: <span style={{ color: "rgb(252,165,165)" }}>{k.scenarioThresholds.worst}</span>
+                      </span>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             );
           })}
         </tbody>
@@ -1359,10 +1558,53 @@ function RiskMonitoringContent({
             <div key={rIdx} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge label={r.category} variant={CATEGORY_COLORS[r.category] ?? "neutral"} />
-                <StatusBadge label={`Severity: ${r.severity}`} variant={SEVERITY_COLORS[r.severity] ?? "neutral"} />
-                <StatusBadge label={`Likelihood: ${r.likelihood}`} variant={SEVERITY_COLORS[r.likelihood] ?? "neutral"} />
+                {/* P×I score badge (new) — shown when numerical scoring is available */}
+                {r.score != null && (
+                  <StatusBadge
+                    label={`P\u00D7I: ${r.score}`}
+                    variant={r.score <= 6 ? "success" : r.score <= 12 ? "warning" : r.score <= 19 ? "caution" : "danger"}
+                  />
+                )}
+                {/* Classification badge (new) — shown when system-computed classification exists */}
+                {r.classification && (
+                  <StatusBadge
+                    label={r.classification}
+                    variant={
+                      r.classification === "low" ? "success"
+                        : r.classification === "medium" ? "warning"
+                          : r.classification === "high" ? "caution"
+                            : "danger"
+                    }
+                  />
+                )}
+                {/* Fallback: legacy severity/likelihood badges when numerical scores absent */}
+                {r.score == null && (
+                  <>
+                    <StatusBadge label={`Severity: ${r.severity}`} variant={SEVERITY_COLORS[r.severity] ?? "neutral"} />
+                    <StatusBadge label={`Likelihood: ${r.likelihood}`} variant={SEVERITY_COLORS[r.likelihood] ?? "neutral"} />
+                  </>
+                )}
+                {/* Monitoring frequency badge (new) */}
+                {r.monitoringFrequency && (
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-tertiary)",
+                    }}
+                  >
+                    {r.monitoringFrequency}
+                  </span>
+                )}
               </div>
               <p className="text-sm font-medium" style={{ color: "var(--text-heading)" }}>{r.risk}</p>
+              {/* Early warning indicator (new) */}
+              {r.earlyWarningIndicator && (
+                <p className="text-xs italic" style={{ color: "var(--text-tertiary)" }}>
+                  Early Warning: {r.earlyWarningIndicator}
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <p className="mb-0.5 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>

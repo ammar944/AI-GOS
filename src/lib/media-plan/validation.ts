@@ -9,9 +9,13 @@ import type {
   PerformanceModel,
   ICPTargeting,
   CampaignStructure,
+  CampaignPhase,
   KPITarget,
   MonitoringSchedule,
+  RiskMonitoring,
 } from './types';
+
+import { postProcessMediaPlanRisks } from './research';
 
 // =============================================================================
 // Types
@@ -44,6 +48,29 @@ export interface CrossSectionValidationResult {
   valid: boolean;
   adjustments: ValidationAdjustment[];
   warnings: string[];
+  fixes?: {
+    campaignStructure?: CampaignStructure;
+  };
+}
+
+export interface ResolvedTargets {
+  monthlyBudget: number;
+  cpl: number;
+  cac: number;
+  leadsPerMonth: number;
+  sqlsPerMonth: number;
+  customersPerMonth: number;
+  leadToSqlRate: number;
+  sqlToCustomerRate: number;
+  ltvCacRatio: string;
+  estimatedLtv: number;
+}
+
+export interface RetargetingValidationInput {
+  campaignStructure: CampaignStructure;
+  campaignPhases: CampaignPhase[];
+  hasExistingPaidTraffic: boolean;
+  hasOrganicKeywords: boolean;
 }
 
 // =============================================================================
@@ -229,6 +256,75 @@ export function buildPerformanceModel(
 }
 
 // =============================================================================
+// 3-Scenario CAC Model (supplementary — uses sensitivity analysis from ICP)
+// =============================================================================
+
+export interface ScenarioCAC {
+  label: 'best' | 'base' | 'worst';
+  assumedCPL: number;
+  leadToSqlRate: number;
+  sqlToCustomerRate: number;
+  resultingCAC: number;
+  expectedMonthlyLeads: number;
+  expectedMonthlySQLs: number;
+  expectedMonthlyCustomers: number;
+  estimatedLTV: number;
+  ltvCacRatio: string;
+  conditions: string;
+}
+
+/**
+ * Compute 3-scenario CAC model from ICP sensitivity analysis.
+ * Supplements the primary single-model computeCACModel() — used for
+ * executive summary and risk section context.
+ *
+ * Applies a 20% safety margin to budget for effective spend.
+ */
+export function computeThreeScenarioCAC(
+  monthlyBudget: number,
+  offerPrice: number,
+  retentionMultiplier: number,
+  sensitivityAnalysis: {
+    bestCase: { assumedCPL: number; assumedLeadToSqlRate: number; assumedSqlToCustomerRate: number; conditions: string };
+    baseCase: { assumedCPL: number; assumedLeadToSqlRate: number; assumedSqlToCustomerRate: number; conditions: string };
+    worstCase: { assumedCPL: number; assumedLeadToSqlRate: number; assumedSqlToCustomerRate: number; conditions: string };
+  },
+): ScenarioCAC[] {
+  const scenarios: ScenarioCAC[] = [];
+
+  for (const [label, scenario] of Object.entries({
+    best: sensitivityAnalysis.bestCase,
+    base: sensitivityAnalysis.baseCase,
+    worst: sensitivityAnalysis.worstCase,
+  })) {
+    // Apply 20% safety margin to budget for effective spend
+    const effectiveBudget = monthlyBudget * 0.80;
+    const leads = Math.floor(effectiveBudget / scenario.assumedCPL);
+    const sqls = Math.floor(leads * (scenario.assumedLeadToSqlRate / 100));
+    const customers = Math.max(1, Math.floor(sqls * (scenario.assumedSqlToCustomerRate / 100)));
+    const cac = Math.round(monthlyBudget / customers);
+    const ltv = offerPrice * retentionMultiplier;
+    const ltvCacRatio = cac > 0 ? (ltv / cac).toFixed(1) : '0';
+
+    scenarios.push({
+      label: label as 'best' | 'base' | 'worst',
+      assumedCPL: scenario.assumedCPL,
+      leadToSqlRate: scenario.assumedLeadToSqlRate,
+      sqlToCustomerRate: scenario.assumedSqlToCustomerRate,
+      resultingCAC: cac,
+      expectedMonthlyLeads: leads,
+      expectedMonthlySQLs: sqls,
+      expectedMonthlyCustomers: customers,
+      estimatedLTV: ltv,
+      ltvCacRatio: `${ltvCacRatio}:1`,
+      conditions: scenario.conditions,
+    });
+  }
+
+  return scenarios;
+}
+
+// =============================================================================
 // Cross-Section Validation
 // =============================================================================
 
@@ -252,16 +348,38 @@ export function validateCrossSection(input: {
 }): CrossSectionValidationResult {
   const adjustments: ValidationAdjustment[] = [];
   const warnings: string[] = [];
+  const fixes: CrossSectionValidationResult['fixes'] = {};
   const { platformStrategy, icpTargeting, campaignStructure, budgetAllocation, kpiTargets, performanceModel } = input;
 
   const validPlatforms = new Set(platformStrategy.map(p => p.platform.toLowerCase()));
 
-  // Rule 1: Campaign dailyBudget sums <= budgetAllocation.dailyCeiling
+  // Rule 1: Campaign dailyBudget sums <= budgetAllocation.dailyCeiling (with proportional scaling fix)
+  const dailyCeiling = budgetAllocation.dailyCeiling;
   const totalDailyBudget = campaignStructure.campaigns.reduce((sum, c) => sum + c.dailyBudget, 0);
-  if (totalDailyBudget > budgetAllocation.dailyCeiling * 1.1) { // 10% tolerance
+  if (totalDailyBudget > dailyCeiling * 1.1) { // 10% tolerance
     warnings.push(
-      `Campaign daily budgets sum to $${totalDailyBudget}, exceeding daily ceiling of $${budgetAllocation.dailyCeiling}`,
+      `Campaign daily budgets sum to $${totalDailyBudget}, exceeding daily ceiling of $${dailyCeiling}`,
     );
+
+    // Proportional scaling fix
+    const scaleFactor = dailyCeiling / totalDailyBudget;
+    const scaledCampaigns = campaignStructure.campaigns.map(c => ({
+      ...c,
+      dailyBudget: Math.round(c.dailyBudget * scaleFactor),
+    }));
+
+    adjustments.push({
+      field: 'campaignStructure.campaigns.dailyBudget',
+      originalValue: totalDailyBudget,
+      adjustedValue: scaledCampaigns.reduce((sum, c) => sum + c.dailyBudget, 0),
+      rule: 'Rule1_DailyBudgetScale',
+      reason: `Campaign daily budgets summed to $${totalDailyBudget}, exceeding ceiling $${dailyCeiling} by ${((totalDailyBudget / dailyCeiling - 1) * 100).toFixed(1)}%. Proportionally scaled by factor ${scaleFactor.toFixed(3)}.`,
+    });
+
+    fixes.campaignStructure = {
+      ...campaignStructure,
+      campaigns: scaledCampaigns,
+    };
   }
 
   // Rule 2: Platforms in campaigns are subset of platformStrategy platforms
@@ -313,10 +431,13 @@ export function validateCrossSection(input: {
     }
   }
 
+  const hasFixedCampaignStructure = fixes.campaignStructure !== undefined;
+
   return {
     valid: warnings.length === 0,
     adjustments,
     warnings,
+    ...(hasFixedCampaignStructure ? { fixes } : {}),
   };
 }
 
@@ -376,6 +497,243 @@ export function reconcileKPITargets(
 }
 
 // =============================================================================
+// Phase Budget Validation
+// =============================================================================
+
+/**
+ * Validate and fix campaign phase budgets.
+ * Rules:
+ * 1. Each phase's implied daily spend must not exceed dailyCeiling.
+ * 2. Total phase budgets should approximately match totalMonthlyBudget (±2%).
+ */
+export function validatePhaseBudgets(
+  campaignPhases: CampaignPhase[],
+  totalMonthlyBudget: number,
+  dailyCeiling: number,
+): { phases: CampaignPhase[]; adjustments: ValidationAdjustment[] } {
+  const adjustments: ValidationAdjustment[] = [];
+  let fixedPhases = campaignPhases.map(p => ({ ...p }));
+
+  // Rule 1: Cap each phase's implied daily spend at dailyCeiling
+  fixedPhases = fixedPhases.map(phase => {
+    const phaseDays = phase.durationWeeks * 7;
+    const impliedDailySpend = phase.estimatedBudget / phaseDays;
+
+    if (impliedDailySpend > dailyCeiling) {
+      const cappedBudget = Math.round(dailyCeiling * phaseDays);
+      adjustments.push({
+        field: `campaignPhases.${phase.name}.estimatedBudget`,
+        originalValue: phase.estimatedBudget,
+        adjustedValue: cappedBudget,
+        rule: 'PhaseBudget_DailyCeilCap',
+        reason: `Phase "${phase.name}" implied daily spend ($${Math.round(impliedDailySpend)}/day) exceeds daily ceiling ($${dailyCeiling}/day). Capped estimatedBudget from $${phase.estimatedBudget} to $${cappedBudget}.`,
+      });
+      return { ...phase, estimatedBudget: cappedBudget };
+    }
+    return phase;
+  });
+
+  // Rule 2: Total phase spend should match totalMonthlyBudget (±2%)
+  const totalPhaseBudget = fixedPhases.reduce((sum, p) => sum + p.estimatedBudget, 0);
+  if (totalPhaseBudget > 0) {
+    const budgetRatio = (totalPhaseBudget / totalMonthlyBudget) * 100;
+    if (Math.abs(budgetRatio - 100) > 2) {
+      const scale = totalMonthlyBudget / totalPhaseBudget;
+      fixedPhases = fixedPhases.map(p => ({
+        ...p,
+        estimatedBudget: Math.round(p.estimatedBudget * scale),
+      }));
+
+      adjustments.push({
+        field: 'campaignPhases.budgetPercentage',
+        originalValue: Math.round(budgetRatio * 10) / 10,
+        adjustedValue: 100,
+        rule: 'PhaseBudget_PctNormalize',
+        reason: `Phase budgets totaled $${totalPhaseBudget} (${budgetRatio.toFixed(1)}% of monthly budget $${totalMonthlyBudget}). Proportionally scaled to 100%.`,
+      });
+    }
+  }
+
+  return { phases: fixedPhases, adjustments };
+}
+
+// =============================================================================
+// Resolved Targets Builder
+// =============================================================================
+
+/**
+ * Map CACModel fields into a flat ResolvedTargets shape for downstream consumers.
+ * Pure mapping — no computation needed.
+ */
+export function buildResolvedTargets(
+  cacModel: CACModel,
+  monthlyBudget: number,
+): ResolvedTargets {
+  return {
+    monthlyBudget,
+    cpl: cacModel.targetCPL,
+    cac: cacModel.targetCAC,
+    leadsPerMonth: cacModel.expectedMonthlyLeads,
+    sqlsPerMonth: cacModel.expectedMonthlySQLs,
+    customersPerMonth: cacModel.expectedMonthlyCustomers,
+    leadToSqlRate: cacModel.leadToSqlRate,
+    sqlToCustomerRate: cacModel.sqlToCustomerRate,
+    ltvCacRatio: cacModel.ltvToCacRatio,
+    estimatedLtv: cacModel.estimatedLTV,
+  };
+}
+
+// =============================================================================
+// Campaign Naming Validation
+// =============================================================================
+
+/** Platform aliases for name matching (case-insensitive) */
+const PLATFORM_ALIASES: Record<string, string[]> = {
+  meta: ['meta', 'facebook'],
+  google: ['google', 'google ads'],
+  linkedin: ['linkedin'],
+  tiktok: ['tiktok'],
+  youtube: ['youtube'],
+  twitter: ['twitter', 'x'],
+};
+
+/** Funnel stage aliases for name matching (case-insensitive) */
+const FUNNEL_ALIASES: Record<string, string[]> = {
+  cold: ['cold', 'prospecting'],
+  warm: ['warm', 'retargeting'],
+  hot: ['hot', 'conversion'],
+};
+
+/**
+ * Validate campaign naming conventions.
+ * Rules:
+ * 1. Fix stale year references in campaign names.
+ * 2. Warn if campaign name doesn't contain its platform (allowing aliases).
+ * 3. Warn if campaign name doesn't contain funnel stage (allowing aliases).
+ */
+export function validateCampaignNaming(
+  campaignStructure: CampaignStructure,
+  generationYear?: number,
+): { campaignStructure: CampaignStructure; adjustments: ValidationAdjustment[] } {
+  const adjustments: ValidationAdjustment[] = [];
+  const currentYear = generationYear ?? new Date().getFullYear();
+
+  const fixedCampaigns = campaignStructure.campaigns.map(campaign => {
+    let fixedName = campaign.name;
+
+    // Rule 1: Fix stale year references
+    const yearMatch = fixedName.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+      const foundYear = parseInt(yearMatch[1], 10);
+      if (foundYear !== currentYear) {
+        fixedName = fixedName.replace(/\b20\d{2}\b/, String(currentYear));
+        adjustments.push({
+          field: `campaignStructure.campaigns.${campaign.name}.name`,
+          originalValue: campaign.name,
+          adjustedValue: fixedName,
+          rule: 'CampaignNaming_YearFix',
+          reason: `Campaign name contained stale year ${foundYear}, replaced with current year ${currentYear}.`,
+        });
+      }
+    }
+
+    // Rule 2: Warn if campaign name doesn't contain its platform
+    const campaignPlatform = campaign.platform.toLowerCase();
+    const platformMatch = Object.entries(PLATFORM_ALIASES).find(
+      ([key, aliases]) => key === campaignPlatform || aliases.includes(campaignPlatform),
+    );
+    const allPlatformAliases = platformMatch ? platformMatch[1] : [campaignPlatform];
+    const nameLC = fixedName.toLowerCase();
+    if (!allPlatformAliases.some(alias => nameLC.includes(alias))) {
+      adjustments.push({
+        field: `campaignStructure.campaigns.${campaign.name}.name`,
+        originalValue: fixedName,
+        adjustedValue: fixedName, // warning only
+        rule: 'CampaignNaming_PlatformWarn',
+        reason: `Campaign "${fixedName}" does not contain platform "${campaign.platform}" or its aliases in the name.`,
+      });
+    }
+
+    // Rule 3: Warn if campaign name doesn't contain funnel stage
+    const campaignFunnel = campaign.funnelStage.toLowerCase();
+    const funnelMatch = Object.entries(FUNNEL_ALIASES).find(
+      ([key, aliases]) => key === campaignFunnel || aliases.includes(campaignFunnel),
+    );
+    const allFunnelAliases = funnelMatch ? funnelMatch[1] : [campaignFunnel];
+    if (!allFunnelAliases.some(alias => nameLC.includes(alias))) {
+      adjustments.push({
+        field: `campaignStructure.campaigns.${campaign.name}.name`,
+        originalValue: fixedName,
+        adjustedValue: fixedName, // warning only
+        rule: 'CampaignNaming_FunnelWarn',
+        reason: `Campaign "${fixedName}" does not contain funnel stage "${campaign.funnelStage}" or its aliases in the name.`,
+      });
+    }
+
+    return { ...campaign, name: fixedName };
+  });
+
+  return {
+    campaignStructure: { ...campaignStructure, campaigns: fixedCampaigns },
+    adjustments,
+  };
+}
+
+// =============================================================================
+// Retargeting Pool Realism Validation
+// =============================================================================
+
+/**
+ * Validate retargeting campaigns are realistic given existing traffic.
+ * Only applies when BOTH hasExistingPaidTraffic === false AND hasOrganicKeywords === false.
+ */
+export function validateRetargetingPoolRealism(
+  input: RetargetingValidationInput,
+): { campaignStructure: CampaignStructure; campaignPhases: CampaignPhase[]; adjustments: ValidationAdjustment[]; warnings: string[] } {
+  const { campaignStructure, campaignPhases, hasExistingPaidTraffic, hasOrganicKeywords } = input;
+  const adjustments: ValidationAdjustment[] = [];
+  const warnings: string[] = [];
+
+  // Only apply when there is no existing traffic at all
+  if (hasExistingPaidTraffic || hasOrganicKeywords) {
+    return { campaignStructure, campaignPhases, adjustments, warnings };
+  }
+
+  const retargetingNote = ' | Note: Activates once cold campaigns generate sufficient traffic pool (estimated Week 3-4)';
+
+  // Find and annotate warm/retargeting campaigns
+  const fixedCampaigns = campaignStructure.campaigns.map(campaign => {
+    const funnelLC = campaign.funnelStage.toLowerCase();
+    const isRetargeting = funnelLC.includes('warm') || funnelLC.includes('retargeting');
+
+    if (isRetargeting && !campaign.objective.includes('Activates once cold campaigns')) {
+      adjustments.push({
+        field: `campaignStructure.campaigns.${campaign.name}.objective`,
+        originalValue: campaign.objective,
+        adjustedValue: campaign.objective + retargetingNote,
+        rule: 'Retargeting_PoolRealism',
+        reason: `No existing paid traffic or organic keywords. Retargeting campaign "${campaign.name}" needs cold traffic pool built first.`,
+      });
+
+      return { ...campaign, objective: campaign.objective + retargetingNote };
+    }
+
+    return campaign;
+  });
+
+  warnings.push(
+    'No existing paid traffic or organic keywords detected. Retargeting/warm campaigns will need 2-4 weeks of cold campaign traffic before they can effectively scale.',
+  );
+
+  return {
+    campaignStructure: { ...campaignStructure, campaigns: fixedCampaigns },
+    campaignPhases: campaignPhases.map(p => ({ ...p })),
+    adjustments,
+    warnings,
+  };
+}
+
+// =============================================================================
 // Retention Multiplier Heuristic
 // =============================================================================
 
@@ -390,4 +748,27 @@ export function estimateRetentionMultiplier(pricingModels: string[]): number {
   if (normalized.some(p => p.includes('seat') || p.includes('usage'))) return 10;
   if (normalized.some(p => p.includes('onetime') || p.includes('one time'))) return 1;
   return 8; // default for recurring-ish models
+}
+
+// =============================================================================
+// Risk Post-Processing
+// =============================================================================
+
+/**
+ * Apply deterministic P×I scoring to risk monitoring risks.
+ * Computes score = probability × impact, classifies, and sorts by score descending.
+ * Safe to call on media plans without numerical risk fields (no-ops gracefully).
+ */
+export function validateRiskMonitoring(riskMonitoring: RiskMonitoring): RiskMonitoring {
+  if (!riskMonitoring.risks || riskMonitoring.risks.length === 0) {
+    return riskMonitoring;
+  }
+
+  // After risk monitoring synthesis is complete, compute P×I scores deterministically
+  const processedRisks = postProcessMediaPlanRisks(riskMonitoring.risks);
+
+  return {
+    ...riskMonitoring,
+    risks: processedRisks as RiskMonitoring['risks'],
+  };
 }

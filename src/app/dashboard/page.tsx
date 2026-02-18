@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/ui/logo";
-import { BlobBackground } from "@/components/ui/blob-background";
 import { DashboardContent } from "./_components/dashboard-content";
+import { DashboardBackground } from "./_components/dashboard-background";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -14,25 +14,26 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="relative z-50 border-b border-border/50 backdrop-blur-sm bg-background/80">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+    <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
+      {/* Subtle ambient glow */}
+      <DashboardBackground />
+
+      {/* Header — sticky, minimal chrome */}
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl bg-[var(--bg-base)]/80">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <Link href="/" className="transition-opacity hover:opacity-80">
-            <Logo size="md" />
+            <Logo size="sm" />
           </Link>
-          <div className="flex items-center gap-4">
-            <UserButton afterSignOutUrl="/" />
-          </div>
+          <UserButton afterSignOutUrl="/" />
         </div>
       </header>
 
       {/* Main Content */}
-      <BlobBackground preset="hero" showGrid className="flex-1">
-        <main className="container mx-auto px-4 py-10">
+      <main className="flex-1 relative z-10">
+        <div className="mx-auto max-w-5xl px-6 py-10">
           <DashboardContent />
-        </main>
-      </BlobBackground>
+        </div>
+      </main>
     </div>
   );
 }

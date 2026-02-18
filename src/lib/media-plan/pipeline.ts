@@ -54,7 +54,12 @@ import {
   buildPerformanceModel,
   validateCrossSection,
   reconcileKPITargets,
+  validatePhaseBudgets,
+  buildResolvedTargets,
+  validateCampaignNaming,
+  validateRetargetingPoolRealism,
   estimateRetentionMultiplier,
+  validateRiskMonitoring,
   type CACModelInput,
 } from './validation';
 
@@ -173,9 +178,9 @@ export async function runMediaPlanPipeline(
     const phase2Start = Date.now();
 
     // Build contexts that only depend on Phase 1 outputs
-    const campaignStructureCtx = buildCampaignStructureContext(onboarding, platformStrategy, icpTargeting);
+    const campaignStructureCtx = buildCampaignStructureContext(onboarding, platformStrategy, icpTargeting, blueprint);
     const creativeStrategyCtx = buildCreativeStrategyContext(blueprint, onboarding, platformStrategy);
-    const campaignPhasesCtx = buildCampaignPhasesContext(onboarding, platformStrategy, kpiTargets);
+    const campaignPhasesCtx = buildCampaignPhasesContext(onboarding, platformStrategy, kpiTargets, blueprint);
 
     // --- Wave 1: Campaign Structure (6K) + Creative Strategy (5K), 5s stagger ---
     onProgress?.('Synthesizing campaign structure + creative strategy...', 32);
@@ -213,7 +218,7 @@ export async function runMediaPlanPipeline(
 
     // --- Wave 2: Campaign Phases (4K) + Budget (4.5K), 3s stagger ---
     // Budget now gets REAL campaign structure data (quality improvement)
-    const budgetCtx = buildBudgetMonitoringContext(onboarding, platformStrategy, kpiTargets, campaignStructure);
+    const budgetCtx = buildBudgetMonitoringContext(onboarding, platformStrategy, kpiTargets, campaignStructure, blueprint);
 
     onProgress?.('Synthesizing campaign phases + budget...', 52);
 
@@ -328,6 +333,50 @@ export async function runMediaPlanPipeline(
       console.warn(`[MediaPlan:Pipeline] Cross-section warnings: ${crossValidation.warnings.join('; ')}`);
     }
 
+    // Apply cross-validation fixes (e.g. proportional daily budget scaling)
+    let validatedCampaignStructure = campaignStructure;
+    if (crossValidation.fixes?.campaignStructure) {
+      validatedCampaignStructure = crossValidation.fixes.campaignStructure;
+      console.log('[MediaPlan:Pipeline] Applied cross-validation campaign structure fix');
+    }
+
+    // --- Phase 2D: Campaign naming consistency ---
+    onProgress?.('Validating campaign naming conventions...', 74);
+    const namingResult = validateCampaignNaming(validatedCampaignStructure);
+    validatedCampaignStructure = namingResult.campaignStructure;
+    if (namingResult.adjustments.length > 0) {
+      console.log(`[MediaPlan:Pipeline] Naming adjustments: ${namingResult.adjustments.map(a => a.rule).join(', ')}`);
+    }
+
+    // --- Phase 2E: Phase budget reconciliation ---
+    const phaseBudgetResult = validatePhaseBudgets(
+      campaignPhases,
+      budgetAllocation.totalMonthlyBudget,
+      budgetAllocation.dailyCeiling,
+    );
+    const validatedCampaignPhases = phaseBudgetResult.phases;
+    if (phaseBudgetResult.adjustments.length > 0) {
+      console.log(`[MediaPlan:Pipeline] Phase budget adjustments: ${phaseBudgetResult.adjustments.map(a => a.rule).join(', ')}`);
+    }
+
+    // --- Phase 2F: Retargeting pool realism check ---
+    const hasExistingPaidTraffic = (blueprint.keywordIntelligence?.clientDomain?.paidKeywords ?? 0) > 0;
+    const hasOrganicKeywords = (blueprint.keywordIntelligence?.clientDomain?.organicKeywords ?? 0) > 0;
+    const retargetingResult = validateRetargetingPoolRealism({
+      campaignStructure: validatedCampaignStructure,
+      campaignPhases: validatedCampaignPhases,
+      hasExistingPaidTraffic,
+      hasOrganicKeywords,
+    });
+    validatedCampaignStructure = retargetingResult.campaignStructure;
+    const finalCampaignPhases = retargetingResult.campaignPhases;
+    if (retargetingResult.warnings.length > 0) {
+      console.warn(`[MediaPlan:Pipeline] Retargeting warnings: ${retargetingResult.warnings.join('; ')}`);
+    }
+
+    // --- Build resolved targets for downstream consumption ---
+    const resolvedTargets = buildResolvedTargets(performanceModel.cacModel, budgetAllocation.totalMonthlyBudget);
+
     phaseTimings.phase2 = Date.now() - phase2Start;
 
     // =========================================================================
@@ -337,10 +386,10 @@ export async function runMediaPlanPipeline(
     onProgress?.('Phase 3: Writing executive summary and risk analysis...', 75);
 
     const execSummaryCtx = buildExecutiveSummaryContext(
-      onboarding, platformStrategy, budgetAllocation, performanceModel, campaignPhases, reconciledKPIs,
+      onboarding, platformStrategy, budgetAllocation, performanceModel, finalCampaignPhases, reconciledKPIs, resolvedTargets, blueprint,
     );
     const riskCtx = buildRiskMonitoringContext(
-      blueprint, onboarding, platformStrategy, budgetAllocation, performanceModel, creativeStrategy,
+      blueprint, onboarding, platformStrategy, budgetAllocation, performanceModel, creativeStrategy, resolvedTargets,
     );
 
     emitSection('executiveSummary', 'start', 'final');
@@ -352,7 +401,7 @@ export async function runMediaPlanPipeline(
     ]);
 
     const executiveSummary: MediaPlanExecutiveSummary = execSummaryResult.data;
-    const riskMonitoring: RiskMonitoring = riskResult.data;
+    const riskMonitoring: RiskMonitoring = validateRiskMonitoring(riskResult.data);
 
     totalCost += execSummaryResult.cost + riskResult.cost;
 
@@ -380,10 +429,10 @@ export async function runMediaPlanPipeline(
       executiveSummary,
       platformStrategy,
       icpTargeting,
-      campaignStructure,
+      campaignStructure: validatedCampaignStructure,
       creativeStrategy,
       budgetAllocation,
-      campaignPhases,
+      campaignPhases: finalCampaignPhases,
       kpiTargets: reconciledKPIs,
       performanceModel,
       riskMonitoring,

@@ -262,11 +262,20 @@ function formatIcpAnalysis(section: ICPAnalysisValidation): string[] {
   lines.push(DIVIDER_SINGLE);
   lines.push("RISK ASSESSMENT");
   lines.push(DIVIDER_SINGLE);
-  if (section.riskAssessment) {
-    lines.push(`Reachability:      ${safeString(section.riskAssessment.reachability)?.toUpperCase()}`);
-    lines.push(`Budget:            ${safeString(section.riskAssessment.budget)?.toUpperCase()}`);
-    lines.push(`Pain Strength:     ${safeString(section.riskAssessment.painStrength)?.toUpperCase()}`);
-    lines.push(`Competitiveness:   ${safeString(section.riskAssessment.competitiveness)?.toUpperCase()}`);
+  if (section.riskScores?.length) {
+    for (const rs of section.riskScores) {
+      const score = rs.score ?? rs.probability * rs.impact;
+      const classification = rs.classification ?? (score >= 16 ? 'critical' : score >= 9 ? 'high' : score >= 4 ? 'medium' : 'low');
+      lines.push(`${rs.category.replace(/_/g, ' ').toUpperCase().padEnd(25)} ${classification.toUpperCase().padEnd(10)} (P:${rs.probability} x I:${rs.impact} = ${score})`);
+      lines.push(`  ${rs.risk}`);
+      if (rs.mitigation) lines.push(`  Mitigation: ${rs.mitigation}`);
+    }
+  } else if ((section as any).riskAssessment) {
+    const ra = (section as any).riskAssessment;
+    lines.push(`Reachability:      ${safeString(ra.reachability)?.toUpperCase()}`);
+    lines.push(`Budget:            ${safeString(ra.budget)?.toUpperCase()}`);
+    lines.push(`Pain Strength:     ${safeString(ra.painStrength)?.toUpperCase()}`);
+    lines.push(`Competitiveness:   ${safeString(ra.competitiveness)?.toUpperCase()}`);
   }
   lines.push("");
 
@@ -483,7 +492,15 @@ function formatCompetitorAnalysis(section: CompetitorAnalysis): string[] {
   lines.push(DIVIDER_SINGLE);
   lines.push("GAPS & OPPORTUNITIES");
   lines.push(DIVIDER_SINGLE);
-  if (section.gapsAndOpportunities) {
+  if (section.whiteSpaceGaps?.length) {
+    for (const wsg of section.whiteSpaceGaps) {
+      lines.push("");
+      lines.push(`  [${wsg.type.toUpperCase()}] ${wsg.gap}`);
+      lines.push(`    Evidence: ${wsg.evidence}`);
+      lines.push(`    Exploitability: ${wsg.exploitability}/10 | Impact: ${wsg.impact}/10${wsg.compositeScore != null ? ` | Score: ${wsg.compositeScore}` : ''}`);
+      lines.push(`    Action: ${wsg.recommendedAction}`);
+    }
+  } else if (section.gapsAndOpportunities) {
     lines.push("");
     lines.push("Messaging Opportunities:");
     for (const item of safeArray(section.gapsAndOpportunities.messagingOpportunities)) {

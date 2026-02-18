@@ -67,6 +67,15 @@ export const platformStrategySchema = z.object({
 
   synergiesWithOtherPlatforms: z.string()
     .describe('How this platform works with others in the media mix (e.g., "Meta retargets LinkedIn traffic that didn\'t convert" or "Google captures high-intent searches driven by Meta awareness campaigns").'),
+
+  competitiveDensity: z.number().min(1).max(10).optional()
+    .describe('How crowded this platform is for this vertical (1=wide open, 10=extremely saturated). Based on competitor activity and auction pressure.'),
+
+  audienceSaturation: z.enum(['low', 'medium', 'high']).optional()
+    .describe('How much of the reachable audience is already being targeted by competitors'),
+
+  platformRiskFactors: z.array(z.string()).min(1).max(3).optional()
+    .describe('Key platform-specific risk factors. E.g., "Meta algorithm deprioritizing B2B content", "LinkedIn CPL inflation Q1 2026"'),
 }).describe('Per-platform advertising strategy with budget, formats, and placements');
 
 // =============================================================================
@@ -89,6 +98,12 @@ const audienceSegmentSchema = z.object({
 
   funnelPosition: z.enum(['cold', 'warm', 'hot'])
     .describe('"cold" = prospecting/awareness. "warm" = engaged but not converted. "hot" = high-intent, ready to convert.'),
+
+  priorityScore: z.number().min(1).max(10).optional()
+    .describe('Segment priority: reachability × ICP relevance (1=lowest, 10=highest). Raw score for ranking.'),
+
+  targetingDifficulty: z.enum(['easy', 'moderate', 'hard']).optional()
+    .describe('How difficult to target this segment with paid ads (easy=broad match, hard=requires custom audiences/lookalikes)'),
 }).describe('Audience segment with targeting parameters and reach estimates');
 
 const platformTargetingSchema = z.object({
@@ -136,6 +151,9 @@ export const icpTargetingSchema = z.object({
 
   reachabilityAssessment: z.string()
     .describe('Assessment of how reachable this ICP is via paid channels. Consider platform penetration, targeting precision, and audience scale. Cite blueprint ICP validation data.'),
+
+  overlapWarnings: z.array(z.string()).max(5).optional()
+    .describe('Warnings about audience overlap between segments. E.g., "Segments A and B overlap ~40% on LinkedIn — use exclusion lists"'),
 }).describe('ICP targeting strategy with audience segments and platform-specific targeting');
 
 // =============================================================================
@@ -419,6 +437,12 @@ export const campaignPhaseSchema = z.object({
 
   estimatedBudget: z.number()
     .describe('Total estimated budget for this entire phase in USD.'),
+
+  goNoGoDecision: z.string().optional()
+    .describe('What happens if success criteria are NOT met. E.g., "Reduce daily budget by 30% and extend testing 2 more weeks" or "Pivot to Google if Meta CPL exceeds $150"'),
+
+  scenarioAdjustment: z.string().optional()
+    .describe('How to adjust this phase if worst-case sensitivity scenario materializes. Reference specific contingency actions.'),
 }).describe('Campaign phase with objectives, activities, and success criteria');
 
 // =============================================================================
@@ -443,6 +467,23 @@ export const kpiTargetSchema = z.object({
 
   benchmark: z.string()
     .describe('Industry benchmark for context (e.g., "Industry avg CPL: $85-120 for B2B SaaS", "Typical Meta CTR for this vertical: 0.8-1.2%"). Cite the data source when possible.'),
+
+  benchmarkRange: z.object({
+    low: z.string(),
+    mid: z.string(),
+    high: z.string(),
+  }).optional()
+    .describe('Low/mid/high benchmark range from industry data. Mid should match the target.'),
+
+  sourceConfidence: z.number().min(1).max(5).optional()
+    .describe('Confidence in benchmark source (1=anecdotal, 3=industry report, 5=platform-verified data)'),
+
+  scenarioThresholds: z.object({
+    best: z.string(),
+    base: z.string(),
+    worst: z.string(),
+  }).optional()
+    .describe('Scenario-linked thresholds from sensitivity analysis. Best=aggressive target, base=plan target, worst=minimum acceptable.'),
 }).describe('KPI target with type classification and industry benchmark');
 
 // =============================================================================
@@ -517,11 +558,29 @@ const riskSchema = z.object({
   likelihood: z.enum(['low', 'medium', 'high'])
     .describe('Probability of this risk occurring.'),
 
+  probability: z.number().min(1).max(5).optional()
+    .describe('Probability of risk occurring (1=rare, 5=almost certain). Raw score — do not compute P×I, the system does that.'),
+
+  impact: z.number().min(1).max(5).optional()
+    .describe('Impact if risk materializes (1=negligible, 5=catastrophic). Raw score — do not compute P×I, the system does that.'),
+
+  score: z.number().optional()
+    .describe('Computed P×I score (system-generated, do not provide)'),
+
+  classification: z.enum(['low', 'medium', 'high', 'critical']).optional()
+    .describe('System-computed risk classification based on P×I score'),
+
   mitigation: z.string()
     .describe('Proactive mitigation strategy (e.g., "Start with $50/day cap and scale only after 7 days of <$100 CPL").'),
 
   contingency: z.string()
     .describe('Contingency plan if the risk materializes (e.g., "Shift 30% of Meta budget to Google Search if CPL exceeds $120 for 14 consecutive days").'),
+
+  earlyWarningIndicator: z.string().optional()
+    .describe('Specific metric threshold that signals this risk is materializing. E.g., "CPL exceeds $120 for 5+ consecutive days"'),
+
+  monitoringFrequency: z.enum(['daily', 'weekly', 'monthly']).optional()
+    .describe('How often to check this risk indicator'),
 }).describe('Identified risk with mitigation and contingency plan');
 
 export const riskMonitoringSchema = z.object({

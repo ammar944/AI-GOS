@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -13,6 +14,7 @@ import {
   Link2,
   FileText,
   Calendar,
+  BarChart3,
 } from "lucide-react";
 import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -22,9 +24,11 @@ import { easings, durations } from "@/lib/motion";
 import { createRoot } from "react-dom/client";
 import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import type { BlueprintRecord } from "@/lib/actions/blueprints";
+import type { MediaPlanRecord } from "@/lib/actions/media-plans";
 
 interface Props {
   blueprint: BlueprintRecord;
+  linkedMediaPlans: MediaPlanRecord[];
 }
 
 function formatDate(dateString: string): string {
@@ -40,7 +44,7 @@ function formatDate(dateString: string): string {
   }
 }
 
-export function BlueprintViewClient({ blueprint }: Props) {
+export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
   const router = useRouter();
   const [isExporting, setIsExporting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -315,12 +319,42 @@ export function BlueprintViewClient({ blueprint }: Props) {
 
                 {/* Right: Actions */}
                 <div className="flex flex-wrap items-center gap-3">
+                  {linkedMediaPlans.length > 0 && (
+                    <Link href={`/media-plan/${linkedMediaPlans[0].id}`}>
+                      <MagneticButton
+                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                        style={{
+                          border: "1px solid var(--border-default)",
+                          color: "var(--text-secondary)",
+                          background: "transparent",
+                          fontFamily: "var(--font-sans), Inter, sans-serif",
+                        }}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        View Media Plan
+                      </MagneticButton>
+                    </Link>
+                  )}
+                  <Link href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}>
+                    <MagneticButton
+                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                      style={{
+                        background: "var(--gradient-primary)",
+                        color: "white",
+                        fontFamily: "var(--font-display), 'Cabinet Grotesk', sans-serif",
+                      }}
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      Generate Media Plan
+                    </MagneticButton>
+                  </Link>
                   <MagneticButton
-                    className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
+                    className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                     onClick={handleNewBlueprint}
                     style={{
-                      background: "var(--gradient-primary)",
-                      color: "white",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-secondary)",
+                      background: "transparent",
                       fontFamily: "var(--font-display), 'Cabinet Grotesk', sans-serif",
                     }}
                   >

@@ -48,6 +48,12 @@ export interface PlatformStrategy {
   placements: string[];
   /** How this platform works with other platforms in the mix */
   synergiesWithOtherPlatforms: string;
+  /** How crowded this platform is for this vertical (1=wide open, 10=saturated) */
+  competitiveDensity?: number;
+  /** How much of the reachable audience is already being targeted by competitors */
+  audienceSaturation?: 'low' | 'medium' | 'high';
+  /** Key platform-specific risk factors */
+  platformRiskFactors?: string[];
 }
 
 // =============================================================================
@@ -65,6 +71,10 @@ export interface AudienceSegment {
   estimatedReach: string;
   /** Funnel position: cold (prospecting), warm (retargeting), hot (conversion) */
   funnelPosition: 'cold' | 'warm' | 'hot';
+  /** Segment priority: reachability x ICP relevance (1=lowest, 10=highest) */
+  priorityScore?: number;
+  /** How difficult to target this segment with paid ads */
+  targetingDifficulty?: 'easy' | 'moderate' | 'hard';
 }
 
 export interface PlatformTargeting {
@@ -95,6 +105,8 @@ export interface ICPTargeting {
   geographicTargeting: string;
   /** How reachable is this ICP via paid channels */
   reachabilityAssessment: string;
+  /** Warnings about audience overlap between segments */
+  overlapWarnings?: string[];
 }
 
 // =============================================================================
@@ -308,6 +320,10 @@ export interface CampaignPhase {
   successCriteria: string[];
   /** Estimated budget for this phase */
   estimatedBudget: number;
+  /** What happens if success criteria are NOT met */
+  goNoGoDecision?: string;
+  /** How to adjust this phase if worst-case sensitivity scenario materializes */
+  scenarioAdjustment?: string;
 }
 
 // =============================================================================
@@ -327,6 +343,12 @@ export interface KPITarget {
   type: 'primary' | 'secondary';
   /** Industry benchmark for context */
   benchmark: string;
+  /** Low/mid/high benchmark range from industry data */
+  benchmarkRange?: { low: string; mid: string; high: string };
+  /** Confidence in benchmark source (1=anecdotal, 5=platform-verified) */
+  sourceConfidence?: number;
+  /** Scenario-linked thresholds from sensitivity analysis */
+  scenarioThresholds?: { best: string; base: string; worst: string };
 }
 
 // =============================================================================
@@ -383,10 +405,22 @@ export interface Risk {
   severity: 'low' | 'medium' | 'high';
   /** Likelihood: low, medium, high */
   likelihood: 'low' | 'medium' | 'high';
+  /** Probability of risk occurring (1=rare, 5=almost certain) */
+  probability?: number;
+  /** Impact if risk materializes (1=negligible, 5=catastrophic) */
+  impact?: number;
+  /** Computed P×I score (system-generated) */
+  score?: number;
+  /** System-computed risk classification based on P×I score */
+  classification?: 'low' | 'medium' | 'high' | 'critical';
   /** Mitigation strategy */
   mitigation: string;
   /** Contingency plan if risk materializes */
   contingency: string;
+  /** Specific metric threshold that signals this risk is materializing */
+  earlyWarningIndicator?: string;
+  /** How often to check this risk indicator */
+  monitoringFrequency?: 'daily' | 'weekly' | 'monthly';
 }
 
 export interface RiskMonitoring {

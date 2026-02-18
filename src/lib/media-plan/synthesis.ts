@@ -134,6 +134,7 @@ RULES:
 - Include negative keywords for search campaigns (exclude job seekers, free-tier seekers)
 - All campaigns must reference ONLY platforms from the validated platform strategy
 - All targeting must reference ONLY segments from the validated ICP targeting
+- Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -179,6 +180,11 @@ RULES:
 - Testing plan must be phased: Phase 1 tests hooks/messages, Phase 2 tests formats/visuals, Phase 3 scales winners
 - Refresh cadence: Meta 14-21d, LinkedIn 30-45d, Google 30-60d, TikTok 7-14d
 - Every hook must be immediately usable by a copywriter — not a template, but a real headline/hook
+- If the offer proof score (provided in context) is below 7/10, do NOT include specific customer counts, revenue claims, or outcome statistics in ad copy examples unless they are explicitly documented in the research context.
+- When proof is weak, use language like "typically", "on average", or focus on process benefits (speed, ease, simplicity) rather than specific outcome claims.
+- Flag any creative angle that requires proof assets (case studies, testimonials, data points) that are not documented in the provided context.
+- When scored white space gaps are provided in context, the highest-scored gaps MUST directly inform creative angles. At least one creative angle should exploit the #1 ranked white space gap.
+- When competitor threat data with counter-positioning is provided, include at least one angle that directly counter-positions against the primary competitor threat.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -224,6 +230,15 @@ RULES:
 - Each phase needs specific success criteria for advancing to the next phase
 - Activities must be concrete actions a media buyer can execute
 - Budget per phase must be realistic given the total monthly budget and phase duration
+- Each phase's estimatedBudget MUST equal the implied daily spending × durationWeeks × 7. Show the math in a comment if helpful.
+- Phase daily spending MUST NOT exceed the daily budget ceiling provided in context.
+- Sum of all phase estimatedBudgets across the full timeline must approximately equal (monthly budget × total months).
+- SQL and CPL targets in success criteria MUST match the KPI targets provided in context. Do not invent different performance targets.
+- Budget percentages across phases should sum to 100%.
+- Every phase MUST include a goNoGoDecision: what specific action to take if success criteria are NOT met by the end of the phase. This must be a concrete action (e.g., "Reduce daily budget by 30% and extend testing 2 weeks"), not vague advice.
+- When sensitivity analysis scenarios are provided in context, include a scenarioAdjustment per phase describing how the phase changes under worst-case conditions. E.g., "If worst-case CPL ($120) materializes, reduce to 2 platforms and extend Phase 1 by 2 weeks."
+- Phase success criteria should reference base-case targets as the primary threshold and worst-case targets as the minimum floor.
+- Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -269,11 +284,15 @@ BUDGET RULES:
 - dailyCeiling MUST NOT exceed totalMonthlyBudget / 30
 - Funnel split: cold 50-70%, warm 20-30%, hot 10-20% — percentages must sum to 100%
 - Monthly roadmap: 3-6 months with specific scaling triggers
+- Monthly roadmap MUST include contingency triggers: specific thresholds that activate budget reallocation (e.g., "If CPL exceeds worst-case threshold for 7+ days, shift 20% from Meta to Google")
+- When sensitivity analysis scenarios are available in context, the ramp-up strategy should reference worst-case CPL as the ceiling for scaling decisions. Do not scale past Phase 1 budget levels until CPL is consistently below base-case threshold.
 
 MONITORING RULES:
 - Daily: spend pacing, ad disapprovals, CPL by campaign (reference actual campaign names)
 - Weekly: creative performance analysis, search term reports, frequency caps
 - Monthly: full funnel analysis (CPL → CAC → LTV), budget reallocation, creative refresh
+- Include early warning thresholds for each monitoring cadence: daily (CPL spike), weekly (creative fatigue signals), monthly (CAC drift from model)
+- Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -318,6 +337,13 @@ RULES:
 - topPriorities must be specific and actionable, not generic advice
 - timelineToResults must be realistic given the phased rollout plan
 - primaryObjective should cite specific numbers (leads, SQLs, CAC) from the performance model
+- You MUST use the exact validated performance targets provided in the "Validated Performance Targets" section of the context. Do not substitute industry benchmarks, round numbers, or estimate different values.
+- The primaryObjective MUST state the exact CPL, SQL volume, customer count, and CAC from the validated targets.
+- recommendedMonthlyBudget MUST exactly match the validated monthly budget — not a rounded or estimated version.
+- Do not mention a CAC target that differs from the computed CAC in the performance model.
+- If a number appears in the "Validated Performance Targets" section, use that exact number.
+- When SAM data is available in context, include the serviceable addressable market size and annual contract value to frame the opportunity.
+- When sensitivity analysis scenarios are available, reference the base case for primary targets and acknowledge worst case as the contingency floor.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -363,6 +389,15 @@ RULES:
 - Each risk needs both a mitigation (proactive) AND contingency (reactive) strategy
 - Assumptions must be specific dependencies that could invalidate the plan
 - Severity and likelihood must be justified by the plan data
+- For each risk, provide a numerical probability (1-5, where 1=rare, 5=almost certain) AND impact (1-5, where 1=negligible, 5=catastrophic). The system will compute P×I scores — do NOT compute them yourself.
+- Each risk MUST include an earlyWarningIndicator: a specific metric threshold that signals this risk is materializing (e.g., "CPL exceeds $120 for 5+ consecutive days", "Creative CTR drops below 0.8%")
+- Each risk MUST include a monitoringFrequency: how often to check this indicator (daily, weekly, or monthly)
+- Budget and audience risks should be monitored daily. Creative risks weekly. Market and compliance risks monthly.
+- Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
+- Key assumptions about conversion rates, CAC, CPL, and SQL volume must be consistent with the validated performance targets provided in context. Do not assume conversion rates that differ from the computed model.
+- When ICP risk scores are provided in the context, INHERIT those risk assessments. Any risk scored ≥13 (high/critical) in the ICP analysis must appear in the media plan risk section with specific mitigations.
+- Add campaign-specific risks ON TOP of inherited ICP risks (e.g., creative fatigue, platform-specific algorithm risks, budget pacing risks).
+- Use numerical severity scoring where possible — reference the probability × impact framework from the ICP analysis.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 

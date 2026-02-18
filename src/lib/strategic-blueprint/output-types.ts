@@ -137,6 +137,7 @@ export interface EconomicFeasibility {
   notes: string;
 }
 
+/** @deprecated Use riskScores instead */
 export interface ICPRiskAssessment {
   /** Reachability risk */
   reachability: RiskRating;
@@ -148,6 +149,150 @@ export interface ICPRiskAssessment {
   competitiveness: RiskRating;
 }
 
+export interface CustomerPsychographics {
+  /** Top 3-5 aspirational goals and dreams */
+  goalsAndDreams: string[];
+  /** Deep-seated fears and insecurities */
+  fearsAndInsecurities: string[];
+  /** Specific embarrassing professional situations to avoid */
+  embarrassingSituations: string[];
+  /** Who or what they blame for their problems */
+  perceivedEnemy: string;
+  /** Alternative solutions that failed */
+  failedSolutions: string[];
+  /** 1st-person journal entry describing a frustrating day */
+  dayInTheLife: string;
+}
+
+export type RiskCategory =
+  | 'audience_reachability'
+  | 'budget_adequacy'
+  | 'pain_strength'
+  | 'competitive_intensity'
+  | 'proof_credibility'
+  | 'platform_policy'
+  | 'seasonality'
+  | 'data_quality';
+
+export interface RiskScore {
+  /** Specific risk description */
+  risk: string;
+  /** Risk category */
+  category: RiskCategory;
+  /** 1=rare <10%, 2=unlikely 10-25%, 3=possible 25-50%, 4=likely 50-75%, 5=almost certain >75% */
+  probability: number;
+  /** 1=negligible <5% effect, 2=minor 5-15%, 3=moderate 15-30%, 4=major 30-50%, 5=severe >50% */
+  impact: number;
+  /** Computed deterministically as probability x impact (post-generation) */
+  score?: number;
+  /** Computed deterministically from score (post-generation) */
+  classification?: 'low' | 'medium' | 'high' | 'critical';
+  /** Specific metric + threshold to watch */
+  earlyWarningIndicator?: string;
+  /** Preventive action */
+  mitigation?: string;
+  /** Reactive action if risk materializes */
+  contingency?: string;
+  /** How much budget reallocation needed */
+  budgetImpactEstimate?: string;
+}
+
+export type UrgencyLevel = 'immediate' | 'near-term' | 'planning-cycle';
+
+export interface TriggerEvent {
+  /** Specific trigger event */
+  event: string;
+  /** Estimated annual frequency across TAM */
+  annualFrequencyEstimate: string;
+  /** immediate=0-30d, near-term=1-3mo, planning-cycle=3-6mo */
+  urgencyLevel: UrgencyLevel;
+  /** How to detect/target via paid ads */
+  detectionMethod: string;
+  /** Ad hook tied to this trigger event */
+  recommendedHook: string;
+}
+
+export interface SegmentSizingPriorityFactors {
+  painSeverity: number;
+  budgetAuthority: number;
+  reachability: number;
+  triggerFrequency: number;
+}
+
+export interface SegmentSizing {
+  /** Number of companies matching firmographics */
+  totalAddressableAccounts: number;
+  /** Number of individuals in target roles at those companies */
+  totalAddressableContacts: number;
+  /** This segment as percentage of total ICP */
+  segmentSharePercent: number;
+  /** 1=highest priority */
+  priorityTier: number;
+  /** Recommended percentage of total paid budget for this segment */
+  recommendedBudgetWeight: number;
+  /** Raw scores for priority ranking */
+  priorityFactors: SegmentSizingPriorityFactors;
+  /** Computed deterministically post-generation */
+  compositeRank?: number;
+}
+
+export interface SAMEstimate {
+  /** Companies matching firmographic criteria */
+  totalMatchingCompanies: number;
+  /** Filtering funnel with drop-off at each stage */
+  filteringFunnel: {
+    stage: string;
+    count: number;
+    dropOffReason: string;
+  }[];
+  estimatedSAMCompanies: number;
+  /** SAM in dollars */
+  estimatedAnnualContractValue: number;
+  /** Data quality confidence */
+  confidence: 'high' | 'medium' | 'low';
+  /** Sources used for estimates */
+  dataSources: string[];
+}
+
+export interface SensitivityScenario {
+  assumedCPL: number;
+  /** Percentage */
+  assumedLeadToSqlRate: number;
+  /** Percentage */
+  assumedSqlToCustomerRate: number;
+  /** What conditions cause this scenario */
+  conditions: string;
+  /** Computed deterministically post-generation */
+  resultingCAC?: number;
+  /** Computed deterministically post-generation */
+  monthlyCustomers?: number;
+  /** Computed deterministically post-generation */
+  ltvCacRatio?: number;
+}
+
+export interface SensitivityAnalysis {
+  /** Top 25th percentile performance */
+  bestCase: SensitivityScenario;
+  /** Median expected performance */
+  baseCase: SensitivityScenario & {
+    /** Confidence level based on data quality */
+    confidencePercent: number;
+  };
+  /** Bottom 25th percentile / first 30 days reality */
+  worstCase: SensitivityScenario;
+  /** Break-even thresholds */
+  breakEven: {
+    /** Maximum CPL before LTV:CAC drops below 3:1 */
+    maxCPLFor3xLTV: number;
+    /** Maximum CAC before unprofitable */
+    maxCAC: number;
+    /** Minimum lead-to-SQL rate needed for 3:1 LTV:CAC */
+    minLeadToSqlRate: number;
+    /** Minimum monthly spend for statistical significance */
+    budgetFloorForTesting: number;
+  };
+}
+
 export interface ICPAnalysisValidation {
   /** ICP coherence check */
   coherenceCheck: ICPCoherenceCheck;
@@ -157,14 +302,24 @@ export interface ICPAnalysisValidation {
   marketReachability: MarketReachability;
   /** Economic feasibility */
   economicFeasibility: EconomicFeasibility;
-  /** Risk assessment */
-  riskAssessment: ICPRiskAssessment;
+  /** Numerical risk scores with probability x impact matrix */
+  riskScores: RiskScore[];
   /** Final verdict */
   finalVerdict: {
     status: ValidationStatus;
     reasoning: string;
     recommendations: string[];
   };
+  /** Deep psychological profile of the ICP for copywriting angles */
+  customerPsychographics: CustomerPsychographics;
+  /** Trigger events that create active buying windows */
+  triggerEvents: TriggerEvent[];
+  /** Segment sizing with priority ranking (one per ICP segment) */
+  segmentSizing: SegmentSizing[];
+  /** Serviceable Addressable Market estimate */
+  samEstimate: SAMEstimate;
+  /** Scenario-based sensitivity analysis */
+  sensitivityAnalysis: SensitivityAnalysis;
 }
 
 // =============================================================================
@@ -249,6 +404,53 @@ export interface OfferAnalysisViability {
 // =============================================================================
 // Section 4: Competitor Analysis
 // =============================================================================
+
+export type WhiteSpaceGapType = 'messaging' | 'feature' | 'audience' | 'channel';
+
+export interface WhiteSpaceGap {
+  /** Description of the gap */
+  gap: string;
+  /** Type of gap */
+  type: WhiteSpaceGapType;
+  /** What competitors do instead */
+  evidence: string;
+  /** How easy for client to own this (1-10) */
+  exploitability: number;
+  /** How much this would resonate with ICP (1-10) */
+  impact: number;
+  /** Computed deterministically as exploitability x impact (post-generation) */
+  compositeScore?: number;
+  /** Specific recommendation for media plan */
+  recommendedAction: string;
+}
+
+export interface ThreatFactors {
+  /** Brand recognition and market share (1-10) */
+  marketShareRecognition: number;
+  /** Estimated monthly ad spend level (1-10) */
+  adSpendIntensity: number;
+  /** Feature overlap with client offer (1-10) */
+  productOverlap: number;
+  /** Price competitiveness vs client (1-10) */
+  priceCompetitiveness: number;
+  /** Funding, hiring, feature velocity (1-10) */
+  growthTrajectory: number;
+}
+
+export interface CompetitorThreat {
+  /** Raw threat factor scores */
+  threatFactors: ThreatFactors;
+  /** Computed deterministically post-generation */
+  weightedThreatScore?: number;
+  /** Computed deterministically from weightedThreatScore (post-generation) */
+  classification?: 'primary' | 'secondary' | 'low';
+  /** Top 3 ad hooks from ad library — only for primary threats */
+  topAdHooks?: string[];
+  /** Their likely response if client gains share — only for primary threats */
+  likelyResponse?: string;
+  /** Recommended counter-positioning — only for primary threats */
+  counterPositioning?: string;
+}
 
 /** Pricing tier extracted from competitor research/ads */
 export interface PricingTier {
@@ -348,6 +550,8 @@ export interface CompetitorSnapshot {
   pricingNote?: string;
   /** Customer review data from Trustpilot and G2 */
   reviewData?: CompetitorReviewData;
+  /** Threat assessment for this competitor */
+  threatAssessment?: CompetitorThreat;
 }
 
 export interface CompetitorCreativeLibrary {
@@ -387,8 +591,10 @@ export interface CompetitorAnalysis {
   marketStrengths: string[];
   /** Overall weaknesses in market */
   marketWeaknesses: string[];
-  /** Gaps and opportunities for client */
-  gapsAndOpportunities: {
+  /** Systematic white space gaps in competitor coverage */
+  whiteSpaceGaps: WhiteSpaceGap[];
+  /** @deprecated Use whiteSpaceGaps instead */
+  gapsAndOpportunities?: {
     messagingOpportunities: string[];
     creativeOpportunities: string[];
     funnelOpportunities: string[];

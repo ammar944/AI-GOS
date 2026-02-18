@@ -79,7 +79,7 @@ export const economicFeasibilitySchema = z.object({
 }).describe('Economic feasibility assessment for sustainable customer acquisition');
 
 // =============================================================================
-// Risk Assessment
+// Risk Assessment (DEPRECATED — replaced by riskScoresSchema)
 // =============================================================================
 
 export const riskAssessmentSchema = z.object({
@@ -95,6 +95,29 @@ export const riskAssessmentSchema = z.object({
   competitiveness: z.enum(['low', 'medium', 'high', 'critical'])
     .describe('Risk from competitive saturation. "critical" = red ocean with entrenched players and high CPMs.'),
 }).describe('4-dimension risk assessment for ICP viability');
+
+// =============================================================================
+// Risk Scores (replaces riskAssessmentSchema)
+// =============================================================================
+
+export const riskScoreSchema = z.object({
+  risk: z.string().describe('Specific risk description'),
+  category: z.enum([
+    'audience_reachability', 'budget_adequacy', 'pain_strength',
+    'competitive_intensity', 'proof_credibility',
+    'platform_policy', 'seasonality', 'data_quality'
+  ]),
+  probability: z.number().min(1).max(5).describe('1=rare <10%, 2=unlikely 10-25%, 3=possible 25-50%, 4=likely 50-75%, 5=almost certain >75%'),
+  impact: z.number().min(1).max(5).describe('1=negligible <5% effect, 2=minor 5-15%, 3=moderate 15-30%, 4=major 30-50%, 5=severe >50%'),
+  // NOTE: score and classification are computed deterministically post-generation
+  earlyWarningIndicator: z.string().optional().describe('Specific metric + threshold to watch'),
+  mitigation: z.string().optional().describe('Preventive action'),
+  contingency: z.string().optional().describe('Reactive action if risk materializes'),
+  budgetImpactEstimate: z.string().optional().describe('How much budget reallocation needed'),
+});
+
+export const riskScoresSchema = z.array(riskScoreSchema).min(4).max(10)
+  .describe('First 5 categories required (audience, budget, pain, competitive, proof). Last 3 optional based on available data.');
 
 // =============================================================================
 // Final Verdict
@@ -141,6 +164,82 @@ export const customerPsychographicsSchema = z.object({
 }).describe('Deep psychological profile of the ICP for copywriting angles');
 
 // =============================================================================
+// Trigger Events
+// =============================================================================
+
+export const triggerEventSchema = z.object({
+  event: z.string().describe('Specific trigger event, e.g. "New CMO hired at target company"'),
+  annualFrequencyEstimate: z.string().describe('Estimated annual frequency across TAM, e.g. "~8% CMO turnover = ~2,400 events/year"'),
+  urgencyLevel: z.enum(['immediate', 'near-term', 'planning-cycle']).describe('immediate=0-30d, near-term=1-3mo, planning-cycle=3-6mo'),
+  detectionMethod: z.string().describe('How to detect/target via paid ads, e.g. "LinkedIn job change alerts"'),
+  recommendedHook: z.string().describe('Ad hook tied to this trigger event'),
+});
+
+export const triggerEventsSchema = z.array(triggerEventSchema).min(4).max(8)
+  .describe('Specific trigger events that create active buying windows for each ICP segment');
+
+// =============================================================================
+// Segment Sizing
+// =============================================================================
+
+export const segmentSizingSchema = z.object({
+  totalAddressableAccounts: z.number().describe('Number of companies matching firmographics'),
+  totalAddressableContacts: z.number().describe('Number of individuals in target roles at those companies'),
+  segmentSharePercent: z.number().describe('This segment as percentage of total ICP'),
+  priorityTier: z.number().min(1).max(4).describe('1=highest priority'),
+  recommendedBudgetWeight: z.number().describe('Recommended percentage of total paid budget for this segment'),
+  priorityFactors: z.object({
+    painSeverity: z.number().min(1).max(10),
+    budgetAuthority: z.number().min(1).max(10),
+    reachability: z.number().min(1).max(10),
+    triggerFrequency: z.number().min(1).max(10),
+  }).describe('Raw scores — composite rank computed deterministically post-generation'),
+});
+
+// =============================================================================
+// SAM Estimate
+// =============================================================================
+
+export const samEstimateSchema = z.object({
+  totalMatchingCompanies: z.number().describe('Companies matching firmographic criteria'),
+  filteringFunnel: z.array(z.object({
+    stage: z.string(),
+    count: z.number(),
+    dropOffReason: z.string(),
+  })).min(2).max(6).describe('Filtering funnel with drop-off at each stage'),
+  estimatedSAMCompanies: z.number(),
+  estimatedAnnualContractValue: z.number().describe('SAM in dollars'),
+  confidence: z.enum(['high', 'medium', 'low']).describe('Data quality confidence — label as directional estimates'),
+  dataSources: z.array(z.string()).min(1).describe('Sources used for estimates (LinkedIn, Crunchbase, industry reports)'),
+});
+
+// =============================================================================
+// Sensitivity Analysis (replaces binary economic feasibility)
+// =============================================================================
+
+export const scenarioSchema = z.object({
+  assumedCPL: z.number(),
+  assumedLeadToSqlRate: z.number().describe('Percentage'),
+  assumedSqlToCustomerRate: z.number().describe('Percentage'),
+  // NOTE: resultingCAC, monthlyCustomers, ltvCacRatio are computed deterministically post-generation
+  conditions: z.string().describe('What conditions cause this scenario'),
+});
+
+export const sensitivityAnalysisSchema = z.object({
+  bestCase: scenarioSchema.describe('Top 25th percentile performance'),
+  baseCase: scenarioSchema.extend({
+    confidencePercent: z.number().describe('Confidence level based on data quality'),
+  }).describe('Median expected performance'),
+  worstCase: scenarioSchema.describe('Bottom 25th percentile / first 30 days reality'),
+  breakEven: z.object({
+    maxCPLFor3xLTV: z.number().describe('Maximum CPL before LTV:CAC drops below 3:1'),
+    maxCAC: z.number().describe('Maximum CAC before unprofitable'),
+    minLeadToSqlRate: z.number().describe('Minimum lead-to-SQL rate needed for 3:1 LTV:CAC'),
+    budgetFloorForTesting: z.number().describe('Minimum monthly spend for statistical significance'),
+  }),
+});
+
+// =============================================================================
 // Complete ICP Analysis Schema
 // =============================================================================
 
@@ -149,9 +248,13 @@ export const icpAnalysisSchema = z.object({
   painSolutionFit: painSolutionFitSchema,
   marketReachability: marketReachabilitySchema,
   economicFeasibility: economicFeasibilitySchema,
-  riskAssessment: riskAssessmentSchema,
+  riskScores: riskScoresSchema,
   finalVerdict: finalVerdictSchema,
   customerPsychographics: customerPsychographicsSchema,
+  triggerEvents: triggerEventsSchema,
+  segmentSizing: z.array(segmentSizingSchema).min(1).max(5),
+  samEstimate: samEstimateSchema,
+  sensitivityAnalysis: sensitivityAnalysisSchema,
 }).describe('Comprehensive ICP analysis and validation for paid media campaigns');
 
 // =============================================================================

@@ -17,6 +17,8 @@ import {
   Check,
   Download,
   LayoutDashboard,
+  X,
+  BarChart3,
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { createRoot } from "react-dom/client";
@@ -34,7 +36,7 @@ import { SaaSLaunchBackground, ShaderMeshBackground, BackgroundPattern } from "@
 import { GenerateHeader, type GenerateStage } from "@/components/generate";
 import { updateOnboardingData as persistOnboardingData, completeOnboarding, getOnboardingStatus } from "@/lib/actions/onboarding";
 import { mapDbToFormData, getOnboardingProgress } from "@/lib/onboarding/utils";
-import { saveBlueprint } from "@/lib/actions/blueprints";
+import { saveBlueprint, getBlueprintById } from "@/lib/actions/blueprints";
 import { easings, fadeUp, durations } from "@/lib/motion";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
 import { SAMPLE_ONBOARDING_DATA } from "@/lib/onboarding/types";
@@ -43,16 +45,16 @@ import {
   setOnboardingData as saveOnboardingData,
   setStrategicBlueprint as saveStrategicBlueprint,
   setMediaPlan as saveMediaPlan,
-  setAdCopy as saveAdCopy,
   clearAllSavedData,
+  hasSavedProgress,
+  getSavedProgress,
 } from "@/lib/storage/local-storage";
 import { useMediaPlanGeneration } from "@/hooks/use-media-plan-generation";
-import { useAdCopyGeneration } from "@/hooks/use-ad-copy-generation";
 import { MEDIA_PLAN_STAGES } from "@/lib/media-plan/types";
 import { MEDIA_PLAN_SECTION_ORDER, MEDIA_PLAN_SECTION_SHORT_LABELS } from "@/lib/media-plan/section-constants";
 import type { MediaPlanOutput } from "@/lib/media-plan/types";
-import { MediaPlanDocument, AdCopyView } from "@/components/media-plan";
-import { saveMediaPlanAction } from "@/lib/actions/media-plans";
+import { MediaPlanDocument } from "@/components/media-plan";
+import { saveMediaPlanAction, updateMediaPlanAction } from "@/lib/actions/media-plans";
 
 // =============================================================================
 // SSE Event Types (match server-side definitions)
@@ -144,8 +146,6 @@ type PageState =
   | "generating-media-plan"
   | "review-media-plan"
   | "media-plan-approved"
-  | "generating-ad-copy"
-  | "ad-copy-complete"
   | "error";
 
 // Pipeline stages for generation progress visualization
@@ -170,10 +170,6 @@ function getHeaderStage(pageState: PageState): GenerateStage {
       return "review";
     case "media-plan-approved":
       return "complete";
-    case "generating-ad-copy":
-      return "generate";
-    case "ad-copy-complete":
-      return "complete";
     case "error":
       return "generate";
     default:
@@ -188,6 +184,8 @@ export default function GeneratePage() {
   const [blueprintProgress, setBlueprintProgress] = useState<StrategicBlueprintProgress | null>(null);
   const [error, setError] = useState<ParsedApiError | null>(null);
   const [blueprintMeta, setBlueprintMeta] = useState<{ totalTime: number; totalCost: number } | null>(null);
+  const [blueprintId, setBlueprintId] = useState<string | null>(null);
+  const [savedMediaPlanId, setSavedMediaPlanId] = useState<string | null>(null);
   const [wizardKey, setWizardKey] = useState(0);
   const [initialData, setInitialData] = useState<OnboardingFormData | undefined>(undefined);
   const [initialStep, setInitialStep] = useState<number | undefined>(undefined);
@@ -209,11 +207,12 @@ export default function GeneratePage() {
   // PDF export state
   const [isExporting, setIsExporting] = useState(false);
 
+  // Session resume banner state
+  const [showResumeBanner, setShowResumeBanner] = useState(false);
+  const [resumedMediaPlan, setResumedMediaPlan] = useState<MediaPlanOutput | null>(null);
+
   // Media plan generation
   const mediaPlanGen = useMediaPlanGeneration();
-
-  // Ad copy generation
-  const adCopyGen = useAdCopyGeneration();
 
   // Streaming state for real-time section display
   const [streamingSections, setStreamingSections] = useState<Map<StrategicBlueprintSection, unknown>>(new Map());
@@ -239,10 +238,30 @@ export default function GeneratePage() {
     }
   }, [pageState]);
 
-  // Load saved onboarding data from Supabase on mount
+  // Load saved data on mount — handles both onboarding resume and blueprint-to-media-plan flow
   useEffect(() => {
     async function loadSavedData() {
       try {
+        // Check for blueprint-to-media-plan query params FIRST
+        // This must resolve before we drop the loading screen to prevent
+        // a flash of the onboarding wizard
+        const params = new URLSearchParams(window.location.search);
+        const bpId = params.get('blueprintId');
+        const action = params.get('action');
+
+        if (bpId && action === 'media-plan') {
+          const bpResult = await getBlueprintById(bpId);
+          if (bpResult.data) {
+            setStrategicBlueprint(bpResult.data.output);
+            setOnboardingData(bpResult.data.input_data);
+            setBlueprintId(bpResult.data.id);
+            setPageState("complete");
+          }
+          setIsLoadingSavedData(false);
+          return;
+        }
+
+        // Normal onboarding flow — load saved data from Supabase
         const result = await getOnboardingStatus();
         if (result.data?.onboardingData) {
           const dbData = result.data.onboardingData;
@@ -262,9 +281,17 @@ export default function GeneratePage() {
           }
         }
       } catch (err) {
-        console.error("[Generate] Failed to load saved onboarding data:", err);
+        console.error("[Generate] Failed to load saved data:", err);
       } finally {
         setIsLoadingSavedData(false);
+      }
+
+      // Check for resumable media plan progress in localStorage
+      if (hasSavedProgress()) {
+        const progress = getSavedProgress();
+        if (progress.mediaPlan) {
+          setShowResumeBanner(true);
+        }
       }
     }
 
@@ -274,6 +301,22 @@ export default function GeneratePage() {
   const handleAutoFill = useCallback(() => {
     setInitialData(SAMPLE_ONBOARDING_DATA);
     setWizardKey((prev) => prev + 1);
+  }, []);
+
+  // Resume from saved media plan progress
+  const handleResumeMediaPlan = useCallback(() => {
+    const progress = getSavedProgress();
+    if (progress.onboardingData) {
+      setOnboardingData(progress.onboardingData);
+    }
+    if (progress.strategicBlueprint) {
+      setStrategicBlueprint(progress.strategicBlueprint);
+    }
+    if (progress.mediaPlan) {
+      setResumedMediaPlan(progress.mediaPlan);
+    }
+    setShowResumeBanner(false);
+    setPageState("review-media-plan");
   }, []);
 
   // Persist onboarding data to Supabase on each step change
@@ -545,6 +588,9 @@ export default function GeneratePage() {
         if (result.error) {
           console.error('[Generate] Failed to save blueprint:', result.error);
         }
+        if (result.data?.id) {
+          setBlueprintId(result.data.id);
+        }
       } catch (err) {
         console.error('[Generate] Blueprint save error:', err);
       }
@@ -579,14 +625,6 @@ export default function GeneratePage() {
     }
   }, [mediaPlanGen.mediaPlan, pageState]);
 
-  // Watch for ad copy completion
-  useEffect(() => {
-    if (adCopyGen.adCopy && pageState === "generating-ad-copy") {
-      saveAdCopy(adCopyGen.adCopy);
-      setPageState("ad-copy-complete");
-    }
-  }, [adCopyGen.adCopy, pageState]);
-
   // Approve media plan — save to localStorage + Supabase, transition to approved state
   const handleApproveMediaPlan = useCallback(async (approvedPlan: MediaPlanOutput) => {
     // Save to localStorage
@@ -597,8 +635,9 @@ export default function GeneratePage() {
                   onboardingData?.businessBasics?.businessName ||
                   'Media Plan';
     try {
-      await saveMediaPlanAction({
+      const mpResult = await saveMediaPlanAction({
         title: String(title),
+        blueprintId: blueprintId ?? undefined,
         output: approvedPlan,
         metadata: mediaPlanGen.meta ? {
           totalTime: mediaPlanGen.meta.totalTime,
@@ -607,19 +646,15 @@ export default function GeneratePage() {
         } : undefined,
         status: 'approved',
       });
+      if (mpResult.data?.id) {
+        setSavedMediaPlanId(mpResult.data.id);
+      }
     } catch (err) {
       console.error('[Generate] Failed to save media plan:', err);
     }
 
     setPageState("media-plan-approved");
-  }, [onboardingData, mediaPlanGen.meta]);
-
-  // Generate ad copy from approved media plan
-  const handleGenerateAdCopy = useCallback(async () => {
-    if (!mediaPlanGen.mediaPlan || !strategicBlueprint || !onboardingData) return;
-    setPageState("generating-ad-copy");
-    await adCopyGen.generate(mediaPlanGen.mediaPlan, strategicBlueprint, onboardingData);
-  }, [mediaPlanGen.mediaPlan, strategicBlueprint, onboardingData, adCopyGen]);
+  }, [onboardingData, mediaPlanGen.meta, blueprintId]);
 
   // Share blueprint
   const handleShare = useCallback(async () => {
@@ -904,6 +939,56 @@ export default function GeneratePage() {
             onStepChange={handleStepChange}
           />
         </div>
+
+        {/* Resume Media Plan Banner */}
+        <AnimatePresence>
+          {showResumeBanner && (
+            <motion.div
+              className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ duration: 0.3, ease: easings.out }}
+            >
+              <div
+                className="flex items-center gap-4 rounded-full px-5 py-3 shadow-lg backdrop-blur-md"
+                style={{
+                  background: 'rgba(20, 23, 30, 0.95)',
+                  border: '1px solid rgba(54, 94, 255, 0.3)',
+                }}
+              >
+                <BarChart3 className="h-4 w-4 flex-shrink-0" style={{ color: 'rgb(54, 94, 255)' }} />
+                <span
+                  className="text-sm font-medium"
+                  style={{
+                    color: 'rgb(205, 208, 213)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  }}
+                >
+                  You have an in-progress media plan
+                </span>
+                <MagneticButton
+                  className="h-8 px-4 rounded-full text-sm font-medium flex items-center gap-1.5"
+                  onClick={handleResumeMediaPlan}
+                  style={{
+                    background: 'var(--gradient-primary)',
+                    color: 'white',
+                    fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                  }}
+                >
+                  Resume
+                </MagneticButton>
+                <button
+                  className="flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                  onClick={() => setShowResumeBanner(false)}
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" style={{ color: 'rgb(100, 105, 115)' }} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -1020,6 +1105,56 @@ export default function GeneratePage() {
             </motion.div>
           </div>
         </div>
+
+        {/* Resume Media Plan Banner */}
+        <AnimatePresence>
+          {showResumeBanner && (
+            <motion.div
+              className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ duration: 0.3, ease: easings.out }}
+            >
+              <div
+                className="flex items-center gap-4 rounded-full px-5 py-3 shadow-lg backdrop-blur-md"
+                style={{
+                  background: 'rgba(20, 23, 30, 0.95)',
+                  border: '1px solid rgba(54, 94, 255, 0.3)',
+                }}
+              >
+                <BarChart3 className="h-4 w-4 flex-shrink-0" style={{ color: 'rgb(54, 94, 255)' }} />
+                <span
+                  className="text-sm font-medium"
+                  style={{
+                    color: 'rgb(205, 208, 213)',
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  }}
+                >
+                  You have an in-progress media plan
+                </span>
+                <MagneticButton
+                  className="h-8 px-4 rounded-full text-sm font-medium flex items-center gap-1.5"
+                  onClick={handleResumeMediaPlan}
+                  style={{
+                    background: 'var(--gradient-primary)',
+                    color: 'white',
+                    fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                  }}
+                >
+                  Resume
+                </MagneticButton>
+                <button
+                  className="flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                  onClick={() => setShowResumeBanner(false)}
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" style={{ color: 'rgb(100, 105, 115)' }} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -1698,7 +1833,8 @@ export default function GeneratePage() {
   }
 
   // Review Media Plan State — paginated review with chat + approve/reject
-  if (pageState === "review-media-plan" && mediaPlanGen.mediaPlan) {
+  const activeMediaPlan = resumedMediaPlan ?? mediaPlanGen.mediaPlan;
+  if (pageState === "review-media-plan" && activeMediaPlan) {
     return (
       <div className="relative flex h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
         <GenerateHeader
@@ -1712,7 +1848,7 @@ export default function GeneratePage() {
         <div className="z-10 flex min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
             <MediaPlanDocument
-              mediaPlan={mediaPlanGen.mediaPlan}
+              mediaPlan={activeMediaPlan}
               onApprove={handleApproveMediaPlan}
             />
           </div>
@@ -1721,7 +1857,7 @@ export default function GeneratePage() {
     );
   }
 
-  // Media Plan Approved State — success screen with "Generate Ad Copy" CTA
+  // Media Plan Approved State — final success screen
   if (pageState === "media-plan-approved" && mediaPlanGen.mediaPlan) {
     return (
       <div className="min-h-screen flex flex-col relative" style={{ background: 'var(--bg-base)' }}>
@@ -1770,18 +1906,19 @@ export default function GeneratePage() {
                     </p>
                   </div>
                   <div className="flex flex-col gap-3">
-                    <MagneticButton
-                      className="w-full h-12 rounded-full text-base font-medium flex items-center justify-center gap-2"
-                      onClick={handleGenerateAdCopy}
-                      style={{
-                        background: 'var(--gradient-primary)',
-                        color: 'white',
-                        fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-                      }}
-                    >
-                      <Wand2 className="h-5 w-5" />
-                      Generate Ad Copy
-                    </MagneticButton>
+                    <a href="/dashboard" className="w-full">
+                      <MagneticButton
+                        className="w-full h-12 rounded-full text-base font-medium flex items-center justify-center gap-2"
+                        style={{
+                          background: 'var(--gradient-primary)',
+                          color: 'white',
+                          fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
+                        }}
+                      >
+                        <LayoutDashboard className="h-5 w-5" />
+                        Back to Dashboard
+                      </MagneticButton>
+                    </a>
                     <MagneticButton
                       className="w-full h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
                       onClick={() => setPageState("review-media-plan")}
@@ -1795,233 +1932,11 @@ export default function GeneratePage() {
                       <ArrowLeft className="h-4 w-4" />
                       Back to Review
                     </MagneticButton>
-                    <a href="/dashboard" className="w-full">
-                      <MagneticButton
-                        className="w-full h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
-                        style={{
-                          border: '1px solid rgb(31, 31, 31)',
-                          color: 'rgb(205, 208, 213)',
-                          background: 'transparent',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Back to Dashboard
-                      </MagneticButton>
-                    </a>
                   </div>
                 </div>
               </GradientBorder>
             </motion.div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Generating Ad Copy State
-  if (pageState === "generating-ad-copy") {
-    return (
-      <div className="min-h-screen flex flex-col relative" style={{ background: 'var(--bg-base)' }}>
-        <GenerateHeader
-          currentStage={getHeaderStage(pageState)}
-          hasUnsavedProgress={true}
-          onExit={handleStartOver}
-          exitUrl="/dashboard"
-          collapsible={true}
-        />
-        <ShaderMeshBackground variant="page" />
-        <BackgroundPattern opacity={0.02} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="container mx-auto px-4 py-8 max-w-2xl relative z-10">
-            <motion.div
-              variants={fadeUp}
-              initial="initial"
-              animate="animate"
-              transition={{ duration: durations.normal }}
-            >
-              <GradientBorder animate={true}>
-                <div className="p-6 space-y-6">
-                  <motion.div
-                    className="text-center"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1, duration: durations.normal }}
-                  >
-                    <h2
-                      className="text-xl font-semibold"
-                      style={{
-                        color: 'var(--text-heading)',
-                        fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                      }}
-                    >
-                      Generating Ad Copy
-                    </h2>
-                    <p
-                      className="text-sm mt-1"
-                      style={{
-                        color: 'var(--text-tertiary)',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      {adCopyGen.progress.message || "Starting..."}
-                    </p>
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2, duration: durations.normal }}
-                  >
-                    <Pipeline
-                      stages={["Context", "Ad Copy"]}
-                      currentStageIndex={adCopyGen.adCopy ? 1 : 0}
-                    />
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3, duration: durations.normal }}
-                  >
-                    <GenerationStats
-                      elapsedTime={0}
-                      estimatedCost={0}
-                      completedSections={adCopyGen.adCopy ? 1 : 0}
-                      totalSections={1}
-                    />
-                  </motion.div>
-                  {adCopyGen.error && (
-                    <motion.div
-                      className="p-4 rounded-lg"
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgb(239, 68, 68)',
-                      }}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <p className="text-sm" style={{ color: 'rgb(239, 68, 68)' }}>
-                        {adCopyGen.error}
-                      </p>
-                      <div className="flex gap-2 mt-3">
-                        <MagneticButton
-                          className="h-8 px-4 rounded-full text-sm font-medium"
-                          onClick={handleGenerateAdCopy}
-                          style={{
-                            background: 'var(--gradient-primary)',
-                            color: 'white',
-                          }}
-                        >
-                          Retry
-                        </MagneticButton>
-                        <MagneticButton
-                          className="h-8 px-4 rounded-full text-sm font-medium"
-                          onClick={() => setPageState("media-plan-approved")}
-                          style={{
-                            border: '1px solid var(--border-default)',
-                            color: 'var(--text-secondary)',
-                            background: 'transparent',
-                          }}
-                        >
-                          Back
-                        </MagneticButton>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </GradientBorder>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Ad Copy Complete State — shows generated ad copy with platform tabs
-  if (pageState === "ad-copy-complete" && adCopyGen.adCopy) {
-    return (
-      <div className="relative flex min-h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
-        <GenerateHeader
-          currentStage={getHeaderStage(pageState)}
-          hasUnsavedProgress={false}
-          exitUrl="/dashboard"
-        />
-        <ShaderMeshBackground variant="page" />
-        <BackgroundPattern opacity={0.015} />
-        <div className="container relative z-10 mx-auto px-5 py-8 md:px-8 md:py-12">
-          {/* Success header */}
-          <motion.div
-            className="mx-auto mb-8 max-w-6xl"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: durations.normal, ease: easings.out }}
-          >
-            <GradientBorder>
-              <div className="p-6">
-                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-full"
-                        style={{ background: 'rgba(34, 197, 94, 0.15)' }}
-                      >
-                        <CheckCircle2 className="h-6 w-6" style={{ color: 'rgb(34, 197, 94)' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <h2
-                        className="text-xl font-semibold"
-                        style={{
-                          color: 'var(--text-heading)',
-                          fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                        }}
-                      >
-                        Ad Copy Ready
-                      </h2>
-                      <p
-                        className="text-sm"
-                        style={{
-                          color: 'var(--text-tertiary)',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
-                      >
-                        {adCopyGen.adCopy.copySets.length} copy sets generated
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <a href="/dashboard">
-                      <MagneticButton
-                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
-                        style={{
-                          background: 'var(--gradient-primary)',
-                          color: 'white',
-                          fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-                        }}
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Back to Dashboard
-                      </MagneticButton>
-                    </a>
-                    <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                      onClick={() => setPageState("review-media-plan")}
-                      style={{
-                        border: '1px solid var(--border-default)',
-                        color: 'var(--text-secondary)',
-                        background: 'transparent',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Back to Media Plan
-                    </MagneticButton>
-                  </div>
-                </div>
-              </div>
-            </GradientBorder>
-          </motion.div>
-          {/* Ad Copy View */}
-          <AdCopyView adCopy={adCopyGen.adCopy} />
         </div>
       </div>
     );

@@ -18,6 +18,10 @@ import {
   crossAnalysisSchema,
 } from './schemas';
 import type {
+  ICPAnalysisValidation,
+  CompetitorAnalysis,
+} from './schemas';
+import type {
   IndustryMarketResult,
   ICPAnalysisResult,
   OfferAnalysisResult,
@@ -173,6 +177,58 @@ PSYCHOGRAPHICS QUALITY:
 - Perceived enemy should be concrete (a type of vendor, approach, or situation)
 - Failed solutions should explain WHY each failed
 
+ADDITIONAL ICP REQUIREMENTS:
+
+TRIGGER EVENT ANALYSIS:
+For each ICP segment, identify 4-6 specific trigger events that create an active buying window. For each trigger:
+- Event description (e.g., "New CMO hired at target company")
+- Estimated annual frequency across TAM (e.g., "~8% CMO turnover annually in B2B SaaS = ~2,400 events/year")
+- Urgency level: immediate (0-30 days), near-term (1-3 months), planning-cycle (3-6 months)
+- Detection method for paid targeting (e.g., "LinkedIn job change alerts", "Crunchbase funding alerts")
+- Recommended ad hook tied to this trigger
+Trigger events MUST be specific and targetable, not generic. Bad: "Company needs better attribution." Good: "VP Marketing hired at Series B company in last 90 days — needs quick wins to prove value."
+
+SEGMENT SIZING & PRIORITIZATION:
+For each ICP segment, estimate:
+- Total addressable accounts (number of companies matching firmographics)
+- Total addressable contacts (number of individuals in target roles at those companies)
+- Segment share of total ICP (as percentage)
+- Priority tier (1 = highest) based on raw factor scores you provide for: painSeverity (1-10), budgetAuthority (1-10), reachability (1-10), triggerFrequency (1-10). Just provide the raw scores — composite rank will be computed separately.
+- Recommended budget weight (percentage of total paid budget)
+These are DIRECTIONAL estimates for planning purposes. Label them as estimated and cite your data sources (LinkedIn, Crunchbase, industry reports).
+
+SAM ESTIMATE:
+Calculate Serviceable Addressable Market:
+- Start with total companies matching firmographic criteria (size, industry, geography)
+- Apply filtering funnel: has active paid advertising, uses relevant tech stack, has budget authority role
+- Output the filtering funnel with count and drop-off reason at each stage
+- Provide confidence level (high/medium/low) based on data source quality
+
+SENSITIVITY ANALYSIS (replaces simple economic feasibility):
+Provide three scenarios with assumed CPL and conversion rates for each:
+
+BEST CASE (top 25th percentile): lowest realistic CPL, highest realistic conversion rates, conditions required
+BASE CASE (median expected): median CPL/rates from industry data, confidence level percentage
+WORST CASE (bottom 25th percentile / first 30 days): highest realistic CPL, conservative rates, conditions causing this
+
+BREAK-EVEN ANALYSIS: maximum CPL before LTV:CAC drops below 3:1, maximum CAC before unprofitable, minimum lead-to-SQL rate for 3:1, budget floor for statistical testing significance.
+
+For each scenario, provide ONLY the assumed CPL and conversion rates. The resulting CAC, customer count, and LTV:CAC ratio will be computed from those inputs deterministically.
+Apply 20% margin of error to all projections for planning safety.
+
+NUMERICAL RISK SCORING:
+Assess risks across these categories (first 5 required, last 3 only if relevant data exists):
+1. audience_reachability — ICP size on target platforms vs budget
+2. budget_adequacy — budget vs platform minimums and competitive CPC
+3. pain_strength — is pain acute enough for cold traffic conversion?
+4. competitive_intensity — ad auction density and competitor spend
+5. proof_credibility — can the client substantiate ad claims?
+6. platform_policy — offer compliance with ad policies (only if compliance data provided)
+7. seasonality — timing with buying cycles (only if seasonal patterns detected)
+8. data_quality — tracking/attribution readiness (only if relevant signals)
+
+For each risk provide: description, category, probability (1-5), impact (1-5), and optionally: early warning indicator, mitigation, contingency, budget impact estimate. Provide only the raw probability and impact scores — the composite score and classification will be computed separately.
+
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
 
         prompt: `Validate the ICP for paid media:\n\n${context}`,
@@ -182,8 +238,10 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
       'icpAnalysis',
     );
 
+    const processedData = postProcessICPAnalysis(result.object);
+
     return {
-      data: result.object,
+      data: processedData,
       sources: [],
       usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
       cost: estimateCost(model, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
@@ -311,6 +369,31 @@ QUALITY:
 - Be specific about positioning
 - Verify the competitor serves the same market as the analyzed business
 
+COMPETITOR THREAT ASSESSMENT:
+For each competitor, score these 5 threat factors (1-10 each):
+- marketShareRecognition: Brand recognition and market share
+- adSpendIntensity: Estimated monthly ad spend level
+- productOverlap: Feature overlap with client offer
+- priceCompetitiveness: Price competitiveness vs client
+- growthTrajectory: Funding, hiring, feature velocity
+
+The weighted threat score and classification will be computed separately from these raw scores. For competitors you assess as high-threat based on these factors, also provide:
+- Their top 3 ad hooks (extracted from ad library research)
+- Their likely response if client gains market share
+- Recommended counter-positioning for media plan creative strategy
+
+WHITE SPACE ANALYSIS:
+Systematically identify gaps using this framework:
+
+1. Messaging White Space — messaging angles NO competitor is using or severely underinvesting in
+2. Feature/Capability White Space — capabilities unaddressed, addressed poorly (low G2 scores), or addressed but not marketed
+3. Audience White Space — ICP sub-segments competitors are ignoring (job titles, company stages, geographies, industries)
+4. Channel White Space — platforms with <2 active competitor ads, unused ad formats, funnel stages with no competitor presence
+
+For each gap, provide: description, type (messaging/feature/audience/channel), evidence of what competitors do instead, exploitability score (1-10), impact score (1-10), and recommended action for the media plan. The composite score will be computed separately.
+
+Identify at minimum 3 gaps, aiming for 5-8 across all 4 types.
+
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
 
         prompt: `Research competitors for:\n\n${context}`,
@@ -324,8 +407,10 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
     // - fetchCompetitorAds() → Real ads from Ad Library
     // This function returns base research only
 
+    const processedData = postProcessCompetitorAnalysis(result.object);
+
     return {
-      data: result.object,
+      data: processedData,
       sources: [],
       usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
       cost: estimateCost(model, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
@@ -335,6 +420,116 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
     logGenerationError('competitorAnalysis', error);
     throw error;
   }
+}
+
+// =============================================================================
+// Deterministic Post-Processing
+// Compute scores/classifications that the AI was told would be "computed separately"
+// These fields are intentionally omitted from Zod schemas (so AI doesn't hallucinate
+// them) and added here post-generation. The extended types use Record intersections
+// to allow the additional computed properties.
+// =============================================================================
+
+/** Risk score entry with computed fields added post-generation */
+type RiskScoreWithComputed = ICPAnalysisValidation['riskScores'][number] & {
+  score: number;
+  classification: 'low' | 'medium' | 'high' | 'critical';
+};
+
+/** Segment sizing entry with computed composite rank */
+type SegmentSizingWithComputed = ICPAnalysisValidation['segmentSizing'][number] & {
+  compositeRank?: number;
+};
+
+/** White space gap with computed composite score */
+type WhiteSpaceGapWithComputed = CompetitorAnalysis['whiteSpaceGaps'][number] & {
+  compositeScore: number;
+};
+
+/** Competitor threat assessment with computed weighted score */
+type ThreatAssessmentWithComputed = NonNullable<CompetitorAnalysis['competitors'][number]['threatAssessment']> & {
+  weightedThreatScore: number;
+  classification: 'primary' | 'secondary' | 'low';
+};
+
+/** Compute deterministic fields on ICP research output */
+function postProcessICPAnalysis(data: ICPAnalysisValidation): ICPAnalysisValidation {
+  // Compute risk scores
+  if (data.riskScores) {
+    (data as any).riskScores = data.riskScores.map((risk): RiskScoreWithComputed => ({
+      ...risk,
+      score: risk.probability * risk.impact,
+      classification: classifyRiskScore(risk.probability * risk.impact),
+    }));
+  }
+
+  // Compute segment sizing composite ranks
+  if (data.segmentSizing) {
+    const withRanks: SegmentSizingWithComputed[] = data.segmentSizing.map(seg => ({
+      ...seg,
+      compositeRank: seg.priorityFactors
+        ? seg.priorityFactors.painSeverity * seg.priorityFactors.budgetAuthority *
+          seg.priorityFactors.reachability * seg.priorityFactors.triggerFrequency
+        : undefined,
+    }));
+    // Sort by composite rank descending, assign priority tiers
+    const sorted = [...withRanks].sort((a, b) => (b.compositeRank ?? 0) - (a.compositeRank ?? 0));
+    sorted.forEach((seg, i) => { seg.priorityTier = i + 1; });
+    (data as any).segmentSizing = sorted;
+  }
+
+  return data;
+}
+
+function classifyRiskScore(score: number): 'low' | 'medium' | 'high' | 'critical' {
+  if (score <= 6) return 'low';
+  if (score <= 12) return 'medium';
+  if (score <= 19) return 'high';
+  return 'critical';
+}
+
+/** Compute deterministic fields on competitor research output */
+function postProcessCompetitorAnalysis(data: CompetitorAnalysis): CompetitorAnalysis {
+  // Compute white space composite scores
+  if (data.whiteSpaceGaps) {
+    const withScores: WhiteSpaceGapWithComputed[] = data.whiteSpaceGaps
+      .map(gap => ({
+        ...gap,
+        compositeScore: gap.exploitability * gap.impact,
+      }));
+    withScores.sort((a, b) => b.compositeScore - a.compositeScore);
+    (data as any).whiteSpaceGaps = withScores;
+  }
+
+  // Compute competitor threat scores (weighted: market 25%, adSpend 20%, product 25%, price 15%, growth 15%)
+  if (data.competitors) {
+    data.competitors = data.competitors.map(comp => {
+      if (comp.threatAssessment?.threatFactors) {
+        const f = comp.threatAssessment.threatFactors;
+        const weightedScore =
+          f.marketShareRecognition * 0.25 +
+          f.adSpendIntensity * 0.20 +
+          f.productOverlap * 0.25 +
+          f.priceCompetitiveness * 0.15 +
+          f.growthTrajectory * 0.15;
+        const classification = weightedScore >= 7.0 ? 'primary' as const
+          : weightedScore >= 4.0 ? 'secondary' as const
+          : 'low' as const;
+        const enrichedThreat: ThreatAssessmentWithComputed = {
+          ...comp.threatAssessment,
+          weightedThreatScore: Math.round(weightedScore * 10) / 10,
+          classification,
+        };
+        return {
+          ...comp,
+          threatAssessment: enrichedThreat as typeof comp.threatAssessment,
+        };
+      }
+      return comp;
+    });
+  }
+
+  return data;
 }
 
 // =============================================================================
@@ -376,11 +571,10 @@ Reasoning: ${sections.icpAnalysis.finalVerdict.reasoning}
 Pain-Solution Fit: ${sections.icpAnalysis.painSolutionFit.fitAssessment}
 Primary Pain: ${sections.icpAnalysis.painSolutionFit.primaryPain}
 
-Risk Assessment:
-- Reachability: ${sections.icpAnalysis.riskAssessment.reachability}
-- Budget: ${sections.icpAnalysis.riskAssessment.budget}
-- Pain Strength: ${sections.icpAnalysis.riskAssessment.painStrength}
-- Competitiveness: ${sections.icpAnalysis.riskAssessment.competitiveness}
+Risk Scores:
+${(sections.icpAnalysis.riskScores || []).map((rs: { category: string; risk: string; probability: number; impact: number; classification?: string }) =>
+  `- ${rs.category}: ${rs.risk} (P:${rs.probability} x I:${rs.impact}${rs.classification ? ` = ${rs.classification}` : ''})`
+).join('\n')}
 
 ═══════════════════════════════════════════════════════════════════════════════
 SECTION 3: OFFER ANALYSIS & VIABILITY
@@ -411,7 +605,9 @@ ${c.name}:
 `).join('\n')}
 
 Market Gaps:
-${sections.competitorAnalysis.gapsAndOpportunities.messagingOpportunities.map((g, i) => `${i + 1}. ${g}`).join('\n')}
+${(sections.competitorAnalysis.whiteSpaceGaps || []).map((g: { gap: string; type: string; exploitability: number; impact: number }, i: number) =>
+  `${i + 1}. [${g.type}] ${g.gap} (exploitability: ${g.exploitability}, impact: ${g.impact})`
+).join('\n')}
 
 ═══════════════════════════════════════════════════════════════════════════════
 COMPETITOR AD CREATIVES (Real ads from ad libraries)

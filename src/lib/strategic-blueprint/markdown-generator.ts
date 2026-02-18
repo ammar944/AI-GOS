@@ -287,19 +287,39 @@ function generateICPAnalysis(section: ICPAnalysisValidation): string {
   lines.push('');
 
   // Risk Assessment
-  const risk = section.riskAssessment;
   lines.push('### Risk Assessment\n');
-  lines.push(
-    createTable(
-      ['Risk Category', 'Rating'],
-      [
-        ['Reachability', formatRiskRating(risk?.reachability)],
-        ['Budget', formatRiskRating(risk?.budget)],
-        ['Pain Strength', formatRiskRating(risk?.painStrength)],
-        ['Competitiveness', formatRiskRating(risk?.competitiveness)],
-      ]
-    )
-  );
+  if (section.riskScores?.length) {
+    lines.push(
+      createTable(
+        ['Category', 'Risk', 'Probability', 'Impact', 'Score', 'Classification'],
+        section.riskScores.map((rs) => {
+          const score = rs.score ?? rs.probability * rs.impact;
+          const classification = rs.classification ?? (score >= 16 ? 'critical' : score >= 9 ? 'high' : score >= 4 ? 'medium' : 'low');
+          return [
+            rs.category.replace(/_/g, ' '),
+            rs.risk,
+            String(rs.probability),
+            String(rs.impact),
+            String(score),
+            classification.toUpperCase(),
+          ];
+        })
+      )
+    );
+  } else {
+    const risk = (section as any).riskAssessment;
+    lines.push(
+      createTable(
+        ['Risk Category', 'Rating'],
+        [
+          ['Reachability', formatRiskRating(risk?.reachability)],
+          ['Budget', formatRiskRating(risk?.budget)],
+          ['Pain Strength', formatRiskRating(risk?.painStrength)],
+          ['Competitiveness', formatRiskRating(risk?.competitiveness)],
+        ]
+      )
+    );
+  }
   lines.push('');
 
   // Final Verdict
@@ -577,31 +597,48 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
   }
 
   // Opportunities
-  const gaps = section.gapsAndOpportunities;
   lines.push('### Gaps & Opportunities\n');
 
-  if (safeArray(gaps?.messagingOpportunities).length > 0) {
-    lines.push('**Messaging Opportunities:**');
-    safeArray(gaps?.messagingOpportunities).forEach((opp) => {
-      lines.push(`- ${opp}`);
-    });
+  if (section.whiteSpaceGaps?.length) {
+    lines.push(
+      createTable(
+        ['Type', 'Gap', 'Evidence', 'Exploitability', 'Impact', 'Action'],
+        section.whiteSpaceGaps.map((wsg) => [
+          wsg.type,
+          wsg.gap,
+          wsg.evidence,
+          String(wsg.exploitability),
+          String(wsg.impact),
+          wsg.recommendedAction,
+        ])
+      )
+    );
     lines.push('');
-  }
+  } else {
+    const gaps = section.gapsAndOpportunities;
+    if (safeArray(gaps?.messagingOpportunities).length > 0) {
+      lines.push('**Messaging Opportunities:**');
+      safeArray(gaps?.messagingOpportunities).forEach((opp) => {
+        lines.push(`- ${opp}`);
+      });
+      lines.push('');
+    }
 
-  if (safeArray(gaps?.creativeOpportunities).length > 0) {
-    lines.push('**Creative Opportunities:**');
-    safeArray(gaps?.creativeOpportunities).forEach((opp) => {
-      lines.push(`- ${opp}`);
-    });
-    lines.push('');
-  }
+    if (safeArray(gaps?.creativeOpportunities).length > 0) {
+      lines.push('**Creative Opportunities:**');
+      safeArray(gaps?.creativeOpportunities).forEach((opp) => {
+        lines.push(`- ${opp}`);
+      });
+      lines.push('');
+    }
 
-  if (safeArray(gaps?.funnelOpportunities).length > 0) {
-    lines.push('**Funnel Opportunities:**');
-    safeArray(gaps?.funnelOpportunities).forEach((opp) => {
-      lines.push(`- ${opp}`);
-    });
-    lines.push('');
+    if (safeArray(gaps?.funnelOpportunities).length > 0) {
+      lines.push('**Funnel Opportunities:**');
+      safeArray(gaps?.funnelOpportunities).forEach((opp) => {
+        lines.push(`- ${opp}`);
+      });
+      lines.push('');
+    }
   }
 
   return lines.join('\n');

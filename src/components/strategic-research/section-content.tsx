@@ -29,7 +29,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EditableText, EditableList } from "./editable";
 import { SourcedText, SourcedListItem } from "./citations";
+import { AnimatePresence, motion } from "framer-motion";
 import { AdCreativeCarousel } from "./ad-creative-carousel";
+import {
+  CompetitorPaginationNav,
+  competitorSlideVariants,
+  competitorSlideTransition,
+} from "./competitor-pagination";
 import { RESEARCH_SUBTLE_BLOCK_CLASS, STATUS_BADGE_COLORS } from "./ui-tokens";
 import type {
   StrategicBlueprintSection,
@@ -43,6 +49,8 @@ import type {
   DomainKeywordStats,
   ValidationStatus,
   RiskRating,
+  RiskScore,
+  WhiteSpaceGap,
   OfferRecommendation,
   PricingTier,
   CompetitorOffer,
@@ -693,18 +701,45 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
         )}
       </SubSection>
 
-      {/* Risk Assessment */}
+      {/* Risk Scores (new) / Risk Assessment (legacy) */}
       <SubSection title="Risk Assessment">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
-            <div key={key} className="rounded-lg bg-[var(--bg-elevated)] p-3 text-center">
-              <p className="text-xs uppercase text-[var(--text-tertiary)]">{key.replace(/([A-Z])/g, " $1")}</p>
-              <Badge className={cn("mt-2", RISK_COLORS[data?.riskAssessment?.[key] || "medium"])}>
-                {safeRender(data?.riskAssessment?.[key])?.toUpperCase()}
-              </Badge>
-            </div>
-          ))}
-        </div>
+        {data?.riskScores?.length ? (
+          <div className="space-y-3">
+            {data.riskScores.map((rs: RiskScore, idx: number) => {
+              const score = rs.score ?? rs.probability * rs.impact;
+              const classification = rs.classification ?? (score >= 16 ? 'critical' : score >= 9 ? 'high' : score >= 4 ? 'medium' : 'low');
+              return (
+                <div key={idx} className="rounded-lg bg-[var(--bg-elevated)] p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs uppercase text-[var(--text-tertiary)]">{rs.category.replace(/_/g, ' ')}</span>
+                    <Badge className={cn(RISK_COLORS[classification as RiskRating] || RISK_COLORS.medium)}>
+                      {classification.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <p className="text-sm">{rs.risk}</p>
+                  <div className="flex gap-4 mt-1 text-xs text-[var(--text-tertiary)]">
+                    <span>P: {rs.probability}/5</span>
+                    <span>I: {rs.impact}/5</span>
+                    <span>Score: {score}/25</span>
+                  </div>
+                  {rs.mitigation && <p className="text-xs mt-1 text-[var(--text-secondary)]">Mitigation: {rs.mitigation}</p>}
+                </div>
+              );
+            })}
+          </div>
+        ) : (data as any)?.riskAssessment ? (
+          /* Legacy fallback for old blueprints */
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
+              <div key={key} className="rounded-lg bg-[var(--bg-elevated)] p-3 text-center">
+                <p className="text-xs uppercase text-[var(--text-tertiary)]">{key.replace(/([A-Z])/g, " $1")}</p>
+                <Badge className={cn("mt-2", RISK_COLORS[((data as any).riskAssessment?.[key] || "medium") as RiskRating])}>
+                  {safeRender((data as any).riskAssessment?.[key])?.toUpperCase()}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </SubSection>
 
       {/* Recommendations */}
@@ -871,12 +906,43 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
     });
   }, [data]);
 
+  const [currentCompetitorPage, setCurrentCompetitorPage] = React.useState(0);
+  const [competitorDirection, setCompetitorDirection] = React.useState(0);
+
+  const competitors = data?.competitors || [];
+  const currentComp = competitors[currentCompetitorPage];
+
+  const goToCompetitor = React.useCallback(
+    (page: number) => {
+      if (page < 0 || page >= competitors.length || page === currentCompetitorPage) return;
+      setCompetitorDirection(page > currentCompetitorPage ? 1 : -1);
+      setCurrentCompetitorPage(page);
+    },
+    [currentCompetitorPage, competitors.length]
+  );
+
   return (
     <div className="space-y-5">
       {/* Competitor Snapshots */}
       <SubSection title="Competitor Snapshots">
-        <div className="space-y-3">
-          {(data?.competitors || []).map((comp, i) => (
+        {competitors.length > 0 && currentComp && (
+          <>
+            {/* Paginated competitor card */}
+            <div className="relative min-h-[200px]">
+              <AnimatePresence mode="wait" custom={competitorDirection}>
+                <motion.div
+                  key={currentCompetitorPage}
+                  custom={competitorDirection}
+                  variants={competitorSlideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={competitorSlideTransition}
+                >
+                  {(() => {
+                    const comp = currentComp;
+                    const i = currentCompetitorPage;
+                    return (
             <div
               key={i}
               className="p-3 rounded-lg"
@@ -1348,8 +1414,24 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                 </div>
               )}
             </div>
-          ))}
-        </div>
+                    );
+                  })()}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Pagination nav — only show if more than 1 competitor */}
+            {competitors.length > 1 && (
+              <div className="mt-3">
+                <CompetitorPaginationNav
+                  competitors={competitors}
+                  currentPage={currentCompetitorPage}
+                  onGoToPage={goToCompetitor}
+                />
+              </div>
+            )}
+          </>
+        )}
       </SubSection>
 
       {/* Creative Library */}
@@ -1463,75 +1545,104 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
         </div>
       </SubSection>
 
-      {/* Gaps & Opportunities */}
+      {/* White Space Gaps (new) / Gaps & Opportunities (legacy) */}
       <SubSection title="Gaps & Opportunities">
-        <div className="grid md:grid-cols-3 gap-3">
-          <div
-            className="p-3 rounded-lg"
-            style={{
-              backgroundColor: 'rgba(34, 197, 94, 0.1)',
-              borderWidth: '1px',
-              borderColor: 'rgba(34, 197, 94, 0.3)'
-            }}
-          >
-            <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Messaging Opportunities</h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.gapsAndOpportunities?.messagingOpportunities)}
-                onSave={(v) => onFieldChange("gapsAndOpportunities.messagingOpportunities", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-                className="text-sm"
-              />
-            ) : (
-              <ul className="text-sm space-y-1">
-                {safeArray(data?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
-            )}
+        {data?.whiteSpaceGaps?.length ? (
+          <div className="space-y-3">
+            {data.whiteSpaceGaps.map((wsg: WhiteSpaceGap, idx: number) => {
+              const typeColors: Record<string, string> = {
+                messaging: 'var(--success)',
+                feature: 'var(--accent-blue)',
+                audience: 'rgb(196,181,253)',
+                channel: 'var(--accent-amber)',
+              };
+              const color = typeColors[wsg.type] || 'var(--text-secondary)';
+              return (
+                <div key={idx} className="rounded-lg bg-[var(--bg-elevated)] p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <Badge className="text-xs" style={{ backgroundColor: `color-mix(in srgb, ${color} 20%, transparent)`, color }}>{wsg.type}</Badge>
+                    <span className="text-xs text-[var(--text-tertiary)]">
+                      Exploit: {wsg.exploitability}/10 | Impact: {wsg.impact}/10
+                      {wsg.compositeScore != null && ` | Score: ${wsg.compositeScore}`}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium">{wsg.gap}</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">{wsg.evidence}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">{wsg.recommendedAction}</p>
+                </div>
+              );
+            })}
           </div>
-          <div
-            className="p-3 rounded-lg"
-            style={{
-              backgroundColor: 'rgba(54, 94, 255, 0.1)',
-              borderWidth: '1px',
-              borderColor: 'rgba(54, 94, 255, 0.3)'
-            }}
-          >
-            <h4 className="font-medium mb-2" style={{ color: 'var(--accent-blue)' }}>Creative Opportunities</h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.gapsAndOpportunities?.creativeOpportunities)}
-                onSave={(v) => onFieldChange("gapsAndOpportunities.creativeOpportunities", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-                className="text-sm"
-              />
-            ) : (
-              <ul className="text-sm space-y-1">
-                {safeArray(data?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
-            )}
+        ) : (
+          /* Legacy fallback for old blueprints */
+          <div className="grid md:grid-cols-3 gap-3">
+            <div
+              className="p-3 rounded-lg"
+              style={{
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderWidth: '1px',
+                borderColor: 'rgba(34, 197, 94, 0.3)'
+              }}
+            >
+              <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Messaging Opportunities</h4>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.gapsAndOpportunities?.messagingOpportunities)}
+                  onSave={(v) => onFieldChange("gapsAndOpportunities.messagingOpportunities", v)}
+                  renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                  className="text-sm"
+                />
+              ) : (
+                <ul className="text-sm space-y-1">
+                  {safeArray(data?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div
+              className="p-3 rounded-lg"
+              style={{
+                backgroundColor: 'rgba(54, 94, 255, 0.1)',
+                borderWidth: '1px',
+                borderColor: 'rgba(54, 94, 255, 0.3)'
+              }}
+            >
+              <h4 className="font-medium mb-2" style={{ color: 'var(--accent-blue)' }}>Creative Opportunities</h4>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.gapsAndOpportunities?.creativeOpportunities)}
+                  onSave={(v) => onFieldChange("gapsAndOpportunities.creativeOpportunities", v)}
+                  renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                  className="text-sm"
+                />
+              ) : (
+                <ul className="text-sm space-y-1">
+                  {safeArray(data?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={`p-3 ${RESEARCH_SUBTLE_BLOCK_CLASS}`} style={{ borderColor: "rgba(167,139,250,0.34)" }}>
+              <h4 className="mb-2 font-medium text-[rgb(196,181,253)]">Funnel Opportunities</h4>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.gapsAndOpportunities?.funnelOpportunities)}
+                  onSave={(v) => onFieldChange("gapsAndOpportunities.funnelOpportunities", v)}
+                  renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                  className="text-sm"
+                />
+              ) : (
+                <ul className="text-sm space-y-1">
+                  {safeArray(data?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-          <div className={`p-3 ${RESEARCH_SUBTLE_BLOCK_CLASS}`} style={{ borderColor: "rgba(167,139,250,0.34)" }}>
-            <h4 className="mb-2 font-medium text-[rgb(196,181,253)]">Funnel Opportunities</h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.gapsAndOpportunities?.funnelOpportunities)}
-                onSave={(v) => onFieldChange("gapsAndOpportunities.funnelOpportunities", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-                className="text-sm"
-              />
-            ) : (
-              <ul className="text-sm space-y-1">
-                {safeArray(data?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        )}
       </SubSection>
     </div>
   );

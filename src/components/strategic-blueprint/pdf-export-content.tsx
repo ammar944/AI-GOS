@@ -502,18 +502,37 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           </SubSection>
 
           <SubSection title="Risk Assessment">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
-              {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
-                <div key={key} style={{ ...styles.card, textAlign: "center" }}>
-                  <div style={{ fontSize: 10, color: printColors.mutedText, textTransform: "uppercase" }}>{key.replace(/([A-Z])/g, " $1")}</div>
-                  <div style={{ marginTop: 8 }}>
-                    <Badge variant={icpAnalysisValidation?.riskAssessment?.[key] as RiskRating || "medium"}>
-                      {safeRender(icpAnalysisValidation?.riskAssessment?.[key])?.toUpperCase()}
-                    </Badge>
+            {icpAnalysisValidation?.riskScores?.length ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {icpAnalysisValidation.riskScores.map((rs, idx) => {
+                  const score = rs.score ?? rs.probability * rs.impact;
+                  const classification = rs.classification ?? (score >= 16 ? 'critical' : score >= 9 ? 'high' : score >= 4 ? 'medium' : 'low');
+                  return (
+                    <div key={idx} style={styles.card}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <div style={{ fontSize: 10, color: printColors.mutedText, textTransform: "uppercase" }}>{rs.category.replace(/_/g, ' ')}</div>
+                        <Badge variant={classification as RiskRating}>{classification.toUpperCase()}</Badge>
+                      </div>
+                      <div style={{ fontSize: 12 }}>{rs.risk}</div>
+                      <div style={{ fontSize: 10, color: printColors.mutedText, marginTop: 4 }}>P:{rs.probability} x I:{rs.impact} = {score}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (icpAnalysisValidation as any)?.riskAssessment ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+                {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
+                  <div key={key} style={{ ...styles.card, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: printColors.mutedText, textTransform: "uppercase" }}>{key.replace(/([A-Z])/g, " $1")}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <Badge variant={(icpAnalysisValidation as any)?.riskAssessment?.[key] as RiskRating || "medium"}>
+                        {safeRender((icpAnalysisValidation as any)?.riskAssessment?.[key])?.toUpperCase()}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : null}
           </SubSection>
 
           {icpAnalysisValidation?.finalVerdict?.recommendations && (
@@ -642,26 +661,44 @@ export const PdfExportContent = forwardRef<HTMLDivElement, PdfExportContentProps
           </SubSection>
 
           <SubSection title="Gaps & Opportunities">
-            <div style={styles.grid3}>
-              <div style={{ ...styles.card, backgroundColor: "#dcfce7", border: "1px solid #86efac" }}>
-                <div style={{ fontWeight: 500, color: printColors.green, marginBottom: 8 }}>Messaging Opportunities</div>
-                {safeArray(competitorAnalysis?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
-                ))}
+            {competitorAnalysis?.whiteSpaceGaps?.length ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {competitorAnalysis.whiteSpaceGaps.map((wsg, idx) => {
+                  const typeColors: Record<string, string> = { messaging: printColors.green, feature: printColors.blue, audience: printColors.purple, channel: "#f59e0b" };
+                  const color = typeColors[wsg.type] || printColors.mutedText;
+                  return (
+                    <div key={idx} style={{ ...styles.card, borderLeft: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 10, color, textTransform: "uppercase", marginBottom: 4 }}>{wsg.type}</div>
+                      <div style={{ fontSize: 12, fontWeight: 500 }}>{wsg.gap}</div>
+                      <div style={{ fontSize: 10, color: printColors.mutedText, marginTop: 4 }}>{wsg.evidence}</div>
+                      <div style={{ fontSize: 10, color: printColors.mutedText, marginTop: 2 }}>Exploit: {wsg.exploitability}/10 | Impact: {wsg.impact}/10</div>
+                      <div style={{ fontSize: 11, marginTop: 4 }}>{wsg.recommendedAction}</div>
+                    </div>
+                  );
+                })}
               </div>
-              <div style={{ ...styles.card, backgroundColor: "#dbeafe", border: "1px solid #93c5fd" }}>
-                <div style={{ fontWeight: 500, color: printColors.blue, marginBottom: 8 }}>Creative Opportunities</div>
-                {safeArray(competitorAnalysis?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
-                ))}
+            ) : (
+              <div style={styles.grid3}>
+                <div style={{ ...styles.card, backgroundColor: "#dcfce7", border: "1px solid #86efac" }}>
+                  <div style={{ fontWeight: 500, color: printColors.green, marginBottom: 8 }}>Messaging Opportunities</div>
+                  {safeArray(competitorAnalysis?.gapsAndOpportunities?.messagingOpportunities).map((item, i) => (
+                    <ListItem key={i}>{item}</ListItem>
+                  ))}
+                </div>
+                <div style={{ ...styles.card, backgroundColor: "#dbeafe", border: "1px solid #93c5fd" }}>
+                  <div style={{ fontWeight: 500, color: printColors.blue, marginBottom: 8 }}>Creative Opportunities</div>
+                  {safeArray(competitorAnalysis?.gapsAndOpportunities?.creativeOpportunities).map((item, i) => (
+                    <ListItem key={i}>{item}</ListItem>
+                  ))}
+                </div>
+                <div style={{ ...styles.card, backgroundColor: "#f3e8ff", border: "1px solid #d8b4fe" }}>
+                  <div style={{ fontWeight: 500, color: printColors.purple, marginBottom: 8 }}>Funnel Opportunities</div>
+                  {safeArray(competitorAnalysis?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
+                    <ListItem key={i}>{item}</ListItem>
+                  ))}
+                </div>
               </div>
-              <div style={{ ...styles.card, backgroundColor: "#f3e8ff", border: "1px solid #d8b4fe" }}>
-                <div style={{ fontWeight: 500, color: printColors.purple, marginBottom: 8 }}>Funnel Opportunities</div>
-                {safeArray(competitorAnalysis?.gapsAndOpportunities?.funnelOpportunities).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
-                ))}
-              </div>
-            </div>
+            )}
           </SubSection>
         </Section>
 

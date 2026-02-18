@@ -3,6 +3,45 @@
 
 import type { ICPAnalysisValidation } from './schemas/icp-analysis';
 import type { OfferAnalysisViability } from './schemas/offer-analysis';
+import type { RiskRating } from '@/lib/strategic-blueprint/output-types';
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Extract a risk classification from the riskScores array by category.
+ * Maps probability x impact score to the old RiskRating enum for backward-compatible rules.
+ * Falls back to legacy riskAssessment if present on old data.
+ */
+function getRiskRating(
+  icp: ICPAnalysisValidation,
+  category: 'audience_reachability' | 'budget_adequacy' | 'pain_strength' | 'competitive_intensity'
+): RiskRating {
+  // New path: riskScores array
+  const scoreEntry = icp.riskScores?.find((rs) => rs.category === category);
+  if (scoreEntry) {
+    const score = (scoreEntry as any).score ?? scoreEntry.probability * scoreEntry.impact;
+    if (score >= 16) return 'critical';
+    if (score >= 9) return 'high';
+    if (score >= 4) return 'medium';
+    return 'low';
+  }
+
+  // Legacy fallback: old riskAssessment object
+  const legacyMap: Record<string, keyof { reachability: string; budget: string; painStrength: string; competitiveness: string }> = {
+    audience_reachability: 'reachability',
+    budget_adequacy: 'budget',
+    pain_strength: 'painStrength',
+    competitive_intensity: 'competitiveness',
+  };
+  const legacy = (icp as any).riskAssessment;
+  if (legacy) {
+    return legacy[legacyMap[category]] || 'medium';
+  }
+
+  return 'medium';
+}
 
 // =============================================================================
 // Types
@@ -85,7 +124,7 @@ function applyRule2_BudgetRiskAlignment(
   notes: string[]
 ): OfferAnalysisViability {
   if (
-    icp.riskAssessment.budget === 'critical' &&
+    getRiskRating(icp, 'budget_adequacy') === 'critical' &&
     offer.offerStrength.pricingLogic > 6
   ) {
     const newPricingLogic = Math.min(10, Math.max(4, offer.offerStrength.pricingLogic - 2));
@@ -127,7 +166,7 @@ function applyRule3_ReachabilityCriticalOverride(
   notes: string[]
 ): OfferAnalysisViability {
   if (
-    icp.riskAssessment.reachability === 'critical' &&
+    getRiskRating(icp, 'audience_reachability') === 'critical' &&
     offer.recommendation.status !== 'icp_refinement_needed' &&
     offer.recommendation.status !== 'major_offer_rebuild'
   ) {
@@ -164,7 +203,7 @@ function applyRule4_PainStrengthUrgencyAlignment(
   notes: string[]
 ): OfferAnalysisViability {
   if (
-    icp.riskAssessment.painStrength === 'critical' &&
+    getRiskRating(icp, 'pain_strength') === 'critical' &&
     offer.offerStrength.urgency > 7
   ) {
     const newUrgency = 6;
@@ -243,7 +282,7 @@ function applyRule6_ValidatedCriticalCompetition(
 ): OfferAnalysisViability {
   if (
     icp.finalVerdict.status === 'validated' &&
-    icp.riskAssessment.competitiveness === 'critical'
+    getRiskRating(icp, 'competitive_intensity') === 'critical'
   ) {
     // Don't change values, just flag the contradiction
     adjustments.push({
