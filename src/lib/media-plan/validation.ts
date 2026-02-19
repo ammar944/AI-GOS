@@ -444,18 +444,26 @@ export function validateCrossSection(input: {
 
 /**
  * Fix KPI targets that conflict with deterministic performance model values.
- * Overwrites AI-hallucinated CAC/CPL/SQL/lead targets with computed math.
+ * Overwrites AI-hallucinated CAC/CPL/SQL/lead/ROAS targets with computed math.
  * Returns the corrected array + list of overrides made.
+ *
+ * Checks:
+ * 1. CAC target vs computed CAC (>20% drift → override)
+ * 2. SQL volume vs computed SQLs (>30% drift → override)
+ * 3. CPL target vs computed CPL (>15% drift → override)
+ * 4. Lead volume — detect missing 20% margin, override to (budget × 0.80) / CPL
+ * 5. ROAS — (customers × LTV) / budget consistency (>20% drift → override)
  */
 export function reconcileKPITargets(
   kpiTargets: KPITarget[],
   cacModel: CACModel,
+  monthlyBudget: number,
 ): { kpiTargets: KPITarget[]; overrides: ValidationAdjustment[] } {
   const overrides: ValidationAdjustment[] = [];
   const fixed = kpiTargets.map(kpi => {
     const metric = kpi.metric.toLowerCase();
 
-    // Fix CAC target
+    // Check 1: Fix CAC target
     if (metric.includes('customer acquisition cost') || metric.includes('cac')) {
       const match = kpi.target.match(/\$?(\d[\d,]*)/);
       if (match) {
@@ -473,7 +481,7 @@ export function reconcileKPITargets(
       }
     }
 
-    // Fix SQL volume target
+    // Check 2: Fix SQL volume target
     if (metric.includes('sql') && (metric.includes('volume') || metric.includes('/month'))) {
       const match = kpi.target.match(/(\d[\d,]*)/);
       if (match) {
@@ -491,10 +499,145 @@ export function reconcileKPITargets(
       }
     }
 
+    // Check 3: Fix CPL target (>15% deviation from computed CPL)
+    if (metric.includes('cost per lead') || metric.includes('cpl')) {
+      const match = kpi.target.match(/\$?(\d[\d,]*)/);
+      if (match) {
+        const kpiValue = parseInt(match[1].replace(/,/g, ''), 10);
+        if (cacModel.targetCPL > 0 && Math.abs(kpiValue - cacModel.targetCPL) > cacModel.targetCPL * 0.15) {
+          overrides.push({
+            field: `kpiTargets.${kpi.metric}`,
+            originalValue: kpi.target,
+            adjustedValue: `<$${cacModel.targetCPL}`,
+            rule: 'KPI_CPL_Override',
+            reason: `AI-generated CPL target ($${kpiValue}) deviates >15% from computed CPL ($${cacModel.targetCPL}). Overriding with math.`,
+          });
+          return { ...kpi, target: `<$${cacModel.targetCPL}` };
+        }
+      }
+    }
+
+    // Check 4: Fix lead volume (enforce 20% margin for overhead)
+    // Correct formula: (budget × 0.80) / CPL, NOT budget / CPL
+    if (
+      metric.includes('lead') &&
+      !metric.includes('sql') &&
+      !metric.includes('cost') &&
+      (metric.includes('volume') || metric.includes('/month') || metric.includes('per month') || metric.includes('generation'))
+    ) {
+      const match = kpi.target.match(/(\d[\d,]*)/);
+      if (match && cacModel.targetCPL > 0) {
+        const statedLeads = parseInt(match[1].replace(/,/g, ''), 10);
+        const effectiveBudget = monthlyBudget * 0.80;
+        const correctLeads = Math.round(effectiveBudget / cacModel.targetCPL);
+        const noMarginLeads = cacModel.expectedMonthlyLeads; // = round(monthlyBudget / targetCPL)
+
+        if (statedLeads > 0 && correctLeads > 0) {
+          // Detect common AI error: leads match full-budget calculation (no margin)
+          if (noMarginLeads > 0 && Math.abs(statedLeads - noMarginLeads) < noMarginLeads * 0.05) {
+            overrides.push({
+              field: `kpiTargets.${kpi.metric}`,
+              originalValue: kpi.target,
+              adjustedValue: `${correctLeads}/month`,
+              rule: 'KPI_Lead_Margin_Override',
+              reason: `Lead volume (${statedLeads}) matches budget/CPL without 20% margin (${noMarginLeads}). Corrected to (budget × 0.80)/CPL = ${correctLeads}.`,
+            });
+            return { ...kpi, target: `${correctLeads}/month` };
+          }
+          // Catch wild deviations (>25% from correct value)
+          if (Math.abs(statedLeads - correctLeads) / correctLeads > 0.25) {
+            overrides.push({
+              field: `kpiTargets.${kpi.metric}`,
+              originalValue: kpi.target,
+              adjustedValue: `${correctLeads}/month`,
+              rule: 'KPI_Lead_Override',
+              reason: `Lead volume (${statedLeads}) deviates >25% from computed ${correctLeads} ((budget × 0.80)/CPL). Overridden.`,
+            });
+            return { ...kpi, target: `${correctLeads}/month` };
+          }
+        }
+      }
+    }
+
+    // Check 5: Fix ROAS target — (customers × LTV) / budget (>20% deviation)
+    if (metric.includes('roas') || metric.includes('return on ad spend')) {
+      const match = kpi.target.match(/(\d+\.?\d*)/);
+      if (match) {
+        const statedROAS = parseFloat(match[1]);
+        const customers = cacModel.expectedMonthlyCustomers;
+        const ltv = cacModel.estimatedLTV;
+
+        if (statedROAS > 0 && customers > 0 && ltv > 0 && monthlyBudget > 0) {
+          const computedROAS = Math.round(((customers * ltv) / monthlyBudget) * 100) / 100;
+          if (computedROAS > 0 && Math.abs(statedROAS - computedROAS) / computedROAS > 0.20) {
+            overrides.push({
+              field: `kpiTargets.${kpi.metric}`,
+              originalValue: kpi.target,
+              adjustedValue: `${computedROAS}x`,
+              rule: 'KPI_ROAS_Override',
+              reason: `ROAS adjusted from ${statedROAS}x to ${computedROAS}x. Computed: (${customers} customers × $${ltv} LTV) / $${monthlyBudget} budget.`,
+            });
+            return { ...kpi, target: `${computedROAS}x` };
+          }
+        }
+      }
+    }
+
     return kpi;
   });
 
   return { kpiTargets: fixed, overrides };
+}
+
+/**
+ * Check timeline consistency between executive summary and Phase 1 duration.
+ * WARNING only — does not auto-fix text fields.
+ * Must run AFTER Phase 3 synthesis (executive summary won't exist before then).
+ */
+export function reconcileTimeline(
+  executiveSummary: { timelineToResults?: string },
+  campaignPhases: CampaignPhase[],
+): string[] {
+  const warnings: string[] = [];
+
+  const timeline = executiveSummary.timelineToResults;
+  const phase1Duration = campaignPhases[0]?.durationWeeks;
+
+  if (timeline == null || phase1Duration == null) return warnings;
+
+  // Parse week numbers from timeline string
+  // Common formats: "4-6 weeks", "4 weeks", "within 6 weeks", "90 days"
+  const weekMatches = timeline.match(/(\d+)\s*(?:week|wk)/gi);
+  const dayMatches = timeline.match(/(\d+)\s*(?:day)/gi);
+
+  let maxStatedWeeks = 0;
+
+  if (weekMatches && weekMatches.length > 0) {
+    const weeks = weekMatches.map(m => {
+      const num = m.match(/(\d+)/);
+      return num ? parseInt(num[1], 10) : 0;
+    });
+    maxStatedWeeks = Math.max(...weeks);
+  } else if (dayMatches && dayMatches.length > 0) {
+    // Convert days to weeks
+    const days = dayMatches.map(m => {
+      const num = m.match(/(\d+)/);
+      return num ? parseInt(num[1], 10) : 0;
+    });
+    maxStatedWeeks = Math.round(Math.max(...days) / 7);
+  }
+
+  if (maxStatedWeeks <= 0) return warnings;
+
+  // Phase 1 duration should not exceed stated timeline by more than 2 weeks
+  if (phase1Duration > maxStatedWeeks + 2) {
+    warnings.push(
+      `Timeline mismatch: Executive summary says "${timeline}" but Phase 1 duration is ${phase1Duration} weeks. ` +
+      `Consider adjusting executive summary timeline to match Phase 1 or explaining the gap.`,
+    );
+  }
+
+  return warnings;
 }
 
 // =============================================================================
@@ -646,6 +789,157 @@ export function buildResolvedTargets(
     sqlToCustomerRate: cacModel.sqlToCustomerRate,
     ltvCacRatio: cacModel.ltvToCacRatio,
     estimatedLtv: cacModel.estimatedLTV,
+  };
+}
+
+// =============================================================================
+// Within-Platform Campaign Budget Percentage Validation
+// =============================================================================
+
+/**
+ * Expected campaign budget percentages within each platform.
+ * Based on MB1 proven templates — the synthesis prompt guides the AI to follow
+ * these ranges, and this validator is the post-generation safety net.
+ *
+ * Only covers LinkedIn, Google, and Meta — platforms with proven template data.
+ * Platforms like TikTok, Reddit, YouTube standalone are intentionally omitted.
+ */
+const PLATFORM_CAMPAIGN_BUDGET_RULES: Record<string, {
+  campaigns: { match: string[]; min: number; max: number; label: string }[];
+}> = {
+  linkedin: {
+    campaigns: [
+      { match: ['ctv', 'awareness', 'video views', 'brand'], min: 0.08, max: 0.18, label: 'CTV/Awareness' },
+      { match: ['prospecting', 'lead gen', 'leadgen'], min: 0.45, max: 0.65, label: 'Prospecting Lead Gen' },
+      { match: ['mofu', 'thought leadership', 'mid-funnel', 'mid funnel'], min: 0.12, max: 0.25, label: 'MoFu Thought Leadership' },
+      { match: ['retargeting', 'remarketing', 'conversation'], min: 0.08, max: 0.18, label: 'Retargeting' },
+    ],
+  },
+  google: {
+    campaigns: [
+      { match: ['brand', 'branded'], min: 0.08, max: 0.18, label: 'Brand' },
+      { match: ['competitor', 'comp branded', 'alternative'], min: 0.20, max: 0.40, label: 'Competitor Branded' },
+      { match: ['non-branded', 'non branded', 'solution', 'high-intent', 'high intent'], min: 0.30, max: 0.50, label: 'Non-Branded Search' },
+      { match: ['display', 'remarketing', 'retargeting', 'youtube'], min: 0.08, max: 0.18, label: 'Display/Remarketing' },
+    ],
+  },
+  meta: {
+    campaigns: [
+      { match: ['lead gen', 'leadgen', 'lead form'], min: 0.45, max: 0.65, label: 'Lead Gen Form' },
+      { match: ['conversion', 'website', 'traffic'], min: 0.25, max: 0.45, label: 'Website Conversions' },
+      { match: ['awareness', 'video', 'brand'], min: 0.05, max: 0.15, label: 'Awareness' },
+    ],
+  },
+};
+
+/**
+ * Validate that campaign budget splits within each platform follow MB1 template ranges.
+ * Checks each campaign's share of its platform's total daily budget against expected
+ * percentage ranges. Auto-fixes by clamping to min/max and proportionally rebalancing.
+ *
+ * Graceful handling:
+ * - Platforms not in rules (TikTok, Reddit, etc.) are skipped entirely
+ * - Platforms with only 1 campaign are skipped (nothing to compare)
+ * - Campaigns that don't match any rule keyword are skipped (no warning)
+ * - Zero-budget campaigns/platforms are skipped
+ */
+export function validateWithinPlatformBudgets(
+  campaignStructure: CampaignStructure,
+): { campaignStructure: CampaignStructure; adjustments: ValidationAdjustment[]; warnings: string[] } {
+  const adjustments: ValidationAdjustment[] = [];
+  const warnings: string[] = [];
+  const fixedCampaigns = campaignStructure.campaigns.map(c => ({ ...c }));
+
+  // Group campaign indices by platform (lowercase)
+  const platformGroups: Record<string, number[]> = {};
+  for (let i = 0; i < fixedCampaigns.length; i++) {
+    const plat = fixedCampaigns[i].platform.toLowerCase();
+    if (!platformGroups[plat]) platformGroups[plat] = [];
+    platformGroups[plat].push(i);
+  }
+
+  for (const [platform, indices] of Object.entries(platformGroups)) {
+    // Skip platforms with only 1 campaign — nothing to compare
+    if (indices.length < 2) continue;
+
+    // Look up rules — try exact match first, then check if platform starts with a known key
+    // (handles "google ads" matching "google")
+    let rules = PLATFORM_CAMPAIGN_BUDGET_RULES[platform];
+    if (!rules) {
+      const matchedKey = Object.keys(PLATFORM_CAMPAIGN_BUDGET_RULES).find(key =>
+        platform.startsWith(key) || platform.includes(key),
+      );
+      if (matchedKey) rules = PLATFORM_CAMPAIGN_BUDGET_RULES[matchedKey];
+    }
+    if (!rules) continue; // Platform not in our templates — skip
+
+    // Calculate total daily budget for this platform
+    const platformDailyTotal = indices.reduce((sum, i) => sum + fixedCampaigns[i].dailyBudget, 0);
+    if (platformDailyTotal <= 0) continue;
+
+    let needsRebalance = false;
+
+    for (const idx of indices) {
+      const campaign = fixedCampaigns[idx];
+      if (campaign.dailyBudget <= 0) continue;
+
+      const campaignShare = campaign.dailyBudget / platformDailyTotal;
+      const nameLC = campaign.name.toLowerCase();
+      const objectiveLC = (campaign.objective ?? '').toLowerCase();
+
+      // Try to match this campaign to a rule by checking name/objective keywords
+      const matchedRule = rules.campaigns.find(rule =>
+        rule.match.some(keyword => nameLC.includes(keyword) || objectiveLC.includes(keyword)),
+      );
+
+      if (!matchedRule) continue; // No matching rule — skip silently
+
+      if (campaignShare < matchedRule.min) {
+        const pct = Math.round(campaignShare * 100);
+        const minPct = Math.round(matchedRule.min * 100);
+        warnings.push(
+          `${platform} "${campaign.name}": budget share ${pct}% is below recommended minimum ${minPct}% for ${matchedRule.label} campaigns.`,
+        );
+        fixedCampaigns[idx] = { ...campaign, dailyBudget: Math.round(platformDailyTotal * matchedRule.min) };
+        needsRebalance = true;
+      } else if (campaignShare > matchedRule.max) {
+        const pct = Math.round(campaignShare * 100);
+        const maxPct = Math.round(matchedRule.max * 100);
+        warnings.push(
+          `${platform} "${campaign.name}": budget share ${pct}% exceeds recommended maximum ${maxPct}% for ${matchedRule.label} campaigns.`,
+        );
+        fixedCampaigns[idx] = { ...campaign, dailyBudget: Math.round(platformDailyTotal * matchedRule.max) };
+        needsRebalance = true;
+      }
+    }
+
+    // Rebalance so campaigns still sum to the original platform daily total
+    if (needsRebalance) {
+      const currentTotal = indices.reduce((sum, i) => sum + fixedCampaigns[i].dailyBudget, 0);
+      if (currentTotal > 0 && currentTotal !== platformDailyTotal) {
+        const scaleFactor = platformDailyTotal / currentTotal;
+        for (const idx of indices) {
+          fixedCampaigns[idx] = {
+            ...fixedCampaigns[idx],
+            dailyBudget: Math.round(fixedCampaigns[idx].dailyBudget * scaleFactor),
+          };
+        }
+      }
+
+      adjustments.push({
+        field: `campaignStructure.campaigns.${platform}.budgetSplit`,
+        originalValue: indices.map(i => `${campaignStructure.campaigns[i].name}=$${campaignStructure.campaigns[i].dailyBudget}`).join(', '),
+        adjustedValue: indices.map(i => `${fixedCampaigns[i].name}=$${fixedCampaigns[i].dailyBudget}`).join(', '),
+        rule: 'WithinPlatform_BudgetSplit',
+        reason: `${platform} campaign budget percentages adjusted to match MB1 template ranges. Total platform daily budget preserved at $${platformDailyTotal}.`,
+      });
+    }
+  }
+
+  return {
+    campaignStructure: { ...campaignStructure, campaigns: fixedCampaigns },
+    adjustments,
+    warnings,
   };
 }
 

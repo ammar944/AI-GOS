@@ -54,8 +54,10 @@ import {
   buildPerformanceModel,
   validateCrossSection,
   reconcileKPITargets,
+  reconcileTimeline,
   validatePhaseBudgets,
   buildResolvedTargets,
+  validateWithinPlatformBudgets,
   validateCampaignNaming,
   validateRetargetingPoolRealism,
   estimateRetentionMultiplier,
@@ -314,6 +316,7 @@ export async function runMediaPlanPipeline(
     const { kpiTargets: reconciledKPIs, overrides: kpiOverrides } = reconcileKPITargets(
       kpiTargets,
       performanceModel.cacModel,
+      budgetAllocation.totalMonthlyBudget,
     );
     if (kpiOverrides.length > 0) {
       console.log(`[MediaPlan:Pipeline] KPI overrides: ${kpiOverrides.map(o => `${o.rule}: ${o.reason}`).join('; ')}`);
@@ -340,7 +343,18 @@ export async function runMediaPlanPipeline(
       console.log('[MediaPlan:Pipeline] Applied cross-validation campaign structure fix');
     }
 
-    // --- Phase 2D: Campaign naming consistency ---
+    // --- Phase 2D: Within-platform campaign budget split validation ---
+    onProgress?.('Validating within-platform budget splits...', 73);
+    const withinPlatformResult = validateWithinPlatformBudgets(validatedCampaignStructure);
+    validatedCampaignStructure = withinPlatformResult.campaignStructure;
+    if (withinPlatformResult.warnings.length > 0) {
+      console.warn(`[MediaPlan:Pipeline] Within-platform budget warnings: ${withinPlatformResult.warnings.join('; ')}`);
+    }
+    if (withinPlatformResult.adjustments.length > 0) {
+      console.log(`[MediaPlan:Pipeline] Within-platform budget adjustments: ${withinPlatformResult.adjustments.map(a => a.rule).join(', ')}`);
+    }
+
+    // --- Phase 2E: Campaign naming consistency ---
     onProgress?.('Validating campaign naming conventions...', 74);
     const namingResult = validateCampaignNaming(validatedCampaignStructure);
     validatedCampaignStructure = namingResult.campaignStructure;
@@ -348,7 +362,7 @@ export async function runMediaPlanPipeline(
       console.log(`[MediaPlan:Pipeline] Naming adjustments: ${namingResult.adjustments.map(a => a.rule).join(', ')}`);
     }
 
-    // --- Phase 2E: Phase budget reconciliation ---
+    // --- Phase 2F: Phase budget reconciliation ---
     const phaseBudgetResult = validatePhaseBudgets(
       campaignPhases,
       budgetAllocation.totalMonthlyBudget,
@@ -360,7 +374,7 @@ export async function runMediaPlanPipeline(
       console.log(`[MediaPlan:Pipeline] Phase budget adjustments: ${phaseBudgetResult.adjustments.map(a => a.rule).join(', ')}`);
     }
 
-    // --- Phase 2F: Retargeting pool realism check ---
+    // --- Phase 2G: Retargeting pool realism check ---
     const hasExistingPaidTraffic = (blueprint.keywordIntelligence?.clientDomain?.paidKeywords ?? 0) > 0;
     const hasOrganicKeywords = (blueprint.keywordIntelligence?.clientDomain?.organicKeywords ?? 0) > 0;
     const retargetingResult = validateRetargetingPoolRealism({
@@ -410,6 +424,12 @@ export async function runMediaPlanPipeline(
     emitSection('riskMonitoring', 'complete', 'final');
     emitSectionData('executiveSummary', executiveSummary, 'final');
     emitSectionData('riskMonitoring', riskMonitoring, 'final');
+
+    // --- Post-Phase-3: Timeline consistency check (warning only) ---
+    const timelineWarnings = reconcileTimeline(executiveSummary, finalCampaignPhases);
+    if (timelineWarnings.length > 0) {
+      console.warn(`[MediaPlan:Pipeline] Timeline warnings: ${timelineWarnings.join('; ')}`);
+    }
 
     phaseTimings.phase3 = Date.now() - phase3Start;
 
