@@ -360,6 +360,13 @@ QUALITY STANDARDS:
 - sourceConfidence must reflect the ACTUAL source cited in the benchmark field. A "WordStream 2025 report" is confidence 3. "Meta Ads Manager average" is confidence 4. Uncited claims are confidence 1.
 - scenarioThresholds are only required when sensitivity analysis data is provided in context. If no sensitivity data, omit entirely.
 
+BENCHMARK SOURCE RULES (CRITICAL — follow exactly):
+1. NEVER fabricate source names, report titles, or citation numbers. Do not invent author names, publication names, or year-specific report titles. If you cannot find a specific benchmark with a real, verifiable source, state "Industry standard estimate — no specific source available" and provide a RANGE instead of a point value (e.g., "$50-$120 CPL" not "$85 CPL").
+2. When the research document or context contains real data (competitor spend numbers, actual CPC data from keyword research, platform-specific metrics), ALWAYS prefer this over generic benchmarks. Label as "Research Doc §[section number]" or "Client Research Data" in the benchmark field.
+3. Acceptable source labels: "Research Doc §4" (referencing a specific section), "Client Research Data" (data from the research pipeline), "LinkedIn Ad Benchmarks 2025" (generic platform benchmarks — no specific author), "Industry standard estimate" (when no specific source exists), "SpyFu keyword data" (from actual keyword research in context).
+4. NEVER acceptable source labels: Anything with a specific person's name you cannot verify, anything with a specific report title you cannot verify, anything that looks like an academic citation but isn't real, made-up organizations or consultancies.
+5. Confidence scoring adjustment: If a benchmark comes from the research document (real client data), set sourceConfidence to 4-5. If from general industry knowledge without a specific source, set sourceConfidence to 2-3 and use a wider benchmarkRange.
+
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
         prompt: `Research current KPI benchmarks and define targets for:\n\n${context}`,

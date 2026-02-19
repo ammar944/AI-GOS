@@ -486,7 +486,7 @@ export const kpiTargetSchema = z.object({
     .describe('"primary" = critical metrics the campaign is optimized for (CPL, ROAS, SQL volume). "secondary" = supporting metrics that inform optimization (CTR, CPC, frequency).'),
 
   benchmark: z.string()
-    .describe('Industry benchmark for context (e.g., "Industry avg CPL: $85-120 for B2B SaaS", "Typical Meta CTR for this vertical: 0.8-1.2%"). Cite the data source when possible.'),
+    .describe('Industry benchmark for context (e.g., "Industry avg CPL: $85-120 for B2B SaaS", "Typical Meta CTR for this vertical: 0.8-1.2%"). Use "Research Doc §[N]" for client research data, "Industry standard estimate" for general knowledge, or a verifiable platform name (e.g., "LinkedIn Ad Benchmarks 2025"). NEVER fabricate author names or report titles.'),
 
   benchmarkRange: z.object({
     low: z.string(),
@@ -496,7 +496,7 @@ export const kpiTargetSchema = z.object({
     .describe('Low/mid/high benchmark range from industry data. Mid should match the target.'),
 
   sourceConfidence: z.number().min(1).max(5).optional()
-    .describe('Confidence in benchmark source (1=anecdotal, 3=industry report, 5=platform-verified data)'),
+    .describe('Confidence in this benchmark (1-5). 4-5 for data from research doc or verifiable sources. 2-3 for general industry estimates without specific sources. 1 for uncited claims.'),
 
   scenarioThresholds: z.object({
     best: z.string(),

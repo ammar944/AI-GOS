@@ -135,6 +135,7 @@ RULES:
 - All campaigns must reference ONLY platforms from the validated platform strategy
 - All targeting must reference ONLY segments from the validated ICP targeting
 - Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
+- When referencing benchmarks or industry data, use ONLY data provided in the context. Do NOT fabricate source names, report titles, or citations. If stating a general industry benchmark, say "industry standard" — do not invent a specific source.
 
 PLATFORM-SPECIFIC CAMPAIGN TEMPLATES:
 
@@ -410,6 +411,7 @@ RULES:
 - When sensitivity analysis scenarios are provided in context, include a scenarioAdjustment per phase describing how the phase changes under worst-case conditions. E.g., "If worst-case CPL ($120) materializes, reduce to 2 platforms and extend Phase 1 by 2 weeks."
 - Phase success criteria should reference base-case targets as the primary threshold and worst-case targets as the minimum floor.
 - Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
+- When referencing benchmarks or industry data, use ONLY data provided in the context. Do NOT fabricate source names, report titles, or citations. If stating a general industry benchmark, say "industry standard" — do not invent a specific source.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -464,6 +466,7 @@ MONITORING RULES:
 - Monthly: full funnel analysis (CPL → CAC → LTV), budget reallocation, creative refresh
 - Include early warning thresholds for each monitoring cadence: daily (CPL spike), weekly (creative fatigue signals), monthly (CAC drift from model)
 - Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
+- When referencing benchmarks or industry data, use ONLY data provided in the context. Do NOT fabricate source names, report titles, or citations. If stating a general industry benchmark, say "industry standard" — do not invent a specific source.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -515,6 +518,7 @@ RULES:
 - If a number appears in the "Validated Performance Targets" section, use that exact number.
 - When SAM data is available in context, include the serviceable addressable market size and annual contract value to frame the opportunity.
 - When sensitivity analysis scenarios are available, reference the base case for primary targets and acknowledge worst case as the contingency floor.
+- When referencing benchmarks or industry data, use ONLY data provided in the context. Do NOT fabricate source names, report titles, or citations. If stating a general industry benchmark, say "industry standard" — do not invent a specific source.
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 
@@ -565,6 +569,7 @@ RULES:
 - Each risk MUST include a monitoringFrequency: how often to check this indicator (daily, weekly, or monthly)
 - Budget and audience risks should be monitored daily. Creative risks weekly. Market and compliance risks monthly.
 - Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
+- When referencing benchmarks or industry data, use ONLY data provided in the context. Do NOT fabricate source names, report titles, or citations. If stating a general industry benchmark, say "industry standard" — do not invent a specific source.
 - Key assumptions about conversion rates, CAC, CPL, and SQL volume must be consistent with the validated performance targets provided in context. Do not assume conversion rates that differ from the computed model.
 - When ICP risk scores are provided in the context, INHERIT those risk assessments. Any risk scored ≥13 (high/critical) in the ICP analysis must appear in the media plan risk section with specific mitigations.
 - Add campaign-specific risks ON TOP of inherited ICP risks (e.g., creative fatigue, platform-specific algorithm risks, budget pacing risks).
