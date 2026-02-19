@@ -37,7 +37,7 @@ export const platformStrategySchema = z.object({
     .describe('Why this platform is recommended for this specific client. Reference ICP data, competitor activity, and offer fit.'),
 
   budgetPercentage: z.number().min(0).max(100)
-    .describe('Percentage of total budget allocated to this platform (0-100). All platforms must sum to 100.'),
+    .describe('Percentage of total budget allocated to this platform (0-100). All platforms must sum to 100. Must be derived from QvC scoring — primary platform: 50-65%, secondary: 25-35%, testing: 10-20%.'),
 
   monthlySpend: z.number()
     .describe('Monthly dollar amount for this platform. Must equal totalBudget * budgetPercentage / 100.'),
@@ -76,6 +76,26 @@ export const platformStrategySchema = z.object({
 
   platformRiskFactors: z.array(z.string()).min(1).max(3).optional()
     .describe('Key platform-specific risk factors. E.g., "Meta algorithm deprioritizing B2B content", "LinkedIn CPL inflation Q1 2026"'),
+
+  qvcScore: z.number().min(0).max(10).optional()
+    .describe('Quality-vs-Cost weighted score (0-10). Computed as: (Targeting x 0.30) + (Quality x 0.25) + (Cost x 0.20) + (Competitor x 0.15) + (Format x 0.10). Used for budget allocation.'),
+
+  qvcBreakdown: z.object({
+    targetingPrecision: z.number().min(1).max(10)
+      .describe('How precisely this platform can reach the exact ICP (1=broad only, 10=exact job title + company size + industry).'),
+    leadQuality: z.number().min(1).max(10)
+      .describe('Expected lead quality based on industry data (1=low SQL rates, 10=consistently high SQL rates).'),
+    costEfficiency: z.number().min(1).max(10)
+      .describe('Inverse of expected CPL relative to budget (1=very expensive, 10=highly cost-efficient).'),
+    competitorPresence: z.number().min(1).max(10)
+      .describe('Competitor activity level validating this channel (1=no competitors, 10=3+ competitors active).'),
+    creativeFormatFit: z.number().min(1).max(10)
+      .describe('How well available ad formats match the client content strengths (1=poor fit, 10=perfect format match).'),
+  }).optional()
+    .describe('Individual QvC factor scores that compose the weighted total.'),
+
+  belowMinimum: z.boolean().optional()
+    .describe('True if platform allocation is below recommended minimum budget (Meta $3K, Google $5K, LinkedIn $5K). Signals experimental test only.'),
 }).describe('Per-platform advertising strategy with budget, formats, and placements');
 
 // =============================================================================

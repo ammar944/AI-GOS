@@ -166,6 +166,68 @@ RESEARCH FOCUS:
 - Audience saturation: Assess whether the ICP audience on each platform is over-targeted (low/medium/high). Check if major competitors are all bidding on the same audiences.
 - Platform risk factors: For each platform, identify 1-3 specific risk factors (e.g., "Meta algorithm changes deprioritizing B2B lead gen", "LinkedIn CPL inflation trending 15% YoY", "Google broad match expansion reducing targeting precision").
 
+PLATFORM SELECTION DECISION FRAMEWORK:
+
+Before scoring platforms, apply these hard filters in order. These are non-negotiable rules from proven media buyer frameworks.
+
+STEP 1 — ACV-BASED EXCLUSIONS (apply first, before any scoring):
+- Client Offer Price / ACV < $3,000/yr → EXCLUDE LinkedIn entirely (CPL too high relative to deal value)
+- Client Offer Price / ACV > $5,000/yr → EXCLUDE Meta for cold traffic (use Meta for retargeting ONLY)
+- Client Offer Price / ACV < $1,000/yr → CONSIDER TikTok or Reddit for volume plays
+- If a platform is excluded by ACV rules, do NOT include it in scoring or recommendations unless explicitly overriding with a stated reason
+
+STEP 2 — COMPANY SIZE ROUTING:
+- ICP company size < 50 employees → Meta + Google primary (LinkedIn underperforms for SMB)
+- ICP company size 50-500 employees → LinkedIn + Google primary
+- ICP company size 500+ employees → LinkedIn primary + ABM, Google secondary, EXCLUDE Meta
+
+STEP 3 — BUDGET-TO-PLATFORM COUNT GATING:
+- Monthly budget < $5,000 → Recommend 1 platform ONLY (the highest-scoring one)
+- Monthly budget $5,000-$15,000 → Maximum 2 platforms
+- Monthly budget $15,000-$30,000 → Maximum 2-3 platforms
+- Monthly budget > $30,000 → 3+ platforms viable
+- NEVER spread budget across more platforms than the budget supports
+
+STEP 4 — PLATFORM MINIMUM BUDGET CHECK:
+After calculating budget allocation percentages, verify each platform meets minimums:
+- Meta: $3,000/mo minimum
+- Google: $5,000/mo minimum
+- LinkedIn: $5,000/mo minimum
+If a platform's allocated budget falls below its minimum:
+  - Either increase its allocation to meet the minimum (reducing another platform), OR
+  - Flag it with belowMinimum: true and note "Below recommended minimum — experimental test only. Results may be limited by insufficient data for optimization." in the rationale.
+
+STEP 5 — QUALITY-VS-COST (QvC) SCORING:
+For each platform that SURVIVES Steps 1-4, calculate a weighted QvC score:
+
+| Factor | Weight | How to Score (1-10) |
+|--------|--------|---------------------|
+| ICP Targeting Precision | 30% | How precisely can this platform reach the exact ICP? (10 = exact job title + company size + industry targeting) |
+| Lead Quality Signal | 25% | Based on industry data, how qualified are leads from this platform for this vertical? (10 = consistently high SQL rates) |
+| Cost Efficiency | 20% | Inverse of expected CPL relative to budget. Lower CPL = higher score. Use benchmark data. |
+| Competitor Presence | 15% | Are competitors actively advertising here? Presence = validated channel. (10 = 3+ competitors active) |
+| Creative Format Fit | 10% | Do available ad formats match the client's content strengths? (10 = perfect format match) |
+
+QvC Score = (Targeting x 0.30) + (Quality x 0.25) + (Cost x 0.20) + (Competitor x 0.15) + (Format x 0.10)
+
+Populate qvcScore and qvcBreakdown fields in the output for each platform.
+
+STEP 6 — BUDGET ALLOCATION FROM QvC SCORES:
+- Primary platform (highest QvC): 50-65% of total budget
+- Secondary platform: 25-35% of total budget
+- Testing/tertiary platform: 10-20% of total budget
+- Allocation percentages should roughly follow normalized QvC score ratios
+- The primary platform ALWAYS gets majority share regardless of exact score ratios
+
+STEP 7 — PLATFORM SYNERGY DESCRIPTION:
+For the selected platforms, describe how they work together across the funnel:
+- Which platform drives awareness → which captures intent → which converts?
+- How do retargeting audiences flow between platforms?
+- What is the expected cross-platform user journey?
+Format: "[Platform A] drives [stage] → [Platform B] captures [stage] → [Platform C] converts"
+
+IMPORTANT: Show your work. Include the ACV check result, budget gating result, QvC scoring matrix, and platform minimums check in your reasoning.
+
 QUALITY STANDARDS:
 - CPL ranges MUST be current benchmarks from actual sources, not generic estimates
 - Only recommend platforms where the ICP is demonstrably reachable

@@ -54,6 +54,18 @@ export interface PlatformStrategy {
   audienceSaturation?: 'low' | 'medium' | 'high';
   /** Key platform-specific risk factors */
   platformRiskFactors?: string[];
+  /** Quality-vs-Cost weighted score (0-10). Used for budget allocation. */
+  qvcScore?: number;
+  /** Individual QvC factor scores that compose the weighted total */
+  qvcBreakdown?: {
+    targetingPrecision: number;
+    leadQuality: number;
+    costEfficiency: number;
+    competitorPresence: number;
+    creativeFormatFit: number;
+  };
+  /** True if platform allocation is below recommended minimum budget */
+  belowMinimum?: boolean;
 }
 
 // =============================================================================
