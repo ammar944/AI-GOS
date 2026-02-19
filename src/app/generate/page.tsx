@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-
+  Sparkles,
   Clock,
   Coins,
   Wand2,
@@ -1085,9 +1085,31 @@ export default function GeneratePage() {
                       <Wand2 className="h-5 w-5" />
                       Generate Strategic Blueprint
                     </MagneticButton>
-                    <a href="/dashboard" className="w-full">
+                    <MagneticButton
+                      className="w-full h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
+                      onClick={() => {
+                        setOnboardingData(SAMPLE_ONBOARDING_DATA);
+                        setPageState("profile-complete");
+                      }}
+                      style={{
+                        border: '1px solid rgb(31, 31, 31)',
+                        color: 'rgb(205, 208, 213)',
+                        background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Use Sample Data (FlowMetrics)
+                    </MagneticButton>
+                    <div className="flex gap-3">
                       <MagneticButton
-                        className="w-full h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
+                        className="flex-1 h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
+                        onClick={() => {
+                          setInitialData(onboardingData || initialData);
+                          setInitialStep(0);
+                          setWizardKey((prev) => prev + 1);
+                          setPageState("onboarding");
+                        }}
                         style={{
                           border: '1px solid rgb(31, 31, 31)',
                           color: 'rgb(205, 208, 213)',
@@ -1095,10 +1117,24 @@ export default function GeneratePage() {
                           fontFamily: 'var(--font-sans), Inter, sans-serif',
                         }}
                       >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Back to Dashboard
+                        <ArrowLeft className="h-4 w-4" />
+                        Edit Profile
                       </MagneticButton>
-                    </a>
+                      <a href="/dashboard" className="flex-1">
+                        <MagneticButton
+                          className="w-full h-10 rounded-full text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:border-[rgb(54,94,255)] hover:text-[rgb(54,94,255)]"
+                          style={{
+                            border: '1px solid rgb(31, 31, 31)',
+                            color: 'rgb(205, 208, 213)',
+                            background: 'transparent',
+                            fontFamily: 'var(--font-sans), Inter, sans-serif',
+                          }}
+                        >
+                          <LayoutDashboard className="h-4 w-4" />
+                          Dashboard
+                        </MagneticButton>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </GradientBorder>

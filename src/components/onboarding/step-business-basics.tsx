@@ -30,6 +30,7 @@ export function StepBusinessBasics({
     websiteUrl: initialData?.websiteUrl || "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   function updateField<K extends keyof BusinessBasicsData>(
     field: K,
@@ -135,14 +136,10 @@ export function StepBusinessBasics({
           >
             Business Basics
           </h2>
-          {onClearAll && (
+          {onClearAll && !showClearConfirm && (
             <button
               type="button"
-              onClick={() => {
-                onClearAll();
-                setFormData({ businessName: "", websiteUrl: "" });
-                setErrors({});
-              }}
+              onClick={() => setShowClearConfirm(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-white/10"
               style={{
                 color: 'var(--text-tertiary)',
@@ -152,6 +149,40 @@ export function StepBusinessBasics({
               <RotateCcw className="h-3 w-3" />
               Clear all fields
             </button>
+          )}
+          {onClearAll && showClearConfirm && (
+            <div className="flex items-center gap-2">
+              <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                Are you sure?
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClearAll();
+                  setFormData({ businessName: "", websiteUrl: "" });
+                  setErrors({});
+                  setShowClearConfirm(false);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-red-500/20"
+                style={{
+                  color: 'rgb(239, 68, 68)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                Yes, clear all
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(false)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-white/10"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
