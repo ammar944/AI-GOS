@@ -406,7 +406,7 @@ RULES:
 - Phase daily spending MUST NOT exceed the daily budget ceiling provided in context.
 - Sum of all phase estimatedBudgets across the full timeline must approximately equal (monthly budget × total months).
 - SQL and CPL targets in success criteria MUST match the KPI targets provided in context. Do not invent different performance targets.
-- Budget percentages across phases should sum to 100%.
+- Phase budgets represent absolute dollar amounts for each time window, NOT percentage slices. Their sum should equal monthlyBudget × total months spanned.
 - Every phase MUST include a goNoGoDecision: what specific action to take if success criteria are NOT met by the end of the phase. This must be a concrete action (e.g., "Reduce daily budget by 30% and extend testing 2 weeks"), not vague advice.
 - When sensitivity analysis scenarios are provided in context, include a scenarioAdjustment per phase describing how the phase changes under worst-case conditions. E.g., "If worst-case CPL ($120) materializes, reduce to 2 platforms and extend Phase 1 by 2 weeks."
 - Phase success criteria should reference base-case targets as the primary threshold and worst-case targets as the minimum floor.
@@ -459,6 +459,24 @@ BUDGET RULES:
 - Monthly roadmap: 3-6 months with specific scaling triggers
 - Monthly roadmap MUST include contingency triggers: specific thresholds that activate budget reallocation (e.g., "If CPL exceeds worst-case threshold for 7+ days, shift 20% from Meta to Google")
 - When sensitivity analysis scenarios are available in context, the ramp-up strategy should reference worst-case CPL as the ceiling for scaling decisions. Do not scale past Phase 1 budget levels until CPL is consistently below base-case threshold.
+
+RAMP-UP STRATEGY CONSTRAINT:
+- The ramp-up daily spend progression MUST sum to approximately the Phase 1 budget.
+- Phase 1 is typically 40-50% of monthly budget over its duration (usually 3-4 weeks).
+- Example: If Phase 1 is 4 weeks at $12,000 budget, the ramp-up should be:
+  Week 1: ~$285/day × 7 = ~$2,000 (low daily caps for data collection)
+  Week 2: ~$428/day × 7 = ~$3,000 (increase as initial data comes in)
+  Week 3: ~$428/day × 7 = ~$3,000 (consolidate learnings)
+  Week 4: ~$571/day × 7 = ~$4,000 (ramp toward full Phase 2 spend)
+  Total: ~$12,000 ✓
+- Do NOT write ramp-up daily amounts that, when multiplied by days, exceed or fall far short of Phase 1's total budget.
+
+MONTHLY ROADMAP CONSTRAINT:
+- The monthly roadmap amounts MUST be consistent with the stated monthly budget and phase budgets.
+- Month 1 should reflect Phase 1 spend level — typically 40-50% of the full monthly budget during ramp-up.
+- Subsequent months should match subsequent phase budgets, scaling toward the full monthly budget.
+- No month should exceed the stated totalMonthlyBudget unless a specific approved scaling strategy justifies it.
+- The monthly roadmap should span the same duration as the campaign phases — if phases cover 3 months, include at least 3 months.
 
 MONITORING RULES:
 - Daily: spend pacing, ad disapprovals, CPL by campaign (reference actual campaign names)
