@@ -33,10 +33,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AdCreativeCarousel } from "./ad-creative-carousel";
 import {
   CompetitorPaginationNav,
+  CompetitorCardArrows,
   competitorSlideVariants,
   competitorSlideTransition,
 } from "./competitor-pagination";
 import { RESEARCH_SUBTLE_BLOCK_CLASS, STATUS_BADGE_COLORS } from "./ui-tokens";
+import { CompetitorBottomNav } from "./competitor-bottom-nav";
+import { SwipeableCompetitorCard } from "./swipeable-competitor-card";
 import type {
   StrategicBlueprintSection,
   IndustryMarketOverview,
@@ -908,6 +911,7 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
 
   const [currentCompetitorPage, setCurrentCompetitorPage] = React.useState(0);
   const [competitorDirection, setCompetitorDirection] = React.useState(0);
+  const sectionRef = React.useRef<HTMLDivElement>(null);
 
   const competitors = data?.competitors || [];
   const currentComp = competitors[currentCompetitorPage];
@@ -917,18 +921,47 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
       if (page < 0 || page >= competitors.length || page === currentCompetitorPage) return;
       setCompetitorDirection(page > currentCompetitorPage ? 1 : -1);
       setCurrentCompetitorPage(page);
+      // Scroll section top into view if it's scrolled past
+      if (sectionRef.current) {
+        const rect = sectionRef.current.getBoundingClientRect();
+        if (rect.top < 0) {
+          sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
     },
     [currentCompetitorPage, competitors.length]
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" ref={sectionRef}>
       {/* Competitor Snapshots */}
       <SubSection title="Competitor Snapshots">
         {competitors.length > 0 && currentComp && (
           <>
-            {/* Paginated competitor card */}
+            {/* Tab navigation — above the card */}
+            {competitors.length > 1 && (
+              <CompetitorPaginationNav
+                competitors={competitors}
+                currentPage={currentCompetitorPage}
+                onGoToPage={goToCompetitor}
+              />
+            )}
+
+            {/* Paginated competitor card with arrow overlays + swipe */}
+            <SwipeableCompetitorCard
+              onSwipeLeft={() => goToCompetitor(currentCompetitorPage + 1)}
+              onSwipeRight={() => goToCompetitor(currentCompetitorPage - 1)}
+              canSwipeLeft={currentCompetitorPage < competitors.length - 1}
+              canSwipeRight={currentCompetitorPage > 0}
+              isEditing={isEditing}
+            >
             <div className="relative min-h-[200px]">
+              <CompetitorCardArrows
+                currentPage={currentCompetitorPage}
+                total={competitors.length}
+                onPrev={() => goToCompetitor(currentCompetitorPage - 1)}
+                onNext={() => goToCompetitor(currentCompetitorPage + 1)}
+              />
               <AnimatePresence mode="wait" custom={competitorDirection}>
                 <motion.div
                   key={currentCompetitorPage}
@@ -938,6 +971,9 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   animate="center"
                   exit="exit"
                   transition={competitorSlideTransition}
+                  role="tabpanel"
+                  id={`competitor-panel-${currentCompetitorPage}`}
+                  aria-label={currentComp?.name || `Competitor ${currentCompetitorPage + 1}`}
                 >
                   {(() => {
                     const comp = currentComp;
@@ -1413,23 +1449,21 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   <AdCreativeCarousel ads={comp.adCreatives} />
                 </div>
               )}
+
+              {/* Bottom navigation — always visible after content */}
+              <CompetitorBottomNav
+                competitors={competitors}
+                currentPage={currentCompetitorPage}
+                onGoToPage={goToCompetitor}
+              />
             </div>
                     );
                   })()}
                 </motion.div>
               </AnimatePresence>
             </div>
+            </SwipeableCompetitorCard>
 
-            {/* Pagination nav — only show if more than 1 competitor */}
-            {competitors.length > 1 && (
-              <div className="mt-3">
-                <CompetitorPaginationNav
-                  competitors={competitors}
-                  currentPage={currentCompetitorPage}
-                  onGoToPage={goToCompetitor}
-                />
-              </div>
-            )}
           </>
         )}
       </SubSection>
