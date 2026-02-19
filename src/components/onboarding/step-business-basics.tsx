@@ -6,6 +6,7 @@ import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import { AutoFillPanel } from "./auto-fill-panel";
+import { DocumentUploadPanel } from "./document-upload-panel";
 import type { BusinessBasicsData, OnboardingFormData } from "@/lib/onboarding/types";
 
 interface StepBusinessBasicsProps {
@@ -148,7 +149,34 @@ export function StepBusinessBasics({
           </motion.div>
         )}
 
-        {/* Divider */}
+        {/* First divider */}
+        {onPrefillAll && (
+          <motion.div variants={staggerItem} className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" style={{ borderColor: 'var(--border-default)' }} />
+            </div>
+            <div className="relative flex justify-center">
+              <span
+                className="px-3 text-[13px]"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-tertiary)',
+                }}
+              >
+                or
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Document Upload Panel */}
+        {onPrefillAll && (
+          <motion.div variants={staggerItem}>
+            <DocumentUploadPanel onPrefillComplete={handlePrefillComplete} />
+          </motion.div>
+        )}
+
+        {/* Second divider */}
         {onPrefillAll && (
           <motion.div variants={staggerItem} className="relative">
             <div className="absolute inset-0 flex items-center">

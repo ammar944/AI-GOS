@@ -36,3 +36,19 @@ export {
   type CustomerJourneySuggestion,
   type BrandPositioningSuggestion,
 } from './step-schemas';
+
+export {
+  documentExtractionSchema,
+  EXTRACTION_FIELD_KEYS,
+  TOTAL_EXTRACTION_FIELDS,
+  type DocumentExtractionOutput,
+} from './document-extraction-schema';
+
+export {
+  DOCUMENT_TYPE_CONFIG,
+  ACCEPTED_FILE_EXTENSIONS,
+  ACCEPTED_MIME_TYPES,
+  type DocumentType,
+  type DocumentTypeConfig,
+  type ParsedDocument,
+} from './document-types';

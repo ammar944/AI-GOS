@@ -13,3 +13,5 @@ export { StepCompliance } from "./step-compliance";
 // Auto-fill components
 export { AutoFillPanel } from "./auto-fill-panel";
 export { PrefillSummary } from "./prefill-summary";
+export { DocumentUploadPanel } from "./document-upload-panel";
+export { DocumentPrefillSummary } from "./document-prefill-summary";
