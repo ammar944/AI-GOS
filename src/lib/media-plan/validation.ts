@@ -721,24 +721,52 @@ export function validatePhaseBudgets(
     }
   }
 
-  // Rule 3: Total phase spend should match totalMonthlyBudget (±2%)
+  // Rule 3: Total phase spend should match budget × total duration
+  // When phases span multiple months, the total budget should scale accordingly
+  // (e.g., 3 phases spanning 12 weeks at $15K/mo should total ~$42K, not $15K)
   const totalPhaseBudget = fixedPhases.reduce((sum, p) => sum + p.estimatedBudget, 0);
   if (totalPhaseBudget > 0) {
-    const budgetRatio = (totalPhaseBudget / totalMonthlyBudget) * 100;
-    if (Math.abs(budgetRatio - 100) > 2) {
-      const scale = totalMonthlyBudget / totalPhaseBudget;
-      fixedPhases = fixedPhases.map(p => ({
-        ...p,
-        estimatedBudget: Math.round(p.estimatedBudget * scale),
-      }));
+    const totalPhaseDays = fixedPhases.reduce((sum, p) => sum + (p.durationWeeks * 7), 0);
+    const totalPhaseMonths = totalPhaseDays / 30;
 
-      adjustments.push({
-        field: 'campaignPhases.budgetPercentage',
-        originalValue: Math.round(budgetRatio * 10) / 10,
-        adjustedValue: 100,
-        rule: 'PhaseBudget_PctNormalize',
-        reason: `Phase budgets totaled $${totalPhaseBudget} (${budgetRatio.toFixed(1)}% of monthly budget $${totalMonthlyBudget}). Proportionally scaled to 100%.`,
-      });
+    if (totalPhaseMonths > 1.5) {
+      // Multi-month plan: total budget should scale with duration
+      const expectedTotalSpend = Math.round(totalMonthlyBudget * totalPhaseMonths);
+      const deviation = Math.abs(totalPhaseBudget - expectedTotalSpend) / expectedTotalSpend;
+
+      if (deviation > 0.15) {
+        const scaleFactor = expectedTotalSpend / totalPhaseBudget;
+        fixedPhases = fixedPhases.map(p => ({
+          ...p,
+          estimatedBudget: Math.round(p.estimatedBudget * scaleFactor),
+        }));
+
+        adjustments.push({
+          field: 'campaignPhases.budgetPercentage',
+          originalValue: totalPhaseBudget,
+          adjustedValue: expectedTotalSpend,
+          rule: 'PhaseBudget_MultiMonthScale',
+          reason: `Phase budgets total $${totalPhaseBudget} but phases span ${totalPhaseDays} days (~${totalPhaseMonths.toFixed(1)} months). At $${totalMonthlyBudget}/mo, expected total ~$${expectedTotalSpend}. Scaled phase budgets proportionally.`,
+        });
+      }
+    } else {
+      // Single-month plan: total should match monthly budget (±2%)
+      const budgetRatio = (totalPhaseBudget / totalMonthlyBudget) * 100;
+      if (Math.abs(budgetRatio - 100) > 2) {
+        const scale = totalMonthlyBudget / totalPhaseBudget;
+        fixedPhases = fixedPhases.map(p => ({
+          ...p,
+          estimatedBudget: Math.round(p.estimatedBudget * scale),
+        }));
+
+        adjustments.push({
+          field: 'campaignPhases.budgetPercentage',
+          originalValue: Math.round(budgetRatio * 10) / 10,
+          adjustedValue: 100,
+          rule: 'PhaseBudget_PctNormalize',
+          reason: `Phase budgets totaled $${totalPhaseBudget} (${budgetRatio.toFixed(1)}% of monthly budget $${totalMonthlyBudget}). Proportionally scaled to 100%.`,
+        });
+      }
     }
   }
 
