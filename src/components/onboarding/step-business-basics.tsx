@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { RotateCcw } from "lucide-react";
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
@@ -14,6 +15,7 @@ interface StepBusinessBasicsProps {
   onSubmit: (data: BusinessBasicsData) => void;
   onBack?: () => void;
   onPrefillAll?: (data: Partial<OnboardingFormData>) => void;
+  onClearAll?: () => void;
 }
 
 export function StepBusinessBasics({
@@ -21,6 +23,7 @@ export function StepBusinessBasics({
   onSubmit,
   onBack,
   onPrefillAll,
+  onClearAll,
 }: StepBusinessBasicsProps) {
   const [formData, setFormData] = useState<BusinessBasicsData>({
     businessName: initialData?.businessName || "",
@@ -125,12 +128,32 @@ export function StepBusinessBasics({
         initial="initial"
         animate="animate"
       >
-        <h2
-          className="text-[24px] font-bold tracking-tight"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Business Basics
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-[24px] font-bold tracking-tight"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Business Basics
+          </h2>
+          {onClearAll && (
+            <button
+              type="button"
+              onClick={() => {
+                onClearAll();
+                setFormData({ businessName: "", websiteUrl: "" });
+                setErrors({});
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-white/10"
+              style={{
+                color: 'var(--text-tertiary)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <RotateCcw className="h-3 w-3" />
+              Clear all fields
+            </button>
+          )}
+        </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
           Let&apos;s start with your company information
         </p>

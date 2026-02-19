@@ -234,6 +234,16 @@ export function OnboardingWizard({
     [currentStep]
   );
 
+  // Clear all fields back to defaults
+  const clearAllFields = useCallback(() => {
+    isUserAction.current = true;
+    setFormData({ ...DEFAULT_ONBOARDING_DATA });
+    setCompletedSteps(new Set());
+    setHighestStepReached(0);
+    setCurrentStep(0);
+    pendingStepChange.current = { step: 0, data: { ...DEFAULT_ONBOARDING_DATA } };
+  }, []);
+
   // Step handlers
   const handleBusinessBasics = (data: BusinessBasicsData) => {
     updateFormData("businessBasics", data);
@@ -290,6 +300,7 @@ export function OnboardingWizard({
             initialData={formData.businessBasics}
             onSubmit={handleBusinessBasics}
             onPrefillAll={bulkUpdateFormData}
+            onClearAll={clearAllFields}
           />
         );
       case "icp":
