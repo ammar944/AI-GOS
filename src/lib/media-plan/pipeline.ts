@@ -353,6 +353,7 @@ export async function runMediaPlanPipeline(
       campaignPhases,
       budgetAllocation.totalMonthlyBudget,
       budgetAllocation.dailyCeiling,
+      validatedCampaignStructure.campaigns,
     );
     const validatedCampaignPhases = phaseBudgetResult.phases;
     if (phaseBudgetResult.adjustments.length > 0) {

@@ -9,6 +9,7 @@ import type {
   PerformanceModel,
   ICPTargeting,
   CampaignStructure,
+  CampaignTemplate,
   CampaignPhase,
   KPITarget,
   MonitoringSchedule,
@@ -504,12 +505,17 @@ export function reconcileKPITargets(
  * Validate and fix campaign phase budgets.
  * Rules:
  * 1. Each phase's implied daily spend must not exceed dailyCeiling.
- * 2. Total phase budgets should approximately match totalMonthlyBudget (±2%).
+ * 2. Campaign daily × duration reconciliation — phase budgets must be consistent
+ *    with campaign daily spend rates (±10%). Auto-fixes when campaigns provided.
+ * 3. Total phase budgets should approximately match totalMonthlyBudget (±2%).
+ * 4. Phase progression warning — daily spend should increase from testing to scale
+ *    to optimization (warning only, no auto-fix).
  */
 export function validatePhaseBudgets(
   campaignPhases: CampaignPhase[],
   totalMonthlyBudget: number,
   dailyCeiling: number,
+  campaigns?: CampaignTemplate[],
 ): { phases: CampaignPhase[]; adjustments: ValidationAdjustment[] } {
   const adjustments: ValidationAdjustment[] = [];
   let fixedPhases = campaignPhases.map(p => ({ ...p }));
@@ -533,7 +539,40 @@ export function validatePhaseBudgets(
     return phase;
   });
 
-  // Rule 2: Total phase spend should match totalMonthlyBudget (±2%)
+  // Rule 2: Campaign daily × duration reconciliation
+  // When campaign data is available, verify that each phase's stated budget is
+  // consistent with what campaign daily budgets would actually cost over the
+  // phase duration. Auto-fix by adjusting estimatedBudget to match campaign
+  // daily rates; Rule 3 (total normalization) will re-normalize after.
+  if (campaigns && campaigns.length > 0) {
+    const totalCampaignDaily = campaigns.reduce((sum, c) => sum + c.dailyBudget, 0);
+
+    if (totalCampaignDaily > 0) {
+      fixedPhases = fixedPhases.map(phase => {
+        const phaseDays = phase.durationWeeks * 7;
+        if (phaseDays <= 0 || phase.estimatedBudget <= 0) return phase;
+
+        const phaseImpliedDaily = phase.estimatedBudget / phaseDays;
+        const impliedBudgetFromCampaigns = totalCampaignDaily * phaseDays;
+        const discrepancy = Math.abs(impliedBudgetFromCampaigns - phase.estimatedBudget) / phase.estimatedBudget;
+
+        if (discrepancy > 0.10) {
+          const correctedBudget = Math.round(impliedBudgetFromCampaigns);
+          adjustments.push({
+            field: `campaignPhases.${phase.name}.estimatedBudget`,
+            originalValue: phase.estimatedBudget,
+            adjustedValue: correctedBudget,
+            rule: 'PhaseBudget_DailyDurationReconcile',
+            reason: `Phase "${phase.name}" budget ($${phase.estimatedBudget} over ${phaseDays} days = $${Math.round(phaseImpliedDaily)}/day) is inconsistent with campaign daily budgets ($${Math.round(totalCampaignDaily)}/day × ${phaseDays} days = $${correctedBudget}). Adjusted estimatedBudget to match campaign daily rates.`,
+          });
+          return { ...phase, estimatedBudget: correctedBudget };
+        }
+        return phase;
+      });
+    }
+  }
+
+  // Rule 3: Total phase spend should match totalMonthlyBudget (±2%)
   const totalPhaseBudget = fixedPhases.reduce((sum, p) => sum + p.estimatedBudget, 0);
   if (totalPhaseBudget > 0) {
     const budgetRatio = (totalPhaseBudget / totalMonthlyBudget) * 100;
@@ -551,6 +590,33 @@ export function validatePhaseBudgets(
         rule: 'PhaseBudget_PctNormalize',
         reason: `Phase budgets totaled $${totalPhaseBudget} (${budgetRatio.toFixed(1)}% of monthly budget $${totalMonthlyBudget}). Proportionally scaled to 100%.`,
       });
+    }
+  }
+
+  // Rule 4: Phase daily spend progression warning (testing → scale → optimize)
+  // Phases should generally show increasing daily spend as campaigns move from
+  // testing to scaling to optimization. Warn when daily spend decreases but do
+  // NOT auto-fix — there are legitimate cases (e.g., optimization phase reduces
+  // spend while maintaining efficiency).
+  if (fixedPhases.length >= 2) {
+    const sorted = [...fixedPhases].sort((a, b) => a.phase - b.phase);
+    for (let i = 1; i < sorted.length; i++) {
+      const prevDays = sorted[i - 1].durationWeeks * 7;
+      const currDays = sorted[i].durationWeeks * 7;
+      if (prevDays <= 0 || currDays <= 0) continue;
+
+      const prevDaily = sorted[i - 1].estimatedBudget / prevDays;
+      const currDaily = sorted[i].estimatedBudget / currDays;
+
+      if (currDaily < prevDaily) {
+        adjustments.push({
+          field: 'campaignPhases.progression',
+          originalValue: Math.round(prevDaily),
+          adjustedValue: Math.round(currDaily),
+          rule: 'PhaseBudget_ProgressionWarn',
+          reason: `Phase ${sorted[i].phase} "${sorted[i].name}" daily spend ($${Math.round(currDaily)}/day) is lower than Phase ${sorted[i - 1].phase} "${sorted[i - 1].name}" ($${Math.round(prevDaily)}/day). Expected increasing progression from testing to scale to optimization.`,
+        });
+      }
     }
   }
 
