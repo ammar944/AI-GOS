@@ -206,17 +206,23 @@ export function validateAndFixBudget(
 
 /**
  * Pure arithmetic CAC model. No AI involved.
- * leads = budget / CPL
+ * effectiveBudget = budget × 0.80 (20% reserved for overhead/testing)
+ * leads = effectiveBudget / CPL
  * SQLs = leads * rate / 100
  * customers = SQLs * closeRate / 100
- * CAC = budget / customers
+ * CAC = budget / customers (full budget — you still spent it all)
  * LTV = offerPrice * retentionMultiplier
  * ltvToCacRatio = LTV / CAC
  */
 export function computeCACModel(input: CACModelInput): CACModel {
   const { monthlyBudget, targetCPL, leadToSqlRate, sqlToCustomerRate, offerPrice, retentionMultiplier } = input;
 
-  const expectedMonthlyLeads = Math.round(monthlyBudget / targetCPL);
+  // Apply 20% safety margin: only 80% of budget drives lead acquisition.
+  // The remaining 20% covers platform overhead, testing, and optimization.
+  // CAC still uses full monthlyBudget because that's the total spend.
+  const safeCPL = targetCPL > 0 ? targetCPL : 1; // guard division by zero
+  const effectiveBudget = monthlyBudget * 0.80;
+  const expectedMonthlyLeads = Math.round(effectiveBudget / safeCPL);
   const expectedMonthlySQLs = Math.round(expectedMonthlyLeads * leadToSqlRate / 100);
   const expectedMonthlyCustomers = Math.max(1, Math.round(expectedMonthlySQLs * sqlToCustomerRate / 100));
   const targetCAC = Math.round(monthlyBudget / expectedMonthlyCustomers);
@@ -517,8 +523,8 @@ export function reconcileKPITargets(
       }
     }
 
-    // Check 4: Fix lead volume (enforce 20% margin for overhead)
-    // Correct formula: (budget × 0.80) / CPL, NOT budget / CPL
+    // Check 4: Fix lead volume — cacModel.expectedMonthlyLeads already includes 20% margin
+    // (effectiveBudget = budget × 0.80, leads = effectiveBudget / CPL)
     if (
       metric.includes('lead') &&
       !metric.includes('sql') &&
@@ -528,12 +534,12 @@ export function reconcileKPITargets(
       const match = kpi.target.match(/(\d[\d,]*)/);
       if (match && cacModel.targetCPL > 0) {
         const statedLeads = parseInt(match[1].replace(/,/g, ''), 10);
-        const effectiveBudget = monthlyBudget * 0.80;
-        const correctLeads = Math.round(effectiveBudget / cacModel.targetCPL);
-        const noMarginLeads = cacModel.expectedMonthlyLeads; // = round(monthlyBudget / targetCPL)
+        const correctLeads = cacModel.expectedMonthlyLeads; // already (budget × 0.80) / CPL
+        // Detect AI error: leads match full-budget calculation (no margin)
+        const noMarginLeads = Math.round(monthlyBudget / cacModel.targetCPL);
 
         if (statedLeads > 0 && correctLeads > 0) {
-          // Detect common AI error: leads match full-budget calculation (no margin)
+          // Detect common AI error: leads match budget/CPL without 20% margin
           if (noMarginLeads > 0 && Math.abs(statedLeads - noMarginLeads) < noMarginLeads * 0.05) {
             overrides.push({
               field: `kpiTargets.${kpi.metric}`,
@@ -544,7 +550,7 @@ export function reconcileKPITargets(
             });
             return { ...kpi, target: `${correctLeads}/month` };
           }
-          // Catch wild deviations (>25% from correct value)
+          // Catch any deviation >25% from the computed value
           if (Math.abs(statedLeads - correctLeads) / correctLeads > 0.25) {
             overrides.push({
               field: `kpiTargets.${kpi.metric}`,

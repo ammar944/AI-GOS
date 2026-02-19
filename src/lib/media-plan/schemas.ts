@@ -524,7 +524,7 @@ const cacModelSchema = z.object({
     .describe('Expected SQL-to-customer close rate as percentage (e.g., 25 means 25%). Base on industry norms or client data.'),
 
   expectedMonthlyLeads: z.number()
-    .describe('Expected monthly leads at target spend. Formula: monthlyBudget / targetCPL.'),
+    .describe('Expected monthly leads at effective spend (80% of budget). Formula: (monthlyBudget × 0.80) / targetCPL.'),
 
   expectedMonthlySQLs: z.number()
     .describe('Expected monthly SQLs. Formula: expectedMonthlyLeads * leadToSqlRate / 100.'),

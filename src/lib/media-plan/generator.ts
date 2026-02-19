@@ -59,7 +59,7 @@ Your task is to create a detailed, execution-ready media plan that a media buyin
 - Targets must be achievable: reference the performance model CAC math to ensure consistency.
 
 ## PERFORMANCE MODEL RULES
-- CAC model must be internally consistent: monthlyBudget / targetCPL = expectedLeads. Leads * leadToSQLRate = SQLs. SQLs * closeRate = customers.
+- CAC model must be internally consistent: (monthlyBudget × 0.80) / targetCPL = expectedLeads (20% reserved for overhead/testing). Leads * leadToSQLRate = SQLs. SQLs * closeRate = customers. CAC = monthlyBudget / customers (full budget).
 - Conversion rate assumptions must cite industry benchmarks or the client's historical data from onboarding.
 - LTV estimate must be based on offer price and typical retention for the pricing model.
 - LTV:CAC ratio must be >3:1 for the plan to be viable. If math doesn't work, flag it in risks and adjust targets.
