@@ -15,6 +15,7 @@ import type {
   MonitoringSchedule,
   RiskMonitoring,
 } from './types';
+import type { OnboardingFormData } from '@/lib/onboarding/types';
 
 import { postProcessMediaPlanRisks } from './research';
 
@@ -458,12 +459,14 @@ export function validateCrossSection(input: {
  * 2. SQL volume vs computed SQLs (>30% drift → override)
  * 3. CPL target vs computed CPL (>15% drift → override)
  * 4. Lead volume — detect missing 20% margin, override to (budget × 0.80) / CPL
- * 5. ROAS — (customers × LTV) / budget consistency (>20% drift → override)
+ * 5. ROAS — monthly revenue / budget (detects LTV:CAC disguised as ROAS)
+ * 6. Benchmark contradiction — flags benchmark text that contradicts target value
  */
 export function reconcileKPITargets(
   kpiTargets: KPITarget[],
   cacModel: CACModel,
   monthlyBudget: number,
+  offerPrice?: number,
 ): { kpiTargets: KPITarget[]; overrides: ValidationAdjustment[] } {
   const overrides: ValidationAdjustment[] = [];
   const fixed = kpiTargets.map(kpi => {
@@ -565,25 +568,78 @@ export function reconcileKPITargets(
       }
     }
 
-    // Check 5: Fix ROAS target — (customers × LTV) / budget (>20% deviation)
+    // Check 5: Fix ROAS target — correct formula is monthly revenue / budget.
+    // Detects LTV:CAC ratio disguised as ROAS and overrides with correct monthly ROAS.
     if (metric.includes('roas') || metric.includes('return on ad spend')) {
       const match = kpi.target.match(/(\d+\.?\d*)/);
       if (match) {
         const statedROAS = parseFloat(match[1]);
         const customers = cacModel.expectedMonthlyCustomers;
+        const price = offerPrice ?? 0;
         const ltv = cacModel.estimatedLTV;
 
-        if (statedROAS > 0 && customers > 0 && ltv > 0 && monthlyBudget > 0) {
-          const computedROAS = Math.round(((customers * ltv) / monthlyBudget) * 100) / 100;
-          if (computedROAS > 0 && Math.abs(statedROAS - computedROAS) / computedROAS > 0.20) {
+        if (statedROAS > 0 && customers > 0 && monthlyBudget > 0 && price > 0) {
+          // Correct monthly ROAS: (customers × monthly offer price) / monthly ad spend
+          const monthlyRevenue = customers * price;
+          const correctMonthlyROAS = Math.round((monthlyRevenue / monthlyBudget) * 100) / 100;
+
+          // LTV:CAC ratio (what the AI often puts in the ROAS field by mistake)
+          const ltvBasedValue = ltv > 0 ? Math.round(((customers * ltv) / monthlyBudget) * 100) / 100 : 0;
+
+          // Detect which formula the AI used
+          const isLTVBased = ltvBasedValue > 0 && Math.abs(statedROAS - ltvBasedValue) / ltvBasedValue < 0.15;
+          const isMonthlyBased = correctMonthlyROAS > 0 && Math.abs(statedROAS - correctMonthlyROAS) / correctMonthlyROAS < 0.20;
+
+          if (isLTVBased && !isMonthlyBased) {
+            // AI put LTV:CAC in the ROAS field — override with correct monthly ROAS
             overrides.push({
               field: `kpiTargets.${kpi.metric}`,
               originalValue: kpi.target,
-              adjustedValue: `${computedROAS}x`,
-              rule: 'KPI_ROAS_Override',
-              reason: `ROAS adjusted from ${statedROAS}x to ${computedROAS}x. Computed: (${customers} customers × $${ltv} LTV) / $${monthlyBudget} budget.`,
+              adjustedValue: `${correctMonthlyROAS}x`,
+              rule: 'KPI_ROAS_LTV_Confusion',
+              reason: `ROAS field contains LTV-based value (${statedROAS}x ≈ LTV:CAC ${ltvBasedValue}x). ` +
+                `Correct monthly ROAS: (${customers} customers × $${price}) / $${monthlyBudget} = ${correctMonthlyROAS}x. ` +
+                `LTV:CAC ratio (${ltvBasedValue}x) belongs in Performance Model, not ROAS.`,
             });
-            return { ...kpi, target: `${computedROAS}x` };
+            return { ...kpi, target: `${correctMonthlyROAS}x` };
+          } else if (!isMonthlyBased) {
+            // Neither formula matches — fabricated value, override with monthly ROAS
+            overrides.push({
+              field: `kpiTargets.${kpi.metric}`,
+              originalValue: kpi.target,
+              adjustedValue: `${correctMonthlyROAS}x`,
+              rule: 'KPI_ROAS_Override',
+              reason: `ROAS (${statedROAS}x) doesn't match monthly ROAS (${correctMonthlyROAS}x) or LTV:CAC (${ltvBasedValue}x). ` +
+                `Overriding with correct monthly ROAS: (${customers} × $${price}) / $${monthlyBudget}.`,
+            });
+            return { ...kpi, target: `${correctMonthlyROAS}x` };
+          }
+          // If isMonthlyBased — it's correct, no action needed
+        }
+      }
+    }
+
+    // Check 6: Flag benchmark description that contradicts the target value.
+    // Generic check — applies to any KPI with a numeric "Nx" in the target and benchmark.
+    const targetNumMatch = kpi.target.match(/(\d+\.?\d*)\s*x/i);
+    if (targetNumMatch && kpi.benchmark) {
+      const targetValue = parseFloat(targetNumMatch[1]);
+      // Extract "Nx" patterns from benchmark text (e.g., "~2.2x", "3.5x")
+      const benchmarkMatches = kpi.benchmark.match(/~?(\d+\.?\d*)\s*x/gi);
+      if (benchmarkMatches && targetValue > 0) {
+        for (const bMatch of benchmarkMatches) {
+          const benchValue = parseFloat(bMatch.replace(/[~x]/gi, ''));
+          if (isNaN(benchValue) || benchValue <= 0) continue;
+          const deviation = Math.abs(benchValue - targetValue) / targetValue;
+          if (deviation > 0.50) {
+            overrides.push({
+              field: `kpiTargets.${kpi.metric}.benchmark`,
+              originalValue: kpi.benchmark,
+              adjustedValue: kpi.benchmark.replace(bMatch, `${targetValue}x`),
+              rule: 'KPI_Benchmark_Contradiction',
+              reason: `${kpi.metric}: benchmark text contains "${bMatch}" which contradicts target ${targetValue}x (${Math.round(deviation * 100)}% deviation). Replaced with target value.`,
+            });
+            kpi = { ...kpi, benchmark: kpi.benchmark.replace(bMatch, `${targetValue}x`) };
           }
         }
       }
@@ -1142,6 +1198,206 @@ export function estimateRetentionMultiplier(pricingModels: string[]): number {
   if (normalized.some(p => p.includes('seat') || p.includes('usage'))) return 10;
   if (normalized.some(p => p.includes('onetime') || p.includes('one time'))) return 1;
   return 8; // default for recurring-ish models
+}
+
+// =============================================================================
+// ACV + Platform Minimum Compliance Validation
+// =============================================================================
+
+export interface PlatformComplianceResult {
+  platformStrategy: PlatformStrategy[];
+  campaignStructure: CampaignStructure;
+  adjustments: ValidationAdjustment[];
+  warnings: string[];
+}
+
+/**
+ * Platform minimum budgets from MB1 proven rules.
+ * Platforms below these thresholds should be flagged "experimental test only".
+ */
+const PLATFORM_MINIMUM_BUDGETS: Record<string, number> = {
+  meta: 3000,
+  linkedin: 5000,
+  google: 5000,
+};
+
+/**
+ * Calculate Annual Contract Value from onboarding data.
+ * Monthly pricing → multiply by 12. Annual → use directly. Fallback to 0.
+ */
+export function calculateACV(onboarding: OnboardingFormData): number {
+  const price = onboarding.productOffer.offerPrice;
+  if (!price || price <= 0) return 0;
+
+  const models = onboarding.productOffer.pricingModel.map(m => m.toLowerCase());
+
+  // If any model is annual/yearly, treat offerPrice as annual
+  if (models.some(m => m.includes('annual') || m.includes('yearly'))) {
+    return price;
+  }
+  // If one-time, it IS the ACV (no recurring)
+  if (models.some(m => m.includes('one_time') || m.includes('onetime'))) {
+    return price;
+  }
+  // Default: monthly → annualize
+  return price * 12;
+}
+
+/**
+ * Parse the largest company size from the ICP companySize array.
+ * Returns the upper bound of the largest range (e.g., "201-1000" → 1000, "1000+" → 1001).
+ */
+function parseMaxCompanySize(companySizes: string[]): number {
+  let max = 0;
+  for (const size of companySizes) {
+    if (size === '1000+') { max = Math.max(max, 1001); continue; }
+    const match = size.match(/(\d+)/g);
+    if (match) {
+      const nums = match.map(Number);
+      max = Math.max(max, ...nums);
+    }
+  }
+  return max;
+}
+
+/**
+ * Validate platform compliance against ACV rules and minimum budget thresholds.
+ *
+ * ACV Rules (from MB1):
+ * - ACV > $5,000 → Meta cold campaigns NOT recommended (retargeting only)
+ * - ACV < $3,000 → LinkedIn NOT recommended (CPL exceeds ROI threshold)
+ * - Enterprise (1000+ employees) → Meta typically underperforms
+ *
+ * Platform Minimums:
+ * - Meta: $3,000/mo
+ * - Google: $5,000/mo
+ * - LinkedIn: $5,000/mo
+ *
+ * Auto-fixes: relabels Meta cold→warm campaigns when ACV > $5K.
+ * Warnings only for LinkedIn/enterprise/minimum issues — human reviewer decides.
+ */
+export function validatePlatformCompliance(
+  platformStrategy: PlatformStrategy[],
+  campaignStructure: CampaignStructure,
+  onboarding: OnboardingFormData,
+): PlatformComplianceResult {
+  const adjustments: ValidationAdjustment[] = [];
+  const warnings: string[] = [];
+  const fixedPlatforms = platformStrategy.map(p => ({ ...p }));
+  const fixedCampaigns = campaignStructure.campaigns.map(c => ({ ...c }));
+
+  const acv = calculateACV(onboarding);
+  const maxCompanySize = parseMaxCompanySize(onboarding.icp.companySize);
+
+  // Skip ACV checks if we can't determine ACV (no offer price)
+  if (acv > 0) {
+    // ── ACV > $5,000 → Meta cold traffic NOT recommended ──
+    if (acv > 5000) {
+      const metaColdIndices: number[] = [];
+      for (let i = 0; i < fixedCampaigns.length; i++) {
+        const c = fixedCampaigns[i];
+        if (c.platform.toLowerCase().includes('meta') && c.funnelStage === 'cold') {
+          metaColdIndices.push(i);
+        }
+      }
+
+      if (metaColdIndices.length > 0) {
+        const campaignNames = metaColdIndices.map(i => fixedCampaigns[i].name);
+        warnings.push(
+          `ACV RULE VIOLATION: Client ACV is $${acv.toLocaleString()}/yr (>$5,000). ` +
+          `Meta should be retargeting-only, but ${metaColdIndices.length} cold campaign(s) found: ` +
+          `${campaignNames.join(', ')}. ` +
+          `Relabeled to warm/retargeting. Review and confirm override if cold Meta is intentional.`,
+        );
+
+        // Auto-fix: relabel cold Meta campaigns to warm
+        for (const idx of metaColdIndices) {
+          const original = fixedCampaigns[idx];
+          adjustments.push({
+            field: `campaignStructure.campaigns.${original.name}.funnelStage`,
+            originalValue: 'cold',
+            adjustedValue: 'warm',
+            rule: 'ACV_MetaColdGate',
+            reason: `Client ACV $${acv.toLocaleString()}/yr exceeds $5,000 threshold. Meta cold traffic not recommended. Campaign relabeled to warm/retargeting. Shift targeting to website visitors, video viewers, LinkedIn engagers, and lookalikes of converters.`,
+          });
+          fixedCampaigns[idx] = {
+            ...original,
+            funnelStage: 'warm',
+            notes: (original.notes ? original.notes + ' ' : '') +
+              `[ACV Override: Client ACV >$5K ($${acv.toLocaleString()}/yr). Meta cold traffic not recommended per MB1 rules. ` +
+              `Campaign repurposed for warm/retargeting audiences. Shift interest targeting to lookalike of website visitors and LinkedIn engagers.]`,
+          };
+        }
+      }
+    }
+
+    // ── ACV < $3,000 → LinkedIn NOT recommended ──
+    if (acv < 3000) {
+      const hasLinkedIn = fixedPlatforms.some(p => p.platform.toLowerCase().includes('linkedin'));
+      if (hasLinkedIn) {
+        warnings.push(
+          `ACV RULE WARNING: Client ACV is $${acv.toLocaleString()}/yr (<$3,000). ` +
+          `LinkedIn CPL typically exceeds ROI threshold for low-ACV offers. ` +
+          `Consider reallocating LinkedIn budget to Meta + Google.`,
+        );
+      }
+    }
+  }
+
+  // ── Enterprise (1000+ employees) → Meta warning ──
+  // Only triggers when "1000+" is in the companySize array (parsed as 1001)
+  if (maxCompanySize > 1000) {
+    const hasMeta = fixedPlatforms.some(p => p.platform.toLowerCase().includes('meta'));
+    if (hasMeta) {
+      warnings.push(
+        `COMPANY SIZE WARNING: ICP targets ${maxCompanySize >= 1001 ? '1000+' : maxCompanySize}+ employees (enterprise). ` +
+        `Meta typically underperforms for enterprise B2B targeting. ` +
+        `Consider reallocating to LinkedIn + Google.`,
+      );
+    }
+  }
+
+  // ── Platform Minimum Budget Flags ──
+  for (let i = 0; i < fixedPlatforms.length; i++) {
+    const platform = fixedPlatforms[i];
+    const pNameLC = platform.platform.toLowerCase();
+    const monthly = platform.monthlySpend;
+    if (monthly <= 0) continue;
+
+    for (const [key, minimum] of Object.entries(PLATFORM_MINIMUM_BUDGETS)) {
+      if (pNameLC.includes(key) && monthly < minimum) {
+        warnings.push(
+          `BELOW PLATFORM MINIMUM: ${platform.platform} allocated $${monthly.toLocaleString()}/mo ` +
+          `but recommended minimum is $${minimum.toLocaleString()}/mo. ` +
+          `Results may be limited by insufficient data for optimization. ` +
+          `Flagged as experimental test only.`,
+        );
+
+        adjustments.push({
+          field: `platformStrategy.${platform.platform}.belowMinimum`,
+          originalValue: String(platform.belowMinimum ?? false),
+          adjustedValue: 'true',
+          rule: 'PlatformMinimum_Flag',
+          reason: `${platform.platform} allocated $${monthly.toLocaleString()}/mo, below recommended minimum $${minimum.toLocaleString()}/mo. Flagged as experimental test.`,
+        });
+
+        fixedPlatforms[i] = {
+          ...platform,
+          belowMinimum: true,
+          rationale: `[Below recommended minimum ($${minimum.toLocaleString()}/mo) — experimental test only. Results may be limited by insufficient data for optimization.] ${platform.rationale}`,
+        };
+
+        break; // only match one minimum per platform
+      }
+    }
+  }
+
+  return {
+    platformStrategy: fixedPlatforms,
+    campaignStructure: { ...campaignStructure, campaigns: fixedCampaigns },
+    adjustments,
+    warnings,
+  };
 }
 
 // =============================================================================

@@ -360,6 +360,27 @@ QUALITY STANDARDS:
 - sourceConfidence must reflect the ACTUAL source cited in the benchmark field. A "WordStream 2025 report" is confidence 3. "Meta Ads Manager average" is confidence 4. Uncited claims are confidence 1.
 - scenarioThresholds are only required when sensitivity analysis data is provided in context. If no sensitivity data, omit entirely.
 
+CRITICAL METRIC DEFINITIONS — use these EXACTLY:
+
+ROAS (Return on Ad Spend):
+  Formula: (new_customers_this_month × monthly_offer_price) / monthly_ad_spend
+  This is a MONTHLY metric. For subscription businesses, Month 1 ROAS is almost always < 1.0x
+  because you don't recoup full customer acquisition cost in the first billing cycle.
+  DO NOT use LTV in the ROAS formula. ROAS measures period revenue vs period spend.
+  When setting a ROAS target, state the expected Month 1 ROAS explicitly.
+  Also state "breakeven ROAS expected at month X" based on offer price vs CAC.
+
+LTV:CAC Ratio:
+  Formula: customer_LTV / CAC
+  This is a LIFETIME metric measuring overall unit economics health.
+  Healthy: >= 3:1. Below ideal: 1:1 to 2.9:1. Unsustainable: < 1:1.
+  Label this metric "LTV:CAC Ratio" in the KPI targets, NOT "ROAS".
+
+These are DIFFERENT metrics. Do NOT use LTV-based calculations in the ROAS field.
+Do NOT use single-month revenue in the LTV:CAC field.
+NEVER put two different values for the same metric in the same KPI row.
+NEVER put a competing formula in the benchmark description that contradicts the target value.
+
 BENCHMARK SOURCE RULES (CRITICAL — follow exactly):
 1. NEVER fabricate source names, report titles, or citation numbers. Do not invent author names, publication names, or year-specific report titles. If you cannot find a specific benchmark with a real, verifiable source, state "Industry standard estimate — no specific source available" and provide a RANGE instead of a point value (e.g., "$50-$120 CPL" not "$85 CPL").
 2. When the research document or context contains real data (competitor spend numbers, actual CPC data from keyword research, platform-specific metrics), ALWAYS prefer this over generic benchmarks. Label as "Research Doc §[section number]" or "Client Research Data" in the benchmark field.

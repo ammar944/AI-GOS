@@ -138,6 +138,8 @@ export interface CampaignTemplate {
   dailyBudget: number;
   /** Ad sets within this campaign */
   adSets: AdSetTemplate[];
+  /** Optional notes / override flags added by validation */
+  notes?: string;
 }
 
 export interface AdSetTemplate {

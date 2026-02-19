@@ -213,6 +213,9 @@ const campaignTemplateSchema = z.object({
   adSets: z.array(adSetTemplateSchema)
     .min(1).max(5)
     .describe('1-3 ad sets per campaign. Each ad set tests a different audience or targeting approach.'),
+
+  notes: z.string().optional()
+    .describe('Optional override notes or special instructions for this campaign (e.g., ACV override flags).'),
 }).describe('Campaign template with objectives, budget, and ad sets');
 
 const namingConventionSchema = z.object({

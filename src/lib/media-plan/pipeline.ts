@@ -60,6 +60,7 @@ import {
   validateWithinPlatformBudgets,
   validateCampaignNaming,
   validateRetargetingPoolRealism,
+  validatePlatformCompliance,
   estimateRetentionMultiplier,
   validateRiskMonitoring,
   type CACModelInput,
@@ -317,6 +318,7 @@ export async function runMediaPlanPipeline(
       kpiTargets,
       performanceModel.cacModel,
       budgetAllocation.totalMonthlyBudget,
+      onboarding.productOffer.offerPrice,
     );
     if (kpiOverrides.length > 0) {
       console.log(`[MediaPlan:Pipeline] KPI overrides: ${kpiOverrides.map(o => `${o.rule}: ${o.reason}`).join('; ')}`);
@@ -354,15 +356,33 @@ export async function runMediaPlanPipeline(
       console.log(`[MediaPlan:Pipeline] Within-platform budget adjustments: ${withinPlatformResult.adjustments.map(a => a.rule).join(', ')}`);
     }
 
-    // --- Phase 2E: Campaign naming consistency ---
-    onProgress?.('Validating campaign naming conventions...', 74);
+    // --- Phase 2E: ACV + Platform Minimum Compliance ---
+    onProgress?.('Validating ACV rules and platform minimums...', 74);
+    const complianceResult = validatePlatformCompliance(
+      platformStrategy,
+      validatedCampaignStructure,
+      onboarding,
+    );
+    validatedCampaignStructure = complianceResult.campaignStructure;
+    // Update platformStrategy with belowMinimum flags and rationale prepends
+    // (platformStrategy is used downstream for exec summary and risk context)
+    const validatedPlatformStrategy = complianceResult.platformStrategy;
+    if (complianceResult.warnings.length > 0) {
+      console.warn(`[MediaPlan:Pipeline] Platform compliance warnings: ${complianceResult.warnings.join('; ')}`);
+    }
+    if (complianceResult.adjustments.length > 0) {
+      console.log(`[MediaPlan:Pipeline] Platform compliance adjustments: ${complianceResult.adjustments.map(a => a.rule).join(', ')}`);
+    }
+
+    // --- Phase 2F: Campaign naming consistency ---
+    onProgress?.('Validating campaign naming conventions...', 75);
     const namingResult = validateCampaignNaming(validatedCampaignStructure);
     validatedCampaignStructure = namingResult.campaignStructure;
     if (namingResult.adjustments.length > 0) {
       console.log(`[MediaPlan:Pipeline] Naming adjustments: ${namingResult.adjustments.map(a => a.rule).join(', ')}`);
     }
 
-    // --- Phase 2F: Phase budget reconciliation ---
+    // --- Phase 2G: Phase budget reconciliation ---
     const phaseBudgetResult = validatePhaseBudgets(
       campaignPhases,
       budgetAllocation.totalMonthlyBudget,
@@ -374,7 +394,7 @@ export async function runMediaPlanPipeline(
       console.log(`[MediaPlan:Pipeline] Phase budget adjustments: ${phaseBudgetResult.adjustments.map(a => a.rule).join(', ')}`);
     }
 
-    // --- Phase 2G: Retargeting pool realism check ---
+    // --- Phase 2H: Retargeting pool realism check ---
     const hasExistingPaidTraffic = (blueprint.keywordIntelligence?.clientDomain?.paidKeywords ?? 0) > 0;
     const hasOrganicKeywords = (blueprint.keywordIntelligence?.clientDomain?.organicKeywords ?? 0) > 0;
     const retargetingResult = validateRetargetingPoolRealism({
@@ -398,13 +418,13 @@ export async function runMediaPlanPipeline(
     // PHASE 3: Final Synthesis (Parallel, Claude Sonnet)
     // =========================================================================
     const phase3Start = Date.now();
-    onProgress?.('Phase 3: Writing executive summary and risk analysis...', 75);
+    onProgress?.('Phase 3: Writing executive summary and risk analysis...', 78);
 
     const execSummaryCtx = buildExecutiveSummaryContext(
-      onboarding, platformStrategy, budgetAllocation, performanceModel, finalCampaignPhases, reconciledKPIs, resolvedTargets, blueprint,
+      onboarding, validatedPlatformStrategy, budgetAllocation, performanceModel, finalCampaignPhases, reconciledKPIs, resolvedTargets, blueprint,
     );
     const riskCtx = buildRiskMonitoringContext(
-      blueprint, onboarding, platformStrategy, budgetAllocation, performanceModel, creativeStrategy, resolvedTargets,
+      blueprint, onboarding, validatedPlatformStrategy, budgetAllocation, performanceModel, creativeStrategy, resolvedTargets,
     );
 
     emitSection('executiveSummary', 'start', 'final');
@@ -448,7 +468,7 @@ export async function runMediaPlanPipeline(
 
     const mediaPlan: MediaPlanOutput = {
       executiveSummary,
-      platformStrategy,
+      platformStrategy: validatedPlatformStrategy,
       icpTargeting,
       campaignStructure: validatedCampaignStructure,
       creativeStrategy,

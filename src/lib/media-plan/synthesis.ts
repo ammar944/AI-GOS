@@ -137,6 +137,25 @@ RULES:
 - Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
 - When referencing benchmarks or industry data, use ONLY data provided in the context. Do NOT fabricate source names, report titles, or citations. If stating a general industry benchmark, say "industry standard" — do not invent a specific source.
 
+META ACV GATE — CHECK BEFORE GENERATING META CAMPAIGNS:
+
+Calculate client ACV: if pricing model is monthly, ACV = offer price × 12. If annual, ACV = offer price.
+The client's offer price and pricing model are in the Client Brief section of the context.
+
+If client ACV > $5,000:
+  - Meta COLD campaigns are NOT recommended
+  - ONLY generate Meta RETARGETING campaigns (funnelStage: "warm" or "hot")
+  - All Meta audiences must be warm: website visitors, video viewers, lead form
+    engagers, LinkedIn traffic retargeting, lookalikes of converters
+  - Do NOT use interest-based or job-title cold targeting on Meta
+  - If generating a Meta cold campaign despite this rule, you MUST include an
+    explicit override note in the campaign notes explaining why (e.g., "ACV override:
+    testing hypothesis that [specific reason]")
+
+If client ACV < $5,000:
+  - Meta cold IS appropriate (lower CPL aligns with deal economics)
+  - Full Meta template applies
+
 PLATFORM-SPECIFIC CAMPAIGN TEMPLATES:
 
 You MUST follow these platform-specific templates. Do NOT generate generic campaigns.
@@ -456,6 +475,14 @@ BUDGET RULES:
 - monthlyBudget per platform = totalMonthlyBudget × percentage / 100 (exact math)
 - dailyCeiling MUST NOT exceed totalMonthlyBudget / 30
 - Funnel split: cold 50-70%, warm 20-30%, hot 10-20% — percentages must sum to 100%
+
+PLATFORM MINIMUM BUDGET FLAGS:
+When a platform's allocated budget falls below its recommended minimum, you MUST include
+this exact language in the platform's rationale or ramp-up strategy:
+- Meta < $3,000/mo: "Below recommended minimum ($3,000/mo) — experimental test only. Results may be limited by insufficient data for algorithm optimization."
+- Google < $5,000/mo: "Below recommended minimum ($5,000/mo) — experimental test only. Limited keyword coverage and slower learning phase expected."
+- LinkedIn < $5,000/mo: "Below recommended minimum ($5,000/mo) — experimental test only. Audience reach may be insufficient for meaningful testing."
+Do NOT skip this flag. Clients need to understand the risk of under-investing in a platform.
 - Monthly roadmap: 3-6 months with specific scaling triggers
 - Monthly roadmap MUST include contingency triggers: specific thresholds that activate budget reallocation (e.g., "If CPL exceeds worst-case threshold for 7+ days, shift 20% from Meta to Google")
 - When sensitivity analysis scenarios are available in context, the ramp-up strategy should reference worst-case CPL as the ceiling for scaling decisions. Do not scale past Phase 1 budget levels until CPL is consistently below base-case threshold.
