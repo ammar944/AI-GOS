@@ -802,25 +802,14 @@ export function DocumentUploadPanel({ onPrefillComplete }: DocumentUploadPanelPr
                 disabled={!selectedFile}
                 className="w-full py-3 px-4 rounded-lg text-[14px] font-medium flex items-center justify-center gap-2"
                 style={{
-                  background: panelState === "success"
-                    ? "rgba(34, 197, 94, 0.2)"
-                    : "linear-gradient(135deg, rgb(139, 92, 246) 0%, rgb(109, 40, 217) 100%)",
+                  background: "linear-gradient(135deg, rgb(139, 92, 246) 0%, rgb(109, 40, 217) 100%)",
                   color: "#ffffff",
                   opacity: !selectedFile ? 0.5 : 1,
                   cursor: !selectedFile ? "not-allowed" : "pointer",
                 }}
               >
-                {panelState === "success" ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    <span>Extraction Complete</span>
-                  </>
-                ) : (
-                  <>
-                    <FileUp className="h-4 w-4" />
-                    <span>Extract & Auto-Fill</span>
-                  </>
-                )}
+                <FileUp className="h-4 w-4" />
+                <span>Extract & Auto-Fill</span>
               </MagneticButton>
             </div>
           </motion.div>
