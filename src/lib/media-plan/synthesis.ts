@@ -101,7 +101,7 @@ const SONNET_MODEL = MODELS.CLAUDE_SONNET;
 // Per-section output token limits — generous to avoid mid-word truncation.
 // Pipeline runs Phase 2 sequentially with rate-limit retry as safety net.
 const SECTION_MAX_TOKENS: Record<string, number> = {
-  campaignStructure: 6000,   // largest section: campaigns, ad sets, naming, retargeting, negatives
+  campaignStructure: 8000,   // largest section: campaigns, ad sets, naming, retargeting, negatives
   creativeStrategy: 5000,    // angles, format specs, testing plan, refresh cadence, brand guidelines
   campaignPhases: 4000,      // 3-4 phases with activities and criteria
   budgetAndMonitoring: 4500, // budget allocation + monitoring schedule
@@ -135,6 +135,177 @@ RULES:
 - All campaigns must reference ONLY platforms from the validated platform strategy
 - All targeting must reference ONLY segments from the validated ICP targeting
 - Do NOT include citation markers like [1], [5], [8], or any bracketed numbers in the output. If referencing a benchmark or data source, name it inline (e.g., "per WordStream 2025 industry benchmarks") or omit the reference entirely. Raw citation markers are not useful to the end user.
+
+PLATFORM-SPECIFIC CAMPAIGN TEMPLATES:
+
+You MUST follow these platform-specific templates. Do NOT generate generic campaigns.
+These come from proven media buyer frameworks. The generic "minimum 3 campaigns" rule
+above is a FLOOR — these templates define the actual structure.
+
+══════════════════════════════════════════════════════════════
+LINKEDIN CAMPAIGNS (when LinkedIn is a selected platform)
+══════════════════════════════════════════════════════════════
+
+Generate 3-4 campaigns depending on budget. If LinkedIn budget >= $6K/mo, include all 4.
+If < $6K/mo, drop Campaign 1 (CTV) and redistribute to Campaign 2.
+
+CAMPAIGN 1: CTV / Awareness (10-15% of LinkedIn budget)
+- Objective: Brand Awareness or Video Views
+- Ad Set 1: ICP Job Titles + Company Size + Industry (from ICP targeting data)
+  - Format: Video ads 15-60s
+  - Purpose: Build awareness, generate video viewer audiences for retargeting
+- Daily Budget: (LinkedIn monthly budget × 0.125) / 30
+- Skip if LinkedIn budget < $6,000/mo
+
+CAMPAIGN 2: Prospecting Lead Gen (50-60% of LinkedIn budget)
+- Objective: Lead Generation (Lead Gen Forms)
+- Ad Set 1: ICP Job Titles — Primary Segment
+  - Targeting: Priority 1 segment from ICP targeting data
+  - Ads: 3-4 ads mixing Thought Leader Ads, Carousel, Single Image
+- Ad Set 2: ICP Job Titles — Secondary Segment
+  - Targeting: Priority 2 segment from ICP targeting data
+  - Ads: 3-4 ads
+- Ad Set 3: ABM Company List (optional, if client has account list)
+  - Targeting: Uploaded company list + matched audiences
+  - Ads: 3 ads with account-specific messaging
+- Daily Budget: (LinkedIn monthly budget × 0.55) / 30
+
+CAMPAIGN 3: MoFu Thought Leadership (15-20% of LinkedIn budget)
+- Objective: Website Visits or Lead Generation
+- Ad Set 1: Case Study / Customer Story promotion
+  - Targeting: Website visitors 30d + video viewers 50%+ from Campaign 1
+  - Ads: 2-3 ads featuring customer outcomes
+- Ad Set 2: POV / Webinar content
+  - Targeting: Lead form openers who didn't submit + page followers
+  - Ads: 2-3 ads
+- Daily Budget: (LinkedIn monthly budget × 0.175) / 30
+- Activation: Week 2-3 after Campaign 2 generates engagement data
+
+CAMPAIGN 4: Retargeting — Conversation Ads + Image (10-15% of LinkedIn budget)
+- Objective: Lead Generation or Conversions
+- Ad Set 1: Conversation Ads
+  - Targeting: Website visitors 7d + lead form openers not submitted
+  - Format: Conversation Ads with 2 workflow paths
+  - Path A: Address top objection from research data → Demo booking
+  - Path B: Offer alternative engagement (resource download) → Nurture
+- Ad Set 2: Single Image / Video Retargeting
+  - Targeting: Website visitors 30d + video viewers 75%+
+  - Ads: 4-6 variations (urgency, social proof, price comparison)
+- Daily Budget: (LinkedIn monthly budget × 0.125) / 30
+- Activation: Week 3-4 after sufficient retargeting pool builds
+
+══════════════════════════════════════════════════════════════
+GOOGLE CAMPAIGNS (when Google is a selected platform)
+══════════════════════════════════════════════════════════════
+
+Generate 3-4 campaigns. Campaign 2 (Competitor Branded) is MANDATORY when competitors
+are identified in the research data or context.
+
+CAMPAIGN 1: Brand Campaign (10-15% of Google budget)
+- Objective: Search — Conversions
+- Keywords: [client brand name], [client brand + product], [client brand + review]
+- Ad Format: Responsive Search Ads with sitelinks
+- Bid Strategy: Target Impression Share (top of page)
+- Daily Budget: (Google monthly budget × 0.125) / 30
+- Purpose: Protect brand terms, cheapest conversions
+
+CAMPAIGN 2: Competitor Branded Campaign (25-35% of Google budget) ★ MANDATORY
+- Objective: Search — Conversions
+- Keywords: For EACH competitor identified in the research data or context, generate:
+  - "[competitor name]" (exact match)
+  - "[competitor name] alternative" (phrase match)
+  - "[competitor name] vs" (phrase match)
+  - "[competitor name] pricing" (phrase match)
+  - "[competitor name] reviews" (phrase match)
+- Ad Format: Responsive Search Ads
+  - Headlines MUST include: client USP, speed/ease advantage, pricing advantage
+  - Descriptions MUST address: why switch, key differentiator, social proof
+- Bid Strategy: Maximize Conversions with Target CPA
+- Daily Budget: (Google monthly budget × 0.30) / 30
+- Purpose: Capture high-intent comparison shoppers
+- IMPORTANT: Pull ALL competitor names from the context. If competitors are listed,
+  this campaign is required. Do NOT skip it.
+
+CAMPAIGN 3: Non-Branded / High-Intent Search (35-45% of Google budget)
+- Objective: Search — Conversions
+- Keywords: Pull from high-intent keywords in context (keywords with CPC data)
+  - Focus on solution-aware terms (e.g., "marketing attribution software")
+  - Include problem-aware terms (e.g., "how to track marketing ROI")
+- Ad Format: Responsive Search Ads + sitelinks + callouts + structured snippets
+- Negative Keywords MUST include:
+  - Standard: free, jobs, career, course, tutorial, salary, intern, student
+  - All competitor names from Campaign 2 (prevent cannibalization between campaigns)
+- Bid Strategy: Target CPA
+- Daily Budget: (Google monthly budget × 0.40) / 30
+
+CAMPAIGN 4: Display / YouTube Remarketing (10-15% of Google budget)
+- Objective: Display — Conversions
+- Targeting: Website visitors 90d + YouTube viewers
+- Ad Format: Responsive Display Ads
+- Bid Strategy: Target CPA
+- Daily Budget: (Google monthly budget × 0.125) / 30
+- Activation: Week 3-4 after search campaigns build retargeting pool
+
+══════════════════════════════════════════════════════════════
+META CAMPAIGNS (when Meta is a selected platform)
+══════════════════════════════════════════════════════════════
+
+Generate 2-3 campaigns depending on budget.
+
+CAMPAIGN 1: Lead Gen Form (50-60% of Meta budget)
+- Objective: Lead Generation (native lead forms)
+- Ad Set 1: Interest-Based + Job Title Targeting
+  - Targeting: From ICP targeting data — interests, job titles, company size
+  - Ads: 3x UGC/testimonial videos (Pain, Claim, Gain hooks)
+        3x Static images (USP-focused)
+        2x Product demo videos (if available)
+- Ad Set 2: ABM Lookalike (1%)
+  - Targeting: 1% Lookalike of converters or website purchasers
+  - Ads: Same creative mix as Ad Set 1
+- Daily Budget: (Meta monthly budget × 0.55) / 30
+
+CAMPAIGN 2: Website Conversions (30-40% of Meta budget)
+- Objective: Conversions (optimize for demo booking / trial signup)
+- Ad Set 1: Interest-Based targeting (same as Campaign 1)
+  - Same creative mix
+- Ad Set 2: Retargeting
+  - Targeting: Website visitors 30d + video viewers 50%+ + lead form openers
+  - Ads: 3x social proof/case study, 2x urgency, 1x competitor comparison
+- Daily Budget: (Meta monthly budget × 0.35) / 30
+- Retargeting ad set activates Week 3-4
+
+CAMPAIGN 3: Brand Awareness / Video Views (only if Meta budget > $5K/mo)
+- Objective: Brand Awareness or ThruPlay
+- Targeting: Broad ICP interests
+- Ads: 2x brand story videos
+- Daily Budget: (Meta monthly budget × 0.10) / 30
+- Skip if Meta budget <= $5,000/mo
+
+══════════════════════════════════════════════════════════════
+
+WITHIN-PLATFORM BUDGET VALIDATION:
+For each platform, verify that the sum of all campaign daily budgets equals
+the platform's monthly budget divided by 30 (±5%). If they don't reconcile,
+adjust campaign daily budgets proportionally.
+
+CAMPAIGN NAMING CONVENTIONS:
+Format: [Client]_[Platform]_[Objective]_[Audience]_[Year]
+- Platform codes: LI, GG, META, TT, YT
+- Year: MUST use current year
+- NEVER include: "financing", "credit", "loan", "insurance"
+
+Examples:
+- ClientName_LI_LeadGen_VPMarketing_2026
+- ClientName_GG_Competitor_DreamdataAlt_2026
+- ClientName_META_LeadGen_Interest_2026
+
+RETARGETING SEGMENTS (apply across all platforms):
+| Segment | Lookback | Messaging |
+| Website visitors all pages | 7 days | Urgency, limited offer |
+| Website visitors all pages | 30 days | Social proof, case studies |
+| Website visitors pricing/demo | 14 days | Objection handling |
+| Video viewers 50%+ | 30 days | Deeper product education |
+| Lead form openers not submitted | 14 days | Reduce friction, alternative CTA |
 
 OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema.`,
 

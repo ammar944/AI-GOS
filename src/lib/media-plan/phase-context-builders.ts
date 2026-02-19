@@ -190,6 +190,17 @@ export function buildCampaignStructureContext(
     sections.push(`- ${seg.name} (${seg.funnelPosition}): ${seg.description}`);
   }
 
+  // Identified competitors (critical for Google competitor branded campaigns)
+  const competitors = blueprint?.competitorAnalysis?.competitors;
+  if (competitors?.length) {
+    sections.push('## Identified Competitors');
+    for (const comp of competitors.slice(0, 8)) {
+      sections.push(`- ${comp.name}`);
+    }
+    sections.push('');
+    sections.push('INSTRUCTION: Google Ads MUST include a Competitor Branded campaign targeting these competitor names as keywords. Each competitor needs exact match, "alternative", "vs", "pricing", and "reviews" keyword variants.');
+  }
+
   // Keyword intelligence from research (if available)
   if (blueprint?.keywordIntelligence?.highIntentKeywords?.length) {
     sections.push('## High-Intent Keywords (from research)');
