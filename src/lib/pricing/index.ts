@@ -4,6 +4,7 @@
 export {
   extractPricing,
   extractPricingBatch,
+  deduplicatePricingTiers,
 } from './extraction';
 
 export {

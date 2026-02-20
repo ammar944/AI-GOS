@@ -3,7 +3,7 @@
 
 import { createFirecrawlClient } from '@/lib/firecrawl';
 import { createEnhancedAdLibraryService } from '@/lib/ad-library';
-import { extractPricing, type ScoredPricingResult, type ExtractedPricingTier } from '@/lib/pricing';
+import { extractPricing, deduplicatePricingTiers, type ScoredPricingResult, type ExtractedPricingTier } from '@/lib/pricing';
 import { mineCompetitorReviews } from './review-mining';
 import type { CompetitorReviewData } from '@/lib/strategic-blueprint/output-types';
 import type { CompetitorAnalysis } from './schemas';
@@ -132,9 +132,11 @@ export async function enrichCompetitors(
               });
 
               if (extraction.success && extraction.confidence >= 60) {
+                // Deduplicate tiers that share the same plan name (monthly/annual toggle duplicates)
+                const dedupedTiers = deduplicatePricingTiers(extraction.tiers);
                 return {
                   success: true as const,
-                  tiers: extraction.tiers.map((t: ExtractedPricingTier) => ({
+                  tiers: dedupedTiers.map((t: ExtractedPricingTier) => ({
                     tier: t.tier,
                     price: t.price,
                     description: t.description ?? undefined,

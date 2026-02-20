@@ -32,6 +32,8 @@ CRITICAL RULES:
 6. Price formats vary: "$99/mo", "$99/month", "$1,188/year", "€99/mo", "£99/mo", "Free".
 7. Extract billing period if mentioned (monthly, annual, yearly, one-time, per user/seat).
 8. Extract currency if identifiable from price symbols or text.
+9. BILLING TOGGLE HANDLING: If the pricing page shows both monthly and annual/yearly billing options (e.g., a toggle, tabs, or side-by-side monthly vs annual prices), extract ONLY the monthly prices. Set billingPeriod to "monthly". Do NOT create duplicate tiers for the same plan at different billing periods.
+10. DEDUPLICATION: Never extract two tiers with the same plan name. If you see "Starter" twice with different prices, it means monthly vs annual — extract only the lower (monthly) price.
 
 IMPORTANT - Price field requirements:
 - The "price" field is REQUIRED and must ALWAYS be a non-empty string.
@@ -199,6 +201,60 @@ export async function extractPricingBatch(
     failureCount: requests.length - successCount,
     totalCost,
   };
+}
+
+/**
+ * Deduplicate pricing tiers that share the same plan name.
+ * This catches monthly/annual toggle duplicates that slip through LLM extraction.
+ * When duplicates are found, keeps the LOWER price (assumed monthly).
+ */
+export function deduplicatePricingTiers(
+  tiers: ExtractedPricingTier[]
+): ExtractedPricingTier[] {
+  if (tiers.length <= 1) return tiers;
+
+  const seen = new Map<string, ExtractedPricingTier>();
+
+  for (const tier of tiers) {
+    const key = tier.tier.toLowerCase().trim();
+    const existing = seen.get(key);
+
+    if (!existing) {
+      seen.set(key, tier);
+      continue;
+    }
+
+    // Duplicate plan name found — keep the LOWER price (assumed monthly)
+    const existingPrice = parseNumericPrice(existing.price);
+    const newPrice = parseNumericPrice(tier.price);
+
+    // If we can compare numerically, keep the lower one
+    if (existingPrice !== null && newPrice !== null && newPrice < existingPrice) {
+      seen.set(key, tier);
+    }
+    // If we can't parse one of them (e.g. "Custom"), keep the existing one
+  }
+
+  const deduplicated = Array.from(seen.values());
+
+  if (deduplicated.length < tiers.length) {
+    console.log(
+      `[Pricing Extraction] Deduplicated ${tiers.length} → ${deduplicated.length} tiers (removed ${tiers.length - deduplicated.length} billing toggle duplicates)`
+    );
+  }
+
+  return deduplicated;
+}
+
+/**
+ * Parse a price string to a numeric value for comparison.
+ * Returns null if the price is non-numeric (e.g., "Custom", "Contact sales", "Free").
+ */
+function parseNumericPrice(price: string): number | null {
+  // Remove currency symbols, whitespace, and common suffixes
+  const cleaned = price.replace(/[^0-9.,]/g, '').replace(/,/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
 }
 
 /**
