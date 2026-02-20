@@ -128,7 +128,7 @@ function buildContentClusters(keywords: KeywordOpportunity[]): ContentTopicClust
     clusterMap.get(key)!.push(kw);
   }
 
-  // Only keep clusters with 3+ keywords
+  // Only keep clusters with 3+ keywords AND commercial value
   const clusters: ContentTopicCluster[] = [];
   for (const [theme, clusterKeywords] of clusterMap.entries()) {
     if (clusterKeywords.length < 3) continue;
@@ -136,6 +136,11 @@ function buildContentClusters(keywords: KeywordOpportunity[]): ContentTopicClust
     const totalVolume = clusterKeywords.reduce((sum, kw) => sum + kw.searchVolume, 0);
     const avgDifficulty = clusterKeywords.reduce((sum, kw) => sum + kw.difficulty, 0) / clusterKeywords.length;
     const avgCpc = clusterKeywords.reduce((sum, kw) => sum + kw.cpc, 0) / clusterKeywords.length;
+
+    // Require commercial value: at least 1 keyword with non-zero CPC OR meaningful total volume.
+    // Clusters of $0 CPC keywords with low volume are noise (e.g., restaurant name lookups).
+    const hasCommercialValue = clusterKeywords.some(kw => kw.cpc > 0) || totalVolume > 500;
+    if (!hasCommercialValue) continue;
 
     // Determine recommended format based on intent signals
     let format = 'blog';
@@ -824,8 +829,13 @@ export async function enrichKeywordIntelligence(
   // Categorize
   const { quickWins, longTermPlays, highIntentKeywords } = categorizeKeywords(allKeywords);
 
-  // Build content clusters
-  const contentTopicClusters = buildContentClusters(allKeywords);
+  // Build content clusters — apply strict relevance filter to remove keywords that
+  // passed the standard filter on a single generic term (e.g., "ai fiori" matching "ai").
+  // Strict mode requires 2+ relevance term matches or a core product term.
+  const clusterableKeywords = filterConfig
+    ? allKeywords.filter(kw => isKeywordRelevantStrict(kw.keyword, filterConfig))
+    : allKeywords;
+  const contentTopicClusters = buildContentClusters(clusterableKeywords);
 
   // Estimated cost
   const estimatedCost = totalRows * COST_PER_ROW;
