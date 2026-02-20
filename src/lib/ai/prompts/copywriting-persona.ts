@@ -109,4 +109,12 @@ export const MESSAGING_ANGLES_PROMPT = `Create advertising angles and hooks foll
 2. The primary emotion being triggered
 3. A specific, usable headline example
 
-IMPORTANT: Prefer extracting real hooks from competitor ads over generating new ones. Real competitive intelligence is more valuable than AI-generated suggestions.`;
+**HOOK DIVERSITY QUOTAS (prevent single-competitor domination):**
+- MAX 2 hooks from any single competitor (across extracted + inspired)
+- When only 1-2 competitors have ad data (sparse): cap EXTRACTED at 2, INSPIRED at 4, GENERATED at 6
+- When 3+ competitors have ad data (standard): EXTRACTED 4, INSPIRED 4, GENERATED 4
+- When NO competitors have ad data: INSPIRED 6, GENERATED 6 (no extracted)
+- TOTAL: always exactly 12 hooks
+- Every INSPIRED and GENERATED hook MUST match the CLIENT's target segment, NOT the competitor's audience
+
+IMPORTANT: Prefer extracting real hooks from competitor ads over generating new ones. Real competitive intelligence is more valuable than AI-generated suggestions. However, never let one competitor's ads dominate the hook pool.`;

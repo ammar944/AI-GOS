@@ -22,6 +22,8 @@ export const hookExtractionResultSchema = z.object({
       .describe('Number of hooks extracted verbatim from ads'),
     inspiredCount: z.number()
       .describe('Number of hooks inspired by ad patterns'),
+    generatedCount: z.number()
+      .describe('Number of original hooks generated from client data only'),
   }).describe('Summary statistics of the extraction process'),
 }).describe('Result of extracting ad hooks from competitor creatives');
 

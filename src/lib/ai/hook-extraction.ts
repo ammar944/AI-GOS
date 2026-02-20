@@ -1,11 +1,13 @@
 // Hook Extraction Function
 // Lightweight function to extract ad hooks from competitor ads
 // Replaces full re-synthesis for ~80% cost/time reduction
+// Uses tier-based quotas to prevent single-competitor hook domination
 
 import { generateObject } from 'ai';
 import { anthropic, MODELS, GENERATION_SETTINGS, estimateCost } from './providers';
-import { hookExtractionResultSchema, type HookExtractionResult } from './schemas/ad-hook-extraction';
+import { hookExtractionResultSchema } from './schemas/ad-hook-extraction';
 import type { AdHook } from './schemas/cross-analysis';
+import { computeAdDistribution, getHookQuotas } from './hook-diversity-validator';
 
 // =============================================================================
 // Types
@@ -32,12 +34,22 @@ interface CompetitorWithAds {
   };
 }
 
+export interface HookExtractionContext {
+  targetSegment: string;
+  icpDescription: string;
+  valueProp: string;
+  industryVertical: string;
+  brandPositioning: string;
+  uniqueEdge: string;
+}
+
 export interface ExtractAdHooksResult {
   hooks: AdHook[];
   cost: number;
   adsAnalyzed: number;
   extractedCount: number;
   inspiredCount: number;
+  generatedCount: number;
 }
 
 // =============================================================================
@@ -49,11 +61,13 @@ export interface ExtractAdHooksResult {
  *
  * @param competitors - Enriched competitors with adCreatives
  * @param existingHooks - Generated hooks from initial synthesis (fallback + merge)
- * @returns Merged hooks array with extracted/inspired hooks taking priority
+ * @param clientContext - Optional client context for segment-aware extraction
+ * @returns Hooks array with tier-based quotas applied
  */
 export async function extractAdHooksFromAds(
   competitors: CompetitorWithAds[],
-  existingHooks: AdHook[]
+  existingHooks: AdHook[],
+  clientContext?: HookExtractionContext,
 ): Promise<ExtractAdHooksResult> {
   // Gather all ads with content
   const allAds: Array<{ competitor: string; ad: AdCreativeInput }> = [];
@@ -78,8 +92,15 @@ export async function extractAdHooksFromAds(
       adsAnalyzed: 0,
       extractedCount: 0,
       inspiredCount: 0,
+      generatedCount: 0,
     };
   }
+
+  // Compute tier-based quotas
+  const distribution = computeAdDistribution(competitors);
+  const quotas = getHookQuotas(distribution);
+
+  console.log(`[Hook Extraction] Ad distribution: ${distribution}, quotas: extracted=${quotas.extracted}, inspired=${quotas.inspired}, original=${quotas.original}, maxPerCompetitor=${quotas.maxPerCompetitor}`);
 
   // Build focused prompt
   const adsText = allAds
@@ -109,15 +130,40 @@ export async function extractAdHooksFromAds(
     ).join('\n')
     : '';
 
-  const prompt = `Analyze these competitor ads and extract attention-grabbing hooks.
+  // Build client context block
+  const clientContextBlock = clientContext ? `
+## CLIENT CONTEXT (YOUR CLIENT — the business these hooks are FOR)
+- Target Segment: ${clientContext.targetSegment}
+- ICP Description: ${clientContext.icpDescription}
+- Value Proposition: ${clientContext.valueProp}
+- Industry Vertical: ${clientContext.industryVertical}
+- Brand Positioning: ${clientContext.brandPositioning}
+- Unique Edge: ${clientContext.uniqueEdge}
 
+CRITICAL: Every hook you write MUST resonate with the CLIENT's target segment above.
+Competitor ads are REFERENCE MATERIAL ONLY. Do NOT write hooks about the competitor's audience.
+If a competitor targets "fast casual pizza restaurants" but the client targets "fine dining restaurants",
+extract the PATTERN (e.g., urgency, social proof) but rewrite the hook for FINE DINING.
+` : '';
+
+  const prompt = `Analyze these competitor ads and extract attention-grabbing hooks.
+${clientContextBlock}
 ## Competitor Ads
 ${adsText}
 
+## MANDATORY TIER QUOTAS (ad data tier: ${distribution})
+You MUST produce exactly these counts:
+- EXTRACTED hooks (verbatim from ads, source.type = "extracted"): exactly ${quotas.extracted}
+- INSPIRED hooks (patterns adapted for client, source.type = "inspired"): exactly ${quotas.inspired}
+- GENERATED hooks (original, from client data only, source.type = "generated"): exactly ${quotas.original}
+- MAX ${quotas.maxPerCompetitor} hooks per competitor (across extracted + inspired)
+- TOTAL: exactly 12 hooks
+
 ## Instructions
-1. Extract hooks that are verbatim from ads (source.type = "extracted")
-2. Create inspired hooks based on observed patterns (source.type = "inspired")
-3. For each hook, identify:
+1. Extract hooks that are verbatim from ads (source.type = "extracted") — max ${quotas.extracted}
+2. Create inspired hooks based on observed ad PATTERNS but rewritten for the client's segment (source.type = "inspired") — exactly ${quotas.inspired}
+3. Generate original hooks from client data, ICP pain points, and positioning (source.type = "generated") — exactly ${quotas.original}
+4. For each hook, identify:
    - The pattern interrupt technique used (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison)
    - The target awareness level (unaware, problem-aware, solution-aware, product-aware, most-aware)
    - Source attribution (competitor name and platform)
@@ -138,7 +184,7 @@ Focus on hooks that stop the scroll - look for:
 - Specific numbers or timeframes
 - Direct challenges to status quo
 
-Return 5-12 high-quality hooks. Quality over quantity.`;
+Return exactly 12 high-quality hooks matching the tier quotas above.`;
 
   try {
     const startTime = Date.now();
@@ -148,7 +194,7 @@ Return 5-12 high-quality hooks. Quality over quantity.`;
       schema: hookExtractionResultSchema,
       prompt,
       temperature: GENERATION_SETTINGS.synthesis.temperature,
-      maxOutputTokens: 2000, // Focused extraction needs fewer tokens
+      maxOutputTokens: 2500,
     });
 
     const cost = estimateCost(
@@ -157,17 +203,15 @@ Return 5-12 high-quality hooks. Quality over quantity.`;
       usage.outputTokens ?? 0
     );
 
-    console.log(`[Hook Extraction] Completed in ${Date.now() - startTime}ms, cost: $${cost.toFixed(4)}, extracted: ${object.hookSummary.extractedCount}, inspired: ${object.hookSummary.inspiredCount}`);
-
-    // Merge hooks: extracted/inspired take priority over generated
-    const mergedHooks = mergeHooks(object.extractedHooks, existingHooks);
+    console.log(`[Hook Extraction] Completed in ${Date.now() - startTime}ms, cost: $${cost.toFixed(4)}, extracted: ${object.hookSummary.extractedCount}, inspired: ${object.hookSummary.inspiredCount}, generated: ${object.hookSummary.generatedCount}`);
 
     return {
-      hooks: mergedHooks,
+      hooks: object.extractedHooks,
       cost,
       adsAnalyzed: object.hookSummary.totalAdsAnalyzed,
       extractedCount: object.hookSummary.extractedCount,
       inspiredCount: object.hookSummary.inspiredCount,
+      generatedCount: object.hookSummary.generatedCount,
     };
   } catch (error) {
     console.error('[Hook Extraction] Failed, returning existing hooks:', error);
@@ -178,38 +222,7 @@ Return 5-12 high-quality hooks. Quality over quantity.`;
       adsAnalyzed: allAds.length,
       extractedCount: 0,
       inspiredCount: 0,
+      generatedCount: 0,
     };
   }
-}
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/**
- * Merge extracted/inspired hooks with generated hooks
- * - Extracted and inspired hooks take priority (come first)
- * - Generated hooks fill remaining slots
- * - Total capped at 12 hooks
- */
-function mergeHooks(extractedHooks: AdHook[], generatedHooks: AdHook[]): AdHook[] {
-  const MAX_HOOKS = 12;
-
-  // Extracted/inspired hooks first
-  const priorityHooks = extractedHooks.filter(
-    h => h.source?.type === 'extracted' || h.source?.type === 'inspired'
-  );
-
-  // Fill remaining slots with generated hooks (or any without source)
-  const generatedOnly = generatedHooks.filter(
-    h => !h.source || h.source.type === 'generated'
-  );
-
-  const remainingSlots = MAX_HOOKS - priorityHooks.length;
-  const merged = [
-    ...priorityHooks,
-    ...generatedOnly.slice(0, remainingSlots),
-  ];
-
-  return merged;
 }
