@@ -414,6 +414,22 @@ function isKeywordRelevantStrict(keyword: string, config: RelevanceFilterConfig)
   return matchCount >= 2;
 }
 
+/** Check if a keyword is a competitor brand term (e.g., "ask arthur" for competitor "AskArthur") */
+function isCompetitorBrandKeyword(keyword: string, competitorName: string): boolean {
+  const kwNorm = keyword.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  const compNorm = competitorName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+  // Full name match (space-normalized): "askarthur" in "askarthur pricing"
+  const kwNoSpaces = kwNorm.replace(/\s+/g, '');
+  const compNoSpaces = compNorm.replace(/\s+/g, '');
+  if (kwNoSpaces.includes(compNoSpaces)) return true;
+
+  // Individual word match: "loman" from "Loman AI" found in keyword words
+  const compWords = compNorm.split(/\s+/).filter(w => w.length >= 3);
+  const kwWords = new Set(kwNorm.split(/\s+/));
+  return compWords.some(cw => kwWords.has(cw));
+}
+
 // Rough cost estimate: ~$0.005 per row
 const COST_PER_ROW = 0.005;
 
@@ -577,8 +593,8 @@ export async function enrichKeywordIntelligence(
     ...(paidGaps?.strengths ?? []),
   ].filter(kw => !isConsumerNavigational(kw));
 
-  // Convert competitor top keywords to opportunities (NOT relevance-filtered —
-  // these represent what the competitor ranks for, not what must match the client's industry)
+  // Convert competitor top keywords to opportunities (raw here — per-competitor dedup
+  // and relevance filtering is applied later when building the final output).
   const competitorTopKeywordEntries = competitorTopKeywords.map(c => {
     const opportunities = c.keywords.map(kw => toOpportunity(kw, 'competitor_top', [c.name]));
 
@@ -775,13 +791,34 @@ export async function enrichKeywordIntelligence(
     enrichKeyword(kw, 'shared') // Use 'shared' source since these are client-only keywords
   );
 
-  // Deduplicate all keyword lists (including competitor top keywords for categorization)
+  // Filter competitor top keywords before categorization (same relevance pipeline as other sources)
+  let competitorTopForCategorization = allCompetitorTopOpportunities;
+  if (filterConfig && businessContext) {
+    // Layer 1: Navigational + heuristic relevance filter
+    competitorTopForCategorization = allCompetitorTopOpportunities.filter(kw => {
+      if (kw.searchVolume > NAVIGATIONAL_VOLUME_FLOOR && kw.cpc < NAVIGATIONAL_CPC_CEILING) return false;
+      return isKeywordRelevant(kw.keyword, filterConfig);
+    });
+    // Layer 2: Deterministic pre-filter (business names, platform aggregators, mojibake, etc.)
+    const competitorPreFilter = preFilterKeywords(competitorTopForCategorization, {
+      clientCategory: businessContext.industry,
+      clientCompanyName: businessContext.companyName,
+    });
+    competitorTopForCategorization = competitorPreFilter.kept;
+
+    const removedCount = allCompetitorTopOpportunities.length - competitorTopForCategorization.length;
+    if (removedCount > 0) {
+      onProgress?.(`Filtered ${removedCount}/${allCompetitorTopOpportunities.length} irrelevant competitor keywords from categorization pool`);
+    }
+  }
+
+  // Deduplicate all keyword lists (competitor top keywords now relevance-filtered for categorization)
   const allKeywords = deduplicateKeywords([
     ...organicGapOpportunities,
     ...paidGapOpportunities,
     ...sharedKeywordOpportunities,
     ...relatedOpportunities,
-    ...allCompetitorTopOpportunities,
+    ...competitorTopForCategorization,
   ]);
 
   // Categorize
@@ -843,7 +880,16 @@ export async function enrichKeywordIntelligence(
     clientStrengths: deduplicateKeywords(clientStrengthOpportunities).slice(0, 30),
     competitorTopKeywords: competitorTopKeywordEntries.map(c => ({
       ...c,
-      keywords: c.keywords.slice(0, 15),
+      keywords: deduplicateKeywords(
+        filterConfig
+          ? c.keywords.filter(kw => {
+              // Always keep the competitor's own brand terms (valuable competitive intel)
+              if (isCompetitorBrandKeyword(kw.keyword, c.competitorName)) return true;
+              // Filter out keywords irrelevant to the client's business context
+              return isKeywordRelevant(kw.keyword, filterConfig);
+            })
+          : c.keywords
+      ).slice(0, 15),
     })),
     quickWins,
     longTermPlays,
