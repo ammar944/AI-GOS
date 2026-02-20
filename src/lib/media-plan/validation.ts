@@ -13,7 +13,9 @@ import type {
   CampaignPhase,
   KPITarget,
   MonitoringSchedule,
+  MonthlyRoadmap,
   RiskMonitoring,
+  MediaPlanOutput,
 } from './types';
 import type { OnboardingFormData } from '@/lib/onboarding/types';
 
@@ -491,11 +493,15 @@ export function reconcileKPITargets(
     }
 
     // Check 2: Fix SQL volume target
-    if (metric.includes('sql') && (metric.includes('volume') || metric.includes('/month'))) {
-      const match = kpi.target.match(/(\d[\d,]*)/);
+    // Fuzzy match: "SQLs per Month", "SQL per Month", "Monthly SQLs",
+    // "Sales Qualified Leads", "SQL Volume", "SQL/month"
+    if (/sql|sales.qualified/i.test(metric) && !/rate|%|cost/i.test(metric)) {
+      // Parse target: strip non-numeric prefixes like "~", "/month", etc.
+      const match = kpi.target.match(/~?(\d[\d,]*)/);
       if (match) {
         const kpiValue = parseInt(match[1].replace(/,/g, ''), 10);
-        if (Math.abs(kpiValue - cacModel.expectedMonthlySQLs) > cacModel.expectedMonthlySQLs * 0.3) {
+        if (kpiValue > 0 && cacModel.expectedMonthlySQLs > 0 &&
+          Math.abs(kpiValue - cacModel.expectedMonthlySQLs) > cacModel.expectedMonthlySQLs * 0.20) {
           overrides.push({
             field: `kpiTargets.${kpi.metric}`,
             originalValue: kpi.target,
@@ -503,7 +509,25 @@ export function reconcileKPITargets(
             rule: 'KPI_SQL_Override',
             reason: `AI-generated SQL target (${kpiValue}) contradicts computed SQLs (${cacModel.expectedMonthlySQLs} = leads × SQL rate). Overriding with math.`,
           });
-          return { ...kpi, target: `${cacModel.expectedMonthlySQLs}/month` };
+          // Also fix benchmark if it references a stale lead count
+          let fixedBenchmark = kpi.benchmark;
+          if (fixedBenchmark) {
+            const leadRefMatch = fixedBenchmark.match(/~?(\d[\d,]*)\s*leads/i);
+            if (leadRefMatch) {
+              const statedLeads = parseInt(leadRefMatch[1].replace(/,/g, ''), 10);
+              if (statedLeads > 0 && Math.abs(statedLeads - cacModel.expectedMonthlyLeads) / cacModel.expectedMonthlyLeads > 0.20) {
+                fixedBenchmark = fixedBenchmark.replace(leadRefMatch[0], `${cacModel.expectedMonthlyLeads} leads`);
+                overrides.push({
+                  field: `kpiTargets.${kpi.metric}.benchmark`,
+                  originalValue: kpi.benchmark,
+                  adjustedValue: fixedBenchmark,
+                  rule: 'KPI_SQL_Benchmark_LeadFix',
+                  reason: `Benchmark referenced ~${statedLeads} leads but computed leads = ${cacModel.expectedMonthlyLeads}. Corrected.`,
+                });
+              }
+            }
+          }
+          return { ...kpi, target: `${cacModel.expectedMonthlySQLs}/month`, benchmark: fixedBenchmark };
         }
       }
     }
@@ -615,6 +639,49 @@ export function reconcileKPITargets(
             return { ...kpi, target: `${correctMonthlyROAS}x` };
           }
           // If isMonthlyBased — it's correct, no action needed
+        }
+      }
+    }
+
+    // Check 5b: Fix LTV:CAC ratio — should be "X:1" not "$X"
+    // The AI sometimes puts a dollar amount in the LTV:CAC row target (e.g., "<$1875")
+    // instead of the correct ratio format (e.g., "6.4:1").
+    if (
+      (metric.includes('ltv') && metric.includes('cac')) ||
+      metric.includes('ltv:cac') ||
+      (metric.includes('lifetime value') && metric.includes('cac'))
+    ) {
+      const ratioMatch = cacModel.ltvToCacRatio.match(/(\d+\.?\d*)\s*:\s*1/);
+      if (ratioMatch) {
+        const correctRatio = parseFloat(ratioMatch[1]);
+        const currentTarget = kpi.target;
+
+        // Case 1: Dollar format (e.g. "<$1875", "$1,875") — always wrong for LTV:CAC
+        if (/\$\d/.test(currentTarget)) {
+          overrides.push({
+            field: `kpiTargets.${kpi.metric}`,
+            originalValue: currentTarget,
+            adjustedValue: `${correctRatio}:1`,
+            rule: 'KPI_LTV_CAC_Format',
+            reason: `LTV:CAC target ("${currentTarget}") is in dollar format instead of ratio. Corrected to ${correctRatio}:1 from CAC model.`,
+          });
+          return { ...kpi, target: `${correctRatio}:1` };
+        }
+
+        // Case 2: Already ratio format but wrong value (e.g. "3:1" when should be "6.4:1")
+        const existingRatioMatch = currentTarget.match(/(\d+\.?\d*)\s*:\s*1/);
+        if (existingRatioMatch) {
+          const existingRatio = parseFloat(existingRatioMatch[1]);
+          if (correctRatio > 0 && Math.abs(existingRatio - correctRatio) / correctRatio > 0.20) {
+            overrides.push({
+              field: `kpiTargets.${kpi.metric}`,
+              originalValue: currentTarget,
+              adjustedValue: `${correctRatio}:1`,
+              rule: 'KPI_LTV_CAC_Override',
+              reason: `LTV:CAC ratio (${existingRatio}:1) deviates >20% from computed ${correctRatio}:1. Overriding.`,
+            });
+            return { ...kpi, target: `${correctRatio}:1` };
+          }
         }
       }
     }
@@ -977,10 +1044,16 @@ export function validateWithinPlatformBudgets(
       const nameLC = campaign.name.toLowerCase();
       const objectiveLC = (campaign.objective ?? '').toLowerCase();
 
-      // Try to match this campaign to a rule by checking name/objective keywords
-      const matchedRule = rules.campaigns.find(rule =>
-        rule.match.some(keyword => nameLC.includes(keyword) || objectiveLC.includes(keyword)),
+      // Match by name first (more specific), then objective as fallback.
+      // This prevents a retargeting campaign with objective "Lead Generation"
+      // from matching the Prospecting rule before the Retargeting rule.
+      const nameMatch = rules.campaigns.find(rule =>
+        rule.match.some(keyword => nameLC.includes(keyword)),
       );
+      const objectiveMatch = !nameMatch ? rules.campaigns.find(rule =>
+        rule.match.some(keyword => objectiveLC.includes(keyword)),
+      ) : null;
+      const matchedRule = nameMatch || objectiveMatch;
 
       if (!matchedRule) continue; // No matching rule — skip silently
 
@@ -1034,6 +1107,84 @@ export function validateWithinPlatformBudgets(
 }
 
 // =============================================================================
+// Per-Platform Daily Budget Validation
+// =============================================================================
+
+/**
+ * Validate that campaign daily budgets within each platform sum to approximately
+ * match the platform's monthly allocation (monthlySpend / 30).
+ * Catches cases like Google campaigns summing to $139/day when Google's monthly
+ * is $2,250 ($75/day) — an 85% overshoot.
+ *
+ * Auto-fixes by proportionally scaling campaign dailyBudgets for the platform,
+ * then adjusting the largest campaign to absorb rounding drift.
+ */
+export function validatePerPlatformDailyBudgets(
+  platformStrategy: PlatformStrategy[],
+  campaignStructure: CampaignStructure,
+  warnings: string[],
+): CampaignStructure {
+  const fixedCampaigns = campaignStructure.campaigns.map(c => ({ ...c }));
+
+  for (const platform of platformStrategy) {
+    const dailyCeiling = Math.round(platform.monthlySpend / 30);
+    if (dailyCeiling <= 0) continue;
+
+    const platformNameLC = platform.platform.toLowerCase();
+
+    // Find campaign indices that belong to this platform
+    const indices: number[] = [];
+    for (let i = 0; i < fixedCampaigns.length; i++) {
+      const campaignPlatLC = fixedCampaigns[i].platform.toLowerCase();
+      if (
+        campaignPlatLC === platformNameLC ||
+        campaignPlatLC.includes(platformNameLC) ||
+        platformNameLC.includes(campaignPlatLC)
+      ) {
+        indices.push(i);
+      }
+    }
+
+    if (indices.length === 0) continue;
+
+    const sumDaily = indices.reduce((sum, i) => sum + fixedCampaigns[i].dailyBudget, 0);
+    if (sumDaily <= 0) continue;
+
+    const deviation = Math.abs(sumDaily - dailyCeiling) / dailyCeiling;
+    if (deviation <= 0.10) continue; // within 10% tolerance
+
+    const direction = sumDaily > dailyCeiling ? 'over' : 'under';
+    warnings.push(
+      `Per-platform daily budget: ${platform.platform} campaigns sum to $${sumDaily}/day but platform monthly $${platform.monthlySpend} implies $${dailyCeiling}/day (${Math.round(deviation * 100)}% ${direction}). Scaled proportionally.`,
+    );
+
+    // Proportionally scale all campaign dailyBudgets for this platform
+    const scaleFactor = dailyCeiling / sumDaily;
+    for (const idx of indices) {
+      fixedCampaigns[idx] = {
+        ...fixedCampaigns[idx],
+        dailyBudget: Math.round(fixedCampaigns[idx].dailyBudget * scaleFactor),
+      };
+    }
+
+    // Fix rounding drift: adjust the largest campaign
+    const scaledSum = indices.reduce((sum, i) => sum + fixedCampaigns[i].dailyBudget, 0);
+    if (scaledSum !== dailyCeiling) {
+      const largestIdx = indices.reduce((maxIdx, i) =>
+        fixedCampaigns[i].dailyBudget > fixedCampaigns[maxIdx].dailyBudget ? i : maxIdx,
+        indices[0],
+      );
+      fixedCampaigns[largestIdx] = {
+        ...fixedCampaigns[largestIdx],
+        dailyBudget: fixedCampaigns[largestIdx].dailyBudget + (dailyCeiling - scaledSum),
+      };
+    }
+  }
+
+  return { ...campaignStructure, campaigns: fixedCampaigns };
+}
+
+// =============================================================================
 // Campaign Naming Validation
 // =============================================================================
 
@@ -1072,11 +1223,13 @@ export function validateCampaignNaming(
     let fixedName = campaign.name;
 
     // Rule 1: Fix stale year references
-    const yearMatch = fixedName.match(/\b(20\d{2})\b/);
+    // Use (?:_|\b) to match years preceded by underscore (common in campaign names
+    // like "ClientName_LI_LeadGen_2025") since \b fails between _ and digits.
+    const yearMatch = fixedName.match(/(?:_|\b)(20\d{2})(?:$|\b)/);
     if (yearMatch) {
       const foundYear = parseInt(yearMatch[1], 10);
       if (foundYear !== currentYear) {
-        fixedName = fixedName.replace(/\b20\d{2}\b/, String(currentYear));
+        fixedName = fixedName.replace(/((?:_|\b))20\d{2}(?=$|\b)/, `$1${currentYear}`);
         adjustments.push({
           field: `campaignStructure.campaigns.${campaign.name}.name`,
           originalValue: campaign.name,
@@ -1289,6 +1442,8 @@ export function validatePlatformCompliance(
   const acv = calculateACV(onboarding);
   const maxCompanySize = parseMaxCompanySize(onboarding.icp.companySize);
 
+  console.log(`[PlatformCompliance] ACV=$${acv}, maxCompanySize=${maxCompanySize}, campaigns=${fixedCampaigns.length}`);
+
   // Skip ACV checks if we can't determine ACV (no offer price)
   if (acv > 0) {
     // ── ACV > $5,000 → Meta cold traffic NOT recommended ──
@@ -1296,10 +1451,13 @@ export function validatePlatformCompliance(
       const metaColdIndices: number[] = [];
       for (let i = 0; i < fixedCampaigns.length; i++) {
         const c = fixedCampaigns[i];
-        if (c.platform.toLowerCase().includes('meta') && c.funnelStage === 'cold') {
+        // Case-insensitive funnelStage check (defensive — Zod should enforce lowercase)
+        if (c.platform.toLowerCase().includes('meta') && c.funnelStage.toLowerCase() === 'cold') {
           metaColdIndices.push(i);
         }
       }
+
+      console.log(`[PlatformCompliance] ACV > $5K: found ${metaColdIndices.length} Meta cold campaign(s)`);
 
       if (metaColdIndices.length > 0) {
         const campaignNames = metaColdIndices.map(i => fixedCampaigns[i].name);
@@ -1310,9 +1468,19 @@ export function validatePlatformCompliance(
           `Relabeled to warm/retargeting. Review and confirm override if cold Meta is intentional.`,
         );
 
-        // Auto-fix: relabel cold Meta campaigns to warm
+        // Auto-fix: relabel cold Meta campaigns to warm + rename + update ad sets
         for (const idx of metaColdIndices) {
           const original = fixedCampaigns[idx];
+          // Update campaign name: replace cold-related patterns with warm/retargeting equivalents
+          let fixedName = original.name;
+          fixedName = fixedName.replace(/\bcold\b/gi, 'Warm');
+          fixedName = fixedName.replace(/_Cold_/g, '_Warm_');
+          fixedName = fixedName.replace(/\bProspecting\b/gi, 'Retargeting');
+          fixedName = fixedName.replace(/_Prospecting_/g, '_Retargeting_');
+          fixedName = fixedName.replace(/_Interest_/g, '_Retargeting_');
+          fixedName = fixedName.replace(/LeadGen_Interest/gi, 'Retargeting_Warm');
+          fixedName = fixedName.replace(/LeadGen_Cold/gi, 'Retargeting_Warm');
+
           adjustments.push({
             field: `campaignStructure.campaigns.${original.name}.funnelStage`,
             originalValue: 'cold',
@@ -1320,13 +1488,44 @@ export function validatePlatformCompliance(
             rule: 'ACV_MetaColdGate',
             reason: `Client ACV $${acv.toLocaleString()}/yr exceeds $5,000 threshold. Meta cold traffic not recommended. Campaign relabeled to warm/retargeting. Shift targeting to website visitors, video viewers, LinkedIn engagers, and lookalikes of converters.`,
           });
+          if (fixedName !== original.name) {
+            adjustments.push({
+              field: `campaignStructure.campaigns.${original.name}.name`,
+              originalValue: original.name,
+              adjustedValue: fixedName,
+              rule: 'ACV_MetaColdGate_Rename',
+              reason: `Campaign name updated to reflect warm/retargeting relabel (was: "${original.name}").`,
+            });
+          }
+
+          // Update ad sets to reflect warm targeting (deep copy + fix names/targeting)
+          const fixedAdSets = (original.adSets || []).map(adSet => {
+            let fixedAdSetName = adSet.name;
+            let fixedTargeting = adSet.targeting;
+
+            if (/interest|cold|prospecting/i.test(fixedAdSetName)) {
+              fixedAdSetName = fixedAdSetName
+                .replace(/Interest/gi, 'Retargeting')
+                .replace(/Cold/gi, 'Warm')
+                .replace(/Prospecting/gi, 'Retargeting');
+            }
+            if (/interest.based|cold|prospecting/i.test(fixedTargeting)) {
+              fixedTargeting = `[ACV Override: Warm audiences only — website visitors, video viewers, LinkedIn engagers, lookalikes of converters] ${fixedTargeting}`;
+            }
+
+            return { ...adSet, name: fixedAdSetName, targeting: fixedTargeting };
+          });
+
           fixedCampaigns[idx] = {
             ...original,
+            name: fixedName,
             funnelStage: 'warm',
+            adSets: fixedAdSets,
             notes: (original.notes ? original.notes + ' ' : '') +
               `[ACV Override: Client ACV >$5K ($${acv.toLocaleString()}/yr). Meta cold traffic not recommended per MB1 rules. ` +
               `Campaign repurposed for warm/retargeting audiences. Shift interest targeting to lookalike of website visitors and LinkedIn engagers.]`,
           };
+          console.log(`[PlatformCompliance] Relabeled Meta campaign "${original.name}" → "${fixedName}" (cold→warm, ${fixedAdSets.length} ad sets updated)`);
         }
       }
     }
@@ -1420,5 +1619,407 @@ export function validateRiskMonitoring(riskMonitoring: RiskMonitoring): RiskMoni
   return {
     ...riskMonitoring,
     risks: processedRisks as RiskMonitoring['risks'],
+  };
+}
+
+// =============================================================================
+// Monthly Roadmap ↔ Phase Budget Reconciliation
+// =============================================================================
+
+/**
+ * Ensure monthly roadmap amounts are consistent with campaign phase budgets.
+ * Budget and phases are synthesized in parallel, so they can disagree.
+ *
+ * Rules:
+ * 1. If Phase 1 is ~1 month (3-5 weeks), Monthly Roadmap Month 1 should ≈ Phase 1 budget (±15%).
+ * 2. Subsequent months should approximate their overlapping phase budgets.
+ */
+export function reconcileMonthlyRoadmapWithPhases(
+  budgetAllocation: BudgetAllocation,
+  campaignPhases: CampaignPhase[],
+): { budgetAllocation: BudgetAllocation; adjustments: ValidationAdjustment[] } {
+  const adjustments: ValidationAdjustment[] = [];
+  if (!budgetAllocation.monthlyRoadmap?.length || !campaignPhases.length) {
+    return { budgetAllocation, adjustments };
+  }
+
+  const roadmap = budgetAllocation.monthlyRoadmap.map(m => ({ ...m }));
+  const sortedPhases = [...campaignPhases].sort((a, b) => a.phase - b.phase);
+
+  // Build a month-by-month budget expectation from phases
+  // Each phase has a start week (cumulative) and a duration
+  let cumulativeWeeks = 0;
+  const monthBudgets: number[] = [];
+
+  for (const phase of sortedPhases) {
+    const phaseStartWeek = cumulativeWeeks;
+    const phaseDays = phase.durationWeeks * 7;
+    const dailyRate = phase.estimatedBudget / phaseDays;
+
+    // Distribute this phase's budget across calendar months
+    for (let day = 0; day < phaseDays; day++) {
+      const absoluteDay = phaseStartWeek * 7 + day;
+      const monthIdx = Math.floor(absoluteDay / 30);
+      while (monthBudgets.length <= monthIdx) monthBudgets.push(0);
+      monthBudgets[monthIdx] += dailyRate;
+    }
+    cumulativeWeeks += phase.durationWeeks;
+  }
+
+  // Round
+  for (let i = 0; i < monthBudgets.length; i++) {
+    monthBudgets[i] = Math.round(monthBudgets[i]);
+  }
+
+  // Reconcile each roadmap month against phase-derived expectation
+  for (let i = 0; i < roadmap.length && i < monthBudgets.length; i++) {
+    const expected = monthBudgets[i];
+    const actual = roadmap[i].budget;
+    if (expected <= 0 || actual <= 0) continue;
+
+    const deviation = Math.abs(actual - expected) / expected;
+    if (deviation > 0.15) {
+      adjustments.push({
+        field: `budgetAllocation.monthlyRoadmap[${i}].budget`,
+        originalValue: actual,
+        adjustedValue: expected,
+        rule: 'Roadmap_PhaseReconcile',
+        reason: `Monthly Roadmap Month ${i + 1} ($${actual.toLocaleString()}) differs from phase-derived expectation ($${expected.toLocaleString()}) by ${Math.round(deviation * 100)}%. Adjusted to match phase budgets.`,
+      });
+      roadmap[i] = { ...roadmap[i], budget: expected };
+    }
+  }
+
+  // Fix ramp-up free text: "Total Phase N: ~$X,XXX" patterns that disagree with
+  // actual phase estimatedBudget. The AI writes these before validation runs.
+  let fixedRampUp = budgetAllocation.rampUpStrategy;
+  if (fixedRampUp && sortedPhases.length > 0) {
+    // Match patterns like "Total Phase 1: ~$6,000", "Phase 1 total: $6,000",
+    // "Total Phase 1 spend: ~$6K", "Total Phase 1 budget: ~$6,000 over 4 weeks"
+    // Uses [^$]*? to flexibly match any text between "Phase N" and the dollar amount
+    const phaseAmountPattern = /(?:Total\s+)?Phase\s+(\d)[^$]*?\$(\d[\d,]*(?:\.\d+)?[Kk]?)/gi;
+    let rampMatch: RegExpExecArray | null;
+    while ((rampMatch = phaseAmountPattern.exec(fixedRampUp)) !== null) {
+      const phaseNum = parseInt(rampMatch[1], 10);
+      let statedAmount = rampMatch[2].replace(/,/g, '');
+      // Handle "6K" / "14K" shorthand
+      if (/[Kk]$/.test(statedAmount)) {
+        statedAmount = String(parseFloat(statedAmount.replace(/[Kk]/, '')) * 1000);
+      }
+      const statedValue = parseFloat(statedAmount);
+
+      const matchingPhase = sortedPhases.find(p => p.phase === phaseNum);
+      if (matchingPhase && statedValue > 0 && matchingPhase.estimatedBudget > 0) {
+        const phaseDev = Math.abs(statedValue - matchingPhase.estimatedBudget) / matchingPhase.estimatedBudget;
+        if (phaseDev > 0.15) {
+          const correctStr = `$${matchingPhase.estimatedBudget.toLocaleString()}`;
+          fixedRampUp = fixedRampUp.replace(rampMatch[0],
+            rampMatch[0].replace(/~?\$(\d[\d,]*(?:\.\d+)?[Kk]?)/, correctStr));
+          adjustments.push({
+            field: 'budgetAllocation.rampUpStrategy',
+            originalValue: rampMatch[0],
+            adjustedValue: rampMatch[0].replace(/~?\$(\d[\d,]*(?:\.\d+)?[Kk]?)/, correctStr),
+            rule: 'RampUp_PhaseTotalFix',
+            reason: `Ramp-up text stated Phase ${phaseNum} total ~$${Math.round(statedValue).toLocaleString()} but phase estimatedBudget is $${matchingPhase.estimatedBudget.toLocaleString()} (${Math.round(phaseDev * 100)}% deviation). Corrected.`,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    budgetAllocation: { ...budgetAllocation, monthlyRoadmap: roadmap, rampUpStrategy: fixedRampUp },
+    adjustments,
+  };
+}
+
+// =============================================================================
+// Stale Reference Sweep (Post-Assembly)
+// =============================================================================
+
+/**
+ * Deep walk-and-replace across the entire assembled media plan.
+ * Catches stale CAC, ROAS, lead count, and LTV:CAC string references that were
+ * baked into AI-generated free text BEFORE deterministic reconciliation ran.
+ *
+ * Only operates on string fields — numbers and booleans are untouched.
+ * Returns the corrected plan + list of corrections made.
+ */
+export function sweepStaleReferences(
+  mediaPlan: MediaPlanOutput,
+  cacModel: CACModel,
+  monthlyBudget: number,
+  offerPrice?: number,
+): { mediaPlan: MediaPlanOutput; corrections: string[] } {
+  const corrections: string[] = [];
+  const computedCAC = cacModel.targetCAC;
+  const computedLeads = cacModel.expectedMonthlyLeads;
+  const computedCustomers = cacModel.expectedMonthlyCustomers;
+  const computedLTV = cacModel.estimatedLTV;
+
+  // Compute correct LTV:CAC ratio
+  const ltvCacRatio = computedCAC > 0
+    ? (computedLTV / computedCAC).toFixed(1)
+    : '0';
+
+  // Compute correct monthly ROAS for stale ROAS sweep
+  const price = offerPrice ?? 0;
+  const correctMonthlyROAS = (monthlyBudget > 0 && computedCustomers > 0 && price > 0)
+    ? Math.round((computedCustomers * price / monthlyBudget) * 100) / 100
+    : 0;
+
+  // Build correction patterns.
+  // Each pattern has an optional contextPattern: if set, the pattern only fires
+  // on strings where the full text matches the context regex. This prevents
+  // false positives (e.g., replacing "$450" that is a CPL, not a CAC).
+  type Correction = {
+    pattern: RegExp;
+    replacer: (match: string, ...groups: string[]) => string;
+    label: string;
+    contextPattern?: RegExp;
+  };
+  const patterns: Correction[] = [];
+
+  // --- CAC patterns ---
+
+  // Pattern 1: "$450 CAC", "$1,500 CAC target"
+  patterns.push({
+    pattern: /\$(\d[\d,]*)\s*CAC/gi,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `$${computedCAC.toLocaleString()} CAC`;
+      }
+      return _match;
+    },
+    label: 'CAC dollar reference',
+  });
+
+  // Pattern 2: "CAC of $450", "CAC target $450", "CAC: $450"
+  // Preserves the original preposition/separator (of, target, =, :)
+  patterns.push({
+    pattern: /CAC\s*(of|target|[=:])\s*\$(\d[\d,]*)/gi,
+    replacer: (match, preposition, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `CAC ${preposition} $${computedCAC.toLocaleString()}`;
+      }
+      return match;
+    },
+    label: 'CAC target reference',
+  });
+
+  // Pattern 3: "<$XXX" in CAC context — only fire if the full string mentions CAC
+  // This catches KPI-style targets like "<$450" that leaked from the onboarding CAC
+  patterns.push({
+    pattern: /<\$(\d[\d,]*)/g,
+    contextPattern: /cac|cost per acquisition|customer acquisition/i,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `<$${computedCAC.toLocaleString()}`;
+      }
+      return _match;
+    },
+    label: 'KPI-style CAC target',
+  });
+
+  // Pattern 4: "vs. $XXX" or "vs $XXX" in CAC context
+  // Range guard: only replace if the value is within 5x of computed CAC (avoids budget amounts)
+  patterns.push({
+    pattern: /vs\.?\s*\$(\d[\d,]*)/gi,
+    contextPattern: /cac|cost per acquisition|customer acquisition/i,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && value < computedCAC * 5 && Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `vs. $${computedCAC.toLocaleString()}`;
+      }
+      return _match;
+    },
+    label: 'CAC vs. reference',
+  });
+
+  // Pattern 5: "below $XXX" / "under $XXX" / "at or below $XXX" in CAC context
+  patterns.push({
+    pattern: /(?:at\s+or\s+)?(?:below|under)\s+\$(\d[\d,]*)/gi,
+    contextPattern: /cac|cost per acquisition|customer acquisition/i,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `below $${computedCAC.toLocaleString()}`;
+      }
+      return _match;
+    },
+    label: 'CAC below/under reference',
+  });
+
+  // Pattern 6: ">$XXX" threshold in CAC context (e.g., ">$500" when CAC is $1875)
+  patterns.push({
+    pattern: />\$(\d[\d,]*)/g,
+    contextPattern: /cac|cost per acquisition|customer acquisition/i,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `>$${computedCAC.toLocaleString()}`;
+      }
+      return _match;
+    },
+    label: 'CAC threshold reference',
+  });
+
+  // Pattern 7: "<$XXX" WITHOUT CAC context — catches KPI target strings and
+  // success criteria like "<$450". Only fires when the dollar value is within
+  // 5x range of computed CAC (avoids matching CPL targets like "<$75").
+  // Negative lookahead prevents replacing values followed by CPL/CPC/CTR metrics.
+  patterns.push({
+    pattern: /<\$(\d[\d,]*)(?!\s*(?:CPL|CPC|CTR|cost per lead|cost per click))/gi,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value <= 0) return _match;
+      // Only match values in the CAC range (within 5x), not CPL-range values
+      if (value > computedCAC * 5 || value < computedCAC * 0.1) return _match;
+      if (Math.abs(value - computedCAC) / computedCAC > 0.20) {
+        return `<$${computedCAC.toLocaleString()}`;
+      }
+      return _match;
+    },
+    label: 'CAC-range operator target',
+  });
+
+  // --- ROAS patterns ---
+  // The AI may derive ROAS from onboarding CAC (e.g., $997/$450 = 2.2x).
+  // Correct ROAS = (customers × price) / budget.
+  if (correctMonthlyROAS > 0) {
+    patterns.push({
+      pattern: /ROAS\s*>?\s*(\d+\.?\d*)x/gi,
+      replacer: (_match, roasStr) => {
+        const statedROAS = parseFloat(roasStr);
+        if (statedROAS > 0 && Math.abs(statedROAS - correctMonthlyROAS) / Math.max(statedROAS, correctMonthlyROAS) > 0.30) {
+          return `ROAS ${correctMonthlyROAS}x`;
+        }
+        return _match;
+      },
+      label: 'ROAS derived from stale CAC',
+    });
+
+    // Pattern: ">2.2x at target CAC" or "2.2x ROAS" — ROAS value near CAC context
+    patterns.push({
+      pattern: />?\s*(\d+\.?\d*)x\s+(?:at\s+)?(?:target\s+)?CAC/gi,
+      replacer: (_match, roasStr) => {
+        const statedROAS = parseFloat(roasStr);
+        if (statedROAS > 0 && Math.abs(statedROAS - correctMonthlyROAS) / Math.max(statedROAS, correctMonthlyROAS) > 0.30) {
+          return `${correctMonthlyROAS}x at target CAC`;
+        }
+        return _match;
+      },
+      label: 'ROAS-at-CAC reference',
+    });
+  }
+
+  // --- Lead count patterns ---
+
+  // Pattern: "NNN leads" where NNN differs >=20% from computed leads
+  patterns.push({
+    pattern: /(\d[\d,]*)\s*leads/gi,
+    replacer: (_match, amount) => {
+      const value = parseInt(amount.replace(/,/g, ''), 10);
+      if (value > 0 && Math.abs(value - computedLeads) / computedLeads >= 0.20) {
+        return `${computedLeads} leads`;
+      }
+      return _match;
+    },
+    label: 'lead count reference',
+  });
+
+  // --- LTV:CAC patterns ---
+
+  // Pattern: LTV:CAC showing dollar amount (e.g., "$1,875" in LTV:CAC context)
+  patterns.push({
+    pattern: /LTV\s*[:/]\s*CAC\s*(?:Ratio)?\s*[|:]*\s*<?(\$\d[\d,]*)/gi,
+    replacer: () => {
+      return `LTV:CAC Ratio ${ltvCacRatio}:1`;
+    },
+    label: 'LTV:CAC dollar-as-ratio',
+  });
+
+  // --- Google Target CPA fix ---
+  // Google campaigns optimize at conversion (lead) level, so Target CPA should
+  // be the CPL, not the CAC. Fix "Target CPA $450" → "Target CPA $75".
+  const targetCPL = cacModel.targetCPL;
+  if (targetCPL > 0) {
+    patterns.push({
+      pattern: /Target\s+CPA\s+\$(\d[\d,]*)/gi,
+      replacer: (_match, amount) => {
+        const value = parseInt(amount.replace(/,/g, ''), 10);
+        // Only replace if the value looks like a CAC (not already CPL-range)
+        if (value > 0 && Math.abs(value - targetCPL) / targetCPL > 0.30) {
+          return `Target CPA $${targetCPL.toLocaleString()}`;
+        }
+        return _match;
+      },
+      label: 'Google Target CPA (was CAC, should be CPL)',
+    });
+  }
+
+  // --- Daily budget ceiling fix ---
+  // Fix "$600/day budget" references that exceed the daily ceiling
+  const dailyCeiling = Math.round(monthlyBudget / 30);
+  if (dailyCeiling > 0) {
+    patterns.push({
+      pattern: /\$(\d[\d,]*)\/day\s*(budget|allocation|spend)/gi,
+      replacer: (_match, amount, suffix) => {
+        const value = parseInt(amount.replace(/,/g, ''), 10);
+        if (value > dailyCeiling) {
+          return `$${dailyCeiling}/day ${suffix}`;
+        }
+        return _match;
+      },
+      label: 'daily budget exceeds ceiling',
+    });
+  }
+
+  // Walk all string fields and apply corrections
+  function walkAndReplace(obj: unknown): unknown {
+    if (typeof obj === 'string') {
+      let result = obj;
+      for (const { pattern, replacer, label, contextPattern } of patterns) {
+        // If a contextPattern is set, only apply this pattern on strings that match it
+        if (contextPattern && !contextPattern.test(result)) continue;
+        // Reset regex lastIndex for global patterns
+        pattern.lastIndex = 0;
+        const before = result;
+        result = result.replace(pattern, replacer as (...args: string[]) => string);
+        if (result !== before) {
+          corrections.push(`${label}: "${before.slice(0, 80)}..." → "${result.slice(0, 80)}..."`);
+        }
+      }
+      return result;
+    }
+    if (Array.isArray(obj)) return obj.map(walkAndReplace);
+    if (obj && typeof obj === 'object') {
+      const newObj: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        newObj[k] = walkAndReplace(v);
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
+  // Skip cacModel (source of truth) and metadata (not AI-generated).
+  // monitoringSchedule IS AI-generated text and needs sweeping.
+  const { performanceModel, metadata, ...sectionsToSweep } = mediaPlan;
+  const swept = walkAndReplace(sectionsToSweep) as Omit<MediaPlanOutput, 'performanceModel' | 'metadata'>;
+
+  // Sweep monitoringSchedule separately (AI-generated text), preserve cacModel as-is
+  const sweptMonitoring = walkAndReplace(performanceModel.monitoringSchedule) as typeof performanceModel.monitoringSchedule;
+
+  return {
+    mediaPlan: {
+      ...swept,
+      performanceModel: { ...performanceModel, monitoringSchedule: sweptMonitoring },
+      metadata,
+    },
+    corrections,
   };
 }
