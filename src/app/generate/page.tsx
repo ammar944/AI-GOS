@@ -151,7 +151,7 @@ type PageState =
   | "error";
 
 // Pipeline stages for generation progress visualization
-const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Synthesis", "Keywords"];
+const BLUEPRINT_STAGES = ["Industry", "ICP", "Offer", "Competitors", "Keywords", "Synthesis"];
 
 // Map page state to header stage
 function getHeaderStage(pageState: PageState): GenerateStage {
@@ -411,6 +411,21 @@ export default function GeneratePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ onboardingData: data }),
       });
+
+      // Handle non-OK responses before trying to parse
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage: string;
+        try {
+          const errBody = JSON.parse(text);
+          errorMessage = errBody?.error?.message || errBody?.message || `Server error (${response.status})`;
+        } catch {
+          errorMessage = text || `Server error (${response.status})`;
+        }
+        setError({ message: errorMessage, retryable: true });
+        setPageState("error");
+        return;
+      }
 
       // Check if we got a streaming response
       const contentType = response.headers.get("content-type");

@@ -813,7 +813,7 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
 function generateCrossAnalysis(section: CrossAnalysisSynthesis): string {
   const lines: string[] = [];
 
-  lines.push('## Section 5: Cross-Analysis Synthesis\n');
+  lines.push('## Section 6: Cross-Analysis Synthesis\n');
 
   // Key Insights
   const insights = safeArray(section.keyInsights);
@@ -993,7 +993,7 @@ function generateCrossAnalysis(section: CrossAnalysisSynthesis): string {
 function generateKeywordIntelligence(section: KeywordIntelligence): string {
   const lines: string[] = [];
 
-  lines.push('## Section 6: Keyword Intelligence\n');
+  lines.push('## Section 5: Keyword Intelligence\n');
 
   // Domain Overview
   lines.push('### Domain Overview\n');
@@ -1263,14 +1263,14 @@ export function generateBlueprintMarkdown(blueprint: StrategicBlueprintOutput): 
     sections.push(generateCompetitorAnalysis(blueprint.competitorAnalysis));
   }
 
-  // Section 5: Cross-Analysis Synthesis
-  if (blueprint.crossAnalysisSynthesis) {
-    sections.push(generateCrossAnalysis(blueprint.crossAnalysisSynthesis));
-  }
-
-  // Section 6: Keyword Intelligence (optional)
+  // Section 5: Keyword Intelligence (optional)
   if (blueprint.keywordIntelligence) {
     sections.push(generateKeywordIntelligence(blueprint.keywordIntelligence));
+  }
+
+  // Section 6: Cross-Analysis Synthesis
+  if (blueprint.crossAnalysisSynthesis) {
+    sections.push(generateCrossAnalysis(blueprint.crossAnalysisSynthesis));
   }
 
   // Footer with metadata

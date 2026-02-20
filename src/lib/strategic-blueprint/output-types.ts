@@ -606,7 +606,7 @@ export interface CompetitorAnalysis {
 }
 
 // =============================================================================
-// Section 5: Cross-Analysis Synthesis
+// Section 6: Cross-Analysis Synthesis
 // =============================================================================
 
 export interface CrossAnalysisSynthesis {
@@ -723,7 +723,7 @@ export interface SEOAuditData {
 }
 
 // =============================================================================
-// Section 6: Keyword Intelligence (SpyFu)
+// Section 5: Keyword Intelligence (SpyFu)
 // =============================================================================
 
 export type KeywordSource = 'gap_organic' | 'gap_paid' | 'competitor_top' | 'related' | 'shared';
@@ -841,10 +841,10 @@ export interface StrategicBlueprintOutput {
   offerAnalysisViability: OfferAnalysisViability;
   /** Section 4: Competitor Analysis */
   competitorAnalysis: CompetitorAnalysis;
-  /** Section 5: Cross-Analysis Synthesis */
-  crossAnalysisSynthesis: CrossAnalysisSynthesis;
-  /** Section 6: Keyword Intelligence (optional - requires client URL + SpyFu API key) */
+  /** Section 5: Keyword Intelligence (optional - requires client URL + SpyFu API key) */
   keywordIntelligence?: KeywordIntelligence;
+  /** Section 6: Cross-Analysis Synthesis */
+  crossAnalysisSynthesis: CrossAnalysisSynthesis;
   /** Metadata */
   metadata: StrategicBlueprintMetadata;
 }
@@ -902,8 +902,8 @@ export const STRATEGIC_BLUEPRINT_SECTION_ORDER: StrategicBlueprintSection[] = [
   "icpAnalysisValidation",
   "offerAnalysisViability",
   "competitorAnalysis",
-  "crossAnalysisSynthesis",
   "keywordIntelligence",
+  "crossAnalysisSynthesis",
 ];
 
 export const STRATEGIC_BLUEPRINT_SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
