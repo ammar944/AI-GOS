@@ -16,6 +16,7 @@ const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
 interface SectionProgressBarProps {
   sections: StrategicBlueprintSection[];
   currentPage: number;
+  /** Pass -1 or omit to hide the reviewed count (read-only mode) */
   reviewedCount: number;
 }
 
@@ -27,56 +28,35 @@ export function SectionProgressBar({
   const total = sections.length;
   const currentSection = sections[currentPage];
   const progressPercent = ((currentPage + 1) / total) * 100;
+  const showReviewedCount = reviewedCount >= 0;
 
   return (
     <div className="flex items-center gap-3">
       {/* Section counter */}
-      <span
-        className="text-[11px] font-medium tabular-nums shrink-0"
-        style={{
-          color: "var(--accent-blue)",
-          fontFamily: "var(--font-mono), monospace",
-        }}
-      >
+      <span className="text-[11px] font-medium tabular-nums shrink-0 text-blue-400 font-[family-name:var(--font-mono)]">
         {currentPage + 1}/{total}
       </span>
 
       {/* Section name */}
-      <span
-        className="text-[11px] font-medium truncate"
-        style={{
-          color: "var(--text-secondary)",
-          fontFamily: 'var(--font-sans), Inter, sans-serif',
-        }}
-      >
+      <span className="text-[11px] font-medium truncate text-white/60">
         {SECTION_LABELS[currentSection]}
       </span>
 
       {/* Thin progress bar */}
-      <div
-        className="flex-1 h-[3px] rounded-full overflow-hidden"
-        style={{ background: "var(--border-subtle)" }}
-      >
+      <div className="flex-1 h-[3px] rounded-full overflow-hidden bg-white/[0.06]">
         <motion.div
-          className="h-full rounded-full"
-          style={{
-            background: "var(--gradient-primary)",
-          }}
+          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400"
           animate={{ width: `${progressPercent}%` }}
           transition={springs.smooth}
         />
       </div>
 
-      {/* Review count */}
-      <span
-        className="text-[11px] tabular-nums shrink-0"
-        style={{
-          color: "var(--text-quaternary)",
-          fontFamily: "var(--font-mono), monospace",
-        }}
-      >
-        {reviewedCount}/{total}
-      </span>
+      {/* Review count — hidden in read-only mode */}
+      {showReviewedCount && (
+        <span className="text-[11px] tabular-nums shrink-0 text-white/20 font-[family-name:var(--font-mono)]">
+          {reviewedCount}/{total}
+        </span>
+      )}
     </div>
   );
 }

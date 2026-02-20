@@ -95,8 +95,9 @@ export async function classifyKeywordRelevance(
     batches.push(keywords.slice(i, i + BATCH_SIZE));
   }
 
-  for (const batch of batches) {
-    try {
+  // Run all batches in parallel (fail-open per batch)
+  const batchResults = await Promise.allSettled(
+    batches.map(async (batch) => {
       const keywordStrings = batch.map(kw => kw.keyword);
       const prompt = buildClassifierPrompt(keywordStrings, context);
 
@@ -108,50 +109,62 @@ export async function classifyKeywordRelevance(
         maxOutputTokens: 4096,
       });
 
-      // Track cost
-      const batchCost = estimateCost(
-        MODELS.CLAUDE_HAIKU,
-        usage.inputTokens ?? 0,
-        usage.outputTokens ?? 0,
-      );
-      totalCost += batchCost;
+      return { object, usage, batch };
+    }),
+  );
 
-      // Build a set of classified keyword strings for unmatched detection
-      const classifiedSet = new Set<string>();
+  for (let i = 0; i < batchResults.length; i++) {
+    const result = batchResults[i];
+    const batch = batches[i];
 
-      // Process classifications
-      for (const classification of object.classifications) {
-        const kwLower = classification.keyword.toLowerCase().trim();
-        classifiedSet.add(kwLower);
-        const opportunity = kwMap.get(kwLower);
-
-        if (!opportunity) continue; // LLM returned a keyword not in our list
-
-        if (classification.score >= RELEVANCE_THRESHOLD) {
-          relevant.push(opportunity);
-        } else {
-          discarded.push({
-            keyword: opportunity,
-            score: classification.score,
-            reason: classification.reason,
-          });
-        }
-      }
-
-      // Fail-open for any keywords the LLM missed in its response
-      for (const kw of batch) {
-        const kwLower = kw.keyword.toLowerCase().trim();
-        if (!classifiedSet.has(kwLower)) {
-          relevant.push(kw); // Fail-open: unclassified keywords pass through
-        }
-      }
-    } catch (error) {
+    if (result.status === 'rejected') {
       // Fail-open: on any error, pass entire batch through
       console.error(
         `[Keyword Classifier] Batch failed, passing ${batch.length} keywords through:`,
-        error instanceof Error ? error.message : error,
+        result.reason instanceof Error ? result.reason.message : result.reason,
       );
       relevant.push(...batch);
+      continue;
+    }
+
+    const { object, usage } = result.value;
+
+    // Track cost
+    const batchCost = estimateCost(
+      MODELS.CLAUDE_HAIKU,
+      usage.inputTokens ?? 0,
+      usage.outputTokens ?? 0,
+    );
+    totalCost += batchCost;
+
+    // Build a set of classified keyword strings for unmatched detection
+    const classifiedSet = new Set<string>();
+
+    // Process classifications
+    for (const classification of object.classifications) {
+      const kwLower = classification.keyword.toLowerCase().trim();
+      classifiedSet.add(kwLower);
+      const opportunity = kwMap.get(kwLower);
+
+      if (!opportunity) continue; // LLM returned a keyword not in our list
+
+      if (classification.score >= RELEVANCE_THRESHOLD) {
+        relevant.push(opportunity);
+      } else {
+        discarded.push({
+          keyword: opportunity,
+          score: classification.score,
+          reason: classification.reason,
+        });
+      }
+    }
+
+    // Fail-open for any keywords the LLM missed in its response
+    for (const kw of batch) {
+      const kwLower = kw.keyword.toLowerCase().trim();
+      if (!classifiedSet.has(kwLower)) {
+        relevant.push(kw); // Fail-open: unclassified keywords pass through
+      }
     }
   }
 

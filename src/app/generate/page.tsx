@@ -23,11 +23,10 @@ import {
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { createRoot } from "react-dom/client";
-import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
+import { PaginatedBlueprintView } from "@/components/strategic-blueprint/paginated-blueprint-view";
 import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
 import { BlueprintDocument } from "@/components/strategic-research";
-import { RESEARCH_TRANSPARENT_PANEL_CLASS } from "@/components/strategic-research/ui-tokens";
 import { AgentChat } from "@/components/chat";
 import { SplitChatLayout } from "@/components/layout";
 import { MagneticButton } from "@/components/ui/magnetic-button";
@@ -1385,7 +1384,7 @@ export default function GeneratePage() {
   // Complete State - Show Strategic Blueprint
   if (pageState === "complete" && strategicBlueprint) {
     return (
-      <div className="relative flex min-h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
+      <div className="h-screen flex flex-col overflow-hidden bg-[var(--bg-base)]">
         {/* Persistent Navigation Header */}
         <GenerateHeader
           currentStage={getHeaderStage(pageState)}
@@ -1396,335 +1395,217 @@ export default function GeneratePage() {
         <ShaderMeshBackground variant="page" />
         <BackgroundPattern opacity={0.015} />
 
-        <div className="container relative z-10 mx-auto px-5 py-8 md:px-8 md:py-12">
+        <main className="flex-1 min-h-0 flex flex-col relative z-10">
           {/* Success Header */}
-          <motion.div
-            className="mx-auto mb-8 max-w-6xl"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: durations.normal, ease: easings.out }}
-          >
-            <GradientBorder>
-              <div className="p-6">
-                {/* Main header row */}
-                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* Success indicator with pulse */}
-                    <div className="relative">
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-full"
-                        style={{ background: 'rgba(34, 197, 94, 0.15)' }}
-                      >
-                        <CheckCircle2 className="h-6 w-6" style={{ color: 'rgb(34, 197, 94)' }} />
+          <div className="shrink-0 container mx-auto px-4 py-4">
+            <motion.div
+              className="mx-auto max-w-5xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: durations.normal, ease: easings.out }}
+            >
+              <GradientBorder>
+                <div className="p-6">
+                  {/* Main header row */}
+                  <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-4">
+                      {/* Success indicator with pulse */}
+                      <div className="relative">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
+                          <CheckCircle2 className="h-6 w-6 text-green-500" />
+                        </div>
+                        {/* Subtle pulse ring */}
+                        <motion.div
+                          className="absolute inset-0 rounded-full border-2 border-green-500"
+                          initial={{ opacity: 0.5, scale: 1 }}
+                          animate={{ opacity: 0, scale: 1.5 }}
+                          transition={{ duration: 1.5, repeat: 2 }}
+                        />
                       </div>
-                      {/* Subtle pulse ring */}
-                      <motion.div
-                        className="absolute inset-0 rounded-full"
-                        style={{ border: '2px solid rgb(34, 197, 94)' }}
-                        initial={{ opacity: 0.5, scale: 1 }}
-                        animate={{ opacity: 0, scale: 1.5 }}
-                        transition={{ duration: 1.5, repeat: 2 }}
-                      />
+                      <div>
+                        <h2 className="text-xl font-semibold text-white/90 font-[family-name:var(--font-heading)]">
+                          Blueprint Complete
+                        </h2>
+                        <p className="text-sm text-white/40">
+                          {strategicBlueprint?.keywordIntelligence ? '6' : '5'}-section strategic analysis ready
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2
-                        className="text-xl font-semibold"
-                        style={{
-                          color: 'var(--text-heading)',
-                          fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                        }}
-                      >
-                        Blueprint Complete
-                      </h2>
-                      <p
-                        className="text-sm"
-                        style={{
-                          color: 'var(--text-tertiary)',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
-                      >
-                        {strategicBlueprint?.keywordIntelligence ? '6' : '5'}-section strategic analysis ready
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Actions - SaaSLaunch styled buttons:
-                       1. Back to Dashboard (primary gradient - most important)
-                       2. Back to Review (secondary outline)
-                       3. Export PDF (secondary outline)
-                       4. Share (secondary outline)
-                       5. New Blueprint (secondary outline)
-                  */}
-                  <div className="flex flex-wrap items-center gap-3">
-                    <MagneticButton
-                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
-                      onClick={handleGenerateMediaPlan}
-                      style={{
-                        background: 'var(--gradient-primary)',
-                        color: 'white',
-                        fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-                      }}
-                    >
-                      <Wand2 className="h-4 w-4" />
-                      Generate Media Plan
-                    </MagneticButton>
-                    <a href="/dashboard">
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-3">
                       <MagneticButton
-                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                        style={{
-                          border: '1px solid var(--border-default)',
-                          color: 'var(--text-secondary)',
-                          background: 'transparent',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
+                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                        onClick={handleGenerateMediaPlan}
                       >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Back to Dashboard
+                        <Wand2 className="h-4 w-4" />
+                        Generate Media Plan
                       </MagneticButton>
-                    </a>
-                    <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                      onClick={handleBackToReview}
-                      style={{
-                        border: '1px solid var(--border-default)',
-                        color: 'var(--text-secondary)',
-                        background: 'transparent',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Back to Review
-                    </MagneticButton>
-                    <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                      onClick={handleCopyBlueprint}
-                      style={{
-                        border: `1px solid ${blueprintCopied ? 'rgba(34,197,94,0.4)' : 'var(--border-default)'}`,
-                        color: blueprintCopied ? 'var(--success)' : 'var(--text-secondary)',
-                        background: 'transparent',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      {blueprintCopied ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                      {blueprintCopied ? 'Copied' : 'Copy'}
-                    </MagneticButton>
-                    <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                      onClick={handleExportPDF}
-                      disabled={isExporting}
-                      style={{
-                        border: '1px solid var(--border-default)',
-                        color: 'var(--text-secondary)',
-                        background: 'transparent',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      {isExporting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      {isExporting ? 'Exporting...' : 'Export PDF'}
-                    </MagneticButton>
-                    <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                      onClick={handleShare}
-                      disabled={isSharing || !!shareUrl}
-                      style={{
-                        border: '1px solid var(--border-default)',
-                        color: 'var(--text-secondary)',
-                        background: 'transparent',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      {isSharing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : shareUrl ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Share2 className="h-4 w-4" />
-                      )}
-                      {isSharing ? 'Sharing...' : shareUrl ? 'Shared' : 'Share'}
-                    </MagneticButton>
-                    <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                      onClick={handleStartOver}
-                      style={{
-                        border: '1px solid var(--border-default)',
-                        color: 'var(--text-secondary)',
-                        background: 'transparent',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
-                    >
-                      <Wand2 className="h-4 w-4" />
-                      New Blueprint
-                    </MagneticButton>
-                  </div>
-                </div>
-
-                {/* Stats row */}
-                {blueprintMeta && (
-                  <motion.div
-                    className="flex flex-wrap gap-6 mt-6 pt-6"
-                    style={{ borderTop: '1px solid var(--border-subtle)' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                      <span
-                        className="text-sm font-mono"
-                        style={{
-                          color: 'var(--text-secondary)',
-                          fontFamily: 'var(--font-mono)',
-                        }}
-                      >
-                        {Math.round(blueprintMeta.totalTime / 1000)}s
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                      <span
-                        className="text-sm font-mono"
-                        style={{
-                          color: 'var(--text-secondary)',
-                          fontFamily: 'var(--font-mono)',
-                        }}
-                      >
-                        ${blueprintMeta.totalCost.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FileSearch className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                      <span
-                        className="text-sm"
-                        style={{
-                          color: 'var(--text-secondary)',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
-                      >
-                        {strategicBlueprint?.keywordIntelligence ? '6' : '5'} sections analyzed
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Share Link Display */}
-                <AnimatePresence>
-                  {shareUrl && (
-                    <motion.div
-                      className="mt-6 p-4 rounded-lg"
-                      style={{
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-default)',
-                      }}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <div className="flex items-center gap-2 mb-3">
-                        <Link2 className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
-                        <span
-                          className="font-medium text-sm"
-                          style={{
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--font-sans), Inter, sans-serif',
-                          }}
+                      <a href="/dashboard">
+                        <MagneticButton
+                          className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
                         >
-                          Shareable Link
+                          <LayoutDashboard className="h-4 w-4" />
+                          Back to Dashboard
+                        </MagneticButton>
+                      </a>
+                      <MagneticButton
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                        onClick={handleBackToReview}
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to Review
+                      </MagneticButton>
+                      <MagneticButton
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 bg-transparent"
+                        onClick={handleCopyBlueprint}
+                        style={{
+                          border: `1px solid ${blueprintCopied ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                          color: blueprintCopied ? 'rgb(34,197,94)' : 'rgba(255,255,255,0.5)',
+                        }}
+                      >
+                        {blueprintCopied ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        {blueprintCopied ? 'Copied' : 'Copy'}
+                      </MagneticButton>
+                      <MagneticButton
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                        onClick={handleExportPDF}
+                        disabled={isExporting}
+                      >
+                        {isExporting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+                        {isExporting ? 'Exporting...' : 'Export PDF'}
+                      </MagneticButton>
+                      <MagneticButton
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                        onClick={handleShare}
+                        disabled={isSharing || !!shareUrl}
+                      >
+                        {isSharing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : shareUrl ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Share2 className="h-4 w-4" />
+                        )}
+                        {isSharing ? 'Sharing...' : shareUrl ? 'Shared' : 'Share'}
+                      </MagneticButton>
+                      <MagneticButton
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                        onClick={handleStartOver}
+                      >
+                        <Wand2 className="h-4 w-4" />
+                        New Blueprint
+                      </MagneticButton>
+                    </div>
+                  </div>
+
+                  {/* Stats row */}
+                  {blueprintMeta && (
+                    <motion.div
+                      className="flex flex-wrap gap-6 mt-6 pt-6 border-t border-white/[0.06]"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-white/30" />
+                        <span className="text-sm font-mono text-white/50">
+                          {Math.round(blueprintMeta.totalTime / 1000)}s
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={shareUrl}
-                          className="flex-1 px-3 py-2 text-sm rounded-md font-mono"
-                          style={{
-                            background: 'var(--bg-surface)',
-                            border: '1px solid var(--border-default)',
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--font-mono)',
-                          }}
-                        />
-                        <MagneticButton
-                          className="h-9 rounded-full px-4 text-sm font-medium"
-                          onClick={handleCopyLink}
-                          style={{
-                            background: 'var(--gradient-primary)',
-                            color: 'white',
-                            fontFamily: 'var(--font-display), "Cabinet Grotesk", sans-serif',
-                          }}
-                        >
-                          {shareCopied ? (
-                            <span className="flex items-center gap-1">
-                              <Check className="h-4 w-4" />
-                              Copied
-                            </span>
-                          ) : (
-                            "Copy"
-                          )}
-                        </MagneticButton>
+                        <Coins className="h-4 w-4 text-white/30" />
+                        <span className="text-sm font-mono text-white/50">
+                          ${blueprintMeta.totalCost.toFixed(4)}
+                        </span>
                       </div>
-                      <p
-                        className="text-xs mt-2"
-                        style={{
-                          color: 'var(--text-tertiary)',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
-                      >
-                        Anyone with this link can view this blueprint
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <FileSearch className="h-4 w-4 text-white/30" />
+                        <span className="text-sm text-white/50">
+                          {strategicBlueprint?.keywordIntelligence ? '6' : '5'} sections analyzed
+                        </span>
+                      </div>
                     </motion.div>
                   )}
-                </AnimatePresence>
 
-                {/* Share Error Display */}
-                <AnimatePresence>
-                  {shareError && (
-                    <motion.div
-                      className="mt-4 p-3 rounded-lg"
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgb(239, 68, 68)',
-                      }}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <p
-                        className="text-sm"
-                        style={{
-                          color: 'rgb(239, 68, 68)',
-                          fontFamily: 'var(--font-sans), Inter, sans-serif',
-                        }}
+                  {/* Share Link Display */}
+                  <AnimatePresence>
+                    {shareUrl && (
+                      <motion.div
+                        className="mt-6 p-4 rounded-lg bg-white/[0.02] border border-white/[0.06]"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
                       >
-                        {shareError}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </GradientBorder>
-          </motion.div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Link2 className="h-4 w-4 text-blue-400" />
+                          <span className="font-medium text-sm text-white/80">
+                            Shareable Link
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={shareUrl}
+                            className="flex-1 px-3 py-2 text-sm rounded-md bg-white/[0.03] border border-white/[0.08] text-white/80 font-[family-name:var(--font-mono)] outline-none"
+                          />
+                          <MagneticButton
+                            className="h-9 rounded-full px-4 text-sm font-medium bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                            onClick={handleCopyLink}
+                          >
+                            {shareCopied ? (
+                              <span className="flex items-center gap-1">
+                                <Check className="h-4 w-4" />
+                                Copied
+                              </span>
+                            ) : (
+                              "Copy"
+                            )}
+                          </MagneticButton>
+                        </div>
+                        <p className="text-xs mt-2 text-white/30">
+                          Anyone with this link can view this blueprint
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-          {/* Polished Blueprint View - Card-based layout */}
-          <motion.div
-            className="mx-auto max-w-6xl"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
-          >
-            <div className={`p-4 md:p-6 ${RESEARCH_TRANSPARENT_PANEL_CLASS}`}>
-              <PolishedBlueprintView strategicBlueprint={strategicBlueprint} />
-            </div>
-          </motion.div>
-        </div>
+                  {/* Share Error Display */}
+                  <AnimatePresence>
+                    {shareError && (
+                      <motion.div
+                        className="mt-4 p-3 rounded-lg bg-red-500/[0.08] border border-red-500/20"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <p className="text-sm text-red-400/80">
+                          {shareError}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </GradientBorder>
+            </motion.div>
+          </div>
+
+          {/* Paginated Blueprint Content - fills remaining space */}
+          <div className="flex-1 min-h-0">
+            <PaginatedBlueprintView strategicBlueprint={strategicBlueprint} />
+          </div>
+        </main>
       </div>
     );
   }

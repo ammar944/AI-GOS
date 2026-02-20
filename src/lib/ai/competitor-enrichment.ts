@@ -41,10 +41,10 @@ interface EnrichedCompetitor {
   analysisDepth?: string;
 }
 
-const HIGH_RECALL_FETCH_LIMIT = 200;
+const HIGH_RECALL_FETCH_LIMIT = 100;
 const MAX_STORED_ADS_PER_COMPETITOR = 50;
 const HIGH_RECALL_MIN_RELEVANCE = 60;
-const HIGH_RECALL_META_PAGE_LIMIT = 5;
+const HIGH_RECALL_META_PAGE_LIMIT = 3;
 const HIGH_RECALL_FOREPLAY_LOOKBACK_DAYS = 180;
 const HIGH_RECALL_COUNTRIES = ['US', 'CA', 'GB', 'AU'];
 
@@ -120,7 +120,7 @@ export async function enrichCompetitors(
             const pricingUrl = `${competitor.website.replace(/\/$/, '')}/pricing`;
             const scrapeResult = await firecrawlClient.scrape({
               url: pricingUrl,
-              timeout: 15000, // Reduced from 30s to 15s
+              timeout: 10000,
               forceUSLocation: true,
             });
 

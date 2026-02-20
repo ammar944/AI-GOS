@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
       let keywordPromise: Promise<KeywordIntelligenceResult | null> | null = null;
       let hookPromise: Promise<ExtractAdHooksResult | null> | null = null;
       let seoAuditPromise: Promise<SEOAuditResult | null> | null = null;
+      let segmentValidationPromise: Promise<{ cost: number; results: { hookIndex: number; relevant: boolean }[] } | null> | null = null;
       let baseCompetitorData: any = null; // Captured from Phase 1 for enrichment merge
       let storedEnrichment: EnrichmentResult | null = null;
       let storedKeywordResult: KeywordIntelligenceResult | null = null;
@@ -377,6 +378,21 @@ export async function POST(request: NextRequest) {
                     console.error('[Route] Hook extraction failed (non-fatal):', error);
                     return null;
                   });
+
+                  // Chain segment validation off hookPromise so it runs parallel to synthesis
+                  const clientSegment = onboardingData.icp?.primaryIcpDescription || onboardingData.icp?.industryVertical || '';
+                  const icpDesc = onboardingData.icp?.primaryIcpDescription || '';
+                  if (clientSegment) {
+                    segmentValidationPromise = hookPromise.then(async (hookResult) => {
+                      if (!hookResult || hookResult.hooks.length === 0) return null;
+                      try {
+                        return await validateHookSegmentRelevance(hookResult.hooks, clientSegment, icpDesc);
+                      } catch (error) {
+                        console.error('[Route] Parallel segment relevance check failed (non-fatal):', error);
+                        return null;
+                      }
+                    });
+                  }
                 }
 
                 return {
@@ -418,9 +434,16 @@ export async function POST(request: NextRequest) {
               return;
             }
 
-            // Enrichment + keywords + SEO audit already awaited inside generator via callbacks
-            // Re-await is instant (promises already resolved)
-            const enrichment = storedEnrichment ?? (enrichmentPromise ? await enrichmentPromise : await enrichCompetitors(
+            // Enrichment may have resolved during synthesis (storedXxx) or timed out
+            // (result.lateEnrichment). The enrichmentPromise/keywordPromise/seoAuditPromise
+            // are still running in this scope — just re-await them (instant if already settled).
+            const hasLateData = result.lateEnrichment && Object.keys(result.lateEnrichment).length > 0;
+            if (hasLateData) {
+              emit({ type: 'progress', percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100), message: 'Finishing enrichment while synthesis completes...' });
+            }
+
+            // Enriched competitors: stored (resolved in time) > enrichmentPromise > fallback
+            const enrichmentResolved = storedEnrichment ?? (enrichmentPromise ? await enrichmentPromise : await enrichCompetitors(
               result.blueprint.competitorAnalysis,
               (msg) => {
                 emit({
@@ -430,12 +453,20 @@ export async function POST(request: NextRequest) {
                 });
               }
             ));
+
+            // Keywords: stored > keywordPromise (may have timed out in generator but still running here)
             const keywordResult = storedKeywordResult ?? (keywordPromise ? await keywordPromise : null);
+            if (keywordResult && !storedKeywordResult) {
+              completedSections.add('keywordIntelligence');
+              emit({ type: 'section-complete', section: 'keywordIntelligence', label: SECTION_LABELS.keywordIntelligence, data: null });
+            }
+
+            // SEO audit: stored > seoAuditPromise (may have timed out in generator but still running here)
             const seoAuditResult = storedSEOAuditResult ?? (seoAuditPromise ? await seoAuditPromise : null);
 
             // Debug: Log enrichment result
-            const totalEnrichedAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
-            console.log(`[Route] Enrichment: ${totalEnrichedAds} ads, ${enrichment.reviewSuccessCount}/${enrichment.competitors.length} reviews, ${enrichment.pricingSuccessCount}/${enrichment.competitors.length} pricing`);
+            const totalEnrichedAds = enrichmentResolved.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
+            console.log(`[Route] Enrichment: ${totalEnrichedAds} ads, ${enrichmentResolved.reviewSuccessCount}/${enrichmentResolved.competitors.length} reviews, ${enrichmentResolved.pricingSuccessCount}/${enrichmentResolved.competitors.length} pricing`);
 
             // Synthesis already had enriched data (reviews, pricing, ads, keywords)
             // Hook extraction ran in parallel with synthesis — merge + validate now
@@ -456,7 +487,7 @@ export async function POST(request: NextRequest) {
                   ];
 
                   // Step 2: Validate hook diversity (source concentration + per-competitor cap)
-                  const distribution = computeAdDistribution(enrichment.competitors);
+                  const distribution = computeAdDistribution(enrichmentResolved.competitors);
                   const quotas = getHookQuotas(distribution);
                   const violations = validateHookDiversity(combinedHooks, quotas.maxPerCompetitor);
 
@@ -471,34 +502,35 @@ export async function POST(request: NextRequest) {
                     validatedHooks = combinedHooks.slice(0, 12);
                   }
 
-                  // Step 3: Segment relevance validation via Haiku
-                  const clientSegment = onboardingData.icp?.primaryIcpDescription || onboardingData.icp?.industryVertical || '';
-                  const icpDesc = onboardingData.icp?.primaryIcpDescription || '';
-                  if (clientSegment) {
+                  // Step 3: Segment relevance validation (ran parallel to synthesis)
+                  // The pre-computed promise validated extraction hooks; use results
+                  // to filter irrelevant hooks from the combined+validated set.
+                  if (segmentValidationPromise) {
                     try {
-                      const relevanceResult = await validateHookSegmentRelevance(
-                        validatedHooks,
-                        clientSegment,
-                        icpDesc,
-                      );
-                      resynthesisCost += relevanceResult.cost;
+                      const relevanceResult = await segmentValidationPromise;
+                      if (relevanceResult) {
+                        resynthesisCost += relevanceResult.cost;
 
-                      const irrelevantIndices = relevanceResult.results
-                        .filter(r => !r.relevant)
-                        .map(r => r.hookIndex);
+                        // Build a set of irrelevant extraction hook texts
+                        const irrelevantExtractionHooks = new Set(
+                          relevanceResult.results
+                            .filter(r => !r.relevant)
+                            .map(r => hookResult.hooks[r.hookIndex]?.hook),
+                        );
 
-                      if (irrelevantIndices.length > 0) {
-                        console.log(`[Route] ${irrelevantIndices.length} hooks flagged as segment-irrelevant — replacing...`);
-                        const replacementPool = synthesisHooks
-                          .filter(h => !h.source || h.source.type === 'generated')
-                          .filter(h => !validatedHooks.includes(h));
-                        let replacementIdx = 0;
-                        validatedHooks = validatedHooks.map((hook, i) => {
-                          if (irrelevantIndices.includes(i) && replacementIdx < replacementPool.length) {
-                            return replacementPool[replacementIdx++];
-                          }
-                          return hook;
-                        });
+                        if (irrelevantExtractionHooks.size > 0) {
+                          console.log(`[Route] ${irrelevantExtractionHooks.size} extraction hooks flagged as segment-irrelevant — replacing...`);
+                          const replacementPool = synthesisHooks
+                            .filter(h => !h.source || h.source.type === 'generated')
+                            .filter(h => !validatedHooks.includes(h));
+                          let replacementIdx = 0;
+                          validatedHooks = validatedHooks.map((hook) => {
+                            if (irrelevantExtractionHooks.has(hook.hook) && replacementIdx < replacementPool.length) {
+                              return replacementPool[replacementIdx++];
+                            }
+                            return hook;
+                          });
+                        }
                       }
                     } catch (error) {
                       console.error('[Route] Segment relevance check failed (non-fatal):', error);
@@ -538,13 +570,13 @@ export async function POST(request: NextRequest) {
               ...result.blueprint,
               competitorAnalysis: {
                 ...result.blueprint.competitorAnalysis,
-                competitors: enrichment.competitors as any,
+                competitors: enrichmentResolved.competitors as any,
               },
               crossAnalysisSynthesis: finalSynthesis,
               ...(finalKeywordIntelligence && { keywordIntelligence: finalKeywordIntelligence }),
               metadata: {
                 ...result.blueprint.metadata,
-                totalCost: result.blueprint.metadata.totalCost + enrichment.enrichmentCost + resynthesisCost + keywordCost + seoAuditCost,
+                totalCost: result.blueprint.metadata.totalCost + enrichmentResolved.enrichmentCost + resynthesisCost + keywordCost + seoAuditCost,
                 processingTime: Date.now() - startTime,
               },
             };

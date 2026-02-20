@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import {
-  Download,
   Share2,
   Edit,
   Wand2,
@@ -30,7 +29,6 @@ export default function BlueprintViewPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useUser();
   const [blueprint, setBlueprint] = useState<StrategicBlueprintOutput | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
@@ -58,91 +56,6 @@ export default function BlueprintViewPage() {
     setBlueprint(savedBlueprint);
     setIsLoading(false);
   }, [isLoaded, isSignedIn, router]);
-
-  // Export PDF handler
-  const handleExportPDF = async () => {
-    if (!blueprint) return;
-
-    setIsExporting(true);
-
-    try {
-      const [html2canvasModule, jspdfModule] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const html2canvas = html2canvasModule.default;
-      const { jsPDF } = jspdfModule;
-
-      const date = new Date().toISOString().split("T")[0];
-      const filename = `Strategic-Blueprint-${date}.pdf`;
-
-      // Create a temporary container for the PDF content
-      const container = document.createElement("div");
-      container.style.cssText = `
-        position: absolute;
-        left: -9999px;
-        top: 0;
-        width: 850px;
-      `;
-      document.body.appendChild(container);
-
-      // Render the PdfMarkdownContent component into the container
-      const root = createRoot(container);
-      await new Promise<void>((resolve) => {
-        root.render(<PdfMarkdownContent strategicBlueprint={blueprint} />);
-        setTimeout(resolve, 300);
-      });
-
-      const content = container.firstElementChild as HTMLElement;
-      if (!content) {
-        throw new Error("Failed to render PDF content");
-      }
-
-      const canvas = await html2canvas(content, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: null,
-        allowTaint: true,
-      });
-
-      root.unmount();
-      document.body.removeChild(container);
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-      let pageNumber = 0;
-
-      while (heightLeft > 0) {
-        if (pageNumber > 0) {
-          pdf.addPage();
-        }
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        position -= pageHeight;
-        pageNumber++;
-      }
-
-      pdf.save(filename);
-    } catch (error) {
-      console.error("PDF Export Error:", error);
-      alert(`PDF export failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   // Share blueprint
   const handleShare = async () => {
@@ -258,25 +171,6 @@ export default function BlueprintViewPage() {
 
             {/* Actions - Primary CTA style */}
             <div className="flex items-center gap-2">
-              <MagneticButton
-                className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                style={{
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-secondary)",
-                  background: "transparent",
-                  fontFamily: "var(--font-sans), Inter, sans-serif",
-                }}
-              >
-                {isExporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">{isExporting ? "Exporting..." : "Export"}</span>
-              </MagneticButton>
-
               <MagneticButton
                 className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                 onClick={handleShare}

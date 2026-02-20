@@ -47,12 +47,20 @@ export interface GeneratorOptions {
   fullTierNames?: string[];
   /** Summary-tier competitor names (lightweight research only) */
   summaryTierNames?: string[];
+  /** Max ms to wait for enrichment before starting synthesis (default: 5000). Set to Infinity for old blocking behavior. */
+  enrichmentDeadlineMs?: number;
 }
 
 export interface GeneratorResult {
   success: boolean;
   blueprint?: StrategicBlueprintOutput;
   error?: string;
+  /** Enrichment promises that timed out during the grace window — caller can re-await and merge late data */
+  lateEnrichment?: {
+    enrichedCompetitors?: Promise<CompetitorAnalysis | undefined>;
+    keywordIntelligence?: Promise<import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined>;
+    seoAudit?: Promise<import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined>;
+  };
 }
 
 // =============================================================================
@@ -237,20 +245,52 @@ export async function generateStrategicBlueprint(
     checkAbort();
 
     // =========================================================================
-    // PRE-SYNTHESIS: Await competitors + parallel enrichments + keywords
+    // PRE-SYNTHESIS: Await competitors + race enrichments against deadline
     // Competitors started in Phase 1 and run concurrently — almost certainly
     // finished by now (Phase 2 takes ~8-15s), but we must await to be safe.
+    // Enrichment callbacks are raced against a configurable grace deadline so
+    // synthesis can start without waiting for slow enrichment (keyword intel).
     // =========================================================================
     progress(3, 'crossAnalysis', 'starting', 'Syncing enrichment data for synthesis...');
 
     const syncStart = Date.now();
-    const [competitorResult, summaryResult, asyncEnrichedCompetitors, asyncKeywordData, asyncSEOAuditData] = await Promise.all([
+    const deadline = options.enrichmentDeadlineMs ?? 5000;
+
+    // Always await core research (competitors are required for synthesis)
+    const [competitorResult, summaryResult] = await Promise.all([
       competitorPromise,
       summaryCompetitorPromise,
-      options.getEnrichedCompetitors?.() ?? Promise.resolve(undefined as CompetitorAnalysis | undefined),
-      options.getKeywordIntelligence?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined),
-      options.getSEOAudit?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined),
     ]);
+
+    // Race each enrichment callback against the grace deadline
+    const DEADLINE_SENTINEL = Symbol('deadline');
+    const raceDeadline = <T,>(promise: Promise<T>): Promise<T | typeof DEADLINE_SENTINEL> =>
+      Promise.race([
+        promise,
+        new Promise<typeof DEADLINE_SENTINEL>((resolve) =>
+          setTimeout(() => resolve(DEADLINE_SENTINEL), deadline),
+        ),
+      ]);
+
+    const enrichedCompPromise = options.getEnrichedCompetitors?.() ?? Promise.resolve(undefined as CompetitorAnalysis | undefined);
+    const kwPromise = options.getKeywordIntelligence?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined);
+    const seoPromise = options.getSEOAudit?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined);
+
+    const [enrichedCompRace, kwRace, seoRace] = await Promise.all([
+      raceDeadline(enrichedCompPromise),
+      raceDeadline(kwPromise),
+      raceDeadline(seoPromise),
+    ]);
+
+    const asyncEnrichedCompetitors = enrichedCompRace === DEADLINE_SENTINEL ? undefined : enrichedCompRace;
+    const asyncKeywordData = kwRace === DEADLINE_SENTINEL ? undefined : kwRace;
+    const asyncSEOAuditData = seoRace === DEADLINE_SENTINEL ? undefined : seoRace;
+
+    // Track which enrichments timed out so the caller can re-await them
+    const lateEnrichment: GeneratorResult['lateEnrichment'] = {};
+    if (enrichedCompRace === DEADLINE_SENTINEL) lateEnrichment.enrichedCompetitors = enrichedCompPromise;
+    if (kwRace === DEADLINE_SENTINEL) lateEnrichment.keywordIntelligence = kwPromise;
+    if (seoRace === DEADLINE_SENTINEL) lateEnrichment.seoAudit = seoPromise;
 
     // Merge summary-tier competitors into the competitor result
     if (summaryResult && summaryResult.data.competitors.length > 0) {
@@ -271,8 +311,9 @@ export async function generateStrategicBlueprint(
     if (asyncEnrichedCompetitors) enrichedParts.push('competitors');
     if (asyncKeywordData) enrichedParts.push('keywords');
     if (asyncSEOAuditData) enrichedParts.push('seo-audit');
+    const timedOutParts = Object.keys(lateEnrichment);
     const syncMs = Date.now() - syncStart;
-    console.log(`[Generator] Pre-synthesis sync: competitors + ${enrichedParts.join(', ') || 'no enrichment'} (${syncMs}ms wait)`);
+    console.log(`[Generator] Pre-synthesis sync: competitors + ${enrichedParts.join(', ') || 'no enrichment'} (${syncMs}ms wait)${timedOutParts.length > 0 ? ` — timed out: ${timedOutParts.join(', ')}` : ''}`);
 
     sectionTimings.phase1 = Date.now() - phase1Start;
 
@@ -348,7 +389,8 @@ export async function generateStrategicBlueprint(
       },
     };
 
-    return { success: true, blueprint };
+    const hasLateEnrichment = Object.keys(lateEnrichment).length > 0;
+    return { success: true, blueprint, ...(hasLateEnrichment && { lateEnrichment }) };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('\n[GENERATOR_ERROR] Blueprint generation failed:', message);

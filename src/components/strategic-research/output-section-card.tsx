@@ -12,7 +12,6 @@ import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-bluepr
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
 import { CitationBadge, SourcesList } from "./citations";
-import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
 // Section icons mapping
 const SECTION_ICONS: Record<StrategicBlueprintSection, React.ReactNode> = {
@@ -52,12 +51,6 @@ export interface OutputSectionCardProps {
  * - Simpler header with just section number, icon, and label
  * - Uses SectionContentRenderer for content display (read-only)
  * - Includes SourcesList for citations
- *
- * Follows SaaSLaunch design language:
- * - Card background: var(--bg-card) rgb(12, 14, 19)
- * - Border: var(--border-default) rgb(31, 31, 31)
- * - Section number: var(--accent-blue) rgb(54, 94, 255)
- * - Heading font: var(--font-heading) Instrument Sans
  */
 export function OutputSectionCard({
   sectionKey,
@@ -72,35 +65,22 @@ export function OutputSectionCard({
     <section
       id={sectionKey}
       data-section
-      className={`${RESEARCH_SHELL_CLASS} rounded-xl p-6 md:p-8`}
+      className="rounded-xl bg-white/[0.02] border border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm p-6 md:p-8"
     >
       {/* Section Header */}
-      <div className="mb-6 flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
+      <div className="mb-6 flex items-start justify-between gap-4 border-b border-white/[0.06] pb-5">
         <div className="flex items-center gap-4">
           {/* Section number - blue accent background */}
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-            style={{
-              background: 'var(--accent-blue)',
-              color: 'white',
-            }}
-          >
+          <span className="bg-blue-500 text-white flex size-8 items-center justify-center rounded-full text-sm font-medium shrink-0">
             {sectionNumber}
           </span>
 
           {/* Section icon and title */}
           <div className="flex items-center gap-2.5">
-            <span style={{ color: 'var(--accent-blue)' }}>
+            <span className="text-blue-400">
               {sectionIcon}
             </span>
-            <h2
-              className="text-xl font-semibold leading-tight"
-              style={{
-                color: 'var(--text-heading)',
-                fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
-                letterSpacing: '-0.02em',
-              }}
-            >
+            <h2 className="text-white/90 text-xl font-semibold leading-tight font-[family-name:var(--font-heading)] tracking-tight">
               {sectionLabel}
             </h2>
           </div>

@@ -711,14 +711,16 @@ ${(() => {
   }
 
   return competitorsWithAds.map(c => {
-    const adsText = c.adCreatives.slice(0, 5).map((ad: any, i: number) => {
+    const topAds = c.adCreatives.slice(0, 2);
+    const adsText = topAds.map((ad: any, i: number) => {
       const parts = [`  Ad ${i + 1} [${ad.platform}]:`];
       if (ad.headline) parts.push(`    Headline: "${ad.headline}"`);
-      if (ad.body) parts.push(`    Body: "${ad.body.slice(0, 200)}${ad.body.length > 200 ? '...' : ''}"`);
+      if (ad.body) parts.push(`    Body: "${ad.body.slice(0, 120)}${ad.body.length > 120 ? '...' : ''}"`);
       return parts.join('\n');
     }).join('\n\n');
 
-    return `${c.name} Ads (${c.adCreatives.length} found):\n${adsText}`;
+    const remaining = c.adCreatives.length - topAds.length;
+    return `${c.name} Ads (${c.adCreatives.length} found, showing top ${topAds.length}):\n${adsText}${remaining > 0 ? `\n  (+${remaining} more ads available in data)` : ''}`;
   }).join('\n\n');
 })()}
 
@@ -732,28 +734,28 @@ ${keywordData.clientDomain ? `Client (${keywordData.clientDomain.domain}): ${key
 ${keywordData.competitorDomains.map(c => `Competitor (${c.domain}): ${c.organicKeywords} organic KWs, ${c.paidKeywords} paid KWs, ~${c.monthlyOrganicClicks.toLocaleString()} organic clicks/mo ($${c.organicClicksValue.toLocaleString()} value), ~${c.monthlyPaidClicks.toLocaleString()} paid clicks/mo ($${c.paidClicksValue.toLocaleString()} ad spend)`).join('\n') || '  No competitor domain data'}
 
 TOP ORGANIC GAPS (competitors rank, client doesn't — content creation targets):
-${keywordData.organicGaps.slice(0, 10).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC${k.clicksPerMonth ? `, ~${k.clicksPerMonth} clicks/mo` : ''}`).join('\n') || '  None found'}
+${keywordData.organicGaps.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC${k.clicksPerMonth ? `, ~${k.clicksPerMonth} clicks/mo` : ''}`).join('\n') || '  None found'}${keywordData.organicGaps.length > 5 ? `\n  (+${keywordData.organicGaps.length - 5} more in data)` : ''}
 
 TOP PAID GAPS (competitors bid, client doesn't — PPC opportunities):
-${keywordData.paidGaps.slice(0, 10).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, $${k.cpc.toFixed(2)} CPC, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.paidGaps.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, $${k.cpc.toFixed(2)} CPC, difficulty ${k.difficulty}`).join('\n') || '  None found'}${keywordData.paidGaps.length > 5 ? `\n  (+${keywordData.paidGaps.length - 5} more in data)` : ''}
 
 SHARED KEYWORDS (both client and competitors rank — competitive battlegrounds):
-${keywordData.sharedKeywords.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.sharedKeywords.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 CLIENT STRENGTHS (only client ranks, competitors don't — DEFEND these):
 ${keywordData.clientStrengths.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 QUICK WIN KEYWORDS (difficulty ≤40, volume ≥100 — immediate organic targets):
-${keywordData.quickWins.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC`).join('\n') || '  None found'}
+${keywordData.quickWins.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC`).join('\n') || '  None found'}
 
 LONG-TERM PLAYS (difficulty >40, volume ≥500 — build authority over 3-6 months):
-${keywordData.longTermPlays.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.longTermPlays.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 HIGH-INTENT KEYWORDS (CPC ≥$3 = strong commercial/buying intent):
-${keywordData.highIntentKeywords.slice(0, 7).map(k => `  • "${k.keyword}" — $${k.cpc.toFixed(2)} CPC, ${k.searchVolume}/mo`).join('\n') || '  None found'}
+${keywordData.highIntentKeywords.slice(0, 5).map(k => `  • "${k.keyword}" — $${k.cpc.toFixed(2)} CPC, ${k.searchVolume}/mo`).join('\n') || '  None found'}
 
 RELATED KEYWORD EXPANSIONS (thematic opportunities beyond direct gaps):
-${keywordData.relatedExpansions.slice(0, 7).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.relatedExpansions.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 CONTENT TOPIC CLUSTERS (grouped keyword themes):
 ${keywordData.contentTopicClusters.slice(0, 5).map(c => `  • "${c.theme}" — ${c.searchVolumeTotal.toLocaleString()} total vol, ${c.keywords.length} keywords, recommended: ${c.recommendedFormat}`).join('\n') || '  None found'}
@@ -785,7 +787,7 @@ TECHNICAL ISSUES:
 • ${seoAuditData.technical.issueCount.critical} critical issues, ${seoAuditData.technical.issueCount.warning} warnings, ${seoAuditData.technical.issueCount.pass} passed checks
 • Sitemap: ${seoAuditData.technical.sitemapFound ? 'Found' : 'MISSING'}
 • Robots.txt: ${seoAuditData.technical.robotsTxtFound ? 'Found' : 'MISSING'}
-${seoAuditData.technical.pages.slice(0, 5).map(p => {
+${seoAuditData.technical.pages.map(p => {
   const issues: string[] = [];
   if (!p.title.pass) issues.push(`title ${p.title.length === 0 ? 'missing' : `${p.title.length} chars`}`);
   if (!p.metaDescription.pass) issues.push(`meta desc ${p.metaDescription.length === 0 ? 'missing' : `${p.metaDescription.length} chars`}`);
@@ -793,7 +795,7 @@ ${seoAuditData.technical.pages.slice(0, 5).map(p => {
   if (!p.canonical.pass) issues.push('no canonical');
   if (p.images.coveragePercent < 80) issues.push(`${p.images.coveragePercent}% img alt coverage`);
   return issues.length > 0 ? `  ${p.url}: ${issues.join(', ')}` : null;
-}).filter(Boolean).join('\n')}
+}).filter(Boolean).slice(0, 5).join('\n')}
 
 PAGESPEED:
 ${seoAuditData.performance.mobile ? `• Mobile: ${seoAuditData.performance.mobile.performanceScore}/100 — LCP ${seoAuditData.performance.mobile.lcp}s, CLS ${seoAuditData.performance.mobile.cls}, FCP ${seoAuditData.performance.mobile.fcp}s` : '• Mobile: Not available'}
@@ -831,7 +833,7 @@ ${(() => {
       if (rd?.trustpilot) {
         parts.push(`  Trustpilot: ${rd.trustpilot.trustScore}/5 from ${rd.trustpilot.totalReviews} reviews`);
         if (rd.trustpilot.aiSummary) {
-          parts.push(`  Trustpilot AI Summary: "${rd.trustpilot.aiSummary.slice(0, 300)}${rd.trustpilot.aiSummary.length > 300 ? '...' : ''}"`);
+          parts.push(`  Trustpilot AI Summary: "${rd.trustpilot.aiSummary.slice(0, 150)}${rd.trustpilot.aiSummary.length > 150 ? '...' : ''}"`);
         }
         // Key complaints (1-2★) — gold for messaging angles
         const complaints = rd.trustpilot.reviews
@@ -840,7 +842,7 @@ ${(() => {
         if (complaints?.length > 0) {
           parts.push('  Key Complaints:');
           for (const r of complaints) {
-            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}"`);
+            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 100)}${r.text.length > 100 ? '...' : ''}"`);
           }
         }
         // What customers love (4-5★)
@@ -850,7 +852,7 @@ ${(() => {
         if (praise?.length > 0) {
           parts.push('  What Customers Love:');
           for (const r of praise) {
-            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}"`);
+            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 100)}${r.text.length > 100 ? '...' : ''}"`);
           }
         }
       }

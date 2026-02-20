@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Download,
   Share2,
   Wand2,
   ArrowLeft,
@@ -16,15 +15,14 @@ import {
   Calendar,
   BarChart3,
 } from "lucide-react";
-import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
+import { PaginatedBlueprintView } from "@/components/strategic-blueprint/paginated-blueprint-view";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import { easings, durations } from "@/lib/motion";
-import { createRoot } from "react-dom/client";
-import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 import type { BlueprintRecord } from "@/lib/actions/blueprints";
 import type { MediaPlanRecord } from "@/lib/actions/media-plans";
+import { cn } from "@/lib/utils";
 
 interface Props {
   blueprint: BlueprintRecord;
@@ -46,98 +44,12 @@ function formatDate(dateString: string): string {
 
 export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
   const router = useRouter();
-  const [isExporting, setIsExporting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
 
   const strategicBlueprint = blueprint.output;
-
-  // Export PDF handler
-  const handleExportPDF = async () => {
-    if (!strategicBlueprint) return;
-
-    setIsExporting(true);
-
-    try {
-      const [html2canvasModule, jspdfModule] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const html2canvas = html2canvasModule.default;
-      const { jsPDF } = jspdfModule;
-
-      const date = new Date().toISOString().split("T")[0];
-      const filename = `${blueprint.title.replace(/[^a-zA-Z0-9]/g, "-")}-${date}.pdf`;
-
-      // Create a temporary container for the PDF content
-      const container = document.createElement("div");
-      container.style.cssText = `
-        position: absolute;
-        left: -9999px;
-        top: 0;
-        width: 850px;
-      `;
-      document.body.appendChild(container);
-
-      // Render the PdfMarkdownContent component into the container
-      const root = createRoot(container);
-      await new Promise<void>((resolve) => {
-        root.render(<PdfMarkdownContent strategicBlueprint={strategicBlueprint} />);
-        setTimeout(resolve, 300);
-      });
-
-      const content = container.firstElementChild as HTMLElement;
-      if (!content) {
-        throw new Error("Failed to render PDF content");
-      }
-
-      const canvas = await html2canvas(content, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: null,
-        allowTaint: true,
-      });
-
-      root.unmount();
-      document.body.removeChild(container);
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-      let pageNumber = 0;
-
-      while (heightLeft > 0) {
-        if (pageNumber > 0) {
-          pdf.addPage();
-        }
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        position -= pageHeight;
-        pageNumber++;
-      }
-
-      pdf.save(filename);
-    } catch (error) {
-      console.error("PDF Export Error:", error);
-      alert(`PDF export failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   // Share blueprint
   const handleShare = async () => {
@@ -193,22 +105,19 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
     router.push("/generate");
   };
 
+  const ghostButtonClass =
+    "h-9 px-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-white/[0.15] hover:text-white/70 bg-transparent";
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
+    <div className="h-screen flex flex-col overflow-hidden bg-[var(--bg-base)]">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 backdrop-blur-sm bg-background/80">
+      <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] backdrop-blur-xl bg-[rgba(7,9,14,0.8)]">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             {/* Back to Dashboard */}
             <MagneticButton
-              className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+              className={cn(ghostButtonClass, "hover:border-blue-500/30 hover:text-blue-400")}
               onClick={() => router.push("/dashboard")}
-              style={{
-                border: "1px solid var(--border-default)",
-                color: "var(--text-secondary)",
-                background: "transparent",
-                fontFamily: "var(--font-sans), Inter, sans-serif",
-              }}
             >
               <ArrowLeft className="h-4 w-4" />
               Dashboard
@@ -216,14 +125,8 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
 
             {/* Title */}
             <div className="hidden md:flex items-center gap-2">
-              <FileText className="h-5 w-5" style={{ color: "var(--text-secondary)" }} />
-              <h1
-                className="text-lg font-semibold truncate max-w-[300px]"
-                style={{
-                  color: "var(--text-heading)",
-                  fontFamily: "var(--font-heading), 'Instrument Sans', sans-serif",
-                }}
-              >
+              <FileText className="h-5 w-5 text-white/40" />
+              <h1 className="text-base font-semibold truncate max-w-[300px] text-white/90 font-[family-name:var(--font-heading)]">
                 {blueprint.title}
               </h1>
             </div>
@@ -231,34 +134,9 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
             {/* Actions */}
             <div className="flex items-center gap-2">
               <MagneticButton
-                className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                style={{
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-secondary)",
-                  background: "transparent",
-                  fontFamily: "var(--font-sans), Inter, sans-serif",
-                }}
-              >
-                {isExporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">{isExporting ? "Exporting..." : "Export"}</span>
-              </MagneticButton>
-
-              <MagneticButton
-                className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                className={cn(ghostButtonClass, "hover:border-blue-500/30 hover:text-blue-400")}
                 onClick={handleShare}
                 disabled={isSharing || !!shareUrl}
-                style={{
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-secondary)",
-                  background: "transparent",
-                  fontFamily: "var(--font-sans), Inter, sans-serif",
-                }}
               >
                 {isSharing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -281,193 +159,124 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
       <BackgroundPattern opacity={0.02} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 md:py-12 relative z-10">
+      <main className="flex-1 min-h-0 flex flex-col relative z-10">
         {/* Action Cards Row */}
-        <motion.div
-          className="mx-auto max-w-5xl mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: durations.normal, ease: easings.out }}
-        >
-          <GradientBorder>
-            <div className="p-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                {/* Left: Info */}
-                <div>
-                  <h2
-                    className="text-xl font-semibold"
-                    style={{
-                      color: "var(--text-heading)",
-                      fontFamily: "var(--font-heading), 'Instrument Sans', sans-serif",
-                    }}
-                  >
-                    {blueprint.title}
-                  </h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Calendar className="h-4 w-4" style={{ color: "var(--text-tertiary)" }} />
-                    <p
-                      className="text-sm"
-                      style={{
-                        color: "var(--text-tertiary)",
-                        fontFamily: "var(--font-sans), Inter, sans-serif",
-                      }}
-                    >
-                      Generated {formatDate(blueprint.created_at)}
-                    </p>
+        <div className="shrink-0 container mx-auto px-4 py-4">
+          <motion.div
+            className="mx-auto max-w-5xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: durations.normal, ease: easings.out }}
+          >
+            <GradientBorder>
+              <div className="p-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  {/* Left: Info */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-white/90 font-[family-name:var(--font-heading)]">
+                      {blueprint.title}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-white/30" />
+                      <p className="text-sm text-white/40">
+                        Generated {formatDate(blueprint.created_at)}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Right: Actions */}
-                <div className="flex flex-wrap items-center gap-3">
-                  {linkedMediaPlans.length > 0 && (
-                    <Link href={`/media-plan/${linkedMediaPlans[0].id}`}>
+                  {/* Right: Actions */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {linkedMediaPlans.length > 0 && (
+                      <Link href={`/media-plan/${linkedMediaPlans[0].id}`}>
+                        <MagneticButton
+                          className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                          View Media Plan
+                        </MagneticButton>
+                      </Link>
+                    )}
+                    <Link href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}>
                       <MagneticButton
-                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                        style={{
-                          border: "1px solid var(--border-default)",
-                          color: "var(--text-secondary)",
-                          background: "transparent",
-                          fontFamily: "var(--font-sans), Inter, sans-serif",
-                        }}
+                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
                       >
-                        <BarChart3 className="h-4 w-4" />
-                        View Media Plan
+                        <Wand2 className="h-4 w-4" />
+                        Generate Media Plan
                       </MagneticButton>
                     </Link>
-                  )}
-                  <Link href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}>
                     <MagneticButton
-                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2"
-                      style={{
-                        background: "var(--gradient-primary)",
-                        color: "white",
-                        fontFamily: "var(--font-display), 'Cabinet Grotesk', sans-serif",
-                      }}
+                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                      onClick={handleNewBlueprint}
                     >
                       <Wand2 className="h-4 w-4" />
-                      Generate Media Plan
+                      New Blueprint
                     </MagneticButton>
-                  </Link>
-                  <MagneticButton
-                    className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
-                    onClick={handleNewBlueprint}
-                    style={{
-                      border: "1px solid var(--border-default)",
-                      color: "var(--text-secondary)",
-                      background: "transparent",
-                      fontFamily: "var(--font-display), 'Cabinet Grotesk', sans-serif",
-                    }}
-                  >
-                    <Wand2 className="h-4 w-4" />
-                    New Blueprint
-                  </MagneticButton>
+                  </div>
                 </div>
+
+                {/* Share Link Display */}
+                {shareUrl && (
+                  <motion.div
+                    className="mt-6 p-4 rounded-lg bg-white/[0.02] border border-white/[0.06]"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Link2 className="h-4 w-4 text-blue-400" />
+                      <span className="font-medium text-sm text-white/80">
+                        Shareable Link
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={shareUrl}
+                        className="flex-1 px-3 py-2 text-sm rounded-md bg-white/[0.03] border border-white/[0.08] text-white/80 font-[family-name:var(--font-mono)] outline-none"
+                      />
+                      <MagneticButton
+                        className="h-9 px-4 rounded-md text-sm font-medium bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                        onClick={handleCopyLink}
+                      >
+                        {shareCopied ? (
+                          <span className="flex items-center gap-1">
+                            <Check className="h-4 w-4" />
+                            Copied
+                          </span>
+                        ) : (
+                          "Copy"
+                        )}
+                      </MagneticButton>
+                    </div>
+                    <p className="text-xs mt-2 text-white/30">
+                      Anyone with this link can view this blueprint
+                    </p>
+                  </motion.div>
+                )}
+
+                {/* Share Error Display */}
+                {shareError && (
+                  <motion.div
+                    className="mt-4 p-3 rounded-lg bg-red-500/[0.08] border border-red-500/20"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <p className="text-sm text-red-400/80">
+                      {shareError}
+                    </p>
+                  </motion.div>
+                )}
               </div>
-
-              {/* Share Link Display */}
-              {shareUrl && (
-                <motion.div
-                  className="mt-6 p-4 rounded-lg"
-                  style={{
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-default)",
-                  }}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Link2 className="h-4 w-4" style={{ color: "var(--accent-blue)" }} />
-                    <span
-                      className="font-medium text-sm"
-                      style={{
-                        color: "var(--text-primary)",
-                        fontFamily: "var(--font-sans), Inter, sans-serif",
-                      }}
-                    >
-                      Shareable Link
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={shareUrl}
-                      className="flex-1 px-3 py-2 text-sm rounded-md font-mono"
-                      style={{
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border-default)",
-                        color: "var(--text-primary)",
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    />
-                    <MagneticButton
-                      className="h-9 px-4 rounded-md text-sm font-medium"
-                      onClick={handleCopyLink}
-                      style={{
-                        background: "var(--gradient-primary)",
-                        color: "white",
-                        fontFamily: "var(--font-display), 'Cabinet Grotesk', sans-serif",
-                      }}
-                    >
-                      {shareCopied ? (
-                        <span className="flex items-center gap-1">
-                          <Check className="h-4 w-4" />
-                          Copied
-                        </span>
-                      ) : (
-                        "Copy"
-                      )}
-                    </MagneticButton>
-                  </div>
-                  <p
-                    className="text-xs mt-2"
-                    style={{
-                      color: "var(--text-tertiary)",
-                      fontFamily: "var(--font-sans), Inter, sans-serif",
-                    }}
-                  >
-                    Anyone with this link can view this blueprint
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Share Error Display */}
-              {shareError && (
-                <motion.div
-                  className="mt-4 p-3 rounded-lg"
-                  style={{
-                    background: "rgba(239, 68, 68, 0.1)",
-                    border: "1px solid rgb(239, 68, 68)",
-                  }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <p
-                    className="text-sm"
-                    style={{
-                      color: "rgb(239, 68, 68)",
-                      fontFamily: "var(--font-sans), Inter, sans-serif",
-                    }}
-                  >
-                    {shareError}
-                  </p>
-                </motion.div>
-              )}
-            </div>
-          </GradientBorder>
-        </motion.div>
+            </GradientBorder>
+          </motion.div>
+        </div>
 
         {/* Blueprint Content */}
-        <motion.div
-          className="mx-auto max-w-5xl"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: durations.normal, ease: easings.out }}
-        >
-          <PolishedBlueprintView strategicBlueprint={strategicBlueprint} />
-        </motion.div>
+        <div className="flex-1 min-h-0">
+          <PaginatedBlueprintView strategicBlueprint={strategicBlueprint} />
+        </div>
       </main>
     </div>
   );
