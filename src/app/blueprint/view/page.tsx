@@ -22,8 +22,6 @@ import { easings, durations } from "@/lib/motion";
 import { getStrategicBlueprint, getOnboardingData } from "@/lib/storage/local-storage";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type { OnboardingFormData } from "@/lib/onboarding/types";
-import { createRoot } from "react-dom/client";
-import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
 
 export default function BlueprintViewPage() {
   const router = useRouter();
