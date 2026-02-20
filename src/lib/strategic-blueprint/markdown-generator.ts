@@ -587,7 +587,11 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
       lines.push(`**Price:** ${safeString(comp.price)}`);
     }
     lines.push(`**Funnels:** ${safeString(comp.funnels)}`);
-    lines.push(`**Ad Platforms:** ${safeArray(comp.adPlatforms).join(', ') || 'N/A'}`);
+    if (safeArray(comp.adPlatforms).length > 0) {
+      lines.push(`**Ad Platforms:** ${safeArray(comp.adPlatforms).join(', ')}`);
+    } else {
+      lines.push('**Ad Platforms:** No active paid campaigns detected');
+    }
     lines.push('');
 
     if (safeArray(comp.strengths).length > 0) {
@@ -664,15 +668,17 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
       lines.push('');
     }
 
-    // Customer Reviews
+    // Customer Reviews — only render header if at least one source has actual data
     const rd = (comp as any)?.reviewData;
-    if (rd?.trustpilot || rd?.g2) {
+    const hasG2Data = rd?.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0);
+    const hasTrustpilotData = rd?.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0);
+    if (hasG2Data || hasTrustpilotData) {
       lines.push('**Customer Reviews:**');
-      if (rd.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0)) {
+      if (hasG2Data) {
         const g2Link = rd.g2.url ? `[G2](${rd.g2.url})` : 'G2';
         lines.push(`- ${g2Link}: ${rd.g2.rating}/5 (${rd.g2.reviewCount} reviews)${rd.g2.productCategory ? ` — ${rd.g2.productCategory}` : ''}`);
       }
-      if (rd.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0)) {
+      if (hasTrustpilotData) {
         const tpLink = rd.trustpilot.url ? `[Trustpilot](${rd.trustpilot.url})` : 'Trustpilot';
         lines.push(`- ${tpLink}: ${rd.trustpilot.trustScore}/5 (${rd.trustpilot.totalReviews} reviews)`);
         if (rd.trustpilot.aiSummary) {
@@ -1060,28 +1066,27 @@ function generateKeywordIntelligence(section: KeywordIntelligence): string {
   formatKwTable(section.highIntentKeywords, 'High-Intent Keywords');
   formatKwTable(section.relatedExpansions, 'Related Keyword Expansions');
 
-  // Competitor Top Keywords
-  if (safeArray(section.competitorTopKeywords).length > 0) {
+  // Competitor Top Keywords — only render competitors that have keyword data
+  const compsWithKeywords = safeArray(section.competitorTopKeywords).filter(
+    (comp) => safeArray(comp.keywords).length > 0
+  );
+  if (compsWithKeywords.length > 0) {
     lines.push('### Competitor Top Keywords\n');
-    section.competitorTopKeywords.forEach((comp) => {
+    compsWithKeywords.forEach((comp) => {
       lines.push(`#### ${comp.competitorName} (${comp.domain})\n`);
-      if (safeArray(comp.keywords).length > 0) {
-        lines.push(
-          createTable(
-            ['Keyword', 'Volume', 'CPC', 'Difficulty'],
-            comp.keywords.slice(0, 10).map((kw) => [
-              kw.keyword,
-              String(kw.searchVolume?.toLocaleString() ?? 'N/A'),
-              `$${kw.cpc?.toFixed(2) ?? 'N/A'}`,
-              String(kw.difficulty ?? 'N/A'),
-            ])
-          )
-        );
-        if (comp.keywords.length > 10) {
-          lines.push(`\n*Showing 10 of ${comp.keywords.length} keywords*`);
-        }
-      } else {
-        lines.push('*No keyword data available for this competitor.*\n');
+      lines.push(
+        createTable(
+          ['Keyword', 'Volume', 'CPC', 'Difficulty'],
+          comp.keywords.slice(0, 10).map((kw) => [
+            kw.keyword,
+            String(kw.searchVolume?.toLocaleString() ?? 'N/A'),
+            `$${kw.cpc?.toFixed(2) ?? 'N/A'}`,
+            String(kw.difficulty ?? 'N/A'),
+          ])
+        )
+      );
+      if (comp.keywords.length > 10) {
+        lines.push(`\n*Showing 10 of ${comp.keywords.length} keywords*`);
       }
       lines.push('');
     });

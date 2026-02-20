@@ -1187,10 +1187,13 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                 </div>
               </div>
 
-              {/* Customer Reviews - only render if reviewData has at least one source */}
-              {comp?.reviewData && (comp.reviewData.trustpilot || comp.reviewData.g2) && (() => {
+              {/* Customer Reviews - only render if reviewData has actual ratings/reviews */}
+              {comp?.reviewData && (() => {
                 const tp = comp.reviewData!.trustpilot;
                 const g2 = comp.reviewData!.g2;
+                const hasG2Data = g2 && (g2.rating != null && g2.rating > 0 || g2.reviewCount != null && g2.reviewCount > 0);
+                const hasTpData = tp && (tp.trustScore != null && tp.trustScore > 0 || tp.totalReviews != null && tp.totalReviews > 0);
+                if (!hasG2Data && !hasTpData) return null;
                 const complaints = (tp?.reviews ?? []).filter(r => r.rating <= 2).slice(0, 3);
                 const praise = (tp?.reviews ?? []).filter(r => r.rating >= 4).slice(0, 2);
                 return (

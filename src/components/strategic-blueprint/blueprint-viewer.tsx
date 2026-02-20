@@ -390,7 +390,11 @@ function formatCompetitorAnalysis(section: CompetitorAnalysis): string[] {
       lines.push(`   Offer: ${safeString(comp?.offer)}`);
       lines.push(`   Price: ${safeString(comp?.price)}`);
       lines.push(`   Funnels: ${safeString(comp?.funnels)}`);
-      lines.push(`   Platforms: ${safeArray(comp?.adPlatforms).join(", ")}`);
+      if (safeArray(comp?.adPlatforms).length > 0) {
+        lines.push(`   Platforms: ${safeArray(comp?.adPlatforms).join(", ")}`);
+      } else {
+        lines.push(`   Platforms: No active paid campaigns detected`);
+      }
       if (comp?.strengths?.length) {
         lines.push("   Strengths:");
         for (const s of comp.strengths) {
@@ -403,14 +407,16 @@ function formatCompetitorAnalysis(section: CompetitorAnalysis): string[] {
           lines.push(`     - ${w}`);
         }
       }
-      // Customer Reviews
+      // Customer Reviews — only render header if at least one source has actual data
       const rd = (comp as any)?.reviewData;
-      if (rd?.trustpilot || rd?.g2) {
+      const hasG2Data = rd?.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0);
+      const hasTrustpilotData = rd?.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0);
+      if (hasG2Data || hasTrustpilotData) {
         lines.push("   Customer Reviews:");
-        if (rd.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0)) {
+        if (hasG2Data) {
           lines.push(`     G2: ${rd.g2.rating}/5 (${rd.g2.reviewCount} reviews)${rd.g2.productCategory ? ` — ${rd.g2.productCategory}` : ''}`);
         }
-        if (rd.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0)) {
+        if (hasTrustpilotData) {
           lines.push(`     Trustpilot: ${rd.trustpilot.trustScore}/5 (${rd.trustpilot.totalReviews} reviews)`);
           if (rd.trustpilot.aiSummary) {
             lines.push(`     Summary: "${rd.trustpilot.aiSummary.slice(0, 150)}${rd.trustpilot.aiSummary.length > 150 ? '...' : ''}"`);
