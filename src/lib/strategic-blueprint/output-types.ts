@@ -504,6 +504,8 @@ export interface G2ReviewMetadata {
   rating: number | null;
   reviewCount: number | null;
   productCategory?: string;
+  productName?: string;
+  productDescription?: string;
 }
 
 export interface CompetitorReviewData {

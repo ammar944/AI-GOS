@@ -222,6 +222,12 @@ export async function enrichCompetitors(
               competitor.name,
               competitor.website,
               onProgress,
+              {
+                name: competitor.name,
+                website: competitor.website,
+                positioning: competitor.positioning,
+                offer: competitor.offer,
+              },
             );
             return { success: true as const, ...result };
           } catch (error) {

@@ -13,6 +13,11 @@ import type {
   G2ReviewMetadata,
   CompetitorReviewData,
 } from '@/lib/strategic-blueprint/output-types';
+import {
+  verifyReviewSource,
+  type CompetitorContext,
+  type ReviewSourceInfo,
+} from './review-verification';
 
 // =============================================================================
 // Types
@@ -202,6 +207,14 @@ const g2MetadataSchema = z.object({
     .string()
     .optional()
     .describe('G2 category for this product'),
+  productName: z
+    .string()
+    .optional()
+    .describe('Exact product name on the G2 listing'),
+  productDescription: z
+    .string()
+    .optional()
+    .describe('One-sentence description from the G2 listing'),
 });
 
 interface G2Result {
@@ -250,6 +263,8 @@ DO NOT summarize reviews or extract quotes. Just the metadata.`,
         rating: obj.rating ?? null,
         reviewCount: obj.reviewCount ?? null,
         productCategory: obj.productCategory,
+        productName: obj.productName,
+        productDescription: obj.productDescription,
       },
       cost,
     };
@@ -267,6 +282,7 @@ export async function mineCompetitorReviews(
   name: string,
   website: string | undefined,
   onProgress?: (message: string) => void,
+  competitorContext?: CompetitorContext,
 ): Promise<ReviewMiningResult> {
   const domain = website ? extractDomain(website) : null;
 
@@ -278,12 +294,69 @@ export async function mineCompetitorReviews(
     getG2Metadata(name, onProgress),
   ]);
 
-  const totalCost = trustpilotResult.cost + g2Result.cost;
+  let totalCost = trustpilotResult.cost + g2Result.cost;
+  let trustpilotData = trustpilotResult.data;
+  let g2Data = g2Result.data;
+
+  // Verify results belong to the intended competitor
+  if (competitorContext) {
+    const verifications = await Promise.all([
+      // Verify Trustpilot
+      trustpilotData
+        ? verifyReviewSource(competitorContext, {
+            source: 'trustpilot',
+            url: trustpilotData.url,
+          })
+        : null,
+      // Verify G2
+      g2Data
+        ? verifyReviewSource(competitorContext, {
+            source: 'g2',
+            url: g2Data.url,
+            productName: g2Data.productName,
+            productCategory: g2Data.productCategory,
+            productDescription: g2Data.productDescription,
+            rating: g2Data.rating,
+            reviewCount: g2Data.reviewCount,
+          } satisfies ReviewSourceInfo)
+        : null,
+    ]);
+
+    const [trustpilotVerification, g2Verification] = verifications;
+
+    if (trustpilotVerification) {
+      totalCost += trustpilotVerification.cost;
+      if (!trustpilotVerification.verified) {
+        console.log(
+          `[ReviewMining] Trustpilot REJECTED for ${name}: ${trustpilotVerification.reason}`,
+        );
+        trustpilotData = null;
+      } else {
+        console.log(
+          `[ReviewMining] Trustpilot VERIFIED for ${name}: ${trustpilotVerification.reason}`,
+        );
+      }
+    }
+
+    if (g2Verification) {
+      totalCost += g2Verification.cost;
+      if (!g2Verification.verified) {
+        console.log(
+          `[ReviewMining] G2 REJECTED for ${name}: ${g2Verification.reason}`,
+        );
+        g2Data = null;
+      } else {
+        console.log(
+          `[ReviewMining] G2 VERIFIED for ${name}: ${g2Verification.reason}`,
+        );
+      }
+    }
+  }
 
   return {
     reviewData: {
-      trustpilot: trustpilotResult.data,
-      g2: g2Result.data,
+      trustpilot: trustpilotData,
+      g2: g2Data,
       collectedAt: new Date().toISOString(),
     },
     cost: totalCost,
