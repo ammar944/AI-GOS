@@ -1,12 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Share2, ExternalLink, Calendar } from "lucide-react";
+import { Share2, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { GradientBorder } from "@/components/ui/gradient-border";
 import { ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import { PaginatedBlueprintView } from "@/components/strategic-blueprint/paginated-blueprint-view";
-import { easings, durations } from "@/lib/motion";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 
 interface SharedBlueprintViewProps {
@@ -41,46 +38,29 @@ export function SharedBlueprintView({
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 flex flex-col relative z-10">
-        {/* Shared View Header */}
-        <div className="shrink-0 container mx-auto px-4 pt-4 pb-2">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: durations.normal, ease: easings.out }}
-          >
-            <GradientBorder>
-              <div className="p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  {/* Left: Info */}
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-500/[0.15] flex size-10 items-center justify-center rounded-full shrink-0">
-                      <Share2 className="h-5 w-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <h1 className="text-white/90 text-xl font-semibold font-[family-name:var(--font-heading)]">
-                        {title || "Strategic Blueprint"}
-                      </h1>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Calendar className="h-4 w-4 text-white/30" />
-                        <p className="text-white/40 text-sm">
-                          Shared on {formatDate(createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Badge */}
-                  <Badge
-                    variant="secondary"
-                    className="w-fit flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] text-white/50"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Read-only View
-                  </Badge>
-                </div>
+        {/* Shared View Header — compact bar */}
+        <div className="shrink-0 border-b border-white/[0.06] bg-[rgba(7,9,14,0.8)] backdrop-blur-xl">
+          <div className="container mx-auto px-4">
+            <div className="flex h-12 items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Share2 className="h-4 w-4 text-blue-400 shrink-0" />
+                <h1 className="text-white/90 text-sm font-semibold font-[family-name:var(--font-heading)] truncate">
+                  {title || "Strategic Blueprint"}
+                </h1>
+                <span className="text-white/25 hidden sm:inline">|</span>
+                <span className="text-white/35 text-xs hidden sm:inline shrink-0">
+                  {formatDate(createdAt)}
+                </span>
               </div>
-            </GradientBorder>
-          </motion.div>
+              <Badge
+                variant="secondary"
+                className="ml-3 shrink-0 flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] text-white/40 text-[11px] px-2 py-0.5"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Read-only
+              </Badge>
+            </div>
+          </div>
         </div>
 
         {/* Blueprint Content */}
@@ -88,28 +68,22 @@ export function SharedBlueprintView({
           <PaginatedBlueprintView strategicBlueprint={blueprint} />
         </div>
 
-        {/* Footer with CTA */}
-        <div className="shrink-0 container mx-auto px-4 py-2">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: durations.normal, ease: easings.out }}
-          >
-            <GradientBorder>
-              <div className="p-6 text-center">
-                <p className="text-white/60 text-base">
-                  Want to create your own Strategic Blueprint?
-                </p>
-                <a
-                  href="/generate"
-                  className="inline-flex items-center gap-2 mt-3 px-6 py-2.5 rounded-full font-medium transition-all duration-200 hover:scale-105 bg-gradient-to-r from-blue-600 to-blue-500 text-white"
-                >
-                  Get Started
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </div>
-            </GradientBorder>
-          </motion.div>
+        {/* Footer CTA — compact bar */}
+        <div className="shrink-0 border-t border-white/[0.06] bg-[rgba(7,9,14,0.6)] backdrop-blur-xl">
+          <div className="container mx-auto px-4">
+            <div className="flex h-11 items-center justify-between">
+              <p className="text-white/35 text-xs hidden sm:inline">
+                Want your own Strategic Blueprint?
+              </p>
+              <a
+                href="/generate"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 hover:opacity-90 bg-gradient-to-r from-blue-600 to-blue-500 text-white ml-auto"
+              >
+                Get Started
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          </div>
         </div>
       </main>
     </div>
