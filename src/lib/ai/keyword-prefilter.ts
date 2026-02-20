@@ -3,7 +3,7 @@
 // Runs between existing relevance filtering (Step 2.5) and LLM classifier (Step 3.5).
 
 import type { KeywordOpportunity } from '@/lib/strategic-blueprint/output-types';
-import { hasMojibakeArtifacts } from './spyfu-client';
+import { hasDoubleEncodedMarkers, repairDoubleEncodedUTF8 } from './spyfu-client';
 
 // =============================================================================
 // Types
@@ -129,9 +129,14 @@ function isPlatformQuery(kwLower: string): string | null {
   return null;
 }
 
-function hasMojibake(kwLower: string): string | null {
-  if (hasMojibakeArtifacts(kwLower)) {
-    return 'mojibake_artifacts';
+function hasMojibake(keyword: string): string | null {
+  if (hasDoubleEncodedMarkers(keyword)) {
+    const repaired = repairDoubleEncodedUTF8(keyword);
+    // If repair succeeded, the keyword is fine (was fixed upstream).
+    // If repair didn't change it, these are genuinely garbled characters — remove.
+    if (repaired === keyword) {
+      return 'mojibake_artifacts';
+    }
   }
   return null;
 }

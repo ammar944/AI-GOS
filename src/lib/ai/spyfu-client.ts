@@ -128,30 +128,38 @@ export function isSpyFuAvailable(): boolean {
 }
 
 // =============================================================================
-// UTF-8 Mojibake Sanitization
+// UTF-8 Double-Encoding Repair
 // =============================================================================
 
-/** Common UTF-8 → Latin-1 mojibake patterns (Ã-prefix sequences) */
-const MOJIBAKE_MAP: [string, string][] = [
-  ['Ã§', 'ç'], ['Ã©', 'é'], ['Ã¨', 'è'], ['Ã¼', 'ü'], ['Ã¶', 'ö'],
-  ['Ã¤', 'ä'], ['Ã±', 'ñ'], ['Ã¡', 'á'], ['Ã­', 'í'], ['Ã³', 'ó'],
-  ['Ãº', 'ú'], ['Ã¢', 'â'], ['Ã®', 'î'], ['Ã´', 'ô'], ['Ã»', 'û'],
-  ['Ã«', 'ë'], ['Ã¯', 'ï'], ['Â', ''],
-];
+/**
+ * Repair double-encoded UTF-8 strings.
+ * When UTF-8 bytes are misinterpreted as Latin-1 then re-encoded as UTF-8,
+ * each original byte becomes a separate character. This reverses that process.
+ * Idempotent: correctly-encoded strings pass through unchanged.
+ */
+export function repairDoubleEncodedUTF8(text: string): string {
+  if (!text) return text;
+  try {
+    // Double-encoded UTF-8 only produces Latin-1 range chars (0x00-0xFF).
+    // If any char exceeds that, the string is NOT double-encoded — return as-is.
+    const codes = [...text].map(c => c.charCodeAt(0));
+    if (codes.some(c => c > 0xFF)) return text;
 
-/** Check if text contains mojibake artifacts (Ã or Â sequences) */
-export function hasMojibakeArtifacts(text: string): boolean {
-  return /[ÃÂ]/.test(text);
+    const bytes = new Uint8Array(codes);
+    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    if (decoded !== text && !decoded.includes('\uFFFD')) {
+      console.warn(`[Encoding] Repaired double-encoded keyword: '${text}' → '${decoded}'`);
+      return decoded;
+    }
+    return text;
+  } catch {
+    return text;
+  }
 }
 
-/** Sanitize common UTF-8 mojibake patterns back to correct characters */
-export function sanitizeMojibake(text: string): string {
-  if (!hasMojibakeArtifacts(text)) return text;
-  let result = text;
-  for (const [bad, good] of MOJIBAKE_MAP) {
-    result = result.replaceAll(bad, good);
-  }
-  return result;
+/** Check if text likely contains double-encoded UTF-8 (Ã-prefix sequences) */
+export function hasDoubleEncodedMarkers(text: string): boolean {
+  return /[\u00C0-\u00DF][\u0080-\u00BF]/.test(text);
 }
 
 // =============================================================================
@@ -294,7 +302,7 @@ async function spyfuFetchPost<T>(
 
 function normalizeKeywordItem(raw: RawKeywordItem): SpyFuKeywordResult {
   return {
-    keyword: sanitizeMojibake(raw.keyword || raw.term || ''),
+    keyword: repairDoubleEncodedUTF8(raw.keyword || raw.term || ''),
     searchVolume: raw.searchVolume ?? raw.liveSearchVolume ?? raw.exactLocalMonthlySearchVolume ?? 0,
     cpc: raw.broadCostPerClick ?? raw.exactCostPerClick ?? raw.phraseCostPerClick ?? raw.costPerClick ?? raw.cpc ?? 0,
     difficulty: raw.rankingDifficulty ?? raw.keywordDifficulty ?? 0,
