@@ -79,7 +79,6 @@ export async function updateOnboardingData(data: Partial<OnboardingData>) {
 
   revalidatePath('/onboarding')
   revalidatePath('/dashboard')
-  revalidatePath('/generate')
 
   return { data: updated }
 }
@@ -117,7 +116,6 @@ export async function completeOnboarding() {
 
   revalidatePath('/onboarding')
   revalidatePath('/dashboard')
-  revalidatePath('/generate')
 
   return { data }
 }
@@ -202,7 +200,6 @@ export async function resetOnboarding() {
 
   revalidatePath('/onboarding')
   revalidatePath('/dashboard')
-  revalidatePath('/generate')
 
   return { data }
 }
