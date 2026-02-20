@@ -143,7 +143,13 @@ function buildOfferSection(onboarding: OnboardingFormData): string {
   lines.push(`- Business: ${businessBasics.businessName}`);
   lines.push(`- Product: ${productOffer.productDescription.slice(0, 200)}`);
   lines.push(`- Value Prop: ${productOffer.valueProp}`);
-  lines.push(`- Price: $${productOffer.offerPrice} (${productOffer.pricingModel.join(", ")})`);
+  if (productOffer.pricingTiers && productOffer.pricingTiers.length > 0) {
+    for (const t of productOffer.pricingTiers) {
+      lines.push(`- Tier: ${t.name} — $${t.price}/${t.billingCycle}${t.isPrimary ? ' [PRIMARY]' : ''}`);
+    }
+  } else {
+    lines.push(`- Price: $${productOffer.offerPrice} (${productOffer.pricingModel.join(", ")})`);
+  }
   lines.push(`- Core Deliverables: ${productOffer.coreDeliverables.slice(0, 200)}`);
 
   if (productOffer.guarantees) {

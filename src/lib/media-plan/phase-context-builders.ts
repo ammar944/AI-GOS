@@ -37,8 +37,15 @@ function buildClientBrief(onboarding: OnboardingFormData): string {
   if (budgetTargets.dailyBudgetCeiling) lines.push(`- Daily Budget Ceiling: $${budgetTargets.dailyBudgetCeiling}`);
   if (budgetTargets.targetCpl) lines.push(`- Target CPL: $${budgetTargets.targetCpl}`);
   if (budgetTargets.targetCac) lines.push(`- Target CAC: $${budgetTargets.targetCac}`);
-  lines.push(`- Offer Price: $${productOffer.offerPrice}`);
-  lines.push(`- Pricing Model: ${productOffer.pricingModel.join(', ')}`);
+  if (productOffer.pricingTiers && productOffer.pricingTiers.length > 0) {
+    for (const t of productOffer.pricingTiers) {
+      lines.push(`- Tier: ${t.name} — $${t.price}/${t.billingCycle}${t.isPrimary ? ' [PRIMARY]' : ''}`);
+    }
+    lines.push(`- Primary Price: $${productOffer.offerPrice}`);
+  } else {
+    lines.push(`- Offer Price: $${productOffer.offerPrice}`);
+    lines.push(`- Pricing Model: ${productOffer.pricingModel.join(', ')}`);
+  }
   lines.push(`- Geography: ${icp.geography}`);
   lines.push(`- Industry: ${icp.industryVertical}`);
   lines.push(`- ICP: ${icp.primaryIcpDescription}`);

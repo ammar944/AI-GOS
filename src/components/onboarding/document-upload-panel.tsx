@@ -53,7 +53,7 @@ const FIELD_LABELS: Record<string, string> = {
   systemsPlatforms: "Systems & Platforms",
   productDescription: "Product Description",
   coreDeliverables: "Core Deliverables",
-  offerPrice: "Offer Price",
+  pricingTiers: "Pricing Tiers",
   pricingModel: "Pricing Model",
   valueProp: "Value Proposition",
   guarantees: "Guarantees",
@@ -109,7 +109,7 @@ const FIELD_GROUPS: FieldGroup[] = [
     label: "Product & Offer",
     icon: "📦",
     fields: [
-      "productDescription", "coreDeliverables", "offerPrice", "pricingModel",
+      "productDescription", "coreDeliverables", "pricingTiers", "pricingModel",
       "valueProp", "guarantees", "currentFunnelType",
     ],
   },

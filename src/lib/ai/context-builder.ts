@@ -86,8 +86,11 @@ ${icp.systemsPlatforms ? `- Systems & Platforms Used: ${s(icp.systemsPlatforms)}
 ### Product & Offer
 - Product Description: ${s(productOffer.productDescription)}
 - Core Deliverables: ${s(productOffer.coreDeliverables)}
-- Offer Price: $${n(productOffer.offerPrice)}
-- Pricing Model: ${Array.isArray(productOffer.pricingModel) ? productOffer.pricingModel.join(', ') : productOffer.pricingModel || 'Not specified'}
+${productOffer.pricingTiers && productOffer.pricingTiers.length > 0
+    ? `- Pricing Tiers:\n${productOffer.pricingTiers.map(t => `  * ${s(t.name)}: $${n(t.price)}/${t.billingCycle}${t.isPrimary ? ' [PRIMARY]' : ''}`).join('\n')}
+- Primary Offer Price: $${n(productOffer.offerPrice)} (used for CAC/LTV calculations)`
+    : `- Offer Price: $${n(productOffer.offerPrice)}
+- Pricing Model: ${Array.isArray(productOffer.pricingModel) ? productOffer.pricingModel.join(', ') : productOffer.pricingModel || 'Not specified'}`}
 - Value Proposition: ${s(productOffer.valueProp)}
 - Current Funnel Type: ${Array.isArray(productOffer.currentFunnelType) ? productOffer.currentFunnelType.join(', ') : productOffer.currentFunnelType || 'Not specified'}
 ${productOffer.guarantees ? `- Guarantees: ${s(productOffer.guarantees)}` : ''}

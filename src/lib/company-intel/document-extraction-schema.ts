@@ -34,7 +34,7 @@ export const documentExtractionSchema = z.object({
   // --- Step 3: Product & Offer ---
   productDescription: z.string().describe('What the product/service does. 2-5 sentences. Empty if not found.'),
   coreDeliverables: z.string().describe('Main features/deliverables. Comma-separated. Empty if not found.'),
-  offerPrice: z.string().describe('Primary or starting price as a single number string (e.g. "997"). If multiple tiers exist, use the lowest/starting price only. Empty if not found.'),
+  pricingTiers: z.string().describe('Pricing tiers as pipe-separated entries. Format: "TierName:Price:BillingCycle" (e.g., "Starter:29:monthly|Pro:99:monthly|Enterprise:299:annual"). Use billing cycles: monthly, annual, one_time, usage_based, seat_based, custom. If only one price found, use "Main:997:monthly". Empty if not found.'),
   pricingModel: z.string().describe('Model: monthly, annual, one_time, usage_based, seat_based, custom. Comma-separated. Empty if not found.'),
   valueProp: z.string().describe('Value proposition. 2-3 sentences. Empty if not found.'),
   guarantees: z.string().describe('Guarantees or risk-reversal offers. Empty if not found.'),
@@ -101,7 +101,7 @@ export const EXTRACTION_FIELD_KEYS = [
   'primaryIcpDescription', 'industryVertical', 'jobTitles', 'companySize',
   'geography', 'easiestToClose', 'buyingTriggers', 'bestClientSources',
   'secondaryIcp', 'systemsPlatforms',
-  'productDescription', 'coreDeliverables', 'offerPrice', 'pricingModel',
+  'productDescription', 'coreDeliverables', 'pricingTiers', 'pricingModel',
   'valueProp', 'guarantees', 'currentFunnelType',
   'topCompetitors', 'uniqueEdge', 'competitorFrustrations', 'marketBottlenecks',
   'proprietaryTech',

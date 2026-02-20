@@ -73,8 +73,15 @@ function buildOnboardingSection(onboarding: OnboardingFormData): string {
 
   // Offer pricing
   lines.push('### Offer');
-  lines.push(`- Offer Price: $${productOffer.offerPrice}`);
-  lines.push(`- Pricing Model: ${productOffer.pricingModel.join(', ')}`);
+  if (productOffer.pricingTiers && productOffer.pricingTiers.length > 0) {
+    for (const t of productOffer.pricingTiers) {
+      lines.push(`- Tier: ${t.name} — $${t.price}/${t.billingCycle}${t.isPrimary ? ' [PRIMARY]' : ''}`);
+    }
+    lines.push(`- Primary Price: $${productOffer.offerPrice}`);
+  } else {
+    lines.push(`- Offer Price: $${productOffer.offerPrice}`);
+    lines.push(`- Pricing Model: ${productOffer.pricingModel.join(', ')}`);
+  }
   lines.push(`- Funnel Types: ${productOffer.currentFunnelType.join(', ')}`);
 
   // Geography

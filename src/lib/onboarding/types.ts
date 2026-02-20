@@ -112,11 +112,34 @@ export const FUNNEL_TYPE_OPTIONS: { value: FunnelType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+export interface PricingTier {
+  name: string;
+  price: number;
+  billingCycle: PricingModel;
+  isPrimary?: boolean;
+}
+
+/**
+ * Derive backward-compatible `offerPrice` and `pricingModel` from pricing tiers.
+ * `offerPrice` = primary tier price (or first tier if none marked primary).
+ * `pricingModel` = unique billing cycles across all tiers.
+ */
+export function derivePricingFields(tiers: PricingTier[]): { offerPrice: number; pricingModel: PricingModel[] } {
+  if (tiers.length === 0) return { offerPrice: 0, pricingModel: [] };
+  const primary = tiers.find(t => t.isPrimary) ?? tiers[0];
+  const uniqueCycles = [...new Set(tiers.map(t => t.billingCycle))];
+  return { offerPrice: primary.price, pricingModel: uniqueCycles };
+}
+
 export interface ProductOfferData {
   productDescription: string;
   coreDeliverables: string;
+  /** Derived from primary pricing tier — kept for backward compatibility */
   offerPrice: number;
+  /** Derived from unique billing cycles across tiers — kept for backward compatibility */
   pricingModel: PricingModel[];
+  /** Multi-tier pricing (new canonical source) */
+  pricingTiers?: PricingTier[];
   valueProp: string;
   guarantees?: string;
   currentFunnelType: FunnelType[];
@@ -350,6 +373,11 @@ export const SAMPLE_ONBOARDING_DATA: OnboardingFormData = {
     coreDeliverables: "1) Unified marketing dashboard connecting 50+ integrations, 2) Multi-touch attribution modeling (first-touch, last-touch, linear, custom), 3) Revenue forecasting based on pipeline velocity, 4) Automated weekly board-ready reports, 5) Slack alerts for campaign performance anomalies",
     offerPrice: 997,
     pricingModel: ["monthly", "annual"],
+    pricingTiers: [
+      { name: "Starter", price: 297, billingCycle: "monthly" },
+      { name: "Pro", price: 997, billingCycle: "monthly", isPrimary: true },
+      { name: "Enterprise", price: 2997, billingCycle: "annual" },
+    ],
     valueProp: "Stop guessing which marketing works. FlowMetrics shows you exactly which campaigns drive revenue so you can double down on winners and cut losers - typically saving clients 30% of wasted ad spend in the first 90 days.",
     guarantees: "30-day money back guarantee. If you don't see at least 3 actionable insights in your first month, we'll refund 100% - no questions asked.",
     currentFunnelType: ["demo", "free_trial"],
@@ -422,6 +450,7 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingFormData = {
     coreDeliverables: "",
     offerPrice: 0,
     pricingModel: [],
+    pricingTiers: [],
     valueProp: "",
     guarantees: "",
     currentFunnelType: [],

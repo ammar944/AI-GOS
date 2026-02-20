@@ -41,7 +41,7 @@ const FIELD_LABELS: Record<string, string> = {
   systemsPlatforms: "Systems & Platforms",
   productDescription: "Product Description",
   coreDeliverables: "Core Deliverables",
-  offerPrice: "Offer Price",
+  pricingTiers: "Pricing Tiers",
   pricingModel: "Pricing Model",
   valueProp: "Value Proposition",
   guarantees: "Guarantees",
@@ -94,7 +94,7 @@ const FIELD_GROUPS: FieldGroup[] = [
   {
     label: "Product & Offer",
     fields: [
-      "productDescription", "coreDeliverables", "offerPrice", "pricingModel",
+      "productDescription", "coreDeliverables", "pricingTiers", "pricingModel",
       "valueProp", "guarantees", "currentFunnelType",
     ],
   },
@@ -152,6 +152,21 @@ function truncateValue(value: string, max = 100): string {
   return value.slice(0, max) + "\u2026";
 }
 
+/** Format pipe-separated pricing tiers into readable string */
+function formatPricingTiers(value: string): string {
+  return value
+    .split('|')
+    .map(entry => {
+      const parts = entry.trim().split(':');
+      if (parts.length < 3) return entry.trim();
+      const name = parts[0].trim();
+      const price = parts[1].trim();
+      const cycle = parts[2].trim().replace(/_/g, ' ');
+      return `${name}: $${price}/${cycle}`;
+    })
+    .join(', ');
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -190,7 +205,7 @@ function FieldRow({
             {FIELD_LABELS[fieldKey] ?? fieldKey}
           </span>
           <p className="text-[13px] mt-0.5" style={{ color: "rgb(252, 252, 250)" }}>
-            {truncateValue(value)}
+            {truncateValue(fieldKey === 'pricingTiers' ? formatPricingTiers(value) : value)}
           </p>
         </div>
       </div>

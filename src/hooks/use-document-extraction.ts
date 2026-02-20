@@ -15,10 +15,12 @@ import type {
   CompanySize,
   ClientSource,
   PricingModel,
+  PricingTier,
   FunnelType,
   SalesCycleLength,
   CampaignDuration,
 } from '@/lib/onboarding/types';
+import { derivePricingFields } from '@/lib/onboarding/types';
 
 // ---------------------------------------------------------------------------
 // Enum Parsers
@@ -60,6 +62,29 @@ function parseOptionalNumber(str: string | null | undefined): number | undefined
   if (!match) return undefined;
   const num = parseFloat(match[0].replace(/,/g, ''));
   return isNaN(num) ? undefined : num;
+}
+
+/**
+ * Parse pipe-separated pricing tier format:
+ * "Starter:29:monthly|Pro:99:monthly|Enterprise:299:annual"
+ */
+function parsePricingTiers(str: string | null | undefined): PricingTier[] {
+  if (!str) return [];
+  return str
+    .split('|')
+    .map(entry => {
+      const parts = entry.trim().split(':');
+      if (parts.length < 3) return null;
+      const name = parts[0].trim();
+      const price = parseFloat(parts[1].trim().replace(/[,$]/g, ''));
+      const cycle = parts[2].trim().toLowerCase().replace(/\s+/g, '_');
+      if (!name || isNaN(price) || price <= 0) return null;
+      const validCycle = VALID_PRICING_MODELS.includes(cycle as PricingModel)
+        ? (cycle as PricingModel)
+        : 'monthly';
+      return { name, price, billingCycle: validCycle } as PricingTier;
+    })
+    .filter((t): t is PricingTier => t !== null);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,14 +219,31 @@ export function useDocumentExtraction(): UseDocumentExtractionReturn {
     const valuePropVal = v('valueProp');
     const deliverables = v('coreDeliverables');
     if (productDesc || valuePropVal || deliverables) {
-      const parsedPrice = v('offerPrice');
+      const parsedTiers = parsePricingTiers(v('pricingTiers'));
       const parsedPricingModel = parseEnumList(v('pricingModel'), VALID_PRICING_MODELS);
       const parsedFunnelType = parseEnumList(v('currentFunnelType'), VALID_FUNNEL_TYPES);
+
+      // Derive offerPrice and pricingModel from tiers (backward compat)
+      let offerPrice = 0;
+      let pricingModel = parsedPricingModel;
+      if (parsedTiers.length > 0) {
+        // Mark first tier as primary if none marked
+        if (!parsedTiers.some(t => t.isPrimary)) {
+          parsedTiers[0].isPrimary = true;
+        }
+        const derived = derivePricingFields(parsedTiers);
+        offerPrice = derived.offerPrice;
+        // Merge extracted pricingModel with tier-derived billing cycles
+        const allCycles = new Set([...derived.pricingModel, ...pricingModel]);
+        pricingModel = [...allCycles];
+      }
+
       formData.productOffer = {
         productDescription: productDesc,
         coreDeliverables: deliverables,
-        ...(parsedPrice ? { offerPrice: parseNumber(parsedPrice) } : {}),
-        ...(parsedPricingModel.length > 0 && { pricingModel: parsedPricingModel }),
+        ...(offerPrice > 0 ? { offerPrice } : {}),
+        ...(pricingModel.length > 0 && { pricingModel }),
+        ...(parsedTiers.length > 0 && { pricingTiers: parsedTiers }),
         valueProp: valuePropVal,
         guarantees: v('guarantees') || undefined,
         ...(parsedFunnelType.length > 0 && { currentFunnelType: parsedFunnelType }),

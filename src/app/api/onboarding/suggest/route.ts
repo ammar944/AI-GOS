@@ -76,11 +76,18 @@ function buildICPContext(formData: Record<string, unknown>): string | null {
 function buildProductContext(formData: Record<string, unknown>): string | null {
   const po = formData.productOffer as Record<string, unknown> | undefined;
   if (!po) return null;
+  // Format pricing tiers if present
+  const tiers = po.pricingTiers as Array<{ name?: string; price?: number; billingCycle?: string; isPrimary?: boolean }> | undefined;
+  const pricingLine = tiers && Array.isArray(tiers) && tiers.length > 0
+    ? `- Pricing Tiers: ${tiers.map(t => `${t.name ?? 'Tier'}: $${t.price ?? 0}/${t.billingCycle ?? 'monthly'}${t.isPrimary ? ' [PRIMARY]' : ''}`).join(', ')}`
+    : null;
+
   const lines = [
     formatField('Product Description', po.productDescription),
     formatField('Core Deliverables', po.coreDeliverables),
-    formatField('Price', po.offerPrice),
-    formatField('Pricing Model', po.pricingModel),
+    pricingLine,
+    !pricingLine ? formatField('Price', po.offerPrice) : null,
+    !pricingLine ? formatField('Pricing Model', po.pricingModel) : null,
     formatField('Value Proposition', po.valueProp),
     formatField('Guarantees', po.guarantees),
     formatField('Funnel Type', po.currentFunnelType),
