@@ -2,8 +2,14 @@
 
 import { useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Download, Loader2, Clock, Coins, BarChart3 } from "lucide-react";
+import { Download, Loader2, Clock, Coins, BarChart3, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { GradientBorder } from "@/components/ui/gradient-border";
 import { DocumentEditor } from "@/components/editor/document-editor";
 import { highlightLine } from "@/lib/syntax";
@@ -731,6 +737,15 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
   } = strategicBlueprint;
 
   const [isExporting, setIsExporting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Copy as markdown handler
+  const handleCopy = useCallback(() => {
+    const markdown = generateBlueprintMarkdown(strategicBlueprint);
+    navigator.clipboard.writeText(markdown);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [strategicBlueprint]);
 
   // Format all sections into text content
   const formatContent = useCallback((): string => {
@@ -743,7 +758,6 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
     lines.push("");
     lines.push(`Generated: ${new Date(metadata.generatedAt).toLocaleString()}`);
     lines.push(`Version: ${metadata.version}`);
-    lines.push(`Confidence: ${metadata.overallConfidence ?? 'N/A'}%`);
     lines.push("");
 
     // Add each section
@@ -901,36 +915,69 @@ export function BlueprintViewer({ strategicBlueprint, isStreaming = false }: Blu
                 <Coins className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
                 ${metadata.totalCost.toFixed(4)}
               </span>
-              <span className="flex items-center gap-1">
-                <BarChart3 className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-                Confidence: {metadata.overallConfidence ?? 'N/A'}%
-              </span>
+              {metadata.overallConfidence != null && (
+                <span className="flex items-center gap-1">
+                  <BarChart3 className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                  Confidence: {metadata.overallConfidence}%
+                </span>
+              )}
             </div>
           </div>
-          <Button
-            onClick={handleExportPDF}
-            disabled={isExporting}
-            variant="outline"
-            className="rounded-md"
-            style={{
-              border: '1px solid var(--border-default)',
-              color: 'var(--text-secondary)',
-              background: 'transparent',
-              fontFamily: 'var(--font-sans), Inter, sans-serif',
-            }}
-          >
-            {isExporting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Exporting...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Export PDF
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 rounded-md transition-all duration-200"
+                    style={{
+                      border: `1px solid ${copied ? 'rgba(34,197,94,0.4)' : 'var(--border-default)'}`,
+                      color: copied ? 'var(--success)' : 'var(--text-secondary)',
+                      background: 'transparent',
+                      fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    }}
+                    onClick={handleCopy}
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    <span>{copied ? "Copied" : "Copy"}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Copy full blueprint as markdown
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              variant="outline"
+              className="h-9 rounded-md"
+              style={{
+                border: '1px solid var(--border-default)',
+                color: 'var(--text-secondary)',
+                background: 'transparent',
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+              }}
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </GradientBorder>
 

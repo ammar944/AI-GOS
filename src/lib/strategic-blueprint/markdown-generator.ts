@@ -121,12 +121,10 @@ function createTable(headers: string[], rows: string[][]): string {
 
 function generateHeader(blueprint: StrategicBlueprintOutput): string {
   const { metadata } = blueprint;
-  const confidence = metadata?.overallConfidence ?? 0;
 
   return `# Strategic Blueprint Report
 
 **Generated:** ${formatDate(metadata?.generatedAt)}
-**Confidence Score:** ${confidence}%
 **Version:** ${safeString(metadata?.version)}
 
 ---
@@ -322,6 +320,141 @@ function generateICPAnalysis(section: ICPAnalysisValidation): string {
   }
   lines.push('');
 
+  // Customer Psychographics
+  const psych = section.customerPsychographics;
+  if (psych) {
+    lines.push('### Customer Psychographics\n');
+
+    if (safeArray(psych.goalsAndDreams).length > 0) {
+      lines.push('**Goals & Dreams:**');
+      safeArray(psych.goalsAndDreams).forEach((g) => lines.push(`- ${g}`));
+      lines.push('');
+    }
+
+    if (safeArray(psych.fearsAndInsecurities).length > 0) {
+      lines.push('**Fears & Insecurities:**');
+      safeArray(psych.fearsAndInsecurities).forEach((f) => lines.push(`- ${f}`));
+      lines.push('');
+    }
+
+    if (safeArray(psych.embarrassingSituations).length > 0) {
+      lines.push('**Embarrassing Situations:**');
+      safeArray(psych.embarrassingSituations).forEach((s) => lines.push(`- ${s}`));
+      lines.push('');
+    }
+
+    if (psych.perceivedEnemy) {
+      lines.push(`**Perceived Enemy:** ${psych.perceivedEnemy}`);
+      lines.push('');
+    }
+
+    if (safeArray(psych.failedSolutions).length > 0) {
+      lines.push('**Failed Solutions:**');
+      safeArray(psych.failedSolutions).forEach((s) => lines.push(`- ${s}`));
+      lines.push('');
+    }
+
+    if (psych.dayInTheLife) {
+      lines.push('**Day in the Life:**');
+      lines.push(`> ${psych.dayInTheLife}`);
+      lines.push('');
+    }
+  }
+
+  // Trigger Events
+  if (safeArray(section.triggerEvents).length > 0) {
+    lines.push('### Trigger Events\n');
+    lines.push(
+      createTable(
+        ['Event', 'Frequency', 'Urgency', 'Detection Method', 'Recommended Hook'],
+        section.triggerEvents.map((te) => [
+          te.event,
+          te.annualFrequencyEstimate,
+          te.urgencyLevel,
+          te.detectionMethod,
+          te.recommendedHook,
+        ])
+      )
+    );
+    lines.push('');
+  }
+
+  // Segment Sizing
+  if (safeArray(section.segmentSizing).length > 0) {
+    lines.push('### Segment Sizing\n');
+    lines.push(
+      createTable(
+        ['Priority', 'Accounts', 'Contacts', 'Share %', 'Budget Weight %'],
+        section.segmentSizing.map((seg) => [
+          `Tier ${seg.priorityTier}`,
+          seg.totalAddressableAccounts?.toLocaleString(),
+          seg.totalAddressableContacts?.toLocaleString(),
+          `${seg.segmentSharePercent}%`,
+          `${seg.recommendedBudgetWeight}%`,
+        ])
+      )
+    );
+    lines.push('');
+  }
+
+  // SAM Estimate
+  const sam = section.samEstimate;
+  if (sam) {
+    lines.push('### SAM Estimate\n');
+    lines.push(`- **Total Matching Companies:** ${sam.totalMatchingCompanies?.toLocaleString()}`);
+    if (safeArray(sam.filteringFunnel).length > 0) {
+      lines.push('');
+      lines.push('**Filtering Funnel:**');
+      lines.push(
+        createTable(
+          ['Stage', 'Count', 'Drop-Off Reason'],
+          sam.filteringFunnel.map((s) => [
+            s.stage,
+            s.count?.toLocaleString(),
+            s.dropOffReason,
+          ])
+        )
+      );
+    }
+    lines.push('');
+    lines.push(`- **Estimated SAM Companies:** ${sam.estimatedSAMCompanies?.toLocaleString()}`);
+    lines.push(`- **Estimated ACV:** $${sam.estimatedAnnualContractValue?.toLocaleString()}`);
+    lines.push(`- **Confidence:** ${sam.confidence}`);
+    lines.push(`- **Data Sources:** ${safeArray(sam.dataSources).join(', ')}`);
+    lines.push('');
+  }
+
+  // Sensitivity Analysis
+  const sens = section.sensitivityAnalysis;
+  if (sens) {
+    lines.push('### Sensitivity Analysis\n');
+
+    const formatScenario = (label: string, s: typeof sens.bestCase) => {
+      lines.push(`**${label}:**`);
+      lines.push(`- CPL: $${s.assumedCPL}`);
+      lines.push(`- Lead→SQL: ${s.assumedLeadToSqlRate}%`);
+      lines.push(`- SQL→Customer: ${s.assumedSqlToCustomerRate}%`);
+      if (s.resultingCAC != null) lines.push(`- Resulting CAC: $${s.resultingCAC.toLocaleString()}`);
+      if (s.monthlyCustomers != null) lines.push(`- Monthly Customers: ${s.monthlyCustomers}`);
+      if (s.ltvCacRatio != null) lines.push(`- LTV:CAC Ratio: ${s.ltvCacRatio}`);
+      lines.push(`- Conditions: ${s.conditions}`);
+      lines.push('');
+    };
+
+    formatScenario('Best Case', sens.bestCase);
+    formatScenario('Base Case', sens.baseCase);
+    formatScenario('Worst Case', sens.worstCase);
+
+    if (sens.breakEven) {
+      lines.push('**Break-Even Thresholds:**');
+      lines.push(`- Max CPL for 3x LTV: $${sens.breakEven.maxCPLFor3xLTV}`);
+      lines.push(`- Max CAC: $${sens.breakEven.maxCAC}`);
+      lines.push(`- Min Lead→SQL Rate: ${sens.breakEven.minLeadToSqlRate}%`);
+      lines.push(`- Budget Floor for Testing: $${sens.breakEven.budgetFloorForTesting?.toLocaleString()}`);
+      lines.push('');
+    }
+  }
+
   // Final Verdict
   const verdict = section.finalVerdict;
   lines.push('### Final Verdict\n');
@@ -504,6 +637,33 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
       lines.push('');
     }
 
+    // Threat Assessment
+    const threat = comp.threatAssessment;
+    if (threat) {
+      const classification = threat.classification ?? 'secondary';
+      const score = threat.weightedThreatScore != null ? ` (Score: ${threat.weightedThreatScore.toFixed(1)})` : '';
+      lines.push(`**Threat Assessment:** ${classification.toUpperCase()}${score}`);
+      if (threat.threatFactors) {
+        const tf = threat.threatFactors;
+        lines.push(`- Market Share/Recognition: ${tf.marketShareRecognition}/10`);
+        lines.push(`- Ad Spend Intensity: ${tf.adSpendIntensity}/10`);
+        lines.push(`- Product Overlap: ${tf.productOverlap}/10`);
+        lines.push(`- Price Competitiveness: ${tf.priceCompetitiveness}/10`);
+        lines.push(`- Growth Trajectory: ${tf.growthTrajectory}/10`);
+      }
+      if (safeArray(threat.topAdHooks).length > 0) {
+        lines.push('- **Top Ad Hooks:**');
+        safeArray(threat.topAdHooks).forEach((h) => lines.push(`  - "${h}"`));
+      }
+      if (threat.likelyResponse) {
+        lines.push(`- **Likely Response:** ${threat.likelyResponse}`);
+      }
+      if (threat.counterPositioning) {
+        lines.push(`- **Counter-Positioning:** ${threat.counterPositioning}`);
+      }
+      lines.push('');
+    }
+
     // Customer Reviews
     const rd = (comp as any)?.reviewData;
     if (rd?.trustpilot || rd?.g2) {
@@ -670,6 +830,118 @@ function generateCrossAnalysis(section: CrossAnalysisSynthesis): string {
   lines.push(safeString(section.recommendedPositioning));
   lines.push('');
 
+  // Positioning Strategy
+  const ps = section.positioningStrategy;
+  if (ps) {
+    lines.push('### Positioning Strategy\n');
+    lines.push(`**Primary:** ${safeString(ps.primary)}`);
+    lines.push('');
+
+    if (safeArray(ps.alternatives).length > 0) {
+      lines.push('**Alternative Positions:**');
+      safeArray(ps.alternatives).forEach((a) => lines.push(`- ${a}`));
+      lines.push('');
+    }
+
+    if (safeArray(ps.differentiators).length > 0) {
+      lines.push('**Key Differentiators:**');
+      safeArray(ps.differentiators).forEach((d) => lines.push(`- ${d}`));
+      lines.push('');
+    }
+
+    if (safeArray(ps.avoidPositions).length > 0) {
+      lines.push('**Positions to Avoid:**');
+      safeArray(ps.avoidPositions).forEach((a) => lines.push(`- ${a}`));
+      lines.push('');
+    }
+  }
+
+  // Messaging Framework
+  const mf = section.messagingFramework;
+  if (mf) {
+    lines.push('### Messaging Framework\n');
+    lines.push(`**Core Message:** ${safeString(mf.coreMessage)}`);
+    lines.push('');
+
+    if (safeArray(mf.supportingMessages).length > 0) {
+      lines.push('**Supporting Messages:**');
+      safeArray(mf.supportingMessages).forEach((m) => lines.push(`- ${m}`));
+      lines.push('');
+    }
+
+    if (safeArray(mf.proofPoints).length > 0) {
+      lines.push('**Proof Points:**');
+      safeArray(mf.proofPoints).forEach((p) => lines.push(`- ${p}`));
+      lines.push('');
+    }
+
+    if (safeArray(mf.tonalGuidelines).length > 0) {
+      lines.push('**Tonal Guidelines:**');
+      safeArray(mf.tonalGuidelines).forEach((t) => lines.push(`- ${t}`));
+      lines.push('');
+    }
+
+    // Ad Hooks
+    if (safeArray(mf.adHooks).length > 0) {
+      lines.push('#### Ad Hooks\n');
+      lines.push(
+        createTable(
+          ['Hook', 'Technique', 'Target Awareness', 'Source'],
+          mf.adHooks.map((h) => [
+            `"${h.hook}"`,
+            h.technique.replace(/-/g, ' '),
+            h.targetAwareness.replace(/-/g, ' '),
+            h.source ? `${h.source.type}${h.source.competitors?.length ? ` (${h.source.competitors.join(', ')})` : ''}` : 'N/A',
+          ])
+        )
+      );
+      lines.push('');
+    }
+
+    // Angles
+    if (safeArray(mf.angles).length > 0) {
+      lines.push('#### Creative Angles\n');
+      mf.angles.forEach((a) => {
+        lines.push(`**${safeString(a.name)}** — Target Emotion: ${safeString(a.targetEmotion)}`);
+        lines.push(`${safeString(a.description)}`);
+        lines.push(`> Example: "${safeString(a.exampleHeadline)}"`);
+        lines.push('');
+      });
+    }
+
+    // Detailed Proof Points
+    if (safeArray(mf.proofPointsDetailed).length > 0) {
+      lines.push('#### Detailed Proof Points\n');
+      lines.push(
+        createTable(
+          ['Claim', 'Evidence', 'Source'],
+          mf.proofPointsDetailed.map((p) => [
+            p.claim,
+            p.evidence,
+            safeString(p.source),
+          ])
+        )
+      );
+      lines.push('');
+    }
+
+    // Objection Handlers
+    if (safeArray(mf.objectionHandlers).length > 0) {
+      lines.push('#### Objection Handlers\n');
+      lines.push(
+        createTable(
+          ['Objection', 'Response', 'Reframe'],
+          mf.objectionHandlers.map((o) => [
+            o.objection,
+            o.response,
+            o.reframe,
+          ])
+        )
+      );
+      lines.push('');
+    }
+  }
+
   // Recommended Platforms
   const platforms = safeArray(section.recommendedPlatforms);
   lines.push('### Recommended Platforms\n');
@@ -788,6 +1060,31 @@ function generateKeywordIntelligence(section: KeywordIntelligence): string {
   formatKwTable(section.highIntentKeywords, 'High-Intent Keywords');
   formatKwTable(section.relatedExpansions, 'Related Keyword Expansions');
 
+  // Competitor Top Keywords
+  if (safeArray(section.competitorTopKeywords).length > 0) {
+    lines.push('### Competitor Top Keywords\n');
+    section.competitorTopKeywords.forEach((comp) => {
+      lines.push(`#### ${comp.competitorName} (${comp.domain})\n`);
+      if (safeArray(comp.keywords).length > 0) {
+        lines.push(
+          createTable(
+            ['Keyword', 'Volume', 'CPC', 'Difficulty'],
+            comp.keywords.slice(0, 10).map((kw) => [
+              kw.keyword,
+              String(kw.searchVolume?.toLocaleString() ?? 'N/A'),
+              `$${kw.cpc?.toFixed(2) ?? 'N/A'}`,
+              String(kw.difficulty ?? 'N/A'),
+            ])
+          )
+        );
+        if (comp.keywords.length > 10) {
+          lines.push(`\n*Showing 10 of ${comp.keywords.length} keywords*`);
+        }
+      }
+      lines.push('');
+    });
+  }
+
   // Content Topic Clusters
   if (safeArray(section.contentTopicClusters).length > 0) {
     lines.push('### Content Topic Clusters\n');
@@ -827,6 +1124,64 @@ function generateKeywordIntelligence(section: KeywordIntelligence): string {
     }
   }
 
+  // SEO Audit
+  const seo = section.seoAudit;
+  if (seo) {
+    lines.push('### SEO Audit\n');
+
+    // Technical
+    if (seo.technical) {
+      const tech = seo.technical;
+      lines.push('#### Technical SEO\n');
+      lines.push(`- **Overall Score:** ${tech.overallScore}/100`);
+      lines.push(`- **Sitemap Found:** ${tech.sitemapFound ? '✓' : '✗'}`);
+      lines.push(`- **Robots.txt Found:** ${tech.robotsTxtFound ? '✓' : '✗'}`);
+      lines.push(`- **Issues:** ${tech.issueCount.critical} critical, ${tech.issueCount.warning} warnings, ${tech.issueCount.pass} passed`);
+      lines.push('');
+
+      if (safeArray(tech.pages).length > 0) {
+        lines.push(
+          createTable(
+            ['URL', 'Title', 'Meta Desc', 'H1', 'HTTPS', 'Images w/ Alt'],
+            tech.pages.map((p) => [
+              p.url,
+              p.title.pass ? '✓' : '✗',
+              p.metaDescription.pass ? '✓' : '✗',
+              p.h1.pass ? '✓' : '✗',
+              p.isHttps ? '✓' : '✗',
+              `${p.images.coveragePercent}%`,
+            ])
+          )
+        );
+        lines.push('');
+      }
+    }
+
+    // Performance
+    if (seo.performance) {
+      const perf = seo.performance;
+      lines.push('#### Performance (PageSpeed)\n');
+
+      const formatMetrics = (label: string, m: typeof perf.mobile) => {
+        if (!m) return;
+        lines.push(`**${label}:**`);
+        lines.push(`- Performance Score: ${m.performanceScore}/100`);
+        lines.push(`- LCP: ${(m.lcp / 1000).toFixed(2)}s`);
+        lines.push(`- FCP: ${(m.fcp / 1000).toFixed(2)}s`);
+        lines.push(`- CLS: ${m.cls.toFixed(3)}`);
+        lines.push(`- TTI: ${(m.tti / 1000).toFixed(2)}s`);
+        lines.push(`- Speed Index: ${(m.speedIndex / 1000).toFixed(2)}s`);
+        lines.push('');
+      };
+
+      formatMetrics('Mobile', perf.mobile);
+      formatMetrics('Desktop', perf.desktop);
+    }
+
+    lines.push(`**Overall SEO Score:** ${seo.overallScore}/100`);
+    lines.push('');
+  }
+
   // Metadata
   if (section.metadata) {
     lines.push('### Collection Metadata\n');
@@ -857,7 +1212,6 @@ function generateFooter(metadata: StrategicBlueprintMetadata): string {
   lines.push(`- **Processing Time:** ${processingTimeSec}s`);
   lines.push(`- **Total Cost:** ${totalCost}`);
   lines.push(`- **Models Used:** ${safeArray(metadata?.modelsUsed).join(', ') || 'N/A'}`);
-  lines.push(`- **Confidence Score:** ${metadata?.overallConfidence ?? 'N/A'}%`);
   lines.push('');
 
   lines.push('---\n');
