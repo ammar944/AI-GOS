@@ -577,12 +577,22 @@ export async function enrichKeywordIntelligence(
     ...(paidGaps?.strengths ?? []),
   ].filter(kw => !isConsumerNavigational(kw));
 
-  // Convert competitor top keywords to opportunities (filtered for relevance)
-  const competitorTopKeywordEntries = competitorTopKeywords.map(c => ({
-    competitorName: c.name,
-    domain: c.domain,
-    keywords: filterRelevant(c.keywords).map(kw => toOpportunity(kw, 'competitor_top', [c.name])),
-  }));
+  // Convert competitor top keywords to opportunities (NOT relevance-filtered —
+  // these represent what the competitor ranks for, not what must match the client's industry)
+  const competitorTopKeywordEntries = competitorTopKeywords.map(c => {
+    const opportunities = c.keywords.map(kw => toOpportunity(kw, 'competitor_top', [c.name]));
+
+    // Data gap detection: log if competitor has organic presence but empty top keywords
+    if (opportunities.length === 0 && c.keywords.length === 0) {
+      console.log(`[Data Gap] Competitor "${c.name}" (${c.domain}) returned 0 top keywords from SpyFu`);
+    }
+
+    return {
+      competitorName: c.name,
+      domain: c.domain,
+      keywords: opportunities,
+    };
+  });
 
   // Flatten competitor top keywords for inclusion in overall analysis
   const allCompetitorTopOpportunities = competitorTopKeywordEntries.flatMap(c => c.keywords);

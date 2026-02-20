@@ -420,177 +420,198 @@ function IndustryMarketContent({ data, isEditing, onFieldChange }: IndustryMarke
       </SubSection>
 
       {/* Market Dynamics */}
-      <SubSection title="Market Dynamics">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
-              <TrendingUp className="h-4 w-4" style={{ color: 'var(--success)' }} />
-              Demand Drivers
-            </h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.marketDynamics?.demandDrivers)}
-                onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-              />
-            ) : (
-              <ul className="space-y-1">
-                {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
+      {(safeArray(data?.marketDynamics?.demandDrivers).length > 0 ||
+        safeArray(data?.marketDynamics?.buyingTriggers).length > 0 ||
+        safeArray(data?.marketDynamics?.barriersToPurchase).length > 0 ||
+        isEditing) && (
+        <SubSection title="Market Dynamics">
+          <div className="grid md:grid-cols-2 gap-4">
+            {(safeArray(data?.marketDynamics?.demandDrivers).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                  <TrendingUp className="h-4 w-4" style={{ color: 'var(--success)' }} />
+                  Demand Drivers
+                </h4>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.marketDynamics?.demandDrivers)}
+                    onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
+                    renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
+                      <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {(safeArray(data?.marketDynamics?.buyingTriggers).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                  <Target className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
+                  Buying Triggers
+                </h4>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.marketDynamics?.buyingTriggers)}
+                    onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
+                    renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
+                      <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
-          <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
-              <Target className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
-              Buying Triggers
-            </h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.marketDynamics?.buyingTriggers)}
-                onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-              />
-            ) : (
-              <ul className="space-y-1">
-                {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-        <div className="mt-4">
-          <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
-            <Shield className="h-4 w-4 text-[rgb(251,146,60)]" />
-            Barriers to Purchase
-          </h4>
-          {isEditing && onFieldChange ? (
-            <EditableList
-              items={safeArray(data?.marketDynamics?.barriersToPurchase)}
-              onSave={(v) => onFieldChange("marketDynamics.barriersToPurchase", v)}
-              renderPrefix={() => <AlertTriangle className="h-4 w-4 text-[rgb(251,146,60)]" />}
-            />
-          ) : (
-            <ul className="space-y-1">
-              {safeArray(data?.marketDynamics?.barriersToPurchase).map((item, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(251,146,60)]" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+          {(safeArray(data?.marketDynamics?.barriersToPurchase).length > 0 || isEditing) && (
+            <div className="mt-4">
+              <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                <Shield className="h-4 w-4 text-[rgb(251,146,60)]" />
+                Barriers to Purchase
+              </h4>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.marketDynamics?.barriersToPurchase)}
+                  onSave={(v) => onFieldChange("marketDynamics.barriersToPurchase", v)}
+                  renderPrefix={() => <AlertTriangle className="h-4 w-4 text-[rgb(251,146,60)]" />}
+                />
+              ) : (
+                <ul className="space-y-1">
+                  {safeArray(data?.marketDynamics?.barriersToPurchase).map((item, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(251,146,60)]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-        </div>
-      </SubSection>
+        </SubSection>
+      )}
 
       {/* Pain Points */}
-      <SubSection title="Pain Points">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="mb-2 font-medium text-[rgb(252,165,165)]">Primary Pain Points</h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.painPoints?.primary)}
-                onSave={(v) => onFieldChange("painPoints.primary", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-              />
-            ) : (
-              <ul className="space-y-1">
-                {safeArray(data?.painPoints?.primary).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
-            )}
+      {(safeArray(data?.painPoints?.primary).length > 0 ||
+        safeArray(data?.painPoints?.secondary).length > 0 ||
+        isEditing) && (
+        <SubSection title="Pain Points">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="mb-2 font-medium text-[rgb(252,165,165)]">Primary Pain Points</h4>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.painPoints?.primary)}
+                  onSave={(v) => onFieldChange("painPoints.primary", v)}
+                  renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                />
+              ) : (
+                <ul className="space-y-1">
+                  {safeArray(data?.painPoints?.primary).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <h4 className="mb-2 font-medium text-[rgb(253,186,116)]">Secondary Pain Points</h4>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.painPoints?.secondary)}
+                  onSave={(v) => onFieldChange("painPoints.secondary", v)}
+                  renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+                />
+              ) : (
+                <ul className="space-y-1">
+                  {safeArray(data?.painPoints?.secondary).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-          <div>
-            <h4 className="mb-2 font-medium text-[rgb(253,186,116)]">Secondary Pain Points</h4>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.painPoints?.secondary)}
-                onSave={(v) => onFieldChange("painPoints.secondary", v)}
-                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-              />
-            ) : (
-              <ul className="space-y-1">
-                {safeArray(data?.painPoints?.secondary).map((item, i) => (
-                  <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </SubSection>
+        </SubSection>
+      )}
 
       {/* Psychological Drivers */}
-      <SubSection title="Psychological Drivers">
-        <div className="grid md:grid-cols-2 gap-4">
-          {(data?.psychologicalDrivers?.drivers || []).map((driver, i) => (
-            <div
-              key={i}
-              className="p-3 rounded-lg border-l-4"
-              style={{
-                backgroundColor: 'var(--bg-surface)',
-                borderLeftColor: 'var(--accent-blue)'
-              }}
-            >
-              <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
-                <Brain className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
-                {safeRender(driver?.driver)}
-              </p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{safeRender(driver?.description)}</p>
-            </div>
-          ))}
-        </div>
-      </SubSection>
+      {(hasItems(data?.psychologicalDrivers?.drivers) || isEditing) && (
+        <SubSection title="Psychological Drivers">
+          <div className="grid md:grid-cols-2 gap-4">
+            {(data?.psychologicalDrivers?.drivers || []).map((driver, i) => (
+              <div
+                key={i}
+                className="p-3 rounded-lg border-l-4"
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  borderLeftColor: 'var(--accent-blue)'
+                }}
+              >
+                <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                  <Brain className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />
+                  {safeRender(driver?.driver)}
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{safeRender(driver?.description)}</p>
+              </div>
+            ))}
+          </div>
+        </SubSection>
+      )}
 
       {/* Audience Objections */}
-      <SubSection title="Audience Objections">
-        <div className="space-y-2">
-          {(data?.audienceObjections?.objections || []).map((obj, i) => (
-            <div
-              key={i}
-              className="p-3 rounded-lg"
-              style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
-            >
-              <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
-                <MessageSquare className="h-4 w-4 text-[rgb(253,186,116)]" />
-                &quot;{safeRender(obj?.objection)}&quot;
-              </p>
-              <p className="text-sm mt-2 ml-6" style={{ color: 'var(--text-secondary)' }}>
-                <strong style={{ color: 'var(--text-heading)' }}>Response:</strong> {safeRender(obj?.howToAddress)}
-              </p>
-            </div>
-          ))}
-        </div>
-      </SubSection>
+      {(hasItems(data?.audienceObjections?.objections) || isEditing) && (
+        <SubSection title="Audience Objections">
+          <div className="space-y-2">
+            {(data?.audienceObjections?.objections || []).map((obj, i) => (
+              <div
+                key={i}
+                className="p-3 rounded-lg"
+                style={{ backgroundColor: 'var(--bg-surface)', borderWidth: '1px', borderColor: 'var(--border-default)' }}
+              >
+                <p className="font-medium flex items-center gap-2" style={{ color: 'var(--text-heading)' }}>
+                  <MessageSquare className="h-4 w-4 text-[rgb(253,186,116)]" />
+                  &quot;{safeRender(obj?.objection)}&quot;
+                </p>
+                <p className="text-sm mt-2 ml-6" style={{ color: 'var(--text-secondary)' }}>
+                  <strong style={{ color: 'var(--text-heading)' }}>Response:</strong> {safeRender(obj?.howToAddress)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </SubSection>
+      )}
 
       {/* Key Recommendations */}
-      <SubSection title="Key Recommendations">
-        <div
-          className="p-3 rounded-lg"
-          style={{
-            backgroundColor: 'rgba(54, 94, 255, 0.05)',
-            borderWidth: '1px',
-            borderColor: 'rgba(54, 94, 255, 0.2)'
-          }}
-        >
-          {isEditing && onFieldChange ? (
-            <EditableList
-              items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
-              onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
-              renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-            />
-          ) : (
-            <ul className="space-y-1">
-              {safeArray(data?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
-          )}
-        </div>
-      </SubSection>
+      {(safeArray(data?.messagingOpportunities?.summaryRecommendations).length > 0 || isEditing) && (
+        <SubSection title="Key Recommendations">
+          <div
+            className="p-3 rounded-lg"
+            style={{
+              backgroundColor: 'rgba(54, 94, 255, 0.05)',
+              borderWidth: '1px',
+              borderColor: 'rgba(54, 94, 255, 0.2)'
+            }}
+          >
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
+                onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
+                renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
+          </div>
+        </SubSection>
+      )}
     </div>
   );
 }
@@ -721,6 +742,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
       </SubSection>
 
       {/* Risk Scores (new) / Risk Assessment (legacy) */}
+      {(hasItems(data?.riskScores) || (data as any)?.riskAssessment || isEditing) && (
       <SubSection title="Risk Assessment">
         {data?.riskScores?.length ? (
           <div className="space-y-3">
@@ -760,6 +782,7 @@ function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisConte
           </div>
         ) : null}
       </SubSection>
+      )}
 
       {/* Recommendations */}
       {(data?.finalVerdict?.recommendations || isEditing) && (
@@ -883,21 +906,23 @@ function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAnalysisC
       )}
 
       {/* Action Items */}
-      <SubSection title="Action Items">
-        {isEditing && onFieldChange ? (
-          <EditableList
-            items={safeArray(data?.recommendation?.actionItems)}
-            onSave={(v) => onFieldChange("recommendation.actionItems", v)}
-            renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-          />
-        ) : (
-          <ul className="space-y-1">
-            {safeArray(data?.recommendation?.actionItems).map((item, i) => (
-              <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-            ))}
-          </ul>
-        )}
-      </SubSection>
+      {(safeArray(data?.recommendation?.actionItems).length > 0 || isEditing) && (
+        <SubSection title="Action Items">
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.recommendation?.actionItems)}
+              onSave={(v) => onFieldChange("recommendation.actionItems", v)}
+              renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {safeArray(data?.recommendation?.actionItems).map((item, i) => (
+                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+              ))}
+            </ul>
+          )}
+        </SubSection>
+      )}
     </div>
   );
 }
@@ -1107,15 +1132,23 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                 <div>
                   <p style={{ color: 'var(--text-tertiary)' }}>Platforms</p>
                   <div className="flex gap-1 flex-wrap">
-                    {safeArray(comp?.adPlatforms).map((p, j) => (
-                      <Badge key={j} variant="outline" className="text-xs">{p}</Badge>
-                    ))}
+                    {safeArray(comp?.adPlatforms).length > 0 ? (
+                      safeArray(comp?.adPlatforms).map((p, j) => (
+                        <Badge key={j} variant="outline" className="text-xs">{p}</Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs italic" style={{ color: 'var(--text-tertiary)' }}>
+                        No active paid campaigns detected
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <p style={{ color: 'var(--text-tertiary)' }}>Funnels</p>
-                  <p style={{ color: 'var(--text-secondary)' }}>{safeRender(comp?.funnels)}</p>
-                </div>
+                {safeRender(comp?.funnels) && (
+                  <div>
+                    <p style={{ color: 'var(--text-tertiary)' }}>Funnels</p>
+                    <p style={{ color: 'var(--text-secondary)' }}>{safeRender(comp?.funnels)}</p>
+                  </div>
+                )}
               </div>
               <div className="grid md:grid-cols-2 gap-3 mt-3">
                 <div>
@@ -1528,84 +1561,105 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
       </SubSection>
 
       {/* Funnel Breakdown */}
-      <SubSection title="Funnel Breakdown">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="font-medium mb-2">Landing Page Patterns</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.funnelBreakdown?.landingPagePatterns).map((item, i) => (
-                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-              ))}
-            </ul>
+      {(safeArray(data?.funnelBreakdown?.landingPagePatterns).length > 0 ||
+        safeArray(data?.funnelBreakdown?.headlineStructure).length > 0 ||
+        safeArray(data?.funnelBreakdown?.ctaHierarchy).length > 0 ||
+        safeArray(data?.funnelBreakdown?.socialProofPatterns).length > 0 ||
+        safeArray(data?.funnelBreakdown?.leadCaptureMethods).length > 0 ||
+        isEditing) && (
+        <SubSection title="Funnel Breakdown">
+          <div className="grid md:grid-cols-2 gap-4">
+            {(safeArray(data?.funnelBreakdown?.landingPagePatterns).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2">Landing Page Patterns</h4>
+                <ul className="space-y-1">
+                  {safeArray(data?.funnelBreakdown?.landingPagePatterns).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(safeArray(data?.funnelBreakdown?.headlineStructure).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2">Headline Structure</h4>
+                <ul className="space-y-1">
+                  {safeArray(data?.funnelBreakdown?.headlineStructure).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(safeArray(data?.funnelBreakdown?.ctaHierarchy).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2">CTA Hierarchy</h4>
+                <ul className="space-y-1">
+                  {safeArray(data?.funnelBreakdown?.ctaHierarchy).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(safeArray(data?.funnelBreakdown?.socialProofPatterns).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2">Social Proof Patterns</h4>
+                <ul className="space-y-1">
+                  {safeArray(data?.funnelBreakdown?.socialProofPatterns).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(safeArray(data?.funnelBreakdown?.leadCaptureMethods).length > 0 || isEditing) && (
+              <div>
+                <h4 className="font-medium mb-2">Lead Capture Methods</h4>
+                <ul className="space-y-1">
+                  {safeArray(data?.funnelBreakdown?.leadCaptureMethods).map((item, i) => (
+                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {data?.funnelBreakdown?.formFriction && (
+              <div>
+                <p className="mb-1 text-sm text-[var(--text-tertiary)]">Form Friction Level</p>
+                <span className="text-sm capitalize">{safeRender(data.funnelBreakdown.formFriction)}</span>
+              </div>
+            )}
           </div>
-          <div>
-            <h4 className="font-medium mb-2">Headline Structure</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.funnelBreakdown?.headlineStructure).map((item, i) => (
-                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">CTA Hierarchy</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.funnelBreakdown?.ctaHierarchy).map((item, i) => (
-                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">Social Proof Patterns</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.funnelBreakdown?.socialProofPatterns).map((item, i) => (
-                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">Lead Capture Methods</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.funnelBreakdown?.leadCaptureMethods).map((item, i) => (
-                <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-              ))}
-            </ul>
-          </div>
-          {data?.funnelBreakdown?.formFriction && (
-            <div>
-              <p className="mb-1 text-sm text-[var(--text-tertiary)]">Form Friction Level</p>
-              <span className="text-sm capitalize">{safeRender(data.funnelBreakdown.formFriction)}</span>
-            </div>
-          )}
-        </div>
-      </SubSection>
+        </SubSection>
+      )}
 
       {/* Market Strengths & Weaknesses */}
-      <SubSection title="Market Strengths & Weaknesses">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Market Strengths</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.marketStrengths).map((item, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" style={{ color: 'var(--success)' }} />
-                  <span style={{ color: 'var(--text-secondary)' }}><SourcedListItem>{item}</SourcedListItem></span>
-                </li>
-              ))}
-            </ul>
+      {(safeArray(data?.marketStrengths).length > 0 ||
+        safeArray(data?.marketWeaknesses).length > 0 ||
+        isEditing) && (
+        <SubSection title="Market Strengths & Weaknesses">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium mb-2" style={{ color: 'var(--success)' }}>Market Strengths</h4>
+              <ul className="space-y-1">
+                {safeArray(data?.marketStrengths).map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" style={{ color: 'var(--success)' }} />
+                    <span style={{ color: 'var(--text-secondary)' }}><SourcedListItem>{item}</SourcedListItem></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-2 font-medium text-[rgb(252,165,165)]">Market Weaknesses</h4>
+              <ul className="space-y-1">
+                {safeArray(data?.marketWeaknesses).map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(252,165,165)]" />
+                    <span style={{ color: 'var(--text-secondary)' }}><SourcedListItem>{item}</SourcedListItem></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4 className="mb-2 font-medium text-[rgb(252,165,165)]">Market Weaknesses</h4>
-            <ul className="space-y-1">
-              {safeArray(data?.marketWeaknesses).map((item, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(252,165,165)]" />
-                  <span style={{ color: 'var(--text-secondary)' }}><SourcedListItem>{item}</SourcedListItem></span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </SubSection>
+        </SubSection>
+      )}
 
       {/* White Space Gaps (new) / Gaps & Opportunities (legacy) */}
       <SubSection title="Gaps & Opportunities">
@@ -1635,7 +1689,10 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               );
             })}
           </div>
-        ) : (
+        ) : (safeArray(data?.gapsAndOpportunities?.messagingOpportunities).length > 0 ||
+              safeArray(data?.gapsAndOpportunities?.creativeOpportunities).length > 0 ||
+              safeArray(data?.gapsAndOpportunities?.funnelOpportunities).length > 0 ||
+              isEditing) ? (
           /* Legacy fallback for old blueprints */
           <div className="grid md:grid-cols-3 gap-3">
             <div
@@ -1704,6 +1761,8 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
               )}
             </div>
           </div>
+        ) : (
+          <EmptyExplanation message="No competitive gaps or opportunities identified from available data." />
         )}
       </SubSection>
     </div>
@@ -1722,32 +1781,34 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
   return (
     <div className="space-y-5">
       {/* Key Insights */}
-      <SubSection title="Key Strategic Insights">
-        <div className="space-y-2.5">
-          {(data?.keyInsights || []).map((insight, i) => (
-            <div
-              key={i}
-              className="p-3 rounded-lg border-l-4"
-              style={{
-                backgroundColor: 'var(--bg-surface)',
-                borderLeftColor: 'var(--accent-blue)'
-              }}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-medium" style={{ color: 'var(--text-heading)' }}>{safeRender(insight?.insight)}</p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    <strong style={{ color: 'var(--text-heading)' }}>Implication:</strong> {safeRender(insight?.implication)}
-                  </p>
+      {((data?.keyInsights || []).length > 0 || isEditing) && (
+        <SubSection title="Key Strategic Insights">
+          <div className="space-y-2.5">
+            {(data?.keyInsights || []).map((insight, i) => (
+              <div
+                key={i}
+                className="p-3 rounded-lg border-l-4"
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  borderLeftColor: 'var(--accent-blue)'
+                }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium" style={{ color: 'var(--text-heading)' }}>{safeRender(insight?.insight)}</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: 'var(--text-heading)' }}>Implication:</strong> {safeRender(insight?.implication)}
+                    </p>
+                  </div>
+                  <Badge variant={insight?.priority === "high" ? "default" : "secondary"} className="shrink-0">
+                    {safeRender(insight?.priority)}
+                  </Badge>
                 </div>
-                <Badge variant={insight?.priority === "high" ? "default" : "secondary"} className="shrink-0">
-                  {safeRender(insight?.priority)}
-                </Badge>
               </div>
-            </div>
-          ))}
-        </div>
-      </SubSection>
+            ))}
+          </div>
+        </SubSection>
+      )}
 
       {/* Recommended Positioning */}
       <SubSection title="Recommended Positioning">
@@ -1825,50 +1886,54 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
       )}
 
       {/* Recommended Platforms */}
-      <SubSection title="Recommended Platforms">
-        <div className="grid md:grid-cols-3 gap-3">
-          {(data?.recommendedPlatforms || []).map((plat, i) => (
-            <div
-              key={i}
-              className={cn("p-3 rounded-lg")}
-              style={plat?.priority === "primary" ? {
-                backgroundColor: 'rgba(54, 94, 255, 0.1)',
-                borderWidth: '1px',
-                borderColor: 'var(--accent-blue)'
-              } : {
-                backgroundColor: 'var(--bg-surface)',
-                borderWidth: '1px',
-                borderColor: 'var(--border-default)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold" style={{ color: 'var(--text-heading)' }}>{safeRender(plat?.platform)}</h4>
-                <Badge variant={plat?.priority === "primary" ? "default" : "secondary"}>
-                  {safeRender(plat?.priority)}
-                </Badge>
+      {((data?.recommendedPlatforms || []).length > 0 || isEditing) && (
+        <SubSection title="Recommended Platforms">
+          <div className="grid md:grid-cols-3 gap-3">
+            {(data?.recommendedPlatforms || []).map((plat, i) => (
+              <div
+                key={i}
+                className={cn("p-3 rounded-lg")}
+                style={plat?.priority === "primary" ? {
+                  backgroundColor: 'rgba(54, 94, 255, 0.1)',
+                  borderWidth: '1px',
+                  borderColor: 'var(--accent-blue)'
+                } : {
+                  backgroundColor: 'var(--bg-surface)',
+                  borderWidth: '1px',
+                  borderColor: 'var(--border-default)'
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold" style={{ color: 'var(--text-heading)' }}>{safeRender(plat?.platform)}</h4>
+                  <Badge variant={plat?.priority === "primary" ? "default" : "secondary"}>
+                    {safeRender(plat?.priority)}
+                  </Badge>
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{safeRender(plat?.reasoning)}</p>
               </div>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{safeRender(plat?.reasoning)}</p>
-            </div>
-          ))}
-        </div>
-      </SubSection>
+            ))}
+          </div>
+        </SubSection>
+      )}
 
       {/* Critical Success Factors */}
-      <SubSection title="Critical Success Factors">
-        {isEditing && onFieldChange ? (
-          <EditableList
-            items={safeArray(data?.criticalSuccessFactors)}
-            onSave={(v) => onFieldChange("criticalSuccessFactors", v)}
-            renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
-          />
-        ) : (
-          <ul className="space-y-1">
-            {safeArray(data?.criticalSuccessFactors).map((item, i) => (
-              <ListItem key={i}>{item}</ListItem>
-            ))}
-          </ul>
-        )}
-      </SubSection>
+      {(safeArray(data?.criticalSuccessFactors).length > 0 || isEditing) && (
+        <SubSection title="Critical Success Factors">
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.criticalSuccessFactors)}
+              onSave={(v) => onFieldChange("criticalSuccessFactors", v)}
+              renderPrefix={() => <Check className="h-4 w-4" style={{ color: 'var(--accent-blue)' }} />}
+            />
+          ) : (
+            <ul className="space-y-1">
+              {safeArray(data?.criticalSuccessFactors).map((item, i) => (
+                <ListItem key={i}>{item}</ListItem>
+              ))}
+            </ul>
+          )}
+        </SubSection>
+      )}
 
       {/* Potential Blockers */}
       {(data?.potentialBlockers && data.potentialBlockers.length > 0) || isEditing ? (
@@ -1893,23 +1958,24 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
       ) : null}
 
       {/* Next Steps */}
-      <SubSection title="Recommended Next Steps">
-        {isEditing && onFieldChange ? (
-          <EditableList
-            items={safeArray(data?.nextSteps)}
-            onSave={(v) => onFieldChange("nextSteps", v)}
-            renderPrefix={(index) => (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
-                {index + 1}
-              </span>
-            )}
-          />
-        ) : (
-          <ol className="space-y-2">
-            {safeArray(data?.nextSteps).map((item, i) => (
-              <li key={i} className="flex items-start gap-3">
+      {(safeArray(data?.nextSteps).length > 0 || isEditing) && (
+        <SubSection title="Recommended Next Steps">
+          {isEditing && onFieldChange ? (
+            <EditableList
+              items={safeArray(data?.nextSteps)}
+              onSave={(v) => onFieldChange("nextSteps", v)}
+              renderPrefix={(index) => (
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
-                  {i + 1}
+                  {index + 1}
+                </span>
+              )}
+            />
+          ) : (
+            <ol className="space-y-2">
+              {safeArray(data?.nextSteps).map((item, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
+                    {i + 1}
                 </span>
                 <span className="pt-0.5">{item}</span>
               </li>
@@ -1917,6 +1983,7 @@ function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisC
           </ol>
         )}
       </SubSection>
+      )}
     </div>
   );
 }
@@ -2337,24 +2404,26 @@ function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: KeywordI
       })()}
 
       {/* Domain Overview */}
-      <SubSection title="Domain Overview">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {data?.clientDomain && (
-            <div className="relative">
-              <div
-                className="absolute -top-2 left-3 px-2 text-xs font-medium rounded"
-                style={{ backgroundColor: 'var(--accent-blue)', color: 'white' }}
-              >
-                Your Site
+      {(data?.clientDomain || (data?.competitorDomains && data.competitorDomains.length > 0)) && (
+        <SubSection title="Domain Overview">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {data?.clientDomain && (
+              <div className="relative">
+                <div
+                  className="absolute -top-2 left-3 px-2 text-xs font-medium rounded"
+                  style={{ backgroundColor: 'var(--accent-blue)', color: 'white' }}
+                >
+                  Your Site
+                </div>
+                <DomainStatCard stats={data.clientDomain} />
               </div>
-              <DomainStatCard stats={data.clientDomain} />
-            </div>
-          )}
-          {(data?.competitorDomains || []).map((stats, i) => (
-            <DomainStatCard key={i} stats={stats} />
-          ))}
-        </div>
-      </SubSection>
+            )}
+            {(data?.competitorDomains || []).map((stats, i) => (
+              <DomainStatCard key={i} stats={stats} />
+            ))}
+          </div>
+        </SubSection>
+      )}
 
       {/* Keyword Gaps with Tabs */}
       <SubSection title="Keyword Gap Analysis">

@@ -1080,6 +1080,8 @@ function generateKeywordIntelligence(section: KeywordIntelligence): string {
         if (comp.keywords.length > 10) {
           lines.push(`\n*Showing 10 of ${comp.keywords.length} keywords*`);
         }
+      } else {
+        lines.push('*No keyword data available for this competitor.*\n');
       }
       lines.push('');
     });
