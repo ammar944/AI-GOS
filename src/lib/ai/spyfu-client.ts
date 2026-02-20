@@ -128,6 +128,33 @@ export function isSpyFuAvailable(): boolean {
 }
 
 // =============================================================================
+// UTF-8 Mojibake Sanitization
+// =============================================================================
+
+/** Common UTF-8 → Latin-1 mojibake patterns (Ã-prefix sequences) */
+const MOJIBAKE_MAP: [string, string][] = [
+  ['Ã§', 'ç'], ['Ã©', 'é'], ['Ã¨', 'è'], ['Ã¼', 'ü'], ['Ã¶', 'ö'],
+  ['Ã¤', 'ä'], ['Ã±', 'ñ'], ['Ã¡', 'á'], ['Ã­', 'í'], ['Ã³', 'ó'],
+  ['Ãº', 'ú'], ['Ã¢', 'â'], ['Ã®', 'î'], ['Ã´', 'ô'], ['Ã»', 'û'],
+  ['Ã«', 'ë'], ['Ã¯', 'ï'], ['Â', ''],
+];
+
+/** Check if text contains mojibake artifacts (Ã or Â sequences) */
+export function hasMojibakeArtifacts(text: string): boolean {
+  return /[ÃÂ]/.test(text);
+}
+
+/** Sanitize common UTF-8 mojibake patterns back to correct characters */
+export function sanitizeMojibake(text: string): string {
+  if (!hasMojibakeArtifacts(text)) return text;
+  let result = text;
+  for (const [bad, good] of MOJIBAKE_MAP) {
+    result = result.replaceAll(bad, good);
+  }
+  return result;
+}
+
+// =============================================================================
 // Generic Fetch with Retry
 // =============================================================================
 
@@ -154,6 +181,7 @@ async function spyfuFetch<T>(
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'Accept-Charset': 'utf-8',
         },
       });
 
@@ -222,6 +250,7 @@ async function spyfuFetchPost<T>(
         method: 'POST',
         headers: {
           'Accept': 'application/json',
+          'Accept-Charset': 'utf-8',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
@@ -265,7 +294,7 @@ async function spyfuFetchPost<T>(
 
 function normalizeKeywordItem(raw: RawKeywordItem): SpyFuKeywordResult {
   return {
-    keyword: raw.keyword || raw.term || '',
+    keyword: sanitizeMojibake(raw.keyword || raw.term || ''),
     searchVolume: raw.searchVolume ?? raw.liveSearchVolume ?? raw.exactLocalMonthlySearchVolume ?? 0,
     cpc: raw.broadCostPerClick ?? raw.exactCostPerClick ?? raw.phraseCostPerClick ?? raw.costPerClick ?? raw.cpc ?? 0,
     difficulty: raw.rankingDifficulty ?? raw.keywordDifficulty ?? 0,

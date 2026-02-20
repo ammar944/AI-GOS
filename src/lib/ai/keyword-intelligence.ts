@@ -15,6 +15,8 @@ import {
   type SpyFuKeywordResult,
   type SpyFuKombatResult,
 } from './spyfu-client';
+import { preFilterKeywords } from './keyword-prefilter';
+import { classifyKeywordRelevance } from './keyword-classifier';
 import type {
   KeywordIntelligence,
   KeywordOpportunity,
@@ -629,16 +631,87 @@ export async function enrichKeywordIntelligence(
   }
 
   // =========================================================================
+  // Step 3.5: Relevance filtering pipeline (pre-filter + LLM classifier)
+  // =========================================================================
+
+  // Collect all filtered keywords into a unified list for the relevance pipeline
+  const allFilteredOpportunities: KeywordOpportunity[] = [
+    ...filteredOrganicWeaknesses.map(kw => toOpportunity(kw, 'gap_organic', competitorDomains.map(c => c.name))),
+    ...filteredPaidWeaknesses.map(kw => toOpportunity(kw, 'gap_paid', competitorDomains.map(c => c.name))),
+    ...filteredShared.map(kw => toOpportunity(kw, 'shared')),
+    ...filteredRelated.map(kw => toOpportunity(kw, 'related')),
+  ];
+
+  const postExistingFilterCount = allFilteredOpportunities.length;
+  let postPrefilterCount = postExistingFilterCount;
+  let postClassifierCount = postExistingFilterCount;
+  let classifierCost = 0;
+
+  // Relevance-classified keyword lists — start as raw SpyFu results, replaced if filtering runs
+  let classifiedOrganicWeaknesses = filteredOrganicWeaknesses;
+  let classifiedPaidWeaknesses = filteredPaidWeaknesses;
+  let classifiedShared = filteredShared;
+  let classifiedRelated = filteredRelated;
+
+  if (businessContext && allFilteredOpportunities.length > 0) {
+    // --- Phase A: Deterministic pre-filter ---
+    onProgress?.('Running keyword relevance pre-filter...');
+    const preFilterResult = preFilterKeywords(allFilteredOpportunities, {
+      clientCategory: businessContext.industry,
+      clientCompanyName: businessContext.companyName,
+    });
+
+    postPrefilterCount = preFilterResult.kept.length;
+
+    if (preFilterResult.removed.length > 0) {
+      onProgress?.(`Pre-filter removed ${preFilterResult.removed.length} keywords (${preFilterResult.removed.slice(0, 3).map(r => `"${r.keyword.keyword}": ${r.reason}`).join(', ')}${preFilterResult.removed.length > 3 ? '...' : ''})`);
+    }
+
+    // --- Phase B: LLM classifier ---
+    if (preFilterResult.kept.length > 0) {
+      onProgress?.(`Classifying ${preFilterResult.kept.length} keywords with AI relevance scorer...`);
+      const classifierResult = await classifyKeywordRelevance(preFilterResult.kept, businessContext);
+      classifierCost = classifierResult.cost;
+      postClassifierCount = classifierResult.relevant.length;
+
+      if (classifierResult.discarded.length > 0) {
+        onProgress?.(`Classifier discarded ${classifierResult.discarded.length} keywords (${classifierResult.discarded.slice(0, 3).map(d => `"${d.keyword.keyword}": ${d.score}/10`).join(', ')}${classifierResult.discarded.length > 3 ? '...' : ''})`);
+      }
+
+      // Rebuild per-source lists from classifier output using kw.source
+      const relevantSet = new Set(classifierResult.relevant.map(kw => kw.keyword.toLowerCase().trim()));
+
+      classifiedOrganicWeaknesses = filteredOrganicWeaknesses.filter(kw =>
+        relevantSet.has(kw.keyword.toLowerCase().trim())
+      );
+      classifiedPaidWeaknesses = filteredPaidWeaknesses.filter(kw =>
+        relevantSet.has(kw.keyword.toLowerCase().trim())
+      );
+      classifiedShared = filteredShared.filter(kw =>
+        relevantSet.has(kw.keyword.toLowerCase().trim())
+      );
+      classifiedRelated = filteredRelated.filter(kw =>
+        relevantSet.has(kw.keyword.toLowerCase().trim())
+      );
+    } else {
+      postClassifierCount = 0;
+    }
+
+    console.log(`[Keyword Intelligence] Relevance funnel: ${postExistingFilterCount} post-existing-filter → ${postPrefilterCount} post-prefilter → ${postClassifierCount} post-classifier`);
+    onProgress?.(`Relevance funnel: ${postExistingFilterCount} → ${postPrefilterCount} → ${postClassifierCount} keywords`);
+  }
+
+  // =========================================================================
   // Step 4: Bulk enrich top opportunities with full metrics
   // =========================================================================
 
-  // Collect all unique keywords for bulk lookup (using filtered lists)
+  // Collect all unique keywords for bulk lookup (using classified lists)
   const allKeywordStrings = new Set<string>();
   for (const kw of [
-    ...filteredOrganicWeaknesses,
-    ...filteredPaidWeaknesses,
-    ...filteredShared,
-    ...filteredRelated,
+    ...classifiedOrganicWeaknesses,
+    ...classifiedPaidWeaknesses,
+    ...classifiedShared,
+    ...classifiedRelated,
   ]) {
     allKeywordStrings.add(kw.keyword.toLowerCase().trim());
   }
@@ -674,17 +747,17 @@ export async function enrichKeywordIntelligence(
     return toOpportunity(enriched ?? kw, source, competitors);
   };
 
-  // Use FILTERED lists for all opportunity building
-  const organicGapOpportunities = filteredOrganicWeaknesses.map(kw =>
+  // Use CLASSIFIED lists for all opportunity building (post-prefilter + LLM classifier)
+  const organicGapOpportunities = classifiedOrganicWeaknesses.map(kw =>
     enrichKeyword(kw, 'gap_organic', competitorDomains.map(c => c.name))
   );
-  const paidGapOpportunities = filteredPaidWeaknesses.map(kw =>
+  const paidGapOpportunities = classifiedPaidWeaknesses.map(kw =>
     enrichKeyword(kw, 'gap_paid', competitorDomains.map(c => c.name))
   );
-  const sharedKeywordOpportunities = filteredShared.map(kw =>
+  const sharedKeywordOpportunities = classifiedShared.map(kw =>
     enrichKeyword(kw, 'shared')
   );
-  const relatedOpportunities = filteredRelated.map(kw =>
+  const relatedOpportunities = classifiedRelated.map(kw =>
     enrichKeyword(kw, 'related')
   );
 
@@ -774,6 +847,14 @@ export async function enrichKeywordIntelligence(
       spyfuCost: estimatedCost,
       collectedAt: new Date().toISOString(),
       ...(navigationalFilteredCount > 0 && { volumeCappedKeywords: navigationalFilteredCount }),
+      ...(classifierCost > 0 && { classifierCost }),
+      ...(businessContext && {
+        relevanceFunnel: {
+          postExistingFilter: postExistingFilterCount,
+          postPrefilter: postPrefilterCount,
+          postClassifier: postClassifierCount,
+        },
+      }),
     },
   };
 
@@ -781,6 +862,6 @@ export async function enrichKeywordIntelligence(
 
   return {
     keywordIntelligence,
-    cost: estimatedCost,
+    cost: estimatedCost + classifierCost,
   };
 }

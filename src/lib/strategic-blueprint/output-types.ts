@@ -810,6 +810,14 @@ export interface KeywordIntelligence {
     collectedAt: string;
     /** Number of keywords removed by B2B volume ceiling (>50K/mo) */
     volumeCappedKeywords?: number;
+    /** Cost of LLM keyword relevance classification */
+    classifierCost?: number;
+    /** Keyword counts at each filtering stage */
+    relevanceFunnel?: {
+      postExistingFilter: number;
+      postPrefilter: number;
+      postClassifier: number;
+    };
   };
 
   /** SEO Audit data (optional - requires client URL) */
