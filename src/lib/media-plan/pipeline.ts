@@ -60,9 +60,12 @@ import {
   validateWithinPlatformBudgets,
   validateCampaignNaming,
   validateRetargetingPoolRealism,
+  validatePerPlatformDailyBudgets,
   validatePlatformCompliance,
   estimateRetentionMultiplier,
   validateRiskMonitoring,
+  reconcileMonthlyRoadmapWithPhases,
+  sweepStaleReferences,
   type CACModelInput,
 } from './validation';
 
@@ -263,7 +266,7 @@ export async function runMediaPlanPipeline(
       budgetMonitoringData.budgetAllocation,
       onboarding.budgetTargets.monthlyAdBudget,
     );
-    const budgetAllocation: BudgetAllocation = validatedBudget;
+    let budgetAllocation: BudgetAllocation = validatedBudget;
 
     if (budgetAdjustments.length > 0) {
       console.log(`[MediaPlan:Pipeline] Budget adjustments: ${budgetAdjustments.map(a => a.rule).join(', ')}`);
@@ -312,6 +315,9 @@ export async function runMediaPlanPipeline(
     emitSection('performanceModel', 'complete', 'validation');
     emitSectionData('performanceModel', performanceModel, 'validation');
 
+    // --- Collect all validation warnings for persistence ---
+    const allValidationWarnings: string[] = [];
+
     // --- Reconcile KPI targets against deterministic CAC model ---
     onProgress?.('Reconciling KPI targets with computed model...', 70);
     const { kpiTargets: reconciledKPIs, overrides: kpiOverrides } = reconcileKPITargets(
@@ -322,6 +328,7 @@ export async function runMediaPlanPipeline(
     );
     if (kpiOverrides.length > 0) {
       console.log(`[MediaPlan:Pipeline] KPI overrides: ${kpiOverrides.map(o => `${o.rule}: ${o.reason}`).join('; ')}`);
+      allValidationWarnings.push(...kpiOverrides.map(o => `KPI Override (${o.rule}): ${o.reason}`));
     }
 
     // --- Cross-section validation ---
@@ -336,6 +343,7 @@ export async function runMediaPlanPipeline(
     });
     if (crossValidation.warnings.length > 0) {
       console.warn(`[MediaPlan:Pipeline] Cross-section warnings: ${crossValidation.warnings.join('; ')}`);
+      allValidationWarnings.push(...crossValidation.warnings);
     }
 
     // Apply cross-validation fixes (e.g. proportional daily budget scaling)
@@ -351,9 +359,23 @@ export async function runMediaPlanPipeline(
     validatedCampaignStructure = withinPlatformResult.campaignStructure;
     if (withinPlatformResult.warnings.length > 0) {
       console.warn(`[MediaPlan:Pipeline] Within-platform budget warnings: ${withinPlatformResult.warnings.join('; ')}`);
+      allValidationWarnings.push(...withinPlatformResult.warnings);
     }
     if (withinPlatformResult.adjustments.length > 0) {
       console.log(`[MediaPlan:Pipeline] Within-platform budget adjustments: ${withinPlatformResult.adjustments.map(a => a.rule).join(', ')}`);
+    }
+
+    // --- Phase 2D.5: Per-platform daily budget validation ---
+    onProgress?.('Validating per-platform daily budgets...', 73.5);
+    const perPlatformWarnings: string[] = [];
+    validatedCampaignStructure = validatePerPlatformDailyBudgets(
+      platformStrategy,
+      validatedCampaignStructure,
+      perPlatformWarnings,
+    );
+    if (perPlatformWarnings.length > 0) {
+      console.warn(`[MediaPlan:Pipeline] Per-platform daily budget warnings: ${perPlatformWarnings.join('; ')}`);
+      allValidationWarnings.push(...perPlatformWarnings);
     }
 
     // --- Phase 2E: ACV + Platform Minimum Compliance ---
@@ -369,6 +391,7 @@ export async function runMediaPlanPipeline(
     const validatedPlatformStrategy = complianceResult.platformStrategy;
     if (complianceResult.warnings.length > 0) {
       console.warn(`[MediaPlan:Pipeline] Platform compliance warnings: ${complianceResult.warnings.join('; ')}`);
+      allValidationWarnings.push(...complianceResult.warnings);
     }
     if (complianceResult.adjustments.length > 0) {
       console.log(`[MediaPlan:Pipeline] Platform compliance adjustments: ${complianceResult.adjustments.map(a => a.rule).join(', ')}`);
@@ -394,6 +417,13 @@ export async function runMediaPlanPipeline(
       console.log(`[MediaPlan:Pipeline] Phase budget adjustments: ${phaseBudgetResult.adjustments.map(a => a.rule).join(', ')}`);
     }
 
+    // --- Phase 2G.5: Monthly roadmap ↔ phase budget reconciliation ---
+    const roadmapResult = reconcileMonthlyRoadmapWithPhases(budgetAllocation, validatedCampaignPhases);
+    budgetAllocation = roadmapResult.budgetAllocation;
+    if (roadmapResult.adjustments.length > 0) {
+      console.log(`[MediaPlan:Pipeline] Roadmap reconciliation: ${roadmapResult.adjustments.map(a => a.rule).join(', ')}`);
+    }
+
     // --- Phase 2H: Retargeting pool realism check ---
     const hasExistingPaidTraffic = (blueprint.keywordIntelligence?.clientDomain?.paidKeywords ?? 0) > 0;
     const hasOrganicKeywords = (blueprint.keywordIntelligence?.clientDomain?.organicKeywords ?? 0) > 0;
@@ -407,7 +437,11 @@ export async function runMediaPlanPipeline(
     const finalCampaignPhases = retargetingResult.campaignPhases;
     if (retargetingResult.warnings.length > 0) {
       console.warn(`[MediaPlan:Pipeline] Retargeting warnings: ${retargetingResult.warnings.join('; ')}`);
+      allValidationWarnings.push(...retargetingResult.warnings);
     }
+
+    // --- Emit validated campaign structure (replaces pre-validation synthesis emit) ---
+    emitSectionData('campaignStructure', validatedCampaignStructure, 'validation');
 
     // --- Build resolved targets for downstream consumption ---
     const resolvedTargets = buildResolvedTargets(performanceModel.cacModel, budgetAllocation.totalMonthlyBudget);
@@ -449,6 +483,7 @@ export async function runMediaPlanPipeline(
     const timelineWarnings = reconcileTimeline(executiveSummary, finalCampaignPhases);
     if (timelineWarnings.length > 0) {
       console.warn(`[MediaPlan:Pipeline] Timeline warnings: ${timelineWarnings.join('; ')}`);
+      allValidationWarnings.push(...timelineWarnings);
     }
 
     phaseTimings.phase3 = Date.now() - phase3Start;
@@ -466,7 +501,7 @@ export async function runMediaPlanPipeline(
       modelUsed: `${MODELS.SONAR_PRO} + ${MODELS.CLAUDE_SONNET}`,
     };
 
-    const mediaPlan: MediaPlanOutput = {
+    let mediaPlan: MediaPlanOutput = {
       executiveSummary,
       platformStrategy: validatedPlatformStrategy,
       icpTargeting,
@@ -479,6 +514,22 @@ export async function runMediaPlanPipeline(
       riskMonitoring,
       metadata,
     };
+
+    // --- Post-assembly: Sweep stale CAC/lead/LTV references in free text ---
+    const sweepResult = sweepStaleReferences(mediaPlan, performanceModel.cacModel, budgetAllocation.totalMonthlyBudget, onboarding.productOffer.offerPrice);
+    mediaPlan = sweepResult.mediaPlan;
+    if (sweepResult.corrections.length > 0) {
+      console.log(`[MediaPlan:Pipeline] Stale reference sweep: ${sweepResult.corrections.length} corrections`);
+      for (const c of sweepResult.corrections) {
+        console.log(`  → ${c}`);
+      }
+      allValidationWarnings.push(...sweepResult.corrections.map(c => `Stale reference fix: ${c}`));
+    }
+
+    // --- Persist all validation warnings on the output ---
+    if (allValidationWarnings.length > 0) {
+      mediaPlan.validationWarnings = allValidationWarnings;
+    }
 
     onProgress?.('Media plan complete!', 100);
 

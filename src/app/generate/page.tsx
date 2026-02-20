@@ -15,6 +15,7 @@ import {
   Share2,
   Link2,
   Check,
+  Copy,
   Download,
   LayoutDashboard,
   X,
@@ -24,6 +25,7 @@ import { OnboardingWizard } from "@/components/onboarding";
 import { createRoot } from "react-dom/client";
 import { PolishedBlueprintView } from "@/components/strategic-blueprint/polished-blueprint-view";
 import PdfMarkdownContent from "@/components/strategic-blueprint/pdf-markdown-content";
+import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
 import { BlueprintDocument } from "@/components/strategic-research";
 import { RESEARCH_TRANSPARENT_PANEL_CLASS } from "@/components/strategic-research/ui-tokens";
 import { AgentChat } from "@/components/chat";
@@ -206,6 +208,8 @@ export default function GeneratePage() {
 
   // PDF export state
   const [isExporting, setIsExporting] = useState(false);
+  // Copy as markdown state
+  const [blueprintCopied, setBlueprintCopied] = useState(false);
 
   // Session resume banner state
   const [showResumeBanner, setShowResumeBanner] = useState(false);
@@ -788,6 +792,15 @@ export default function GeneratePage() {
     } finally {
       setIsExporting(false);
     }
+  }, [strategicBlueprint]);
+
+  // Copy blueprint as markdown handler
+  const handleCopyBlueprint = useCallback(() => {
+    if (!strategicBlueprint) return;
+    const markdown = generateBlueprintMarkdown(strategicBlueprint);
+    navigator.clipboard.writeText(markdown);
+    setBlueprintCopied(true);
+    setTimeout(() => setBlueprintCopied(false), 2000);
   }, [strategicBlueprint]);
 
   // Compute if user has unsaved progress
@@ -1466,6 +1479,23 @@ export default function GeneratePage() {
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Back to Review
+                    </MagneticButton>
+                    <MagneticButton
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                      onClick={handleCopyBlueprint}
+                      style={{
+                        border: `1px solid ${blueprintCopied ? 'rgba(34,197,94,0.4)' : 'var(--border-default)'}`,
+                        color: blueprintCopied ? 'var(--success)' : 'var(--text-secondary)',
+                        background: 'transparent',
+                        fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      }}
+                    >
+                      {blueprintCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      {blueprintCopied ? 'Copied' : 'Copy'}
                     </MagneticButton>
                     <MagneticButton
                       className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"

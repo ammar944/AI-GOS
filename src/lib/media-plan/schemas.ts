@@ -653,4 +653,7 @@ export const mediaPlanSchema = z.object({
 
   riskMonitoring: riskMonitoringSchema
     .describe('Risk identification with mitigation plans and key assumptions'),
+
+  validationWarnings: z.array(z.string()).optional()
+    .describe('Validation warnings collected during deterministic post-processing. System-populated, do not provide.'),
 }).describe('Complete media plan for paid advertising campaign — 10 sections');

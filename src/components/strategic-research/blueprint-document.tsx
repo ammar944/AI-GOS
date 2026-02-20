@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { springs } from "@/lib/motion";
+import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
 import { DocumentSection } from "./document-section";
 import { SectionPaginationNav } from "./section-pagination-nav";
 import { SectionProgressBar } from "./section-progress-bar";
@@ -295,6 +296,11 @@ export function BlueprintDocument({
     onApprove(approvedBlueprint);
   }, [strategicBlueprint, pendingEdits, onApprove]);
 
+  const handleCopy = useCallback(() => {
+    const markdown = generateBlueprintMarkdown(strategicBlueprint);
+    navigator.clipboard.writeText(markdown);
+  }, [strategicBlueprint]);
+
   const isFirstPage = currentPage === 0;
   const isLastPage = currentPage === availableSections.length - 1;
 
@@ -414,6 +420,7 @@ export function BlueprintDocument({
           onUndo={handleUndo}
           onRedo={handleRedo}
           onApprove={handleApprove}
+          onCopy={handleCopy}
         />
       </div>
     </div>

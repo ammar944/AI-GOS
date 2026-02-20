@@ -311,13 +311,13 @@ adjust campaign daily budgets proportionally.
 CAMPAIGN NAMING CONVENTIONS:
 Format: [Client]_[Platform]_[Objective]_[Audience]_[Year]
 - Platform codes: LI, GG, META, TT, YT
-- Year: MUST use current year
+- Year: MUST use current year ${new Date().getFullYear()}
 - NEVER include: "financing", "credit", "loan", "insurance"
 
 Examples:
-- ClientName_LI_LeadGen_VPMarketing_2026
-- ClientName_GG_Competitor_DreamdataAlt_2026
-- ClientName_META_LeadGen_Interest_2026
+- ClientName_LI_LeadGen_VPMarketing_${new Date().getFullYear()}
+- ClientName_GG_Competitor_DreamdataAlt_${new Date().getFullYear()}
+- ClientName_META_LeadGen_Interest_${new Date().getFullYear()}
 
 RETARGETING SEGMENTS (apply across all platforms):
 | Segment | Lookback | Messaging |

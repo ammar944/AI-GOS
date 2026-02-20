@@ -471,6 +471,8 @@ export interface MediaPlanOutput {
   riskMonitoring: RiskMonitoring;
   /** Generation metadata (populated post-generation, not part of AI output) */
   metadata: MediaPlanMetadata;
+  /** Validation warnings collected during deterministic post-processing */
+  validationWarnings?: string[];
 }
 
 // =============================================================================
