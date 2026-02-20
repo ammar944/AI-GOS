@@ -106,6 +106,22 @@ function safeArray(value: unknown): string[] {
   return [safeRender(value)];
 }
 
+/** Check if an array-like value has renderable content */
+function hasItems(value: unknown): boolean {
+  if (!value) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return false;
+}
+
+/** Placeholder for sections with no data (hidden in read mode, visible context in edit mode) */
+function EmptyExplanation({ message }: { message: string }) {
+  return (
+    <p className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>
+      {message}
+    </p>
+  );
+}
+
 /** Format a PricingTier to a string for editing */
 function formatPricingTier(tier: PricingTier): string {
   return `${tier.tier}: ${tier.price}`;
@@ -992,6 +1008,18 @@ function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Competito
                   />
                 ) : (
                   <SourcedText>{safeRender(comp?.name)}</SourcedText>
+                )}
+                {(comp as any)?.analysisDepth === 'summary' && (
+                  <span
+                    className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium"
+                    style={{
+                      backgroundColor: 'var(--bg-elevated)',
+                      color: 'var(--text-tertiary)',
+                      border: '1px solid var(--border-default)',
+                    }}
+                  >
+                    Summary Analysis
+                  </span>
                 )}
                 {comp?.website && (
                   <a

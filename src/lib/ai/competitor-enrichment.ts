@@ -37,6 +37,8 @@ interface EnrichedCompetitor {
   pricingConfidence?: number;
   adCreatives: EnrichedAdCreative[];
   reviewData?: CompetitorReviewData;
+  /** Analysis depth: 'full' or 'summary' */
+  analysisDepth?: string;
 }
 
 const HIGH_RECALL_FETCH_LIMIT = 200;
@@ -65,7 +67,15 @@ export async function enrichCompetitors(
   baseAnalysis: CompetitorAnalysis,
   onProgress?: (message: string) => void
 ): Promise<EnrichmentResult> {
-  const competitors = baseAnalysis.competitors;
+  // Only enrich full-tier competitors — summary-tier pass through as-is
+  const fullTierCompetitors = baseAnalysis.competitors.filter(c => (c as any).analysisDepth !== 'summary');
+  const summaryCompetitors = baseAnalysis.competitors.filter(c => (c as any).analysisDepth === 'summary');
+
+  if (summaryCompetitors.length > 0) {
+    onProgress?.(`Enriching ${fullTierCompetitors.length} full-tier competitors (${summaryCompetitors.length} summary skipped)...`);
+  }
+
+  const competitors = fullTierCompetitors;
   let enrichmentCost = 0;
   let pricingSuccessCount = 0;
   let adSuccessCount = 0;
@@ -282,16 +292,28 @@ export async function enrichCompetitors(
 
   onProgress?.(`Enrichment complete: ${pricingSuccessCount}/${competitors.length} pricing, ${adSuccessCount}/${competitors.length} ads, ${reviewSuccessCount}/${competitors.length} reviews`);
 
+  // Pass summary-tier competitors through with minimal enriched fields
+  const passedThroughSummary: EnrichedCompetitor[] = summaryCompetitors.map(c => ({
+    ...c,
+    pricingTiers: [],
+    pricingSource: 'unavailable' as const,
+    adCreatives: [],
+    analysisDepth: 'summary',
+  }));
+
+  // Merge enriched full-tier + passed-through summary-tier
+  const allCompetitors = [...enrichedCompetitors, ...passedThroughSummary];
+
   // Debug: Log final enriched data
-  const totalAdsStored = enrichedCompetitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
-  console.log(`[Competitor Enrichment] Final result: ${totalAdsStored} total ads stored across ${enrichedCompetitors.length} competitors`);
+  const totalAdsStored = allCompetitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
+  console.log(`[Competitor Enrichment] Final result: ${totalAdsStored} total ads stored across ${allCompetitors.length} competitors (${enrichedCompetitors.length} full + ${passedThroughSummary.length} summary)`);
   enrichedCompetitors.forEach(c => {
     const hasReviews = c.reviewData?.trustpilot || c.reviewData?.g2;
     console.log(`[Competitor Enrichment] - ${c.name}: ${c.adCreatives?.length ?? 0} ads, ${c.pricingTiers?.length ?? 0} pricing tiers, reviews: ${hasReviews ? 'yes' : 'no'}`);
   });
 
   return {
-    competitors: enrichedCompetitors,
+    competitors: allCompetitors,
     enrichmentCost,
     pricingSuccessCount,
     adSuccessCount,

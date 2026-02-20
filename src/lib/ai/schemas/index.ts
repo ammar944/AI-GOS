@@ -22,7 +22,10 @@ export {
 // Section 4: Competitor Analysis
 export {
   competitorAnalysisSchema,
+  summaryCompetitorBatchSchema,
   type CompetitorAnalysis,
+  type SummaryCompetitor,
+  type SummaryCompetitorBatch,
 } from './competitor-analysis';
 
 // Section 5: Cross-Analysis Synthesis

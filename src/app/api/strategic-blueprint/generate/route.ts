@@ -12,6 +12,8 @@ import {
   extractAdHooksFromAds,
   enrichKeywordIntelligence,
   runSEOAudit,
+  parseCompetitorNames,
+  rankCompetitorsByEmphasis,
   type StrategicBlueprintOutput,
   type GenerationProgress,
   type EnrichmentResult,
@@ -20,6 +22,14 @@ import {
   type KeywordBusinessContext,
   type SEOAuditResult,
 } from '@/lib/ai';
+import type { HookExtractionContext } from '@/lib/ai/hook-extraction';
+import {
+  computeAdDistribution,
+  validateHookDiversity,
+  remediateHooks,
+  validateHookSegmentRelevance,
+  getHookQuotas,
+} from '@/lib/ai/hook-diversity-validator';
 import {
   createErrorResponse,
   ErrorCode,
@@ -162,8 +172,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build context string
-    const context = createBusinessContext(onboardingData);
+    // Parse competitor names and assign tiers
+    const parsedNames = parseCompetitorNames(onboardingData.marketCompetition.topCompetitors);
+    const { fullTier, summaryTier } = rankCompetitorsByEmphasis(parsedNames, onboardingData);
+
+    // Build context string with tier information
+    const context = createBusinessContext(onboardingData, {
+      fullTierNames: fullTier,
+      summaryTierNames: summaryTier,
+    });
 
     // =========================================================================
     // Streaming Response with PARALLEL ENRICHMENT
@@ -274,7 +291,9 @@ export async function POST(request: NextRequest) {
                     industry: onboardingData.icp?.industryVertical || '',
                     productDescription: onboardingData.productOffer?.productDescription || '',
                     companyName: onboardingData.businessBasics?.businessName || '',
-                    competitorNames: progress.competitorData.competitors.map((c: any) => c.name),
+                    competitorNames: progress.competitorData.competitors
+                      .filter((c: any) => c.analysisDepth !== 'summary')
+                      .map((c: any) => c.name),
                   };
 
                   keywordPromise = enrichKeywordIntelligence(
@@ -324,6 +343,8 @@ export async function POST(request: NextRequest) {
             // with zero delay (enrichment finishes during Phase 2, well before Phase 3)
             const result = await generateStrategicBlueprint(context, {
               onProgress,
+              fullTierNames: fullTier,
+              summaryTierNames: summaryTier,
               getEnrichedCompetitors: async () => {
                 if (!enrichmentPromise || !baseCompetitorData) return undefined;
                 const enrichment = await enrichmentPromise;
@@ -331,6 +352,7 @@ export async function POST(request: NextRequest) {
                 console.log(`[Route] Enrichment ready for synthesis: ${enrichment.reviewSuccessCount} reviews, ${enrichment.pricingSuccessCount} pricing, ${enrichment.adSuccessCount} ads`);
 
                 // Start hook extraction in parallel with synthesis (don't await)
+                // Thread client context so hooks match the client's target segment
                 const totalAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
                 if (totalAds > 0 && !hookPromise) {
                   console.log('[Route] Starting hook extraction parallel to synthesis...');
@@ -339,9 +361,18 @@ export async function POST(request: NextRequest) {
                     percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
                     message: 'Extracting ad hooks from competitor creatives (parallel)...',
                   });
+                  const hookClientContext: HookExtractionContext = {
+                    targetSegment: onboardingData.icp?.primaryIcpDescription || '',
+                    icpDescription: onboardingData.icp?.primaryIcpDescription || '',
+                    valueProp: onboardingData.productOffer?.valueProp || '',
+                    industryVertical: onboardingData.icp?.industryVertical || '',
+                    brandPositioning: onboardingData.brandPositioning?.brandPositioning || '',
+                    uniqueEdge: onboardingData.marketCompetition?.uniqueEdge || '',
+                  };
                   hookPromise = extractAdHooksFromAds(
                     enrichment.competitors,
-                    [] // No synthesis hooks yet — will merge after both finish
+                    [], // No synthesis hooks yet — will merge after both finish
+                    hookClientContext,
                   ).catch(error => {
                     console.error('[Route] Hook extraction failed (non-fatal):', error);
                     return null;
@@ -407,35 +438,83 @@ export async function POST(request: NextRequest) {
             console.log(`[Route] Enrichment: ${totalEnrichedAds} ads, ${enrichment.reviewSuccessCount}/${enrichment.competitors.length} reviews, ${enrichment.pricingSuccessCount}/${enrichment.competitors.length} pricing`);
 
             // Synthesis already had enriched data (reviews, pricing, ads, keywords)
-            // Hook extraction ran in parallel with synthesis — merge results now
+            // Hook extraction ran in parallel with synthesis — merge + validate now
             let finalSynthesis = result.blueprint.crossAnalysisSynthesis;
             let resynthesisCost = 0;
 
-            // Await parallel hook extraction and merge with synthesis hooks
+            // Await parallel hook extraction, validate diversity, and merge
             if (hookPromise) {
               try {
                 const hookResult = await hookPromise;
                 if (hookResult && hookResult.hooks.length > 0) {
                   const synthesisHooks = finalSynthesis.messagingFramework?.adHooks ?? [];
-                  // Extracted/inspired hooks (from ads) take priority, then fill with synthesis-generated hooks
-                  const generatedOnly = synthesisHooks.filter(
-                    h => !h.source || h.source.type === 'generated'
-                  );
-                  const mergedHooks = [
-                    ...hookResult.hooks, // extracted + inspired (high priority)
-                    ...generatedOnly.slice(0, 12 - hookResult.hooks.length),
-                  ].slice(0, 12);
+
+                  // Step 1: Combine extraction hooks + synthesis hooks
+                  const combinedHooks = [
+                    ...hookResult.hooks,
+                    ...synthesisHooks,
+                  ];
+
+                  // Step 2: Validate hook diversity (source concentration + per-competitor cap)
+                  const distribution = computeAdDistribution(enrichment.competitors);
+                  const quotas = getHookQuotas(distribution);
+                  const violations = validateHookDiversity(combinedHooks, quotas.maxPerCompetitor);
+
+                  let validatedHooks: typeof combinedHooks;
+                  if (violations.length > 0) {
+                    console.log(`[Route] Hook diversity violations found: ${violations.length} — remediating...`);
+                    const synthesisPool = synthesisHooks.filter(
+                      h => !h.source || h.source.type === 'generated'
+                    );
+                    validatedHooks = remediateHooks(combinedHooks, violations, synthesisPool, quotas.maxPerCompetitor);
+                  } else {
+                    validatedHooks = combinedHooks.slice(0, 12);
+                  }
+
+                  // Step 3: Segment relevance validation via Haiku
+                  const clientSegment = onboardingData.icp?.primaryIcpDescription || onboardingData.icp?.industryVertical || '';
+                  const icpDesc = onboardingData.icp?.primaryIcpDescription || '';
+                  if (clientSegment) {
+                    try {
+                      const relevanceResult = await validateHookSegmentRelevance(
+                        validatedHooks,
+                        clientSegment,
+                        icpDesc,
+                      );
+                      resynthesisCost += relevanceResult.cost;
+
+                      const irrelevantIndices = relevanceResult.results
+                        .filter(r => !r.relevant)
+                        .map(r => r.hookIndex);
+
+                      if (irrelevantIndices.length > 0) {
+                        console.log(`[Route] ${irrelevantIndices.length} hooks flagged as segment-irrelevant — replacing...`);
+                        const replacementPool = synthesisHooks
+                          .filter(h => !h.source || h.source.type === 'generated')
+                          .filter(h => !validatedHooks.includes(h));
+                        let replacementIdx = 0;
+                        validatedHooks = validatedHooks.map((hook, i) => {
+                          if (irrelevantIndices.includes(i) && replacementIdx < replacementPool.length) {
+                            return replacementPool[replacementIdx++];
+                          }
+                          return hook;
+                        });
+                      }
+                    } catch (error) {
+                      console.error('[Route] Segment relevance check failed (non-fatal):', error);
+                    }
+                  }
 
                   finalSynthesis = {
                     ...finalSynthesis,
                     messagingFramework: {
                       ...finalSynthesis.messagingFramework!,
-                      adHooks: mergedHooks,
+                      adHooks: validatedHooks.slice(0, 12),
                     },
                   };
-                  resynthesisCost = hookResult.cost;
+                  resynthesisCost += hookResult.cost;
 
-                  console.log(`[Route] Hook extraction merged: cost=$${resynthesisCost.toFixed(4)}, extracted=${hookResult.extractedCount}, inspired=${hookResult.inspiredCount}, synthesis-generated=${generatedOnly.length}, final=${mergedHooks.length}`);
+                  console.log(`[Route] Hook pipeline: cost=$${resynthesisCost.toFixed(4)}, extracted=${hookResult.extractedCount}, inspired=${hookResult.inspiredCount}, generated=${hookResult.generatedCount}, violations=${violations.length}, final=${validatedHooks.length}`);
                 }
               } catch (error) {
                 console.error('[Route] Hook extraction merge failed, using synthesis hooks:', error);
@@ -527,7 +606,10 @@ export async function POST(request: NextRequest) {
     // =========================================================================
     // Non-Streaming Response
     // =========================================================================
-    const result = await generateStrategicBlueprint(context);
+    const result = await generateStrategicBlueprint(context, {
+      fullTierNames: fullTier,
+      summaryTierNames: summaryTier,
+    });
 
     if (!result.success || !result.blueprint) {
       const errorCode = ErrorCode.INTERNAL_ERROR;
@@ -544,7 +626,9 @@ export async function POST(request: NextRequest) {
       industry: onboardingData.icp?.industryVertical || '',
       productDescription: onboardingData.productOffer?.productDescription || '',
       companyName: onboardingData.businessBasics?.businessName || '',
-      competitorNames: result.blueprint.competitorAnalysis.competitors.map((c: any) => c.name),
+      competitorNames: result.blueprint.competitorAnalysis.competitors
+        .filter((c: any) => c.analysisDepth !== 'summary')
+        .map((c: any) => c.name),
     };
     const [enrichment, keywordResultNonStream, seoAuditResultNonStream] = await Promise.all([
       enrichCompetitors(result.blueprint.competitorAnalysis),

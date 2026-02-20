@@ -16,10 +16,12 @@ import {
   offerAnalysisSchema,
   competitorAnalysisSchema,
   crossAnalysisSchema,
+  summaryCompetitorBatchSchema,
 } from './schemas';
 import type {
   ICPAnalysisValidation,
   CompetitorAnalysis,
+  SummaryCompetitorBatch,
 } from './schemas';
 import type {
   IndustryMarketResult,
@@ -27,6 +29,7 @@ import type {
   OfferAnalysisResult,
   CompetitorAnalysisResult,
   CrossAnalysisResult,
+  SummaryCompetitorResult,
   ResearchSource,
   AllSectionResults,
 } from './types';
@@ -324,7 +327,8 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 // =============================================================================
 
 export async function researchCompetitors(
-  context: string
+  context: string,
+  fullTierNames?: string[],
 ): Promise<CompetitorAnalysisResult> {
   const model = SECTION_MODELS.competitorAnalysis;
 
@@ -348,7 +352,11 @@ CRITICAL - COMPETITOR DISAMBIGUATION:
   3. Go-to-market approach (same sales model)
 
 RESEARCH FOCUS:
-1. Identify 3-5 direct competitors
+${fullTierNames && fullTierNames.length > 0
+  ? `1. Research these specific competitors in depth: ${fullTierNames.join(', ')}.
+   The client named these as their competitive landscape — analyze ALL of them.
+   If any additional major competitors are discovered during research, include them too.`
+  : '1. Identify 3-5 direct competitors'}
 2. Analyze their positioning and messaging
 3. Find strengths/weaknesses from G2, Capterra reviews
 4. Identify market patterns and gaps
@@ -423,6 +431,58 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 }
 
 // =============================================================================
+// Section 4b: Summary Competitor Research (lightweight batch)
+// Model: Sonar Pro (research)
+// =============================================================================
+
+export async function researchSummaryCompetitors(
+  context: string,
+  summaryNames: string[],
+): Promise<SummaryCompetitorResult> {
+  const model = SECTION_MODELS.competitorAnalysis;
+
+  try {
+    const result = await withSchemaRetry(
+      () => generateObject({
+        model: perplexity(model),
+        schema: summaryCompetitorBatchSchema,
+        system: `You are an expert competitive analyst providing brief competitive snapshots.
+
+TASK: For each competitor listed below, provide a concise competitive snapshot.
+
+REQUIREMENTS:
+- One-sentence positioning statement per competitor
+- Brief product/service description (1-2 sentences)
+- Pricing tier or "See pricing page" if unknown (do NOT guess exact prices)
+- 1-3 key strengths from market research
+- 1-3 key weaknesses from G2, Capterra, or market positioning gaps
+- ALWAYS include the official website URL if found
+
+QUALITY: Be specific. Use real company names and verified information. Do not fabricate data.
+
+OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no explanation.`,
+
+        prompt: `Provide brief competitive snapshots for these companies:\n\n${summaryNames.join(', ')}\n\nBusiness context:\n${context}`,
+        ...GENERATION_SETTINGS.research,
+        maxOutputTokens: 2048,
+      }),
+      'summaryCompetitors',
+    );
+
+    return {
+      data: result.object,
+      sources: [],
+      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
+      cost: estimateCost(model, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      model,
+    };
+  } catch (error) {
+    logGenerationError('summaryCompetitors', error);
+    throw error;
+  }
+}
+
+// =============================================================================
 // Deterministic Post-Processing
 // Compute scores/classifications that the AI was told would be "computed separately"
 // These fields are intentionally omitted from Zod schemas (so AI doesn't hallucinate
@@ -490,6 +550,14 @@ function classifyRiskScore(score: number): 'low' | 'medium' | 'high' | 'critical
 
 /** Compute deterministic fields on competitor research output */
 function postProcessCompetitorAnalysis(data: CompetitorAnalysis): CompetitorAnalysis {
+  // Tag all competitors from full research with analysisDepth: 'full'
+  if (data.competitors) {
+    data.competitors = data.competitors.map(c => ({
+      ...c,
+      analysisDepth: 'full' as const,
+    }));
+  }
+
   // Compute white space composite scores
   if (data.whiteSpaceGaps) {
     const withScores: WhiteSpaceGapWithComputed[] = data.whiteSpaceGaps
@@ -593,16 +661,37 @@ Dimension Scores:
 Red Flags: ${sections.offerAnalysis.redFlags.length > 0 ? sections.offerAnalysis.redFlags.join(', ') : 'None'}
 
 ═══════════════════════════════════════════════════════════════════════════════
-SECTION 4: COMPETITOR ANALYSIS
+SECTION 4A: FULL COMPETITOR ANALYSIS (Deep Research + Enrichment)
 ═══════════════════════════════════════════════════════════════════════════════
-Competitors Analyzed: ${sections.competitorAnalysis.competitors.length}
+${(() => {
+  const fullTier = sections.competitorAnalysis.competitors.filter(c => (c as any).analysisDepth !== 'summary');
+  const summaryTier = sections.competitorAnalysis.competitors.filter(c => (c as any).analysisDepth === 'summary');
 
-${sections.competitorAnalysis.competitors.map(c => `
+  let text = `Full-Tier Competitors Analyzed: ${fullTier.length}\n`;
+  text += fullTier.map(c => `
 ${c.name}:
 - Positioning: ${c.positioning}
 - Strengths: ${c.strengths.join(', ')}
 - Weaknesses: ${c.weaknesses.join(', ')}
-`).join('\n')}
+`).join('\n');
+
+  if (summaryTier.length > 0) {
+    text += `\n═══════════════════════════════════════════════════════════════════════════════
+SECTION 4B: BROADER COMPETITIVE LANDSCAPE (Summary Research)
+═══════════════════════════════════════════════════════════════════════════════
+Summary-Tier Competitors: ${summaryTier.length}\n`;
+    text += summaryTier.map(c =>
+      `${c.name}: ${c.positioning} | Price: ${c.price} | Strengths: ${c.strengths.join(', ')} | Weaknesses: ${c.weaknesses.join(', ')}`
+    ).join('\n');
+    text += `\n\nCOMPLETE COMPETITOR LANDSCAPE:
+Full analysis (${fullTier.length}): ${fullTier.map(c => c.name).join(', ')}
+Summary analysis (${summaryTier.length}): ${summaryTier.map(c => c.name).join(', ')}
+Note: Full competitive profiles generated for top ${fullTier.length} competitors based on market presence.
+Summary profiles included for all remaining competitors.`;
+  }
+
+  return text;
+})()}
 
 Market Gaps:
 ${(sections.competitorAnalysis.whiteSpaceGaps || []).map((g: { gap: string; type: string; exploitability: number; impact: number }, i: number) =>
@@ -798,7 +887,13 @@ ${MESSAGING_ANGLES_PROMPT}
 
 MESSAGING FRAMEWORK REQUIREMENTS:
 - Core message: One memorable takeaway
-- Ad hooks: 5-10 using pattern interrupt techniques (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison). When review data is available, at least 2 hooks should use verbatim customer language or pain points from competitor reviews.
+- Ad hooks: exactly 12 using pattern interrupt techniques (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison). When review data is available, at least 2 hooks should use verbatim customer language or pain points from competitor reviews.
+  HOOK DIVERSITY RULES:
+  - MAX 2 hooks from any single competitor (across extracted + inspired types)
+  - When only 1-2 competitors have ad data: max 2 EXTRACTED, 4 INSPIRED, 6 GENERATED
+  - When 3+ competitors have ad data: 4 EXTRACTED, 4 INSPIRED, 4 GENERATED
+  - When NO competitors have ad data: 6 INSPIRED, 6 GENERATED
+  - Every INSPIRED/GENERATED hook MUST match the CLIENT's target segment — do NOT write hooks about a competitor's audience
 - Angles: 4-6 distinct advertising angles with target emotions and example headlines
 - Proof points: 3-6 claims backed by evidence from the research. Include competitor review ratings/scores as concrete evidence where available (e.g., "Competitor X rated 2.1/5 on Trustpilot for support").
 - Objection handlers: 4-8 common objections with responses AND reframes. Use competitor review complaints to inform responses — if customers complain about a competitor's flaw, reference that reality when handling the same objection for our client.
@@ -814,7 +909,14 @@ QUALITY STANDARDS:
 - Platform recommendations need clear reasoning
 - Next steps achievable in 2 weeks
 - When keyword intelligence is available: include at least 3 keyword-specific next steps with exact keywords, volumes, and difficulty scores. Reference keyword data in platform recommendations (difficulty distribution informs organic vs PPC priority). Use high-CPC keywords as evidence of commercial intent in messaging angles.
-- When SEO audit data is available: reference specific technical issues (missing meta descriptions, missing H1 tags, slow LCP) in nextSteps as actionable items. Include PageSpeed scores in criticalSuccessFactors if performance is poor (<70). Cross-reference keyword gaps with pages that have weak/missing titles for quick-win SEO fixes.`,
+- When SEO audit data is available: reference specific technical issues (missing meta descriptions, missing H1 tags, slow LCP) in nextSteps as actionable items. Include PageSpeed scores in criticalSuccessFactors if performance is poor (<70). Cross-reference keyword gaps with pages that have weak/missing titles for quick-win SEO fixes.
+
+COMPETITOR TIERING:
+- Full-tier competitors: generate deep competitive profiles with ad strategy, pricing comparison, review sentiment, SEO gaps
+- Summary-tier competitors: generate a brief snapshot (1 paragraph each) in a "Broader Competitive Landscape" subsection
+- Your output MUST mention ALL competitors — no competitor should be silently omitted
+- Do NOT fabricate ad analysis, review scores, or pricing details for summary-tier competitors — only use data actually available
+- Include a complete competitor landscape table with ALL competitor names, what they do, pricing tier, and analysis depth`,
 
         prompt: `Create a strategic paid media blueprint for:\n\n${context}`,
         ...GENERATION_SETTINGS.synthesis,

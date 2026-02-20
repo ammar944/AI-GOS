@@ -15,13 +15,23 @@ export {
   researchICPAnalysis,
   researchOfferAnalysis,
   researchCompetitors,
+  researchSummaryCompetitors,
   synthesizeCrossAnalysis,
 } from './research';
+
+// Competitor tier utilities
+export {
+  parseCompetitorNames,
+  rankCompetitorsByEmphasis,
+  DEFAULT_FULL_TIER_LIMIT,
+  MAX_TOTAL_COMPETITORS,
+} from './competitor-utils';
 
 // Context builder
 export {
   createBusinessContext,
   validateOnboardingData,
+  type ContextBuilderOptions,
 } from './context-builder';
 
 // Competitor enrichment (Firecrawl + Ad Library)
@@ -47,7 +57,20 @@ export {
 export {
   extractAdHooksFromAds,
   type ExtractAdHooksResult,
+  type HookExtractionContext,
 } from './hook-extraction';
+
+// Hook Diversity Validator (deterministic validation + quota logic)
+export {
+  computeAdDistribution,
+  getHookQuotas,
+  validateHookDiversity,
+  remediateHooks,
+  validateHookSegmentRelevance,
+  type AdDistributionTier,
+  type HookQuotas,
+  type HookViolation,
+} from './hook-diversity-validator';
 
 // Keyword Intelligence (SpyFu competitive analysis)
 export {
@@ -84,11 +107,13 @@ export {
   offerAnalysisSchema,
   competitorAnalysisSchema,
   crossAnalysisSchema,
+  summaryCompetitorBatchSchema,
   type IndustryMarketOverview,
   type ICPAnalysisValidation,
   type OfferAnalysisViability,
   type CompetitorAnalysis,
   type CrossAnalysisSynthesis,
+  type SummaryCompetitorBatch,
 } from './schemas';
 
 // Providers (for advanced usage)

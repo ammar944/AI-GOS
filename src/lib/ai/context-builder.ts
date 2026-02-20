@@ -49,7 +49,15 @@ function sanitizeNumber(input: number | undefined | null, defaultValue: number =
 // Business Context Builder
 // =============================================================================
 
-export function createBusinessContext(data: OnboardingFormData): string {
+export interface ContextBuilderOptions {
+  fullTierNames?: string[];
+  summaryTierNames?: string[];
+}
+
+export function createBusinessContext(
+  data: OnboardingFormData,
+  options?: ContextBuilderOptions,
+): string {
   const {
     businessBasics,
     icp,
@@ -101,6 +109,8 @@ ${productOffer.guarantees ? `- Guarantees: ${s(productOffer.guarantees)}` : ''}
 - Market Bottlenecks: ${s(marketCompetition.marketBottlenecks)}
 ${marketCompetition.competitorFrustrations ? `- Competitor Frustrations: ${s(marketCompetition.competitorFrustrations)}` : ''}
 ${marketCompetition.proprietaryTech ? `- Proprietary Tech: ${s(marketCompetition.proprietaryTech)}` : ''}
+${options?.fullTierNames?.length ? `- Full-Analysis Competitors: ${options.fullTierNames.join(', ')}` : ''}
+${options?.summaryTierNames?.length ? `- Summary Competitors: ${options.summaryTierNames.join(', ')}` : ''}
 
 ### Customer Journey
 - Situation Before Buying: ${s(customerJourney.situationBeforeBuying)}

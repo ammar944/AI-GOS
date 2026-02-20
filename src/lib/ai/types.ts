@@ -6,6 +6,7 @@ import type {
   OfferAnalysisViability,
   CompetitorAnalysis,
   CrossAnalysisSynthesis,
+  SummaryCompetitorBatch,
 } from './schemas';
 import type { ReconciliationResult } from './reconciliation';
 
@@ -44,6 +45,7 @@ export type ICPAnalysisResult = ResearchResult<ICPAnalysisValidation>;
 export type OfferAnalysisResult = ResearchResult<OfferAnalysisViability>;
 export type CompetitorAnalysisResult = ResearchResult<CompetitorAnalysis>;
 export type CrossAnalysisResult = ResearchResult<CrossAnalysisSynthesis>;
+export type SummaryCompetitorResult = ResearchResult<SummaryCompetitorBatch>;
 
 // =============================================================================
 // Pipeline Types

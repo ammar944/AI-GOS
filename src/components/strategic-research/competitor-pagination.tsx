@@ -30,7 +30,7 @@ export const competitorSlideTransition = {
 // ── Types ──
 
 interface CompetitorPaginationNavProps {
-  competitors: Array<{ name?: string; website?: string }>;
+  competitors: Array<{ name?: string; website?: string; analysisDepth?: string }>;
   currentPage: number;
   onGoToPage: (page: number) => void;
 }
@@ -209,6 +209,7 @@ export function CompetitorPaginationNav({
       >
         {competitors.map((competitor, i) => {
           const isActive = i === currentPage;
+          const isSummary = (competitor as any).analysisDepth === 'summary';
           const domain = extractDomain(competitor.website);
           const name = competitor.name || `Competitor ${i + 1}`;
 
@@ -241,13 +242,14 @@ export function CompetitorPaginationNav({
                 className={cn(
                   "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums",
                   "transition-colors duration-150",
+                  isSummary && !isActive && "opacity-60",
                 )}
                 style={{
                   backgroundColor: isActive ? "var(--accent-blue)" : "var(--bg-elevated)",
                   color: isActive ? "#fff" : "var(--text-tertiary)",
                 }}
               >
-                {i + 1}
+                {isSummary ? "S" : i + 1}
               </span>
 
               {/* Name + domain */}

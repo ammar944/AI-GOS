@@ -554,6 +554,8 @@ export interface CompetitorSnapshot {
   reviewData?: CompetitorReviewData;
   /** Threat assessment for this competitor */
   threatAssessment?: CompetitorThreat;
+  /** Analysis depth: 'full' = deep research + enrichment, 'summary' = lightweight overview */
+  analysisDepth?: 'full' | 'summary';
 }
 
 export interface CompetitorCreativeLibrary {

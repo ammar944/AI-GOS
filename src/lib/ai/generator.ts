@@ -7,6 +7,7 @@ import {
   researchICPAnalysis,
   researchOfferAnalysis,
   researchCompetitors,
+  researchSummaryCompetitors,
   synthesizeCrossAnalysis,
 } from './research';
 import { reconcileICPAndOffer, type ReconciliationResult } from './reconciliation';
@@ -42,6 +43,10 @@ export interface GeneratorOptions {
   getKeywordIntelligence?: () => Promise<import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined>;
   /** Async provider for SEO audit data — called between Phase 2 and Phase 3 */
   getSEOAudit?: () => Promise<import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined>;
+  /** Full-tier competitor names (deep research + enrichment) */
+  fullTierNames?: string[];
+  /** Summary-tier competitor names (lightweight research only) */
+  summaryTierNames?: string[];
 }
 
 export interface GeneratorResult {
@@ -123,11 +128,29 @@ export async function generateStrategicBlueprint(
       return result;
     })();
 
+    // Summary competitor research runs in parallel with full competitor research
+    const summaryCompetitorPromise = options.summaryTierNames?.length
+      ? (async () => {
+          const start = Date.now();
+          try {
+            const result = await researchSummaryCompetitors(context, options.summaryTierNames!);
+            sectionTimings.summaryCompetitors = Date.now() - start;
+            modelsUsed.add(result.model);
+            totalCost += result.cost;
+            console.log(`[Generator] Summary competitor research complete: ${result.data.competitors.length} competitors in ${Date.now() - start}ms`);
+            return result;
+          } catch (error) {
+            console.error('[Generator] Summary competitor research failed (non-fatal):', error);
+            return null;
+          }
+        })()
+      : Promise.resolve(null);
+
     const competitorPromise = (async () => {
       checkAbort();
       progress(1, 'competitorAnalysis', 'starting', 'Researching competitors...');
       const start = Date.now();
-      const result = await researchCompetitors(context);
+      const result = await researchCompetitors(context, options.fullTierNames);
       sectionTimings.competitorAnalysis = Date.now() - start;
       sectionCitations.competitorAnalysis = result.sources;
       modelsUsed.add(result.model);
@@ -221,12 +244,28 @@ export async function generateStrategicBlueprint(
     progress(3, 'crossAnalysis', 'starting', 'Syncing enrichment data for synthesis...');
 
     const syncStart = Date.now();
-    const [competitorResult, asyncEnrichedCompetitors, asyncKeywordData, asyncSEOAuditData] = await Promise.all([
+    const [competitorResult, summaryResult, asyncEnrichedCompetitors, asyncKeywordData, asyncSEOAuditData] = await Promise.all([
       competitorPromise,
+      summaryCompetitorPromise,
       options.getEnrichedCompetitors?.() ?? Promise.resolve(undefined as CompetitorAnalysis | undefined),
       options.getKeywordIntelligence?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').KeywordIntelligence | undefined),
       options.getSEOAudit?.() ?? Promise.resolve(undefined as import('@/lib/strategic-blueprint/output-types').SEOAuditData | undefined),
     ]);
+
+    // Merge summary-tier competitors into the competitor result
+    if (summaryResult && summaryResult.data.competitors.length > 0) {
+      const summaryCompetitors = summaryResult.data.competitors.map(c => ({
+        ...c,
+        analysisDepth: 'summary' as const,
+        funnels: '',
+        adPlatforms: [] as string[],
+      }));
+      competitorResult.data.competitors = [
+        ...competitorResult.data.competitors,
+        ...summaryCompetitors,
+      ];
+      console.log(`[Generator] Merged ${summaryCompetitors.length} summary competitors (total: ${competitorResult.data.competitors.length})`);
+    }
 
     const enrichedParts: string[] = [];
     if (asyncEnrichedCompetitors) enrichedParts.push('competitors');
@@ -323,10 +362,11 @@ export async function generateStrategicBlueprint(
 // Export for API route
 // =============================================================================
 
-export { 
+export {
   researchIndustryMarket,
   researchICPAnalysis,
   researchOfferAnalysis,
   researchCompetitors,
+  researchSummaryCompetitors,
   synthesizeCrossAnalysis,
 } from './research';

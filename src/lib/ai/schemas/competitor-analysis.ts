@@ -59,6 +59,9 @@ export const competitorSnapshotSchema = z.object({
 
   threatAssessment: competitorThreatSchema.optional(),
 
+  analysisDepth: z.enum(['full', 'summary']).optional()
+    .describe('Analysis depth for this competitor — full = deep research + enrichment, summary = lightweight overview'),
+
   // NOTE: These fields are populated by Firecrawl/Ad Library, not Perplexity
   // pricingTiers → scrapePricingForCompetitors()
   // adCreatives → fetchCompetitorAdsWithFallback()
@@ -154,8 +157,8 @@ export const whiteSpaceGapsSchema = z.array(whiteSpaceGapSchema).min(3).max(10)
 
 export const competitorAnalysisSchema = z.object({
   competitors: z.array(competitorSnapshotSchema)
-    .min(2).max(7)
-    .describe('3-5 direct competitors with verified information from web research'),
+    .min(2).max(20)
+    .describe('Direct competitors with verified information from web research'),
 
   creativeLibrary: creativeLibrarySchema,
 
@@ -171,6 +174,28 @@ export const competitorAnalysisSchema = z.object({
 
   whiteSpaceGaps: whiteSpaceGapsSchema,
 }).describe('Comprehensive competitor analysis for paid media positioning');
+
+// =============================================================================
+// Summary Competitor Schema (lightweight research for non-full-tier competitors)
+// =============================================================================
+
+export const summaryCompetitorSchema = z.object({
+  name: z.string().describe('Competitor company name'),
+  website: z.string().url().optional().describe('Competitor website URL'),
+  positioning: z.string().describe('One-sentence positioning statement'),
+  offer: z.string().describe('Brief product/service description'),
+  price: z.string().describe('Pricing tier or "See pricing page"'),
+  strengths: z.array(z.string()).min(1).max(3).describe('1-3 key strengths'),
+  weaknesses: z.array(z.string()).min(1).max(3).describe('1-3 key weaknesses'),
+});
+
+export const summaryCompetitorBatchSchema = z.object({
+  competitors: z.array(summaryCompetitorSchema).min(1).max(15)
+    .describe('Lightweight competitive snapshots'),
+});
+
+export type SummaryCompetitor = z.infer<typeof summaryCompetitorSchema>;
+export type SummaryCompetitorBatch = z.infer<typeof summaryCompetitorBatchSchema>;
 
 // =============================================================================
 // Type Export
