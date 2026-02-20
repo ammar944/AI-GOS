@@ -304,6 +304,34 @@ const GENERIC_TERMS = new Set([
   'custom', 'real', 'time', 'smart', 'intelligent', 'complete',
 ]);
 
+// Industry-vertical terms excluded from core terms. These describe target markets
+// (who the product serves) rather than product functionality (what the product does).
+// A restaurant AI phone agent should match on "phone" and "answering", not just "restaurant".
+// Without this exclusion, "best restaurant pos" passes the strict filter because
+// "restaurant" is a core term — even though it's an industry vertical, not a product feature.
+const INDUSTRY_VERTICAL_TERMS = new Set([
+  // Food & hospitality
+  'restaurant', 'restaurants', 'hotel', 'hotels', 'hospitality',
+  'cafe', 'cafes', 'bar', 'bars', 'catering', 'dining', 'food',
+  'foodservice', 'brewery', 'winery',
+  // Healthcare
+  'healthcare', 'medical', 'dental', 'clinic', 'clinics',
+  'hospital', 'hospitals', 'pharmacy', 'veterinary',
+  // Professional services
+  'legal', 'law', 'accounting', 'consulting',
+  // Finance & insurance
+  'finance', 'financial', 'banking', 'insurance',
+  // Real estate & construction
+  'estate', 'property', 'construction', 'architecture',
+  // Retail & commerce
+  'retail', 'ecommerce', 'store', 'stores', 'shop', 'shops',
+  // Education
+  'school', 'schools', 'university', 'universities', 'education',
+  // Other verticals
+  'automotive', 'manufacturing', 'logistics', 'transportation',
+  'agriculture', 'fitness', 'gym', 'salon', 'spa',
+]);
+
 /** Bundled filter state built once per enrichment run from business context */
 interface RelevanceFilterConfig {
   relevanceTerms: Set<string>;  // All terms from industry + productDescription
@@ -319,12 +347,15 @@ interface RelevanceFilterConfig {
 function buildRelevanceFilter(context: KeywordBusinessContext): RelevanceFilterConfig {
   const relevanceTerms = generateRelevanceTerms(context);
 
-  // Core terms: product-description-specific words (not generic, not stop words).
-  // These bypass the 2-match requirement in strict mode — any keyword containing
-  // a core term is likely relevant (e.g. "attribution" for a marketing attribution tool).
+  // Core terms: product-description-specific words (not generic, not stop words,
+  // not industry-vertical terms). These bypass the 2-match requirement in strict mode —
+  // any keyword containing a core term is likely relevant (e.g. "attribution" for a
+  // marketing attribution tool). Industry-vertical terms (e.g. "restaurant") are excluded
+  // so that "best restaurant pos" doesn't pass on the vertical alone — the keyword must
+  // match a product-function term like "phone", "answering", or "reservation".
   const productWords = context.productDescription.toLowerCase()
     .split(/[\s,.\-\/()]+/)
-    .filter(w => w.length >= 3 && !STOP_WORDS.has(w) && !GENERIC_TERMS.has(w));
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w) && !GENERIC_TERMS.has(w) && !INDUSTRY_VERTICAL_TERMS.has(w));
   const coreTerms = new Set(productWords);
 
   // Effective noise: default list minus any terms the business actually uses.
@@ -367,6 +398,10 @@ function baseRelevanceCheck(keyword: string, config: RelevanceFilterConfig): { p
 
   // Reject full sentences (homework questions, long-tail noise)
   if (kwWords.length > MAX_KEYWORD_WORDS) return false;
+
+  // Reject URL-fragment queries (e.g., "www toasttab com restaurants admin home")
+  // SpyFu sometimes returns fragmented URLs as keyword strings
+  if (kwWords.includes('www') || kwLower.includes('http://') || kwLower.includes('https://')) return false;
 
   // Reject keywords containing noise terms (adapted to business context)
   if (kwWords.some(w => config.noiseTerms.has(w))) return false;
@@ -569,7 +604,10 @@ export async function enrichKeywordIntelligence(
 
   const filterConfig = businessContext ? buildRelevanceFilter(businessContext) : null;
 
-  // Filter function — navigational detection runs unconditionally, relevance filter only with business context
+  // Filter function — navigational detection runs unconditionally, relevance filter only with business context.
+  // Uses STRICT relevance for Kombat gaps: requires 2+ relevance term matches or a core product-function
+  // term match. Standard (1-match) filter was too permissive — keywords like "aloha pos system" or
+  // "square pos restaurant" passed on a single broad industry term ("system", "restaurant").
   let navigationalFilteredCount = 0;
   const filterRelevant = (keywords: SpyFuKeywordResult[]): SpyFuKeywordResult[] => {
     const navFiltered = keywords.filter(kw => {
@@ -580,7 +618,7 @@ export async function enrichKeywordIntelligence(
       return true;
     });
     if (!filterConfig) return navFiltered;
-    return navFiltered.filter(kw => isKeywordRelevant(kw.keyword, filterConfig));
+    return navFiltered.filter(kw => isKeywordRelevantStrict(kw.keyword, filterConfig));
   };
 
   // Apply relevance filtering to all keyword gap lists
