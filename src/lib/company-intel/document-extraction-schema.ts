@@ -21,7 +21,7 @@ export const documentExtractionSchema = z.object({
 
   // --- Step 2: Ideal Customer Profile (ICP) ---
   primaryIcpDescription: z.string().describe('ICP description — who they sell to. 2-5 sentences. Empty if not found.'),
-  industryVertical: z.string().describe('Industry/vertical (e.g. "B2B SaaS"). Empty if not found.'),
+  industryVertical: z.string().describe('Industry or vertical the company operates in (e.g. "Restaurant Technology", "Healthcare", "Legal Tech"). Extract from document context. Empty if not found.'),
   jobTitles: z.string().describe('Target job titles, comma-separated. Empty if not found.'),
   companySize: z.string().describe('Target sizes. Map to: solo, 1-10, 11-50, 51-200, 201-1000, 1000+. Comma-separated. Empty if not found.'),
   geography: z.string().describe('Target regions. Empty if not found.'),
@@ -34,7 +34,7 @@ export const documentExtractionSchema = z.object({
   // --- Step 3: Product & Offer ---
   productDescription: z.string().describe('What the product/service does. 2-5 sentences. Empty if not found.'),
   coreDeliverables: z.string().describe('Main features/deliverables. Comma-separated. Empty if not found.'),
-  offerPrice: z.string().describe('Price as number string (e.g. "997"). Empty if not found.'),
+  offerPrice: z.string().describe('Primary or starting price as a single number string (e.g. "997"). If multiple tiers exist, use the lowest/starting price only. Empty if not found.'),
   pricingModel: z.string().describe('Model: monthly, annual, one_time, usage_based, seat_based, custom. Comma-separated. Empty if not found.'),
   valueProp: z.string().describe('Value proposition. 2-3 sentences. Empty if not found.'),
   guarantees: z.string().describe('Guarantees or risk-reversal offers. Empty if not found.'),

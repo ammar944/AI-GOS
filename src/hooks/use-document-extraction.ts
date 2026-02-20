@@ -47,15 +47,18 @@ function parseEnum<T extends string>(str: string | null | undefined, validValues
 
 function parseNumber(str: string | null | undefined): number {
   if (!str) return 0;
-  const cleaned = str.replace(/[^0-9.]/g, '');
-  const num = parseFloat(cleaned);
+  // Extract the first number from the string (handles multi-price strings like "$195, $395, $995")
+  const match = str.match(/[\d,]+\.?\d*/);
+  if (!match) return 0;
+  const num = parseFloat(match[0].replace(/,/g, ''));
   return isNaN(num) ? 0 : num;
 }
 
 function parseOptionalNumber(str: string | null | undefined): number | undefined {
   if (!str) return undefined;
-  const cleaned = str.replace(/[^0-9.]/g, '');
-  const num = parseFloat(cleaned);
+  const match = str.match(/[\d,]+\.?\d*/);
+  if (!match) return undefined;
+  const num = parseFloat(match[0].replace(/,/g, ''));
   return isNaN(num) ? undefined : num;
 }
 
