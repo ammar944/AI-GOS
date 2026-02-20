@@ -759,7 +759,11 @@ CONTENT TOPIC CLUSTERS (grouped keyword themes):
 ${keywordData.contentTopicClusters.slice(0, 5).map(c => `  • "${c.theme}" — ${c.searchVolumeTotal.toLocaleString()} total vol, ${c.keywords.length} keywords, recommended: ${c.recommendedFormat}`).join('\n') || '  None found'}
 
 ${keywordData.competitorTopKeywords?.length > 0 ? `COMPETITOR TOP KEYWORDS:
-${keywordData.competitorTopKeywords.map(c => `  ${c.competitorName} (${c.domain}): ${c.keywords.slice(0, 3).map(k => `"${k.keyword}" (${k.searchVolume}/mo)`).join(', ')}`).join('\n')}` : ''}
+${keywordData.competitorTopKeywords.map(c => {
+  const topKws = c.keywords.slice(0, 3);
+  if (topKws.length === 0) return `  ${c.competitorName} (${c.domain}): No relevant overlapping keywords found`;
+  return `  ${c.competitorName} (${c.domain}): ${topKws.map(k => `"${k.keyword}" (${k.searchVolume}/mo)`).join(', ')}`;
+}).join('\n')}` : ''}
 
 SUMMARY STATS: ${keywordData.metadata.totalKeywordsAnalyzed} keywords analyzed across ${keywordData.metadata.competitorDomainsAnalyzed.length} competitor domains
 
