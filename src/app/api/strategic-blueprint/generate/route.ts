@@ -176,6 +176,14 @@ export async function POST(request: NextRequest) {
     const parsedNames = parseCompetitorNames(onboardingData.marketCompetition.topCompetitors);
     const { fullTier, summaryTier } = rankCompetitorsByEmphasis(parsedNames, onboardingData);
 
+    // Validation: log competitor tier assignments for debugging
+    if (parsedNames.length > 0) {
+      console.log(`[Route] Competitor tiers: ${fullTier.length} full (${fullTier.join(', ')}), ${summaryTier.length} summary (${summaryTier.join(', ')})`);
+    }
+    if (parsedNames.length < fullTier.length + summaryTier.length) {
+      console.warn(`[Route] Competitor count mismatch: parsed ${parsedNames.length} but tiers total ${fullTier.length + summaryTier.length}`);
+    }
+
     // Build context string with tier information
     const context = createBusinessContext(onboardingData, {
       fullTierNames: fullTier,
@@ -277,6 +285,52 @@ export async function POST(request: NextRequest) {
                   }
                 );
 
+                // Chain hook extraction off enrichmentPromise — starts as soon as
+                // enrichment resolves, independent of generator's grace deadline.
+                // This ensures hooks begin during Phase 2 instead of only after synthesis.
+                enrichmentPromise.then((enrichment) => {
+                  const totalAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
+                  if (totalAds > 0 && !hookPromise) {
+                    console.log('[Route] Starting hook extraction (chained off enrichment)...');
+                    emit({
+                      type: 'progress',
+                      percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                      message: 'Extracting ad hooks from competitor creatives (parallel)...',
+                    });
+                    const hookClientContext: HookExtractionContext = {
+                      targetSegment: onboardingData.icp?.primaryIcpDescription || '',
+                      icpDescription: onboardingData.icp?.primaryIcpDescription || '',
+                      valueProp: onboardingData.productOffer?.valueProp || '',
+                      industryVertical: onboardingData.icp?.industryVertical || '',
+                      brandPositioning: onboardingData.brandPositioning?.brandPositioning || '',
+                      uniqueEdge: onboardingData.marketCompetition?.uniqueEdge || '',
+                    };
+                    hookPromise = extractAdHooksFromAds(
+                      enrichment.competitors,
+                      [],
+                      hookClientContext,
+                    ).catch(error => {
+                      console.error('[Route] Hook extraction failed (non-fatal):', error);
+                      return null;
+                    });
+
+                    // Chain segment validation off hookPromise
+                    const clientSegment = onboardingData.icp?.primaryIcpDescription || onboardingData.icp?.industryVertical || '';
+                    const icpDesc = onboardingData.icp?.primaryIcpDescription || '';
+                    if (clientSegment) {
+                      segmentValidationPromise = hookPromise.then(async (hookResult) => {
+                        if (!hookResult || hookResult.hooks.length === 0) return null;
+                        try {
+                          return await validateHookSegmentRelevance(hookResult.hooks, clientSegment, icpDesc);
+                        } catch (error) {
+                          console.error('[Route] Parallel segment relevance check failed (non-fatal):', error);
+                          return null;
+                        }
+                      });
+                    }
+                  }
+                }).catch(() => {}); // enrichment failure handled in getEnrichedCompetitors
+
                 // Start keyword intelligence enrichment in parallel (requires client URL + SpyFu key)
                 const clientDomain = onboardingData.businessBasics?.websiteUrl;
                 if (clientDomain && process.env.SPYFU_API_KEY) {
@@ -346,54 +400,15 @@ export async function POST(request: NextRequest) {
               onProgress,
               fullTierNames: fullTier,
               summaryTierNames: summaryTier,
+              enrichmentDeadlineMs: 20_000,
               getEnrichedCompetitors: async () => {
                 if (!enrichmentPromise || !baseCompetitorData) return undefined;
                 const enrichment = await enrichmentPromise;
                 storedEnrichment = enrichment;
                 console.log(`[Route] Enrichment ready for synthesis: ${enrichment.reviewSuccessCount} reviews, ${enrichment.pricingSuccessCount} pricing, ${enrichment.adSuccessCount} ads`);
 
-                // Start hook extraction in parallel with synthesis (don't await)
-                // Thread client context so hooks match the client's target segment
-                const totalAds = enrichment.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
-                if (totalAds > 0 && !hookPromise) {
-                  console.log('[Route] Starting hook extraction parallel to synthesis...');
-                  emit({
-                    type: 'progress',
-                    percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
-                    message: 'Extracting ad hooks from competitor creatives (parallel)...',
-                  });
-                  const hookClientContext: HookExtractionContext = {
-                    targetSegment: onboardingData.icp?.primaryIcpDescription || '',
-                    icpDescription: onboardingData.icp?.primaryIcpDescription || '',
-                    valueProp: onboardingData.productOffer?.valueProp || '',
-                    industryVertical: onboardingData.icp?.industryVertical || '',
-                    brandPositioning: onboardingData.brandPositioning?.brandPositioning || '',
-                    uniqueEdge: onboardingData.marketCompetition?.uniqueEdge || '',
-                  };
-                  hookPromise = extractAdHooksFromAds(
-                    enrichment.competitors,
-                    [], // No synthesis hooks yet — will merge after both finish
-                    hookClientContext,
-                  ).catch(error => {
-                    console.error('[Route] Hook extraction failed (non-fatal):', error);
-                    return null;
-                  });
-
-                  // Chain segment validation off hookPromise so it runs parallel to synthesis
-                  const clientSegment = onboardingData.icp?.primaryIcpDescription || onboardingData.icp?.industryVertical || '';
-                  const icpDesc = onboardingData.icp?.primaryIcpDescription || '';
-                  if (clientSegment) {
-                    segmentValidationPromise = hookPromise.then(async (hookResult) => {
-                      if (!hookResult || hookResult.hooks.length === 0) return null;
-                      try {
-                        return await validateHookSegmentRelevance(hookResult.hooks, clientSegment, icpDesc);
-                      } catch (error) {
-                        console.error('[Route] Parallel segment relevance check failed (non-fatal):', error);
-                        return null;
-                      }
-                    });
-                  }
-                }
+                // Hook extraction already started via enrichmentPromise.then() chain
+                // (no longer gated by this callback's deadline — runs independently)
 
                 return {
                   ...baseCompetitorData,
@@ -442,27 +457,30 @@ export async function POST(request: NextRequest) {
               emit({ type: 'progress', percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100), message: 'Finishing enrichment while synthesis completes...' });
             }
 
-            // Enriched competitors: stored (resolved in time) > enrichmentPromise > fallback
-            const enrichmentResolved = storedEnrichment ?? (enrichmentPromise ? await enrichmentPromise : await enrichCompetitors(
-              result.blueprint.competitorAnalysis,
-              (msg) => {
-                emit({
-                  type: 'progress',
-                  percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
-                  message: msg,
-                });
-              }
-            ));
+            // Resolve enrichment, keywords, and SEO audit in parallel (max of remaining times)
+            const [enrichmentResolved, keywordResult, seoAuditResult] = await Promise.all([
+              // Enriched competitors: stored (resolved in time) > enrichmentPromise > fallback
+              storedEnrichment ?? (enrichmentPromise ? enrichmentPromise : enrichCompetitors(
+                result.blueprint.competitorAnalysis,
+                (msg) => {
+                  emit({
+                    type: 'progress',
+                    percentage: Math.round((completedSections.size / TOTAL_SECTIONS) * 100),
+                    message: msg,
+                  });
+                }
+              )),
+              // Keywords: stored > keywordPromise (may have timed out in generator but still running here)
+              Promise.resolve(storedKeywordResult ?? (keywordPromise ? keywordPromise : null)),
+              // SEO audit: stored > seoAuditPromise (may have timed out in generator but still running here)
+              Promise.resolve(storedSEOAuditResult ?? (seoAuditPromise ? seoAuditPromise : null)),
+            ]);
 
-            // Keywords: stored > keywordPromise (may have timed out in generator but still running here)
-            const keywordResult = storedKeywordResult ?? (keywordPromise ? await keywordPromise : null);
+            // Emit keyword section-complete if resolved late (wasn't stored during synthesis)
             if (keywordResult && !storedKeywordResult) {
               completedSections.add('keywordIntelligence');
               emit({ type: 'section-complete', section: 'keywordIntelligence', label: SECTION_LABELS.keywordIntelligence, data: null });
             }
-
-            // SEO audit: stored > seoAuditPromise (may have timed out in generator but still running here)
-            const seoAuditResult = storedSEOAuditResult ?? (seoAuditPromise ? await seoAuditPromise : null);
 
             // Debug: Log enrichment result
             const totalEnrichedAds = enrichmentResolved.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
@@ -499,7 +517,7 @@ export async function POST(request: NextRequest) {
                     );
                     validatedHooks = remediateHooks(combinedHooks, violations, synthesisPool, quotas.maxPerCompetitor);
                   } else {
-                    validatedHooks = combinedHooks.slice(0, 12);
+                    validatedHooks = combinedHooks.slice(0, 8);
                   }
 
                   // Step 3: Segment relevance validation (ran parallel to synthesis)
@@ -541,7 +559,7 @@ export async function POST(request: NextRequest) {
                     ...finalSynthesis,
                     messagingFramework: {
                       ...finalSynthesis.messagingFramework!,
-                      adHooks: validatedHooks.slice(0, 12),
+                      adHooks: validatedHooks.slice(0, 8),
                     },
                   };
                   resynthesisCost += hookResult.cost;

@@ -193,4 +193,24 @@ describe('rankCompetitorsByEmphasis', () => {
     expect(result.fullTier).toHaveLength(5);
     expect(result.summaryTier).toHaveLength(0);
   });
+
+  it('handles 12 competitors with default limit (8 full, 4 summary)', () => {
+    const names = [
+      'Smith.ai', 'Ruby Receptionists', 'Abby Connect', 'Nexa',
+      'PATLive', 'Answering Service Care', 'Maple', 'Sadie',
+      'Slang.ai', 'TimeShark', 'VoicePlug', 'PolyAI',
+    ];
+    const result = rankCompetitorsByEmphasis(names, makeFormData());
+    expect(result.fullTier).toHaveLength(DEFAULT_FULL_TIER_LIMIT); // 8
+    expect(result.summaryTier).toHaveLength(4);
+    // All 12 competitors must be present across both tiers
+    expect([...result.fullTier, ...result.summaryTier].sort()).toEqual(names.sort());
+  });
+
+  it('puts all 8 competitors in full tier when exactly at default limit', () => {
+    const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const result = rankCompetitorsByEmphasis(names, makeFormData());
+    expect(result.fullTier).toHaveLength(8);
+    expect(result.summaryTier).toHaveLength(0);
+  });
 });

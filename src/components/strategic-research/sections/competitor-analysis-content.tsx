@@ -467,7 +467,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                 Pricing Tiers
                               </p>
                               <p className="mb-2 text-xs italic text-white/30">
-                                Prices may vary by region
+                                Prices may vary by region. USD equivalents are approximate.
                               </p>
                               {isEditing && onFieldChange ? (
                                 <EditableList

@@ -16,6 +16,8 @@ import {
   offerAnalysisSchema,
   competitorAnalysisSchema,
   crossAnalysisSchema,
+  strategicAnalysisSchema,
+  messagingFrameworkSchema,
   summaryCompetitorBatchSchema,
 } from './schemas';
 import type {
@@ -111,6 +113,7 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
         prompt: `Research the industry and market for:\n\n${context}`,
         ...GENERATION_SETTINGS.research,
+        maxOutputTokens: 4096,
       }),
       'industryMarket',
     );
@@ -353,8 +356,9 @@ CRITICAL - COMPETITOR DISAMBIGUATION:
 
 RESEARCH FOCUS:
 ${fullTierNames && fullTierNames.length > 0
-  ? `1. Research these specific competitors in depth: ${fullTierNames.join(', ')}.
-   The client named these as their competitive landscape — analyze ALL of them.
+  ? `1. Research these ${fullTierNames.length} specific competitors in depth: ${fullTierNames.join(', ')}.
+   The client named these as their competitive landscape — you MUST include ALL ${fullTierNames.length} in your response.
+   Do NOT skip any. Each competitor MUST have its own entry in the competitors array.
    If any additional major competitors are discovered during research, include them too.`
   : '1. Identify 3-5 direct competitors'}
 2. Analyze their positioning and messaging
@@ -406,6 +410,7 @@ OUTPUT FORMAT: Respond ONLY with valid JSON matching the schema. No markdown, no
 
         prompt: `Research competitors for:\n\n${context}`,
         ...GENERATION_SETTINGS.research,
+        maxOutputTokens: 6144,
       }),
       'competitorAnalysis',
     );
@@ -711,7 +716,7 @@ ${(() => {
   }
 
   return competitorsWithAds.map(c => {
-    const topAds = c.adCreatives.slice(0, 2);
+    const topAds = c.adCreatives.slice(0, 1);
     const adsText = topAds.map((ad: any, i: number) => {
       const parts = [`  Ad ${i + 1} [${ad.platform}]:`];
       if (ad.headline) parts.push(`    Headline: "${ad.headline}"`);
@@ -734,35 +739,35 @@ ${keywordData.clientDomain ? `Client (${keywordData.clientDomain.domain}): ${key
 ${keywordData.competitorDomains.map(c => `Competitor (${c.domain}): ${c.organicKeywords} organic KWs, ${c.paidKeywords} paid KWs, ~${c.monthlyOrganicClicks.toLocaleString()} organic clicks/mo ($${c.organicClicksValue.toLocaleString()} value), ~${c.monthlyPaidClicks.toLocaleString()} paid clicks/mo ($${c.paidClicksValue.toLocaleString()} ad spend)`).join('\n') || '  No competitor domain data'}
 
 TOP ORGANIC GAPS (competitors rank, client doesn't — content creation targets):
-${keywordData.organicGaps.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC${k.clicksPerMonth ? `, ~${k.clicksPerMonth} clicks/mo` : ''}`).join('\n') || '  None found'}${keywordData.organicGaps.length > 5 ? `\n  (+${keywordData.organicGaps.length - 5} more in data)` : ''}
+${keywordData.organicGaps.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC${k.clicksPerMonth ? `, ~${k.clicksPerMonth} clicks/mo` : ''}`).join('\n') || '  None found'}${keywordData.organicGaps.length > 3 ? `\n  (+${keywordData.organicGaps.length - 3} more in data)` : ''}
 
 TOP PAID GAPS (competitors bid, client doesn't — PPC opportunities):
-${keywordData.paidGaps.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, $${k.cpc.toFixed(2)} CPC, difficulty ${k.difficulty}`).join('\n') || '  None found'}${keywordData.paidGaps.length > 5 ? `\n  (+${keywordData.paidGaps.length - 5} more in data)` : ''}
+${keywordData.paidGaps.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, $${k.cpc.toFixed(2)} CPC, difficulty ${k.difficulty}`).join('\n') || '  None found'}${keywordData.paidGaps.length > 3 ? `\n  (+${keywordData.paidGaps.length - 3} more in data)` : ''}
 
 SHARED KEYWORDS (both client and competitors rank — competitive battlegrounds):
-${keywordData.sharedKeywords.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.sharedKeywords.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 CLIENT STRENGTHS (only client ranks, competitors don't — DEFEND these):
-${keywordData.clientStrengths.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.clientStrengths.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 QUICK WIN KEYWORDS (difficulty ≤40, volume ≥100 — immediate organic targets):
-${keywordData.quickWins.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC`).join('\n') || '  None found'}
+${keywordData.quickWins.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}, $${k.cpc.toFixed(2)} CPC`).join('\n') || '  None found'}
 
 LONG-TERM PLAYS (difficulty >40, volume ≥500 — build authority over 3-6 months):
-${keywordData.longTermPlays.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.longTermPlays.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 HIGH-INTENT KEYWORDS (CPC ≥$3 = strong commercial/buying intent):
-${keywordData.highIntentKeywords.slice(0, 5).map(k => `  • "${k.keyword}" — $${k.cpc.toFixed(2)} CPC, ${k.searchVolume}/mo`).join('\n') || '  None found'}
+${keywordData.highIntentKeywords.slice(0, 3).map(k => `  • "${k.keyword}" — $${k.cpc.toFixed(2)} CPC, ${k.searchVolume}/mo`).join('\n') || '  None found'}
 
 RELATED KEYWORD EXPANSIONS (thematic opportunities beyond direct gaps):
-${keywordData.relatedExpansions.slice(0, 5).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
+${keywordData.relatedExpansions.slice(0, 3).map(k => `  • "${k.keyword}" — ${k.searchVolume}/mo, difficulty ${k.difficulty}`).join('\n') || '  None found'}
 
 CONTENT TOPIC CLUSTERS (grouped keyword themes):
-${keywordData.contentTopicClusters.slice(0, 5).map(c => `  • "${c.theme}" — ${c.searchVolumeTotal.toLocaleString()} total vol, ${c.keywords.length} keywords, recommended: ${c.recommendedFormat}`).join('\n') || '  None found'}
+${keywordData.contentTopicClusters.slice(0, 3).map(c => `  • "${c.theme}" — ${c.searchVolumeTotal.toLocaleString()} total vol, ${c.keywords.length} keywords, recommended: ${c.recommendedFormat}`).join('\n') || '  None found'}
 
 ${keywordData.competitorTopKeywords?.length > 0 ? `COMPETITOR TOP KEYWORDS:
 ${keywordData.competitorTopKeywords.map(c => {
-  const topKws = c.keywords.slice(0, 3);
+  const topKws = c.keywords.slice(0, 2);
   if (topKws.length === 0) return `  ${c.competitorName} (${c.domain}): No relevant overlapping keywords found`;
   return `  ${c.competitorName} (${c.domain}): ${topKws.map(k => `"${k.keyword}" (${k.searchVolume}/mo)`).join(', ')}`;
 }).join('\n')}` : ''}
@@ -842,7 +847,7 @@ ${(() => {
         if (complaints?.length > 0) {
           parts.push('  Key Complaints:');
           for (const r of complaints) {
-            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 100)}${r.text.length > 100 ? '...' : ''}"`);
+            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 80)}${r.text.length > 80 ? '...' : ''}"`);
           }
         }
         // What customers love (4-5★)
@@ -852,7 +857,7 @@ ${(() => {
         if (praise?.length > 0) {
           parts.push('  What Customers Love:');
           for (const r of praise) {
-            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 100)}${r.text.length > 100 ? '...' : ''}"`);
+            parts.push(`    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} "${r.text.slice(0, 80)}${r.text.length > 80 ? '...' : ''}"`);
           }
         }
       }
@@ -869,49 +874,47 @@ REVIEW DATA USAGE:
 - Use praise to identify confirmed buying criteria the market rewards
 `;
 
-  try {
-    const result = await withSchemaRetry(
-      () => generateObject({
-        model: anthropic(model),
-        schema: crossAnalysisSchema,
-      system: `${COPYWRITING_EXPERT_PERSONA}
+  // =========================================================================
+  // Split synthesis into 2 parallel generateObject calls for ~2x speedup
+  // Call A: Strategic Analysis (~2,000 output tokens, ~28s)
+  // Call B: Messaging Framework (~2,500 output tokens, ~35s)
+  // Wall-clock: max(28s, 35s) ≈ 35s instead of ~71s for a single call
+  // =========================================================================
 
-You are synthesizing research into an actionable paid media strategy with compelling copywriting angles.
+  const strategicSystemPrompt = `You are synthesizing research into an actionable paid media strategy.
 
 CONTEXT FROM ALL RESEARCH:
 ${allContext}
 
-TASK: Create a cohesive strategic blueprint that connects all insights with persuasive messaging.
+TASK: Create a strategic analysis that connects all research insights into actionable strategy.
 
 SYNTHESIS APPROACH:
 1. Extract 5-7 key insights (at least one from each section)
 2. Develop a clear positioning strategy with 2-3 alternatives to test
-3. Use your copywriting expertise for the messaging framework
-4. Mine competitor reviews for positioning gold — at least ONE key insight must reference specific review data (ratings, complaint patterns, or customer language). Competitor review complaints are GROUND TRUTH weaknesses, more reliable than inferred ones.
+3. Mine competitor reviews for positioning gold — at least ONE key insight must reference specific review data (ratings, complaint patterns, or customer language). Competitor review complaints are GROUND TRUTH weaknesses, more reliable than inferred ones.
 
-${MESSAGING_ANGLES_PROMPT}
+BUDGET ALLOCATION RULES:
+When recommending platform allocation, follow these budget-tier rules based on the client's monthly ad budget:
 
-MESSAGING FRAMEWORK REQUIREMENTS:
-- Core message: One memorable takeaway
-- Ad hooks: exactly 12 using pattern interrupt techniques (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison). When review data is available, at least 2 hooks should use verbatim customer language or pain points from competitor reviews.
-  HOOK DIVERSITY RULES:
-  - MAX 2 hooks from any single competitor (across extracted + inspired types)
-  - When only 1-2 competitors have ad data: max 2 EXTRACTED, 4 INSPIRED, 6 GENERATED
-  - When 3+ competitors have ad data: 4 EXTRACTED, 4 INSPIRED, 4 GENERATED
-  - When NO competitors have ad data: 6 INSPIRED, 6 GENERATED
-  - Every INSPIRED/GENERATED hook MUST match the CLIENT's target segment — do NOT write hooks about a competitor's audience
-- Angles: 4-6 distinct advertising angles with target emotions and example headlines
-- Proof points: 3-6 claims backed by evidence from the research. Include competitor review ratings/scores as concrete evidence where available (e.g., "Competitor X rated 2.1/5 on Trustpilot for support").
-- Objection handlers: 4-8 common objections with responses AND reframes. Use competitor review complaints to inform responses — if customers complain about a competitor's flaw, reference that reality when handling the same objection for our client.
-- Tonal guidelines: Voice, words to avoid, power words to use
+- UNDER $2,000/month: Recommend 1 PRIMARY platform only (70-80% of budget). Allocate remaining 20-30% to ONE secondary platform for retargeting only. Do NOT split across 3+ platforms — insufficient data per platform for optimization at this budget level. State explicitly: "At this budget level, concentrate spend for faster learning."
+
+- $2,000-$5,000/month: Recommend 1 primary (50-60%) + 1 secondary (25-30%) + 1 testing (10-20%). Only recommend 3 platforms if each gets minimum $500/month.
+
+- $5,000-$15,000/month: Full multi-platform testing viable. Recommend allocation based on audience concentration and intent signals.
+
+- OVER $15,000/month: Recommend aggressive multi-platform strategy with dedicated budgets per funnel stage.
+
+MINIMUM VIABLE SPEND PER PLATFORM:
+- LinkedIn Ads: $500/month minimum for B2B (low volume, high CPC)
+- Google Search: $500/month minimum for competitive terms
+- Meta Ads: $300/month minimum for retargeting, $1,000+ for prospecting
+
+If the client's total budget doesn't support the minimum viable spend on a platform, do NOT recommend that platform. Instead, say "Budget insufficient for [platform] — revisit when budget reaches $X/month."
+
+Always calculate and show the per-platform dollar amount, not just percentages.
 
 QUALITY STANDARDS:
-- Hooks should stop the scroll, not be generic
-- Angles must be specific to THIS business
-- Proof points need real evidence from the research
-- Objection reframes should turn negatives into positives
 - When review data is available, at least one key insight and one positioning angle must explicitly cite review findings (e.g., "Competitor X's Trustpilot complaints about [issue] reveal...")
-- Objection reframes should reference competitor review failures as cautionary evidence
 - Platform recommendations need clear reasoning
 - Next steps achievable in 2 weeks
 - When keyword intelligence is available: include at least 3 keyword-specific next steps with exact keywords, volumes, and difficulty scores. Reference keyword data in platform recommendations (difficulty distribution informs organic vs PPC priority). Use high-CPC keywords as evidence of commercial intent in messaging angles.
@@ -922,51 +925,92 @@ COMPETITOR TIERING:
 - Summary-tier competitors: generate a brief snapshot (1 paragraph each) in a "Broader Competitive Landscape" subsection
 - Your output MUST mention ALL competitors — no competitor should be silently omitted
 - Do NOT fabricate ad analysis, review scores, or pricing details for summary-tier competitors — only use data actually available
-- Include a complete competitor landscape table with ALL competitor names, what they do, pricing tier, and analysis depth`,
+- Include a complete competitor landscape table with ALL competitor names, what they do, pricing tier, and analysis depth`;
 
-        prompt: `Create a strategic paid media blueprint for:\n\n${context}`,
-        ...GENERATION_SETTINGS.synthesis,
+  const messagingSystemPrompt = `${COPYWRITING_EXPERT_PERSONA}
+
+You are creating a messaging framework for a paid media strategy with compelling copywriting angles.
+
+CONTEXT FROM ALL RESEARCH:
+${allContext}
+
+TASK: Create a comprehensive messaging framework with persuasive hooks, angles, and objection handling.
+
+${MESSAGING_ANGLES_PROMPT}
+
+MESSAGING FRAMEWORK REQUIREMENTS:
+- Core message: One memorable takeaway
+- Ad hooks: exactly 8 using pattern interrupt techniques (controversial, revelation, myth-bust, status-quo-challenge, curiosity-gap, story, fear, social-proof, urgency, authority, comparison). When review data is available, at least 2 hooks should use verbatim customer language or pain points from competitor reviews.
+- Angles: 4-6 distinct advertising angles with target emotions and example headlines
+- Proof points: 3-6 claims backed by evidence from the research. Include competitor review ratings/scores as concrete evidence where available (e.g., "Competitor X rated 2.1/5 on Trustpilot for support").
+- Objection handlers: 4-8 common objections with responses AND reframes. Use competitor review complaints to inform responses — if customers complain about a competitor's flaw, reference that reality when handling the same objection for our client.
+- Tonal guidelines: Voice, words to avoid, power words to use
+
+QUALITY STANDARDS:
+- Hooks should stop the scroll, not be generic
+- Angles must be specific to THIS business
+- Proof points need real evidence from the research
+- Objection reframes should turn negatives into positives
+- Objection reframes should reference competitor review failures as cautionary evidence`;
+
+  try {
+    const startTime = Date.now();
+
+    const [strategicResult, messagingResult] = await Promise.all([
+      withSchemaRetry(
+        () => generateObject({
+          model: anthropic(model),
+          schema: strategicAnalysisSchema,
+          system: strategicSystemPrompt,
+          prompt: `Create a strategic analysis for this paid media blueprint:\n\n${context}`,
+          ...GENERATION_SETTINGS.synthesis,
+        }),
+        'crossAnalysis-strategic',
+      ).catch((error) => {
+        // Attempt recovery for strategic schema
+        const recovered = attemptSchemaRecovery(error, strategicAnalysisSchema, 'crossAnalysis-strategic');
+        if (recovered) return recovered;
+        throw error;
       }),
-      'crossAnalysis',
-    );
+
+      withSchemaRetry(
+        () => generateObject({
+          model: anthropic(model),
+          schema: messagingFrameworkSchema,
+          system: messagingSystemPrompt,
+          prompt: `Create a messaging framework for this paid media strategy:\n\n${context}`,
+          ...GENERATION_SETTINGS.synthesis,
+        }),
+        'crossAnalysis-messaging',
+      ).catch((error) => {
+        // Attempt recovery for messaging schema
+        const recovered = attemptSchemaRecovery(error, messagingFrameworkSchema, 'crossAnalysis-messaging');
+        if (recovered) return recovered;
+        throw error;
+      }),
+    ]);
+
+    const strategicMs = Date.now() - startTime;
+    console.log(`[crossAnalysis] Parallel synthesis completed in ${strategicMs}ms`);
+
+    // Merge results into the CrossAnalysisSynthesis shape
+    const mergedData = {
+      ...strategicResult.object,
+      messagingFramework: messagingResult.object,
+    };
+
+    const totalInputTokens = (strategicResult.usage.inputTokens ?? 0) + (messagingResult.usage.inputTokens ?? 0);
+    const totalOutputTokens = (strategicResult.usage.outputTokens ?? 0) + (messagingResult.usage.outputTokens ?? 0);
 
     return {
-      data: result.object,
-      sources: [], // Claude doesn't have web search
-      usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, totalTokens: result.usage.totalTokens ?? 0 },
-      cost: estimateCost(model, result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      data: mergedData,
+      sources: [],
+      usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens },
+      cost: estimateCost(model, strategicResult.usage.inputTokens ?? 0, strategicResult.usage.outputTokens ?? 0)
+        + estimateCost(model, messagingResult.usage.inputTokens ?? 0, messagingResult.usage.outputTokens ?? 0),
       model,
     };
   } catch (error) {
-    if (error instanceof NoObjectGeneratedError && error.text) {
-      // Recovery 1: Anthropic tool-use mode sometimes wraps JSON in {"$PARAMETER_NAME": {...}}.
-      const unwrapped = tryUnwrapParameterName(error.text, crossAnalysisSchema);
-      if (unwrapped) {
-        console.warn('[crossAnalysis] Recovered from $PARAMETER_NAME wrapper — unwrapped successfully');
-        return {
-          data: unwrapped,
-          sources: [],
-          usage: { inputTokens: error.usage?.inputTokens ?? 0, outputTokens: error.usage?.outputTokens ?? 0, totalTokens: error.usage?.totalTokens ?? 0 },
-          cost: estimateCost(model, error.usage?.inputTokens ?? 0, error.usage?.outputTokens ?? 0),
-          model,
-        };
-      }
-
-      // Recovery 2: LLMs sometimes return deeply nested objects as JSON strings
-      // (e.g. messagingFramework: "{\"coreMessage\":...}" instead of an object).
-      // Attempt to JSON.parse any string fields that should be objects.
-      const fixedStringified = tryFixStringifiedFields(error.text, crossAnalysisSchema);
-      if (fixedStringified) {
-        console.warn('[crossAnalysis] Recovered from stringified nested fields — parsed successfully');
-        return {
-          data: fixedStringified,
-          sources: [],
-          usage: { inputTokens: error.usage?.inputTokens ?? 0, outputTokens: error.usage?.outputTokens ?? 0, totalTokens: error.usage?.totalTokens ?? 0 },
-          cost: estimateCost(model, error.usage?.inputTokens ?? 0, error.usage?.outputTokens ?? 0),
-          model,
-        };
-      }
-    }
     logGenerationError('crossAnalysis', error);
     throw error;
   }
@@ -1044,4 +1088,45 @@ function tryFixStringifiedFields<T>(
   } catch {
     return null;
   }
+}
+
+/**
+ * Generic error recovery for generateObject failures.
+ * Tries both $PARAMETER_NAME unwrapping and stringified-field fixing.
+ * Returns a result-shaped object on success, or null on failure.
+ */
+function attemptSchemaRecovery<T>(
+  error: unknown,
+  schema: { safeParse: (v: unknown) => { success: boolean; data?: T } },
+  section: string,
+): { object: T; usage: { inputTokens: number; outputTokens: number; totalTokens: number } } | null {
+  if (!(error instanceof NoObjectGeneratedError) || !error.text) return null;
+
+  const unwrapped = tryUnwrapParameterName(error.text, schema);
+  if (unwrapped) {
+    console.warn(`[${section}] Recovered from $PARAMETER_NAME wrapper`);
+    return {
+      object: unwrapped,
+      usage: {
+        inputTokens: error.usage?.inputTokens ?? 0,
+        outputTokens: error.usage?.outputTokens ?? 0,
+        totalTokens: error.usage?.totalTokens ?? 0,
+      },
+    };
+  }
+
+  const fixedStringified = tryFixStringifiedFields(error.text, schema);
+  if (fixedStringified) {
+    console.warn(`[${section}] Recovered from stringified nested fields`);
+    return {
+      object: fixedStringified,
+      usage: {
+        inputTokens: error.usage?.inputTokens ?? 0,
+        outputTokens: error.usage?.outputTokens ?? 0,
+        totalTokens: error.usage?.totalTokens ?? 0,
+      },
+    };
+  }
+
+  return null;
 }

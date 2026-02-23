@@ -85,8 +85,8 @@ export const adHookSchema = z.object({
 }).describe('Ad hook with persuasion technique classification');
 
 export const adHooksSchema = z.array(adHookSchema)
-  .min(3).max(12)
-  .describe('5-10 attention-grabbing ad hooks using various pattern interrupt techniques. Each should stop the scroll.');
+  .min(3).max(8)
+  .describe('5-8 attention-grabbing ad hooks using various pattern interrupt techniques. Each should stop the scroll.');
 
 // =============================================================================
 // Angles Schema (Copywriting Framework)
@@ -150,7 +150,7 @@ export const messagingFrameworkSchema = z.object({
     .describe('2-4 tone and voice guidelines for ad copy. What should the brand sound like? (e.g., "Confident but not arrogant", "Data-driven with human touch").'),
 
   adHooks: adHooksSchema
-    .describe('5-10 attention-grabbing ad hooks using pattern interrupt techniques'),
+    .describe('5-8 attention-grabbing ad hooks using pattern interrupt techniques'),
 
   angles: anglesSchema
     .describe('4-6 distinct advertising angles with emotional targeting'),
@@ -214,3 +214,37 @@ export type RecommendedPlatform = z.infer<typeof recommendedPlatformSchema>;
 export type PositioningStrategy = z.infer<typeof positioningStrategySchema>;
 export type MessagingFramework = z.infer<typeof messagingFrameworkSchema>;
 export type CrossAnalysisSynthesis = z.infer<typeof crossAnalysisSchema>;
+
+// =============================================================================
+// Strategic Analysis Schema (split from crossAnalysisSchema for parallel generation)
+// =============================================================================
+
+export const strategicAnalysisSchema = z.object({
+  keyInsights: z.array(keyInsightSchema)
+    .min(3).max(10)
+    .describe('5-7 key strategic insights with at least one from each analysis section. These are the "aha" moments that shape strategy.'),
+
+  recommendedPositioning: z.string()
+    .describe('2-3 sentence positioning statement synthesizing all research. This is the strategic north star for all marketing.'),
+
+  positioningStrategy: positioningStrategySchema
+    .describe('Detailed positioning strategy with alternatives and differentiators'),
+
+  recommendedPlatforms: z.array(recommendedPlatformSchema)
+    .min(1).max(5)
+    .describe('2-3 platform recommendations. Exactly one should be "primary".'),
+
+  criticalSuccessFactors: z.array(z.string())
+    .min(2).max(7)
+    .describe('4-5 must-have elements for campaign success. Things that, if missing, will cause failure (e.g., "Strong proof for cold traffic", "Clear speed-to-value messaging").'),
+
+  potentialBlockers: z.array(z.string())
+    .min(1).max(5)
+    .describe('2-3 realistic blockers that could prevent success. Based on risks identified in earlier sections.'),
+
+  nextSteps: z.array(z.string())
+    .min(2).max(7)
+    .describe('4-5 actionable next steps in priority order. Each should be specific and achievable in the next 2 weeks.'),
+}).describe('Strategic analysis synthesized from all research sections');
+
+export type StrategicAnalysis = z.infer<typeof strategicAnalysisSchema>;

@@ -157,7 +157,7 @@ You MUST produce exactly these counts:
 - INSPIRED hooks (patterns adapted for client, source.type = "inspired"): exactly ${quotas.inspired}
 - GENERATED hooks (original, from client data only, source.type = "generated"): exactly ${quotas.original}
 - MAX ${quotas.maxPerCompetitor} hooks per competitor (across extracted + inspired)
-- TOTAL: exactly 12 hooks
+- TOTAL: exactly 8 hooks
 
 ## Instructions
 1. Extract hooks that are verbatim from ads (source.type = "extracted") — max ${quotas.extracted}
@@ -184,7 +184,7 @@ Focus on hooks that stop the scroll - look for:
 - Specific numbers or timeframes
 - Direct challenges to status quo
 
-Return exactly 12 high-quality hooks matching the tier quotas above.`;
+Return exactly 8 high-quality hooks matching the tier quotas above.`;
 
   try {
     const startTime = Date.now();

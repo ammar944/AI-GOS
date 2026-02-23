@@ -7,7 +7,7 @@ import type { OnboardingFormData } from '@/lib/onboarding/types';
 // Constants
 // =============================================================================
 
-export const DEFAULT_FULL_TIER_LIMIT = 5;
+export const DEFAULT_FULL_TIER_LIMIT = 8;
 export const MAX_TOTAL_COMPETITORS = 20;
 
 // =============================================================================

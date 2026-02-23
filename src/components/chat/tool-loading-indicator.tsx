@@ -1,13 +1,18 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Search, Globe, Lightbulb, Pencil, Loader2 } from 'lucide-react';
+import { Search, Globe, Lightbulb, Pencil, Loader2, Calculator, TrendingUp } from 'lucide-react';
 
 const TOOL_CONFIG: Record<string, { label: string; icon: typeof Search }> = {
   searchBlueprint: { label: 'Searching blueprint...', icon: Search },
   editBlueprint: { label: 'Preparing edit...', icon: Pencil },
   explainBlueprint: { label: 'Analyzing...', icon: Lightbulb },
   webResearch: { label: 'Researching...', icon: Globe },
+  searchMediaPlan: { label: 'Searching media plan...', icon: Search },
+  editMediaPlan: { label: 'Preparing edit...', icon: Pencil },
+  explainMediaPlan: { label: 'Analyzing...', icon: Lightbulb },
+  recalculate: { label: 'Running validation...', icon: Calculator },
+  simulateBudgetChange: { label: 'Simulating...', icon: TrendingUp },
 };
 
 interface ToolLoadingIndicatorProps {

@@ -163,6 +163,16 @@ export async function generateStrategicBlueprint(
       sectionCitations.competitorAnalysis = result.sources;
       modelsUsed.add(result.model);
       totalCost += result.cost;
+
+      // Validate: warn if LLM dropped any requested competitors
+      if (options.fullTierNames && options.fullTierNames.length > 0) {
+        const returnedNames = new Set(result.data.competitors.map(c => c.name.toLowerCase()));
+        const missing = options.fullTierNames.filter(n => !returnedNames.has(n.toLowerCase()));
+        if (missing.length > 0) {
+          console.warn(`[Generator] Competitor coverage gap: requested ${options.fullTierNames.length} full-tier but LLM returned ${result.data.competitors.length}. Missing: ${missing.join(', ')}`);
+        }
+      }
+
       progress(1, 'competitorAnalysis', 'complete', `Competitor research complete (${result.data.competitors.length} found)`);
 
       // Emit competitor data immediately so route.ts can start enrichment

@@ -31,7 +31,11 @@ export {
 // Section 5: Cross-Analysis Synthesis
 export {
   crossAnalysisSchema,
+  strategicAnalysisSchema,
+  messagingFrameworkSchema,
   type CrossAnalysisSynthesis,
+  type StrategicAnalysis,
+  type MessagingFramework,
 } from './cross-analysis';
 
 // Hook Extraction (lightweight re-synthesis optimization)

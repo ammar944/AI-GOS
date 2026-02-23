@@ -70,16 +70,16 @@ export function computeAdDistribution(competitors: CompetitorWithAds[]): AdDistr
 
 /**
  * Returns hook type quotas based on ad data distribution tier.
- * Total always equals 12. maxPerCompetitor always 2.
+ * Total always equals 8. maxPerCompetitor always 2.
  */
 export function getHookQuotas(distribution: AdDistributionTier): HookQuotas {
   switch (distribution) {
     case 'zero':
-      return { extracted: 0, inspired: 6, original: 6, maxPerCompetitor: 2 };
+      return { extracted: 0, inspired: 4, original: 4, maxPerCompetitor: 2 };
     case 'sparse':
-      return { extracted: 2, inspired: 4, original: 6, maxPerCompetitor: 2 };
+      return { extracted: 2, inspired: 3, original: 3, maxPerCompetitor: 2 };
     case 'standard':
-      return { extracted: 4, inspired: 4, original: 4, maxPerCompetitor: 2 };
+      return { extracted: 3, inspired: 3, original: 2, maxPerCompetitor: 2 };
   }
 }
 
@@ -156,7 +156,7 @@ export function validateHookDiversity(
  * Strategy:
  * - Keep first `maxPerCompetitor` hooks from each competitor
  * - Replace excess hooks with synthesis-generated alternatives
- * - Always returns exactly 12 hooks (or fewer if not enough alternatives)
+ * - Always returns exactly 8 hooks (or fewer if not enough alternatives)
  */
 export function remediateHooks(
   hooks: AdHook[],
@@ -164,7 +164,7 @@ export function remediateHooks(
   synthesisPool: AdHook[],
   maxPerCompetitor: number = 2,
 ): AdHook[] {
-  if (violations.length === 0) return hooks.slice(0, 12);
+  if (violations.length === 0) return hooks.slice(0, 8);
 
   // Determine which hook indices to remove
   const violatedIndices = new Set(violations.map(v => v.hookIndex));
@@ -200,12 +200,12 @@ export function remediateHooks(
   const kept = hooks.filter((_, i) => keepIndices.has(i));
 
   // Fill remaining slots from synthesis pool (generated hooks only)
-  const slotsNeeded = 12 - kept.length;
+  const slotsNeeded = 8 - kept.length;
   const fillers = synthesisPool
     .filter(h => !h.source || h.source.type === 'generated')
     .slice(0, slotsNeeded);
 
-  return [...kept, ...fillers].slice(0, 12);
+  return [...kept, ...fillers].slice(0, 8);
 }
 
 // =============================================================================

@@ -41,6 +41,95 @@ interface EnrichedCompetitor {
   analysisDepth?: string;
 }
 
+// =============================================================================
+// Currency Normalization — append (~$X USD) for non-USD pricing
+// =============================================================================
+
+/** Approximate conversion rates to USD (updated periodically) */
+const APPROXIMATE_USD_RATES: Record<string, number> = {
+  'EUR': 1.08,
+  'GBP': 1.27,
+  'CAD': 0.74,
+  'AUD': 0.65,
+  'JPY': 0.0067,
+  'CHF': 1.13,
+  'SEK': 0.095,
+  'NOK': 0.093,
+  'DKK': 0.145,
+  'NZD': 0.60,
+  'BRL': 0.17,
+  'INR': 0.012,
+  'MXN': 0.058,
+  'SGD': 0.75,
+  'HKD': 0.13,
+  'KRW': 0.00074,
+  'PLN': 0.25,
+  'CZK': 0.043,
+  'ZAR': 0.055,
+};
+
+/** Map currency symbols to ISO codes */
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  '€': 'EUR',
+  '£': 'GBP',
+  'C$': 'CAD',
+  'A$': 'AUD',
+  '¥': 'JPY',
+  'CHF': 'CHF',
+  'kr': 'SEK', // Also NOK/DKK but SEK is most common in SaaS
+  'R$': 'BRL',
+  '₹': 'INR',
+  '₩': 'KRW',
+  'zł': 'PLN',
+  'Kč': 'CZK',
+};
+
+/**
+ * Detect the currency of a price string from symbols or explicit codes.
+ * Falls back to the extraction-level detected currency if provided.
+ */
+function detectCurrency(priceStr: string, extractionCurrency?: string): string {
+  // Check for multi-char symbols first (C$, A$, R$ before single $)
+  for (const [symbol, code] of Object.entries(CURRENCY_SYMBOLS)) {
+    if (symbol.length > 1 && priceStr.includes(symbol)) return code;
+  }
+  // Single-char symbols
+  for (const [symbol, code] of Object.entries(CURRENCY_SYMBOLS)) {
+    if (symbol.length === 1 && priceStr.includes(symbol)) return code;
+  }
+  // Check for explicit ISO currency codes in the string
+  const upperPrice = priceStr.toUpperCase();
+  for (const code of Object.keys(APPROXIMATE_USD_RATES)) {
+    if (upperPrice.includes(code)) return code;
+  }
+  // Use extraction-level currency if available and not USD
+  if (extractionCurrency && extractionCurrency.toUpperCase() !== 'USD') {
+    return extractionCurrency.toUpperCase();
+  }
+  return 'USD';
+}
+
+/**
+ * If a price string is in a non-USD currency, append an approximate USD equivalent.
+ * E.g. "€125/mth" → "€125/mth (~$135 USD)"
+ * USD prices are returned unchanged.
+ */
+function addUsdEquivalent(priceStr: string, extractionCurrency?: string): string {
+  const currency = detectCurrency(priceStr, extractionCurrency);
+  if (currency === 'USD') return priceStr;
+
+  // Extract the first numeric value from the string
+  const numericMatch = priceStr.match(/[\d,]+\.?\d*/);
+  if (!numericMatch) return priceStr;
+
+  const numericPrice = parseFloat(numericMatch[0].replace(/,/g, ''));
+  const rate = APPROXIMATE_USD_RATES[currency];
+  if (!rate || isNaN(numericPrice)) return priceStr;
+
+  const usdEquiv = Math.round(numericPrice * rate);
+  return `${priceStr} (~$${usdEquiv} USD)`;
+}
+
 const HIGH_RECALL_FETCH_LIMIT = 100;
 const MAX_STORED_ADS_PER_COMPETITOR = 50;
 const HIGH_RECALL_MIN_RELEVANCE = 60;
@@ -134,11 +223,13 @@ export async function enrichCompetitors(
               if (extraction.success && extraction.confidence >= 60) {
                 // Deduplicate tiers that share the same plan name (monthly/annual toggle duplicates)
                 const dedupedTiers = deduplicatePricingTiers(extraction.tiers);
+                // Detect non-USD currency and append approximate USD equivalent
+                const detectedCurrency = extraction.currency ?? undefined;
                 return {
                   success: true as const,
                   tiers: dedupedTiers.map((t: ExtractedPricingTier) => ({
                     tier: t.tier,
-                    price: t.price,
+                    price: addUsdEquivalent(t.price, detectedCurrency),
                     description: t.description ?? undefined,
                     features: t.features ?? undefined,
                   })),

@@ -24,7 +24,7 @@ import { OnboardingWizard } from "@/components/onboarding";
 import { PaginatedBlueprintView } from "@/components/strategic-blueprint/paginated-blueprint-view";
 import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
 import { BlueprintDocument } from "@/components/strategic-research";
-import { AgentChat } from "@/components/chat";
+import { AgentChat, MediaPlanAgentChat } from "@/components/chat";
 import { SplitChatLayout } from "@/components/layout";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { GradientBorder } from "@/components/ui/gradient-border";
@@ -211,6 +211,9 @@ export default function GeneratePage() {
 
   // Media plan generation
   const mediaPlanGen = useMediaPlanGeneration();
+
+  // Chat-driven media plan edits override (takes precedence over generated/resumed plan)
+  const [mediaPlanOverride, setMediaPlanOverride] = useState<MediaPlanOutput | null>(null);
 
   // Streaming state for real-time section display
   const [streamingSections, setStreamingSections] = useState<Map<StrategicBlueprintSection, unknown>>(new Map());
@@ -668,6 +671,11 @@ export default function GeneratePage() {
 
     setPageState("media-plan-approved");
   }, [onboardingData, mediaPlanGen.meta, blueprintId]);
+
+  // Handle media plan updates from chat agent edits
+  const handleMediaPlanChatUpdate = useCallback((updated: Record<string, unknown>) => {
+    setMediaPlanOverride(updated as unknown as MediaPlanOutput);
+  }, []);
 
   // Share blueprint
   const handleShare = useCallback(async () => {
@@ -1693,7 +1701,7 @@ export default function GeneratePage() {
   }
 
   // Review Media Plan State — paginated review with chat + approve/reject
-  const activeMediaPlan = resumedMediaPlan ?? mediaPlanGen.mediaPlan;
+  const activeMediaPlan = mediaPlanOverride ?? resumedMediaPlan ?? mediaPlanGen.mediaPlan;
   if (pageState === "review-media-plan" && activeMediaPlan) {
     return (
       <div className="relative flex h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
@@ -1705,13 +1713,23 @@ export default function GeneratePage() {
         />
         <ShaderMeshBackground variant="page" />
         <BackgroundPattern opacity={0.015} />
-        <div className="z-10 flex min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
-            <MediaPlanDocument
-              mediaPlan={activeMediaPlan}
-              onApprove={handleApproveMediaPlan}
-            />
-          </div>
+        <div className="z-10 flex min-h-0 flex-1">
+          <SplitChatLayout
+            chatContent={
+              <MediaPlanAgentChat
+                mediaPlan={activeMediaPlan as unknown as Record<string, unknown>}
+                mediaPlanId={savedMediaPlanId || ''}
+                onboardingData={onboardingData as unknown as Record<string, unknown>}
+                onMediaPlanUpdate={handleMediaPlanChatUpdate}
+              />
+            }
+            blueprintContent={
+              <MediaPlanDocument
+                mediaPlan={activeMediaPlan}
+                onApprove={handleApproveMediaPlan}
+              />
+            }
+          />
         </div>
       </div>
     );
