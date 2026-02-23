@@ -98,7 +98,13 @@ export function DashboardContent() {
 
   useEffect(() => {
     async function loadData() {
-      const onboardingResult = await getOnboardingStatus();
+      // Fetch all data in parallel instead of sequentially
+      const [onboardingResult, blueprintsResult, mediaPlansResult] = await Promise.all([
+        getOnboardingStatus(),
+        getUserBlueprints(),
+        getUserMediaPlans(),
+      ]);
+
       if (onboardingResult.data) {
         setOnboardingCompleted(onboardingResult.data.completed);
         if (onboardingResult.data.onboardingData) {
@@ -108,12 +114,10 @@ export function DashboardContent() {
         }
       }
 
-      const blueprintsResult = await getUserBlueprints();
       if (blueprintsResult.data && blueprintsResult.data.length > 0) {
         setBlueprints(blueprintsResult.data);
       }
 
-      const mediaPlansResult = await getUserMediaPlans();
       if (mediaPlansResult.data) {
         setMediaPlans(mediaPlansResult.data);
       }

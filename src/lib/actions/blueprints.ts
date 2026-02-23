@@ -63,9 +63,10 @@ export async function getUserBlueprints(): Promise<{ data?: BlueprintRecord[]; e
 
   const supabase = createAdminClient()
 
+  // Select only listing columns — exclude heavy 'output' and 'input_data' JSON blobs
   const { data, error } = await supabase
     .from('blueprints')
-    .select('*')
+    .select('id, user_id, title, generation_metadata, created_at, updated_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 

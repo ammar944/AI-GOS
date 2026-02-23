@@ -102,9 +102,10 @@ export async function getUserMediaPlans(): Promise<{ data?: MediaPlanRecord[]; e
 
   const supabase = createAdminClient()
 
+  // Select only listing columns — exclude heavy 'output' JSON blob
   const { data, error } = await supabase
     .from('media_plans')
-    .select('*')
+    .select('id, user_id, blueprint_id, title, ad_copy, generation_metadata, status, created_at, updated_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 

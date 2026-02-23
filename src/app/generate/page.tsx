@@ -269,8 +269,11 @@ export default function GeneratePage() {
           const formData = mapDbToFormData(dbData) as OnboardingFormData;
           const progress = getOnboardingProgress(dbData);
 
-          // If onboarding is complete and all 9 sections have data, go to profile-complete
-          if (result.data.completed && progress.completedSections === 9) {
+          // If all 9 sections have data, go to profile-complete
+          // (onboarding_completed flag is set later during blueprint approval,
+          // so we also check completedSections === 9 to handle the case where
+          // onboarding was finished but blueprint hasn't been approved yet)
+          if (progress.completedSections === 9) {
             setOnboardingData(formData);
             setInitialData(formData);
             setPageState("profile-complete");
