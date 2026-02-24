@@ -25,6 +25,7 @@ const OPTIONAL_ENV_VARS = {
     "FOREPLAY_API_KEY",     // Foreplay API key for creative intelligence
     "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
     "FIRECRAWL_API_KEY",    // Firecrawl API key for pricing page scraping
+    "GROQ_API_KEY",         // Groq API key for Whisper voice transcription
   ] as const,
   public: ["NEXT_PUBLIC_APP_URL"] as const,
 } as const;

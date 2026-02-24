@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Send, Undo2, Redo2 } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
 import {
@@ -16,7 +16,9 @@ import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
 import { ValidationCascadeCard } from './validation-cascade-card';
+import { VoiceTranscriptPreview } from './voice-transcript-preview';
 import { MagneticButton } from '@/components/ui/magnetic-button';
+import { VoiceInputButton } from './voice-input-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { applyMediaPlanEdit } from '@/lib/ai/media-plan-chat-tools/utils';
 import { MEDIA_PLAN_SECTION_LABELS } from '@/lib/media-plan/section-constants';
@@ -46,8 +48,9 @@ export function MediaPlanAgentChat({
   className,
 }: MediaPlanAgentChatProps) {
   const [input, setInput] = useState('');
+  const [transcriptPreview, setTranscriptPreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const mediaPlanRef = useRef(mediaPlan);
   mediaPlanRef.current = mediaPlan;
 
@@ -147,9 +150,42 @@ export function MediaPlanAgentChat({
 
       sendMessage({ text: content });
       setInput('');
+
+      // Reset textarea height after sending
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.style.height = 'auto';
+          inputRef.current.style.height = '40px';
+        }
+      });
     },
     [input, isLoading, sendMessage]
   );
+
+  // Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, []);
+
+  // Resize on input changes (covers programmatic voice transcript)
+  useEffect(() => { autoResize(); }, [input, autoResize]);
+
+  // Voice transcript preview handlers
+  const handleTranscript = useCallback((text: string) => {
+    setTranscriptPreview(text);
+  }, []);
+
+  const handleTranscriptConfirm = useCallback((text: string) => {
+    setTranscriptPreview(null);
+    handleSubmit(undefined, text);
+  }, [handleSubmit]);
+
+  const handleTranscriptDismiss = useCallback(() => {
+    setTranscriptPreview(null);
+  }, []);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: string) => {
@@ -661,48 +697,94 @@ export function MediaPlanAgentChat({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={
-              isStreaming
-                ? 'Receiving response...'
-                : hasPendingApproval
-                ? 'Approve or reject the edit above...'
-                : 'Ask about your media plan...'
-            }
-            disabled={isLoading}
-            className="flex-1 h-10 px-4 text-sm rounded-lg outline-none transition-all duration-200"
-            style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-primary)',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-focus)';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-subtle)';
-            }}
-          />
-          <MagneticButton
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{
-              background: input.trim() && !isLoading
-                ? 'var(--accent-blue)'
-                : 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
-              opacity: !input.trim() || isLoading ? 0.5 : 1,
-            }}
-          >
-            <Send className="w-4 h-4" />
-          </MagneticButton>
-        </form>
+        <AnimatePresence mode="wait">
+          {transcriptPreview !== null ? (
+            <motion.div
+              key="transcript-preview"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="flex gap-2 items-start">
+                <VoiceInputButton
+                  onTranscript={handleTranscript}
+                  disabled={isLoading}
+                  hasTranscript={true}
+                  onClear={handleTranscriptDismiss}
+                />
+                <div className="flex-1">
+                  <VoiceTranscriptPreview
+                    transcript={transcriptPreview}
+                    onConfirm={handleTranscriptConfirm}
+                    onDismiss={handleTranscriptDismiss}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.form
+              key="input-form"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+              onSubmit={handleSubmit}
+              className="flex gap-2 items-end"
+            >
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder={
+                  isStreaming
+                    ? 'Receiving response...'
+                    : hasPendingApproval
+                    ? 'Approve or reject the edit above...'
+                    : 'Ask about your media plan...'
+                }
+                disabled={isLoading}
+                rows={1}
+                className="flex-1 px-4 py-2.5 text-sm rounded-lg outline-none transition-all duration-200 resize-none overflow-y-auto leading-5"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  minHeight: '40px',
+                  maxHeight: '128px',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-focus)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                }}
+              />
+              <VoiceInputButton onTranscript={handleTranscript} disabled={isLoading} />
+              <MagneticButton
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: input.trim() && !isLoading
+                    ? 'var(--accent-blue)'
+                    : 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
+                  opacity: !input.trim() || isLoading ? 0.5 : 1,
+                }}
+              >
+                <Send className="w-4 h-4" />
+              </MagneticButton>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

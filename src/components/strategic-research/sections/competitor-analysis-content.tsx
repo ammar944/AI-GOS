@@ -42,6 +42,7 @@ import {
   DataCard,
   CardGrid,
   EmptyExplanation,
+  FieldHighlightWrapper,
   type EditableContentProps,
 } from "./shared-primitives";
 import type {
@@ -197,7 +198,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                           })()}
 
                           {/* Positioning */}
-                          <div className="mb-3 text-sm text-white/60">
+                          <FieldHighlightWrapper fieldPath={`competitors[${i}].positioning`} className="mb-3 text-sm text-white/60">
                             {isEditing && onFieldChange ? (
                               <EditableText
                                 value={safeRender(comp?.positioning)}
@@ -206,13 +207,13 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                             ) : (
                               <SourcedListItem>{safeRender(comp?.positioning)}</SourcedListItem>
                             )}
-                          </div>
+                          </FieldHighlightWrapper>
 
                           {/* Quick facts grid */}
                           <div className="grid md:grid-cols-2 gap-3 text-sm">
                             {/* Only show simple Offer if no detailed mainOffer exists */}
                             {!comp?.mainOffer && (
-                              <div>
+                              <FieldHighlightWrapper fieldPath={`competitors[${i}].offer`}>
                                 <p className="text-[10px] uppercase tracking-[0.08em] text-white/30 mb-1">Offer</p>
                                 {isEditing && onFieldChange ? (
                                   <EditableText
@@ -222,11 +223,11 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                 ) : (
                                   <p className="text-white/70"><SourcedListItem>{safeRender(comp?.offer)}</SourcedListItem></p>
                                 )}
-                              </div>
+                              </FieldHighlightWrapper>
                             )}
                             {/* Only show simple Price if no detailed pricingTiers exist */}
                             {!(comp?.pricingTiers && comp.pricingTiers.length > 0) && (
-                              <div>
+                              <FieldHighlightWrapper fieldPath={`competitors[${i}].price`}>
                                 <p className="text-[10px] uppercase tracking-[0.08em] text-white/30 mb-1">Price</p>
                                 {isEditing && onFieldChange ? (
                                   <EditableText
@@ -238,9 +239,9 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                     <SourcedText>{safeRender(comp?.price)}</SourcedText>
                                   </p>
                                 )}
-                              </div>
+                              </FieldHighlightWrapper>
                             )}
-                            <div>
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].adPlatforms`}>
                               <p className="text-[10px] uppercase tracking-[0.08em] text-white/30 mb-1">Platforms</p>
                               <div className="flex gap-1 flex-wrap">
                                 {safeArray(comp?.adPlatforms).length > 0 ? (
@@ -253,18 +254,18 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   </span>
                                 )}
                               </div>
-                            </div>
+                            </FieldHighlightWrapper>
                             {safeRender(comp?.funnels) && (
-                              <div>
+                              <FieldHighlightWrapper fieldPath={`competitors[${i}].funnels`}>
                                 <p className="text-[10px] uppercase tracking-[0.08em] text-white/30 mb-1">Funnels</p>
                                 <p className="text-white/60">{safeRender(comp?.funnels)}</p>
-                              </div>
+                              </FieldHighlightWrapper>
                             )}
                           </div>
 
                           {/* Strengths & Weaknesses */}
                           <div className="grid md:grid-cols-2 gap-3 mt-3">
-                            <div>
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].strengths`}>
                               <p className="text-sm font-medium text-emerald-400/80 mb-1">Strengths</p>
                               {isEditing && onFieldChange ? (
                                 <EditableList
@@ -280,8 +281,8 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   ))}
                                 </ul>
                               )}
-                            </div>
-                            <div>
+                            </FieldHighlightWrapper>
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].weaknesses`}>
                               <p className="text-sm font-medium text-red-400/70 mb-1">Weaknesses</p>
                               {isEditing && onFieldChange ? (
                                 <EditableList
@@ -297,7 +298,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   ))}
                                 </ul>
                               )}
-                            </div>
+                            </FieldHighlightWrapper>
                           </div>
 
                           {/* Customer Reviews */}
@@ -461,7 +462,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
 
                           {/* Pricing Tiers */}
                           {comp?.pricingTiers && comp.pricingTiers.length > 0 && (
-                            <div className="mt-4">
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].pricingTiers`} className="mt-4">
                               <p className="mb-1 flex items-center gap-2 text-sm font-medium text-white/80">
                                 <DollarSign className="h-4 w-4 text-emerald-400/80" />
                                 Pricing Tiers
@@ -529,12 +530,12 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   ))}
                                 </div>
                               )}
-                            </div>
+                            </FieldHighlightWrapper>
                           )}
 
                           {/* Main Offer */}
                           {comp?.mainOffer && (
-                            <div className="mt-4 rounded-lg bg-blue-500/[0.04] border border-blue-500/[0.14] p-3">
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].mainOffer`} className="mt-4 rounded-lg bg-blue-500/[0.04] border border-blue-500/[0.14] p-3">
                               <p className="text-sm font-medium mb-2 flex items-center gap-2 text-white/80">
                                 <Sparkles className="h-4 w-4 text-blue-400/80" />
                                 Main Offer
@@ -566,12 +567,12 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   CTA: {comp.mainOffer.cta}
                                 </Badge>
                               </div>
-                            </div>
+                            </FieldHighlightWrapper>
                           )}
 
                           {/* Ad Messaging Themes */}
                           {comp?.adMessagingThemes && comp.adMessagingThemes.length > 0 && (
-                            <div className="mt-4">
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].adMessagingThemes`} className="mt-4">
                               <p className="text-sm font-medium mb-2 flex items-center gap-2 text-white/80">
                                 <Tag className="h-4 w-4 text-blue-400/80" />
                                 Ad Themes
@@ -595,7 +596,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   ))}
                                 </div>
                               )}
-                            </div>
+                            </FieldHighlightWrapper>
                           )}
 
                           {/* Ad Creatives Carousel */}
@@ -771,20 +772,22 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
               };
               const config = typeConfig[wsg.type] || { bg: "bg-white/[0.02]", border: "border-white/[0.06]", text: "text-white/50" };
               return (
-                <div key={idx} className={cn("rounded-lg border p-3", config.bg, config.border)}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className={cn("text-[10px] font-semibold uppercase tracking-[0.08em]", config.text)}>
-                      {wsg.type}
-                    </span>
-                    <span className="text-[10px] text-white/30 font-[family-name:var(--font-mono)]">
-                      Exploit: {wsg.exploitability}/10 &middot; Impact: {wsg.impact}/10
-                      {wsg.compositeScore != null && ` · Score: ${wsg.compositeScore}`}
-                    </span>
+                <FieldHighlightWrapper key={idx} fieldPath={`whiteSpaceGaps[${idx}]`}>
+                  <div className={cn("rounded-lg border p-3", config.bg, config.border)}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={cn("text-[10px] font-semibold uppercase tracking-[0.08em]", config.text)}>
+                        {wsg.type}
+                      </span>
+                      <span className="text-[10px] text-white/30 font-[family-name:var(--font-mono)]">
+                        Exploit: {wsg.exploitability}/10 &middot; Impact: {wsg.impact}/10
+                        {wsg.compositeScore != null && ` · Score: ${wsg.compositeScore}`}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-white/85">{wsg.gap}</p>
+                    <p className="text-xs text-white/40 mt-1">{wsg.evidence}</p>
+                    <p className="text-xs text-white/60 mt-1">{wsg.recommendedAction}</p>
                   </div>
-                  <p className="text-sm font-medium text-white/85">{wsg.gap}</p>
-                  <p className="text-xs text-white/40 mt-1">{wsg.evidence}</p>
-                  <p className="text-xs text-white/60 mt-1">{wsg.recommendedAction}</p>
-                </div>
+                </FieldHighlightWrapper>
               );
             })}
           </div>

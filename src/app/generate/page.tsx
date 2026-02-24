@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { OnboardingWizard } from "@/components/onboarding";
 import { PaginatedBlueprintView } from "@/components/strategic-blueprint/paginated-blueprint-view";
+import { BlueprintEditProvider } from "@/components/strategic-blueprint/blueprint-edit-context";
 import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
 import { BlueprintDocument } from "@/components/strategic-research";
 import { AgentChat, MediaPlanAgentChat } from "@/components/chat";
@@ -1280,23 +1281,26 @@ export default function GeneratePage() {
         <ShaderMeshBackground variant="page" />
         <BackgroundPattern opacity={0.015} />
 
-        {/* Main content area */}
+        {/* Main content area — wrapped in BlueprintEditProvider so AgentChat
+            can signal the blueprint view when an edit is proposed/approved */}
         <div className="z-10 flex min-h-0 flex-1">
-          <SplitChatLayout
-            chatContent={
-              <AgentChat
-                blueprint={strategicBlueprint as unknown as Record<string, unknown>}
-                onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
-              />
-            }
-            blueprintContent={
-              <BlueprintDocument
-                strategicBlueprint={strategicBlueprint}
-                onApprove={handleApprove}
+          <BlueprintEditProvider>
+            <SplitChatLayout
+              chatContent={
+                <AgentChat
+                  blueprint={strategicBlueprint as unknown as Record<string, unknown>}
+                  onBlueprintUpdate={(updated) => setStrategicBlueprint(updated as unknown as StrategicBlueprintOutput)}
+                />
+              }
+              blueprintContent={
+                <BlueprintDocument
+                  strategicBlueprint={strategicBlueprint}
+                  onApprove={handleApprove}
 
-              />
-            }
-          />
+                />
+              }
+            />
+          </BlueprintEditProvider>
         </div>
       </div>
     );

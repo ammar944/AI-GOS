@@ -16,10 +16,14 @@ import { QuickSuggestions } from './quick-suggestions';
 import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
+import { ViewInBlueprintButton } from './view-in-blueprint-button';
+import { VoiceTranscriptPreview } from './voice-transcript-preview';
 import { MagneticButton } from '@/components/ui/magnetic-button';
+import { VoiceInputButton } from './voice-input-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { applyEdits } from '@/lib/ai/chat-tools/utils';
 import type { PendingEdit } from '@/lib/ai/chat-tools/types';
+import { useOptionalBlueprintEditContext } from '@/components/strategic-blueprint/blueprint-edit-context';
 
 interface AgentChatProps {
   blueprint: Record<string, unknown>;
@@ -37,12 +41,16 @@ export function AgentChat({
   className,
 }: AgentChatProps) {
   const [input, setInput] = useState('');
+  const [transcriptPreview, setTranscriptPreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const blueprintRef = useRef(blueprint);
   blueprintRef.current = blueprint;
 
   const { canUndo, canRedo, undoDepth, recordEdit, undo, redo } = useEditHistory(blueprintId);
+
+  // Blueprint edit context — optional (no provider = no highlight, no crash)
+  const editCtx = useOptionalBlueprintEditContext();
 
   const transport = useRef(
     new DefaultChatTransport({
@@ -127,6 +135,35 @@ export function AgentChat({
 
   const isLoading = isStreaming || isSubmitted || hasPendingApproval;
 
+  // Notify blueprint view of pending edits via effect (not during render)
+  const lastProposedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editCtx) return;
+    // Scan messages for the latest approval-requested edit
+    for (let m = messages.length - 1; m >= 0; m--) {
+      const msg = messages[m];
+      if (msg.role !== 'assistant') continue;
+      for (let p = msg.parts.length - 1; p >= 0; p--) {
+        const part = msg.parts[p] as Record<string, unknown>;
+        if (!part.type || !(part.type as string).startsWith('tool-')) continue;
+        if (part.state !== 'approval-requested') continue;
+        const editInput = part.input as { section: string; fieldPath: string; explanation?: string };
+        const approval = part.approval as { id?: string } | undefined;
+        const id = approval?.id ?? `${msg.id}-${p}`;
+        // Only fire once per unique edit
+        if (lastProposedIdRef.current === id) return;
+        lastProposedIdRef.current = id;
+        editCtx.notifyEditProposed({
+          section: editInput.section,
+          fieldPath: editInput.fieldPath,
+          explanation: editInput.explanation,
+          id,
+        });
+        return;
+      }
+    }
+  }, [messages, editCtx]);
+
   const handleSubmit = useCallback(
     (e?: React.FormEvent, directContent?: string) => {
       e?.preventDefault();
@@ -135,9 +172,42 @@ export function AgentChat({
 
       sendMessage({ text: content });
       setInput('');
+
+      // Reset textarea height after sending
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.style.height = 'auto';
+          inputRef.current.style.height = '40px';
+        }
+      });
     },
     [input, isLoading, sendMessage]
   );
+
+  // Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, []);
+
+  // Resize on input changes (covers programmatic voice transcript)
+  useEffect(() => { autoResize(); }, [input, autoResize]);
+
+  // Voice transcript preview handlers
+  const handleTranscript = useCallback((text: string) => {
+    setTranscriptPreview(text);
+  }, []);
+
+  const handleTranscriptConfirm = useCallback((text: string) => {
+    setTranscriptPreview(null);
+    handleSubmit(undefined, text);
+  }, [handleSubmit]);
+
+  const handleTranscriptDismiss = useCallback(() => {
+    setTranscriptPreview(null);
+  }, []);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: string) => {
@@ -168,21 +238,25 @@ export function AgentChat({
         // (don't wait for React re-render to propagate the new prop)
         blueprintRef.current = updatedBlueprint;
         onBlueprintUpdate?.(updatedBlueprint);
+        // Notify the blueprint view that this edit was approved
+        editCtx?.notifyEditApproved(approvalId);
         addToolApprovalResponse({ id: approvalId, approved: true });
       } catch (err) {
         console.error('Failed to apply edit:', err);
         // Reject so the model knows the edit failed
+        editCtx?.notifyEditRejected(approvalId);
         addToolApprovalResponse({ id: approvalId, approved: false });
       }
     },
-    [addToolApprovalResponse, onBlueprintUpdate, recordEdit]
+    [addToolApprovalResponse, onBlueprintUpdate, recordEdit, editCtx]
   );
 
   const handleRejectEdit = useCallback(
     (approvalId: string) => {
+      editCtx?.notifyEditRejected(approvalId);
       addToolApprovalResponse({ id: approvalId, approved: false });
     },
-    [addToolApprovalResponse]
+    [addToolApprovalResponse, editCtx]
   );
 
   const handleUndo = useCallback(() => {
@@ -266,7 +340,8 @@ export function AgentChat({
             newValue: unknown;
             explanation: string;
           };
-          const approvalId = toolPart.approval?.id;
+          // Always use a stable fallback so handlers never receive undefined
+          const approvalId = toolPart.approval?.id ?? `${message.id}-${i}`;
 
           elements.push(
             <EditApprovalCard
@@ -276,11 +351,23 @@ export function AgentChat({
               oldValue={undefined}
               newValue={editInput.newValue}
               explanation={editInput.explanation}
-              diffPreview={`Field: ${editInput.fieldPath}\nNew value: ${JSON.stringify(editInput.newValue, null, 2)?.substring(0, 200)}`}
+              diffPreview={`Field: ${editInput.fieldPath}\nNew value: ${(() => { try { return JSON.stringify(editInput.newValue, null, 2)?.substring(0, 200); } catch { return '[complex value]'; } })()}`}
               onApprove={() => handleApproveEdit(approvalId, editInput)}
               onReject={() => handleRejectEdit(approvalId)}
             />
           );
+
+          // "View in Blueprint" button — user-triggered navigation
+          if (editCtx) {
+            elements.push(
+              <ViewInBlueprintButton
+                key={`${message.id}-view-${i}`}
+                section={editInput.section}
+                fieldPath={editInput.fieldPath}
+                onClick={() => editCtx.requestNavigation(editInput.section, editInput.fieldPath)}
+              />
+            );
+          }
         }
 
         // Output available states
@@ -299,7 +386,22 @@ export function AgentChat({
                   color: '#22c55e',
                 }}
               >
-                Edit applied to {output.section} / {output.fieldPath}
+                <span className="flex-1">
+                  Edit applied to {output.section} / {output.fieldPath}
+                </span>
+                {editCtx && (
+                  <button
+                    onClick={() => editCtx.requestNavigation(output.section, output.fieldPath)}
+                    className="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium transition-colors hover:brightness-125"
+                    style={{
+                      background: 'rgba(34, 197, 94, 0.15)',
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                      color: '#4ade80',
+                    }}
+                  >
+                    View Change
+                  </button>
+                )}
               </div>
             );
           }
@@ -470,48 +572,94 @@ export function AgentChat({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={
-              isStreaming
-                ? 'Receiving response...'
-                : hasPendingApproval
-                ? 'Approve or reject the edit above...'
-                : 'Ask about your blueprint...'
-            }
-            disabled={isLoading}
-            className="flex-1 h-10 px-4 text-sm rounded-lg outline-none transition-all duration-200"
-            style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-primary)',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-focus)';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-subtle)';
-            }}
-          />
-          <MagneticButton
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{
-              background: input.trim() && !isLoading
-                ? 'var(--accent-blue)'
-                : 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
-              opacity: !input.trim() || isLoading ? 0.5 : 1,
-            }}
-          >
-            <Send className="w-4 h-4" />
-          </MagneticButton>
-        </form>
+        <AnimatePresence mode="wait">
+          {transcriptPreview !== null ? (
+            <motion.div
+              key="transcript-preview"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="flex gap-2 items-start">
+                <VoiceInputButton
+                  onTranscript={handleTranscript}
+                  disabled={isLoading}
+                  hasTranscript={true}
+                  onClear={handleTranscriptDismiss}
+                />
+                <div className="flex-1">
+                  <VoiceTranscriptPreview
+                    transcript={transcriptPreview}
+                    onConfirm={handleTranscriptConfirm}
+                    onDismiss={handleTranscriptDismiss}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.form
+              key="input-form"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.2 }}
+              onSubmit={handleSubmit}
+              className="flex gap-2 items-end"
+            >
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder={
+                  isStreaming
+                    ? 'Receiving response...'
+                    : hasPendingApproval
+                    ? 'Approve or reject the edit above...'
+                    : 'Ask about your blueprint...'
+                }
+                disabled={isLoading}
+                rows={1}
+                className="flex-1 px-4 py-2.5 text-sm rounded-lg outline-none transition-all duration-200 resize-none overflow-y-auto leading-5"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  minHeight: '40px',
+                  maxHeight: '128px',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-focus)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                }}
+              />
+              <VoiceInputButton onTranscript={handleTranscript} disabled={isLoading} />
+              <MagneticButton
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: input.trim() && !isLoading
+                    ? 'var(--accent-blue)'
+                    : 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
+                  opacity: !input.trim() || isLoading ? 0.5 : 1,
+                }}
+              >
+                <Send className="w-4 h-4" />
+              </MagneticButton>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import {
   NumberedStep,
   PriorityBadge,
   CardGrid,
+  FieldHighlightWrapper,
   type EditableContentProps,
 } from "./shared-primitives";
 import type { CrossAnalysisSynthesis } from "@/lib/strategic-blueprint/output-types";
@@ -35,6 +36,7 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
             {(data?.keyInsights || []).map((insight, i) => (
               <InsightCard
                 key={i}
+                fieldPath={`keyInsights[${i}]`}
                 icon={Lightbulb}
                 iconColor="text-blue-400/70"
                 title={safeRender(insight?.insight)}
@@ -57,90 +59,94 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
 
       {/* Recommended Positioning */}
       <SubSection title="Recommended Positioning">
-        <HighlightBlock>
-          {isEditing && onFieldChange ? (
-            <EditableText
-              value={safeRender(data?.recommendedPositioning)}
-              onSave={(v) => onFieldChange("recommendedPositioning", v)}
-              multiline
-              className="text-lg text-white/85"
-            />
-          ) : (
-            <p className="text-lg text-white/85 leading-relaxed">
-              {safeRender(data?.recommendedPositioning)}
-            </p>
-          )}
-        </HighlightBlock>
+        <FieldHighlightWrapper fieldPath="recommendedPositioning">
+          <HighlightBlock>
+            {isEditing && onFieldChange ? (
+              <EditableText
+                value={safeRender(data?.recommendedPositioning)}
+                onSave={(v) => onFieldChange("recommendedPositioning", v)}
+                multiline
+                className="text-lg text-white/85"
+              />
+            ) : (
+              <p className="text-lg text-white/85 leading-relaxed">
+                {safeRender(data?.recommendedPositioning)}
+              </p>
+            )}
+          </HighlightBlock>
+        </FieldHighlightWrapper>
       </SubSection>
 
       {/* Ad Hooks with Source Attribution */}
       {data?.messagingFramework?.adHooks && data.messagingFramework.adHooks.length > 0 && (
         <SubSection title="Ad Hooks (from Competitor Ads)">
-          <p className="text-xs text-white/30 mb-3">
-            Hooks extracted or inspired by real competitor ads. Green = verbatim, Blue = inspired, Gray = generated.
-          </p>
-          <div className="space-y-2.5">
-            {data.messagingFramework.adHooks.map((hookItem: any, i: number) => {
-              const sourceType = hookItem?.source?.type;
-              const borderClass =
-                sourceType === "extracted"
-                  ? "border-emerald-500/40"
-                  : sourceType === "inspired"
-                    ? "border-blue-500/40"
-                    : "border-white/[0.08]";
+          <FieldHighlightWrapper fieldPath="messagingFramework.adHooks">
+            <p className="text-xs text-white/30 mb-3">
+              Hooks extracted or inspired by real competitor ads. Green = verbatim, Blue = inspired, Gray = generated.
+            </p>
+            <div className="space-y-2.5">
+              {data.messagingFramework.adHooks.map((hookItem: any, i: number) => {
+                const sourceType = hookItem?.source?.type;
+                const borderClass =
+                  sourceType === "extracted"
+                    ? "border-emerald-500/40"
+                    : sourceType === "inspired"
+                      ? "border-blue-500/40"
+                      : "border-white/[0.08]";
 
-              return (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-lg bg-white/[0.02] border p-3.5",
-                    borderClass
-                  )}
-                >
-                  <p className="text-[13px] font-medium text-white/85 leading-snug">
-                    &quot;{typeof hookItem === "string" ? hookItem : hookItem.hook}&quot;
-                  </p>
-                  {typeof hookItem !== "string" && (
-                    <>
-                      <div className="flex flex-wrap items-center gap-2 mt-2">
-                        {sourceType && (
-                          <span
-                            className={cn(
-                              "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border",
-                              sourceType === "extracted"
-                                ? "bg-emerald-500/[0.08] text-emerald-400/80 border-emerald-500/[0.15]"
-                                : sourceType === "inspired"
-                                  ? "bg-blue-500/[0.08] text-blue-400/80 border-blue-500/[0.15]"
-                                  : "bg-white/[0.04] text-white/40 border-white/[0.08]"
-                            )}
-                          >
-                            {sourceType}
-                          </span>
-                        )}
-                        {hookItem.source?.competitors && hookItem.source.competitors.length > 0 && (
-                          <span className="text-xs text-white/30">
-                            from: {hookItem.source.competitors.join(", ")}
-                          </span>
-                        )}
-                        {hookItem.source?.platform && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-white/[0.02] text-white/40 border-white/[0.06]">
-                            {hookItem.source.platform}
-                          </span>
-                        )}
-                      </div>
-                      {(hookItem.technique || hookItem.targetAwareness) && (
-                        <div className="flex gap-2 mt-1.5 text-xs text-white/30">
-                          {hookItem.technique && <span>Technique: {hookItem.technique}</span>}
-                          {hookItem.technique && hookItem.targetAwareness && <span>·</span>}
-                          {hookItem.targetAwareness && <span>Awareness: {hookItem.targetAwareness}</span>}
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      "rounded-lg bg-white/[0.02] border p-3.5",
+                      borderClass
+                    )}
+                  >
+                    <p className="text-[13px] font-medium text-white/85 leading-snug">
+                      &quot;{typeof hookItem === "string" ? hookItem : hookItem.hook}&quot;
+                    </p>
+                    {typeof hookItem !== "string" && (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {sourceType && (
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border",
+                                sourceType === "extracted"
+                                  ? "bg-emerald-500/[0.08] text-emerald-400/80 border-emerald-500/[0.15]"
+                                  : sourceType === "inspired"
+                                    ? "bg-blue-500/[0.08] text-blue-400/80 border-blue-500/[0.15]"
+                                    : "bg-white/[0.04] text-white/40 border-white/[0.08]"
+                              )}
+                            >
+                              {sourceType}
+                            </span>
+                          )}
+                          {hookItem.source?.competitors && hookItem.source.competitors.length > 0 && (
+                            <span className="text-xs text-white/30">
+                              from: {hookItem.source.competitors.join(", ")}
+                            </span>
+                          )}
+                          {hookItem.source?.platform && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-white/[0.02] text-white/40 border-white/[0.06]">
+                              {hookItem.source.platform}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                        {(hookItem.technique || hookItem.targetAwareness) && (
+                          <div className="flex gap-2 mt-1.5 text-xs text-white/30">
+                            {hookItem.technique && <span>Technique: {hookItem.technique}</span>}
+                            {hookItem.technique && hookItem.targetAwareness && <span>·</span>}
+                            {hookItem.targetAwareness && <span>Awareness: {hookItem.targetAwareness}</span>}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </FieldHighlightWrapper>
         </SubSection>
       )}
 
@@ -151,27 +157,28 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
             {(data?.recommendedPlatforms || []).map((plat, i) => {
               const isPrimary = plat?.priority === "primary";
               return (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-lg border p-3.5",
-                    isPrimary
-                      ? "bg-blue-500/[0.04] border-blue-500/[0.12]"
-                      : "bg-white/[0.02] border-white/[0.06]"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-[13px] font-semibold text-white/90">
-                      {safeRender(plat?.platform)}
-                    </h4>
-                    {plat?.priority && (
-                      <PriorityBadge priority={plat.priority} />
+                <FieldHighlightWrapper key={i} fieldPath={`recommendedPlatforms[${i}]`}>
+                  <div
+                    className={cn(
+                      "rounded-lg border p-3.5",
+                      isPrimary
+                        ? "bg-blue-500/[0.04] border-blue-500/[0.12]"
+                        : "bg-white/[0.02] border-white/[0.06]"
                     )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-[13px] font-semibold text-white/90">
+                        {safeRender(plat?.platform)}
+                      </h4>
+                      {plat?.priority && (
+                        <PriorityBadge priority={plat.priority} />
+                      )}
+                    </div>
+                    <p className="text-xs text-white/50 leading-relaxed">
+                      {safeRender(plat?.reasoning)}
+                    </p>
                   </div>
-                  <p className="text-xs text-white/50 leading-relaxed">
-                    {safeRender(plat?.reasoning)}
-                  </p>
-                </div>
+                </FieldHighlightWrapper>
               );
             })}
           </CardGrid>
@@ -181,54 +188,60 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
       {/* Critical Success Factors */}
       {(safeArray(data?.criticalSuccessFactors).length > 0 || isEditing) && (
         <SubSection title="Critical Success Factors">
-          {isEditing && onFieldChange ? (
-            <EditableList
-              items={safeArray(data?.criticalSuccessFactors)}
-              onSave={(v) => onFieldChange("criticalSuccessFactors", v)}
-            />
-          ) : (
-            <ul className="space-y-1">
-              {safeArray(data?.criticalSuccessFactors).map((item, i) => (
-                <ListItem key={i}>{item}</ListItem>
-              ))}
-            </ul>
-          )}
+          <FieldHighlightWrapper fieldPath="criticalSuccessFactors">
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.criticalSuccessFactors)}
+                onSave={(v) => onFieldChange("criticalSuccessFactors", v)}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.criticalSuccessFactors).map((item, i) => (
+                  <ListItem key={i}>{item}</ListItem>
+                ))}
+              </ul>
+            )}
+          </FieldHighlightWrapper>
         </SubSection>
       )}
 
       {/* Potential Blockers */}
       {((data?.potentialBlockers && data.potentialBlockers.length > 0) || isEditing) && (
         <SubSection title="Potential Blockers">
-          {isEditing && onFieldChange ? (
-            <EditableList
-              items={safeArray(data?.potentialBlockers)}
-              onSave={(v) => onFieldChange("potentialBlockers", v)}
-            />
-          ) : (
-            <ul className="space-y-1">
-              {safeArray(data?.potentialBlockers).map((item, i) => (
-                <WarningItem key={i}>{item}</WarningItem>
-              ))}
-            </ul>
-          )}
+          <FieldHighlightWrapper fieldPath="potentialBlockers">
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.potentialBlockers)}
+                onSave={(v) => onFieldChange("potentialBlockers", v)}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {safeArray(data?.potentialBlockers).map((item, i) => (
+                  <WarningItem key={i}>{item}</WarningItem>
+                ))}
+              </ul>
+            )}
+          </FieldHighlightWrapper>
         </SubSection>
       )}
 
       {/* Next Steps */}
       {(safeArray(data?.nextSteps).length > 0 || isEditing) && (
         <SubSection title="Recommended Next Steps">
-          {isEditing && onFieldChange ? (
-            <EditableList
-              items={safeArray(data?.nextSteps)}
-              onSave={(v) => onFieldChange("nextSteps", v)}
-            />
-          ) : (
-            <ol className="space-y-1.5">
-              {safeArray(data?.nextSteps).map((item, i) => (
-                <NumberedStep key={i} index={i + 1}>{item}</NumberedStep>
-              ))}
-            </ol>
-          )}
+          <FieldHighlightWrapper fieldPath="nextSteps">
+            {isEditing && onFieldChange ? (
+              <EditableList
+                items={safeArray(data?.nextSteps)}
+                onSave={(v) => onFieldChange("nextSteps", v)}
+              />
+            ) : (
+              <ol className="space-y-1.5">
+                {safeArray(data?.nextSteps).map((item, i) => (
+                  <NumberedStep key={i} index={i + 1}>{item}</NumberedStep>
+                ))}
+              </ol>
+            )}
+          </FieldHighlightWrapper>
         </SubSection>
       )}
     </div>

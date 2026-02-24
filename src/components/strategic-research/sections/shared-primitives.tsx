@@ -3,6 +3,7 @@
 import { Check, CheckCircle2, XCircle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STATUS_BADGE_COLORS } from "../ui-tokens";
+import { useFieldHighlight } from "@/components/strategic-blueprint/use-field-highlight";
 import type {
   ValidationStatus,
   RiskRating,
@@ -16,6 +17,44 @@ import type {
 export interface EditableContentProps {
   isEditing?: boolean;
   onFieldChange?: (fieldPath: string, newValue: unknown) => void;
+}
+
+// =============================================================================
+// FieldHighlightWrapper — wraps any content with chat-edit highlight support
+// =============================================================================
+
+/**
+ * Wraps a field's content with data attributes and CSS classes so the
+ * BlueprintEditContext can highlight it when the chat agent targets it.
+ *
+ * Use this around the outermost element of any named field in a section
+ * content component. When `fieldPath` is undefined or no edit is targeting
+ * this field, it renders a plain pass-through div with no visual overhead.
+ */
+export function FieldHighlightWrapper({
+  fieldPath,
+  children,
+  className,
+}: {
+  fieldPath?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { highlightProps } = useFieldHighlight(fieldPath ?? '');
+
+  // If no fieldPath, render plain wrapper (hook still called unconditionally)
+  if (!fieldPath) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <div
+      {...highlightProps}
+      className={cn(highlightProps.className, className)}
+    >
+      {children}
+    </div>
+  );
 }
 
 // =============================================================================
@@ -156,21 +195,35 @@ export function ScoreDisplay({ label, score, max = 10 }: { label: string; score:
 /**
  * Glass-morphism data card — for stat grids like Category Snapshot.
  * Matches dashboard card: bg-white/[0.02], border-white/[0.06].
+ * Accepts an optional `fieldPath` to enable chat-edit highlighting.
  */
 export function DataCard({
   label,
   children,
   className,
+  fieldPath,
 }: {
   label: string;
   children: React.ReactNode;
   className?: string;
+  /** Dot-notation path to this field in the blueprint section data */
+  fieldPath?: string;
 }) {
+  const { highlightProps } = useFieldHighlight(fieldPath ?? '');
+  const highlightClass = fieldPath ? highlightProps.className : undefined;
+  const highlightAttrs = fieldPath
+    ? { 'data-field-path': highlightProps['data-field-path'], 'data-highlight-state': highlightProps['data-highlight-state'] }
+    : {};
+
   return (
-    <div className={cn(
-      "rounded-lg bg-white/[0.02] border border-white/[0.06] px-3.5 py-2.5",
-      className
-    )}>
+    <div
+      {...highlightAttrs}
+      className={cn(
+        "rounded-lg bg-white/[0.02] border border-white/[0.06] px-3.5 py-2.5",
+        highlightClass,
+        className
+      )}
+    >
       <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/30 mb-1">
         {label}
       </p>
@@ -184,6 +237,7 @@ export function DataCard({
 /**
  * Insight/driver card — icon + title + description.
  * Used for psychological drivers, objections, key insights, etc.
+ * Accepts an optional `fieldPath` to enable chat-edit highlighting.
  */
 export function InsightCard({
   icon: Icon,
@@ -192,6 +246,7 @@ export function InsightCard({
   children,
   accentBorder = false,
   className,
+  fieldPath,
 }: {
   icon?: LucideIcon;
   iconColor?: string;
@@ -199,13 +254,25 @@ export function InsightCard({
   children: React.ReactNode;
   accentBorder?: boolean;
   className?: string;
+  /** Dot-notation path to this field in the blueprint section data */
+  fieldPath?: string;
 }) {
+  const { highlightProps } = useFieldHighlight(fieldPath ?? '');
+  const highlightClass = fieldPath ? highlightProps.className : undefined;
+  const highlightAttrs = fieldPath
+    ? { 'data-field-path': highlightProps['data-field-path'], 'data-highlight-state': highlightProps['data-highlight-state'] }
+    : {};
+
   return (
-    <div className={cn(
-      "rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5",
-      accentBorder && "border-l-2 border-l-blue-500/40",
-      className
-    )}>
+    <div
+      {...highlightAttrs}
+      className={cn(
+        "rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5",
+        accentBorder && "border-l-2 border-l-blue-500/40",
+        highlightClass,
+        className
+      )}
+    >
       <div className="flex items-start gap-2.5">
         {Icon && (
           <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-white/[0.04]">

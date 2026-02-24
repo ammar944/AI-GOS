@@ -21,6 +21,7 @@ import {
   CardGrid,
   WarningItem,
   HighlightBlock,
+  FieldHighlightWrapper,
   type EditableContentProps,
 } from "./shared-primitives";
 import type { IndustryMarketOverview } from "@/lib/strategic-blueprint/output-types";
@@ -39,7 +40,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
       {/* Category Snapshot */}
       <SubSection title="Category Snapshot">
         <CardGrid cols={3}>
-          <DataCard label="Category">
+          <DataCard label="Category" fieldPath="categorySnapshot.category">
             {isEditing && onFieldChange ? (
               <EditableText
                 value={safeRender(data?.categorySnapshot?.category)}
@@ -50,29 +51,29 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
             )}
           </DataCard>
 
-          <DataCard label="Market Maturity">
+          <DataCard label="Market Maturity" fieldPath="categorySnapshot.marketMaturity">
             <Badge variant="outline" className="capitalize text-xs">
               {safeRender(data?.categorySnapshot?.marketMaturity)}
             </Badge>
           </DataCard>
 
-          <DataCard label="Awareness Level">
+          <DataCard label="Awareness Level" fieldPath="categorySnapshot.awarenessLevel">
             <Badge variant="outline" className="capitalize text-xs">
               {safeRender(data?.categorySnapshot?.awarenessLevel)}
             </Badge>
           </DataCard>
 
-          <DataCard label="Buying Behavior">
+          <DataCard label="Buying Behavior" fieldPath="categorySnapshot.buyingBehavior">
             <span className="capitalize">
               {safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}
             </span>
           </DataCard>
 
-          <DataCard label="Sales Cycle">
+          <DataCard label="Sales Cycle" fieldPath="categorySnapshot.averageSalesCycle">
             <SourcedText>{safeRender(data?.categorySnapshot?.averageSalesCycle)}</SourcedText>
           </DataCard>
 
-          <DataCard label="Seasonality">
+          <DataCard label="Seasonality" fieldPath="categorySnapshot.seasonality">
             <SourcedText>{safeRender(data?.categorySnapshot?.seasonality)}</SourcedText>
           </DataCard>
         </CardGrid>
@@ -86,69 +87,75 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
         <SubSection title="Market Dynamics">
           <div className="grid md:grid-cols-2 gap-4">
             {(safeArray(data?.marketDynamics?.demandDrivers).length > 0 || isEditing) && (
-              <div>
-                <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-emerald-400/70" />
-                  Demand Drivers
-                </h4>
-                {isEditing && onFieldChange ? (
-                  <EditableList
-                    items={safeArray(data?.marketDynamics?.demandDrivers)}
-                    onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
-                    renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
-                  />
-                ) : (
-                  <ul className="space-y-1">
-                    {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
-                      <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <FieldHighlightWrapper fieldPath="marketDynamics.demandDrivers">
+                <div>
+                  <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-400/70" />
+                    Demand Drivers
+                  </h4>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.marketDynamics?.demandDrivers)}
+                      onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
+                      renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.marketDynamics?.demandDrivers).map((item, i) => (
+                        <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </FieldHighlightWrapper>
             )}
             {(safeArray(data?.marketDynamics?.buyingTriggers).length > 0 || isEditing) && (
-              <div>
-                <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
-                  <Target className="h-4 w-4 text-blue-400/70" />
-                  Buying Triggers
-                </h4>
-                {isEditing && onFieldChange ? (
-                  <EditableList
-                    items={safeArray(data?.marketDynamics?.buyingTriggers)}
-                    onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
-                    renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
-                  />
-                ) : (
-                  <ul className="space-y-1">
-                    {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
-                      <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <FieldHighlightWrapper fieldPath="marketDynamics.buyingTriggers">
+                <div>
+                  <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-blue-400/70" />
+                    Buying Triggers
+                  </h4>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.marketDynamics?.buyingTriggers)}
+                      onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
+                      renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.marketDynamics?.buyingTriggers).map((item, i) => (
+                        <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </FieldHighlightWrapper>
             )}
           </div>
 
           {(safeArray(data?.marketDynamics?.barriersToPurchase).length > 0 || isEditing) && (
-            <div className="mt-4">
-              <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
-                <Shield className="h-4 w-4 text-amber-400/70" />
-                Barriers to Purchase
-              </h4>
-              {isEditing && onFieldChange ? (
-                <EditableList
-                  items={safeArray(data?.marketDynamics?.barriersToPurchase)}
-                  onSave={(v) => onFieldChange("marketDynamics.barriersToPurchase", v)}
-                  renderPrefix={() => <AlertTriangle className="h-4 w-4 text-amber-400/70" />}
-                />
-              ) : (
-                <ul className="space-y-1">
-                  {safeArray(data?.marketDynamics?.barriersToPurchase).map((item, i) => (
-                    <WarningItem key={i}><SourcedListItem>{item}</SourcedListItem></WarningItem>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <FieldHighlightWrapper fieldPath="marketDynamics.barriersToPurchase">
+              <div className="mt-4">
+                <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-amber-400/70" />
+                  Barriers to Purchase
+                </h4>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.marketDynamics?.barriersToPurchase)}
+                    onSave={(v) => onFieldChange("marketDynamics.barriersToPurchase", v)}
+                    renderPrefix={() => <AlertTriangle className="h-4 w-4 text-amber-400/70" />}
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.marketDynamics?.barriersToPurchase).map((item, i) => (
+                      <WarningItem key={i}><SourcedListItem>{item}</SourcedListItem></WarningItem>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </FieldHighlightWrapper>
           )}
         </SubSection>
       )}
@@ -159,38 +166,42 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
         isEditing) && (
         <SubSection title="Pain Points">
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <h4 className="text-[13px] font-medium text-red-400/70 mb-2">Primary Pain Points</h4>
-              {isEditing && onFieldChange ? (
-                <EditableList
-                  items={safeArray(data?.painPoints?.primary)}
-                  onSave={(v) => onFieldChange("painPoints.primary", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
-                />
-              ) : (
-                <ul className="space-y-1">
-                  {safeArray(data?.painPoints?.primary).map((item, i) => (
-                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div>
-              <h4 className="text-[13px] font-medium text-amber-400/70 mb-2">Secondary Pain Points</h4>
-              {isEditing && onFieldChange ? (
-                <EditableList
-                  items={safeArray(data?.painPoints?.secondary)}
-                  onSave={(v) => onFieldChange("painPoints.secondary", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
-                />
-              ) : (
-                <ul className="space-y-1">
-                  {safeArray(data?.painPoints?.secondary).map((item, i) => (
-                    <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <FieldHighlightWrapper fieldPath="painPoints.primary">
+              <div>
+                <h4 className="text-[13px] font-medium text-red-400/70 mb-2">Primary Pain Points</h4>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.painPoints?.primary)}
+                    onSave={(v) => onFieldChange("painPoints.primary", v)}
+                    renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.painPoints?.primary).map((item, i) => (
+                      <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </FieldHighlightWrapper>
+            <FieldHighlightWrapper fieldPath="painPoints.secondary">
+              <div>
+                <h4 className="text-[13px] font-medium text-amber-400/70 mb-2">Secondary Pain Points</h4>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.painPoints?.secondary)}
+                    onSave={(v) => onFieldChange("painPoints.secondary", v)}
+                    renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.painPoints?.secondary).map((item, i) => (
+                      <ListItem key={i}><SourcedListItem>{item}</SourcedListItem></ListItem>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </FieldHighlightWrapper>
           </div>
         </SubSection>
       )}
@@ -206,6 +217,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                 iconColor="text-blue-400/70"
                 title={safeRender(driver?.driver)}
                 accentBorder
+                fieldPath={`psychologicalDrivers.drivers[${i}]`}
               >
                 {safeRender(driver?.description)}
               </InsightCard>
@@ -224,6 +236,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                 icon={MessageSquare}
                 iconColor="text-amber-400/70"
                 title={`"${safeRender(obj?.objection)}"`}
+                fieldPath={`audienceObjections.objections[${i}]`}
               >
                 <span className="text-white/50 text-[11px] font-semibold uppercase tracking-wider">Response: </span>
                 {safeRender(obj?.howToAddress)}
@@ -237,19 +250,21 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
       {(safeArray(data?.messagingOpportunities?.summaryRecommendations).length > 0 || isEditing) && (
         <SubSection title="Key Recommendations">
           <HighlightBlock>
-            {isEditing && onFieldChange ? (
-              <EditableList
-                items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
-                onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
-              />
-            ) : (
-              <ul className="space-y-1">
-                {safeArray(data?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
-                  <ListItem key={i}>{item}</ListItem>
-                ))}
-              </ul>
-            )}
+            <FieldHighlightWrapper fieldPath="messagingOpportunities.summaryRecommendations">
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
+                  onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
+                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                />
+              ) : (
+                <ul className="space-y-1">
+                  {safeArray(data?.messagingOpportunities?.summaryRecommendations).map((item, i) => (
+                    <ListItem key={i}>{item}</ListItem>
+                  ))}
+                </ul>
+              )}
+            </FieldHighlightWrapper>
           </HighlightBlock>
         </SubSection>
       )}

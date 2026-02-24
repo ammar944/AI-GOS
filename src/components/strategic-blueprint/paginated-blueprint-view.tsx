@@ -19,6 +19,7 @@ import type {
   StrategicBlueprintSection,
 } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
+import { useOptionalBlueprintEditContext } from "./blueprint-edit-context";
 
 // ── Animation variants ───────────────────────────────────────────────────────
 
@@ -81,6 +82,59 @@ export function PaginatedBlueprintView({
 
   const currentSectionKey = availableSections[currentPage];
 
+  // ── Edit Context ────────────────────────────────────────────────────────
+
+  // Context is null when rendered without a provider (e.g. standalone blueprint
+  // pages, shared view pages). All edit-aware features gracefully no-op.
+  const editCtx = useOptionalBlueprintEditContext();
+  const activeEditTarget = editCtx?.activeEditTarget ?? null;
+
+  // ── Navigate on explicit user request (from chat "View in Blueprint" button) ─
+
+  useEffect(() => {
+    if (!editCtx?.navigationRequest) return;
+
+    const { section, fieldPath } = editCtx.navigationRequest;
+    const targetSection = section as StrategicBlueprintSection;
+    const targetIdx = availableSections.indexOf(targetSection);
+
+    if (targetIdx === -1) {
+      editCtx.clearNavigationRequest();
+      return;
+    }
+
+    if (targetIdx !== currentPage) {
+      setDirection(targetIdx > currentPage ? 1 : -1);
+      setCurrentPage(targetIdx);
+
+      // Wait for slide animation to settle, then scroll to field
+      const timer = setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(
+          `[data-field-path="${CSS.escape(fieldPath)}"]`
+        );
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        editCtx.clearNavigationRequest();
+      }, 380);
+
+      return () => clearTimeout(timer);
+    }
+
+    // Already on the correct page — just scroll to field
+    const timer = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(
+        `[data-field-path="${CSS.escape(fieldPath)}"]`
+      );
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      editCtx.clearNavigationRequest();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [editCtx?.navigationRequest?.requestId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Navigation ─────────────────────────────────────────────────────────
 
   const goToPage = useCallback(
@@ -141,6 +195,21 @@ export function PaginatedBlueprintView({
       ? (currentPage / (availableSections.length - 1)) * 100
       : 100;
 
+  // Map sections to their edit indicator state for the tabs
+  const sectionEditStates = useMemo<
+    Record<string, "pending" | "approved" | null>
+  >(() => {
+    if (!activeEditTarget) return {};
+    return {
+      [activeEditTarget.section]:
+        activeEditTarget.state === "pending"
+          ? "pending"
+          : activeEditTarget.state === "approved"
+          ? "approved"
+          : null,
+    };
+  }, [activeEditTarget]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Top section nav ────────────────────────────────────────────────── */}
@@ -153,6 +222,8 @@ export function PaginatedBlueprintView({
           <div className="flex items-center justify-center gap-1 px-6 py-2.5 min-w-max mx-auto">
             {availableSections.map((section, i) => {
               const isActive = i === currentPage;
+              const editState = sectionEditStates[section] ?? null;
+
               return (
                 <button
                   key={section}
@@ -197,6 +268,20 @@ export function PaginatedBlueprintView({
                   >
                     {SECTION_LABELS[section]}
                   </span>
+
+                  {/* Edit state indicator dot */}
+                  {editState === "pending" && (
+                    <span
+                      className="relative z-10 blueprint-tab-pending-dot"
+                      aria-label="Pending edit"
+                    />
+                  )}
+                  {editState === "approved" && (
+                    <span
+                      className="relative z-10 blueprint-tab-approved-dot"
+                      aria-label="Edit applied"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -287,6 +372,7 @@ export function PaginatedBlueprintView({
               <div className="flex items-center gap-1.5">
                 {availableSections.map((section, i) => {
                   const isActive = i === currentPage;
+                  const editState = sectionEditStates[section] ?? null;
 
                   return (
                     <Tooltip key={section}>
@@ -298,6 +384,10 @@ export function PaginatedBlueprintView({
                             "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
                             isActive
                               ? "bg-blue-500 shadow-[0_0_10px_rgba(96,165,250,0.3)]"
+                              : editState === "pending"
+                              ? "bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.35)]"
+                              : editState === "approved"
+                              ? "bg-green-500/60 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
                               : "bg-white/20 hover:bg-white/30"
                           )}
                           animate={{ width: isActive ? 26 : 10, height: 10 }}
@@ -309,6 +399,8 @@ export function PaginatedBlueprintView({
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-xs">
                         {SECTION_LABELS[section]}
+                        {editState === "pending" && " — pending edit"}
+                        {editState === "approved" && " — edit applied"}
                       </TooltipContent>
                     </Tooltip>
                   );

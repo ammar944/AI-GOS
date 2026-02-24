@@ -819,3 +819,140 @@
   pointer-events: none !important;
   user-select: none !important;
 }
+
+/* ============================================
+   Voice Recording Pulse Animation
+   MUST be unlayered (outside @layer) to beat
+   Tailwind v4 @layer utilities specificity.
+   ============================================ */
+@keyframes voice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(54, 94, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(54, 94, 255, 0);
+  }
+}
+
+.voice-recording-pulse {
+  animation: voice-pulse 1.5s ease-in-out infinite !important;
+}
+
+/* ============================================
+   Voice Transcript Preview Accent Border
+   MUST be unlayered (outside @layer) to beat
+   Tailwind v4 @layer utilities specificity.
+   ============================================ */
+.voice-transcript-preview {
+  border-left: 2px solid var(--accent-blue) !important;
+}
+
+/* ============================================
+   Blueprint Field Highlight System
+   Chat-to-blueprint edit targeting.
+   MUST be unlayered (outside @layer) to beat
+   Tailwind v4 @layer utilities specificity.
+   ============================================ */
+
+/* Keyframes */
+@keyframes field-pending-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.35),
+      0 0 12px rgba(245, 158, 11, 0.08);
+    background-color: rgba(245, 158, 11, 0.04);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgba(245, 158, 11, 0.55),
+      0 0 20px rgba(245, 158, 11, 0.14);
+    background-color: rgba(245, 158, 11, 0.07);
+  }
+}
+
+@keyframes field-approved-flash {
+  0% {
+    box-shadow:
+      0 0 0 1.5px rgba(34, 197, 94, 0.6),
+      0 0 24px rgba(34, 197, 94, 0.2);
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+  70% {
+    box-shadow:
+      0 0 0 1px rgba(34, 197, 94, 0.3),
+      0 0 12px rgba(34, 197, 94, 0.08);
+    background-color: rgba(34, 197, 94, 0.04);
+  }
+  100% {
+    box-shadow: none;
+    background-color: transparent;
+  }
+}
+
+@keyframes field-rejected-flash {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(239, 68, 68, 0.4),
+      0 0 12px rgba(239, 68, 68, 0.1);
+    background-color: rgba(239, 68, 68, 0.06);
+  }
+  100% {
+    box-shadow: none;
+    background-color: transparent;
+  }
+}
+
+/* Base field highlight — applied to any element with data-field-path */
+.blueprint-field-highlight {
+  border-radius: 8px;
+  transition:
+    box-shadow 0.3s ease,
+    background-color 0.3s ease;
+  /* Ensures padding is visible around the glow */
+  padding: 4px !important;
+  margin: -4px !important;
+}
+
+/* Pending state — amber pulsing glow */
+.blueprint-field-pending {
+  animation: field-pending-pulse 1.8s ease-in-out infinite !important;
+  outline: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Approved state — green flash then fade out */
+.blueprint-field-approved {
+  animation: field-approved-flash 2.5s ease-out forwards !important;
+  outline: none;
+}
+
+/* Rejected state — red flash then fade out */
+.blueprint-field-rejected {
+  animation: field-rejected-flash 0.8s ease-out forwards !important;
+  outline: none;
+}
+
+/* Tab pending indicator dot */
+.blueprint-tab-pending-dot {
+  display: inline-flex;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.9);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  animation: field-pending-pulse 1.8s ease-in-out infinite !important;
+  flex-shrink: 0;
+}
+
+/* Tab approved indicator dot */
+.blueprint-tab-approved-dot {
+  display: inline-flex;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.9);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+  animation: field-approved-flash 2.5s ease-out forwards !important;
+  flex-shrink: 0;
+}
