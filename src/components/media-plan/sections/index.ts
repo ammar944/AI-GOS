@@ -1,0 +1,10 @@
+export { ExecutiveSummaryContent } from "./executive-summary-section";
+export { PlatformStrategyContent } from "./platform-strategy-section";
+export { ICPTargetingContent } from "./icp-targeting-section";
+export { CampaignStructureContent } from "./campaign-structure-section";
+export { CreativeStrategyContent } from "./creative-strategy-section";
+export { BudgetAllocationContent } from "./budget-allocation-section";
+export { CampaignPhasesContent } from "./campaign-phases-section";
+export { KPITargetsContent } from "./kpi-targets-section";
+export { PerformanceModelContent } from "./performance-model-section";
+export { RiskMonitoringContent } from "./risk-monitoring-section";
