@@ -199,33 +199,33 @@ export function AgentChat({
   // Resize on input changes (covers programmatic voice transcript)
   useEffect(() => { autoResize(); }, [input, autoResize]);
 
-  // Voice transcript handler — inserts at cursor position, preserving existing text
+  // Voice transcript handler — inserts at cursor position, preserving existing text.
+  // Reads from el.value (DOM) not `input` (state) to avoid recreating the callback
+  // on every keystroke, which would re-trigger VoiceInputButton's onTranscript effect.
   const handleTranscript = useCallback((text: string) => {
     const el = inputRef.current;
     if (!el) {
-      // Fallback: append
       setInput(prev => prev ? `${prev} ${text}` : text);
       return;
     }
 
-    const start = el.selectionStart ?? input.length;
-    const end = el.selectionEnd ?? input.length;
-    const before = input.slice(0, start);
-    const after = input.slice(end);
+    const current = el.value;
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const before = current.slice(0, start);
+    const after = current.slice(end);
 
-    // Add a space before inserted text if needed
     const spaceBefore = before && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
     const newValue = before + spaceBefore + text + after;
 
     setInput(newValue);
 
-    // Place cursor at end of inserted text and refocus
     requestAnimationFrame(() => {
       const newCursorPos = start + spaceBefore.length + text.length;
       el.setSelectionRange(newCursorPos, newCursorPos);
       el.focus();
     });
-  }, [input]);
+  }, []);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: string) => {
