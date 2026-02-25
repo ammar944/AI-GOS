@@ -7,12 +7,15 @@ import { useVoiceInput } from '@/hooks/use-voice-input';
 
 interface VoiceInputButtonProps {
   onTranscript: (text: string) => void;
+  onRecordingChange?: (isRecording: boolean) => void;
+  stopRecordingRef?: React.MutableRefObject<(() => void) | null>;
   disabled?: boolean;
   hasTranscript?: boolean;
   onClear?: () => void;
+  compact?: boolean;
 }
 
-export function VoiceInputButton({ onTranscript, disabled, hasTranscript, onClear }: VoiceInputButtonProps) {
+export function VoiceInputButton({ onTranscript, onRecordingChange, stopRecordingRef, disabled, hasTranscript, onClear, compact }: VoiceInputButtonProps) {
   const {
     isSupported,
     isRecording,
@@ -29,6 +32,18 @@ export function VoiceInputButton({ onTranscript, disabled, hasTranscript, onClea
       onTranscript(transcript);
     }
   }, [transcript, onTranscript]);
+
+  // Notify parent of recording state changes
+  useEffect(() => {
+    onRecordingChange?.(isRecording);
+  }, [isRecording, onRecordingChange]);
+
+  // Expose stopRecording to parent via ref
+  useEffect(() => {
+    if (stopRecordingRef) {
+      stopRecordingRef.current = stopRecording;
+    }
+  }, [stopRecordingRef, stopRecording]);
 
   const handleClick = () => {
     if (disabled || isTranscribing) return;
@@ -54,17 +69,23 @@ export function VoiceInputButton({ onTranscript, disabled, hasTranscript, onClea
   };
 
   const getBackground = () => {
+    if (compact) {
+      if (isError) return 'rgba(239, 68, 68, 0.12)';
+      if (isRecording) return 'rgba(249, 115, 22, 0.12)';
+      if (isTranscribing) return 'rgba(249, 115, 22, 0.08)';
+      return 'transparent';
+    }
     if (isError) return 'rgba(239, 68, 68, 0.15)';
-    if (isRecording) return 'rgba(54, 94, 255, 0.15)';
-    if (isTranscribing) return 'rgba(54, 94, 255, 0.1)';
+    if (isRecording) return 'rgba(249, 115, 22, 0.15)';
+    if (isTranscribing) return 'rgba(249, 115, 22, 0.1)';
     if (hasTranscript) return 'rgba(54, 94, 255, 0.08)';
     return 'var(--bg-surface)';
   };
 
   const getColor = () => {
     if (isError) return '#ef4444';
-    if (isRecording) return 'var(--accent-blue)';
-    if (isTranscribing) return 'var(--accent-blue)';
+    if (isRecording) return '#f97316';
+    if (isTranscribing) return '#f97316';
     if (hasTranscript) return 'var(--accent-blue)';
     if (!isSupported) return 'var(--text-quaternary)';
     return 'var(--text-tertiary)';
@@ -79,17 +100,21 @@ export function VoiceInputButton({ onTranscript, disabled, hasTranscript, onClea
     return 'Click to start voice input';
   };
 
+  const sizeClass = compact ? 'w-8 h-8' : 'w-10 h-10';
+
   return (
     <MagneticButton
       type="button"
       onClick={handleClick}
       disabled={isDisabledState}
-      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+      className={`${sizeClass} rounded-lg flex items-center justify-center ${
         isRecording ? 'voice-recording-pulse' : ''
       }`}
       style={{
         background: getBackground(),
-        border: `1px solid ${isRecording || hasTranscript ? 'var(--accent-blue)' : 'var(--border-subtle)'}`,
+        border: compact
+          ? 'none'
+          : `1px solid ${isRecording ? '#f97316' : hasTranscript ? 'var(--accent-blue)' : 'var(--border-subtle)'}`,
         color: getColor(),
         opacity: isDisabledState && !isTranscribing ? 0.5 : 1,
         transition: 'all 0.2s ease',

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Send, Undo2, Redo2, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Sparkles, Send, Undo2, Redo2 } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
@@ -17,7 +17,6 @@ import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
 import { ViewInBlueprintButton } from './view-in-blueprint-button';
-import { VoiceTranscriptPreview } from './voice-transcript-preview';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { VoiceInputButton } from './voice-input-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
@@ -41,9 +40,12 @@ export function AgentChat({
   className,
 }: AgentChatProps) {
   const [input, setInput] = useState('');
-  const [transcriptPreview, setTranscriptPreview] = useState<string | null>(null);
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const stopRecordingRef = useRef<(() => void) | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const formWrapperRef = useRef<HTMLFormElement>(null);
   const blueprintRef = useRef(blueprint);
   blueprintRef.current = blueprint;
   const blueprintVersionRef = useRef(0);
@@ -179,7 +181,7 @@ export function AgentChat({
       requestAnimationFrame(() => {
         if (inputRef.current) {
           inputRef.current.style.height = 'auto';
-          inputRef.current.style.height = '40px';
+          inputRef.current.style.height = '36px';
         }
       });
     },
@@ -191,25 +193,39 @@ export function AgentChat({
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
   }, []);
 
   // Resize on input changes (covers programmatic voice transcript)
   useEffect(() => { autoResize(); }, [input, autoResize]);
 
-  // Voice transcript preview handlers
+  // Voice transcript handler — inserts at cursor position, preserving existing text
   const handleTranscript = useCallback((text: string) => {
-    setTranscriptPreview(text);
-  }, []);
+    const el = inputRef.current;
+    if (!el) {
+      // Fallback: append
+      setInput(prev => prev ? `${prev} ${text}` : text);
+      return;
+    }
 
-  const handleTranscriptConfirm = useCallback((text: string) => {
-    setTranscriptPreview(null);
-    handleSubmit(undefined, text);
-  }, [handleSubmit]);
+    const start = el.selectionStart ?? input.length;
+    const end = el.selectionEnd ?? input.length;
+    const before = input.slice(0, start);
+    const after = input.slice(end);
 
-  const handleTranscriptDismiss = useCallback(() => {
-    setTranscriptPreview(null);
-  }, []);
+    // Add a space before inserted text if needed
+    const spaceBefore = before && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
+    const newValue = before + spaceBefore + text + after;
+
+    setInput(newValue);
+
+    // Place cursor at end of inserted text and refocus
+    requestAnimationFrame(() => {
+      const newCursorPos = start + spaceBefore.length + text.length;
+      el.setSelectionRange(newCursorPos, newCursorPos);
+      el.focus();
+    });
+  }, [input]);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: string) => {
@@ -572,104 +588,103 @@ export function AgentChat({
 
       {/* Input area */}
       <div
-        className="flex-shrink-0 p-4"
+        className="flex-shrink-0 px-3 pb-3 pt-2"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
         {/* Quick suggestions (when conversation exists) */}
         {messages.length > 0 && !isLoading && (
-          <div className="mb-3">
+          <div className="mb-2">
             <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} blueprint={blueprint} />
           </div>
         )}
 
-        <AnimatePresence mode="wait">
-          {transcriptPreview !== null ? (
-            <motion.div
-              key="transcript-preview"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="flex gap-2 items-start">
-                <VoiceInputButton
-                  onTranscript={handleTranscript}
-                  disabled={isLoading}
-                  hasTranscript={true}
-                  onClear={handleTranscriptDismiss}
-                />
-                <div className="flex-1">
-                  <VoiceTranscriptPreview
-                    transcript={transcriptPreview}
-                    onConfirm={handleTranscriptConfirm}
-                    onDismiss={handleTranscriptDismiss}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.form
-              key="input-form"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2 }}
-              onSubmit={handleSubmit}
-              className="flex gap-2 items-end"
-            >
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                placeholder={
-                  isStreaming
-                    ? 'Receiving response...'
-                    : hasPendingApproval
+        <form
+          ref={formWrapperRef}
+          onSubmit={handleSubmit}
+          className={`rounded-xl transition-all duration-200 ${isVoiceRecording ? 'chat-input-recording' : ''}`}
+          style={{
+            background: 'var(--bg-elevated)',
+            border: `1px solid ${
+              isVoiceRecording
+                ? 'rgba(249, 115, 22, 0.5)'
+                : isFocused
+                  ? 'var(--border-focus)'
+                  : 'var(--border-subtle)'
+            }`,
+          }}
+        >
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                if (isVoiceRecording) {
+                  stopRecordingRef.current?.();
+                } else {
+                  e.currentTarget.blur();
+                }
+              }
+            }}
+            placeholder={
+              isVoiceRecording
+                ? 'Listening...'
+                : isStreaming
+                  ? 'Receiving response...'
+                  : hasPendingApproval
                     ? 'Approve or reject the edit above...'
                     : 'Ask about your blueprint...'
-                }
+            }
+            disabled={isLoading && !isVoiceRecording}
+            rows={1}
+            className="w-full px-3 pt-2.5 pb-1 text-sm rounded-xl outline-none resize-none overflow-y-auto leading-relaxed bg-transparent"
+            style={{
+              color: 'var(--text-primary)',
+              minHeight: '36px',
+              maxHeight: '200px',
+            }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+          />
+          <div className="flex items-center justify-between px-2 pb-1.5">
+            <span
+              className="text-[10px] select-none pl-1"
+              style={{ color: 'var(--text-tertiary)', opacity: isVoiceRecording ? 0 : 1 }}
+            >
+              <kbd className="font-sans">&#x23CE;</kbd> send
+              {' · '}
+              <kbd className="font-sans">&#x21E7;&#x23CE;</kbd> newline
+            </span>
+            <div className="flex items-center gap-1">
+              <VoiceInputButton
+                onTranscript={handleTranscript}
+                onRecordingChange={setIsVoiceRecording}
+                stopRecordingRef={stopRecordingRef}
                 disabled={isLoading}
-                rows={1}
-                className="flex-1 px-4 py-2.5 text-sm rounded-lg outline-none transition-all duration-200 resize-none overflow-y-auto leading-5"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-primary)',
-                  minHeight: '40px',
-                  maxHeight: '128px',
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-focus)';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                }}
+                compact
               />
-              <VoiceInputButton onTranscript={handleTranscript} disabled={isLoading} />
               <MagneticButton
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{
                   background: input.trim() && !isLoading
                     ? 'var(--accent-blue)'
-                    : 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
+                    : 'transparent',
                   color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
-                  opacity: !input.trim() || isLoading ? 0.5 : 1,
+                  opacity: !input.trim() || isLoading ? 0.4 : 1,
+                  transition: 'all 0.15s ease',
                 }}
               >
                 <Send className="w-4 h-4" />
               </MagneticButton>
-            </motion.form>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

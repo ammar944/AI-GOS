@@ -846,15 +846,34 @@
    ============================================ */
 @keyframes voice-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(54, 94, 255, 0.4);
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(54, 94, 255, 0);
+    box-shadow: 0 0 0 8px rgba(249, 115, 22, 0);
   }
 }
 
 .voice-recording-pulse {
   animation: voice-pulse 1.5s ease-in-out infinite !important;
+}
+
+/* ============================================
+   Chat Input Container — Recording Indicator
+   Pulsing border glow when voice recording is active.
+   ============================================ */
+@keyframes input-recording-glow {
+  0%, 100% {
+    border-color: rgba(249, 115, 22, 0.6);
+    box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.15), 0 0 8px rgba(249, 115, 22, 0.08);
+  }
+  50% {
+    border-color: rgba(249, 115, 22, 0.35);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.1), 0 0 16px rgba(249, 115, 22, 0.05);
+  }
+}
+
+.chat-input-recording {
+  animation: input-recording-glow 1.8s ease-in-out infinite !important;
 }
 
 /* ============================================
