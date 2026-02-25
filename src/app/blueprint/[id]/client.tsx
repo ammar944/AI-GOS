@@ -16,13 +16,8 @@ import {
   BarChart3,
 } from "lucide-react";
 import { PaginatedBlueprintView } from "@/components/strategic-blueprint/paginated-blueprint-view";
-import { MagneticButton } from "@/components/ui/magnetic-button";
-import { GradientBorder } from "@/components/ui/gradient-border";
-import { ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
-import { easings, durations } from "@/lib/motion";
 import type { BlueprintRecord } from "@/lib/actions/blueprints";
 import type { MediaPlanRecord } from "@/lib/actions/media-plans";
-import { cn } from "@/lib/utils";
 
 interface Props {
   blueprint: BlueprintRecord;
@@ -41,6 +36,12 @@ function formatDate(dateString: string): string {
     return "Recently";
   }
 }
+
+const ghostBtn =
+  "h-9 px-3 rounded-lg text-[13px] font-medium flex items-center gap-2 text-[rgb(100,105,115)] border border-[rgb(31,31,31)] hover:border-[rgba(54,94,255,0.3)] hover:text-[rgb(205,208,213)] bg-transparent transition-all duration-150";
+
+const primaryBtn =
+  "h-9 px-4 rounded-lg text-[13px] font-medium flex items-center gap-2 bg-[rgb(54,94,255)] text-white hover:bg-[rgb(0,111,255)] transition-colors";
 
 export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
   const router = useRouter();
@@ -105,36 +106,33 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
     router.push("/generate");
   };
 
-  const ghostButtonClass =
-    "h-9 px-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-white/[0.15] hover:text-white/70 bg-transparent";
-
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[var(--bg-base)]">
+    <div className="h-screen flex flex-col overflow-hidden bg-[rgb(7,9,14)]">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] backdrop-blur-xl bg-[rgba(7,9,14,0.8)]">
+      <header className="sticky top-0 z-50 w-full border-b border-[rgb(31,31,31)] backdrop-blur-sm bg-[rgba(7,9,14,0.8)]">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             {/* Back to Dashboard */}
-            <MagneticButton
-              className={cn(ghostButtonClass, "hover:border-primary/30 hover:text-primary")}
+            <button
+              className={ghostBtn}
               onClick={() => router.push("/dashboard")}
             >
               <ArrowLeft className="h-4 w-4" />
               Dashboard
-            </MagneticButton>
+            </button>
 
             {/* Title */}
             <div className="hidden md:flex items-center gap-2">
-              <FileText className="h-5 w-5 text-white/40" />
-              <h1 className="text-base font-semibold truncate max-w-[300px] text-white/90 font-[family-name:var(--font-heading)]">
+              <FileText className="h-5 w-5 text-[rgb(100,105,115)]" />
+              <h1 className="text-[20px] font-semibold text-[rgb(252,252,250)] tracking-[-0.02em] truncate max-w-[300px] font-[family-name:var(--font-heading)]">
                 {blueprint.title}
               </h1>
             </div>
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              <MagneticButton
-                className={cn(ghostButtonClass, "hover:border-primary/30 hover:text-primary")}
+              <button
+                className={ghostBtn}
                 onClick={handleShare}
                 disabled={isSharing || !!shareUrl}
               >
@@ -148,15 +146,11 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                 <span className="hidden sm:inline">
                   {isSharing ? "Sharing..." : shareUrl ? "Shared" : "Share"}
                 </span>
-              </MagneticButton>
+              </button>
             </div>
           </div>
         </div>
       </header>
-
-      {/* Background */}
-      <ShaderMeshBackground variant="page" />
-      <BackgroundPattern opacity={0.02} />
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 flex flex-col relative z-10">
@@ -166,19 +160,19 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
             className="mx-auto max-w-5xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: durations.normal, ease: easings.out }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            <GradientBorder>
+            <div className="border border-[rgb(31,31,31)] rounded-xl">
               <div className="p-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   {/* Left: Info */}
                   <div>
-                    <h2 className="text-xl font-semibold text-white/90 font-[family-name:var(--font-heading)]">
+                    <h2 className="text-xl font-semibold text-[rgb(252,252,250)] font-[family-name:var(--font-heading)]">
                       {blueprint.title}
                     </h2>
                     <div className="flex items-center gap-2 mt-1">
-                      <Calendar className="h-4 w-4 text-white/30" />
-                      <p className="text-sm text-white/40">
+                      <Calendar className="h-4 w-4 text-[rgb(100,105,115)]" />
+                      <p className="text-sm text-[rgb(100,105,115)]">
                         Generated {formatDate(blueprint.created_at)}
                       </p>
                     </div>
@@ -188,43 +182,39 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                   <div className="flex flex-wrap items-center gap-3">
                     {linkedMediaPlans.length > 0 && (
                       <Link href={`/media-plan/${linkedMediaPlans[0].id}`}>
-                        <MagneticButton
-                          className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
-                        >
+                        <button className={ghostBtn}>
                           <BarChart3 className="h-4 w-4" />
                           View Media Plan
-                        </MagneticButton>
+                        </button>
                       </Link>
                     )}
                     <Link href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}>
-                      <MagneticButton
-                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 text-white transition-opacity duration-200 hover:opacity-90"
-                      >
+                      <button className={primaryBtn}>
                         <Wand2 className="h-4 w-4" />
                         Generate Media Plan
-                      </MagneticButton>
+                      </button>
                     </Link>
-                    <MagneticButton
-                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
+                    <button
+                      className={ghostBtn}
                       onClick={handleNewBlueprint}
                     >
                       <Wand2 className="h-4 w-4" />
                       New Blueprint
-                    </MagneticButton>
+                    </button>
                   </div>
                 </div>
 
                 {/* Share Link Display */}
                 {shareUrl && (
                   <motion.div
-                    className="mt-6 p-4 rounded-lg bg-white/[0.02] border border-white/[0.06]"
+                    className="mt-6 p-4 rounded-lg bg-transparent border border-[rgb(31,31,31)]"
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     transition={{ duration: 0.3 }}
                   >
                     <div className="flex items-center gap-2 mb-3">
-                      <Link2 className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-sm text-white/80">
+                      <Link2 className="h-4 w-4 text-[rgb(54,94,255)]" />
+                      <span className="font-medium text-[13px] text-[rgb(205,208,213)]">
                         Shareable Link
                       </span>
                     </div>
@@ -233,10 +223,10 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                         type="text"
                         readOnly
                         value={shareUrl}
-                        className="flex-1 px-3 py-2 text-sm rounded-md bg-white/[0.03] border border-white/[0.08] text-white/80 font-[family-name:var(--font-mono)] outline-none"
+                        className="flex-1 px-3 py-2 bg-transparent border border-[rgb(31,31,31)] text-[rgb(205,208,213)] text-[13px] rounded-md font-[family-name:var(--font-mono)] outline-none"
                       />
-                      <MagneticButton
-                        className="h-9 px-4 rounded-md text-sm font-medium bg-gradient-to-r from-primary to-primary/80 text-white transition-opacity duration-200 hover:opacity-90"
+                      <button
+                        className={primaryBtn}
                         onClick={handleCopyLink}
                       >
                         {shareCopied ? (
@@ -247,9 +237,9 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                         ) : (
                           "Copy"
                         )}
-                      </MagneticButton>
+                      </button>
                     </div>
-                    <p className="text-xs mt-2 text-white/30">
+                    <p className="text-xs mt-2 text-[rgb(100,105,115)]">
                       Anyone with this link can view this blueprint
                     </p>
                   </motion.div>
@@ -269,7 +259,7 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                   </motion.div>
                 )}
               </div>
-            </GradientBorder>
+            </div>
           </motion.div>
         </div>
 

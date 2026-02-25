@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   BarChart3,
@@ -38,6 +39,7 @@ export function BlueprintCard({
   onDelete,
   formatDate,
 }: BlueprintCardProps) {
+  const router = useRouter();
   const competitorCount =
     blueprint.output?.competitorAnalysis?.competitors?.length ?? 0;
 
@@ -122,14 +124,18 @@ export function BlueprintCard({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Link
-                    href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}
+                  <button
+                    type="button"
                     className="inline-flex items-center gap-1 text-[11px] text-[var(--text-tertiary)] hover:text-blue-400 transition-colors"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      router.push(`/generate?blueprintId=${blueprint.id}&action=media-plan`);
+                    }}
                   >
                     <Wand2 className="size-3" />
                     Media Plan
-                  </Link>
+                  </button>
                   <ArrowRight className="size-3.5 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 translate-x-0 group-hover:translate-x-0.5 transition-all duration-200" />
                 </div>
               </div>

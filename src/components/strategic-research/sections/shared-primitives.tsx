@@ -106,7 +106,7 @@ export function SubSection({ title, children }: { title: string; children: React
 export function ListItem({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5 py-[6px]">
-      <div className="w-1 h-1 rounded-full bg-[rgb(49,53,63)] mt-[9px] shrink-0" />
+      <div className="w-1 h-1 rounded-full bg-[rgb(70,75,85)] mt-[9px] shrink-0" />
       <span className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.6]">{children}</span>
     </li>
   );
@@ -147,21 +147,35 @@ export function EmptyExplanation({ message }: { message: string }) {
 /**
  * Score row with thin bar — horizontal layout.
  */
-export function ScoreDisplay({ label, score, max = 10 }: { label: string; score: number; max?: number }) {
+export function ScoreDisplay({
+  label,
+  score,
+  max = 10,
+  accentColor,
+}: {
+  label: string;
+  score: number;
+  max?: number;
+  /** Optional section accent override — e.g. "#a78bfa" for offer/purple. When provided, replaces the semantic color at all score levels. */
+  accentColor?: string;
+}) {
   const percentage = (score / max) * 100;
-  const color = percentage >= 70 ? "text-[rgb(54,94,255)]" : percentage >= 50 ? "text-[#f59e0b]" : "text-[#ef4444]";
-  const barColor = percentage >= 70 ? "bg-[rgb(54,94,255)]" : percentage >= 50 ? "bg-[#f59e0b]" : "bg-[#ef4444]";
+  const semanticColor = percentage >= 70 ? "text-[rgb(54,94,255)]" : percentage >= 50 ? "text-[#f59e0b]" : "text-[#ef4444]";
+  const semanticBarColor = percentage >= 70 ? "bg-[rgb(54,94,255)]" : percentage >= 50 ? "bg-[#f59e0b]" : "bg-[#ef4444]";
 
   return (
-    <div className="flex items-center py-[10px] border-b border-[rgb(31,31,31)] first:border-t">
+    <div className="flex items-center py-[10px] border-b border-[rgba(255,255,255,0.06)] first:border-t first:border-t-[rgba(255,255,255,0.06)]">
       <span className="flex-1 text-[13.5px] text-[rgb(205,208,213)]">{label}</span>
-      <div className="w-[110px] h-[2px] bg-[rgb(31,31,31)] mx-5 rounded-[1px] overflow-hidden">
+      <div className="w-[110px] h-[2px] bg-[rgba(255,255,255,0.06)] mx-5 rounded-[1px] overflow-hidden">
         <div
-          className={cn("h-full rounded-[1px]", barColor)}
-          style={{ width: `${percentage}%` }}
+          className={cn("h-full rounded-[1px]", !accentColor && semanticBarColor)}
+          style={{ width: `${percentage}%`, ...(accentColor ? { backgroundColor: accentColor } : {}) }}
         />
       </div>
-      <span className={cn("text-[13px] font-medium tabular-nums w-9 text-right", color)}>
+      <span
+        className={cn("text-[13px] font-medium tabular-nums w-9 text-right", !accentColor && semanticColor)}
+        style={accentColor ? { color: accentColor } : undefined}
+      >
         {score}/{max}
       </span>
     </div>
@@ -206,7 +220,7 @@ export function DataCard({
       <span className="text-[13.5px] text-[rgb(205,208,213)]">
         {label}
       </span>
-      <span className="text-[13.5px] font-medium text-[rgb(252,252,250)] tabular-nums text-right">
+      <span className="text-[13.5px] font-medium text-[rgb(252,252,250)] tabular-nums text-right tracking-[-0.01em]">
         {children}
       </span>
     </div>
@@ -250,7 +264,7 @@ export function InsightCard({
         className
       )}
     >
-      <p className="text-[14px] font-medium text-[rgb(252,252,250)] leading-snug mb-[3px]">{title}</p>
+      <p className="text-[14px] font-medium text-[rgb(252,252,250)] leading-snug mb-[5px]">{title}</p>
       <div className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.65]">{children}</div>
     </div>
   );
@@ -290,7 +304,7 @@ export function StatusBanner({
 
   return (
     <div className={cn(
-      "border-t border-b border-[rgb(31,31,31)] py-3 mb-10",
+      "border-t border-b border-[rgba(255,255,255,0.06)] py-3 mb-10",
       className
     )}>
       <div className="flex items-baseline gap-2 mb-2">
@@ -318,7 +332,7 @@ export function HighlightBlock({
 }) {
   return (
     <div className={cn(
-      "pl-4 border-l-2 border-[rgb(31,31,31)]",
+      "pl-4 border-l-2 border-[rgba(255,255,255,0.08)]",
       className
     )}>
       <div className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.65]">{children}</div>
@@ -401,7 +415,7 @@ export function CardGrid({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col border-t border-[rgb(31,31,31)]", className)}>
+    <div className={cn("flex flex-col border-t border-[rgba(255,255,255,0.06)]", className)}>
       {children}
     </div>
   );

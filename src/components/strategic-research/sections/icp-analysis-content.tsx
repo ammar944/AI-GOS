@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EditableText, EditableList } from "../editable";
 import { SourcedText, SourcedListItem } from "../citations";
@@ -55,7 +54,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
             {verdictStatus === "validated" && <CheckCircle2 className="h-4 w-4 shrink-0" />}
             {verdictStatus === "workable" && <AlertTriangle className="h-4 w-4 shrink-0" />}
             {verdictStatus === "invalid" && <XCircle className="h-4 w-4 shrink-0" />}
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] opacity-70">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[rgb(130,135,145)]">
               {safeRender(verdictStatus)}
             </span>
           </div>
@@ -66,7 +65,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
               multiline
             />
           ) : (
-            <p className="text-sm leading-relaxed opacity-90">
+            <p className="text-sm leading-relaxed text-[rgb(180,185,195)]">
               <SourcedListItem>{safeRender(data?.finalVerdict?.reasoning)}</SourcedListItem>
             </p>
           )}
@@ -76,21 +75,19 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       {/* Coherence Check */}
       <SubSection title="ICP Coherence Check">
         <FieldHighlightWrapper fieldPath="coherenceCheck">
-          <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
-              <BoolCheck value={data?.coherenceCheck?.clearlyDefined || false} label="Clearly Defined" />
-              <BoolCheck value={data?.coherenceCheck?.reachableThroughPaidChannels || false} label="Reachable via Paid Channels" />
-              <BoolCheck value={data?.coherenceCheck?.adequateScale || false} label="Adequate Scale" />
-              <BoolCheck value={data?.coherenceCheck?.hasPainOfferSolves || false} label="Has Pain Offer Solves" />
-              <BoolCheck value={data?.coherenceCheck?.hasBudgetAndAuthority || false} label="Has Budget & Authority" />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
+            <BoolCheck value={data?.coherenceCheck?.clearlyDefined || false} label="Clearly Defined" />
+            <BoolCheck value={data?.coherenceCheck?.reachableThroughPaidChannels || false} label="Reachable via Paid Channels" />
+            <BoolCheck value={data?.coherenceCheck?.adequateScale || false} label="Adequate Scale" />
+            <BoolCheck value={data?.coherenceCheck?.hasPainOfferSolves || false} label="Has Pain Offer Solves" />
+            <BoolCheck value={data?.coherenceCheck?.hasBudgetAndAuthority || false} label="Has Budget & Authority" />
           </div>
         </FieldHighlightWrapper>
       </SubSection>
 
       {/* Pain-Solution Fit */}
       <SubSection title="Pain-Solution Fit">
-        <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5 space-y-3">
+        <div className="space-y-3">
           <div className="grid md:grid-cols-2 gap-3">
             <DataCard label="Primary Pain" fieldPath="painSolutionFit.primaryPain">
               {isEditing && onFieldChange ? (
@@ -113,16 +110,14 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
               )}
             </DataCard>
           </div>
-          <div className="pt-1 border-t border-white/[0.04]">
-            <Badge variant="outline" className={cn(
-              "text-[10px] uppercase tracking-wider",
-              data?.painSolutionFit?.fitAssessment === "strong" ? STATUS_BADGE_COLORS.success :
-              data?.painSolutionFit?.fitAssessment === "moderate" ? STATUS_BADGE_COLORS.warning :
-              STATUS_BADGE_COLORS.danger
-            )}>
-              Fit: {safeRender(data?.painSolutionFit?.fitAssessment)}
-            </Badge>
-          </div>
+          <span className={cn(
+            "text-[12px] font-medium uppercase tracking-wider",
+            data?.painSolutionFit?.fitAssessment === "strong" ? STATUS_BADGE_COLORS.success :
+            data?.painSolutionFit?.fitAssessment === "moderate" ? STATUS_BADGE_COLORS.warning :
+            STATUS_BADGE_COLORS.danger
+          )}>
+            Fit: {safeRender(data?.painSolutionFit?.fitAssessment)}
+          </span>
         </div>
       </SubSection>
 
@@ -130,17 +125,15 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       <SubSection title="Market Size & Reachability">
         <FieldHighlightWrapper fieldPath="marketReachability">
           <div className="space-y-3">
-            <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
-                <BoolCheck value={data?.marketReachability?.metaVolume || false} label="Meta Audience Volume" />
-                <BoolCheck value={data?.marketReachability?.linkedInVolume || false} label="LinkedIn Volume" />
-                <BoolCheck value={data?.marketReachability?.googleSearchDemand || false} label="Google Search Demand" />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+              <BoolCheck value={data?.marketReachability?.metaVolume || false} label="Meta Audience Volume" />
+              <BoolCheck value={data?.marketReachability?.linkedInVolume || false} label="LinkedIn Volume" />
+              <BoolCheck value={data?.marketReachability?.googleSearchDemand || false} label="Google Search Demand" />
             </div>
 
             {data?.marketReachability?.contradictingSignals && data.marketReachability.contradictingSignals.length > 0 && (
-              <div className="rounded-lg bg-amber-500/[0.04] border border-amber-500/[0.15] p-3.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-400/70 mb-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1">
                   Contradicting Signals
                 </p>
                 <ul className="space-y-1">
@@ -158,16 +151,14 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       <SubSection title="Economic Feasibility">
         <FieldHighlightWrapper fieldPath="economicFeasibility">
           <div className="space-y-3">
-            <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
-                <BoolCheck value={data?.economicFeasibility?.hasBudget || false} label="ICP Has Budget" />
-                <BoolCheck value={data?.economicFeasibility?.purchasesSimilar || false} label="Purchases Similar Solutions" />
-                <BoolCheck value={data?.economicFeasibility?.tamAlignedWithCac || false} label="TAM Aligns with CAC" />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+              <BoolCheck value={data?.economicFeasibility?.hasBudget || false} label="ICP Has Budget" />
+              <BoolCheck value={data?.economicFeasibility?.purchasesSimilar || false} label="Purchases Similar Solutions" />
+              <BoolCheck value={data?.economicFeasibility?.tamAlignedWithCac || false} label="TAM Aligns with CAC" />
             </div>
 
             {data?.economicFeasibility?.notes && (
-              <p className="text-sm text-white/50 leading-relaxed px-0.5">
+              <p className="text-sm text-[rgb(130,135,145)] leading-relaxed px-0.5">
                 <SourcedListItem>{data.economicFeasibility.notes}</SourcedListItem>
               </p>
             )}
@@ -179,7 +170,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       {(hasItems(data?.riskScores) || (data as any)?.riskAssessment || isEditing) && (
         <SubSection title="Risk Assessment">
           {data?.riskScores?.length ? (
-            <div className="space-y-2">
+            <div className="space-y-0">
               {data.riskScores.map((rs: RiskScore, idx: number) => {
                 const score = rs.score ?? rs.probability * rs.impact;
                 const classification = rs.classification ?? (
@@ -188,27 +179,27 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
                 return (
                   <div
                     key={idx}
-                    className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5"
+                    className="py-3 border-b border-[rgba(255,255,255,0.06)]"
                   >
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-medium uppercase tracking-[0.07em] text-white/40">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)]">
                         {rs.category.replace(/_/g, " ")}
                       </span>
-                      <Badge variant="outline" className={cn(
-                        "text-[10px] uppercase tracking-wider",
+                      <span className={cn(
+                        "text-[12px] font-medium uppercase tracking-wider",
                         RISK_COLORS[classification as RiskRating] || RISK_COLORS.medium
                       )}>
                         {classification}
-                      </Badge>
+                      </span>
                     </div>
-                    <p className="text-sm text-white/70 leading-snug">{rs.risk}</p>
-                    <div className="flex gap-4 mt-2 text-[11px] text-white/30 font-[family-name:var(--font-mono)] tabular-nums">
+                    <p className="text-sm text-[rgb(180,185,195)] leading-snug">{rs.risk}</p>
+                    <div className="flex gap-4 mt-2 text-[11px] text-[rgb(70,75,85)] font-[family-name:var(--font-mono)] tabular-nums">
                       <span>P: {rs.probability}/5</span>
                       <span>I: {rs.impact}/5</span>
                       <span>Score: {score}/25</span>
                     </div>
                     {rs.mitigation && (
-                      <p className="text-xs mt-1.5 text-white/45 leading-snug">
+                      <p className="text-xs mt-1.5 text-[rgb(100,105,115)] leading-snug">
                         Mitigation: {rs.mitigation}
                       </p>
                     )}
@@ -221,12 +212,12 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
             <CardGrid cols={4}>
               {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
                 <DataCard key={key} label={key.replace(/([A-Z])/g, " $1")} fieldPath={`riskAssessment.${key}`}>
-                  <Badge variant="outline" className={cn(
-                    "text-[10px] uppercase tracking-wider",
+                  <span className={cn(
+                    "text-[12px] font-medium uppercase tracking-wider",
                     RISK_COLORS[((data as any).riskAssessment?.[key] || "medium") as RiskRating]
                   )}>
                     {safeRender((data as any).riskAssessment?.[key])}
-                  </Badge>
+                  </span>
                 </DataCard>
               ))}
             </CardGrid>
@@ -242,7 +233,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
               <EditableList
                 items={safeArray(data?.finalVerdict?.recommendations)}
                 onSave={(v) => onFieldChange("finalVerdict.recommendations", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-primary/70" />}
+                renderPrefix={() => <Check className="h-4 w-4 text-[#5edead]/70" />}
               />
             ) : (
               <ul className="space-y-1">

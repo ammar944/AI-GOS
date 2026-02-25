@@ -67,12 +67,12 @@ export function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAn
       <SubSection title="Offer Strength Scores">
         <FieldHighlightWrapper fieldPath="offerStrength">
           <CardGrid cols={2}>
-            <ScoreDisplay label="Pain Relevance" score={data?.offerStrength?.painRelevance || 0} />
-            <ScoreDisplay label="Urgency" score={data?.offerStrength?.urgency || 0} />
-            <ScoreDisplay label="Differentiation" score={data?.offerStrength?.differentiation || 0} />
-            <ScoreDisplay label="Tangibility" score={data?.offerStrength?.tangibility || 0} />
-            <ScoreDisplay label="Proof" score={data?.offerStrength?.proof || 0} />
-            <ScoreDisplay label="Pricing Logic" score={data?.offerStrength?.pricingLogic || 0} />
+            <ScoreDisplay label="Pain Relevance" score={data?.offerStrength?.painRelevance || 0} accentColor="#a78bfa" />
+            <ScoreDisplay label="Urgency" score={data?.offerStrength?.urgency || 0} accentColor="#a78bfa" />
+            <ScoreDisplay label="Differentiation" score={data?.offerStrength?.differentiation || 0} accentColor="#a78bfa" />
+            <ScoreDisplay label="Tangibility" score={data?.offerStrength?.tangibility || 0} accentColor="#a78bfa" />
+            <ScoreDisplay label="Proof" score={data?.offerStrength?.proof || 0} accentColor="#a78bfa" />
+            <ScoreDisplay label="Pricing Logic" score={data?.offerStrength?.pricingLogic || 0} accentColor="#a78bfa" />
           </CardGrid>
           <div className="mt-3">
             <OverallScoreDisplay
@@ -101,16 +101,13 @@ export function OfferAnalysisContent({ data, isEditing, onFieldChange }: OfferAn
       {data?.redFlags && data.redFlags.length > 0 && (
         <SubSection title="Red Flags">
           <FieldHighlightWrapper fieldPath="redFlags">
-            <div className="flex flex-wrap gap-2">
+            <ul className="space-y-1">
               {data.redFlags.map((flag, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium capitalize border bg-red-500/[0.1] text-red-400/70 border-red-500/[0.15]"
-                >
+                <li key={i} className="text-[#ef4444] text-[12px] font-medium capitalize">
                   {safeRender(flag).replace(/_/g, " ")}
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </FieldHighlightWrapper>
         </SubSection>
       )}

@@ -41,7 +41,7 @@ export function SwipeableCompetitorCard({
   const x = useMotionValue(0);
 
   // Visual feedback transforms — gentle, not jarring
-  const rotate = useTransform(x, [-200, 0, 200], [-0.8, 0, 0.8]);
+  const rotate = useTransform(x, [-200, 0, 200], [-0.4, 0, 0.4]);
   const scale = useTransform(x, [-200, 0, 200], [0.99, 1, 0.99]);
 
   // Directional edge glow opacity
@@ -146,7 +146,7 @@ export function SwipeableCompetitorCard({
               className="absolute inset-y-0 left-0 w-16 rounded-l-lg pointer-events-none z-10"
               style={{
                 opacity: leftGlow,
-                background: "linear-gradient(to right, var(--accent-blue-glow), transparent)",
+                background: "linear-gradient(to right, rgba(245, 158, 11, 0.2), transparent)",
               }}
             />
           )}
@@ -156,7 +156,7 @@ export function SwipeableCompetitorCard({
               className="absolute inset-y-0 right-0 w-16 rounded-r-lg pointer-events-none z-10"
               style={{
                 opacity: rightGlow,
-                background: "linear-gradient(to left, var(--accent-blue-glow), transparent)",
+                background: "linear-gradient(to left, rgba(245, 158, 11, 0.2), transparent)",
               }}
             />
           )}
@@ -174,12 +174,13 @@ export function SwipeableCompetitorCard({
             className={cn(
               "absolute bottom-20 left-1/2 -translate-x-1/2 z-20",
               "flex items-center gap-2 rounded-full px-4 py-2",
-              "text-xs font-medium text-white",
+              "text-xs font-medium",
               "pointer-events-none select-none"
             )}
             style={{
-              background: "linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))",
-              boxShadow: "0 4px 24px var(--accent-blue-glow)",
+              background: "rgba(245, 158, 11, 0.15)",
+              border: "1px solid rgba(245, 158, 11, 0.3)",
+              color: "#fbbf4d",
             }}
           >
             <ChevronLeft className="h-3 w-3 opacity-60" />

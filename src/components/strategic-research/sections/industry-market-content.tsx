@@ -4,12 +4,9 @@ import {
   TrendingUp,
   Target,
   Shield,
-  Brain,
-  MessageSquare,
   Check,
   AlertTriangle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { EditableText, EditableList } from "../editable";
 import { SourcedText, SourcedListItem } from "../citations";
 import { safeRender, safeArray, hasItems } from "./shared-helpers";
@@ -52,15 +49,11 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
           </DataCard>
 
           <DataCard label="Market Maturity" fieldPath="categorySnapshot.marketMaturity">
-            <Badge variant="outline" className="capitalize text-xs">
-              {safeRender(data?.categorySnapshot?.marketMaturity)}
-            </Badge>
+            <span className="capitalize">{safeRender(data?.categorySnapshot?.marketMaturity)}</span>
           </DataCard>
 
           <DataCard label="Awareness Level" fieldPath="categorySnapshot.awarenessLevel">
-            <Badge variant="outline" className="capitalize text-xs">
-              {safeRender(data?.categorySnapshot?.awarenessLevel)}
-            </Badge>
+            <span className="capitalize">{safeRender(data?.categorySnapshot?.awarenessLevel)}</span>
           </DataCard>
 
           <DataCard label="Buying Behavior" fieldPath="categorySnapshot.buyingBehavior">
@@ -89,15 +82,15 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
             {(safeArray(data?.marketDynamics?.demandDrivers).length > 0 || isEditing) && (
               <FieldHighlightWrapper fieldPath="marketDynamics.demandDrivers">
                 <div>
-                  <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-emerald-400/70" />
+                  <h4 className="text-[13px] font-medium text-[rgb(180,185,195)] mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-[#6fa0ff]" />
                     Demand Drivers
                   </h4>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={safeArray(data?.marketDynamics?.demandDrivers)}
                       onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
-                      renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
+                      renderPrefix={() => <Check className="h-4 w-4 text-[#6fa0ff]/80" />}
                     />
                   ) : (
                     <ul className="space-y-1">
@@ -112,15 +105,15 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
             {(safeArray(data?.marketDynamics?.buyingTriggers).length > 0 || isEditing) && (
               <FieldHighlightWrapper fieldPath="marketDynamics.buyingTriggers">
                 <div>
-                  <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary/70" />
+                  <h4 className="text-[13px] font-medium text-[rgb(180,185,195)] mb-2 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-[#6fa0ff]" />
                     Buying Triggers
                   </h4>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={safeArray(data?.marketDynamics?.buyingTriggers)}
                       onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
-                      renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
+                      renderPrefix={() => <Check className="h-4 w-4 text-[#6fa0ff]/80" />}
                     />
                   ) : (
                     <ul className="space-y-1">
@@ -137,7 +130,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
           {(safeArray(data?.marketDynamics?.barriersToPurchase).length > 0 || isEditing) && (
             <FieldHighlightWrapper fieldPath="marketDynamics.barriersToPurchase">
               <div className="mt-4">
-                <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
+                <h4 className="text-[13px] font-medium text-[rgb(180,185,195)] mb-2 flex items-center gap-2">
                   <Shield className="h-4 w-4 text-amber-400/70" />
                   Barriers to Purchase
                 </h4>
@@ -168,12 +161,12 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
           <div className="grid md:grid-cols-2 gap-4">
             <FieldHighlightWrapper fieldPath="painPoints.primary">
               <div>
-                <h4 className="text-[13px] font-medium text-red-400/70 mb-2">Primary Pain Points</h4>
+                <h4 className="text-[13px] font-medium text-[rgb(248,113,113)] mb-2">Primary Pain Points</h4>
                 {isEditing && onFieldChange ? (
                   <EditableList
                     items={safeArray(data?.painPoints?.primary)}
                     onSave={(v) => onFieldChange("painPoints.primary", v)}
-                    renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
+                    renderPrefix={() => <Check className="h-4 w-4 text-[#6fa0ff]/80" />}
                   />
                 ) : (
                   <ul className="space-y-1">
@@ -186,12 +179,12 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
             </FieldHighlightWrapper>
             <FieldHighlightWrapper fieldPath="painPoints.secondary">
               <div>
-                <h4 className="text-[13px] font-medium text-amber-400/70 mb-2">Secondary Pain Points</h4>
+                <h4 className="text-[13px] font-medium text-[rgb(252,211,77)] mb-2">Secondary Pain Points</h4>
                 {isEditing && onFieldChange ? (
                   <EditableList
                     items={safeArray(data?.painPoints?.secondary)}
                     onSave={(v) => onFieldChange("painPoints.secondary", v)}
-                    renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
+                    renderPrefix={() => <Check className="h-4 w-4 text-[#6fa0ff]/80" />}
                   />
                 ) : (
                   <ul className="space-y-1">
@@ -213,10 +206,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
             {(data?.psychologicalDrivers?.drivers || []).map((driver, i) => (
               <InsightCard
                 key={i}
-                icon={Brain}
-                iconColor="text-primary/70"
                 title={safeRender(driver?.driver)}
-                accentBorder
                 fieldPath={`psychologicalDrivers.drivers[${i}]`}
               >
                 {safeRender(driver?.description)}
@@ -233,12 +223,10 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
             {(data?.audienceObjections?.objections || []).map((obj, i) => (
               <InsightCard
                 key={i}
-                icon={MessageSquare}
-                iconColor="text-amber-400/70"
                 title={`"${safeRender(obj?.objection)}"`}
                 fieldPath={`audienceObjections.objections[${i}]`}
               >
-                <span className="text-white/50 text-[11px] font-semibold uppercase tracking-wider">Response: </span>
+                <span className="text-[rgb(100,105,115)] text-[11px] font-semibold uppercase tracking-wider">Response: </span>
                 {safeRender(obj?.howToAddress)}
               </InsightCard>
             ))}
@@ -255,7 +243,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                 <EditableList
                   items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
                   onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
+                  renderPrefix={() => <Check className="h-4 w-4 text-[#6fa0ff]/80" />}
                 />
               ) : (
                 <ul className="space-y-1">

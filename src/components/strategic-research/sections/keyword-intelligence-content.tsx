@@ -9,10 +9,8 @@ import {
   XCircle,
   DollarSign,
   Search,
-  Globe,
   Zap,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EditableText, EditableList } from "../editable";
 import { STATUS_BADGE_COLORS } from "../ui-tokens";
@@ -62,52 +60,49 @@ function formatNumber(num: number | undefined): string {
 
 function DomainStatCard({ stats, label }: { stats: DomainKeywordStats; label?: string }) {
   return (
-    <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border">
+    <div className="py-3 border-b border-[rgba(255,255,255,0.06)] last:border-b-0">
       <div className="flex items-center gap-2 mb-3">
-        <div className="flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/[0.08]">
-          <Globe className="size-3 text-primary/80" />
-        </div>
-        <p className="font-medium text-sm text-white/85 truncate font-[family-name:var(--font-heading)]">
+        <p className="text-[14px] font-medium text-[rgb(252,252,250)] truncate font-[family-name:var(--font-heading)]">
           {label || stats.domain}
         </p>
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-0.5">Organic KWs</p>
-          <p className="font-medium text-white/85 font-[family-name:var(--font-mono)] tabular-nums">
+          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-0.5">Organic KWs</p>
+          <p className="font-medium text-[rgb(252,252,250)] font-[family-name:var(--font-mono)] tabular-nums">
             {formatNumber(stats.organicKeywords)}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-0.5">Paid KWs</p>
-          <p className="font-medium text-white/85 font-[family-name:var(--font-mono)] tabular-nums">
+          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-0.5">Paid KWs</p>
+          <p className="font-medium text-[rgb(252,252,250)] font-[family-name:var(--font-mono)] tabular-nums">
             {formatNumber(stats.paidKeywords)}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-0.5">Organic Clicks/mo</p>
-          <p className="font-medium text-white/85 font-[family-name:var(--font-mono)] tabular-nums">
+          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-0.5">Organic Clicks/mo</p>
+          <p className="font-medium text-[rgb(252,252,250)] font-[family-name:var(--font-mono)] tabular-nums">
             {formatNumber(stats.monthlyOrganicClicks)}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-0.5">Paid Clicks/mo</p>
-          <p className="font-medium text-white/85 font-[family-name:var(--font-mono)] tabular-nums">
+          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-0.5">Paid Clicks/mo</p>
+          <p className="font-medium text-[rgb(252,252,250)] font-[family-name:var(--font-mono)] tabular-nums">
             {formatNumber(stats.monthlyPaidClicks)}
           </p>
         </div>
         {stats.organicClicksValue > 0 && (
           <div title="Estimated cost to buy this organic traffic via Google Ads (clicks × CPC). Not actual revenue.">
-            <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-0.5">Est. Traffic Value</p>
-            <p className="font-medium text-emerald-400/80 font-[family-name:var(--font-mono)] tabular-nums">
+            <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-0.5">Est. Traffic Value</p>
+            <p className="font-medium text-[#22c55e] font-[family-name:var(--font-mono)] tabular-nums">
               ${formatNumber(stats.organicClicksValue)}
             </p>
           </div>
         )}
         {stats.paidClicksValue > 0 && (
           <div title="Estimated monthly ad spend based on paid keyword bids and click volume.">
-            <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-0.5">Ad Spend/mo</p>
-            <p className="font-medium text-primary/80 font-[family-name:var(--font-mono)] tabular-nums">
+            <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-0.5">Ad Spend/mo</p>
+            <p className="font-medium text-[#38d6f0] font-[family-name:var(--font-mono)] tabular-nums">
               ${formatNumber(stats.paidClicksValue)}
             </p>
           </div>
@@ -141,19 +136,19 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
   };
 
   if (keywords.length === 0) {
-    return <p className="text-sm text-white/30 italic">No keywords found</p>;
+    return <p className="text-sm text-[rgb(100,105,115)] italic">No keywords found</p>;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border">
-            <th className="text-left py-2 pr-4 text-[10px] font-medium uppercase tracking-[0.06em] text-white/30">Keyword</th>
+          <tr className="border-b border-[rgba(255,255,255,0.06)]">
+            <th className="text-left py-2 pr-4 text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Keyword</th>
             <th
               className={cn(
                 "text-right py-2 px-2 text-[10px] font-medium uppercase tracking-[0.06em] cursor-pointer select-none transition-colors",
-                sortBy === 'searchVolume' ? "text-primary/80" : "text-white/30 hover:text-white/50"
+                sortBy === 'searchVolume' ? "text-[#38d6f0]" : "text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)]"
               )}
               onClick={() => toggleSort('searchVolume')}
             >
@@ -162,7 +157,7 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
             <th
               className={cn(
                 "text-right py-2 px-2 text-[10px] font-medium uppercase tracking-[0.06em] cursor-pointer select-none transition-colors",
-                sortBy === 'cpc' ? "text-primary/80" : "text-white/30 hover:text-white/50"
+                sortBy === 'cpc' ? "text-[#38d6f0]" : "text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)]"
               )}
               onClick={() => toggleSort('cpc')}
             >
@@ -171,13 +166,13 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
             <th
               className={cn(
                 "text-right py-2 px-2 text-[10px] font-medium uppercase tracking-[0.06em] cursor-pointer select-none transition-colors",
-                sortBy === 'difficulty' ? "text-primary/80" : "text-white/30 hover:text-white/50"
+                sortBy === 'difficulty' ? "text-[#38d6f0]" : "text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)]"
               )}
               onClick={() => toggleSort('difficulty')}
             >
               Difficulty {sortBy === 'difficulty' && (sortDir === 'desc' ? '↓' : '↑')}
             </th>
-            <th className="text-right py-2 pl-2 text-[10px] font-medium uppercase tracking-[0.06em] text-white/30">Source</th>
+            <th className="text-right py-2 pl-2 text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Source</th>
           </tr>
         </thead>
         <tbody>
@@ -186,29 +181,29 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
             return (
               <tr
                 key={`${kw.keyword}-${i}`}
-                className="border-b border-white/[0.03] hover:bg-white/[0.015] transition-colors"
+                className="border-b border-[rgba(255,255,255,0.06)] last:border-b-0"
               >
-                <td className="py-2 pr-4 font-medium text-white/85">
+                <td className="py-2 pr-4 font-medium text-[rgb(252,252,250)]">
                   {kw.keyword}
                   {kw.competitors && kw.competitors.length > 0 && (
-                    <span className="text-xs ml-2 text-white/30">
+                    <span className="text-xs ml-2 text-[rgb(100,105,115)]">
                       ({kw.competitors.length} competitors)
                     </span>
                   )}
                 </td>
-                <td className="text-right py-2 px-2 text-white/60 font-[family-name:var(--font-mono)] tabular-nums text-xs">
+                <td className="text-right py-2 px-2 text-[rgb(205,208,213)] font-[family-name:var(--font-mono)] tabular-nums text-xs">
                   {formatNumber(kw.searchVolume)}
                 </td>
-                <td className="text-right py-2 px-2 text-white/60 font-[family-name:var(--font-mono)] tabular-nums text-xs">
+                <td className="text-right py-2 px-2 text-[rgb(205,208,213)] font-[family-name:var(--font-mono)] tabular-nums text-xs">
                   ${kw.cpc.toFixed(2)}
                 </td>
                 <td className="text-right py-2 px-2">
-                  <Badge variant="outline" className={cn("text-xs", diff.color)}>{diff.label}</Badge>
+                  <span className={cn("text-[12px] font-medium", diff.color)}>{diff.label}</span>
                 </td>
                 <td className="text-right py-2 pl-2">
-                  <Badge variant="outline" className="text-xs capitalize border-white/[0.08] text-white/40">
+                  <span className="text-[12px] text-[rgb(100,105,115)] capitalize">
                     {kw.source.replace(/_/g, ' ')}
-                  </Badge>
+                  </span>
                 </td>
               </tr>
             );
@@ -216,7 +211,7 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
         </tbody>
       </table>
       {keywords.length > maxRows && (
-        <p className="text-xs mt-2.5 text-white/30">
+        <p className="text-xs mt-2.5 text-[rgb(100,105,115)]">
           Showing {maxRows} of {keywords.length} keywords
         </p>
       )}
@@ -231,20 +226,20 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
 function SEOScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" | "lg" }) {
   const colorClass =
     score >= 80
-      ? "text-emerald-400/90 bg-emerald-500/[0.1] border-emerald-500/[0.15]"
+      ? "text-[#22c55e]"
       : score >= 50
-        ? "text-amber-400/80 bg-amber-500/[0.1] border-amber-500/[0.15]"
-        : "text-red-400/80 bg-red-500/[0.1] border-red-500/[0.15]";
+        ? "text-[#f59e0b]"
+        : "text-[#ef4444]";
   const sizeClass =
     size === "sm"
-      ? "text-xs px-2 py-0.5"
+      ? "text-xs"
       : size === "lg"
-        ? "text-2xl px-4 py-2 font-bold"
-        : "text-base px-3 py-1 font-semibold";
+        ? "text-2xl font-bold"
+        : "text-base font-semibold";
   return (
     <span
       className={cn(
-        "rounded-md inline-flex items-center border font-[family-name:var(--font-mono)] tabular-nums",
+        "font-medium tabular-nums font-[family-name:var(--font-mono)]",
         colorClass,
         sizeClass
       )}
@@ -256,13 +251,9 @@ function SEOScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "m
 
 function PassFailIcon({ pass }: { pass: boolean }) {
   return pass ? (
-    <div className="inline-flex size-5 items-center justify-center rounded-full bg-emerald-500/[0.1]">
-      <CheckCircle2 className="size-3 text-emerald-400/80" />
-    </div>
+    <CheckCircle2 className="size-3.5 text-[#22c55e]" />
   ) : (
-    <div className="inline-flex size-5 items-center justify-center rounded-full bg-red-500/[0.1]">
-      <XCircle className="size-3 text-red-400/60" />
-    </div>
+    <XCircle className="size-3.5 text-[#ef4444]" />
   );
 }
 
@@ -275,15 +266,15 @@ function CoreWebVitalCard({ label, value, unit, thresholds }: {
   const isGood = value <= thresholds.good;
   const isPoor = value > thresholds.poor;
   const colorClass = isGood
-    ? "text-emerald-400/80 bg-emerald-500/[0.06] border-emerald-500/[0.12]"
+    ? "text-[#22c55e]"
     : isPoor
-      ? "text-red-400/80 bg-red-500/[0.06] border-red-500/[0.12]"
-      : "text-amber-400/80 bg-amber-500/[0.06] border-amber-500/[0.12]";
+      ? "text-[#ef4444]"
+      : "text-[#f59e0b]";
 
   return (
-    <div className={cn("p-2.5 rounded-lg border text-center", colorClass)}>
-      <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/30 mb-1">{label}</p>
-      <p className={cn("text-base font-bold font-[family-name:var(--font-mono)] tabular-nums leading-none", colorClass.split(' ')[0])}>
+    <div className="text-center py-2">
+      <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1">{label}</p>
+      <p className={cn("text-base font-bold font-[family-name:var(--font-mono)] tabular-nums leading-none", colorClass)}>
         {value}{unit}
       </p>
     </div>
@@ -298,34 +289,28 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
         <SEOScoreBadge score={audit.overallScore} />
         <div className="flex gap-4 text-xs">
           <span className="flex items-center gap-1.5">
-            <div className="flex size-4 items-center justify-center rounded-full bg-red-500/[0.1]">
-              <XCircle className="size-2.5 text-red-400/70" />
-            </div>
-            <span className="text-white/50">{audit.issueCount.critical} critical</span>
+            <XCircle className="size-3 text-[#ef4444]" />
+            <span className="text-[rgb(100,105,115)]">{audit.issueCount.critical} critical</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <div className="flex size-4 items-center justify-center rounded-full bg-amber-500/[0.1]">
-              <AlertTriangle className="size-2.5 text-amber-400/70" />
-            </div>
-            <span className="text-white/50">{audit.issueCount.warning} warnings</span>
+            <AlertTriangle className="size-3 text-[#f59e0b]" />
+            <span className="text-[rgb(100,105,115)]">{audit.issueCount.warning} warnings</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <div className="flex size-4 items-center justify-center rounded-full bg-emerald-500/[0.1]">
-              <CheckCircle2 className="size-2.5 text-emerald-400/70" />
-            </div>
-            <span className="text-white/50">{audit.issueCount.pass} passed</span>
+            <CheckCircle2 className="size-3 text-[#22c55e]" />
+            <span className="text-[rgb(100,105,115)]">{audit.issueCount.pass} passed</span>
           </span>
         </div>
       </div>
 
       {/* Site-level checks */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-4 mb-3">
         <span
           className={cn(
-            "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border",
+            "inline-flex items-center gap-1 text-xs font-medium",
             audit.sitemapFound
-              ? "bg-emerald-500/[0.08] text-emerald-400/80 border-emerald-500/[0.15]"
-              : "bg-red-500/[0.08] text-red-400/70 border-red-500/[0.12]"
+              ? "text-[#22c55e]"
+              : "text-[#ef4444]"
           )}
         >
           {audit.sitemapFound ? (
@@ -337,10 +322,10 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
         </span>
         <span
           className={cn(
-            "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border",
+            "inline-flex items-center gap-1 text-xs font-medium",
             audit.robotsTxtFound
-              ? "bg-emerald-500/[0.08] text-emerald-400/80 border-emerald-500/[0.15]"
-              : "bg-red-500/[0.08] text-red-400/70 border-red-500/[0.12]"
+              ? "text-[#22c55e]"
+              : "text-[#ef4444]"
           )}
         >
           {audit.robotsTxtFound ? (
@@ -354,18 +339,18 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
 
       {/* Page-by-page table */}
       {audit.pages.length > 0 && (
-        <div className="overflow-x-auto rounded-lg bg-[var(--bg-surface)] border border-border">
+        <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border bg-[var(--bg-surface)]">
-                <th className="text-left py-2.5 px-3 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">Page</th>
-                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">Title</th>
-                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">Meta Desc</th>
-                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">H1</th>
-                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">Canonical</th>
-                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">Images</th>
-                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">Schema</th>
-                <th className="text-center py-2.5 px-3 font-medium text-[10px] uppercase tracking-[0.06em] text-white/30">HTTPS</th>
+              <tr className="border-b border-[rgba(255,255,255,0.06)]">
+                <th className="text-left py-2.5 px-3 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Page</th>
+                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Title</th>
+                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Meta Desc</th>
+                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">H1</th>
+                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Canonical</th>
+                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Images</th>
+                <th className="text-center py-2.5 px-2 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">Schema</th>
+                <th className="text-center py-2.5 px-3 font-medium text-[10px] uppercase tracking-[0.06em] text-[rgb(100,105,115)]">HTTPS</th>
               </tr>
             </thead>
             <tbody>
@@ -379,15 +364,15 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
 
                 const imgColor =
                   page.images.coveragePercent >= 80
-                    ? "text-emerald-400/80"
+                    ? "text-[#22c55e]"
                     : page.images.coveragePercent >= 50
-                      ? "text-amber-400/80"
-                      : "text-red-400/70";
+                      ? "text-[#f59e0b]"
+                      : "text-[#ef4444]";
 
                 return (
-                  <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.015] transition-colors">
+                  <tr key={i} className="border-b border-[rgba(255,255,255,0.06)] last:border-b-0">
                     <td
-                      className="py-2.5 px-3 font-medium text-white/70 truncate max-w-[120px]"
+                      className="py-2.5 px-3 font-medium text-[rgb(205,208,213)] truncate max-w-[120px]"
                       title={page.url}
                     >
                       {shortUrl}
@@ -403,11 +388,9 @@ function TechnicalSEOAuditSection({ audit }: { audit: SEOAuditData['technical'] 
                     </td>
                     <td className="text-center py-2.5 px-2">
                       {page.schemaTypes.length > 0 ? (
-                        <div className="inline-flex size-5 items-center justify-center rounded-full bg-emerald-500/[0.1]">
-                          <CheckCircle2 className="size-3 text-emerald-400/80" />
-                        </div>
+                        <CheckCircle2 className="size-3.5 text-[#22c55e]" />
                       ) : (
-                        <span className="text-white/25">—</span>
+                        <span className="text-[rgb(49,53,63)]">—</span>
                       )}
                     </td>
                     <td className="text-center py-2.5 px-3"><PassFailIcon pass={page.isHttps} /></td>
@@ -428,11 +411,9 @@ function PerformanceAuditSection({ performance }: { performance: SEOAuditData['p
   if (!hasData) {
     return (
       <SubSection title="Performance (PageSpeed Insights)">
-        <div className="p-4 rounded-lg bg-[var(--bg-surface)] border border-border flex items-center gap-2.5 text-sm">
-          <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500/[0.1]">
-            <AlertTriangle className="size-3 text-amber-400/70" />
-          </div>
-          <span className="text-white/50">
+        <div className="py-3 flex items-center gap-2.5 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-[#f59e0b]" />
+          <span className="text-[rgb(100,105,115)]">
             PageSpeed data unavailable — the site may be unreachable, behind authentication, or the API timed out. The overall SEO score reflects technical checks only.
           </span>
         </div>
@@ -441,9 +422,9 @@ function PerformanceAuditSection({ performance }: { performance: SEOAuditData['p
   }
 
   const renderMetrics = (metrics: PageSpeedMetrics, label: string) => (
-    <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border flex-1">
+    <div className="py-3 flex-1">
       <div className="flex items-center justify-between mb-3">
-        <p className="font-medium text-sm text-white/85 font-[family-name:var(--font-heading)]">{label}</p>
+        <p className="font-medium text-sm text-[rgb(252,252,250)] font-[family-name:var(--font-heading)]">{label}</p>
         <SEOScoreBadge score={metrics.performanceScore} size="sm" />
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -500,8 +481,8 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {data?.seoAudit && (() => {
         const hasPerf = data.seoAudit!.performance.mobile || data.seoAudit!.performance.desktop;
         return (
-          <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border flex items-center justify-between text-sm">
-            <span className="text-white/50">
+          <div className="py-3 border-t border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between text-sm">
+            <span className="text-[rgb(100,105,115)]">
               Overall SEO Score
               {hasPerf ? ' (60% Technical + 40% Performance)' : ' (Technical only — PageSpeed unavailable)'}
             </span>
@@ -513,15 +494,13 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* Domain Overview */}
       {(data?.clientDomain || (data?.competitorDomains && data.competitorDomains.length > 0)) && (
         <SubSection title="Domain Overview">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="flex flex-col">
             {data?.clientDomain && (
-              <div className="relative">
-                <div className="absolute -top-2 left-3 z-10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-primary text-white">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#38d6f0] mb-1">
                   Your Site
-                </div>
-                <div className="rounded-lg ring-1 ring-primary/[0.25] ring-offset-0">
-                  <DomainStatCard stats={data.clientDomain} />
-                </div>
+                </p>
+                <DomainStatCard stats={data.clientDomain} />
               </div>
             )}
             {(data?.competitorDomains || []).map((stats, i) => (
@@ -533,7 +512,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
 
       {/* Keyword Gaps with Tabs */}
       <SubSection title="Keyword Gap Analysis">
-        <div className="flex gap-1.5 mb-4 p-1 rounded-lg bg-[var(--bg-surface)] border border-border/60 w-fit">
+        <div className="flex gap-1 mb-4">
           {([
             { key: 'organic' as const, label: 'Organic Gaps', count: data?.organicGaps?.length ?? 0 },
             { key: 'paid' as const, label: 'Paid Gaps', count: data?.paidGaps?.length ?? 0 },
@@ -543,23 +522,23 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                "px-3 py-1.5 text-sm font-medium transition-colors",
                 activeTab === tab.key
-                  ? "bg-white/[0.06] text-white/90 shadow-sm"
-                  : "text-white/40 hover:text-white/60"
+                  ? "text-[rgb(252,252,250)] border-b-2 border-[#06b6d4]"
+                  : "text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)]"
               )}
             >
               {tab.label}
               <span className={cn(
                 "ml-1.5 text-xs font-[family-name:var(--font-mono)] tabular-nums",
-                activeTab === tab.key ? "text-white/50" : "text-white/25"
+                activeTab === tab.key ? "text-[rgb(205,208,213)]" : "text-[rgb(100,105,115)]"
               )}>
                 ({tab.count})
               </span>
             </button>
           ))}
         </div>
-        <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border">
+        <div>
           <KeywordTable keywords={tabKeywords || []} />
         </div>
       </SubSection>
@@ -567,24 +546,24 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* Quick Wins */}
       {data?.quickWins && data.quickWins.length > 0 && (
         <SubSection title="Quick Win Opportunities">
-          <p className="text-sm text-white/40 mb-3">
+          <p className="text-sm text-[rgb(100,105,115)] mb-3">
             Low difficulty + decent volume — target these first for fast organic wins.
           </p>
-          <div className="grid md:grid-cols-2 gap-2">
+          <div className="flex flex-col">
             {data.quickWins.slice(0, 8).map((kw, i) => (
               <div
                 key={i}
-                className="p-3 rounded-lg bg-emerald-500/[0.04] border border-emerald-500/[0.12] flex items-center justify-between"
+                className="py-2.5 border-b border-[rgba(255,255,255,0.06)] last:border-b-0 flex items-center justify-between"
               >
                 <div>
-                  <p className="font-medium text-sm text-white/85">{kw.keyword}</p>
-                  <p className="text-xs mt-0.5 text-white/40 font-[family-name:var(--font-mono)] tabular-nums">
+                  <p className="font-medium text-sm text-[rgb(252,252,250)]">{kw.keyword}</p>
+                  <p className="text-xs mt-0.5 text-[rgb(100,105,115)] font-[family-name:var(--font-mono)] tabular-nums">
                     {formatNumber(kw.searchVolume)} vol · ${kw.cpc.toFixed(2)} CPC
                   </p>
                 </div>
-                <Badge variant="outline" className={cn("text-xs", getDifficultyLabel(kw.difficulty).color)}>
+                <span className={cn("text-[12px] font-medium", getDifficultyLabel(kw.difficulty).color)}>
                   {kw.difficulty}
-                </Badge>
+                </span>
               </div>
             ))}
           </div>
@@ -594,10 +573,10 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* Long-Term Plays */}
       {data?.longTermPlays && data.longTermPlays.length > 0 && (
         <SubSection title="Long-Term Plays">
-          <p className="text-sm text-white/40 mb-3">
+          <p className="text-sm text-[rgb(100,105,115)] mb-3">
             High-volume keywords with moderate-to-high difficulty — build authority over 3–6 months with pillar content.
           </p>
-          <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border">
+          <div>
             <KeywordTable keywords={data.longTermPlays} maxRows={10} />
           </div>
         </SubSection>
@@ -606,10 +585,10 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* High-Intent Keywords */}
       {data?.highIntentKeywords && data.highIntentKeywords.length > 0 && (
         <SubSection title="High-Intent Keywords">
-          <p className="text-sm text-white/40 mb-3">
+          <p className="text-sm text-[rgb(100,105,115)] mb-3">
             High CPC signals strong commercial intent — valuable for paid campaigns and conversion-focused content.
           </p>
-          <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border">
+          <div>
             <KeywordTable keywords={data.highIntentKeywords} maxRows={10} />
           </div>
         </SubSection>
@@ -618,10 +597,10 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* Client Strengths */}
       {data?.clientStrengths && data.clientStrengths.length > 0 && (
         <SubSection title="Your Keyword Strengths">
-          <p className="text-sm text-white/40 mb-3">
+          <p className="text-sm text-[rgb(100,105,115)] mb-3">
             Keywords you rank for that competitors don't — defend these positions and build on them.
           </p>
-          <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border">
+          <div>
             <KeywordTable keywords={data.clientStrengths} maxRows={10} />
           </div>
         </SubSection>
@@ -630,10 +609,10 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* Related Expansions */}
       {data?.relatedExpansions && data.relatedExpansions.length > 0 && (
         <SubSection title="Related Keyword Expansions">
-          <p className="text-sm text-white/40 mb-3">
+          <p className="text-sm text-[rgb(100,105,115)] mb-3">
             Thematic keyword opportunities beyond direct competitor gaps — expand your content footprint.
           </p>
-          <div className="p-3.5 rounded-lg bg-[var(--bg-surface)] border border-border">
+          <div>
             <KeywordTable keywords={data.relatedExpansions} maxRows={10} />
           </div>
         </SubSection>
@@ -642,14 +621,14 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {/* Content Topic Clusters */}
       {data?.contentTopicClusters && data.contentTopicClusters.length > 0 && (
         <SubSection title="Content Topic Clusters">
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className="flex flex-col">
             {data.contentTopicClusters.map((cluster, i) => (
               <div
                 key={i}
-                className="p-3.5 rounded-lg bg-primary/[0.03] border border-primary/[0.10]"
+                className="py-3 border-b border-[rgba(255,255,255,0.06)] last:border-b-0"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <h4 className="font-medium text-sm text-white/85 font-[family-name:var(--font-heading)]">
+                  <h4 className="font-medium text-sm text-[rgb(252,252,250)] font-[family-name:var(--font-heading)]">
                     {isEditing && onFieldChange ? (
                       <EditableText
                         value={cluster.theme}
@@ -666,15 +645,12 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
                       className="text-xs"
                     />
                   ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-xs capitalize shrink-0 border-primary/[0.2] text-primary/60 bg-primary/[0.06]"
-                    >
+                    <span className="text-[12px] text-[rgb(100,105,115)] capitalize">
                       {cluster.recommendedFormat}
-                    </Badge>
+                    </span>
                   )}
                 </div>
-                <p className="text-xs mb-2.5 text-white/30 font-[family-name:var(--font-mono)] tabular-nums">
+                <p className="text-xs mb-2.5 text-[rgb(100,105,115)] font-[family-name:var(--font-mono)] tabular-nums">
                   {formatNumber(cluster.searchVolumeTotal)} total volume
                 </p>
                 {isEditing && onFieldChange ? (
@@ -684,21 +660,10 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
                     className="text-xs"
                   />
                 ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {cluster.keywords.slice(0, 6).map((kw, j) => (
-                      <span
-                        key={j}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] border border-border text-white/55"
-                      >
-                        {kw}
-                      </span>
-                    ))}
-                    {cluster.keywords.length > 6 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-white/[0.03] border border-white/[0.05] text-white/30">
-                        +{cluster.keywords.length - 6}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[13px] text-[rgb(205,208,213)]">
+                    {cluster.keywords.slice(0, 6).join(", ")}
+                    {cluster.keywords.length > 6 && `, +${cluster.keywords.length - 6} more`}
+                  </p>
                 )}
               </div>
             ))}
@@ -712,10 +677,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
           <div className="grid md:grid-cols-2 gap-4">
             {data.strategicRecommendations.organicStrategy?.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2.5 flex items-center gap-2 text-sm text-emerald-400/80">
-                  <div className="flex size-5 items-center justify-center rounded-md bg-emerald-500/[0.1]">
-                    <Search className="size-3 text-emerald-400/80" />
-                  </div>
+                <h4 className="font-medium mb-2.5 text-sm text-[#22c55e]">
                   Organic Strategy
                 </h4>
                 {isEditing && onFieldChange ? (
@@ -735,10 +697,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
             )}
             {data.strategicRecommendations.paidSearchStrategy?.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2.5 flex items-center gap-2 text-sm text-primary/80">
-                  <div className="flex size-5 items-center justify-center rounded-md bg-primary/[0.1]">
-                    <DollarSign className="size-3 text-primary/80" />
-                  </div>
+                <h4 className="font-medium mb-2.5 text-sm text-[#38d6f0]">
                   Paid Search Strategy
                 </h4>
                 {isEditing && onFieldChange ? (
@@ -758,10 +717,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
             )}
             {data.strategicRecommendations.competitivePositioning?.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2.5 flex items-center gap-2 text-sm text-white/70">
-                  <div className="flex size-5 items-center justify-center rounded-md bg-primary/[0.08]">
-                    <Target className="size-3 text-primary/70" />
-                  </div>
+                <h4 className="font-medium mb-2.5 text-sm text-[rgb(205,208,213)]">
                   Competitive Positioning
                 </h4>
                 {isEditing && onFieldChange ? (
@@ -781,10 +737,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
             )}
             {data.strategicRecommendations.quickWinActions?.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2.5 flex items-center gap-2 text-sm text-amber-400/80">
-                  <div className="flex size-5 items-center justify-center rounded-md bg-amber-500/[0.1]">
-                    <Zap className="size-3 text-amber-400/80" />
-                  </div>
+                <h4 className="font-medium mb-2.5 text-sm text-[#f59e0b]">
                   Quick Win Actions
                 </h4>
                 {isEditing && onFieldChange ? (
@@ -808,7 +761,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
 
       {/* Metadata */}
       {data?.metadata && (
-        <div className="p-3 rounded-lg bg-[var(--bg-surface)] border border-border/60 text-xs text-white/25">
+        <div className="py-3 border-t border-[rgba(255,255,255,0.06)] text-xs text-[rgb(100,105,115)]">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <span>Client: {data.metadata.clientDomain}</span>
             <span>Competitors analyzed: {data.metadata.competitorDomainsAnalyzed.length}</span>

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
+import { SECTION_ACCENT_COLORS } from "./ui-tokens";
 
 const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
   industryMarketOverview: "Industry & Market",
@@ -75,6 +76,8 @@ export function SectionNav({
           const isActive = activeSection === section;
           const isReviewed = reviewedSections.has(section);
 
+          const sectionAccent = SECTION_ACCENT_COLORS[section];
+
           return (
             <button
               key={section}
@@ -83,9 +86,14 @@ export function SectionNav({
                 "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-200",
                 "border border-transparent hover:bg-[var(--bg-hover)]",
                 isActive
-                  ? "border-[var(--border-subtle)] bg-[var(--bg-active)] text-[var(--text-primary)]"
+                  ? "border-l-2 text-[var(--text-primary)]"
                   : "text-[var(--text-tertiary)]"
               )}
+              style={
+                isActive
+                  ? { borderLeftColor: sectionAccent.base }
+                  : undefined
+              }
             >
               {/* Section number indicator */}
               <span
@@ -95,8 +103,9 @@ export function SectionNav({
                 style={
                   isActive
                     ? {
-                        background: 'var(--text-primary)',
-                        color: 'rgb(0, 0, 0)',
+                        background: sectionAccent.dim,
+                        color: sectionAccent.text,
+                        border: `1px solid ${sectionAccent.base}33`,
                       }
                     : isReviewed
                     ? {
@@ -141,15 +150,14 @@ export function SectionNav({
               className="h-full rounded-full transition-all duration-500"
               style={{
                 width: `${(reviewedSections.size / totalSections) * 100}%`,
-                background: 'var(--gradient-primary)',
-                boxShadow: '0 0 8px var(--accent-blue-glow)',
+                background: SECTION_ACCENT_COLORS[activeSection].base,
               }}
             />
           </div>
           <span
             className="text-xs tabular-nums font-medium"
             style={{
-              color: 'var(--accent-blue)',
+              color: SECTION_ACCENT_COLORS[activeSection].text,
               fontFamily: 'var(--font-mono), monospace',
             }}
           >

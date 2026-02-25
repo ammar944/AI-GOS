@@ -276,6 +276,20 @@
   --radius-xl: 20px;    /* CTA boxes */
   --radius-2xl: 32px;   /* Large containers */
   --radius-full: 999px; /* Pill buttons, tags */
+
+  /* Section Accent Colors */
+  --section-market: #3b7aff;
+  --section-market-text: #6fa0ff;
+  --section-icp: #10b981;
+  --section-icp-text: #5edead;
+  --section-offer: #a78bfa;
+  --section-offer-text: #c4b1fc;
+  --section-competitor: #f59e0b;
+  --section-competitor-text: #fbbf4d;
+  --section-synthesis: #ec4899;
+  --section-synthesis-text: #f472b6;
+  --section-keyword: #06b6d4;
+  --section-keyword-text: #38d6f0;
 }
 
 /* Gradient shift animation */
@@ -938,26 +952,13 @@
   outline: none;
 }
 
-/* Tab pending indicator dot */
-.blueprint-tab-pending-dot {
-  display: inline-flex;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(245, 158, 11, 0.9);
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
-  animation: field-pending-pulse 1.8s ease-in-out infinite !important;
-  flex-shrink: 0;
-}
+/* Tab indicator dots — now using inline Tailwind classes in the component */
 
-/* Tab approved indicator dot */
-.blueprint-tab-approved-dot {
-  display: inline-flex;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(34, 197, 94, 0.9);
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
-  animation: field-approved-flash 2.5s ease-out forwards !important;
-  flex-shrink: 0;
+/* ============================================
+   Nav arrow hover — uses --nav-accent CSS var
+   set inline per section. Unlayered to beat
+   Tailwind v4 @layer specificity.
+   ============================================ */
+.nav-arrow-btn:hover {
+  border-color: color-mix(in srgb, var(--nav-accent, rgba(255,255,255,0.15)) 30%, transparent) !important;
 }

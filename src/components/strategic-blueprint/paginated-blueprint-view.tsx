@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { springs } from "@/lib/motion";
 import { generateBlueprintMarkdown } from "@/lib/strategic-blueprint/markdown-generator";
 import { OutputSectionCard } from "@/components/strategic-research/output-section-card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import type {
 } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { useOptionalBlueprintEditContext } from "./blueprint-edit-context";
+import { SECTION_ACCENT_COLORS } from "@/components/strategic-research/ui-tokens";
 
 // ── Animation variants ───────────────────────────────────────────────────────
 
@@ -190,11 +190,6 @@ export function PaginatedBlueprintView({
   const isFirstPage = currentPage === 0;
   const isLastPage = currentPage === availableSections.length - 1;
 
-  const progressPct =
-    availableSections.length > 1
-      ? (currentPage / (availableSections.length - 1)) * 100
-      : 100;
-
   // Map sections to their edit indicator state for the tabs
   const sectionEditStates = useMemo<
     Record<string, "pending" | "approved" | null>
@@ -213,13 +208,9 @@ export function PaginatedBlueprintView({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Top section nav ────────────────────────────────────────────────── */}
-      <div className="shrink-0 relative bg-[rgba(12,14,19,0.5)] backdrop-blur-xl border-b border-border">
-        {/*
-          Scrollable wrapper: allows overflow on small viewports while centering
-          tabs horizontally when there is enough room.
-        */}
+      <div className="shrink-0 border-b border-[rgba(255,255,255,0.06)]">
         <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex items-center justify-center gap-1 px-6 py-2.5 min-w-max mx-auto">
+          <div className="flex gap-0 min-w-max">
             {availableSections.map((section, i) => {
               const isActive = i === currentPage;
               const editState = sectionEditStates[section] ?? null;
@@ -229,56 +220,28 @@ export function PaginatedBlueprintView({
                   key={section}
                   onClick={() => goToPage(i)}
                   className={cn(
-                    "relative shrink-0 flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors duration-200",
+                    "shrink-0 flex items-center gap-1.5 px-[18px] pt-3 pb-[11px] text-[13px] font-[450] border-b-2 -mb-px transition-colors duration-[120ms]",
                     "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                     isActive
-                      ? "text-white/90"
-                      : "text-white/40 hover:text-white/60"
+                      ? "text-[rgb(252,252,250)]"
+                      : "text-[rgb(100,105,115)] border-b-transparent hover:text-[rgb(205,208,213)]"
                   )}
+                  style={isActive ? { borderBottomColor: SECTION_ACCENT_COLORS[section].base } : undefined}
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Go to section ${i + 1}: ${SECTION_LABELS[section]}`}
                 >
-                  {/* Sliding pill background — Framer Motion layoutId */}
-                  {isActive && (
-                    <motion.div
-                      layoutId="section-tab-bg"
-                      className="absolute inset-0 rounded-lg bg-white/[0.06] border border-white/[0.08]"
-                      transition={springs.snappy}
-                    />
-                  )}
-
-                  {/* Number badge */}
-                  <span
-                    className={cn(
-                      "relative z-10 flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold tabular-nums leading-none transition-colors duration-200",
-                      isActive
-                        ? "bg-primary/[0.18] text-primary"
-                        : "bg-white/[0.06] text-white/30"
-                    )}
-                  >
-                    {i + 1}
-                  </span>
-
-                  {/* Label */}
-                  <span
-                    className={cn(
-                      "relative z-10 whitespace-nowrap text-[12px] font-[family-name:var(--font-heading)] font-medium leading-none transition-colors duration-200",
-                      isActive ? "text-white/90" : "text-white/40"
-                    )}
-                  >
-                    {SECTION_LABELS[section]}
-                  </span>
+                  <span className="whitespace-nowrap">{SECTION_LABELS[section]}</span>
 
                   {/* Edit state indicator dot */}
                   {editState === "pending" && (
                     <span
-                      className="relative z-10 blueprint-tab-pending-dot"
+                      className="inline-block w-1 h-1 rounded-full bg-[#f59e0b] shrink-0"
                       aria-label="Pending edit"
                     />
                   )}
                   {editState === "approved" && (
                     <span
-                      className="relative z-10 blueprint-tab-approved-dot"
+                      className="inline-block w-1 h-1 rounded-full bg-[#22c55e] shrink-0"
                       aria-label="Edit applied"
                     />
                   )}
@@ -286,15 +249,6 @@ export function PaginatedBlueprintView({
               );
             })}
           </div>
-        </div>
-
-        {/* Progress line */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-white/[0.04]">
-          <motion.div
-            className="h-full bg-primary/50"
-            animate={{ width: `${progressPct}%` }}
-            transition={springs.snappy}
-          />
         </div>
       </div>
 
@@ -305,15 +259,16 @@ export function PaginatedBlueprintView({
           <button
             onClick={goPrev}
             className={cn(
+              "nav-arrow-btn",
               "absolute left-2 top-1/2 -translate-y-1/2 z-10",
-              "flex h-9 w-9 items-center justify-center rounded-full",
-              "bg-[rgba(12,14,19,0.7)] backdrop-blur-md",
-              "border border-white/[0.08] text-white/60",
+              "flex h-8 w-8 items-center justify-center rounded-full",
+              "bg-transparent border border-[rgba(255,255,255,0.06)] text-[rgb(100,105,115)]",
               "opacity-0 group-hover:opacity-80 hover:!opacity-100",
               "transition-all duration-200",
-              "hover:scale-110 hover:border-primary/30 hover:text-white/90",
+              "hover:text-[rgb(205,208,213)]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             )}
+            style={{ "--nav-accent": SECTION_ACCENT_COLORS[currentSectionKey].base } as React.CSSProperties}
             aria-label="Previous section"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -347,15 +302,16 @@ export function PaginatedBlueprintView({
           <button
             onClick={goNext}
             className={cn(
+              "nav-arrow-btn",
               "absolute right-2 top-1/2 -translate-y-1/2 z-10",
-              "flex h-9 w-9 items-center justify-center rounded-full",
-              "bg-[rgba(12,14,19,0.7)] backdrop-blur-md",
-              "border border-white/[0.08] text-white/60",
+              "flex h-8 w-8 items-center justify-center rounded-full",
+              "bg-transparent border border-[rgba(255,255,255,0.06)] text-[rgb(100,105,115)]",
               "opacity-0 group-hover:opacity-80 hover:!opacity-100",
               "transition-all duration-200",
-              "hover:scale-110 hover:border-primary/30 hover:text-white/90",
+              "hover:text-[rgb(205,208,213)]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             )}
+            style={{ "--nav-accent": SECTION_ACCENT_COLORS[currentSectionKey].base } as React.CSSProperties}
             aria-label="Next section"
           >
             <ChevronRight className="h-4 w-4" />
@@ -377,22 +333,20 @@ export function PaginatedBlueprintView({
                   return (
                     <Tooltip key={section}>
                       <TooltipTrigger asChild>
-                        <motion.button
+                        <button
                           onClick={() => goToPage(i)}
                           className={cn(
-                            "relative flex items-center justify-center rounded-full transition-colors",
+                            "w-1.5 h-1.5 rounded-full transition-colors duration-200",
                             "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-                            isActive
-                              ? "bg-primary shadow-[0_0_10px_var(--accent-blue-glow)]"
-                              : editState === "pending"
-                              ? "bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.35)]"
-                              : editState === "approved"
-                              ? "bg-green-500/60 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
-                              : "bg-white/20 hover:bg-white/30"
+                            !isActive && editState === "pending"
+                              ? "bg-[#f59e0b]"
+                              : !isActive && editState === "approved"
+                              ? "bg-[#22c55e]"
+                              : !isActive
+                              ? "bg-[rgb(49,53,63)]"
+                              : ""
                           )}
-                          animate={{ width: isActive ? 26 : 10, height: 10 }}
-                          whileHover={{ scale: 1.15 }}
-                          transition={springs.snappy}
+                          style={isActive ? { backgroundColor: SECTION_ACCENT_COLORS[section].base } : undefined}
                           aria-label={`Go to ${SECTION_LABELS[section]}`}
                           aria-current={isActive ? "step" : undefined}
                         />

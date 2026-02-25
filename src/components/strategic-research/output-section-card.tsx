@@ -1,27 +1,10 @@
 "use client";
 
-import {
-  TrendingUp,
-  Users,
-  Package,
-  Swords,
-  Lightbulb,
-  Search,
-} from "lucide-react";
 import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
 import { CitationBadge, SourcesList } from "./citations";
-
-// Section icons mapping
-const SECTION_ICONS: Record<StrategicBlueprintSection, React.ReactNode> = {
-  industryMarketOverview: <TrendingUp className="h-5 w-5" />,
-  icpAnalysisValidation: <Users className="h-5 w-5" />,
-  offerAnalysisViability: <Package className="h-5 w-5" />,
-  competitorAnalysis: <Swords className="h-5 w-5" />,
-  crossAnalysisSynthesis: <Lightbulb className="h-5 w-5" />,
-  keywordIntelligence: <Search className="h-5 w-5" />,
-};
+import { SECTION_ACCENT_COLORS } from "./ui-tokens";
 
 // Section labels
 const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
@@ -58,32 +41,32 @@ export function OutputSectionCard({
   citations,
 }: OutputSectionCardProps) {
   const sectionNumber = STRATEGIC_BLUEPRINT_SECTION_ORDER.indexOf(sectionKey) + 1;
-  const sectionIcon = SECTION_ICONS[sectionKey];
   const sectionLabel = SECTION_LABELS[sectionKey];
+
+  const accentColors = SECTION_ACCENT_COLORS[sectionKey];
 
   return (
     <section
       id={sectionKey}
       data-section
-      className="rounded-xl bg-[var(--bg-surface)] border border-border shadow-[var(--shadow-card)] backdrop-blur-sm p-6 md:p-8"
+      className="rounded-xl border border-[rgba(255,255,255,0.06)] p-8 md:p-10"
+      style={{
+        borderTopColor: accentColors.base + "4D",
+        borderTopWidth: "2px",
+      }}
     >
       {/* Section Header */}
-      <div className="mb-6 flex items-start justify-between gap-4 border-b border-border pb-5">
-        <div className="flex items-center gap-4">
-          {/* Section number - blue accent background */}
-          <span className="bg-primary text-white flex size-8 items-center justify-center rounded-full text-sm font-medium shrink-0">
-            {sectionNumber}
+      <div className="mb-12 flex items-start justify-between gap-4">
+        <div>
+          <span
+            className="text-[13px] font-normal tabular-nums mr-[10px]"
+            style={{ color: accentColors.text }}
+          >
+            {String(sectionNumber).padStart(2, "0")}
           </span>
-
-          {/* Section icon and title */}
-          <div className="flex items-center gap-2.5">
-            <span className="text-primary">
-              {sectionIcon}
-            </span>
-            <h2 className="text-white/90 text-xl font-semibold leading-tight font-[family-name:var(--font-heading)] tracking-tight">
-              {sectionLabel}
-            </h2>
-          </div>
+          <h2 className="inline font-[family-name:var(--font-heading)] text-[22px] font-medium tracking-[-0.025em] text-[rgb(252,252,250)]">
+            {sectionLabel}
+          </h2>
         </div>
 
         {/* Citation count badge */}
