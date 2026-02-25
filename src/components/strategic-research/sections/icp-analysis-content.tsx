@@ -76,7 +76,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       {/* Coherence Check */}
       <SubSection title="ICP Coherence Check">
         <FieldHighlightWrapper fieldPath="coherenceCheck">
-          <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5">
+          <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
               <BoolCheck value={data?.coherenceCheck?.clearlyDefined || false} label="Clearly Defined" />
               <BoolCheck value={data?.coherenceCheck?.reachableThroughPaidChannels || false} label="Reachable via Paid Channels" />
@@ -90,7 +90,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
 
       {/* Pain-Solution Fit */}
       <SubSection title="Pain-Solution Fit">
-        <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5 space-y-3">
+        <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5 space-y-3">
           <div className="grid md:grid-cols-2 gap-3">
             <DataCard label="Primary Pain" fieldPath="painSolutionFit.primaryPain">
               {isEditing && onFieldChange ? (
@@ -130,7 +130,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       <SubSection title="Market Size & Reachability">
         <FieldHighlightWrapper fieldPath="marketReachability">
           <div className="space-y-3">
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5">
+            <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
                 <BoolCheck value={data?.marketReachability?.metaVolume || false} label="Meta Audience Volume" />
                 <BoolCheck value={data?.marketReachability?.linkedInVolume || false} label="LinkedIn Volume" />
@@ -158,7 +158,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       <SubSection title="Economic Feasibility">
         <FieldHighlightWrapper fieldPath="economicFeasibility">
           <div className="space-y-3">
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5">
+            <div className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
                 <BoolCheck value={data?.economicFeasibility?.hasBudget || false} label="ICP Has Budget" />
                 <BoolCheck value={data?.economicFeasibility?.purchasesSimilar || false} label="Purchases Similar Solutions" />
@@ -188,7 +188,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
                 return (
                   <div
                     key={idx}
-                    className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5"
+                    className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5"
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[10px] font-medium uppercase tracking-[0.07em] text-white/40">
@@ -242,7 +242,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
               <EditableList
                 items={safeArray(data?.finalVerdict?.recommendations)}
                 onSave={(v) => onFieldChange("finalVerdict.recommendations", v)}
-                renderPrefix={() => <Check className="h-4 w-4 text-blue-400/70" />}
+                renderPrefix={() => <Check className="h-4 w-4 text-primary/70" />}
               />
             ) : (
               <ul className="space-y-1">

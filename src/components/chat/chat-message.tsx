@@ -119,7 +119,7 @@ export function ChatMessage({
         'flex gap-3 p-4 rounded-lg',
         isUser ? 'bg-muted/50' : 'bg-background',
         isEditProposal && 'border border-amber-500/30 bg-amber-50/5',
-        isExplanation && 'border border-blue-500/30 bg-blue-50/5'
+        isExplanation && 'border border-primary/30 bg-primary/5'
       )}
     >
       {/* Avatar */}
@@ -131,7 +131,7 @@ export function ChatMessage({
             : isEditProposal
             ? 'bg-amber-500 text-amber-50'
             : isExplanation
-            ? 'bg-blue-500 text-blue-50'
+            ? 'bg-primary text-primary-foreground'
             : 'bg-secondary'
         )}
       >
@@ -156,7 +156,7 @@ export function ChatMessage({
             </span>
           )}
           {isExplanation && (
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+            <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
               Explanation
             </span>
           )}
@@ -194,18 +194,18 @@ export function ChatMessage({
 
             {/* Related Factors (for explanation responses) */}
             {relatedFactors && relatedFactors.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
-                <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
+              <div className="mt-3 pt-3 border-t border-primary/20">
+                <div className="text-xs font-medium text-primary mb-2">
                   Related Factors
                 </div>
                 <div className="space-y-2">
                   {relatedFactors.map((factor, i) => (
-                    <div key={i} className="text-sm bg-blue-50 dark:bg-blue-950/50 p-2 rounded">
-                      <span className="font-medium text-blue-900 dark:text-blue-100">
+                    <div key={i} className="text-sm bg-primary/5 p-2 rounded">
+                      <span className="font-medium text-foreground">
                         {SECTION_LABELS[factor.section] || factor.section}:
                       </span>{' '}
-                      <span className="text-blue-800 dark:text-blue-200">{factor.factor}</span>
-                      <span className="text-blue-600 dark:text-blue-400 block text-xs mt-1">
+                      <span className="text-foreground/80">{factor.factor}</span>
+                      <span className="text-primary/70 block text-xs mt-1">
                         {factor.relevance}
                       </span>
                     </div>

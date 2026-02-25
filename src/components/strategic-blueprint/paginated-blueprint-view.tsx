@@ -213,7 +213,7 @@ export function PaginatedBlueprintView({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Top section nav ────────────────────────────────────────────────── */}
-      <div className="shrink-0 relative bg-[rgba(12,14,19,0.5)] backdrop-blur-xl border-b border-white/[0.06]">
+      <div className="shrink-0 relative bg-[rgba(12,14,19,0.5)] backdrop-blur-xl border-b border-border">
         {/*
           Scrollable wrapper: allows overflow on small viewports while centering
           tabs horizontally when there is enough room.
@@ -230,7 +230,7 @@ export function PaginatedBlueprintView({
                   onClick={() => goToPage(i)}
                   className={cn(
                     "relative shrink-0 flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors duration-200",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                     isActive
                       ? "text-white/90"
                       : "text-white/40 hover:text-white/60"
@@ -252,7 +252,7 @@ export function PaginatedBlueprintView({
                     className={cn(
                       "relative z-10 flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold tabular-nums leading-none transition-colors duration-200",
                       isActive
-                        ? "bg-blue-500/[0.18] text-blue-400"
+                        ? "bg-primary/[0.18] text-primary"
                         : "bg-white/[0.06] text-white/30"
                     )}
                   >
@@ -291,7 +291,7 @@ export function PaginatedBlueprintView({
         {/* Progress line */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-white/[0.04]">
           <motion.div
-            className="h-full bg-blue-500/50"
+            className="h-full bg-primary/50"
             animate={{ width: `${progressPct}%` }}
             transition={springs.snappy}
           />
@@ -311,8 +311,8 @@ export function PaginatedBlueprintView({
               "border border-white/[0.08] text-white/60",
               "opacity-0 group-hover:opacity-80 hover:!opacity-100",
               "transition-all duration-200",
-              "hover:scale-110 hover:border-blue-500/30 hover:text-white/90",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+              "hover:scale-110 hover:border-primary/30 hover:text-white/90",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             )}
             aria-label="Previous section"
           >
@@ -353,8 +353,8 @@ export function PaginatedBlueprintView({
               "border border-white/[0.08] text-white/60",
               "opacity-0 group-hover:opacity-80 hover:!opacity-100",
               "transition-all duration-200",
-              "hover:scale-110 hover:border-blue-500/30 hover:text-white/90",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60"
+              "hover:scale-110 hover:border-primary/30 hover:text-white/90",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             )}
             aria-label="Next section"
           >
@@ -364,7 +364,7 @@ export function PaginatedBlueprintView({
       </div>
 
       {/* ── Bottom pagination ──────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-white/[0.06]">
+      <div className="shrink-0 border-t border-border">
         <div className="flex items-center justify-between px-6 py-2.5">
           {/* Left: dots + counter */}
           <div className="flex items-center gap-3">
@@ -381,9 +381,9 @@ export function PaginatedBlueprintView({
                           onClick={() => goToPage(i)}
                           className={cn(
                             "relative flex items-center justify-center rounded-full transition-colors",
-                            "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
+                            "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                             isActive
-                              ? "bg-blue-500 shadow-[0_0_10px_rgba(96,165,250,0.3)]"
+                              ? "bg-primary shadow-[0_0_10px_var(--accent-blue-glow)]"
                               : editState === "pending"
                               ? "bg-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.35)]"
                               : editState === "approved"
@@ -425,7 +425,7 @@ export function PaginatedBlueprintView({
                     "font-[family-name:var(--font-sans)]",
                     copied
                       ? "text-green-400 border-green-500/30"
-                      : "text-white/50 border-white/[0.08] hover:border-blue-500/30 hover:text-white/70"
+                      : "text-white/50 border-white/[0.08] hover:border-primary/30 hover:text-white/70"
                   )}
                   onClick={handleCopy}
                 >

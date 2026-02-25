@@ -13,15 +13,15 @@ const glowCardVariants = cva(
         default:
           "bg-card text-card-foreground border-border hover:border-primary/30",
         glass:
-          "bg-[oklch(0.12_0.02_265_/_0.4)] backdrop-blur-2xl border-[oklch(0.62_0.19_255_/_0.2)] hover:border-[oklch(0.62_0.19_255_/_0.5)] hover:bg-[oklch(0.15_0.03_265_/_0.5)]",
+          "bg-[var(--brand-navy)]/40 backdrop-blur-2xl border-primary/20 hover:border-primary/50 hover:bg-[var(--brand-navy)]/50",
         solid:
-          "bg-[oklch(0.18_0.04_265)] border-[oklch(0.30_0.04_265)] hover:border-primary/40",
+          "bg-[var(--brand-navy-light)] border-border hover:border-primary/40",
       },
       glow: {
         none: "",
-        sm: "shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.1)] hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.3)]",
-        md: "shadow-[0_0_25px_oklch(0.62_0.19_255_/_0.15)] hover:shadow-[0_0_40px_oklch(0.62_0.19_255_/_0.4)]",
-        lg: "shadow-[0_0_35px_oklch(0.62_0.19_255_/_0.2)] hover:shadow-[0_0_60px_oklch(0.62_0.19_255_/_0.5)]",
+        sm: "shadow-[var(--shadow-glow)] hover:shadow-[0_0_30px_var(--brand-blue)]",
+        md: "shadow-[0_0_25px_var(--brand-blue)] hover:shadow-[0_0_40px_var(--brand-blue)]",
+        lg: "shadow-[0_0_35px_var(--brand-blue)] hover:shadow-[0_0_60px_var(--brand-blue)]",
         pulse:
           "animate-pulse-glow",
       },
@@ -54,8 +54,8 @@ function GlowCard({
         className={cn(
           "relative p-[1px] rounded-xl transition-all duration-300",
           "bg-gradient-to-r from-transparent via-transparent to-transparent",
-          "hover:from-[oklch(0.62_0.19_255_/_0.5)] hover:via-[oklch(0.75_0.10_270_/_0.5)] hover:to-[oklch(0.80_0.12_240_/_0.5)]",
-          glow !== "none" && "shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.1)] hover:shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.2)]"
+          "hover:from-[var(--brand-blue)] hover:via-[var(--brand-periwinkle)] hover:to-[var(--brand-sky)]",
+          glow !== "none" && "shadow-[var(--shadow-glow)] hover:shadow-[0_0_30px_var(--brand-blue)]"
         )}
       >
         <div

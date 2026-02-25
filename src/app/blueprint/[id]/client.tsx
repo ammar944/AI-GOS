@@ -116,7 +116,7 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
           <div className="flex h-16 items-center justify-between">
             {/* Back to Dashboard */}
             <MagneticButton
-              className={cn(ghostButtonClass, "hover:border-blue-500/30 hover:text-blue-400")}
+              className={cn(ghostButtonClass, "hover:border-primary/30 hover:text-primary")}
               onClick={() => router.push("/dashboard")}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -134,7 +134,7 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
             {/* Actions */}
             <div className="flex items-center gap-2">
               <MagneticButton
-                className={cn(ghostButtonClass, "hover:border-blue-500/30 hover:text-blue-400")}
+                className={cn(ghostButtonClass, "hover:border-primary/30 hover:text-primary")}
                 onClick={handleShare}
                 disabled={isSharing || !!shareUrl}
               >
@@ -189,7 +189,7 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                     {linkedMediaPlans.length > 0 && (
                       <Link href={`/media-plan/${linkedMediaPlans[0].id}`}>
                         <MagneticButton
-                          className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                          className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
                         >
                           <BarChart3 className="h-4 w-4" />
                           View Media Plan
@@ -198,14 +198,14 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                     )}
                     <Link href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}>
                       <MagneticButton
-                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                        className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 text-white transition-opacity duration-200 hover:opacity-90"
                       >
                         <Wand2 className="h-4 w-4" />
                         Generate Media Plan
                       </MagneticButton>
                     </Link>
                     <MagneticButton
-                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
                       onClick={handleNewBlueprint}
                     >
                       <Wand2 className="h-4 w-4" />
@@ -223,7 +223,7 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                     transition={{ duration: 0.3 }}
                   >
                     <div className="flex items-center gap-2 mb-3">
-                      <Link2 className="h-4 w-4 text-blue-400" />
+                      <Link2 className="h-4 w-4 text-primary" />
                       <span className="font-medium text-sm text-white/80">
                         Shareable Link
                       </span>
@@ -236,7 +236,7 @@ export function BlueprintViewClient({ blueprint, linkedMediaPlans }: Props) {
                         className="flex-1 px-3 py-2 text-sm rounded-md bg-white/[0.03] border border-white/[0.08] text-white/80 font-[family-name:var(--font-mono)] outline-none"
                       />
                       <MagneticButton
-                        className="h-9 px-4 rounded-md text-sm font-medium bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                        className="h-9 px-4 rounded-md text-sm font-medium bg-gradient-to-r from-primary to-primary/80 text-white transition-opacity duration-200 hover:opacity-90"
                         onClick={handleCopyLink}
                       >
                         {shareCopied ? (

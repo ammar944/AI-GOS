@@ -82,7 +82,7 @@ export function SectionCard({
           ? "border-[var(--accent-blue)]"
           : "border-[var(--border-default)]",
         isReviewed && "shadow-[0_0_20px_rgba(34,197,94,0.1)]",
-        isEditing && "shadow-[0_0_20px_rgba(54,94,255,0.1)] ring-1 ring-[var(--accent-blue)]/20"
+        isEditing && "shadow-[0_0_20px_var(--accent-blue-glow)] ring-1 ring-[var(--accent-blue)]/20"
       )}
     >
       <CardHeader className="pb-0">
@@ -133,7 +133,7 @@ export function SectionCard({
                 style={{
                   borderColor: 'var(--accent-blue)',
                   color: 'var(--accent-blue)',
-                  background: 'rgba(54, 94, 255, 0.1)',
+                  background: 'var(--accent-blue-subtle)',
                   fontFamily: 'var(--font-sans), Inter, sans-serif',
                 }}
               >
@@ -165,7 +165,7 @@ export function SectionCard({
                 onClick={onToggleEdit}
                 className={cn(
                   "gap-1.5 transition-all duration-200",
-                  isEditing && "shadow-[0_0_20px_rgba(54,94,255,0.3)]",
+                  isEditing && "shadow-[0_0_20px_color-mix(in_srgb,var(--accent-blue)_30%,transparent)]",
                   !isEditing && "hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
                 )}
                 style={isEditing ? {

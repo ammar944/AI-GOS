@@ -14,7 +14,7 @@ function SectionDivider({
   const variants = {
     default: "bg-border",
     gradient: "bg-gradient-to-r from-transparent via-primary/50 to-transparent",
-    glow: "bg-primary/30 shadow-[0_0_10px_oklch(0.62_0.19_255_/_0.3)]",
+    glow: "bg-primary/30 shadow-[var(--shadow-glow)]",
   }
 
   return (

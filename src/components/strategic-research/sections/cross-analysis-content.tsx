@@ -38,7 +38,7 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                 key={i}
                 fieldPath={`keyInsights[${i}]`}
                 icon={Lightbulb}
-                iconColor="text-blue-400/70"
+                iconColor="text-primary/70"
                 title={safeRender(insight?.insight)}
                 accentBorder
               >
@@ -91,14 +91,14 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                   sourceType === "extracted"
                     ? "border-emerald-500/40"
                     : sourceType === "inspired"
-                      ? "border-blue-500/40"
+                      ? "border-primary/40"
                       : "border-white/[0.08]";
 
                 return (
                   <div
                     key={i}
                     className={cn(
-                      "rounded-lg bg-white/[0.02] border p-3.5",
+                      "rounded-lg bg-[var(--bg-surface)] border p-3.5",
                       borderClass
                     )}
                   >
@@ -115,7 +115,7 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                                 sourceType === "extracted"
                                   ? "bg-emerald-500/[0.08] text-emerald-400/80 border-emerald-500/[0.15]"
                                   : sourceType === "inspired"
-                                    ? "bg-blue-500/[0.08] text-blue-400/80 border-blue-500/[0.15]"
+                                    ? "bg-primary/[0.08] text-primary/80 border-primary/[0.15]"
                                     : "bg-white/[0.04] text-white/40 border-white/[0.08]"
                               )}
                             >
@@ -128,7 +128,7 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                             </span>
                           )}
                           {hookItem.source?.platform && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-white/[0.02] text-white/40 border-white/[0.06]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border bg-[var(--bg-surface)] text-white/40 border-border">
                               {hookItem.source.platform}
                             </span>
                           )}
@@ -162,8 +162,8 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                     className={cn(
                       "rounded-lg border p-3.5",
                       isPrimary
-                        ? "bg-blue-500/[0.04] border-blue-500/[0.12]"
-                        : "bg-white/[0.02] border-white/[0.06]"
+                        ? "bg-primary/[0.04] border-primary/[0.12]"
+                        : "bg-[var(--bg-surface)] border-border"
                     )}
                   >
                     <div className="flex items-center justify-between mb-2">

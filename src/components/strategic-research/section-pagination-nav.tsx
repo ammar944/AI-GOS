@@ -94,7 +94,7 @@ export function SectionPaginationNav({
                             ? "var(--success)"
                             : "var(--border-default)",
                         boxShadow: isActive
-                          ? "0 0 10px rgba(54, 94, 255, 0.4)"
+                          ? "0 0 10px var(--accent-blue-glow)"
                           : "none",
                         opacity: isActive ? 1 : isReviewed ? 0.9 : 0.5,
                       }}

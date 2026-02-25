@@ -299,7 +299,7 @@ export function StrategicResearchReview({
           borderColor: 'var(--accent-blue)',
           borderWidth: '1px',
         }}
-        className="shadow-[0_0_30px_rgba(54,94,255,0.15)]"
+        className="shadow-[0_0_30px_var(--accent-blue-glow)]"
       >
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -362,7 +362,7 @@ export function StrategicResearchReview({
                 style={{
                   width: `${reviewProgress}%`,
                   background: 'var(--gradient-primary)',
-                  boxShadow: '0 0 10px rgba(54, 94, 255, 0.4)',
+                  boxShadow: '0 0 10px var(--accent-blue-glow)',
                 }}
               />
             </div>
@@ -399,7 +399,7 @@ export function StrategicResearchReview({
         <Card
           className="shadow-xl backdrop-blur-sm"
           style={{
-            background: 'rgba(12, 14, 19, 0.95)',
+            background: 'color-mix(in srgb, var(--bg-card) 95%, transparent)',
             borderColor: 'var(--border-default)',
           }}
         >
@@ -533,7 +533,7 @@ export function StrategicResearchReview({
                   size="sm"
                   onClick={handleApprove}
                   disabled={!allReviewed}
-                  className="h-9 sm:h-8 gap-1.5 rounded-full shadow-[0_0_20px_rgba(54,94,255,0.3)]"
+                  className="h-9 sm:h-8 gap-1.5 rounded-full shadow-[0_0_20px_var(--accent-blue-glow)]"
                   style={{
                     background: allReviewed
                       ? 'var(--gradient-primary)'

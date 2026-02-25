@@ -117,7 +117,7 @@ export function CompetitorBottomNav({
             )}
             style={{
               background: "linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))",
-              boxShadow: "0 2px 12px rgba(54, 94, 255, 0.2)",
+              boxShadow: "0 2px 12px var(--accent-blue-glow)",
             }}
           >
             <div className="min-w-0 flex flex-col items-end gap-0.5">

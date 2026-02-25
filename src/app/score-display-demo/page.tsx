@@ -4,12 +4,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ScoreDisplay,
-  SegmentedRing,
-  GlowArc,
-  GradientBar,
-  Thermometer,
-  LiquidFill,
-  type ScoreVariant,
   type ScoreSize,
 } from "@/components/ui/score-display";
 import Link from "next/link";
@@ -32,34 +26,6 @@ export default function ScoreDisplayDemo() {
   const handleReplay = () => {
     setKey((prev) => prev + 1);
   };
-
-  const variants: { name: string; variant: ScoreVariant; description: string }[] = [
-    {
-      name: "Segmented Ring",
-      variant: "segmented-ring",
-      description: "Segmented progress with clean fills. Balanced for overview scores.",
-    },
-    {
-      name: "Glow Arc",
-      variant: "glow-arc",
-      description: "270-degree arc with a subtle gradient. Modern but understated.",
-    },
-    {
-      name: "Gradient Bar",
-      variant: "gradient-bar",
-      description: "Horizontal bar with soft gradient. Great for comparisons.",
-    },
-    {
-      name: "Thermometer",
-      variant: "thermometer",
-      description: "Vertical segmented fill. Compact for tight layouts.",
-    },
-    {
-      name: "Liquid Fill",
-      variant: "liquid-fill",
-      description: "Liquid fill with a gentle wave. Adds motion without noise.",
-    },
-  ];
 
   const sampleScores = [
     { label: "Pain Relevance", score: 8.2 },
@@ -88,7 +54,7 @@ export default function ScoreDisplayDemo() {
                 className="text-lg font-semibold"
                 style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
               >
-                Score Display Components
+                Score Display Component
               </h1>
             </div>
             <Badge variant="outline" className="border-[var(--border-default)] text-[var(--text-secondary)]">
@@ -171,7 +137,7 @@ export default function ScoreDisplayDemo() {
 
               <div className="flex items-center justify-between">
                 <div className="text-xs text-[var(--text-tertiary)]">
-                  Use the sliders to explore variants.
+                  Use the sliders to explore the component.
                 </div>
                 <Button variant="outline" size="sm" onClick={handleReplay}>
                   Replay Animations
@@ -183,7 +149,7 @@ export default function ScoreDisplayDemo() {
 
         <Separator className="my-10" />
 
-        {/* All Variants Grid */}
+        {/* Live Preview */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -194,37 +160,18 @@ export default function ScoreDisplayDemo() {
             className="text-2xl font-bold mb-8"
             style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
           >
-            All Variants
+            Live Preview
           </h2>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {variants.map((item) => (
-              <Card
-                key={`${item.variant}-${key}`}
-                className="bg-[var(--bg-surface)] border border-[var(--border-default)]"
-              >
-                <CardContent className="pt-8">
-                  <div className="flex justify-center mb-6">
-                  <ScoreDisplay
-                    score={score}
-                    max={max}
-                    variant={item.variant}
-                    size={size}
-                    animated={animated}
-                  />
-                  </div>
-                  <h3
-                    className="text-lg font-semibold mb-2 text-center"
-                    style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
-                  >
-                    {item.name}
-                  </h3>
-                  <p className="text-sm text-[var(--text-secondary)] text-center leading-relaxed">
-                    {item.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="p-12 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-default)] flex justify-center">
+            <ScoreDisplay
+              key={`preview-${key}`}
+              score={score}
+              max={max}
+              label="Score"
+              size={size}
+              animated={animated}
+            />
           </div>
         </motion.section>
 
@@ -239,48 +186,20 @@ export default function ScoreDisplayDemo() {
             className="text-2xl font-bold mb-8"
             style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
           >
-            Size Comparison (Segmented Ring)
+            Size Comparison
           </h2>
 
           <div className="p-8 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
             <div className="flex flex-wrap items-end justify-center gap-12">
-              <SegmentedRing
-                key={`sm-${key}`}
-                score={score}
-                max={max}
-                label="Small"
-                size="sm"
-                animated={animated}
-              />
-              <SegmentedRing
-                key={`md-${key}`}
-                score={score}
-                max={max}
-                label="Medium"
-                size="md"
-                animated={animated}
-              />
-              <SegmentedRing
-                key={`lg-${key}`}
-                score={score}
-                max={max}
-                label="Large"
-                size="lg"
-                animated={animated}
-              />
-              <SegmentedRing
-                key={`xl-${key}`}
-                score={score}
-                max={max}
-                label="Extra Large"
-                size="xl"
-                animated={animated}
-              />
+              <ScoreDisplay key={`sm-${key}`} score={score} max={max} label="Small" size="sm" animated={animated} />
+              <ScoreDisplay key={`md-${key}`} score={score} max={max} label="Medium" size="md" animated={animated} />
+              <ScoreDisplay key={`lg-${key}`} score={score} max={max} label="Large" size="lg" animated={animated} />
+              <ScoreDisplay key={`xl-${key}`} score={score} max={max} label="Extra Large" size="xl" animated={animated} />
             </div>
           </div>
         </motion.section>
 
-        {/* Multi-Score Display with Gradient Bars */}
+        {/* Use Case: Offer Analysis */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -295,65 +214,8 @@ export default function ScoreDisplayDemo() {
           </h2>
 
           <div className="p-8 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Hero Score */}
-              <div className="md:col-span-2 flex flex-col items-center p-6 rounded-xl bg-[var(--bg-elevated)]">
-                <GlowArc
-                  key={`hero-${key}`}
-                  score={7.4}
-                  max={10}
-                  label="Overall Score"
-                  size="xl"
-                  animated={animated}
-                />
-              </div>
-
-              {/* Sub-scores as gradient bars */}
-              <div className="space-y-4">
-                {sampleScores.slice(0, 3).map((item, i) => (
-                  <GradientBar
-                    key={`bar-1-${i}-${key}`}
-                    score={item.score}
-                    max={10}
-                    label={item.label}
-                    size="md"
-                    animated={animated}
-                  />
-                ))}
-              </div>
-              <div className="space-y-4">
-                {sampleScores.slice(3).map((item, i) => (
-                  <GradientBar
-                    key={`bar-2-${i}-${key}`}
-                    score={item.score}
-                    max={10}
-                    label={item.label}
-                    size="md"
-                    animated={animated}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* Alternative Layout: All Segmented Rings */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mb-16"
-        >
-          <h2
-            className="text-2xl font-bold mb-8"
-            style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
-          >
-            Alternative Layout: All Segmented Rings
-          </h2>
-
-          <div className="p-8 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-12 mb-8">
-              <SegmentedRing
+            <div className="flex flex-col items-center gap-8">
+              <ScoreDisplay
                 key={`overall-${key}`}
                 score={7.4}
                 max={10}
@@ -361,92 +223,47 @@ export default function ScoreDisplayDemo() {
                 size="xl"
                 animated={animated}
               />
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-              {sampleScores.map((item, i) => (
-                <SegmentedRing
-                  key={`seg-${i}-${key}`}
-                  score={item.score}
-                  max={10}
-                  label={item.label}
-                  size="md"
-                  animated={animated}
-                />
-              ))}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {sampleScores.map((item, i) => (
+                  <ScoreDisplay
+                    key={`seg-${i}-${key}`}
+                    score={item.score}
+                    max={10}
+                    label={item.label}
+                    size="md"
+                    animated={animated}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </motion.section>
 
-        {/* Code Examples */}
+        {/* Code Example */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.4 }}
         >
           <h2
             className="text-2xl font-bold mb-8"
             style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
           >
-            Usage Examples
+            Usage
           </h2>
 
-          <div className="space-y-4">
-            <div className="p-6 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
-              <h3
-                className="text-base font-semibold mb-3"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
-              >
-                Basic Usage
-              </h3>
-              <pre className="text-sm text-[var(--text-secondary)] overflow-x-auto">
-                <code>{`<ScoreDisplay
+          <div className="p-6 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
+            <pre className="text-sm text-[var(--text-secondary)] overflow-x-auto">
+              <code>{`import { ScoreDisplay } from '@/components/ui/score-display';
+
+<ScoreDisplay
   score={7.4}
   max={10}
   label="Overall Score"
-  variant="segmented-ring"
   size="lg"
   animated={true}
 />`}</code>
-              </pre>
-            </div>
-
-            <div className="p-6 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
-              <h3
-                className="text-base font-semibold mb-3"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
-              >
-                Direct Component Import
-              </h3>
-              <pre className="text-sm text-[var(--text-secondary)] overflow-x-auto">
-                <code>{`import { GlowArc } from '@/components/ui/score-display';
-
-<GlowArc
-  score={8.5}
-  max={10}
-  label="Pain Relevance"
-  size="md"
-/>`}</code>
-              </pre>
-            </div>
-
-            <div className="p-6 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)]">
-              <h3
-                className="text-base font-semibold mb-3"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--text-heading)" }}
-              >
-                Gradient Bar for Lists
-              </h3>
-              <pre className="text-sm text-[var(--text-secondary)] overflow-x-auto">
-                <code>{`<GradientBar
-  score={6.5}
-  max={10}
-  label="Differentiation"
-  size="md"
-  animated={true}
-/>`}</code>
-              </pre>
-            </div>
+            </pre>
           </div>
         </motion.section>
       </main>
@@ -455,7 +272,7 @@ export default function ScoreDisplayDemo() {
       <div className="mt-16 py-8 border-t border-[var(--border-default)]">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-[var(--text-tertiary)]">
-            Premium score visualization components for AI-GOS. Built with Framer Motion and SVG.
+            Score visualization component for AI-GOS. Built with Framer Motion and SVG.
           </p>
         </div>
       </div>

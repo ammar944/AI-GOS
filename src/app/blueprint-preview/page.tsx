@@ -787,7 +787,6 @@ export default function BlueprintPreviewPage() {
                     Overall Score
                   </p>
                   <ScoreDisplay
-                    variant="glow-arc"
                     score={sampleData.offerAnalysis.overallScore}
                     max={10}
                     size="xl"
@@ -801,7 +800,6 @@ export default function BlueprintPreviewPage() {
                     ([key, value]) => (
                       <ScoreDisplay
                         key={key}
-                        variant="gradient-bar"
                         score={value}
                         max={10}
                         label={key

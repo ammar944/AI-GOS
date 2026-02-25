@@ -135,7 +135,7 @@ export function DocumentSection({
             className={cn(
               "gap-1.5 rounded-full border px-3 text-sm transition-colors duration-200",
               isEditing
-                ? "border-transparent shadow-[0_0_15px_rgba(54,94,255,0.2)]"
+                ? "border-transparent shadow-[0_0_15px_var(--accent-blue-glow)]"
                 : "border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
             )}
             style={isEditing ? {

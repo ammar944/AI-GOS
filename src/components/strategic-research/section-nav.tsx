@@ -143,7 +143,7 @@ export function SectionNav({
               style={{
                 width: `${(reviewedSections.size / totalSections) * 100}%`,
                 background: 'var(--gradient-primary)',
-                boxShadow: '0 0 8px rgba(54, 94, 255, 0.3)',
+                boxShadow: '0 0 8px var(--accent-blue-glow)',
               }}
             />
           </div>

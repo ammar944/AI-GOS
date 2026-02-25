@@ -137,7 +137,7 @@ export function CompetitorStickyNav({
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all duration-150",
               hasNext
-                ? "text-[var(--accent-blue)] hover:text-[var(--accent-blue-hover)] hover:bg-[rgba(54,94,255,0.08)] active:scale-[0.97]"
+                ? "text-[var(--accent-blue)] hover:text-[var(--accent-blue-hover)] hover:bg-[var(--accent-blue-subtle)] active:scale-[0.97]"
                 : "text-[var(--text-tertiary)] opacity-40 cursor-default"
             )}
           >

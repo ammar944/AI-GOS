@@ -65,7 +65,7 @@ export function CitationBadge({ count }: CitationBadgeProps) {
   return (
     <Badge
       variant="outline"
-      className="gap-1 rounded-full border-[var(--border-subtle)] bg-[rgba(54,94,255,0.1)] text-[var(--accent-blue)]"
+      className="gap-1 rounded-full border-[var(--border-subtle)] bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]"
       style={{
         fontFamily: 'var(--font-sans), Inter, sans-serif',
       }}
@@ -104,7 +104,7 @@ export function SourcedText({ children, className }: SourcedTextProps) {
               "decoration-dotted underline underline-offset-2",
               className
             )}
-            style={{ textDecorationColor: 'rgba(54, 94, 255, 0.4)' }}
+            style={{ textDecorationColor: 'color-mix(in srgb, var(--accent-blue) 40%, transparent)' }}
           >
             {renderWithSubscripts(children)}
             <Globe className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent-blue)' }} />
@@ -133,7 +133,7 @@ export function SourcedListItem({ children, className }: SourcedTextProps) {
               "cursor-help border-b border-dotted",
               className
             )}
-            style={{ borderColor: 'rgba(54, 94, 255, 0.3)' }}
+            style={{ borderColor: 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' }}
           >
             {renderWithSubscripts(children)}
           </span>

@@ -108,7 +108,7 @@ export function BlueprintCompleteView({
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-3">
                     <MagneticButton
-                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                      className="h-9 px-4 rounded-full text-sm font-medium flex items-center gap-2 bg-gradient-to-r from-primary to-primary/80 text-white transition-opacity duration-200 hover:opacity-90"
                       onClick={onGenerateMediaPlan}
                     >
                       <Wand2 className="h-4 w-4" />
@@ -116,14 +116,14 @@ export function BlueprintCompleteView({
                     </MagneticButton>
                     <a href="/dashboard">
                       <MagneticButton
-                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                        className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
                       >
                         <LayoutDashboard className="h-4 w-4" />
                         Back to Dashboard
                       </MagneticButton>
                     </a>
                     <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
                       onClick={onBackToReview}
                     >
                       <ArrowLeft className="h-4 w-4" />
@@ -145,7 +145,7 @@ export function BlueprintCompleteView({
                       {blueprintCopied ? 'Copied' : 'Copy'}
                     </MagneticButton>
                     <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
                       onClick={onShare}
                       disabled={isSharing || !!shareUrl}
                     >
@@ -159,7 +159,7 @@ export function BlueprintCompleteView({
                       {isSharing ? 'Sharing...' : shareUrl ? 'Shared' : 'Share'}
                     </MagneticButton>
                     <MagneticButton
-                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-blue-500/30 hover:text-blue-400 bg-transparent"
+                      className="flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all duration-200 text-white/50 border border-white/[0.08] hover:border-primary/30 hover:text-primary bg-transparent"
                       onClick={onStartOver}
                     >
                       <Wand2 className="h-4 w-4" />
@@ -208,7 +208,7 @@ export function BlueprintCompleteView({
                       transition={{ duration: 0.3 }}
                     >
                       <div className="flex items-center gap-2 mb-3">
-                        <Link2 className="h-4 w-4 text-blue-400" />
+                        <Link2 className="h-4 w-4 text-primary" />
                         <span className="font-medium text-sm text-white/80">
                           Shareable Link
                         </span>
@@ -221,7 +221,7 @@ export function BlueprintCompleteView({
                           className="flex-1 px-3 py-2 text-sm rounded-md bg-white/[0.03] border border-white/[0.08] text-white/80 font-[family-name:var(--font-mono)] outline-none"
                         />
                         <MagneticButton
-                          className="h-9 rounded-full px-4 text-sm font-medium bg-gradient-to-r from-blue-600 to-blue-500 text-white transition-opacity duration-200 hover:opacity-90"
+                          className="h-9 rounded-full px-4 text-sm font-medium bg-gradient-to-r from-primary to-primary/80 text-white transition-opacity duration-200 hover:opacity-90"
                           onClick={onCopyLink}
                         >
                           {shareCopied ? (

@@ -145,7 +145,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                       return (
                         <div
                           key={i}
-                          className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5"
+                          className="rounded-lg bg-[var(--bg-surface)] border border-border p-3.5"
                         >
                           {/* Competitor header */}
                           <h4 className="font-semibold text-lg flex items-center gap-2 flex-wrap text-white/90">
@@ -167,7 +167,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                 href={comp.website}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm font-normal text-white/40 transition-colors hover:text-blue-400/80"
+                                className="inline-flex items-center gap-1 text-sm font-normal text-white/40 transition-colors hover:text-primary/80"
                               >
                                 <span className="truncate max-w-[200px]">{comp.website.replace(/^https?:\/\//, '')}</span>
                                 <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -311,7 +311,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                             const complaints = (tp?.reviews ?? []).filter(r => r.rating <= 2).slice(0, 3);
                             const praise = (tp?.reviews ?? []).filter(r => r.rating >= 4).slice(0, 2);
                             return (
-                              <div className="mt-3 rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                              <div className="mt-3 rounded-lg bg-[var(--bg-surface)] border border-border p-3">
                                 <div className="mb-2 flex items-center justify-between gap-3">
                                   <p className="flex items-center gap-2 text-sm font-medium text-white/80">
                                     <MessageSquareQuote className="h-4 w-4 text-amber-400/70" />
@@ -343,7 +343,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                         </Badge>
                                       )}
                                       {g2.productCategory && (
-                                        <Badge variant="secondary" className="text-xs">{g2.productCategory}</Badge>
+                                        <Badge variant="outline" className="text-xs">{g2.productCategory}</Badge>
                                       )}
                                     </div>
                                   )}
@@ -369,22 +369,22 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   <div className="space-y-3">
                                     {/* Stats row */}
                                     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                                      <div className="rounded-lg bg-white/[0.02] border border-white/[0.05] p-2">
+                                      <div className="rounded-lg bg-[var(--bg-surface)] border border-border/80 p-2">
                                         <p className="text-[10px] uppercase tracking-[0.08em] text-white/30">Complaints</p>
                                         <p className="mt-1 text-sm font-semibold text-red-400/70 font-[family-name:var(--font-mono)]">{complaints.length}</p>
                                       </div>
-                                      <div className="rounded-lg bg-white/[0.02] border border-white/[0.05] p-2">
+                                      <div className="rounded-lg bg-[var(--bg-surface)] border border-border/80 p-2">
                                         <p className="text-[10px] uppercase tracking-[0.08em] text-white/30">Praise</p>
                                         <p className="mt-1 text-sm font-semibold text-emerald-400/70 font-[family-name:var(--font-mono)]">{praise.length}</p>
                                       </div>
                                       {tp?.totalReviews != null && (
-                                        <div className="rounded-lg bg-white/[0.02] border border-white/[0.05] p-2">
+                                        <div className="rounded-lg bg-[var(--bg-surface)] border border-border/80 p-2">
                                           <p className="text-[10px] uppercase tracking-[0.08em] text-white/30">Trustpilot Reviews</p>
                                           <p className="mt-1 text-sm font-semibold text-white/80 font-[family-name:var(--font-mono)]">{tp.totalReviews}</p>
                                         </div>
                                       )}
                                       {g2?.reviewCount != null && (
-                                        <div className="rounded-lg bg-white/[0.02] border border-white/[0.05] p-2">
+                                        <div className="rounded-lg bg-[var(--bg-surface)] border border-border/80 p-2">
                                           <p className="text-[10px] uppercase tracking-[0.08em] text-white/30">G2 Reviews</p>
                                           <p className="mt-1 text-sm font-semibold text-white/80 font-[family-name:var(--font-mono)]">{g2.reviewCount}</p>
                                         </div>
@@ -399,7 +399,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                           </p>
                                           <div className="space-y-2">
                                             {complaints.map((review, j) => (
-                                              <div key={j} className="rounded-md border border-white/[0.06] bg-white/[0.02] p-2.5 text-xs">
+                                              <div key={j} className="rounded-md border border-border bg-[var(--bg-surface)] p-2.5 text-xs">
                                                 <div className="mb-1 flex items-center gap-1">
                                                   {Array.from({ length: 5 }).map((_, k) => (
                                                     <Star
@@ -430,7 +430,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                           </p>
                                           <div className="space-y-2">
                                             {praise.map((review, j) => (
-                                              <div key={j} className="rounded-md border border-white/[0.06] bg-white/[0.02] p-2.5 text-xs">
+                                              <div key={j} className="rounded-md border border-border bg-[var(--bg-surface)] p-2.5 text-xs">
                                                 <div className="mb-1 flex items-center gap-1">
                                                   {Array.from({ length: 5 }).map((_, k) => (
                                                     <Star
@@ -482,7 +482,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   {comp.pricingTiers.map((tier, j) => (
                                     <div
                                       key={j}
-                                      className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3 text-xs break-words"
+                                      className="rounded-lg bg-[var(--bg-surface)] border border-border p-3 text-xs break-words"
                                     >
                                       {/* Tier name and price */}
                                       <div className="mb-1 flex items-center justify-between gap-2">
@@ -522,7 +522,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                       )}
                                       {/* Limitations */}
                                       {tier.limitations && (
-                                        <p className="mt-3 border-t border-white/[0.06] pt-2 text-xs italic text-white/35">
+                                        <p className="mt-3 border-t border-border pt-2 text-xs italic text-white/35">
                                           Limits: {excerpt(cleanReviewText(tier.limitations), 90)}
                                         </p>
                                       )}
@@ -535,9 +535,9 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
 
                           {/* Main Offer */}
                           {comp?.mainOffer && (
-                            <FieldHighlightWrapper fieldPath={`competitors[${i}].mainOffer`} className="mt-4 rounded-lg bg-blue-500/[0.04] border border-blue-500/[0.14] p-3">
+                            <FieldHighlightWrapper fieldPath={`competitors[${i}].mainOffer`} className="mt-4 rounded-lg bg-primary/[0.04] border border-primary/[0.14] p-3">
                               <p className="text-sm font-medium mb-2 flex items-center gap-2 text-white/80">
-                                <Sparkles className="h-4 w-4 text-blue-400/80" />
+                                <Sparkles className="h-4 w-4 text-primary/80" />
                                 Main Offer
                               </p>
                               <div className="space-y-2 text-sm">
@@ -563,7 +563,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                     <p className="italic text-white/50">{comp.mainOffer.valueProposition}</p>
                                   )}
                                 </div>
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="outline" className="text-xs">
                                   CTA: {comp.mainOffer.cta}
                                 </Badge>
                               </div>
@@ -574,14 +574,14 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                           {comp?.adMessagingThemes && comp.adMessagingThemes.length > 0 && (
                             <FieldHighlightWrapper fieldPath={`competitors[${i}].adMessagingThemes`} className="mt-4">
                               <p className="text-sm font-medium mb-2 flex items-center gap-2 text-white/80">
-                                <Tag className="h-4 w-4 text-blue-400/80" />
+                                <Tag className="h-4 w-4 text-primary/80" />
                                 Ad Themes
                               </p>
                               {isEditing && onFieldChange ? (
                                 <EditableList
                                   items={comp.adMessagingThemes}
                                   onSave={(v) => onFieldChange(`competitors.${i}.adMessagingThemes`, v)}
-                                  renderPrefix={() => <Tag className="h-3 w-3 text-blue-400/80" />}
+                                  renderPrefix={() => <Tag className="h-3 w-3 text-primary/80" />}
                                   className="text-sm"
                                 />
                               ) : (
@@ -589,7 +589,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                                   {comp.adMessagingThemes.map((theme, j) => (
                                     <span
                                       key={j}
-                                      className="inline-flex items-center rounded-md bg-blue-500/[0.08] border border-blue-500/[0.18] px-2.5 py-1 text-xs capitalize text-blue-400/70 break-words"
+                                      className="inline-flex items-center rounded-md bg-primary/[0.08] border border-primary/[0.18] px-2.5 py-1 text-xs capitalize text-primary/70 break-words"
                                     >
                                       {theme}
                                     </span>
@@ -603,7 +603,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                           {comp?.adCreatives && comp.adCreatives.length > 0 && (
                             <div className="mt-4">
                               <p className="text-sm font-medium mb-2 flex items-center gap-2 text-white/80">
-                                <Image className="h-4 w-4 text-blue-400/80" />
+                                <Image className="h-4 w-4 text-primary/80" />
                                 Ad Creatives ({comp.adCreatives.length})
                               </p>
                               <AdCreativeCarousel ads={comp.adCreatives} />
@@ -633,19 +633,19 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
           <h4 className="text-sm font-medium text-white/70 mb-2">Creative Formats Used</h4>
           <div className="flex flex-wrap gap-2">
             {data?.creativeLibrary?.creativeFormats?.ugc && (
-              <Badge variant="secondary" className="text-sm">UGC</Badge>
+              <Badge variant="outline" className="text-sm">UGC</Badge>
             )}
             {data?.creativeLibrary?.creativeFormats?.carousels && (
-              <Badge variant="secondary" className="text-sm">Carousels</Badge>
+              <Badge variant="outline" className="text-sm">Carousels</Badge>
             )}
             {data?.creativeLibrary?.creativeFormats?.statics && (
-              <Badge variant="secondary" className="text-sm">Statics</Badge>
+              <Badge variant="outline" className="text-sm">Statics</Badge>
             )}
             {data?.creativeLibrary?.creativeFormats?.testimonial && (
-              <Badge variant="secondary" className="text-sm">Testimonials</Badge>
+              <Badge variant="outline" className="text-sm">Testimonials</Badge>
             )}
             {data?.creativeLibrary?.creativeFormats?.productDemo && (
-              <Badge variant="secondary" className="text-sm">Product Demo</Badge>
+              <Badge variant="outline" className="text-sm">Product Demo</Badge>
             )}
             {!data?.creativeLibrary?.creativeFormats?.ugc &&
              !data?.creativeLibrary?.creativeFormats?.carousels &&
@@ -766,11 +766,11 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
             {data.whiteSpaceGaps.map((wsg: WhiteSpaceGap, idx: number) => {
               const typeConfig: Record<string, { bg: string; border: string; text: string }> = {
                 messaging: { bg: "bg-emerald-500/[0.05]", border: "border-emerald-500/[0.18]", text: "text-emerald-400/70" },
-                feature:   { bg: "bg-blue-500/[0.05]",    border: "border-blue-500/[0.18]",    text: "text-blue-400/70"    },
+                feature:   { bg: "bg-primary/[0.05]",    border: "border-primary/[0.18]",    text: "text-primary/70"    },
                 audience:  { bg: "bg-violet-500/[0.05]",  border: "border-violet-500/[0.18]",  text: "text-violet-400/70"  },
                 channel:   { bg: "bg-amber-500/[0.05]",   border: "border-amber-500/[0.18]",   text: "text-amber-400/70"   },
               };
-              const config = typeConfig[wsg.type] || { bg: "bg-white/[0.02]", border: "border-white/[0.06]", text: "text-white/50" };
+              const config = typeConfig[wsg.type] || { bg: "bg-[var(--bg-surface)]", border: "border-border", text: "text-white/50" };
               return (
                 <FieldHighlightWrapper key={idx} fieldPath={`whiteSpaceGaps[${idx}]`}>
                   <div className={cn("rounded-lg border p-3", config.bg, config.border)}>
@@ -803,7 +803,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                 <EditableList
                   items={safeArray(data?.gapsAndOpportunities?.messagingOpportunities)}
                   onSave={(v) => onFieldChange("gapsAndOpportunities.messagingOpportunities", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                  renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                   className="text-sm"
                 />
               ) : (
@@ -814,13 +814,13 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                 </ul>
               )}
             </div>
-            <div className="rounded-lg bg-blue-500/[0.05] border border-blue-500/[0.18] p-3">
-              <h4 className="font-medium mb-2 text-blue-400/80">Creative Opportunities</h4>
+            <div className="rounded-lg bg-primary/[0.05] border border-primary/[0.18] p-3">
+              <h4 className="font-medium mb-2 text-primary/80">Creative Opportunities</h4>
               {isEditing && onFieldChange ? (
                 <EditableList
                   items={safeArray(data?.gapsAndOpportunities?.creativeOpportunities)}
                   onSave={(v) => onFieldChange("gapsAndOpportunities.creativeOpportunities", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                  renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                   className="text-sm"
                 />
               ) : (
@@ -837,7 +837,7 @@ export function CompetitorAnalysisContent({ data, isEditing, onFieldChange }: Co
                 <EditableList
                   items={safeArray(data?.gapsAndOpportunities?.funnelOpportunities)}
                   onSave={(v) => onFieldChange("gapsAndOpportunities.funnelOpportunities", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                  renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                   className="text-sm"
                 />
               ) : (

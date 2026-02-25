@@ -12,6 +12,6 @@ export const STATUS_BADGE_COLORS = {
   warning: "bg-[rgba(245,158,11,0.14)] text-[rgb(253,186,116)] border-[rgba(245,158,11,0.34)]",
   caution: "bg-[rgba(249,115,22,0.14)] text-[rgb(253,186,116)] border-[rgba(249,115,22,0.34)]",
   danger: "bg-[rgba(239,68,68,0.14)] text-[rgb(252,165,165)] border-[rgba(239,68,68,0.34)]",
-  info: "bg-[rgba(54,94,255,0.14)] text-[rgb(147,197,253)] border-[rgba(54,94,255,0.34)]",
+  info: "bg-[var(--accent-blue-subtle)] text-[rgb(147,197,253)] border-[var(--accent-blue)]/35",
   neutral: "bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-default)]",
 } as const;

@@ -63,7 +63,7 @@ function LogoMark({ className, size = "md" }: { className?: string; size?: "sm" 
     <div
       className={cn(
         "relative inline-flex items-center justify-center rounded-xl overflow-hidden",
-        "shadow-[0_0_30px_oklch(0.62_0.19_255_/_0.4)]",
+        "shadow-[0_0_30px_var(--brand-blue)]",
         className
       )}
     >

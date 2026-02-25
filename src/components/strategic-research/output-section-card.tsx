@@ -65,19 +65,19 @@ export function OutputSectionCard({
     <section
       id={sectionKey}
       data-section
-      className="rounded-xl bg-white/[0.02] border border-white/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm p-6 md:p-8"
+      className="rounded-xl bg-[var(--bg-surface)] border border-border shadow-[var(--shadow-card)] backdrop-blur-sm p-6 md:p-8"
     >
       {/* Section Header */}
-      <div className="mb-6 flex items-start justify-between gap-4 border-b border-white/[0.06] pb-5">
+      <div className="mb-6 flex items-start justify-between gap-4 border-b border-border pb-5">
         <div className="flex items-center gap-4">
           {/* Section number - blue accent background */}
-          <span className="bg-blue-500 text-white flex size-8 items-center justify-center rounded-full text-sm font-medium shrink-0">
+          <span className="bg-primary text-white flex size-8 items-center justify-center rounded-full text-sm font-medium shrink-0">
             {sectionNumber}
           </span>
 
           {/* Section icon and title */}
           <div className="flex items-center gap-2.5">
-            <span className="text-blue-400">
+            <span className="text-primary">
               {sectionIcon}
             </span>
             <h2 className="text-white/90 text-xl font-semibold leading-tight font-[family-name:var(--font-heading)] tracking-tight">

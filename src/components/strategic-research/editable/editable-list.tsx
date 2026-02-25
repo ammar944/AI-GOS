@@ -101,7 +101,7 @@ export function EditableList({
           color: 'var(--accent-blue)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(54, 94, 255, 0.1)';
+          e.currentTarget.style.backgroundColor = 'var(--accent-blue-subtle)';
           e.currentTarget.style.color = 'var(--accent-blue-hover)';
         }}
         onMouseLeave={(e) => {

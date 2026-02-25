@@ -53,7 +53,7 @@ export function SharedBlueprintView({
                 </span>
               </div>
               <Badge
-                variant="secondary"
+                variant="outline"
                 className="ml-3 shrink-0 flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] text-white/40 text-[11px] px-2 py-0.5"
               >
                 <ExternalLink className="h-3 w-3" />

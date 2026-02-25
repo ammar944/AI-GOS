@@ -97,7 +97,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                     <EditableList
                       items={safeArray(data?.marketDynamics?.demandDrivers)}
                       onSave={(v) => onFieldChange("marketDynamics.demandDrivers", v)}
-                      renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                      renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                     />
                   ) : (
                     <ul className="space-y-1">
@@ -113,14 +113,14 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
               <FieldHighlightWrapper fieldPath="marketDynamics.buyingTriggers">
                 <div>
                   <h4 className="text-[13px] font-medium text-white/70 mb-2 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-blue-400/70" />
+                    <Target className="h-4 w-4 text-primary/70" />
                     Buying Triggers
                   </h4>
                   {isEditing && onFieldChange ? (
                     <EditableList
                       items={safeArray(data?.marketDynamics?.buyingTriggers)}
                       onSave={(v) => onFieldChange("marketDynamics.buyingTriggers", v)}
-                      renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                      renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                     />
                   ) : (
                     <ul className="space-y-1">
@@ -173,7 +173,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                   <EditableList
                     items={safeArray(data?.painPoints?.primary)}
                     onSave={(v) => onFieldChange("painPoints.primary", v)}
-                    renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                    renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                   />
                 ) : (
                   <ul className="space-y-1">
@@ -191,7 +191,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                   <EditableList
                     items={safeArray(data?.painPoints?.secondary)}
                     onSave={(v) => onFieldChange("painPoints.secondary", v)}
-                    renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                    renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                   />
                 ) : (
                   <ul className="space-y-1">
@@ -214,7 +214,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
               <InsightCard
                 key={i}
                 icon={Brain}
-                iconColor="text-blue-400/70"
+                iconColor="text-primary/70"
                 title={safeRender(driver?.driver)}
                 accentBorder
                 fieldPath={`psychologicalDrivers.drivers[${i}]`}
@@ -255,7 +255,7 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                 <EditableList
                   items={safeArray(data?.messagingOpportunities?.summaryRecommendations)}
                   onSave={(v) => onFieldChange("messagingOpportunities.summaryRecommendations", v)}
-                  renderPrefix={() => <Check className="h-4 w-4 text-blue-400/80" />}
+                  renderPrefix={() => <Check className="h-4 w-4 text-primary/80" />}
                 />
               ) : (
                 <ul className="space-y-1">

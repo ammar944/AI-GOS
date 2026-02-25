@@ -278,7 +278,7 @@ export function DocumentTabs({
                 {activeTab === tab.value && (
                   <motion.div
                     layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-500 rounded-full"
+                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -294,7 +294,7 @@ export function DocumentTabs({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-white/[0.03] border-white/[0.07] placeholder:text-white/25 focus:border-blue-500/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_oklch(0.62_0.19_255_/_0.08)] transition-all"
+                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-white/[0.03] border-white/[0.07] placeholder:text-white/25 focus:border-primary/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_var(--accent-blue-glow)] transition-all"
               />
               {searchQuery && (
                 <button

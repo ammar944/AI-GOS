@@ -26,10 +26,10 @@ const sizeClasses = {
 }
 
 const colorClasses = {
-  primary: "bg-[oklch(0.62_0.19_255)]",
-  sky: "bg-[oklch(0.80_0.12_240)]",
-  periwinkle: "bg-[oklch(0.75_0.10_270)]",
-  mixed: "bg-gradient-to-br from-[oklch(0.62_0.19_255)] via-[oklch(0.75_0.10_270)] to-[oklch(0.80_0.12_240)]",
+  primary: "bg-[var(--brand-blue)]",
+  sky: "bg-[var(--brand-sky)]",
+  periwinkle: "bg-[var(--brand-periwinkle)]",
+  mixed: "bg-gradient-to-br from-[var(--brand-blue)] via-[var(--brand-periwinkle)] to-[var(--brand-sky)]",
 }
 
 function Blob({
@@ -163,7 +163,7 @@ function GlowOrb({
         "rounded-full",
         orbSizes[size],
         colorClasses[color],
-        "shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.6)]",
+        "shadow-[0_0_20px_var(--brand-blue)]",
         pulse && "animate-pulse",
         className
       )}

@@ -14,8 +14,6 @@ const cardVariants = cva(
     variants: {
       variant: {
         default: "",
-        elevated: "shadow-lg shadow-black/20",
-        ghost: "border-transparent bg-transparent",
         interactive: [
           "cursor-pointer",
           "hover:border-primary/30",
@@ -23,15 +21,10 @@ const cardVariants = cva(
           "active:scale-[0.99]",
         ].join(" "),
         glass: "bg-card/40 backdrop-blur-xl border-border/50",
-        highlight: "border-primary/30 bg-primary/5",
-        subtle: "border-border/30 bg-muted/30",
       },
       hover: {
         none: "",
-        scale: "hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99]",
         lift: "hover:shadow-lg hover:-translate-y-1 active:translate-y-0",
-        glow: "hover:shadow-[0_0_20px_oklch(0.62_0.19_255_/_0.15)] hover:border-primary/40",
-        subtle: "hover:border-primary/20 hover:shadow-sm",
       },
     },
     defaultVariants: {

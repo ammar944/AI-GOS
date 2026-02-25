@@ -91,7 +91,7 @@ export function EditableText({
           className
         )}
         style={{
-          borderBottomColor: value ? 'rgba(54, 94, 255, 0.3)' : 'var(--border-default)',
+          borderBottomColor: value ? 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' : 'var(--border-default)',
           color: value ? 'inherit' : 'var(--text-tertiary)',
         }}
         onMouseEnter={(e) => {
@@ -102,7 +102,7 @@ export function EditableText({
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.borderBottomStyle = 'dashed';
-          e.currentTarget.style.borderBottomColor = value ? 'rgba(54, 94, 255, 0.3)' : 'var(--border-default)';
+          e.currentTarget.style.borderBottomColor = value ? 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' : 'var(--border-default)';
         }}
         role="button"
         tabIndex={0}
@@ -121,7 +121,7 @@ export function EditableText({
         onBlur={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.borderBottomStyle = 'dashed';
-          e.currentTarget.style.borderBottomColor = value ? 'rgba(54, 94, 255, 0.3)' : 'var(--border-default)';
+          e.currentTarget.style.borderBottomColor = value ? 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' : 'var(--border-default)';
         }}
       >
         {value || placeholder}
@@ -150,7 +150,7 @@ export function EditableText({
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = 'var(--accent-blue)';
-            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(54, 94, 255, 0.2)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--accent-blue) 20%, transparent)';
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = 'var(--border-default)';
@@ -173,7 +173,7 @@ export function EditableText({
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = 'var(--accent-blue)';
-            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(54, 94, 255, 0.2)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--accent-blue) 20%, transparent)';
             e.currentTarget.style.outline = 'none';
           }}
           onBlur={(e) => {
@@ -193,7 +193,7 @@ export function EditableText({
           color: 'var(--accent-blue)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(54, 94, 255, 0.1)';
+          e.currentTarget.style.backgroundColor = 'var(--accent-blue-subtle)';
           e.currentTarget.style.color = 'var(--accent-blue-hover)';
         }}
         onMouseLeave={(e) => {

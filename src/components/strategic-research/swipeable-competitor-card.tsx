@@ -146,7 +146,7 @@ export function SwipeableCompetitorCard({
               className="absolute inset-y-0 left-0 w-16 rounded-l-lg pointer-events-none z-10"
               style={{
                 opacity: leftGlow,
-                background: "linear-gradient(to right, rgba(54, 94, 255, 0.15), transparent)",
+                background: "linear-gradient(to right, var(--accent-blue-glow), transparent)",
               }}
             />
           )}
@@ -156,7 +156,7 @@ export function SwipeableCompetitorCard({
               className="absolute inset-y-0 right-0 w-16 rounded-r-lg pointer-events-none z-10"
               style={{
                 opacity: rightGlow,
-                background: "linear-gradient(to left, rgba(54, 94, 255, 0.15), transparent)",
+                background: "linear-gradient(to left, var(--accent-blue-glow), transparent)",
               }}
             />
           )}
@@ -179,7 +179,7 @@ export function SwipeableCompetitorCard({
             )}
             style={{
               background: "linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))",
-              boxShadow: "0 4px 24px rgba(54, 94, 255, 0.35)",
+              boxShadow: "0 4px 24px var(--accent-blue-glow)",
             }}
           >
             <ChevronLeft className="h-3 w-3 opacity-60" />

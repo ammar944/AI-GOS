@@ -11,10 +11,6 @@ const buttonVariants = cva(
       variant: {
         default:
           "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_1px_0_rgba(255,255,255,0.06)] active:translate-y-px",
-        gradient:
-          "bg-gradient-to-r from-[oklch(0.62_0.19_255)] to-[oklch(0.62_0.14_255)] text-white hover:brightness-105 active:translate-y-px",
-        glow:
-          "border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 active:translate-y-px",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 active:translate-y-px",
         outline:

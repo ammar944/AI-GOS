@@ -94,7 +94,7 @@ export function SubSection({ title, children }: { title: string; children: React
   return (
     <div className="space-y-3 mb-6">
       <div className="flex items-center gap-2.5">
-        <div className="w-1 h-4 rounded-full bg-blue-500/60" />
+        <div className="w-1 h-4 rounded-full bg-primary/60" />
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/40 font-[family-name:var(--font-heading)]">
           {title}
         </h3>
@@ -110,8 +110,8 @@ export function SubSection({ title, children }: { title: string; children: React
 export function ListItem({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5 py-0.5">
-      <div className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full bg-blue-500/[0.08]">
-        <Check className="size-2.5 text-blue-400/80" />
+      <div className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/[0.08]">
+        <Check className="size-2.5 text-primary/80" />
       </div>
       <span className="text-sm text-white/70 leading-relaxed">{children}</span>
     </li>
@@ -166,7 +166,7 @@ export function ScoreDisplay({ label, score, max = 10 }: { label: string; score:
         <span className="text-[13px] text-white/50">{label}</span>
         <span className={cn(
           "text-[13px] font-medium tabular-nums font-[family-name:var(--font-mono)]",
-          percentage >= 70 ? "text-blue-400/90" : percentage >= 50 ? "text-amber-400/80" : "text-red-400/80"
+          percentage >= 70 ? "text-primary/90" : percentage >= 50 ? "text-amber-400/80" : "text-red-400/80"
         )}>
           {score}/{max}
         </span>
@@ -176,7 +176,7 @@ export function ScoreDisplay({ label, score, max = 10 }: { label: string; score:
           className={cn(
             "h-full rounded-full transition-all duration-500 ease-out",
             percentage >= 70
-              ? "bg-gradient-to-r from-blue-500/80 to-blue-400/60"
+              ? "bg-gradient-to-r from-primary/80 to-primary/60"
               : percentage >= 50
                 ? "bg-gradient-to-r from-amber-500/70 to-amber-400/50"
                 : "bg-gradient-to-r from-red-500/70 to-red-400/50"
@@ -194,7 +194,7 @@ export function ScoreDisplay({ label, score, max = 10 }: { label: string; score:
 
 /**
  * Glass-morphism data card — for stat grids like Category Snapshot.
- * Matches dashboard card: bg-white/[0.02], border-white/[0.06].
+ * Matches dashboard card: bg-[var(--bg-surface)], border-border.
  * Accepts an optional `fieldPath` to enable chat-edit highlighting.
  */
 export function DataCard({
@@ -219,7 +219,7 @@ export function DataCard({
     <div
       {...highlightAttrs}
       className={cn(
-        "rounded-lg bg-white/[0.02] border border-white/[0.06] px-3.5 py-2.5",
+        "rounded-lg bg-[var(--bg-surface)] border border-border px-3.5 py-2.5",
         highlightClass,
         className
       )}
@@ -241,7 +241,7 @@ export function DataCard({
  */
 export function InsightCard({
   icon: Icon,
-  iconColor = "text-blue-400/70",
+  iconColor = "text-primary/70",
   title,
   children,
   accentBorder = false,
@@ -267,8 +267,8 @@ export function InsightCard({
     <div
       {...highlightAttrs}
       className={cn(
-        "rounded-lg bg-white/[0.02] border border-white/[0.06] p-3.5",
-        accentBorder && "border-l-2 border-l-blue-500/40",
+        "rounded-lg bg-[var(--bg-surface)] border border-border p-3.5",
+        accentBorder && "border-l-2 border-l-primary/40",
         highlightClass,
         className
       )}
@@ -334,7 +334,7 @@ export function HighlightBlock({
 }) {
   return (
     <div className={cn(
-      "rounded-lg bg-blue-500/[0.04] border border-blue-500/[0.12] p-4",
+      "rounded-lg bg-primary/[0.04] border border-primary/[0.12] p-4",
       className
     )}>
       {children}
@@ -354,7 +354,7 @@ export function NumberedStep({
 }) {
   return (
     <li className="flex items-start gap-3 py-0.5">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500/[0.1] text-[11px] font-semibold text-blue-400/80 tabular-nums">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/[0.1] text-[11px] font-semibold text-primary/80 tabular-nums">
         {index}
       </span>
       <span className="text-sm text-white/70 leading-relaxed pt-0.5">{children}</span>
@@ -387,12 +387,12 @@ export function PriorityBadge({
   className?: string;
 }) {
   const colors: Record<string, string> = {
-    high: "bg-blue-500/[0.1] text-blue-400/80 border-blue-500/[0.15]",
-    primary: "bg-blue-500/[0.1] text-blue-400/80 border-blue-500/[0.15]",
+    high: "bg-primary/[0.1] text-primary/80 border-primary/[0.15]",
+    primary: "bg-primary/[0.1] text-primary/80 border-primary/[0.15]",
     medium: "bg-amber-500/[0.1] text-amber-400/70 border-amber-500/[0.15]",
     secondary: "bg-white/[0.04] text-white/50 border-white/[0.08]",
     low: "bg-white/[0.04] text-white/40 border-white/[0.08]",
-    tertiary: "bg-white/[0.03] text-white/35 border-white/[0.06]",
+    tertiary: "bg-white/[0.03] text-white/35 border-border/60",
   };
 
   return (
@@ -446,13 +446,13 @@ export function OverallScoreDisplay({
   const percentage = (score / max) * 100;
 
   return (
-    <div className="rounded-lg bg-blue-500/[0.04] border border-blue-500/[0.12] py-4 text-center">
+    <div className="rounded-lg bg-primary/[0.04] border border-primary/[0.12] py-4 text-center">
       <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/35 mb-1">
         {label}
       </p>
       <p className={cn(
         "text-3xl font-bold tabular-nums font-[family-name:var(--font-mono)]",
-        percentage >= 70 ? "text-blue-400" : percentage >= 50 ? "text-amber-400" : "text-red-400"
+        percentage >= 70 ? "text-primary" : percentage >= 50 ? "text-amber-400" : "text-red-400"
       )}
         style={{
           textShadow: percentage >= 70

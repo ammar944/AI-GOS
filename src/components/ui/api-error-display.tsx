@@ -144,7 +144,7 @@ export function ApiErrorDisplay({
               <p className="text-sm font-medium mb-2">Completed before failure:</p>
               <div className="flex flex-wrap gap-2">
                 {errorObj.completedSections.map((section) => (
-                  <Badge key={section} variant="secondary" className="gap-1">
+                  <Badge key={section} variant="outline" className="gap-1">
                     <CheckCircle2 className="h-3 w-3 text-green-500" />
                     {section}
                   </Badge>

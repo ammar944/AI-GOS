@@ -9,15 +9,15 @@ const gradientTextVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-gradient-to-r from-[oklch(0.80_0.12_240)] to-[oklch(0.75_0.10_270)]",
+          "bg-gradient-to-r from-[var(--brand-sky)] to-[var(--brand-periwinkle)]",
         primary:
-          "bg-gradient-to-r from-[oklch(0.62_0.19_255)] to-[oklch(0.55_0.22_260)]",
+          "bg-gradient-to-r from-[var(--brand-blue)] to-[oklch(0.55_0.22_260)]",
         cloud:
-          "bg-gradient-to-r from-[oklch(0.80_0.12_240)] to-[oklch(0.62_0.19_255)]",
+          "bg-gradient-to-r from-[var(--brand-sky)] to-[var(--brand-blue)]",
         hero:
-          "bg-gradient-to-r from-[oklch(0.80_0.12_240)] via-[oklch(0.70_0.15_250)] to-[oklch(0.62_0.19_255)]",
+          "bg-gradient-to-r from-[var(--brand-sky)] via-[var(--brand-blue-light)] to-[var(--brand-blue)]",
         accent:
-          "bg-gradient-to-r from-[oklch(0.75_0.10_270)] to-[oklch(0.62_0.19_255)]",
+          "bg-gradient-to-r from-[var(--brand-periwinkle)] to-[var(--brand-blue)]",
         white:
           "bg-gradient-to-r from-white to-[oklch(0.90_0.02_255)]",
       },

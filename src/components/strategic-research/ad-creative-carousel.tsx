@@ -37,7 +37,7 @@ const FORMAT_LABELS: Record<AdFormat, string> = {
 const RELEVANCE_COLORS: Record<AdRelevanceCategory, { bg: string; text: string; label: string }> = {
   direct: { bg: "bg-green-500/20", text: "text-green-400", label: "Direct" },
   lead_magnet: { bg: "bg-amber-500/20", text: "text-amber-400", label: "Lead Magnet" },
-  brand_awareness: { bg: "bg-blue-500/20", text: "text-blue-400", label: "Brand" },
+  brand_awareness: { bg: "bg-primary/20", text: "text-primary", label: "Brand" },
   subsidiary: { bg: "bg-purple-500/20", text: "text-purple-400", label: "Related Brand" },
   unclear: { bg: "bg-gray-500/20", text: "text-gray-400", label: "Unclear" },
 };
@@ -422,7 +422,7 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
                 { key: 'foreplay-sourced' as const, label: 'Foreplay', count: foreplaySourcedCount },
               ]).filter(item => item.key === 'all' || item.count > 0).map(({ key, label, count }) => {
                 const isActive = sourceFilter === key;
-                const colorClass = key === 'foreplay-sourced' ? 'bg-cyan-600' : 'bg-blue-600';
+                const colorClass = key === 'foreplay-sourced' ? 'bg-cyan-600' : 'bg-primary';
                 return (
                   <button
                     key={key}
