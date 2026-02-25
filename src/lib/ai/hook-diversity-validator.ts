@@ -3,7 +3,8 @@
 // and ensure hooks match the client's target segment
 
 import { generateObject } from 'ai';
-import { anthropic, MODELS, estimateCost } from './providers';
+import { MODELS, estimateCost } from './providers';
+import { groq, GROQ_EXTRACTION_MODEL } from './groq-provider';
 import { z } from 'zod';
 import type { AdHook } from './schemas/cross-analysis';
 
@@ -260,14 +261,14 @@ A hook is RELEVANT if:
 
   try {
     const { object, usage } = await generateObject({
-      model: anthropic(MODELS.CLAUDE_HAIKU),
+      model: groq(GROQ_EXTRACTION_MODEL),
       schema: hookRelevanceSchema,
       prompt,
       maxOutputTokens: 1000,
     });
 
     const cost = estimateCost(
-      MODELS.CLAUDE_HAIKU,
+      MODELS.GPT_OSS_20B,
       usage.inputTokens ?? 0,
       usage.outputTokens ?? 0,
     );

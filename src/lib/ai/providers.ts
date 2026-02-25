@@ -29,8 +29,10 @@ export const MODELS = {
   CLAUDE_SONNET: 'claude-sonnet-4-20250514',
   CLAUDE_HAIKU: 'claude-haiku-4-5-20251001',
 
-  // Groq models (via Llama 4 Scout — 128K context, fast inference)
+  // Groq models
   LLAMA_SCOUT: 'meta-llama/llama-4-scout-17b-16e-instruct',
+  KIMI_K2: 'moonshotai/kimi-k2-instruct-0905',
+  GPT_OSS_20B: 'openai/gpt-oss-20b',
 } as const;
 
 // =============================================================================
@@ -49,8 +51,8 @@ export const SECTION_MODELS = {
   icpValidation: MODELS.SONAR_PRO,         // ICP validation & psychographics
   offerAnalysis: MODELS.SONAR_PRO,         // Scoring & recommendations
 
-  // Phase 3: Synthesis
-  crossAnalysis: MODELS.CLAUDE_SONNET,     // Strategic prose
+  // Phase 3: Synthesis (Kimi K2 on Groq — fast inference)
+  crossAnalysis: MODELS.KIMI_K2,           // Strategic prose
 } as const;
 
 // =============================================================================
@@ -137,6 +139,16 @@ export const MODEL_COSTS = {
   [MODELS.LLAMA_SCOUT]: {
     input: 0.11,
     output: 0.34,
+    requestFee: 0,
+  },
+  [MODELS.KIMI_K2]: {
+    input: 1.0,
+    output: 3.0,
+    requestFee: 0,
+  },
+  [MODELS.GPT_OSS_20B]: {
+    input: 0.075,
+    output: 0.30,
     requestFee: 0,
   },
 } as const;

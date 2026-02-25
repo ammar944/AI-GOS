@@ -10,6 +10,7 @@ import {
   GENERATION_SETTINGS,
   estimateCost,
 } from './providers';
+import { groq, GROQ_SYNTHESIS_MODEL } from './groq-provider';
 import {
   industryMarketSchema,
   icpAnalysisSchema,
@@ -49,22 +50,53 @@ function logGenerationError(section: string, error: unknown): void {
 }
 
 // =============================================================================
-// Retry wrapper for schema validation failures
-// generateObject retries network errors internally but NOT schema mismatches.
-// This wraps the full call so a fresh model response is requested on mismatch.
+// Retry wrapper for schema validation failures AND API overload (529)
+// generateObject retries network errors internally (3 attempts) but:
+// - Does NOT retry schema mismatches (NoObjectGeneratedError)
+// - Uses short backoff for overload — we add a longer outer retry here
 // =============================================================================
 const SCHEMA_RETRY_MAX = 2; // up to 2 additional attempts (3 total)
+const OVERLOAD_RETRY_MAX = 3;
+const OVERLOAD_BASE_DELAY_MS = 20_000; // 20s base — overload needs longer cooldown
+
+function isOverloadError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return msg.includes('overloaded') || msg.includes('529') || msg.includes('rate limit') || msg.includes('429');
+  }
+  return false;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function withSchemaRetry<T>(
   fn: () => Promise<T>,
   section: string,
 ): Promise<T> {
   let lastError: unknown;
+  let overloadRetries = 0;
+
   for (let attempt = 0; attempt <= SCHEMA_RETRY_MAX; attempt++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
+
+      // Overload/rate limit: exponential backoff with longer delays
+      if (isOverloadError(error) && overloadRetries < OVERLOAD_RETRY_MAX) {
+        overloadRetries++;
+        const delay = OVERLOAD_BASE_DELAY_MS * overloadRetries; // 20s, 40s, 60s
+        console.warn(
+          `[${section}] API overloaded (retry ${overloadRetries}/${OVERLOAD_RETRY_MAX}), waiting ${delay / 1000}s...`
+        );
+        await sleep(delay);
+        attempt--; // Don't count overload retries against schema retries
+        continue;
+      }
+
+      // Schema mismatch: immediate retry
       if (error instanceof NoObjectGeneratedError && attempt < SCHEMA_RETRY_MAX) {
         console.warn(
           `[${section}] Schema mismatch on attempt ${attempt + 1}/${SCHEMA_RETRY_MAX + 1}, retrying...`
@@ -607,7 +639,7 @@ function postProcessCompetitorAnalysis(data: CompetitorAnalysis): CompetitorAnal
 
 // =============================================================================
 // Section 5: Cross-Analysis Synthesis
-// Model: Claude Sonnet 4 (strategic prose)
+// Model: Kimi K2 on Groq (strategic prose, fast inference)
 // =============================================================================
 
 export async function synthesizeCrossAnalysis(
@@ -959,11 +991,12 @@ QUALITY STANDARDS:
     const [strategicResult, messagingResult] = await Promise.all([
       withSchemaRetry(
         () => generateObject({
-          model: anthropic(model),
+          model: groq(GROQ_SYNTHESIS_MODEL),
           schema: strategicAnalysisSchema,
           system: strategicSystemPrompt,
           prompt: `Create a strategic analysis for this paid media blueprint:\n\n${context}`,
           ...GENERATION_SETTINGS.synthesis,
+          providerOptions: { groq: { structuredOutputs: true, strictJsonSchema: false } },
         }),
         'crossAnalysis-strategic',
       ).catch((error) => {
@@ -975,11 +1008,12 @@ QUALITY STANDARDS:
 
       withSchemaRetry(
         () => generateObject({
-          model: anthropic(model),
+          model: groq(GROQ_SYNTHESIS_MODEL),
           schema: messagingFrameworkSchema,
           system: messagingSystemPrompt,
           prompt: `Create a messaging framework for this paid media strategy:\n\n${context}`,
           ...GENERATION_SETTINGS.synthesis,
+          providerOptions: { groq: { structuredOutputs: true, strictJsonSchema: false } },
         }),
         'crossAnalysis-messaging',
       ).catch((error) => {
@@ -1006,9 +1040,9 @@ QUALITY STANDARDS:
       data: mergedData,
       sources: [],
       usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens },
-      cost: estimateCost(model, strategicResult.usage.inputTokens ?? 0, strategicResult.usage.outputTokens ?? 0)
-        + estimateCost(model, messagingResult.usage.inputTokens ?? 0, messagingResult.usage.outputTokens ?? 0),
-      model,
+      cost: estimateCost(MODELS.KIMI_K2, strategicResult.usage.inputTokens ?? 0, strategicResult.usage.outputTokens ?? 0)
+        + estimateCost(MODELS.KIMI_K2, messagingResult.usage.inputTokens ?? 0, messagingResult.usage.outputTokens ?? 0),
+      model: MODELS.KIMI_K2,
     };
   } catch (error) {
     logGenerationError('crossAnalysis', error);

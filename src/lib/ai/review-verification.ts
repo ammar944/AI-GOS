@@ -7,7 +7,8 @@
 
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { anthropic, MODELS, estimateCost } from './providers';
+import { MODELS, estimateCost } from './providers';
+import { groq, GROQ_EXTRACTION_MODEL } from './groq-provider';
 
 // =============================================================================
 // Types
@@ -112,9 +113,8 @@ async function runTier2(
   reviewInfo: ReviewSourceInfo,
 ): Promise<VerificationResult> {
   try {
-    const model = MODELS.CLAUDE_HAIKU;
     const { object, usage } = await generateObject({
-      model: anthropic(model),
+      model: groq(GROQ_EXTRACTION_MODEL),
       schema: verificationSchema,
       temperature: 0.1,
       maxOutputTokens: 256,
@@ -136,7 +136,7 @@ Are these the same product/company? Consider name similarity, industry alignment
     });
 
     const cost = estimateCost(
-      model,
+      MODELS.GPT_OSS_20B,
       usage.inputTokens ?? 0,
       usage.outputTokens ?? 0,
     );

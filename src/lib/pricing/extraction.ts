@@ -2,7 +2,8 @@
 // LLM-based pricing extraction with Zod validation and confidence scoring
 
 import { generateObject } from 'ai';
-import { anthropic, MODELS, estimateCost } from '@/lib/ai/providers';
+import { MODELS, estimateCost } from '@/lib/ai/providers';
+import { groq, GROQ_EXTRACTION_MODEL } from '@/lib/ai/groq-provider';
 import {
   PricingExtractionResultSchema,
   type PricingExtractionOptions,
@@ -100,7 +101,7 @@ export async function extractPricing(
 
     try {
       const result = await generateObject({
-        model: anthropic(MODELS.CLAUDE_HAIKU),
+        model: groq(GROQ_EXTRACTION_MODEL),
         schema: PricingExtractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: userPrompt,
@@ -113,7 +114,7 @@ export async function extractPricing(
 
       const extractionResult = result.object;
       const cost = estimateCost(
-        MODELS.CLAUDE_HAIKU,
+        MODELS.GPT_OSS_20B,
         result.usage.inputTokens ?? 0,
         result.usage.outputTokens ?? 0
       );

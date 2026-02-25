@@ -4,7 +4,8 @@
 // Uses tier-based quotas to prevent single-competitor hook domination
 
 import { generateObject } from 'ai';
-import { anthropic, MODELS, GENERATION_SETTINGS, estimateCost } from './providers';
+import { MODELS, GENERATION_SETTINGS, estimateCost } from './providers';
+import { groq, GROQ_SYNTHESIS_MODEL } from './groq-provider';
 import { hookExtractionResultSchema } from './schemas/ad-hook-extraction';
 import type { AdHook } from './schemas/cross-analysis';
 import { computeAdDistribution, getHookQuotas } from './hook-diversity-validator';
@@ -190,15 +191,16 @@ Return exactly 8 high-quality hooks matching the tier quotas above.`;
     const startTime = Date.now();
 
     const { object, usage } = await generateObject({
-      model: anthropic(MODELS.CLAUDE_SONNET),
+      model: groq(GROQ_SYNTHESIS_MODEL),
       schema: hookExtractionResultSchema,
       prompt,
       temperature: GENERATION_SETTINGS.synthesis.temperature,
       maxOutputTokens: 2500,
+      providerOptions: { groq: { structuredOutputs: true, strictJsonSchema: false } },
     });
 
     const cost = estimateCost(
-      MODELS.CLAUDE_SONNET,
+      MODELS.KIMI_K2,
       usage.inputTokens ?? 0,
       usage.outputTokens ?? 0
     );

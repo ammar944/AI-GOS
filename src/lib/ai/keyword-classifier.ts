@@ -3,7 +3,8 @@
 // Fail-open: on error, passes all keywords through.
 
 import { generateObject } from 'ai';
-import { anthropic, MODELS, estimateCost } from './providers';
+import { MODELS, estimateCost } from './providers';
+import { groq, GROQ_EXTRACTION_MODEL } from './groq-provider';
 import { keywordClassificationSchema } from './schemas/keyword-classification';
 import type { KeywordOpportunity } from '@/lib/strategic-blueprint/output-types';
 import type { KeywordBusinessContext } from './keyword-intelligence';
@@ -102,7 +103,7 @@ export async function classifyKeywordRelevance(
       const prompt = buildClassifierPrompt(keywordStrings, context);
 
       const { object, usage } = await generateObject({
-        model: anthropic(MODELS.CLAUDE_HAIKU),
+        model: groq(GROQ_EXTRACTION_MODEL),
         schema: keywordClassificationSchema,
         prompt,
         temperature: 0.1,
@@ -131,7 +132,7 @@ export async function classifyKeywordRelevance(
 
     // Track cost
     const batchCost = estimateCost(
-      MODELS.CLAUDE_HAIKU,
+      MODELS.GPT_OSS_20B,
       usage.inputTokens ?? 0,
       usage.outputTokens ?? 0,
     );

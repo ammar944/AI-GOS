@@ -11,7 +11,7 @@ export type ConfidenceLevel = 'high' | 'medium' | 'low';
 /**
  * Zod schema for a single extracted pricing tier
  * Used for LLM extraction validation
- * Note: Using .nullish() allows both null and undefined from LLM responses
+ * Note: Using .nullable() allows both null and undefined from LLM responses
  */
 export const ExtractedPricingTierSchema = z.object({
   /** Tier name (e.g., "Starter", "Pro", "Enterprise") */
@@ -23,20 +23,20 @@ export const ExtractedPricingTierSchema = z.object({
     z.string().min(1)
   ),
   /** Brief description of what this tier offers */
-  description: z.string().nullish(),
+  description: z.string().nullable(),
   /** Target audience for this tier */
-  targetAudience: z.string().nullish(),
+  targetAudience: z.string().nullable(),
   /** Key features included at this tier */
-  features: z.array(z.string()).nullish(),
+  features: z.array(z.string()).nullable(),
   /** Usage limitations */
-  limitations: z.string().nullish(),
+  limitations: z.string().nullable(),
   /** Source quote from the markdown where this tier was found (anti-hallucination) */
-  sourceQuote: z.string().nullish(),
+  sourceQuote: z.string().nullable(),
 });
 
 /**
  * Zod schema for the complete extraction result from LLM
- * Note: Using .nullish() allows both null and undefined from LLM responses
+ * Note: Using .nullable() allows both null and undefined from LLM responses
  */
 export const PricingExtractionResultSchema = z.object({
   /** Extracted pricing tiers */
@@ -44,9 +44,9 @@ export const PricingExtractionResultSchema = z.object({
   /** Whether "Contact sales" or custom pricing was detected */
   hasCustomPricing: z.boolean(),
   /** Currency detected (e.g., "USD", "EUR", "GBP") */
-  currency: z.string().nullish(),
+  currency: z.string().nullable(),
   /** Billing period detected (e.g., "monthly", "annual", "one-time") */
-  billingPeriod: z.string().nullish(),
+  billingPeriod: z.string().nullable(),
 });
 
 /**
