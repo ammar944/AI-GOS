@@ -645,7 +645,7 @@ export function AgentChat({
             style={{
               color: 'var(--text-primary)',
               minHeight: '36px',
-              maxHeight: '200px',
+              maxHeight: '240px',
             }}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}

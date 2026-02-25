@@ -114,7 +114,7 @@ export function SplitChatLayout({
       {/* ─── Mobile ─── */}
       <div className="lg:hidden h-full flex flex-col relative">
         {/* Blueprint fills the screen */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {blueprintContent}
         </div>
 

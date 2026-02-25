@@ -920,7 +920,7 @@ export function CompetitorAnalysisContent({
   const collapseCreativeLibrary = creativeFormats.length >= 2;
 
   return (
-    <div className="space-y-5" ref={sectionRef}>
+    <div className="space-y-5" ref={sectionRef} style={{ overflowX: 'hidden' }}>
       {/* ------------------------------------------------------------------ */}
       {/* Per-competitor paginated card                                       */}
       {/* ------------------------------------------------------------------ */}

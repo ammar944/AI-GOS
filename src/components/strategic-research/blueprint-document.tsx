@@ -346,7 +346,7 @@ export function BlueprintDocument({
               animate="center"
               exit="exit"
               transition={slideTransition}
-              className="absolute inset-0 overflow-y-auto"
+              className="absolute inset-0 overflow-y-auto overflow-x-hidden"
               style={{
                 scrollbarWidth: "thin",
                 scrollbarColor: "var(--border-default) transparent",
