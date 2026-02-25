@@ -160,62 +160,55 @@ function PricingDisplay({ comp, i, isEditing, onFieldChange }: PricingDisplayPro
 
       {/* View tier details disclosure */}
       {!isEditing && (
-        <button
-          onClick={() => setShowDetails((v) => !v)}
-          className="mt-2 flex items-center gap-1 text-[11px] text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)] transition-colors"
-        >
-          <ChevronDown
-            className={cn(
-              "h-3 w-3 transition-transform duration-200",
-              showDetails && "rotate-180"
-            )}
-          />
-          {showDetails ? "Hide tier details" : "View tier details"}
-        </button>
-      )}
-
-      {showDetails && !isEditing && (
-        <div className="mt-2 flex flex-col space-y-2">
-          {tiers.map((tier, j) => (
-            <div
-              key={j}
-              className="py-2 border-b border-[rgba(255,255,255,0.06)] last:border-b-0 text-xs"
-            >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-sm font-semibold text-[rgb(252,252,250)]">{tier.tier}</span>
-                <span className="font-[family-name:var(--font-mono)] text-[#fbbf4d]">{tier.price}</span>
-              </div>
-              {tier.targetAudience && (
-                <span className="text-[12px] text-[rgb(100,105,115)] mb-1 block">
-                  {tier.targetAudience}
-                </span>
-              )}
-              {tier.description && (
-                <p className="mb-1.5 text-sm leading-relaxed text-[rgb(205,208,213)]">
-                  {excerpt(cleanReviewText(tier.description), 140)}
-                </p>
-              )}
-              {tier.features && tier.features.length > 0 && (
-                <ul className="space-y-1 pl-3 text-sm text-[rgb(100,105,115)]">
-                  {tier.features.slice(0, 8).map((feature, k) => (
-                    <li key={k} className="list-disc list-outside">
-                      {excerpt(cleanReviewText(feature), 84)}
-                    </li>
-                  ))}
-                  {tier.features.length > 8 && (
-                    <li className="list-none pl-0 text-xs italic text-[rgb(100,105,115)]">
-                      +{tier.features.length - 8} more features
-                    </li>
+        <div className="mt-2">
+          <InlineDisclosure
+            label={showDetails ? "Hide details" : "Details"}
+            isOpen={showDetails}
+            onToggle={() => setShowDetails((v) => !v)}
+          >
+            <div className="flex flex-col space-y-2">
+              {tiers.map((tier, j) => (
+                <div
+                  key={j}
+                  className="py-2 border-b border-[rgba(255,255,255,0.06)] last:border-b-0 text-xs"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-sm font-semibold text-[rgb(252,252,250)]">{tier.tier}</span>
+                    <span className="font-[family-name:var(--font-mono)] text-[#fbbf4d]">{tier.price}</span>
+                  </div>
+                  {tier.targetAudience && (
+                    <span className="text-[12px] text-[rgb(100,105,115)] mb-1 block">
+                      {tier.targetAudience}
+                    </span>
                   )}
-                </ul>
-              )}
-              {tier.limitations && (
-                <p className="mt-2 text-xs italic text-[rgb(100,105,115)]">
-                  Limits: {excerpt(cleanReviewText(tier.limitations), 90)}
-                </p>
-              )}
+                  {tier.description && (
+                    <p className="mb-1.5 text-sm leading-relaxed text-[rgb(205,208,213)]">
+                      {excerpt(cleanReviewText(tier.description), 140)}
+                    </p>
+                  )}
+                  {tier.features && tier.features.length > 0 && (
+                    <ul className="space-y-1 pl-3 text-sm text-[rgb(100,105,115)]">
+                      {tier.features.slice(0, 8).map((feature, k) => (
+                        <li key={k} className="list-disc list-outside">
+                          {excerpt(cleanReviewText(feature), 84)}
+                        </li>
+                      ))}
+                      {tier.features.length > 8 && (
+                        <li className="list-none pl-0 text-xs italic text-[rgb(100,105,115)]">
+                          +{tier.features.length - 8} more features
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                  {tier.limitations && (
+                    <p className="mt-2 text-xs italic text-[rgb(100,105,115)]">
+                      Limits: {excerpt(cleanReviewText(tier.limitations), 90)}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
+          </InlineDisclosure>
         </div>
       )}
     </FieldHighlightWrapper>
@@ -232,6 +225,7 @@ interface ReviewsBlockProps {
 
 function ReviewsBlock({ comp }: ReviewsBlockProps) {
   const [showComplaints, setShowComplaints] = React.useState(false);
+  const [showPraise, setShowPraise] = React.useState(false);
 
   if (!comp?.reviewData) return null;
 
@@ -249,6 +243,7 @@ function ReviewsBlock({ comp }: ReviewsBlockProps) {
   if (!hasG2Data && !hasTpData) return null;
 
   const complaints = (tp?.reviews ?? []).filter((r) => r.rating <= 2).slice(0, 3);
+  const praise = (tp?.reviews ?? []).filter((r) => r.rating >= 4).slice(0, 3);
 
   return (
     <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)]">
@@ -317,6 +312,12 @@ function ReviewsBlock({ comp }: ReviewsBlockProps) {
           )}
       </div>
 
+      {/* Review volume context */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[11px] text-[rgb(100,105,115)]">
+        {tp?.totalReviews != null && <span>Trustpilot: {tp.totalReviews} reviews</span>}
+        {g2?.reviewCount != null && <span>G2: {g2.reviewCount} reviews</span>}
+      </div>
+
       {/* AI summary — first ~180 chars, primary review signal */}
       {tp?.aiSummary && (
         <p className="mb-3 text-xs italic text-[rgb(100,105,115)]">
@@ -324,56 +325,209 @@ function ReviewsBlock({ comp }: ReviewsBlockProps) {
         </p>
       )}
 
-      {/* Complaints disclosure */}
-      {complaints.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowComplaints((v) => !v)}
-            className="flex items-center gap-1 text-[11px] text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)] transition-colors"
+      {/* Sentiment disclosures */}
+      <div className="flex flex-wrap gap-2 mt-3">
+        {complaints.length > 0 && (
+          <InlineDisclosure
+            label={`${complaints.length} complaints`}
+            isOpen={showComplaints}
+            onToggle={() => setShowComplaints((v) => !v)}
+            variant="red"
           >
-            <ChevronDown
-              className={cn(
-                "h-3 w-3 transition-transform duration-200",
-                showComplaints && "rotate-180"
-              )}
-            />
-            {showComplaints
-              ? "Hide complaints"
-              : `View complaints (${complaints.length})`}
-          </button>
-
-          {showComplaints && (
-            <div className="mt-2 space-y-2">
-              {complaints.map((review, j) => (
-                <div
-                  key={j}
-                  className="py-2.5 border-b border-[rgba(255,255,255,0.06)] last:border-b-0 text-xs"
-                >
-                  <div className="mb-1 flex items-center gap-1">
-                    {Array.from({ length: 5 }).map((_, k) => (
-                      <Star
-                        key={k}
-                        className={cn(
-                          "h-3 w-3",
-                          k < review.rating
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-[rgb(49,53,63)]"
-                        )}
-                      />
-                    ))}
-                    {review.date && (
-                      <span className="ml-1 text-[rgb(100,105,115)]">{review.date}</span>
-                    )}
-                  </div>
-                  <p className="leading-relaxed text-[rgb(205,208,213)]">
-                    {excerpt(cleanReviewText(review.text || ""), 220)}
-                  </p>
+            <div className="space-y-3 mt-1">
+              {complaints.map((r, k) => (
+                <div key={k} className="text-[12px] text-[rgb(180,183,190)]">
+                  <span className="text-[rgb(248,113,113)] mr-1.5">★ {r.rating}</span>
+                  {cleanReviewText(excerpt(r.text, 200))}
                 </div>
               ))}
             </div>
+          </InlineDisclosure>
+        )}
+        {praise.length > 0 && (
+          <InlineDisclosure
+            label={`${praise.length} top praise`}
+            isOpen={showPraise}
+            onToggle={() => setShowPraise((v) => !v)}
+            variant="emerald"
+          >
+            <div className="space-y-3 mt-1">
+              {praise.map((r, k) => (
+                <div key={k} className="text-[12px] text-[rgb(180,183,190)]">
+                  <span className="text-[rgb(52,211,153)] mr-1.5">★ {r.rating}</span>
+                  {cleanReviewText(excerpt(r.text, 200))}
+                </div>
+              ))}
+            </div>
+          </InlineDisclosure>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Reusable disclosure wrapper — section-level trigger with badge + preview
+// =============================================================================
+
+interface DisclosureSectionProps {
+  label: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  /** Right-aligned badge text, e.g. "5 ads" or "3 tiers" */
+  badge?: string;
+  /** Subtle badge color variant */
+  badgeColor?: "amber" | "red" | "emerald" | "neutral";
+  /** One-line preview shown when collapsed */
+  preview?: string;
+  /** Extra class for the trigger row */
+  className?: string;
+  children: React.ReactNode;
+}
+
+function DisclosureSection({
+  label,
+  isOpen,
+  onToggle,
+  badge,
+  badgeColor = "neutral",
+  preview,
+  className,
+  children,
+}: DisclosureSectionProps) {
+  const badgeColors = {
+    amber: "bg-[rgba(245,158,11,0.1)] text-[#fbbf4d]",
+    red: "bg-[rgba(239,68,68,0.1)] text-[rgb(248,113,113)]",
+    emerald: "bg-[rgba(16,185,129,0.1)] text-[rgb(52,211,153)]",
+    neutral: "bg-[rgba(255,255,255,0.06)] text-[rgb(140,143,150)]",
+  };
+
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={cn(
+          "w-full flex items-center justify-between gap-3",
+          "min-h-[44px] -mx-2 px-2 rounded-md",
+          "transition-colors duration-150",
+          "hover:bg-[rgba(255,255,255,0.03)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(245,158,11,0.5)]",
+          isOpen && "border-l-2 border-[rgba(245,158,11,0.4)] pl-3"
+        )}
+      >
+        <div className="flex flex-col items-start gap-0.5 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] uppercase tracking-[0.08em] text-[rgb(160,163,170)]">
+              {label}
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 text-[rgb(140,143,150)] transition-transform duration-200",
+                isOpen && "rotate-180"
+              )}
+            />
+          </div>
+          {!isOpen && preview && (
+            <span className="text-[10px] text-[rgb(100,105,115)] truncate max-w-[280px]">
+              {preview}
+            </span>
           )}
         </div>
-      )}
+        {badge && (
+          <span
+            className={cn(
+              "shrink-0 px-2 py-0.5 rounded text-[10px] font-medium",
+              badgeColors[badgeColor]
+            )}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="pt-3">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// =============================================================================
+// Reusable inline disclosure — nested trigger pill for smaller disclosures
+// =============================================================================
+
+interface InlineDisclosureProps {
+  label: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  /** Color variant for the pill */
+  variant?: "neutral" | "red" | "emerald";
+  children: React.ReactNode;
+}
+
+function InlineDisclosure({
+  label,
+  isOpen,
+  onToggle,
+  variant = "neutral",
+  children,
+}: InlineDisclosureProps) {
+  const variants = {
+    neutral:
+      "bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] text-[rgb(160,163,170)]",
+    red: "bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.15)] text-[rgb(248,113,113)]",
+    emerald:
+      "bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.15)] text-[rgb(52,211,153)]",
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={cn(
+          "inline-flex items-center gap-1.5",
+          "text-[11px] px-2.5 py-1 rounded-md min-h-[32px]",
+          "transition-colors duration-150",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(245,158,11,0.5)]",
+          variants[variant]
+        )}
+      >
+        {label}
+        <ChevronDown
+          className={cn(
+            "h-3 w-3 transition-transform duration-200",
+            isOpen && "rotate-180"
+          )}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="pt-2">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -469,6 +623,11 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
             {p}
           </span>
         ))}
+        {(comp as { funnels?: string }).funnels && (
+          <span className="text-[11px] text-[rgb(160,163,170)] bg-[rgba(255,255,255,0.06)] px-2 py-0.5 rounded">
+            {(comp as { funnels?: string }).funnels}
+          </span>
+        )}
       </div>
 
       {/* Platform search links — compact */}
@@ -491,21 +650,15 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
       {/* ------------------------------------------------------------------ */}
       {/* TIER 2 — Core Intel (expanded by default, collapsible)             */}
       {/* ------------------------------------------------------------------ */}
-      <div className="mt-3 border-t border-[rgba(255,255,255,0.06)]">
-        <button
-          onClick={() => setTier2Open((v) => !v)}
-          className="w-full flex items-center justify-between py-2 text-[11px] uppercase tracking-[0.08em] text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)] transition-colors"
-        >
-          <span>Core Intel</span>
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 transition-transform duration-200",
-              tier2Open && "rotate-180"
-            )}
-          />
-        </button>
-
-        {tier2Open && (
+      <DisclosureSection
+        label="Core Intel"
+        isOpen={tier2Open}
+        onToggle={() => setTier2Open((v) => !v)}
+        badge={`${[comp.strengths?.length, comp.weaknesses?.length, comp.pricingTiers?.length, comp.adMessagingThemes?.length].reduce((a, b) => (a || 0) + (b || 0), 0)} fields`}
+        badgeColor="neutral"
+        preview={comp.positioning ? excerpt(comp.positioning, 70) : "Positioning · Strengths · Pricing · Reviews"}
+        className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)]"
+      >
           <div className="space-y-3 pb-2">
             {/* Positioning */}
             <FieldHighlightWrapper
@@ -689,33 +842,30 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
               </FieldHighlightWrapper>
             )}
           </div>
-        )}
-      </div>
+      </DisclosureSection>
 
       {/* ------------------------------------------------------------------ */}
       {/* TIER 3 — Ad Creatives (collapsed by default)                       */}
       {/* ------------------------------------------------------------------ */}
       {adCreativeCount > 0 && (
-        <div className="mt-2 border-t border-[rgba(255,255,255,0.06)]">
-          <button
-            onClick={() => setTier3Open((v) => !v)}
-            className="w-full flex items-center justify-between py-2 text-[11px] uppercase tracking-[0.08em] text-[rgb(100,105,115)] hover:text-[rgb(205,208,213)] transition-colors"
-          >
-            <span>Ad Creatives &mdash; {adCreativeCount} ads</span>
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 transition-transform duration-200",
-                tier3Open && "rotate-180"
-              )}
-            />
-          </button>
-
-          {tier3Open && (
-            <div className="pb-2">
-              <AdCreativeCarousel ads={comp.adCreatives ?? []} />
-            </div>
-          )}
-        </div>
+        <DisclosureSection
+          label="Ad Creatives"
+          isOpen={tier3Open}
+          onToggle={() => setTier3Open((v) => !v)}
+          badge={`${adCreativeCount} ads`}
+          badgeColor="amber"
+          preview={
+            (comp.adCreatives ?? [])
+              .map((ad) => ad.format)
+              .filter(Boolean)
+              .filter((v, idx, arr) => arr.indexOf(v) === idx)
+              .slice(0, 3)
+              .join(" · ") || undefined
+          }
+          className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)]"
+        >
+          <AdCreativeCarousel ads={comp.adCreatives ?? []} />
+        </DisclosureSection>
       )}
     </div>
   );

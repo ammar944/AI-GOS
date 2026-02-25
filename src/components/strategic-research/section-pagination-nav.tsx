@@ -119,7 +119,7 @@ export function SectionPaginationNav({
         <span
           className="text-xs tabular-nums"
           style={{
-            color: "var(--text-quaternary)",
+            color: "var(--text-tertiary)",
             fontFamily: "var(--font-mono), monospace",
           }}
         >
@@ -192,16 +192,12 @@ export function SectionPaginationNav({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                    style={{
-                      color: copied
-                        ? "var(--success)"
-                        : "var(--text-secondary)",
-                      borderColor: copied
-                        ? "rgba(34,197,94,0.4)"
-                        : "var(--border-default)",
-                      fontFamily: "var(--font-sans), Inter, sans-serif",
-                    }}
+                    className={cn(
+                      "h-8 gap-1.5 rounded-lg transition-all duration-200",
+                      copied
+                        ? "text-green-400"
+                        : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                    )}
                     onClick={handleCopy}
                   >
                     {copied ? (
@@ -226,12 +222,7 @@ export function SectionPaginationNav({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
-              style={{
-                color: "var(--text-secondary)",
-                borderColor: "var(--border-default)",
-                fontFamily: "var(--font-sans), Inter, sans-serif",
-              }}
+              className="h-8 gap-1.5 rounded-lg transition-all duration-200 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
               onClick={onApproveAll}
             >
               <CheckCheck className="h-3.5 w-3.5" />
@@ -244,12 +235,7 @@ export function SectionPaginationNav({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                style={{
-                  color: "var(--text-secondary)",
-                  borderColor: "var(--border-default)",
-                  fontFamily: "var(--font-sans), Inter, sans-serif",
-                }}
+                className="h-8 gap-1.5 rounded-lg transition-all duration-200 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                 onClick={onUndoApproveAll}
               >
                 <Undo2 className="h-3.5 w-3.5" />

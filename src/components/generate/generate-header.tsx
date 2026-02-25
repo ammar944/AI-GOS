@@ -52,6 +52,9 @@ interface GenerateHeaderProps {
 
   /** Additional CSS classes */
   className?: string;
+
+  /** Optional action buttons rendered in the right slot (before Exit + UserButton) */
+  actions?: React.ReactNode;
 }
 
 // =============================================================================
@@ -100,6 +103,7 @@ export function GenerateHeader({
   collapsible = false,
   defaultCollapsed = false,
   className,
+  actions,
 }: GenerateHeaderProps) {
   const router = useRouter();
   const [isExitDialogOpen, setIsExitDialogOpen] = React.useState(false);
@@ -130,7 +134,7 @@ export function GenerateHeader({
       <motion.header
         className={cn(
           "sticky top-0 z-50 w-full transition-all duration-300",
-          "border-b border-border/50 backdrop-blur-sm bg-background/80",
+          "border-b border-[var(--border-subtle)] backdrop-blur-sm bg-[var(--bg-base)]/80",
           className
         )}
         initial={false}
@@ -183,7 +187,7 @@ export function GenerateHeader({
                               isActive &&
                                 "bg-[rgba(54,94,255,0.15)] border border-[rgb(54,94,255)] text-[rgb(54,94,255)]",
                               isUpcoming &&
-                                "bg-background border border-border/50 text-muted-foreground"
+                                "bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-tertiary)]"
                             )}
                           >
                             {isCompleted ? (
@@ -223,8 +227,11 @@ export function GenerateHeader({
               )}
             </AnimatePresence>
 
-            {/* Right: Exit Button + UserButton */}
+            {/* Right: Actions + Exit Button + UserButton */}
             <div className="flex items-center gap-3">
+              {/* Injected action buttons (e.g. from complete view) */}
+              {actions}
+
               {/* Collapse Toggle (only if collapsible) */}
               {collapsible && (
                 <Button
@@ -292,7 +299,7 @@ export function GenerateHeader({
                               isActive &&
                                 "bg-[rgba(54,94,255,0.15)] border border-[rgb(54,94,255)] text-[rgb(54,94,255)]",
                               isUpcoming &&
-                                "bg-background border border-border/50 text-muted-foreground"
+                                "bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-tertiary)]"
                             )}
                           >
                             {isCompleted ? (

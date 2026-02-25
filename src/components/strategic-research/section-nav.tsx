@@ -84,9 +84,9 @@ export function SectionNav({
               onClick={() => handleClick(section)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-200",
-                "border border-transparent hover:bg-[var(--bg-hover)]",
+                "border-l-2 border-l-transparent hover:bg-[var(--bg-hover)]",
                 isActive
-                  ? "border-l-2 text-[var(--text-primary)]"
+                  ? "text-[var(--text-primary)]"
                   : "text-[var(--text-tertiary)]"
               )}
               style={
@@ -226,12 +226,7 @@ export function SectionNav({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full h-8 gap-2 justify-center rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                      style={{
-                        color: 'var(--text-secondary)',
-                        borderColor: 'var(--border-default)',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
+                      className="w-full h-8 gap-2 justify-center rounded-lg transition-all duration-200 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                       onClick={onApproveAll}
                     >
                       <CheckCheck className="h-4 w-4" />
@@ -249,12 +244,7 @@ export function SectionNav({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full h-8 gap-2 justify-center rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
-                      style={{
-                        color: 'var(--text-secondary)',
-                        borderColor: 'var(--border-default)',
-                        fontFamily: 'var(--font-sans), Inter, sans-serif',
-                      }}
+                      className="w-full h-8 gap-2 justify-center rounded-lg transition-all duration-200 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                       onClick={onUndoApproveAll}
                     >
                       <Undo2 className="h-4 w-4" />

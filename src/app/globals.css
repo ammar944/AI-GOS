@@ -954,11 +954,3 @@
 
 /* Tab indicator dots — now using inline Tailwind classes in the component */
 
-/* ============================================
-   Nav arrow hover — uses --nav-accent CSS var
-   set inline per section. Unlayered to beat
-   Tailwind v4 @layer specificity.
-   ============================================ */
-.nav-arrow-btn:hover {
-  border-color: color-mix(in srgb, var(--nav-accent, rgba(255,255,255,0.15)) 30%, transparent) !important;
-}

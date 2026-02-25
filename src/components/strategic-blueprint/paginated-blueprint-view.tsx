@@ -208,7 +208,7 @@ export function PaginatedBlueprintView({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Top section nav ────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-[rgba(255,255,255,0.06)]">
+      <div className="shrink-0 border-b border-[var(--border-subtle)]">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-0 min-w-max">
             {availableSections.map((section, i) => {
@@ -259,16 +259,14 @@ export function PaginatedBlueprintView({
           <button
             onClick={goPrev}
             className={cn(
-              "nav-arrow-btn",
               "absolute left-2 top-1/2 -translate-y-1/2 z-10",
               "flex h-8 w-8 items-center justify-center rounded-full",
-              "bg-transparent border border-[rgba(255,255,255,0.06)] text-[rgb(100,105,115)]",
+              "bg-[var(--bg-surface)] text-[var(--text-tertiary)]",
               "opacity-0 group-hover:opacity-80 hover:!opacity-100",
               "transition-all duration-200",
-              "hover:text-[rgb(205,208,213)]",
+              "hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             )}
-            style={{ "--nav-accent": SECTION_ACCENT_COLORS[currentSectionKey].base } as React.CSSProperties}
             aria-label="Previous section"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -302,16 +300,14 @@ export function PaginatedBlueprintView({
           <button
             onClick={goNext}
             className={cn(
-              "nav-arrow-btn",
               "absolute right-2 top-1/2 -translate-y-1/2 z-10",
               "flex h-8 w-8 items-center justify-center rounded-full",
-              "bg-transparent border border-[rgba(255,255,255,0.06)] text-[rgb(100,105,115)]",
+              "bg-[var(--bg-surface)] text-[var(--text-tertiary)]",
               "opacity-0 group-hover:opacity-80 hover:!opacity-100",
               "transition-all duration-200",
-              "hover:text-[rgb(205,208,213)]",
+              "hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             )}
-            style={{ "--nav-accent": SECTION_ACCENT_COLORS[currentSectionKey].base } as React.CSSProperties}
             aria-label="Next section"
           >
             <ChevronRight className="h-4 w-4" />
@@ -320,7 +316,7 @@ export function PaginatedBlueprintView({
       </div>
 
       {/* ── Bottom pagination ──────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-border">
+      <div className="shrink-0 border-t border-[var(--border-subtle)]">
         <div className="flex items-center justify-between px-6 py-2.5">
           {/* Left: dots + counter */}
           <div className="flex items-center gap-3">
@@ -375,11 +371,11 @@ export function PaginatedBlueprintView({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "h-8 gap-1.5 rounded-lg border transition-all duration-200",
+                    "h-8 gap-1.5 rounded-lg transition-all duration-200",
                     "font-[family-name:var(--font-sans)]",
                     copied
-                      ? "text-green-400 border-green-500/30"
-                      : "text-white/50 border-white/[0.08] hover:border-primary/30 hover:text-white/70"
+                      ? "text-green-400"
+                      : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                   )}
                   onClick={handleCopy}
                 >

@@ -317,24 +317,19 @@ export function BlueprintDocument({
 
       {/* Content area — full width */}
       <div className="relative flex-1 min-h-0 group">
-          {/* Left arrow — glass pill, hover-reveal */}
+          {/* Left arrow */}
           {!isFirstPage && (
             <button
               onClick={goPrev}
               className={cn(
                 "absolute left-2 top-1/2 -translate-y-1/2 z-10",
                 "flex h-9 w-9 items-center justify-center rounded-full",
-                "border border-[var(--border-subtle)]",
+                "bg-[var(--bg-surface)] text-[var(--text-tertiary)]",
                 "opacity-0 group-hover:opacity-80 hover:!opacity-100",
                 "transition-all duration-200",
-                "hover:scale-110 hover:border-[var(--accent-blue)]",
+                "hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
               )}
-              style={{
-                background: "rgba(12, 14, 19, 0.7)",
-                backdropFilter: "blur(12px)",
-                color: "var(--text-secondary)",
-              }}
               aria-label="Previous section"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -375,24 +370,19 @@ export function BlueprintDocument({
             </motion.div>
           </AnimatePresence>
 
-          {/* Right arrow — glass pill, hover-reveal */}
+          {/* Right arrow */}
           {!isLastPage && (
             <button
               onClick={goNext}
               className={cn(
                 "absolute right-2 top-1/2 -translate-y-1/2 z-10",
                 "flex h-9 w-9 items-center justify-center rounded-full",
-                "border border-[var(--border-subtle)]",
+                "bg-[var(--bg-surface)] text-[var(--text-tertiary)]",
                 "opacity-0 group-hover:opacity-80 hover:!opacity-100",
                 "transition-all duration-200",
-                "hover:scale-110 hover:border-[var(--accent-blue)]",
+                "hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
               )}
-              style={{
-                background: "rgba(12, 14, 19, 0.7)",
-                backdropFilter: "blur(12px)",
-                color: "var(--text-secondary)",
-              }}
               aria-label="Next section"
             >
               <ChevronRight className="h-4 w-4" />
@@ -402,8 +392,7 @@ export function BlueprintDocument({
 
       {/* Bottom pagination + actions */}
       <div
-        className="shrink-0"
-        style={{ borderTop: "1px solid var(--border-subtle)" }}
+        className="shrink-0 border-t border-[var(--border-subtle)]"
       >
         <SectionPaginationNav
           sections={availableSections}
