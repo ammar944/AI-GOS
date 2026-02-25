@@ -2,8 +2,6 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 // ── Slide + fade for competitor cards ──────────────────────────────────────────
@@ -44,8 +42,7 @@ interface CompetitorFooterNavProps {
 }
 
 // ── CompetitorTabStrip ────────────────────────────────────────────────────────
-// Minimal text-only tabs with amber underline indicator.
-// No filled backgrounds, no browser-tab borders, no Globe icon.
+// Pill-style tabs with filled active state and hover backgrounds.
 
 export function CompetitorTabStrip({
   competitors,
@@ -138,7 +135,7 @@ export function CompetitorTabStrip({
       {/* Scrollable tab strip */}
       <div
         ref={scrollRef}
-        className="flex items-end gap-0 overflow-x-auto"
+        className="flex items-center gap-1 overflow-x-auto py-1"
         style={{ scrollbarWidth: "none" }}
       >
         {competitors.map((competitor, i) => {
@@ -159,17 +156,37 @@ export function CompetitorTabStrip({
               tabIndex={isActive ? 0 : -1}
               onClick={() => onGoToPage(i)}
               className={cn(
-                "group relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs",
-                "transition-colors duration-150",
+                "group relative flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs rounded-md cursor-pointer",
+                "transition-all duration-150",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-blue)]",
                 isActive
-                  ? "text-[var(--text-heading)]"
-                  : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                  ? "text-[#fbbf24] font-medium"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-heading)]"
               )}
+              style={{
+                background: isActive
+                  ? "rgba(245, 158, 11, 0.15)"
+                  : undefined,
+                border: isActive
+                  ? "1px solid rgba(245, 158, 11, 0.3)"
+                  : "1px solid transparent",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.borderColor = "transparent";
+                }
+              }}
             >
               {/* Tab number */}
               <span
-                className="text-[10px] font-medium tabular-nums"
+                className="text-[10px] font-semibold tabular-nums"
                 style={{
                   color: isActive ? "#f59e0b" : "var(--text-tertiary)",
                   fontFamily: "var(--font-mono), monospace",
@@ -183,7 +200,7 @@ export function CompetitorTabStrip({
                 {name}
               </span>
 
-              {/* Summary depth indicator — italic, not a badge */}
+              {/* Summary depth indicator */}
               {isSummary && (
                 <span
                   className="text-[10px] italic shrink-0"
@@ -192,22 +209,12 @@ export function CompetitorTabStrip({
                   (summary)
                 </span>
               )}
-
-              {/* Amber underline indicator for active tab */}
-              {isActive && (
-                <motion.div
-                  layoutId="competitor-tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-[2px]"
-                  style={{ backgroundColor: "#f59e0b" }}
-                  transition={springs.snappy}
-                />
-              )}
             </button>
           );
         })}
 
-        {/* Position counter — inline after tabs */}
-        <div className="flex shrink-0 items-center self-center px-2 py-2">
+        {/* Position counter */}
+        <div className="flex shrink-0 items-center self-center px-2 py-1.5">
           <span
             className="text-[10px] tabular-nums"
             style={{
@@ -234,8 +241,6 @@ export function CompetitorTabStrip({
 }
 
 // ── CompetitorFooterNav ───────────────────────────────────────────────────────
-// Minimal single-row footer: ← PolyAI    3 of 8    Loman AI →
-// No filled buttons, no gradients, no Globe icon, ~32px tall.
 
 export function CompetitorFooterNav({
   competitors,
@@ -253,6 +258,14 @@ export function CompetitorFooterNav({
     ? (competitors[currentPage + 1]?.name || `Competitor ${currentPage + 2}`)
     : "";
 
+  const navButtonClass = cn(
+    "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md cursor-pointer",
+    "text-[var(--text-secondary)] hover:text-[var(--text-heading)]",
+    "transition-all duration-150",
+    "hover:bg-[rgba(255,255,255,0.06)]",
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+  );
+
   return (
     <div
       className="py-3 mt-4 flex items-center justify-between"
@@ -264,12 +277,7 @@ export function CompetitorFooterNav({
           <button
             type="button"
             onClick={() => onGoToPage(currentPage - 1)}
-            className={cn(
-              "flex items-center gap-1 text-xs",
-              "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]",
-              "transition-colors duration-150",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
-            )}
+            className={navButtonClass}
           >
             <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate max-w-[120px]">{prevName}</span>
@@ -296,12 +304,7 @@ export function CompetitorFooterNav({
           <button
             type="button"
             onClick={() => onGoToPage(currentPage + 1)}
-            className={cn(
-              "flex items-center gap-1 text-xs",
-              "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]",
-              "transition-colors duration-150",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
-            )}
+            className={navButtonClass}
           >
             <span className="truncate max-w-[120px]">{nextName}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />
