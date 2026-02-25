@@ -1,6 +1,6 @@
 // Search Blueprint Tool
 // In-memory search — no Supabase/embedding dependency
-// Searches blueprint data directly using keyword matching
+// Searches blueprint data using keyword matching + fuzzy Levenshtein distance
 
 import { z } from 'zod';
 import { tool } from 'ai';
@@ -18,6 +18,7 @@ interface SearchHit {
   fieldPath: string;
   content: string;
   relevance: number;
+  snippet?: string;
 }
 
 /**
@@ -70,35 +71,135 @@ function flattenToEntries(
 }
 
 /**
- * Simple keyword relevance scoring.
- * Returns 0-1 based on how many query terms appear in the content + field path.
+ * Levenshtein distance between two strings.
+ * Uses rolling-row DP with O(min(a,b)) memory.
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Ensure b is shorter for O(min(a,b)) memory
+  if (a.length < b.length) {
+    [a, b] = [b, a];
+  }
+
+  const bLen = b.length;
+  let prev = new Array(bLen + 1);
+  let curr = new Array(bLen + 1);
+
+  for (let j = 0; j <= bLen; j++) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= bLen; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,       // deletion
+        curr[j - 1] + 1,   // insertion
+        prev[j - 1] + cost  // substitution
+      );
+    }
+    [prev, curr] = [curr, prev];
+  }
+
+  return prev[bLen];
+}
+
+/**
+ * Check if queryWord fuzzy-matches any word in the target string.
+ * Returns true if any target word is within maxDistance edits.
+ */
+function fuzzyMatch(queryWord: string, target: string, maxDistance: number = 2): boolean {
+  const words = target.toLowerCase().split(/\s+/);
+  for (const word of words) {
+    if (levenshteinDistance(queryWord, word) <= maxDistance) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Extract a snippet around the first occurrence of a term in content.
+ */
+function extractSnippet(content: string, term: string, radius: number = 50): string | undefined {
+  const idx = content.toLowerCase().indexOf(term.toLowerCase());
+  if (idx === -1) return undefined;
+
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(content.length, idx + term.length + radius);
+  let snippet = content.substring(start, end);
+
+  if (start > 0) snippet = '...' + snippet;
+  if (end < content.length) snippet = snippet + '...';
+
+  return snippet;
+}
+
+/**
+ * Multi-tier keyword relevance scoring with fuzzy matching.
+ *
+ * Three tiers:
+ * - Exact substring match: 3x weight
+ * - Prefix match (word starts with query term): 2x weight
+ * - Fuzzy Levenshtein ≤ 2: 1x weight
+ *
+ * Field path matches get +0.5 bonus.
  */
 function scoreRelevance(entry: SearchHit, queryTerms: string[]): number {
   if (queryTerms.length === 0) return 0;
 
-  const searchText = `${entry.fieldPath} ${entry.content}`.toLowerCase();
-  let matchCount = 0;
+  const contentLower = entry.content.toLowerCase();
+  const fieldLower = entry.fieldPath.toLowerCase();
+  const searchText = `${fieldLower} ${contentLower}`;
   let totalWeight = 0;
+  let matchCount = 0;
+  let bestSnippet: string | undefined;
 
   for (const term of queryTerms) {
     const termLower = term.toLowerCase();
-    // Check for presence
+    let termWeight = 0;
+
+    // Tier 1: Exact substring match (3x)
     if (searchText.includes(termLower)) {
+      termWeight = 3;
+      if (!bestSnippet) {
+        bestSnippet = extractSnippet(entry.content, termLower);
+      }
+    }
+    // Tier 2: Prefix match — any word in content starts with term (2x)
+    else if (searchText.split(/\s+/).some(w => w.startsWith(termLower))) {
+      termWeight = 2;
+    }
+    // Tier 3: Fuzzy Levenshtein ≤ 2 (1x)
+    else if (fuzzyMatch(termLower, searchText)) {
+      termWeight = 1;
+    }
+
+    if (termWeight > 0) {
       matchCount++;
       // Bonus for field path match (more specific)
-      if (entry.fieldPath.toLowerCase().includes(termLower)) {
-        totalWeight += 1.5;
-      } else {
-        totalWeight += 1;
+      if (fieldLower.includes(termLower)) {
+        termWeight += 0.5;
       }
+      totalWeight += termWeight;
     }
   }
 
-  // Base score: proportion of terms matched, weighted
-  const proportionMatched = matchCount / queryTerms.length;
-  const weightedScore = totalWeight / (queryTerms.length * 1.5); // normalize against max possible weight
+  if (matchCount === 0) return 0;
 
-  return (proportionMatched * 0.4 + weightedScore * 0.6);
+  // Assign snippet
+  if (bestSnippet) {
+    entry.snippet = bestSnippet;
+  }
+
+  // Score: proportion matched * weighted score normalized
+  const proportionMatched = matchCount / queryTerms.length;
+  const maxPossibleWeight = queryTerms.length * 3.5; // 3x + 0.5 field bonus
+  const normalizedWeight = totalWeight / maxPossibleWeight;
+
+  return proportionMatched * 0.4 + normalizedWeight * 0.6;
 }
 
 /**
@@ -166,7 +267,7 @@ export function createSearchBlueprintTool(blueprint: Record<string, unknown>) {
       const relevant = entries
         .filter(e => e.relevance > 0.1)
         .sort((a, b) => b.relevance - a.relevance)
-        .slice(0, 10);
+        .slice(0, 20);
 
       // If keyword search found nothing, fall back to returning the filtered section(s)
       if (relevant.length === 0 && sectionFilter) {
@@ -190,9 +291,13 @@ export function createSearchBlueprintTool(blueprint: Record<string, unknown>) {
       const context = relevant
         .map((r, i) => {
           const label = SECTION_LABELS[r.section] || r.section;
-          const truncatedContent =
-            r.content.length > 500 ? r.content.substring(0, 497) + '...' : r.content;
-          return `[${i + 1}] ${label} > ${r.fieldPath}:\n${truncatedContent}`;
+          // Use snippet if available, otherwise truncate full content
+          const display = r.snippet
+            ? r.snippet
+            : r.content.length > 500
+            ? r.content.substring(0, 497) + '...'
+            : r.content;
+          return `[${i + 1}] ${label} > ${r.fieldPath}:\n${display}`;
         })
         .join('\n\n');
 

@@ -28,6 +28,9 @@ export const MODELS = {
   // Anthropic models
   CLAUDE_SONNET: 'claude-sonnet-4-20250514',
   CLAUDE_HAIKU: 'claude-haiku-4-5-20251001',
+
+  // Groq models (via Llama 4 Scout — 128K context, fast inference)
+  LLAMA_SCOUT: 'meta-llama/llama-4-scout-17b-16e-instruct',
 } as const;
 
 // =============================================================================
@@ -129,6 +132,11 @@ export const MODEL_COSTS = {
   [MODELS.CLAUDE_HAIKU]: {
     input: 0.8,
     output: 4.0,
+    requestFee: 0,
+  },
+  [MODELS.LLAMA_SCOUT]: {
+    input: 0.11,
+    output: 0.34,
     requestFee: 0,
   },
 } as const;

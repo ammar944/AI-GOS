@@ -6,6 +6,7 @@ import { MagneticButton } from '@/components/ui/magnetic-button';
 import { GradientBorder } from '@/components/ui/gradient-border';
 import { SECTION_LABELS } from '@/lib/ai/chat-tools/utils';
 import { springs } from '@/lib/motion';
+import { EditDiffView } from './edit-diff-view';
 
 interface EditApprovalCardProps {
   section: string;
@@ -22,6 +23,8 @@ interface EditApprovalCardProps {
 export function EditApprovalCard({
   section,
   fieldPath,
+  oldValue,
+  newValue,
   explanation,
   diffPreview,
   isApproving,
@@ -71,16 +74,7 @@ export function EditApprovalCard({
           >
             {explanation}
           </p>
-          <pre
-            className="text-xs p-2 rounded overflow-auto max-h-20 font-mono whitespace-pre-wrap"
-            style={{
-              background: 'rgba(0, 0, 0, 0.3)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            {diffPreview}
-          </pre>
+          <EditDiffView oldValue={oldValue} newValue={newValue} fieldPath={fieldPath} />
         </div>
 
         <div className="flex gap-2">

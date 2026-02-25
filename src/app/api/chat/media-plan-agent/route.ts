@@ -1,11 +1,12 @@
 // POST /api/chat/media-plan-agent
 // Streaming chat endpoint for media plan review using Vercel AI SDK v6
+// Uses Groq Llama 4 Scout for fast inference with 128K context window
 
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
 import { auth } from '@clerk/nextjs/server';
-import { anthropic, MODELS } from '@/lib/ai/providers';
-import { createMediaPlanChatTools, summarizeMediaPlan } from '@/lib/ai/media-plan-chat-tools';
+import { groq, GROQ_CHAT_MODEL } from '@/lib/ai/groq-provider';
+import { createMediaPlanChatTools } from '@/lib/ai/media-plan-chat-tools';
 import type { MediaPlanOutput } from '@/lib/media-plan/types';
 import type { OnboardingFormData } from '@/lib/onboarding/types';
 
@@ -18,7 +19,32 @@ interface MediaPlanAgentChatRequest {
   onboardingData: OnboardingFormData;
 }
 
-const SYSTEM_PROMPT_TEMPLATE = `You are a senior paid media strategist embedded inside a Media Plan tool. You've spent years managing six and seven-figure ad budgets, optimizing campaign structures, and building performance models for growth-stage companies.
+/**
+ * Build system prompt with full media plan JSON embedded.
+ * Llama 4 Scout's 128K context allows the full plan instead of a summary.
+ */
+function buildSystemPrompt(mediaPlan: Record<string, unknown>): string {
+  let mediaPlanJson: string;
+  try {
+    mediaPlanJson = JSON.stringify(mediaPlan, null, 2);
+  } catch {
+    mediaPlanJson = '[Media plan data could not be serialized]';
+  }
+
+  // Safety check for extremely large plans
+  if (mediaPlanJson.length > 300_000) {
+    const sections: string[] = [];
+    for (const [key, value] of Object.entries(mediaPlan)) {
+      if (!value || typeof value !== 'object') continue;
+      try {
+        const json = JSON.stringify(value, null, 2);
+        sections.push(`### ${key}\n${json.substring(0, 8000)}`);
+      } catch { /* skip */ }
+    }
+    mediaPlanJson = sections.join('\n\n');
+  }
+
+  return `You are a senior paid media strategist embedded inside a Media Plan tool. You've spent years managing six and seven-figure ad budgets, optimizing campaign structures, and building performance models for growth-stage companies.
 
 Your background: You think in terms of CAC math (budget → CPL → leads → SQLs → customers → CAC → LTV:CAC), you know how campaign daily budgets should cascade from monthly totals, you understand platform-specific nuances (Meta vs LinkedIn vs Google), and you can spot when numbers don't add up.
 
@@ -52,17 +78,22 @@ The performance model uses deterministic math (no AI):
 
 When a budget or rate changes, ALL downstream numbers must be recalculated.
 
-## Current Media Plan
-{MEDIA_PLAN_SUMMARY}
+## Full Media Plan Data
 
-## Tool Usage
+\`\`\`json
+${mediaPlanJson}
+\`\`\`
 
-- **searchMediaPlan** — Search for specific data across all 10 sections. Search first, then answer. Don't guess.
-- **editMediaPlan** — Propose edits to specific fields. Requires user approval. After approval, use **recalculate** if the edit affects budget/CAC/KPI math.
-- **explainMediaPlan** — Get section data to explain scores, recommendations, or numbers. Use for "why" questions.
-- **recalculate** — Run the validation cascade after an edit changes budget, platforms, or campaign structure. This fixes cross-section inconsistencies automatically.
-- **simulateBudgetChange** — Read-only what-if analysis. Use when the user asks "what if budget was $X?" without actually changing anything.
-- **webResearch** — Live web search for current market data, platform updates, benchmark data.
+## CRITICAL RULES — Tool Usage
+
+You have 6 tools. You MUST use them correctly:
+
+1. **searchMediaPlan** — Search for specific data across all 10 sections. Search first, then answer. NEVER guess.
+2. **editMediaPlan** — Propose edits to specific fields. Requires user approval. After approval, use **recalculate** if the edit affects budget/CAC/KPI math.
+3. **explainMediaPlan** — Get section data to explain scores, recommendations, or numbers. Use for "why" questions.
+4. **recalculate** — Run the validation cascade after an edit changes budget, platforms, or campaign structure. This fixes cross-section inconsistencies automatically.
+5. **simulateBudgetChange** — Read-only what-if analysis. Use when the user asks "what if budget was $X?" without actually changing anything.
+6. **webResearch** — Live web search for current market data, platform updates, benchmark data.
 
 ## Edit Discipline
 
@@ -86,6 +117,7 @@ Many fields are arrays (platformStrategy is an array of platform objects, kpiTar
 - **Flag inconsistencies.** If you see numbers that don't add up, call it out and offer to fix.
 - **Use markdown** for structure. Bold key metrics. Tables for comparisons.
 - **No emoji walls.** One emoji max if it genuinely helps.`;
+}
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -105,8 +137,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const mediaPlanSummary = summarizeMediaPlan(body.mediaPlan as unknown as Record<string, unknown>);
-  const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{MEDIA_PLAN_SUMMARY}', mediaPlanSummary);
+  const systemPrompt = buildSystemPrompt(body.mediaPlan as unknown as Record<string, unknown>);
 
   const tools = createMediaPlanChatTools(body.mediaPlanId, body.mediaPlan, body.onboardingData);
 
@@ -132,7 +163,7 @@ export async function POST(request: Request) {
   })) as UIMessage[];
 
   const result = streamText({
-    model: anthropic(MODELS.CLAUDE_SONNET),
+    model: groq(GROQ_CHAT_MODEL),
     system: systemPrompt,
     messages: await convertToModelMessages(sanitizedMessages),
     tools,

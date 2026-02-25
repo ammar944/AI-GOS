@@ -5,19 +5,77 @@ import { motion } from "framer-motion";
 interface QuickSuggestionsProps {
   onSelect: (suggestion: string) => void;
   disabled?: boolean;
+  blueprint?: Record<string, unknown>;
 }
 
-const SUGGESTIONS = [
-  "Adjust budget targets",
-  "Add a channel",
+const FALLBACK_SUGGESTIONS = [
   "Explain competitors",
-  "Summarize insights",
+  "Summarize key insights",
+  "Adjust budget targets",
 ];
 
-export function QuickSuggestions({ onSelect, disabled }: QuickSuggestionsProps) {
+/**
+ * Generate dynamic suggestions based on blueprint data.
+ * Each check is wrapped in try/catch to handle malformed data.
+ */
+function getDynamicSuggestions(blueprint: Record<string, unknown>): string[] {
+  const suggestions: string[] = [];
+
+  try {
+    const offer = blueprint.offerAnalysisViability as Record<string, unknown> | undefined;
+    const strength = offer?.offerStrength as Record<string, unknown> | undefined;
+    const score = strength?.overallScore as number | undefined;
+    if (score !== undefined && score < 6) {
+      suggestions.push(`Improve offer score — currently ${score}/10`);
+    }
+  } catch { /* skip */ }
+
+  try {
+    const icp = blueprint.icpAnalysisValidation as Record<string, unknown> | undefined;
+    const verdict = icp?.finalVerdict as Record<string, unknown> | undefined;
+    const status = verdict?.status as string | undefined;
+    if (status && status !== "ready_to_run") {
+      suggestions.push("Review ICP validation status");
+    }
+  } catch { /* skip */ }
+
+  try {
+    const synthesis = blueprint.crossAnalysisSynthesis as Record<string, unknown> | undefined;
+    const positioning = synthesis?.recommendedPositioning as string | undefined;
+    if (!positioning || positioning.length < 50) {
+      suggestions.push("Expand positioning statement");
+    }
+  } catch { /* skip */ }
+
+  try {
+    const competitors = blueprint.competitorAnalysis as Record<string, unknown> | undefined;
+    const list = competitors?.competitors as unknown[] | undefined;
+    if (!list || list.length === 0) {
+      suggestions.push("Add competitor analysis");
+    }
+  } catch { /* skip */ }
+
+  try {
+    const synthesis = blueprint.crossAnalysisSynthesis as Record<string, unknown> | undefined;
+    const hooks = synthesis?.adHooks as unknown[] | undefined;
+    if (!hooks || hooks.length < 3) {
+      suggestions.push("Generate more ad hooks");
+    }
+  } catch { /* skip */ }
+
+  return suggestions;
+}
+
+export function QuickSuggestions({ onSelect, disabled, blueprint }: QuickSuggestionsProps) {
+  // Build suggestions: dynamic first (up to 2), then fallbacks to reach max 4
+  const dynamic = blueprint ? getDynamicSuggestions(blueprint).slice(0, 2) : [];
+  const needed = 4 - dynamic.length;
+  const fallbacks = FALLBACK_SUGGESTIONS.slice(0, needed);
+  const suggestions = [...dynamic, ...fallbacks];
+
   return (
     <div className="flex flex-wrap gap-2 justify-center">
-      {SUGGESTIONS.map((suggestion, index) => (
+      {suggestions.map((suggestion, index) => (
         <motion.button
           key={suggestion}
           initial={{ opacity: 0 }}

@@ -46,6 +46,7 @@ export function AgentChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const blueprintRef = useRef(blueprint);
   blueprintRef.current = blueprint;
+  const blueprintVersionRef = useRef(0);
 
   const { canUndo, canRedo, undoDepth, recordEdit, undo, redo } = useEditHistory(blueprintId);
 
@@ -63,8 +64,9 @@ export function AgentChat({
     })
   );
 
-  // Update transport body when blueprint changes
+  // Update transport body when blueprint changes and increment version
   useEffect(() => {
+    blueprintVersionRef.current += 1;
     transport.current = new DefaultChatTransport({
       api: '/api/chat/agent',
       body: {
@@ -217,7 +219,14 @@ export function AgentChat({
   );
 
   const handleApproveEdit = useCallback(
-    (approvalId: string, editInput: { section: string; fieldPath: string; newValue: unknown }) => {
+    (approvalId: string, editInput: { section: string; fieldPath: string; newValue: unknown }, proposedAtVersion?: number) => {
+      // Optimistic locking: warn if blueprint changed since edit was proposed
+      if (proposedAtVersion !== undefined && proposedAtVersion !== blueprintVersionRef.current) {
+        console.warn(
+          `Blueprint version mismatch: edit proposed at v${proposedAtVersion}, current is v${blueprintVersionRef.current}. Applying anyway.`
+        );
+      }
+
       // Apply edit to blueprint before approving
       const currentBlueprint = blueprintRef.current;
       const blueprintBefore = JSON.parse(JSON.stringify(currentBlueprint));
@@ -342,6 +351,7 @@ export function AgentChat({
           };
           // Always use a stable fallback so handlers never receive undefined
           const approvalId = toolPart.approval?.id ?? `${message.id}-${i}`;
+          const proposedVersion = blueprintVersionRef.current;
 
           elements.push(
             <EditApprovalCard
@@ -352,7 +362,7 @@ export function AgentChat({
               newValue={editInput.newValue}
               explanation={editInput.explanation}
               diffPreview={`Field: ${editInput.fieldPath}\nNew value: ${(() => { try { return JSON.stringify(editInput.newValue, null, 2)?.substring(0, 200); } catch { return '[complex value]'; } })()}`}
-              onApprove={() => handleApproveEdit(approvalId, editInput)}
+              onApprove={() => handleApproveEdit(approvalId, editInput, proposedVersion)}
               onReject={() => handleRejectEdit(approvalId)}
             />
           );
@@ -522,7 +532,7 @@ export function AgentChat({
               </p>
             </motion.div>
 
-            <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} />
+            <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} blueprint={blueprint} />
           </div>
         )}
 
@@ -568,7 +578,7 @@ export function AgentChat({
         {/* Quick suggestions (when conversation exists) */}
         {messages.length > 0 && !isLoading && (
           <div className="mb-3">
-            <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} />
+            <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} blueprint={blueprint} />
           </div>
         )}
 
