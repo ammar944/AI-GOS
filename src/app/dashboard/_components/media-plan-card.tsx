@@ -109,27 +109,17 @@ export function MediaPlanCard({
 
               {/* Source blueprint link */}
               {mediaPlan.blueprint_id && blueprintTitle && (
-                <span
-                  role="link"
-                  tabIndex={0}
+                <Link
+                  href={`/blueprint/${mediaPlan.blueprint_id}`}
                   className="group/link inline-flex items-center gap-1 w-fit text-[11px] -mt-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.location.href = `/blueprint/${mediaPlan.blueprint_id}`;
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      window.location.href = `/blueprint/${mediaPlan.blueprint_id}`;
-                    }
-                  }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <span className="text-[var(--text-tertiary)] opacity-60">from</span>
                   <span className="text-[var(--text-tertiary)] group-hover/link:text-blue-400 truncate max-w-[180px] transition-colors">
                     {blueprintTitle}
                   </span>
                   <ArrowUpRight className="size-2.5 text-[var(--text-tertiary)] opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                </span>
+                </Link>
               )}
 
               {/* Bottom row: badges + arrow */}

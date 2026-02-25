@@ -122,24 +122,14 @@ export function BlueprintCard({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span
-                    role="button"
-                    tabIndex={0}
+                  <Link
+                    href={`/generate?blueprintId=${blueprint.id}&action=media-plan`}
                     className="inline-flex items-center gap-1 text-[11px] text-[var(--text-tertiary)] hover:text-blue-400 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      window.location.href = `/generate?blueprintId=${blueprint.id}&action=media-plan`;
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        window.location.href = `/generate?blueprintId=${blueprint.id}&action=media-plan`;
-                      }
-                    }}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <Wand2 className="size-3" />
                     Media Plan
-                  </span>
+                  </Link>
                   <ArrowRight className="size-3.5 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 translate-x-0 group-hover:translate-x-0.5 transition-all duration-200" />
                 </div>
               </div>
