@@ -66,6 +66,7 @@ export function SwipeableCompetitorCard({
 
   const handlePanStart = React.useCallback(
     (_event: PointerEvent, info: PanInfo) => {
+      isHorizontalRef.current = null; // always reset at gesture start
       if (isEditing) return;
 
       // If the swipe started inside an ad carousel, let Embla handle it
