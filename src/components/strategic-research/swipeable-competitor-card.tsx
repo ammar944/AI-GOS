@@ -67,6 +67,14 @@ export function SwipeableCompetitorCard({
   const handlePanStart = React.useCallback(
     (_event: PointerEvent, info: PanInfo) => {
       if (isEditing) return;
+
+      // If the swipe started inside an ad carousel, let Embla handle it
+      const target = _event.target as HTMLElement;
+      if (target?.closest?.("[data-ad-carousel]")) {
+        isHorizontalRef.current = false;
+        return;
+      }
+
       const absX = Math.abs(info.delta.x);
       const absY = Math.abs(info.delta.y);
       isHorizontalRef.current = absX > absY;

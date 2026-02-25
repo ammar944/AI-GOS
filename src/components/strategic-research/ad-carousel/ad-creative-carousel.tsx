@@ -132,7 +132,7 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
   const showRelevanceFilters = hasRelevanceData && (relevanceCounts.high > 0 || relevanceCounts.low > 0);
 
   return (
-    <div className={cn("w-full max-w-2xl mx-auto space-y-4", className)} style={{ overscrollBehaviorX: 'contain' }}>
+    <div data-ad-carousel className={cn("w-full max-w-2xl mx-auto space-y-4", className)} style={{ overscrollBehaviorX: 'contain' }}>
       {/* Filters Section */}
       <div
         className="rounded-2xl p-4"
