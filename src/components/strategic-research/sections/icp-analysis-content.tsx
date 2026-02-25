@@ -114,7 +114,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
             </DataCard>
           </div>
           <div className="pt-1 border-t border-white/[0.04]">
-            <Badge className={cn(
+            <Badge variant="outline" className={cn(
               "text-[10px] uppercase tracking-wider",
               data?.painSolutionFit?.fitAssessment === "strong" ? STATUS_BADGE_COLORS.success :
               data?.painSolutionFit?.fitAssessment === "moderate" ? STATUS_BADGE_COLORS.warning :
@@ -194,7 +194,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
                       <span className="text-[10px] font-medium uppercase tracking-[0.07em] text-white/40">
                         {rs.category.replace(/_/g, " ")}
                       </span>
-                      <Badge className={cn(
+                      <Badge variant="outline" className={cn(
                         "text-[10px] uppercase tracking-wider",
                         RISK_COLORS[classification as RiskRating] || RISK_COLORS.medium
                       )}>
@@ -221,7 +221,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
             <CardGrid cols={4}>
               {(["reachability", "budget", "painStrength", "competitiveness"] as const).map((key) => (
                 <DataCard key={key} label={key.replace(/([A-Z])/g, " $1")} fieldPath={`riskAssessment.${key}`}>
-                  <Badge className={cn(
+                  <Badge variant="outline" className={cn(
                     "text-[10px] uppercase tracking-wider",
                     RISK_COLORS[((data as any).riskAssessment?.[key] || "medium") as RiskRating]
                   )}>

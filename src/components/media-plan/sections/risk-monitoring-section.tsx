@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { EditableList } from "@/components/strategic-research/editable/editable-list";
 import type { RiskMonitoring } from "@/lib/media-plan/types";
 import {
@@ -9,7 +8,6 @@ import {
   StatusBadge,
   ListItem,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   SEVERITY_COLORS,
   CATEGORY_COLORS,
   type EditingProps,
@@ -26,7 +24,7 @@ export function RiskMonitoringContent({
       <SubSection title="Identified Risks">
         <div className="space-y-3">
           {data.risks.map((r, rIdx) => (
-            <div key={rIdx} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+            <div key={rIdx} className="p-4 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge label={r.category} variant={CATEGORY_COLORS[r.category] ?? "neutral"} />
                 {/* P×I score badge (new) — shown when numerical scoring is available */}

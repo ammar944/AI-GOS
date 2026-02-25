@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import type { CreativeStrategy } from "@/lib/media-plan/types";
 import {
   SubSection,
   FunnelBadge,
   Chip,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   type EditingProps,
 } from "./shared";
@@ -24,7 +22,7 @@ export function CreativeStrategyContent({
       <SubSection title="Creative Angles">
         <div className="space-y-4">
           {data.angles.map((a, aIdx) => (
-            <div key={a.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+            <div key={a.name} className="p-4 space-y-2">
               <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
                 {a.name}
               </span>
@@ -98,7 +96,7 @@ export function CreativeStrategyContent({
       <SubSection title="Testing Plan">
         <div className="space-y-3">
           {data.testingPlan.map((tp) => (
-            <div key={tp.phase} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+            <div key={tp.phase} className="p-4 space-y-2">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>{tp.phase}</span>
                 <Chip>{tp.variantsToTest} variants</Chip>
@@ -120,7 +118,7 @@ export function CreativeStrategyContent({
       <SubSection title="Refresh Cadence">
         <div className="space-y-2">
           {data.refreshCadence.map((rc) => (
-            <div key={rc.platform} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-4 p-4")}>
+            <div key={rc.platform} className="flex items-start gap-4 p-4">
               <div className="shrink-0">
                 <Chip>{rc.platform}</Chip>
               </div>

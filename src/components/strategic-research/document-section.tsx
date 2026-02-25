@@ -7,7 +7,6 @@ import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-bluepr
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
 import { CitationBadge, SourcesList } from "./citations";
-import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
 const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
   industryMarketOverview: "Industry & Market Overview",
@@ -50,7 +49,6 @@ export function DocumentSection({
       data-section
       className={cn(
         "rounded-xl",
-        RESEARCH_SHELL_CLASS,
         "p-5"
       )}
     >

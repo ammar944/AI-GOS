@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import type { PerformanceModel } from "@/lib/media-plan/types";
 import {
   SubSection,
   InfoCard,
   MonitoringColumn,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   fmtPct,
   type EditingProps,
@@ -29,7 +27,7 @@ export function PerformanceModelContent({
           <>
             {/* Editable grid row 1 */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+              <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Target CPL</p>
                 <EditableText
                   value={String(m.targetCPL)}
@@ -37,7 +35,7 @@ export function PerformanceModelContent({
                 />
               </div>
               <InfoCard label="Expected Leads/mo" value={m.expectedMonthlyLeads} mono />
-              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+              <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Lead &rarr; SQL</p>
                 <EditableText
                   value={String(m.leadToSqlRate)}
@@ -48,7 +46,7 @@ export function PerformanceModelContent({
             </div>
             {/* Editable grid row 2 */}
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+              <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>SQL &rarr; Customer</p>
                 <EditableText
                   value={String(m.sqlToCustomerRate)}
@@ -56,14 +54,14 @@ export function PerformanceModelContent({
                 />
               </div>
               <InfoCard label="Customers/mo" value={m.expectedMonthlyCustomers} mono />
-              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+              <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Target CAC</p>
                 <EditableText
                   value={String(m.targetCAC)}
                   onSave={(v) => onFieldChange?.("cacModel.targetCAC", Number(v) || 0)}
                 />
               </div>
-              <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+              <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Est. LTV</p>
                 <EditableText
                   value={String(m.estimatedLTV)}
@@ -92,7 +90,7 @@ export function PerformanceModelContent({
 
         {/* LTV:CAC highlight */}
         <div
-          className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "mt-3 flex items-center justify-between p-4")}
+          className="mt-3 flex items-center justify-between p-4"
           style={{ borderColor: "rgba(34,197,94,0.3)" }}
         >
           <span className="text-sm font-medium" style={{ color: "var(--text-heading)" }}>

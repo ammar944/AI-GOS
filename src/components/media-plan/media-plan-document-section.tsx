@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import type { MediaPlanSectionKey } from "@/lib/media-plan/section-constants";
 import { MEDIA_PLAN_SECTION_ORDER, MEDIA_PLAN_SECTION_LABELS } from "@/lib/media-plan/section-constants";
 import { MediaPlanSectionContent } from "./section-content";
-import { RESEARCH_SHELL_CLASS } from "@/components/strategic-research/ui-tokens";
 import type { MediaPlanOutput } from "@/lib/media-plan/types";
 
 export interface MediaPlanDocumentSectionProps {
@@ -37,11 +36,7 @@ export function MediaPlanDocumentSection({
     <section
       id={sectionKey}
       data-section
-      className={cn(
-        "rounded-xl",
-        RESEARCH_SHELL_CLASS,
-        "p-5"
-      )}
+      className="rounded-xl p-5"
     >
       {/* Section Header */}
       <div className="mb-4 flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">

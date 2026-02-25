@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { EditableList } from "@/components/strategic-research/editable/editable-list";
 import type { PlatformStrategy } from "@/lib/media-plan/types";
 import {
@@ -10,7 +9,6 @@ import {
   Chip,
   StatusBadge,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   fmtPct,
   type EditingProps,
@@ -24,7 +22,7 @@ export function PlatformStrategyContent({
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {data.map((ps, idx) => (
-        <div key={ps.platform} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-5 space-y-3")}>
+        <div key={ps.platform} className="p-5 space-y-3">
           {/* Name + priority */}
           <div className="flex items-center justify-between">
             <span

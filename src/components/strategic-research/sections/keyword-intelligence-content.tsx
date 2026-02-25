@@ -203,7 +203,7 @@ function KeywordTable({ keywords, maxRows = 15 }: { keywords: KeywordOpportunity
                   ${kw.cpc.toFixed(2)}
                 </td>
                 <td className="text-right py-2 px-2">
-                  <Badge className={cn("text-xs", diff.color)}>{diff.label}</Badge>
+                  <Badge variant="outline" className={cn("text-xs", diff.color)}>{diff.label}</Badge>
                 </td>
                 <td className="text-right py-2 pl-2">
                   <Badge variant="outline" className="text-xs capitalize border-white/[0.08] text-white/40">
@@ -582,7 +582,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
                     {formatNumber(kw.searchVolume)} vol · ${kw.cpc.toFixed(2)} CPC
                   </p>
                 </div>
-                <Badge className={cn("text-xs", getDifficultyLabel(kw.difficulty).color)}>
+                <Badge variant="outline" className={cn("text-xs", getDifficultyLabel(kw.difficulty).color)}>
                   {kw.difficulty}
                 </Badge>
               </div>

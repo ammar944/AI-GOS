@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import type { BudgetAllocation } from "@/lib/media-plan/types";
 import {
   SubSection,
@@ -9,7 +8,6 @@ import {
   FunnelBadge,
   Chip,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   fmtPct,
   type EditingProps,
@@ -93,7 +91,7 @@ export function BudgetAllocationContent({
             return (
               <div
                 key={fs.stage}
-                className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}
+                className="p-4 space-y-2"
                 style={{ borderColor }}
               >
                 <div className="flex items-center justify-between">
@@ -126,7 +124,7 @@ export function BudgetAllocationContent({
       <SubSection title="Monthly Roadmap">
         <div className="space-y-3">
           {data.monthlyRoadmap.map((mr) => (
-            <div key={mr.month} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+            <div key={mr.month} className="p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium"
@@ -153,7 +151,7 @@ export function BudgetAllocationContent({
 
       {/* Ramp-up Strategy */}
       {data.rampUpStrategy && (
-        <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+        <div className="p-4">
           <p className="mb-1 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
             Ramp-Up Strategy
           </p>

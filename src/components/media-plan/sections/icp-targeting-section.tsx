@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { ICPTargeting } from "@/lib/media-plan/types";
 import {
   SubSection,
@@ -10,7 +9,6 @@ import {
   StatusBadge,
   Chip,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   renderChipGroup,
   type EditingProps,
 } from "./shared";
@@ -26,7 +24,7 @@ export function ICPTargetingContent({
       <SubSection title="Audience Segments">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {data.segments.map((seg) => (
-            <div key={seg.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+            <div key={seg.name} className="p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
@@ -94,7 +92,7 @@ export function ICPTargetingContent({
       <SubSection title="Platform Targeting">
         <div className="space-y-4">
           {data.platformTargeting.map((pt) => (
-            <div key={pt.platform} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+            <div key={pt.platform} className="p-4 space-y-2">
               <span className="text-sm font-semibold" style={{ color: "var(--text-heading)" }}>
                 {pt.platform}
               </span>
@@ -167,7 +165,7 @@ export function ICPTargetingContent({
       {/* Overlap Warnings (new) */}
       {data.overlapWarnings && data.overlapWarnings.length > 0 && (
         <div
-          className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}
+          className="p-4 space-y-2"
           style={{ borderColor: "rgba(245,158,11,0.4)" }}
         >
           <div className="flex items-center gap-2">
@@ -189,7 +187,7 @@ export function ICPTargetingContent({
       {/* Reachability banner */}
       {data.reachabilityAssessment && (
         <div
-          className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-3 p-4")}
+          className="flex items-start gap-3 p-4"
           style={{ borderColor: "rgba(54,94,255,0.3)" }}
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--accent-blue)" }} />

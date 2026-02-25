@@ -2,8 +2,6 @@
 
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
-import { RESEARCH_SHELL_CLASS } from "@/components/strategic-research/ui-tokens";
 
 const cardVariant = {
   hidden: { opacity: 0, y: 16 },
@@ -26,7 +24,7 @@ export function MediaPlanSectionCard({
   return (
     <motion.section
       variants={cardVariant}
-      className={cn(RESEARCH_SHELL_CLASS, "p-6 md:p-8")}
+      className="p-6 md:p-8"
     >
       {/* Header */}
       <div className="mb-6 flex items-center gap-4 border-b border-[var(--border-subtle)] pb-5">

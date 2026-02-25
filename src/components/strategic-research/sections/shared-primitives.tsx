@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CheckCircle2, XCircle, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STATUS_BADGE_COLORS } from "../ui-tokens";
 import { useFieldHighlight } from "@/components/strategic-blueprint/use-field-highlight";
@@ -83,59 +83,49 @@ export const OFFER_RECOMMENDATION_COLORS: Record<OfferRecommendation, string> = 
 };
 
 // =============================================================================
-// Core Primitive Components (Dashboard Design Language)
+// Core Primitive Components (Flat Design Language)
 // =============================================================================
 
 /**
- * Section header with accent bar — clean typography matching dashboard.
- * Uses the same font hierarchy: Instrument Sans headings, Inter body.
+ * Section label — uppercase tertiary text.
  */
 export function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3 mb-6">
-      <div className="flex items-center gap-2.5">
-        <div className="w-1 h-4 rounded-full bg-primary/60" />
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/40 font-[family-name:var(--font-heading)]">
-          {title}
-        </h3>
-      </div>
+    <div className="space-y-4 mb-8">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] font-[family-name:var(--font-heading)]">
+        {title}
+      </h3>
       {children}
     </div>
   );
 }
 
 /**
- * Clean list item with subtle blue check accent.
+ * List item with subtle dot accent.
  */
 export function ListItem({ children }: { children: React.ReactNode }) {
   return (
-    <li className="flex items-start gap-2.5 py-0.5">
-      <div className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/[0.08]">
-        <Check className="size-2.5 text-primary/80" />
-      </div>
-      <span className="text-sm text-white/70 leading-relaxed">{children}</span>
+    <li className="flex items-start gap-2.5 py-[6px]">
+      <div className="w-1 h-1 rounded-full bg-[rgb(49,53,63)] mt-[9px] shrink-0" />
+      <span className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.6]">{children}</span>
     </li>
   );
 }
 
 /**
- * Boolean check/cross indicator — refined with subtle backgrounds.
+ * Boolean check indicator with simple dots.
  */
 export function BoolCheck({ value, label }: { value: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2.5 py-1">
       {value ? (
-        <div className="flex size-5 items-center justify-center rounded-full bg-emerald-500/[0.1]">
-          <CheckCircle2 className="size-3.5 text-emerald-400/80" />
-        </div>
+        <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] shrink-0" />
       ) : (
-        <div className="flex size-5 items-center justify-center rounded-full bg-red-500/[0.1]">
-          <XCircle className="size-3.5 text-red-400/60" />
-        </div>
+        <div className="w-1.5 h-1.5 rounded-full bg-[rgb(49,53,63)] shrink-0" />
       )}
       <span className={cn(
-        "text-sm",
-        value ? "text-white/80" : "text-white/40"
+        "text-[13.5px]",
+        value ? "text-[rgb(205,208,213)]" : "text-[rgb(100,105,115)]"
       )}>
         {label}
       </span>
@@ -155,35 +145,25 @@ export function EmptyExplanation({ message }: { message: string }) {
 }
 
 /**
- * Score bar with gradient fill — matches dashboard's metric aesthetic.
+ * Score row with thin bar — horizontal layout.
  */
 export function ScoreDisplay({ label, score, max = 10 }: { label: string; score: number; max?: number }) {
   const percentage = (score / max) * 100;
+  const color = percentage >= 70 ? "text-[rgb(54,94,255)]" : percentage >= 50 ? "text-[#f59e0b]" : "text-[#ef4444]";
+  const barColor = percentage >= 70 ? "bg-[rgb(54,94,255)]" : percentage >= 50 ? "bg-[#f59e0b]" : "bg-[#ef4444]";
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between items-baseline">
-        <span className="text-[13px] text-white/50">{label}</span>
-        <span className={cn(
-          "text-[13px] font-medium tabular-nums font-[family-name:var(--font-mono)]",
-          percentage >= 70 ? "text-primary/90" : percentage >= 50 ? "text-amber-400/80" : "text-red-400/80"
-        )}>
-          {score}/{max}
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden bg-white/[0.04]">
+    <div className="flex items-center py-[10px] border-b border-[rgb(31,31,31)] first:border-t">
+      <span className="flex-1 text-[13.5px] text-[rgb(205,208,213)]">{label}</span>
+      <div className="w-[110px] h-[2px] bg-[rgb(31,31,31)] mx-5 rounded-[1px] overflow-hidden">
         <div
-          className={cn(
-            "h-full rounded-full transition-all duration-500 ease-out",
-            percentage >= 70
-              ? "bg-gradient-to-r from-primary/80 to-primary/60"
-              : percentage >= 50
-                ? "bg-gradient-to-r from-amber-500/70 to-amber-400/50"
-                : "bg-gradient-to-r from-red-500/70 to-red-400/50"
-          )}
+          className={cn("h-full rounded-[1px]", barColor)}
           style={{ width: `${percentage}%` }}
         />
       </div>
+      <span className={cn("text-[13px] font-medium tabular-nums w-9 text-right", color)}>
+        {score}/{max}
+      </span>
     </div>
   );
 }
@@ -193,8 +173,7 @@ export function ScoreDisplay({ label, score, max = 10 }: { label: string; score:
 // =============================================================================
 
 /**
- * Glass-morphism data card — for stat grids like Category Snapshot.
- * Matches dashboard card: bg-[var(--bg-surface)], border-border.
+ * Key-value row — flat data display replacing DataCard.
  * Accepts an optional `fieldPath` to enable chat-edit highlighting.
  */
 export function DataCard({
@@ -219,32 +198,31 @@ export function DataCard({
     <div
       {...highlightAttrs}
       className={cn(
-        "rounded-lg bg-[var(--bg-surface)] border border-border px-3.5 py-2.5",
+        "flex justify-between items-baseline py-[11px] border-b border-[rgb(31,31,31)]",
         highlightClass,
         className
       )}
     >
-      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/30 mb-1">
+      <span className="text-[13.5px] text-[rgb(205,208,213)]">
         {label}
-      </p>
-      <div className="text-[13px] font-medium text-white/85">
+      </span>
+      <span className="text-[13.5px] font-medium text-[rgb(252,252,250)] tabular-nums text-right">
         {children}
-      </div>
+      </span>
     </div>
   );
 }
 
 /**
- * Insight/driver card — icon + title + description.
- * Used for psychological drivers, objections, key insights, etc.
- * Accepts an optional `fieldPath` to enable chat-edit highlighting.
+ * Prose block — title + body text for insights and drivers.
+ * Icon prop kept for backwards compatibility but not rendered.
  */
 export function InsightCard({
-  icon: Icon,
-  iconColor = "text-primary/70",
+  icon: _Icon,
+  iconColor: _iconColor = "text-primary/70",
   title,
   children,
-  accentBorder = false,
+  accentBorder: _accentBorder = false,
   className,
   fieldPath,
 }: {
@@ -267,30 +245,19 @@ export function InsightCard({
     <div
       {...highlightAttrs}
       className={cn(
-        "rounded-lg bg-[var(--bg-surface)] border border-border p-3.5",
-        accentBorder && "border-l-2 border-l-primary/40",
+        "mb-[18px]",
         highlightClass,
         className
       )}
     >
-      <div className="flex items-start gap-2.5">
-        {Icon && (
-          <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-white/[0.04]">
-            <Icon className={cn("size-3", iconColor)} />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-white/85 leading-snug">{title}</p>
-          <div className="mt-1 text-sm text-white/55 leading-relaxed">{children}</div>
-        </div>
-      </div>
+      <p className="text-[14px] font-medium text-[rgb(252,252,250)] leading-snug mb-[3px]">{title}</p>
+      <div className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.65]">{children}</div>
     </div>
   );
 }
 
 /**
- * Status banner for verdict/recommendation displays.
- * Uses the status color maps with a frosted-glass look.
+ * Status line — colored status text with border separators.
  */
 export function StatusBanner({
   status,
@@ -305,25 +272,42 @@ export function StatusBanner({
   children: React.ReactNode;
   className?: string;
 }) {
+  const textColorMap: Record<string, string> = {
+    success: "text-[#22c55e]",
+    warning: "text-[#f59e0b]",
+    danger: "text-[#ef4444]",
+  };
+
+  // Extract text color from colorClass — try to find a matching text-color,
+  // otherwise derive from the colorClass string
+  const statusColor = colorClass.includes("22c55e") || colorClass.includes("green")
+    ? textColorMap.success
+    : colorClass.includes("f59e0b") || colorClass.includes("amber")
+      ? textColorMap.warning
+      : colorClass.includes("ef4444") || colorClass.includes("red")
+        ? textColorMap.danger
+        : colorClass;
+
   return (
     <div className={cn(
-      "rounded-xl border p-4",
-      colorClass,
+      "border-t border-b border-[rgb(31,31,31)] py-3 mb-10",
       className
     )}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] opacity-80">
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)]">
           {statusLabel || "Status"}
-        </div>
-        <span className="text-[13px] font-semibold capitalize">{status.replace(/_/g, " ")}</span>
+        </span>
+        <span className={cn("text-[14px] font-medium capitalize", statusColor)}>
+          {status.replace(/_/g, " ")}
+        </span>
       </div>
-      <div className="text-sm leading-relaxed opacity-90">{children}</div>
+      <div className="text-[13.5px] text-[rgb(205,208,213)] leading-relaxed">{children}</div>
     </div>
   );
 }
 
 /**
- * Blue-tinted highlight block — for recommendations, positioning, callouts.
+ * Left-border callout block.
  */
 export function HighlightBlock({
   children,
@@ -334,16 +318,16 @@ export function HighlightBlock({
 }) {
   return (
     <div className={cn(
-      "rounded-lg bg-primary/[0.04] border border-primary/[0.12] p-4",
+      "pl-4 border-l-2 border-[rgb(31,31,31)]",
       className
     )}>
-      {children}
+      <div className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.65]">{children}</div>
     </div>
   );
 }
 
 /**
- * Numbered step in an ordered list.
+ * Numbered step — plain number with body text.
  */
 export function NumberedStep({
   index,
@@ -353,31 +337,29 @@ export function NumberedStep({
   children: React.ReactNode;
 }) {
   return (
-    <li className="flex items-start gap-3 py-0.5">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/[0.1] text-[11px] font-semibold text-primary/80 tabular-nums">
-        {index}
+    <li className="flex items-start gap-[14px] py-[7px]">
+      <span className="text-[12px] font-normal text-[rgb(100,105,115)] tabular-nums min-w-[20px] pt-[2px] shrink-0">
+        {String(index).padStart(2, "0")}
       </span>
-      <span className="text-sm text-white/70 leading-relaxed pt-0.5">{children}</span>
+      <span className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.6]">{children}</span>
     </li>
   );
 }
 
 /**
- * Warning/blocker list item with amber/orange accent.
+ * Warning item with amber dot accent.
  */
 export function WarningItem({ children }: { children: React.ReactNode }) {
   return (
-    <li className="flex items-start gap-2.5 py-0.5">
-      <div className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full bg-amber-500/[0.1]">
-        <div className="size-1.5 rounded-full bg-amber-400/70" />
-      </div>
-      <span className="text-sm text-white/70 leading-relaxed">{children}</span>
+    <li className="flex items-start gap-2.5 py-[6px]">
+      <div className="w-[5px] h-[5px] rounded-full bg-[#f59e0b] mt-[13px] shrink-0" />
+      <span className="text-[13.5px] text-[rgb(205,208,213)] leading-[1.6]">{children}</span>
     </li>
   );
 }
 
 /**
- * Priority badge with consistent styling.
+ * Priority label — colored text only, no pill.
  */
 export function PriorityBadge({
   priority,
@@ -387,17 +369,17 @@ export function PriorityBadge({
   className?: string;
 }) {
   const colors: Record<string, string> = {
-    high: "bg-primary/[0.1] text-primary/80 border-primary/[0.15]",
-    primary: "bg-primary/[0.1] text-primary/80 border-primary/[0.15]",
-    medium: "bg-amber-500/[0.1] text-amber-400/70 border-amber-500/[0.15]",
-    secondary: "bg-white/[0.04] text-white/50 border-white/[0.08]",
-    low: "bg-white/[0.04] text-white/40 border-white/[0.08]",
-    tertiary: "bg-white/[0.03] text-white/35 border-border/60",
+    high: "text-[rgb(54,94,255)]",
+    primary: "text-[rgb(54,94,255)]",
+    medium: "text-[rgb(100,105,115)]",
+    secondary: "text-[rgb(100,105,115)]",
+    low: "text-[rgb(100,105,115)]",
+    tertiary: "text-[rgb(100,105,115)]",
   };
 
   return (
     <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border",
+      "text-[12px] font-medium tabular-nums",
       colors[priority] || colors.low,
       className
     )}>
@@ -407,10 +389,10 @@ export function PriorityBadge({
 }
 
 /**
- * Responsive card grid with consistent gaps.
+ * Stacked row container — replaces grid layout for DataCard rows.
  */
 export function CardGrid({
-  cols = 3,
+  cols: _cols = 3,
   children,
   className,
 }: {
@@ -418,21 +400,15 @@ export function CardGrid({
   children: React.ReactNode;
   className?: string;
 }) {
-  const colClasses = {
-    2: "grid-cols-1 md:grid-cols-2",
-    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-    4: "grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
-  };
-
   return (
-    <div className={cn("grid gap-2.5", colClasses[cols], className)}>
+    <div className={cn("flex flex-col border-t border-[rgb(31,31,31)]", className)}>
       {children}
     </div>
   );
 }
 
 /**
- * Overall score display — large centered number with glow effect.
+ * Overall score display — large centered number, no container.
  */
 export function OverallScoreDisplay({
   label,
@@ -443,24 +419,13 @@ export function OverallScoreDisplay({
   score: number;
   max?: number;
 }) {
-  const percentage = (score / max) * 100;
-
   return (
-    <div className="rounded-lg bg-primary/[0.04] border border-primary/[0.12] py-4 text-center">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/35 mb-1">
+    <div className="text-center mb-12">
+      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-[6px]">
         {label}
       </p>
-      <p className={cn(
-        "text-3xl font-bold tabular-nums font-[family-name:var(--font-mono)]",
-        percentage >= 70 ? "text-primary" : percentage >= 50 ? "text-amber-400" : "text-red-400"
-      )}
-        style={{
-          textShadow: percentage >= 70
-            ? "0 0 24px rgba(96, 165, 250, 0.25)"
-            : "none"
-        }}
-      >
-        {score.toFixed(1)}<span className="text-lg text-white/25">/{max}</span>
+      <p className="text-[52px] font-light tracking-[-0.04em] text-[rgb(252,252,250)] tabular-nums leading-none">
+        {score.toFixed(1)}<span className="text-[20px] font-light text-[rgb(49,53,63)]">/{max}</span>
       </p>
     </div>
   );

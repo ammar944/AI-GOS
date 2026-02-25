@@ -1,12 +1,12 @@
 import * as React from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { RESEARCH_SUBTLE_BLOCK_CLASS, STATUS_BADGE_COLORS } from "@/components/strategic-research/ui-tokens";
+import { STATUS_BADGE_COLORS } from "@/components/strategic-research/ui-tokens";
 import { EditableText } from "@/components/strategic-research/editable/editable-text";
 import type { KPITarget } from "@/lib/media-plan/types";
 
 // Re-export for consumers
-export { RESEARCH_SUBTLE_BLOCK_CLASS, STATUS_BADGE_COLORS };
+export { STATUS_BADGE_COLORS };
 export { EditableText };
 
 // =============================================================================
@@ -43,7 +43,7 @@ export function SubSection({ title, children }: { title: string; children: React
 
 export function InfoCard({ label, value, mono }: { label: string; value: string | number; mono?: boolean }) {
   return (
-    <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+    <div className="p-4">
       <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
         {label}
       </p>
@@ -154,7 +154,7 @@ export function NamingRow({ label, pattern }: { label: string; pattern: string }
 
 export function MonitoringColumn({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-2")}>
+    <div className="p-4 space-y-2">
       <p className="text-xs font-semibold uppercase" style={{ color: "var(--accent-blue)" }}>
         {title}
       </p>

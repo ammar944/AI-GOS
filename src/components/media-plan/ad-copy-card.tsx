@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { RESEARCH_SUBTLE_BLOCK_CLASS } from "@/components/strategic-research/ui-tokens";
 import type {
   PlatformCopyVariant,
   MetaAdCopy,
@@ -75,7 +74,7 @@ function CopyField({
   const overLimit = maxChars ? currentLen >= maxChars : false;
 
   return (
-    <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "group relative p-3")}>
+    <div className="group relative p-3">
       {/* Header row: label + char count + copy */}
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span
@@ -172,7 +171,7 @@ function ScriptSection({
   }, [text]);
 
   return (
-    <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "group relative p-3")}>
+    <div className="group relative p-3">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span
@@ -298,7 +297,7 @@ function GoogleRSAFields({ copy }: { copy: GoogleRSACopy }) {
 
       {/* Display Paths */}
       {(copy.displayPaths[0] || copy.displayPaths[1]) && (
-        <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-3")}>
+        <div className="p-3">
           <span
             className="mb-1 block text-[11px] font-semibold uppercase tracking-wider"
             style={{ color: "var(--text-tertiary)", fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif' }}

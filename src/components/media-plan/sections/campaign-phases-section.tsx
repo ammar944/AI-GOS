@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { EditableList } from "@/components/strategic-research/editable/editable-list";
 import type { CampaignPhase } from "@/lib/media-plan/types";
 import {
@@ -10,7 +9,6 @@ import {
   StatusBadge,
   ListItem,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   type EditingProps,
 } from "./shared";
@@ -23,7 +21,7 @@ export function CampaignPhasesContent({
   return (
     <div className="space-y-4">
       {data.map((phase, pIdx) => (
-        <div key={phase.phase} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-5 space-y-3")}>
+        <div key={phase.phase} className="p-5 space-y-3">
           {/* Header */}
           <div className="flex flex-wrap items-center gap-3">
             <span
@@ -94,7 +92,7 @@ export function CampaignPhasesContent({
           {/* Go/No-Go Decision (new) */}
           {phase.goNoGoDecision && (
             <div
-              className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-3 p-3")}
+              className="flex items-start gap-3 p-3"
               style={{ borderColor: "rgba(245,158,11,0.4)" }}
             >
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "rgb(245,158,11)" }} />
@@ -110,7 +108,7 @@ export function CampaignPhasesContent({
           {/* Scenario Adjustment (new) */}
           {phase.scenarioAdjustment && (
             <div
-              className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-3 p-3")}
+              className="flex items-start gap-3 p-3"
               style={{ borderColor: "rgba(54,94,255,0.3)" }}
             >
               <span className="mt-0.5 shrink-0 text-sm" style={{ color: "var(--accent-blue)" }}>i</span>

@@ -9,7 +9,6 @@ import type { StrategicBlueprintSection, Citation } from "@/lib/strategic-bluepr
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
 import { SectionContentRenderer } from "./section-content";
 import { CitationBadge, SourcesList } from "./citations";
-import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
 // Section icons mapping - reused from strategic-blueprint-display.tsx
 import {
@@ -74,7 +73,6 @@ export function SectionCard({
   return (
     <Card
       className={cn(
-        RESEARCH_SHELL_CLASS,
         "transition-all duration-300",
         isReviewed
           ? "border-[var(--success)]"

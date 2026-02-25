@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { EditableList } from "@/components/strategic-research/editable/editable-list";
 import type { MediaPlanExecutiveSummary } from "@/lib/media-plan/types";
 import {
   SubSection,
   InfoCard,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   type EditingProps,
 } from "./shared";
@@ -42,7 +40,7 @@ export function ExecutiveSummaryContent({
           )}
         </div>
         {isEditing ? (
-          <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4")}>
+          <div className="p-4">
             <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
               Timeline to Results
             </p>

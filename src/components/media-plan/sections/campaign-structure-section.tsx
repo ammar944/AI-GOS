@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { EditableList } from "@/components/strategic-research/editable/editable-list";
 import type { CampaignStructure } from "@/lib/media-plan/types";
 import {
@@ -11,7 +10,6 @@ import {
   StatusBadge,
   NamingRow,
   EditableText,
-  RESEARCH_SUBTLE_BLOCK_CLASS,
   fmt$,
   type EditingProps,
 } from "./shared";
@@ -27,7 +25,7 @@ export function CampaignStructureContent({
       <SubSection title="Campaigns">
         <div className="space-y-4">
           {data.campaigns.map((c, cIdx) => (
-            <div key={c.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "p-4 space-y-3")}>
+            <div key={c.name} className="p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 {isEditing ? (
                   <EditableText
@@ -82,7 +80,7 @@ export function CampaignStructureContent({
 
       {/* Naming Conventions */}
       <SubSection title="Naming Conventions">
-        <div className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "space-y-2 p-4")}>
+        <div className="space-y-2 p-4">
           <NamingRow label="Campaign" pattern={data.namingConvention.campaignPattern} />
           <NamingRow label="Ad Set" pattern={data.namingConvention.adSetPattern} />
           <NamingRow label="Ad" pattern={data.namingConvention.adPattern} />
@@ -103,7 +101,7 @@ export function CampaignStructureContent({
         <SubSection title="Retargeting Segments">
           <div className="space-y-3">
             {data.retargetingSegments.map((rs) => (
-              <div key={rs.name} className={cn(RESEARCH_SUBTLE_BLOCK_CLASS, "flex items-start gap-4 p-4")}>
+              <div key={rs.name} className="flex items-start gap-4 p-4">
                 <div className="shrink-0">
                   <StatusBadge label={`${rs.lookbackDays}d`} variant="info" />
                 </div>

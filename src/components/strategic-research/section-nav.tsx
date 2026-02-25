@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/tooltip";
 import type { StrategicBlueprintSection } from "@/lib/strategic-blueprint/output-types";
 import { STRATEGIC_BLUEPRINT_SECTION_ORDER } from "@/lib/strategic-blueprint/output-types";
-import { RESEARCH_SHELL_CLASS } from "./ui-tokens";
 
 const SECTION_LABELS: Record<StrategicBlueprintSection, string> = {
   industryMarketOverview: "Industry & Market",
@@ -69,7 +68,7 @@ export function SectionNav({
   return (
     <nav className="sticky top-6">
       <div
-        className={`${RESEARCH_SHELL_CLASS} rounded-xl p-4`}
+        className="rounded-xl p-4"
       >
       <div className="space-y-1.5">
         {STRATEGIC_BLUEPRINT_SECTION_ORDER.map((section, i) => {
