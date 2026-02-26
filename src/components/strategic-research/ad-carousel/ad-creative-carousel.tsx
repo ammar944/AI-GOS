@@ -29,6 +29,7 @@ interface AdCreativeCarouselProps {
 }
 
 export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) {
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
   const [enabledPlatforms, setEnabledPlatforms] = React.useState<Set<AdPlatform>>(
     new Set(ALL_PLATFORMS)
   );
@@ -37,6 +38,19 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
   );
   const [relevanceFilter, setRelevanceFilter] = React.useState<RelevanceFilter>('all');
   const [sourceFilter, setSourceFilter] = React.useState<SourceFilter>('all');
+
+  // Stop pointerdown from bubbling to the parent SwipeableCompetitorCard's
+  // Framer Motion pan handler. FM uses a native pointerdown listener on the
+  // motion.div — if we prevent the event from reaching it, FM won't create
+  // a PanSession and Embla can handle the drag. Embla uses mousedown/touchstart
+  // (not pointerdown), so it's unaffected by this.
+  React.useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const stopPointerDown = (e: PointerEvent) => e.stopPropagation();
+    el.addEventListener("pointerdown", stopPointerDown);
+    return () => el.removeEventListener("pointerdown", stopPointerDown);
+  }, []);
 
   // Get available platforms
   const availablePlatforms = React.useMemo(() => {
@@ -132,7 +146,7 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
   const showRelevanceFilters = hasRelevanceData && (relevanceCounts.high > 0 || relevanceCounts.low > 0);
 
   return (
-    <div data-ad-carousel className={cn("w-full max-w-2xl mx-auto space-y-4", className)} style={{ overscrollBehaviorX: 'contain' }}>
+    <div ref={wrapperRef} data-ad-carousel className={cn("w-full max-w-2xl mx-auto space-y-4", className)} style={{ overscrollBehaviorX: 'contain' }}>
       {/* Filters Section */}
       <div
         className="rounded-2xl p-4"
