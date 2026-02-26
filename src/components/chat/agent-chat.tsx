@@ -13,20 +13,24 @@ import type { UIMessage } from 'ai';
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
 import { QuickSuggestions } from './quick-suggestions';
+import { FollowUpSuggestions, generateFollowUpSuggestions } from './follow-up-suggestions';
 import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
+import { ResearchProgressCard } from './research-progress-card';
 import { DeepResearchCard } from './deep-research-card';
 import { GenerateSectionCard } from './generate-section-card';
 import { ComparisonTableCard } from './comparison-table-card';
 import { AnalysisScoreCard } from './analysis-score-card';
+import { VisualizationCard } from './visualization-card';
 import { ViewInBlueprintButton } from './view-in-blueprint-button';
 import { ChatInput } from './chat-input';
 import { ThinkingBlock } from './thinking-block';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
+import { useChatPersistence } from '@/hooks/use-chat-persistence';
 import { applyEdits } from '@/lib/ai/chat-tools/utils';
-import type { PendingEdit, DeepResearchResult, ComparisonResult, AnalysisResult } from '@/lib/ai/chat-tools/types';
+import type { PendingEdit, DeepResearchResult, ComparisonResult, AnalysisResult, VisualizationResult } from '@/lib/ai/chat-tools/types';
 import { useOptionalBlueprintEditContext } from '@/components/strategic-blueprint/blueprint-edit-context';
 
 /** Typed shape for AI SDK v6 tool parts — avoids `as any` casts */
@@ -98,6 +102,13 @@ export function AgentChat({
 
   const { canUndo, canRedo, undoDepth, recordEdit, undo, redo } = useEditHistory(blueprintId);
 
+  // Conversation persistence
+  const {
+    initialMessages,
+    isLoading: isPersistenceLoading,
+    saveMessages,
+  } = useChatPersistence(blueprintId, conversationId);
+
   // Blueprint edit context — optional (no provider = no highlight, no crash)
   const editCtx = useOptionalBlueprintEditContext();
 
@@ -152,6 +163,22 @@ export function AgentChat({
       }
     },
   });
+
+  // Load persisted messages when they arrive from the hook
+  const didLoadPersistedRef = useRef(false);
+  useEffect(() => {
+    if (initialMessages.length > 0 && !didLoadPersistedRef.current) {
+      didLoadPersistedRef.current = true;
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages]);
+
+  // Auto-save messages to Supabase (debounced 2s via the persistence hook)
+  useEffect(() => {
+    if (messages.length > 0 && status === 'ready') {
+      saveMessages(messages);
+    }
+  }, [messages, status, saveMessages]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -294,6 +321,22 @@ export function AgentChat({
   };
 
   /**
+   * Extract the last completed tool name from a message for follow-up suggestions
+   */
+  const getLastToolName = (message: UIMessage): string | undefined => {
+    for (let i = message.parts.length - 1; i >= 0; i--) {
+      const part = message.parts[i];
+      if (typeof part === 'object' && 'type' in part && typeof part.type === 'string' && part.type.startsWith('tool-')) {
+        const toolPart = part as ToolPart;
+        if (toolPart.state === 'output-available') {
+          return part.type.replace('tool-', '');
+        }
+      }
+    }
+    return undefined;
+  };
+
+  /**
    * Render a single message's parts
    */
   const renderMessageParts = (message: UIMessage, isLastStreamingMessage = false) => {
@@ -352,9 +395,27 @@ export function AgentChat({
         ) {
           // For approval tools, don't show loading - show approval UI below
           if (toolName !== 'editBlueprint' && toolName !== 'generateSection') {
-            elements.push(
-              <ToolLoadingIndicator key={`${message.id}-tool-${i}`} toolName={toolName} />
-            );
+            // Show research progress card for deepResearch instead of generic loader
+            if (toolName === 'deepResearch') {
+              elements.push(
+                <ResearchProgressCard
+                  key={`${message.id}-research-progress-${i}`}
+                  phases={[
+                    { name: 'Decomposing query', status: toolPart.state === 'input-streaming' ? 'active' : 'done' },
+                    { name: 'Researching sub-queries', status: toolPart.state === 'input-available' ? 'active' : 'pending', count: toolPart.state === 'input-available' ? 'running...' : undefined },
+                    { name: 'Synthesizing findings', status: 'pending' },
+                  ]}
+                />
+              );
+            } else {
+              elements.push(
+                <ToolLoadingIndicator
+                  key={`${message.id}-tool-${i}`}
+                  toolName={toolName}
+                  args={toolPart.input}
+                />
+              );
+            }
           }
         }
 
@@ -557,6 +618,17 @@ export function AgentChat({
               />
             );
           }
+
+          // createVisualization - show chart card
+          if (toolName === 'createVisualization' && output) {
+            const vizData = output as unknown as VisualizationResult;
+            elements.push(
+              <VisualizationCard
+                key={`${message.id}-viz-${i}`}
+                data={vizData}
+              />
+            );
+          }
         }
 
         // Error state
@@ -616,7 +688,7 @@ export function AgentChat({
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto py-4 px-0 chat-messages-scroll">
         {/* Empty state */}
-        {messages.length === 0 && !isLoading && (
+        {messages.length === 0 && !isLoading && !isPersistenceLoading && (
           <div className="px-4 py-8 text-center">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -648,6 +720,24 @@ export function AgentChat({
             message.role === 'assistant' &&
             msgIndex === messages.length - 1 &&
             isStreaming;
+
+          // Show follow-up suggestions after the last completed assistant message
+          const isAssistantDone =
+            message.role === 'assistant' &&
+            !isLastAssistant && // not currently streaming
+            status !== 'submitted';
+          const isLastReadyAssistant =
+            message.role === 'assistant' &&
+            msgIndex === messages.length - 1 &&
+            status === 'ready';
+          const showFollowUps = isAssistantDone || isLastReadyAssistant;
+          const lastToolName = showFollowUps ? getLastToolName(message) : undefined;
+          const followUps = lastToolName ? generateFollowUpSuggestions(lastToolName) : [];
+          // Only show follow-ups on the most recent assistant message
+          const isLatestAssistant =
+            showFollowUps &&
+            !messages.slice(msgIndex + 1).some((m) => m.role === 'assistant');
+
           return (
             <div key={message.id}>
               {message.role === 'user' ? (
@@ -656,7 +746,18 @@ export function AgentChat({
                   content={getTextContent(message)}
                 />
               ) : (
-                renderMessageParts(message, isLastAssistant)
+                <>
+                  {renderMessageParts(message, isLastAssistant)}
+                  {isLatestAssistant && followUps.length > 0 && !isLoading && (
+                    <div className="px-4 pt-1 pb-2">
+                      <FollowUpSuggestions
+                        suggestions={followUps}
+                        onSelect={handleSuggestionSelect}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );

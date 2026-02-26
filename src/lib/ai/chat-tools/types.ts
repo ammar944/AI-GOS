@@ -105,3 +105,16 @@ export interface AnalysisResult {
   summary?: string;
   error?: string;
 }
+
+export interface VisualizationResult {
+  type: 'bar' | 'radar' | 'timeline';
+  title: string;
+  data: Array<Record<string, string | number>>;
+  config: {
+    colors: string[];
+    dataKey: string;
+    categoryKey: string;
+    labels?: string[];
+  };
+  error?: string;
+}

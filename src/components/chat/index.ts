@@ -12,3 +12,6 @@ export { DeepResearchCard } from "./deep-research-card";
 export { GenerateSectionCard } from "./generate-section-card";
 export { ComparisonTableCard } from "./comparison-table-card";
 export { AnalysisScoreCard } from "./analysis-score-card";
+export { VisualizationCard } from "./visualization-card";
+export { FollowUpSuggestions, generateFollowUpSuggestions } from "./follow-up-suggestions";
+export { ResearchProgressCard } from "./research-progress-card";

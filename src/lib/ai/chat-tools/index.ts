@@ -8,6 +8,7 @@ export { createDeepResearchTool } from './deep-research';
 export { createGenerateSectionTool } from './generate-section';
 export { createCompareCompetitorsTool } from './compare-competitors';
 export { createAnalyzeMetricsTool } from './analyze-metrics';
+export { createVisualizationTool } from './create-visualization';
 export {
   getValueAtPath,
   generateDiffPreview,
@@ -27,6 +28,7 @@ import { createDeepResearchTool } from './deep-research';
 import { createGenerateSectionTool } from './generate-section';
 import { createCompareCompetitorsTool } from './compare-competitors';
 import { createAnalyzeMetricsTool } from './analyze-metrics';
+import { createVisualizationTool } from './create-visualization';
 
 /**
  * Create all chat tools for a given blueprint context.
@@ -42,6 +44,7 @@ export function createChatTools(blueprintId: string, blueprint: Record<string, u
     generateSection: createGenerateSectionTool(blueprint),
     compareCompetitors: createCompareCompetitorsTool(blueprint),
     analyzeMetrics: createAnalyzeMetricsTool(blueprint),
+    createVisualization: createVisualizationTool(blueprint),
   };
 }
 
