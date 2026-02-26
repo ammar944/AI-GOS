@@ -326,7 +326,7 @@ export function VisualizationCard({ data }: VisualizationCardProps) {
         className="px-4 py-2"
         style={{ borderTop: '1px solid var(--border-subtle)' }}
       >
-        <p style={{ fontSize: '10px', color: 'var(--text-quaternary)', opacity: 0.7 }}>
+        <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', opacity: 0.7 }}>
           Scores from {data.title.toLowerCase().includes('offer') ? 'Offer Analysis' :
                        data.title.toLowerCase().includes('icp') ? 'ICP Analysis' :
                        data.title.toLowerCase().includes('compet') ? 'Competitor Analysis' :

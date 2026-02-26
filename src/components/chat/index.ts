@@ -15,3 +15,7 @@ export { AnalysisScoreCard } from "./analysis-score-card";
 export { VisualizationCard } from "./visualization-card";
 export { FollowUpSuggestions, generateFollowUpSuggestions } from "./follow-up-suggestions";
 export { ResearchProgressCard } from "./research-progress-card";
+export { CitationHoverCard } from "./citation-hover-card";
+export { ExportMenu } from "./export-menu";
+export { BranchIndicator, BranchHereButton, BranchPill } from "./branch-indicator";
+export { ShortcutsHelp } from "./shortcuts-help";

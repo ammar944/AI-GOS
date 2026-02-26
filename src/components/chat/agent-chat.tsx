@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo, useEffect, useCallback } from 'react';
+import { useRef, useMemo, useEffect, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Undo2, Redo2 } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
@@ -26,10 +26,22 @@ import { VisualizationCard } from './visualization-card';
 import { ViewInBlueprintButton } from './view-in-blueprint-button';
 import { ChatInput } from './chat-input';
 import { ThinkingBlock } from './thinking-block';
+import { ExportMenu } from './export-menu';
+import { BranchIndicator, BranchHereButton, BranchPill } from './branch-indicator';
+import { ShortcutsHelp } from './shortcuts-help';
 import { MagneticButton } from '@/components/ui/magnetic-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { useChatPersistence } from '@/hooks/use-chat-persistence';
+import { useChatShortcuts } from '@/hooks/use-chat-shortcuts';
 import { applyEdits } from '@/lib/ai/chat-tools/utils';
+import {
+  createInitialBranchState,
+  createBranch,
+  switchBranch,
+  getActiveMessages,
+  getBranchCount,
+  type BranchState,
+} from '@/lib/chat/branching';
 import type { PendingEdit, DeepResearchResult, ComparisonResult, AnalysisResult, VisualizationResult } from '@/lib/ai/chat-tools/types';
 import { useOptionalBlueprintEditContext } from '@/components/strategic-blueprint/blueprint-edit-context';
 
@@ -53,6 +65,7 @@ interface ToolPart {
 interface AgentChatProps {
   blueprint: Record<string, unknown>;
   blueprintId?: string;
+  blueprintTitle?: string;
   conversationId?: string;
   onBlueprintUpdate?: (updated: Record<string, unknown>) => void;
   className?: string;
@@ -91,11 +104,13 @@ function parseThinkingBlocks(text: string): Array<{ type: 'text' | 'thinking'; c
 export function AgentChat({
   blueprint,
   blueprintId,
+  blueprintTitle,
   conversationId,
   onBlueprintUpdate,
   className,
 }: AgentChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const blueprintRef = useRef(blueprint);
   blueprintRef.current = blueprint;
   const blueprintVersionRef = useRef(0);
@@ -111,6 +126,11 @@ export function AgentChat({
 
   // Blueprint edit context — optional (no provider = no highlight, no crash)
   const editCtx = useOptionalBlueprintEditContext();
+
+  // Branching state
+  const [branchState, setBranchState] = useState<BranchState>(
+    createInitialBranchState([])
+  );
 
   // Increment version when blueprint changes (for optimistic locking)
   useEffect(() => {
@@ -309,6 +329,177 @@ export function AgentChat({
       onBlueprintUpdate?.(next);
     }
   }, [redo, onBlueprintUpdate]);
+
+  // ---------------------------------------------------------------------------
+  // Branching handlers
+  // ---------------------------------------------------------------------------
+
+  const handleCreateBranch = useCallback(
+    (fromMessageId: string) => {
+      setBranchState((prev) => createBranch(prev, fromMessageId));
+    },
+    []
+  );
+
+  // Guard ref: suppress the branch-sync effect during programmatic branch switches
+  // to prevent infinite loops (switch → setMessages → effect → setBranchState → ...)
+  const isSwitchingBranchRef = useRef(false);
+
+  const handleSwitchBranch = useCallback(
+    (branchId: string | null) => {
+      isSwitchingBranchRef.current = true;
+      setBranchState((prev) => {
+        const next = switchBranch(prev, branchId);
+        // Update useChat messages to reflect the branch content
+        const branchMessages = getActiveMessages(next);
+        setMessages(branchMessages);
+        return next;
+      });
+      // Re-enable sync after the render settles
+      requestAnimationFrame(() => {
+        isSwitchingBranchRef.current = false;
+      });
+    },
+    [setMessages]
+  );
+
+  // Keep branchState.mainThread in sync with messages from useChat
+  useEffect(() => {
+    // Skip during programmatic branch switches to prevent feedback loop
+    if (isSwitchingBranchRef.current) return;
+
+    if (branchState.activeBranchId === null && messages.length > 0) {
+      setBranchState((prev) => ({
+        ...prev,
+        mainThread: messages,
+      }));
+    } else if (branchState.activeBranchId !== null) {
+      // Sync active branch messages
+      setBranchState((prev) => ({
+        ...prev,
+        branches: prev.branches.map((b) =>
+          b.id === prev.activeBranchId ? { ...b, messages } : b
+        ),
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  // ---------------------------------------------------------------------------
+  // Auto-apply generateSection output via effect (NOT during render)
+  // ---------------------------------------------------------------------------
+  // Tracks which generateSection outputs have already been applied so the
+  // effect is idempotent across re-renders and React strict-mode replays.
+  const appliedSectionsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    for (const message of messages) {
+      if (message.role !== 'assistant') continue;
+      for (let p = 0; p < message.parts.length; p++) {
+        const part = message.parts[p] as ToolPart;
+        if (!part.type?.startsWith('tool-') || part.state !== 'output-available') continue;
+        const toolName = part.type.replace('tool-', '');
+        if (toolName !== 'generateSection') continue;
+        const output = part.output;
+        if (!output?.newContent || !output?.section) continue;
+
+        const sectionKey = output.section as string;
+        const applyKey = `${message.id}-${p}`;
+
+        // Skip if already applied
+        if (appliedSectionsRef.current.has(applyKey)) continue;
+
+        const currentBlueprint = blueprintRef.current;
+        const currentSection = currentBlueprint[sectionKey];
+
+        if (JSON.stringify(currentSection) !== JSON.stringify(output.newContent)) {
+          const blueprintBefore = JSON.parse(JSON.stringify(currentBlueprint));
+          const updatedBlueprint = { ...currentBlueprint, [sectionKey]: output.newContent };
+          const pendingEdit: PendingEdit = {
+            section: sectionKey,
+            fieldPath: '',
+            oldValue: currentSection,
+            newValue: output.newContent,
+            explanation: `Section rewrite: ${output.instruction || ''}`,
+            diffPreview: typeof output.diffPreview === 'string' ? output.diffPreview : '',
+          };
+          recordEdit(blueprintBefore, updatedBlueprint, [pendingEdit]);
+          blueprintRef.current = updatedBlueprint;
+          onBlueprintUpdate?.(updatedBlueprint);
+        }
+
+        appliedSectionsRef.current.add(applyKey);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  const activeBranch = branchState.activeBranchId
+    ? branchState.branches.find((b) => b.id === branchState.activeBranchId) ?? null
+    : null;
+
+  // ---------------------------------------------------------------------------
+  // Pending approval extraction for Y/N keyboard shortcuts
+  // ---------------------------------------------------------------------------
+
+  const getPendingApproval = useCallback((): { approvalId: string; editInput: { section: string; fieldPath: string; newValue: unknown }; toolName: string } | null => {
+    for (let m = messages.length - 1; m >= 0; m--) {
+      const msg = messages[m];
+      if (msg.role !== 'assistant') continue;
+      for (let p = msg.parts.length - 1; p >= 0; p--) {
+        const part = msg.parts[p] as Record<string, unknown>;
+        if (!part.type || !(part.type as string).startsWith('tool-')) continue;
+        if (part.state !== 'approval-requested') continue;
+        const toolName = (part.type as string).replace('tool-', '');
+        const input = part.input as Record<string, unknown>;
+        const approval = part.approval as { id?: string } | undefined;
+        const approvalId = approval?.id ?? `${msg.id}-${p}`;
+        return {
+          approvalId,
+          editInput: {
+            section: String(input?.section ?? ''),
+            fieldPath: String(input?.fieldPath ?? ''),
+            newValue: input?.newValue,
+          },
+          toolName,
+        };
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const handleShortcutApprove = useCallback(() => {
+    const pending = getPendingApproval();
+    if (!pending) return;
+    if (pending.toolName === 'editBlueprint') {
+      handleApproveEdit(pending.approvalId, pending.editInput, blueprintVersionRef.current);
+    } else if (pending.toolName === 'generateSection') {
+      addToolApprovalResponse({ id: pending.approvalId, approved: true });
+    }
+  }, [getPendingApproval, handleApproveEdit, addToolApprovalResponse]);
+
+  const handleShortcutReject = useCallback(() => {
+    const pending = getPendingApproval();
+    if (!pending) return;
+    handleRejectEdit(pending.approvalId);
+  }, [getPendingApproval, handleRejectEdit]);
+
+  // ---------------------------------------------------------------------------
+  // Keyboard shortcuts
+  // ---------------------------------------------------------------------------
+
+  const { showHelp, setShowHelp } = useChatShortcuts({
+    inputRef: chatInputRef,
+    isStreaming,
+    hasPendingApproval,
+    onStop: stop,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onApprove: handleShortcutApprove,
+    onReject: handleShortcutReject,
+    canUndo,
+    canRedo,
+  });
 
   /**
    * Extract text content from message parts
@@ -557,32 +748,8 @@ export function AgentChat({
             );
           }
 
-          // generateSection - apply section rewrite to blueprint and show result
+          // generateSection - show result card (blueprint application handled by useEffect above)
           if (toolName === 'generateSection' && output && !output.error) {
-            // Apply the generated content to the blueprint (idempotent — only if
-            // newContent is present and the section hasn't already been overwritten)
-            if (output.newContent && output.section) {
-              const sectionKey = output.section as string;
-              const currentBlueprint = blueprintRef.current;
-              const currentSection = currentBlueprint[sectionKey];
-              // Only apply if section content differs (prevents double-apply on re-renders)
-              if (JSON.stringify(currentSection) !== JSON.stringify(output.newContent)) {
-                const blueprintBefore = JSON.parse(JSON.stringify(currentBlueprint));
-                const updatedBlueprint = { ...currentBlueprint, [sectionKey]: output.newContent };
-                const pendingEdit: PendingEdit = {
-                  section: sectionKey,
-                  fieldPath: '',
-                  oldValue: currentSection,
-                  newValue: output.newContent,
-                  explanation: `Section rewrite: ${output.instruction || ''}`,
-                  diffPreview: typeof output.diffPreview === 'string' ? output.diffPreview : '',
-                };
-                recordEdit(blueprintBefore, updatedBlueprint, [pendingEdit]);
-                blueprintRef.current = updatedBlueprint;
-                onBlueprintUpdate?.(updatedBlueprint);
-              }
-            }
-
             elements.push(
               <GenerateSectionCard
                 key={`${message.id}-gensec-done-${i}`}
@@ -658,32 +825,56 @@ export function AgentChat({
 
   return (
     <div className={`flex flex-col h-full ${className || ''}`}>
-      {/* Undo/Redo toolbar — only visible when edit history exists */}
-      {(canUndo || canRedo) && (
-        <div
-          className="flex-shrink-0 px-3 py-1.5 flex items-center justify-end gap-1"
-          style={{ borderBottom: '1px solid var(--border-subtle)' }}
-        >
-          <MagneticButton
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className="w-7 h-7 rounded flex items-center justify-center"
-            style={{ background: 'transparent', opacity: canUndo ? 1 : 0.4 }}
-            title={canUndo ? `Undo (${undoDepth})` : 'Nothing to undo'}
-          >
-            <Undo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-          </MagneticButton>
-          <MagneticButton
-            onClick={handleRedo}
-            disabled={!canRedo}
-            className="w-7 h-7 rounded flex items-center justify-center"
-            style={{ background: 'transparent', opacity: canRedo ? 1 : 0.4 }}
-            title="Redo"
-          >
-            <Redo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-          </MagneticButton>
-        </div>
-      )}
+      {/* Toolbar — branch pill + undo/redo + export */}
+      <div
+        className="flex-shrink-0 px-3 py-1.5 flex items-center gap-1"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        {/* Branch pill (left-aligned, only shows when on a branch) */}
+        <BranchPill
+          activeBranch={activeBranch}
+          branchCount={getBranchCount(branchState)}
+          onDismiss={() => handleSwitchBranch(null)}
+        />
+        {/* Spacer to push undo/redo/export to the right */}
+        <div className="flex-1" />
+        {(canUndo || canRedo) && (
+          <>
+            <MagneticButton
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className="w-7 h-7 rounded flex items-center justify-center"
+              style={{ background: 'transparent', opacity: canUndo ? 1 : 0.4 }}
+              title={canUndo ? `Undo (${undoDepth})` : 'Nothing to undo'}
+            >
+              <Undo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+            </MagneticButton>
+            <MagneticButton
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className="w-7 h-7 rounded flex items-center justify-center"
+              style={{ background: 'transparent', opacity: canRedo ? 1 : 0.4 }}
+              title="Redo"
+            >
+              <Redo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+            </MagneticButton>
+            {/* Divider between undo/redo and export */}
+            <div
+              style={{
+                width: '1px',
+                height: '16px',
+                background: 'var(--border-subtle)',
+                margin: '0 4px',
+              }}
+            />
+          </>
+        )}
+        <ExportMenu
+          messages={messages}
+          blueprintTitle={blueprintTitle}
+          disabled={messages.length === 0}
+        />
+      </div>
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto py-4 px-0 chat-messages-scroll">
@@ -732,14 +923,14 @@ export function AgentChat({
             status === 'ready';
           const showFollowUps = isAssistantDone || isLastReadyAssistant;
           const lastToolName = showFollowUps ? getLastToolName(message) : undefined;
-          const followUps = lastToolName ? generateFollowUpSuggestions(lastToolName) : [];
+          const followUps = showFollowUps ? generateFollowUpSuggestions(lastToolName) : [];
           // Only show follow-ups on the most recent assistant message
           const isLatestAssistant =
             showFollowUps &&
             !messages.slice(msgIndex + 1).some((m) => m.role === 'assistant');
 
           return (
-            <div key={message.id}>
+            <div key={message.id} className={message.role === 'assistant' ? 'relative group' : ''}>
               {message.role === 'user' ? (
                 <MessageBubble
                   role="user"
@@ -747,7 +938,20 @@ export function AgentChat({
                 />
               ) : (
                 <>
+                  {/* Branch here button — floats on hover */}
+                  <BranchHereButton
+                    messageId={message.id}
+                    onBranch={handleCreateBranch}
+                  />
                   {renderMessageParts(message, isLastAssistant)}
+                  {/* Branch indicator — shows at fork points */}
+                  <BranchIndicator
+                    branches={branchState.branches}
+                    activeBranchId={branchState.activeBranchId}
+                    messageId={message.id}
+                    onSwitch={handleSwitchBranch}
+                    onCreate={handleCreateBranch}
+                  />
                   {isLatestAssistant && followUps.length > 0 && !isLoading && (
                     <div className="px-4 pt-1 pb-2">
                       <FollowUpSuggestions
@@ -792,8 +996,12 @@ export function AgentChat({
           onSubmit={handleSubmit}
           isLoading={isLoading}
           onStop={stop}
+          textareaRef={chatInputRef}
         />
       </div>
+
+      {/* Keyboard shortcuts help dialog (portal to body) */}
+      <ShortcutsHelp isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }

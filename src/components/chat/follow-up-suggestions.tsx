@@ -18,9 +18,7 @@ export function generateFollowUpSuggestions(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _lastToolOutput?: Record<string, unknown>
 ): string[] {
-  if (!lastToolName) return [];
-
-  switch (lastToolName) {
+  switch (lastToolName ?? '_none') {
     case 'deepResearch':
       return ['Update blueprint with findings', 'Research deeper', 'Compare top competitors'];
     case 'webResearch':
@@ -40,7 +38,8 @@ export function generateFollowUpSuggestions(
     case 'createVisualization':
       return ['Visualize another metric', 'Compare competitors', 'Analyze this data'];
     default:
-      return [];
+      // Generic follow-ups for pure text responses (no tool used)
+      return ['Tell me more', 'Edit a section', 'Analyze my blueprint'];
   }
 }
 

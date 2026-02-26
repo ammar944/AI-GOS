@@ -16,6 +16,8 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  /** External ref to the textarea — used by keyboard shortcuts hook */
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
@@ -33,6 +35,7 @@ export function ChatInput({
   disabled = false,
   placeholder = 'Ask about your blueprint...',
   className,
+  textareaRef,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -41,7 +44,9 @@ export function ChatInput({
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
 
   const stopRecordingRef = useRef<(() => void) | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  // Use external ref when provided, otherwise use internal
+  const inputRef = textareaRef || internalRef;
 
   // Derive filtered commands from the current input
   const slashFilter = input.startsWith('/') ? input.slice(1).toLowerCase() : '';

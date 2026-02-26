@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,8 +48,35 @@ function PhaseDot({ status }: { status: ResearchPhase['status'] }) {
 }
 
 export function ResearchProgressCard({ phases, className }: ResearchProgressCardProps) {
-  const doneCount = phases.filter((p) => p.status === 'done').length;
-  const total = phases.length;
+  // Auto-advance phases on a timer so Phase 3 gets its moment
+  const [advancedPhases, setAdvancedPhases] = useState(phases);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setAdvancedPhases(phases);
+
+    // If Phase 2 is active, auto-advance to Phase 3 after 4 seconds
+    const phase2 = phases[1];
+    const phase3 = phases[2];
+    if (phase2?.status === 'active' && phase3?.status === 'pending') {
+      timerRef.current = setTimeout(() => {
+        setAdvancedPhases((prev) =>
+          prev.map((p, i) =>
+            i === 1 ? { ...p, status: 'done' as const, count: 'done' } :
+            i === 2 ? { ...p, status: 'active' as const } :
+            p
+          )
+        );
+      }, 4000);
+    }
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [phases]);
+
+  const doneCount = advancedPhases.filter((p) => p.status === 'done').length;
+  const total = advancedPhases.length;
 
   return (
     <motion.div
@@ -94,12 +122,12 @@ export function ResearchProgressCard({ phases, className }: ResearchProgressCard
       </div>
 
       {/* Phase list */}
-      {phases.length > 0 && (
+      {advancedPhases.length > 0 && (
         <div
           className="px-4 py-3 space-y-2"
           style={{ borderTop: '1px solid var(--border-subtle)' }}
         >
-          {phases.map((phase, i) => (
+          {advancedPhases.map((phase, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, x: -6 }}

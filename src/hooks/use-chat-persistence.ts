@@ -248,9 +248,11 @@ export function useChatPersistence(
     async (id: string) => {
       if (!session) return;
 
+      if (!user?.id) return;
+
       try {
         const supabase = getSupabase();
-        const ok = await deleteConversation(supabase, id);
+        const ok = await deleteConversation(supabase, id, user.id);
 
         if (ok) {
           // If the deleted conversation was the active one, reset state
@@ -266,7 +268,7 @@ export function useChatPersistence(
         console.error('[useChatPersistence] Failed to delete conversation:', err);
       }
     },
-    [session, getSupabase, refreshList]
+    [session, user?.id, getSupabase, refreshList]
   );
 
   // ---------------------------------------------------------------------------

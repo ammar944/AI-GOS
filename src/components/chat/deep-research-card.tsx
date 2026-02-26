@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { scaleIn, springs } from '@/lib/motion';
+import { CitationHoverCard } from '@/components/chat/citation-hover-card';
 
 interface DeepResearchPhase {
   name: string;
@@ -75,7 +76,7 @@ function FindingBlock({ finding }: { finding: DeepResearchFinding }) {
   // Render inline citation chips alongside content
   function renderContent() {
     const citationMap = new Map(
-      finding.citations.map((c, i) => [c.label, { index: i + 1, url: c.url }])
+      finding.citations.map((c, i) => [c.label, { index: i + 1, url: c.url, label: c.label }])
     );
 
     // Look for [label] patterns and replace with superscript chips
@@ -84,23 +85,28 @@ function FindingBlock({ finding }: { finding: DeepResearchFinding }) {
       const matchLabel = part.match(/^\[([^\]]+)\]$/);
       if (matchLabel && citationMap.has(matchLabel[1])) {
         const cit = citationMap.get(matchLabel[1])!;
+        const domain = extractDomain(cit.url);
         return (
-          <button
+          <CitationHoverCard
             key={idx}
-            onClick={() => handleCitationClick(cit.url)}
-            className="inline-flex items-center justify-center w-4 h-4 rounded font-mono cursor-pointer mx-0.5 align-middle"
-            style={{
-              fontSize: '9px',
-              background: 'var(--accent-blue)',
-              color: '#ffffff',
-              border: 'none',
-              verticalAlign: 'super',
-              lineHeight: 1,
-            }}
-            title={part}
+            source={{ domain, url: cit.url, title: matchLabel[1] }}
+            citationNumber={cit.index}
           >
-            {cit.index}
-          </button>
+            <button
+              onClick={() => handleCitationClick(cit.url)}
+              className="inline-flex items-center justify-center w-4 h-4 rounded font-mono cursor-pointer mx-0.5 align-middle"
+              style={{
+                fontSize: '9px',
+                background: 'var(--accent-blue)',
+                color: '#ffffff',
+                border: 'none',
+                verticalAlign: 'super',
+                lineHeight: 1,
+              }}
+            >
+              {cit.index}
+            </button>
+          </CitationHoverCard>
         );
       }
       return <span key={idx}>{part}</span>;
@@ -312,24 +318,32 @@ export function DeepResearchCard({ data, isStreaming = false }: DeepResearchCard
           className="px-4 py-2.5 flex flex-wrap gap-1.5"
           style={{ borderTop: '1px solid var(--border-subtle)' }}
         >
-          {data.sources.map((source, i) => (
-            <a
-              key={i}
-              href={source.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-tertiary)',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <ExternalLink className="w-2.5 h-2.5" />
-              {extractDomain(source.url) || source.domain}
-            </a>
-          ))}
+          {data.sources.map((source, i) => {
+            const domain = extractDomain(source.url) || source.domain;
+            return (
+              <CitationHoverCard
+                key={i}
+                source={{ domain, url: source.url }}
+                citationNumber={i + 1}
+              >
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-tertiary)',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                  {domain}
+                </a>
+              </CitationHoverCard>
+            );
+          })}
         </div>
       )}
     </motion.div>

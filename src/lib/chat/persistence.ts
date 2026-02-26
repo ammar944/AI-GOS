@@ -187,13 +187,15 @@ export async function listConversations(
  */
 export async function deleteConversation(
   supabase: SupabaseClient,
-  conversationId: string
+  conversationId: string,
+  userId: string
 ): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('chat_conversations')
       .delete()
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('[chat/persistence] Failed to delete conversation:', error.message);
