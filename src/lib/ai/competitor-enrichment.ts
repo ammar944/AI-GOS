@@ -130,7 +130,7 @@ function addUsdEquivalent(priceStr: string, extractionCurrency?: string): string
   return `${priceStr} (~$${usdEquiv} USD)`;
 }
 
-const HIGH_RECALL_FETCH_LIMIT = 100;
+const HIGH_RECALL_FETCH_LIMIT = 50;
 const MAX_STORED_ADS_PER_COMPETITOR = 50;
 const HIGH_RECALL_MIN_RELEVANCE = 60;
 const HIGH_RECALL_META_PAGE_LIMIT = 3;

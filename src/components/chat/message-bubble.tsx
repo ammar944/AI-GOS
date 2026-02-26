@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { User, Bot, Pencil, Lightbulb, FileText, Sparkles } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderWithSubscripts } from "@/components/strategic-research/citations";
 import { springs } from "@/lib/motion";
@@ -36,6 +36,7 @@ interface MessageBubbleProps {
   sourceQuality?: SourceQuality;
   sources?: SourceReference[];
   isLoading?: boolean;
+  isStreaming?: boolean;
   delay?: number;
 }
 
@@ -241,7 +242,7 @@ function renderTextContent(text: string): React.ReactNode {
           className={cn(fontSize, "font-semibold mt-3 mb-1")}
           style={{ color: "var(--text-primary, #ffffff)" }}
           role="heading"
-          aria-level={level + 2}
+          aria-level={Math.min(level + 1, 6)}
         >
           {renderInlineFormatting(headerText)}
         </div>
@@ -456,7 +457,6 @@ function SourceIndicator({
                   className="flex items-center gap-2 text-xs"
                   style={{ color: "var(--text-tertiary, #666666)" }}
                 >
-                  {/* High quality indicator */}
                   {source.similarity >= 0.85 && (
                     <span
                       className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -501,71 +501,55 @@ export function MessageBubble({
   sourceQuality,
   sources,
   isLoading,
+  isStreaming,
   delay = 0,
 }: MessageBubbleProps) {
   const isUser = role === "user";
 
-  // Styles based on role and type - monochrome-first approach
-  const bubbleStyles = isUser
-    ? {
-        background: "var(--bg-surface, #101010)",
-        border: "1px solid var(--border-default, rgba(255, 255, 255, 0.12))",
-        borderRadius: "16px 16px 4px 16px",
-        color: "var(--text-primary, #ffffff)",
-      }
-    : {
-        background: "var(--bg-card, #0d0d0d)",
-        border: isEditProposal
-          ? "1px solid rgba(245, 158, 11, 0.2)"
-          : "1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))",
-        borderRadius: "16px 16px 16px 4px",
-        color: "var(--text-secondary, #a0a0a0)",
-      };
+  if (isUser) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...springs.smooth, delay }}
+        className="flex gap-3 px-4 py-2 flex-row-reverse"
+      >
+        <div
+          className="max-w-[88%] px-3.5 py-2.5 ml-auto"
+          style={{
+            background: "var(--bg-hover, #161616)",
+            border: "1px solid var(--border-default, rgba(255, 255, 255, 0.12))",
+            borderRadius: "14px 14px 4px 14px",
+            color: "var(--text-primary, #ffffff)",
+            fontSize: "13.5px",
+          }}
+        >
+          {renderContent(content)}
+        </div>
+      </motion.div>
+    );
+  }
 
-  // Icon selection
-  const Icon = isUser
-    ? User
-    : isEditProposal
-      ? Pencil
-      : isExplanation
-        ? Lightbulb
-        : Bot;
-
-  // Icon backgrounds - flat monochrome, no gradients
-  const iconBgColor = isUser
-    ? "var(--bg-hover, #161616)"
-    : isEditProposal
-      ? "rgba(245, 158, 11, 0.1)"
-      : "var(--bg-surface, #101010)";
-
-  // Icon colors - muted, not bright
-  const iconColor = isUser
-    ? "var(--text-secondary, #a0a0a0)"
-    : isEditProposal
-      ? "#f59e0b"
-      : "var(--text-tertiary, #666666)";
-
+  // Assistant message — no bubble, avatar + content
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...springs.smooth, delay }}
-      className={cn("flex gap-3 px-5 py-2", isUser ? "flex-row-reverse" : "")}
+      className="flex gap-3 px-4 py-2 items-start"
     >
-      {/* Avatar - only show for assistant */}
-      {!isUser && (
-        <div
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ background: iconBgColor }}
-        >
-          <Icon className="w-4 h-4" style={{ color: iconColor }} />
-        </div>
-      )}
-
-      {/* Bubble */}
+      {/* Avatar */}
       <div
-        className={cn("max-w-[85%] px-4 py-3", isUser && "ml-auto")}
-        style={bubbleStyles}
+        className="flex-shrink-0 w-6 h-6 rounded-[7px] flex items-center justify-center mt-0.5"
+        style={{ background: "linear-gradient(135deg, var(--accent-blue), #006fff)" }}
+      >
+        <Sparkles className="w-3 h-3" style={{ color: "#ffffff" }} />
+      </div>
+
+      {/* Content */}
+      <div
+        className={cn("flex-1 min-w-0", isStreaming && "streaming-bubble")}
+        style={{ fontSize: "13.5px", lineHeight: "1.65", color: "var(--text-secondary, #a0a0a0)" }}
       >
         {isLoading ? (
           <div className="flex items-center gap-1.5 py-1">
@@ -590,8 +574,8 @@ export function MessageBubble({
           </div>
         ) : (
           <>
-            {/* Type badge for assistant messages */}
-            {!isUser && (isEditProposal || isExplanation) && (
+            {/* Type badges for edit/explanation */}
+            {(isEditProposal || isExplanation) && (
               <div className="flex items-center gap-2 mb-2">
                 {isEditProposal && (
                   <span
@@ -620,13 +604,12 @@ export function MessageBubble({
 
             {renderContent(content)}
 
-            {/* Source and confidence indicators */}
-            {!isUser && !isEditProposal && (confidence || sourceQuality || sources?.length) && (
-              <div className="mt-3 pt-2 border-t border-white/5 flex flex-wrap items-center gap-2">
-                {/* Source indicator - show first if available */}
-                <SourceIndicator sourceQuality={sourceQuality} sources={sources} />
+            {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
 
-                {/* Confidence badge */}
+            {/* Source and confidence indicators */}
+            {!isEditProposal && (confidence || sourceQuality || sources?.length) && (
+              <div className="mt-3 pt-2 border-t border-white/5 flex flex-wrap items-center gap-2">
+                <SourceIndicator sourceQuality={sourceQuality} sources={sources} />
                 {confidence && (
                   <ConfidenceBadge
                     confidence={confidence}

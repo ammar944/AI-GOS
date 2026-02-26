@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Send, Undo2, Redo2 } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
@@ -30,6 +30,23 @@ const MEDIA_PLAN_SUGGESTIONS = [
   'Change platform mix',
   'Simulate budget increase',
 ];
+
+/** Typed shape for AI SDK v6 tool parts — avoids `as any` casts */
+interface ToolPart {
+  type: string;
+  state:
+    | 'input-streaming'
+    | 'input-available'
+    | 'approval-requested'
+    | 'approval-responded'
+    | 'output-available'
+    | 'output-error'
+    | 'output-denied';
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  errorText?: string;
+  approval?: { id?: string };
+}
 
 interface MediaPlanAgentChatProps {
   mediaPlan: Record<string, unknown>;
@@ -62,28 +79,20 @@ export function MediaPlanAgentChat({
     mediaPlanId ? `mp-${mediaPlanId}` : undefined,
   );
 
-  const transport = useRef(
-    new DefaultChatTransport({
-      api: '/api/chat/media-plan-agent',
-      body: {
-        mediaPlanId: mediaPlanId || '',
-        mediaPlan,
-        onboardingData,
-      },
-    })
+  // Reactive transport — useMemo recreates when deps change, and useChat
+  // picks up the new instance via its internal ref update on each render.
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat/media-plan-agent',
+        body: {
+          mediaPlanId: mediaPlanId || '',
+          mediaPlan,
+          onboardingData,
+        },
+      }),
+    [mediaPlan, mediaPlanId, onboardingData]
   );
-
-  // Update transport body when media plan changes
-  useEffect(() => {
-    transport.current = new DefaultChatTransport({
-      api: '/api/chat/media-plan-agent',
-      body: {
-        mediaPlanId: mediaPlanId || '',
-        mediaPlan,
-        onboardingData,
-      },
-    });
-  }, [mediaPlan, mediaPlanId, onboardingData]);
 
   const {
     messages,
@@ -93,7 +102,7 @@ export function MediaPlanAgentChat({
     error,
     setMessages,
   } = useChat({
-    transport: transport.current,
+    transport,
     // Auto-resubmit after user approves/rejects an edit
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onError: (err) => {
@@ -298,17 +307,18 @@ export function MediaPlanAgentChat({
   /**
    * Render a single message's parts
    */
-  const renderMessageParts = (message: UIMessage) => {
+  const renderMessageParts = (message: UIMessage, isLastStreamingMessage = false) => {
     const elements: React.ReactNode[] = [];
     let textAccumulator = '';
 
-    const flushText = (key: string) => {
+    const flushText = (key: string, isFinalFlush = false) => {
       if (textAccumulator) {
         elements.push(
           <MessageBubble
             key={key}
             role={message.role as 'user' | 'assistant'}
             content={textAccumulator}
+            isStreaming={isFinalFlush && isLastStreamingMessage}
           />
         );
         textAccumulator = '';
@@ -328,7 +338,7 @@ export function MediaPlanAgentChat({
 
       // Tool part rendering
       if (part.type.startsWith('tool-')) {
-        const toolPart = part as any;
+        const toolPart = part as ToolPart;
         const toolName = part.type.replace('tool-', '');
 
         // Loading states
@@ -352,7 +362,7 @@ export function MediaPlanAgentChat({
             newValue: unknown;
             explanation: string;
           };
-          const approvalId = toolPart.approval?.id;
+          const approvalId = toolPart.approval?.id ?? `${message.id}-${i}`;
 
           // Check if this edit would require a validation cascade
           const sectionLabel =
@@ -394,8 +404,8 @@ export function MediaPlanAgentChat({
                   color: '#22c55e',
                 }}
               >
-                Edit applied to {sectionLabel} / {output.fieldPath}
-                {output.requiresValidationCascade && (
+                Edit applied to {String(sectionLabel)} / {String(output.fieldPath)}
+                {!!output.requiresValidationCascade && (
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded ml-1"
                     style={{
@@ -412,7 +422,7 @@ export function MediaPlanAgentChat({
 
           // recalculate - show validation cascade results + auto-apply fixes
           if (toolName === 'recalculate' && output) {
-            const cascadeResult = output as ValidationCascadeResult;
+            const cascadeResult = output as unknown as ValidationCascadeResult;
 
             elements.push(
               <ValidationCascadeCard
@@ -548,21 +558,22 @@ export function MediaPlanAgentChat({
             elements.push(
               <ResearchResultCard
                 key={`${message.id}-research-${i}`}
-                research={output.research}
-                cost={output.cost}
+                research={String(output.research ?? '')}
+                cost={typeof output.cost === 'number' ? output.cost : undefined}
               />
             );
           }
 
           // searchMediaPlan - show source indicator (brief)
-          if (toolName === 'searchMediaPlan' && output?.sources?.length > 0) {
+          if (toolName === 'searchMediaPlan' && output && Array.isArray(output.sources) && output.sources.length > 0) {
+            const srcCount = (output.sources as unknown[]).length;
             elements.push(
               <div
                 key={`${message.id}-sources-${i}`}
                 className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] my-1"
                 style={{ color: 'var(--text-tertiary)' }}
               >
-                Found {output.sources.length} source{output.sources.length !== 1 ? 's' : ''} ({output.confidence} confidence)
+                Found {srcCount} source{srcCount !== 1 ? 's' : ''} ({String(output.confidence)} confidence)
               </div>
             );
           }
@@ -587,8 +598,8 @@ export function MediaPlanAgentChat({
       }
     }
 
-    // Flush any remaining text
-    flushText(`${message.id}-text-final`);
+    // Flush any remaining text — mark as final so streaming cursor appears on last bubble
+    flushText(`${message.id}-text-final`, true);
 
     return elements;
   };
@@ -635,7 +646,7 @@ export function MediaPlanAgentChat({
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto py-4">
+      <div className="flex-1 overflow-y-auto py-4 chat-messages-scroll">
         {/* Empty state */}
         {messages.length === 0 && !isLoading && (
           <div className="px-5 py-8 text-center">
@@ -664,21 +675,30 @@ export function MediaPlanAgentChat({
         )}
 
         {/* Message list */}
-        {messages.map((message) => (
-          <div key={message.id}>
-            {message.role === 'user' ? (
-              <MessageBubble
-                role="user"
-                content={getTextContent(message)}
-              />
-            ) : (
-              renderMessageParts(message)
-            )}
-          </div>
-        ))}
+        {messages.map((message, msgIndex) => {
+          const isLastAssistant =
+            message.role === 'assistant' &&
+            msgIndex === messages.length - 1 &&
+            isStreaming;
+          return (
+            <div key={message.id}>
+              {message.role === 'user' ? (
+                <MessageBubble
+                  role="user"
+                  content={getTextContent(message)}
+                />
+              ) : (
+                renderMessageParts(message, isLastAssistant)
+              )}
+            </div>
+          );
+        })}
 
-        {/* Typing indicator */}
-        {isLoading && <TypingIndicator />}
+        {/* Typing indicator — only before first text token arrives */}
+        {(isSubmitted || (isStreaming && !messages.some(
+          (m, i) => m.role === 'assistant' && i === messages.length - 1 &&
+            m.parts.some(p => p.type === 'text' && p.text.length > 0)
+        ))) && <TypingIndicator />}
 
         {/* Error display */}
         {error && (

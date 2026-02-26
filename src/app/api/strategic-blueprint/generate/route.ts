@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
               // Enrichment runs PARALLEL to Phase 2, then feeds into Phase 3 synthesis
               if (progress.section === 'phase1' && progress.status === 'complete' && progress.competitorData) {
                 baseCompetitorData = progress.competitorData;
-                console.log('[Route] Phase 1 complete - starting enrichment in parallel with Phase 2/3');
+                console.log(`[Route] Phase 1 complete (${Math.round((Date.now() - startTime) / 1000)}s) - starting enrichment in parallel with Phase 2/3`);
                 emit({
                   type: 'progress',
                   percentage: pct,
@@ -400,7 +400,7 @@ export async function POST(request: NextRequest) {
               onProgress,
               fullTierNames: fullTier,
               summaryTierNames: summaryTier,
-              enrichmentDeadlineMs: 20_000,
+              enrichmentDeadlineMs: 60_000,
               getEnrichedCompetitors: async () => {
                 if (!enrichmentPromise || !baseCompetitorData) return undefined;
                 const enrichment = await enrichmentPromise;
@@ -449,6 +449,9 @@ export async function POST(request: NextRequest) {
               return;
             }
 
+            const generatorDoneAt = Date.now();
+            console.log(`[Route] Generator (Phases 1-3) complete: ${Math.round((generatorDoneAt - startTime) / 1000)}s`);
+
             // Enrichment may have resolved during synthesis (storedXxx) or timed out
             // (result.lateEnrichment). The enrichmentPromise/keywordPromise/seoAuditPromise
             // are still running in this scope — just re-await them (instant if already settled).
@@ -481,6 +484,9 @@ export async function POST(request: NextRequest) {
               completedSections.add('keywordIntelligence');
               emit({ type: 'section-complete', section: 'keywordIntelligence', label: SECTION_LABELS.keywordIntelligence, data: null });
             }
+
+            const enrichmentResolvedAt = Date.now();
+            console.log(`[Route] Post-synthesis enrichment await: ${Math.round((enrichmentResolvedAt - generatorDoneAt) / 1000)}s (0s = resolved during synthesis)`);
 
             // Debug: Log enrichment result
             const totalEnrichedAds = enrichmentResolved.competitors.reduce((sum, c) => sum + (c.adCreatives?.length ?? 0), 0);
@@ -615,6 +621,9 @@ export async function POST(request: NextRequest) {
                 totalCost: finalBlueprint.metadata.totalCost,
               },
             });
+
+            const totalSeconds = Math.round((Date.now() - startTime) / 1000);
+            console.log(`[Route] Total request time: ${totalSeconds}s | Generator: ${Math.round((generatorDoneAt - startTime) / 1000)}s, Post-enrichment: ${Math.round((enrichmentResolvedAt - generatorDoneAt) / 1000)}s, Hooks+finalize: ${Math.round((Date.now() - enrichmentResolvedAt) / 1000)}s`);
 
             logInfo(
               {

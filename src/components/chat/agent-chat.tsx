@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Send, Undo2, Redo2 } from 'lucide-react';
+import { Sparkles, Undo2, Redo2 } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
@@ -16,13 +16,35 @@ import { QuickSuggestions } from './quick-suggestions';
 import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
+import { DeepResearchCard } from './deep-research-card';
+import { GenerateSectionCard } from './generate-section-card';
+import { ComparisonTableCard } from './comparison-table-card';
+import { AnalysisScoreCard } from './analysis-score-card';
 import { ViewInBlueprintButton } from './view-in-blueprint-button';
+import { ChatInput } from './chat-input';
+import { ThinkingBlock } from './thinking-block';
 import { MagneticButton } from '@/components/ui/magnetic-button';
-import { VoiceInputButton } from './voice-input-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { applyEdits } from '@/lib/ai/chat-tools/utils';
-import type { PendingEdit } from '@/lib/ai/chat-tools/types';
+import type { PendingEdit, DeepResearchResult, ComparisonResult, AnalysisResult } from '@/lib/ai/chat-tools/types';
 import { useOptionalBlueprintEditContext } from '@/components/strategic-blueprint/blueprint-edit-context';
+
+/** Typed shape for AI SDK v6 tool parts — avoids `as any` casts */
+interface ToolPart {
+  type: string;
+  state:
+    | 'input-streaming'
+    | 'input-available'
+    | 'approval-requested'
+    | 'approval-responded'
+    | 'output-available'
+    | 'output-error'
+    | 'output-denied';
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  errorText?: string;
+  approval?: { id?: string };
+}
 
 interface AgentChatProps {
   blueprint: Record<string, unknown>;
@@ -32,6 +54,36 @@ interface AgentChatProps {
   className?: string;
 }
 
+/**
+ * Parse <think>...</think> blocks from text, returning an array of
+ * { type: 'text', content } and { type: 'thinking', content } segments.
+ * Only complete pairs are parsed; unclosed tags are left as plain text.
+ */
+function parseThinkingBlocks(text: string): Array<{ type: 'text' | 'thinking'; content: string }> {
+  const segments: Array<{ type: 'text' | 'thinking'; content: string }> = [];
+  const regex = /<think>([\s\S]*?)<\/think>/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Text before the thinking block
+    if (match.index > lastIndex) {
+      const before = text.slice(lastIndex, match.index);
+      if (before) segments.push({ type: 'text', content: before });
+    }
+    // The thinking block content
+    segments.push({ type: 'thinking', content: match[1] });
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining text after last match (or all text if no matches)
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  return segments;
+}
+
 export function AgentChat({
   blueprint,
   blueprintId,
@@ -39,13 +91,7 @@ export function AgentChat({
   onBlueprintUpdate,
   className,
 }: AgentChatProps) {
-  const [input, setInput] = useState('');
-  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const stopRecordingRef = useRef<(() => void) | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const formWrapperRef = useRef<HTMLFormElement>(null);
   const blueprintRef = useRef(blueprint);
   blueprintRef.current = blueprint;
   const blueprintVersionRef = useRef(0);
@@ -55,29 +101,25 @@ export function AgentChat({
   // Blueprint edit context — optional (no provider = no highlight, no crash)
   const editCtx = useOptionalBlueprintEditContext();
 
-  const transport = useRef(
-    new DefaultChatTransport({
-      api: '/api/chat/agent',
-      body: {
-        blueprintId: blueprintId || '',
-        blueprint,
-        conversationId,
-      },
-    })
-  );
-
-  // Update transport body when blueprint changes and increment version
+  // Increment version when blueprint changes (for optimistic locking)
   useEffect(() => {
     blueprintVersionRef.current += 1;
-    transport.current = new DefaultChatTransport({
-      api: '/api/chat/agent',
-      body: {
-        blueprintId: blueprintId || '',
-        blueprint,
-        conversationId,
-      },
-    });
   }, [blueprint, blueprintId, conversationId]);
+
+  // Reactive transport — useMemo recreates when deps change, and useChat
+  // picks up the new instance via its internal ref update on each render.
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat/agent',
+        body: {
+          blueprintId: blueprintId || '',
+          blueprint,
+          conversationId,
+        },
+      }),
+    [blueprint, blueprintId, conversationId]
+  );
 
   const {
     messages,
@@ -88,7 +130,7 @@ export function AgentChat({
     stop,
     setMessages,
   } = useChat({
-    transport: transport.current,
+    transport,
     // Auto-resubmit after user approves/rejects an edit
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onError: (err) => {
@@ -115,12 +157,6 @@ export function AgentChat({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, status]);
-
-  // Focus input on mount
-  useEffect(() => {
-    const timer = setTimeout(() => inputRef.current?.focus(), 300);
-    return () => clearTimeout(timer);
-  }, []);
 
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
@@ -169,67 +205,16 @@ export function AgentChat({
   }, [messages, editCtx]);
 
   const handleSubmit = useCallback(
-    (e?: React.FormEvent, directContent?: string) => {
-      e?.preventDefault();
-      const content = directContent ?? input.trim();
+    (content: string) => {
       if (!content || isLoading) return;
-
       sendMessage({ text: content });
-      setInput('');
-
-      // Reset textarea height after sending
-      requestAnimationFrame(() => {
-        if (inputRef.current) {
-          inputRef.current.style.height = 'auto';
-          inputRef.current.style.height = '36px';
-        }
-      });
     },
-    [input, isLoading, sendMessage]
+    [isLoading, sendMessage]
   );
-
-  // Auto-resize textarea
-  const autoResize = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
-  }, []);
-
-  // Resize on input changes (covers programmatic voice transcript)
-  useEffect(() => { autoResize(); }, [input, autoResize]);
-
-  // Voice transcript handler — inserts at cursor position, preserving existing text.
-  // Reads from el.value (DOM) not `input` (state) to avoid recreating the callback
-  // on every keystroke, which would re-trigger VoiceInputButton's onTranscript effect.
-  const handleTranscript = useCallback((text: string) => {
-    const el = inputRef.current;
-    if (!el) {
-      setInput(prev => prev ? `${prev} ${text}` : text);
-      return;
-    }
-
-    const current = el.value;
-    const start = el.selectionStart ?? current.length;
-    const end = el.selectionEnd ?? current.length;
-    const before = current.slice(0, start);
-    const after = current.slice(end);
-
-    const spaceBefore = before && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
-    const newValue = before + spaceBefore + text + after;
-
-    setInput(newValue);
-
-    requestAnimationFrame(() => {
-      const newCursorPos = start + spaceBefore.length + text.length;
-      el.setSelectionRange(newCursorPos, newCursorPos);
-      el.focus();
-    });
-  }, []);
 
   const handleSuggestionSelect = useCallback(
     (suggestion: string) => {
-      handleSubmit(undefined, suggestion);
+      handleSubmit(suggestion);
     },
     [handleSubmit]
   );
@@ -311,19 +296,35 @@ export function AgentChat({
   /**
    * Render a single message's parts
    */
-  const renderMessageParts = (message: UIMessage) => {
+  const renderMessageParts = (message: UIMessage, isLastStreamingMessage = false) => {
     const elements: React.ReactNode[] = [];
     let textAccumulator = '';
 
-    const flushText = (key: string) => {
+    const flushText = (key: string, isFinalFlush = false) => {
       if (textAccumulator) {
-        elements.push(
-          <MessageBubble
-            key={key}
-            role={message.role as 'user' | 'assistant'}
-            content={textAccumulator}
-          />
-        );
+        // Parse <think>...</think> blocks from accumulated text
+        const segments = parseThinkingBlocks(textAccumulator);
+
+        segments.forEach((segment, segIdx) => {
+          if (segment.type === 'thinking') {
+            elements.push(
+              <ThinkingBlock
+                key={`${key}-think-${segIdx}`}
+                content={segment.content}
+              />
+            );
+          } else if (segment.content) {
+            elements.push(
+              <MessageBubble
+                key={`${key}-${segIdx}`}
+                role={message.role as 'user' | 'assistant'}
+                content={segment.content}
+                isStreaming={isFinalFlush && isLastStreamingMessage && segIdx === segments.length - 1}
+              />
+            );
+          }
+        });
+
         textAccumulator = '';
       }
     };
@@ -341,7 +342,7 @@ export function AgentChat({
 
       // Tool part rendering
       if (part.type.startsWith('tool-')) {
-        const toolPart = part as any;
+        const toolPart = part as ToolPart;
         const toolName = part.type.replace('tool-', '');
 
         // Loading states
@@ -349,16 +350,16 @@ export function AgentChat({
           toolPart.state === 'input-streaming' ||
           toolPart.state === 'input-available'
         ) {
-          // For editBlueprint with approval, don't show loading - show approval UI below
-          if (toolName !== 'editBlueprint') {
+          // For approval tools, don't show loading - show approval UI below
+          if (toolName !== 'editBlueprint' && toolName !== 'generateSection') {
             elements.push(
               <ToolLoadingIndicator key={`${message.id}-tool-${i}`} toolName={toolName} />
             );
           }
         }
 
-        // Approval requested state (editBlueprint only)
-        if (toolPart.state === 'approval-requested') {
+        // Approval requested state (editBlueprint)
+        if (toolPart.state === 'approval-requested' && toolName === 'editBlueprint') {
           const editInput = toolPart.input as {
             section: string;
             fieldPath: string;
@@ -396,6 +397,33 @@ export function AgentChat({
           }
         }
 
+        // Approval requested state (generateSection)
+        // Note: at this point, execute() hasn't run yet — it runs after approval.
+        // We only send the approval signal here; the actual blueprint edit is
+        // applied in the output-available handler below once newContent arrives.
+        if (toolPart.state === 'approval-requested' && toolName === 'generateSection') {
+          const sectionInput = toolPart.input as {
+            section: string;
+            instruction: string;
+            style: string;
+          };
+          const approvalId = toolPart.approval?.id ?? `${message.id}-${i}`;
+
+          elements.push(
+            <GenerateSectionCard
+              key={`${message.id}-gensec-${i}`}
+              section={sectionInput.section}
+              instruction={sectionInput.instruction}
+              style={sectionInput.style || 'rewrite'}
+              oldContent={undefined}
+              newContent={undefined}
+              diffPreview="Awaiting generation result..."
+              onApprove={() => addToolApprovalResponse({ id: approvalId, approved: true })}
+              onReject={() => handleRejectEdit(approvalId)}
+            />
+          );
+        }
+
         // Output available states
         if (toolPart.state === 'output-available') {
           const output = toolPart.output;
@@ -413,11 +441,11 @@ export function AgentChat({
                 }}
               >
                 <span className="flex-1">
-                  Edit applied to {output.section} / {output.fieldPath}
+                  Edit applied to {String(output.section)} / {String(output.fieldPath)}
                 </span>
                 {editCtx && (
                   <button
-                    onClick={() => editCtx.requestNavigation(output.section, output.fieldPath)}
+                    onClick={() => editCtx.requestNavigation(String(output.section), String(output.fieldPath))}
                     className="shrink-0 px-2 py-0.5 rounded text-[11px] font-medium transition-colors hover:brightness-125"
                     style={{
                       background: 'rgba(34, 197, 94, 0.15)',
@@ -437,22 +465,96 @@ export function AgentChat({
             elements.push(
               <ResearchResultCard
                 key={`${message.id}-research-${i}`}
-                research={output.research}
-                cost={output.cost}
+                research={String(output.research ?? '')}
+                cost={typeof output.cost === 'number' ? output.cost : undefined}
               />
             );
           }
 
           // searchBlueprint - show source indicator (brief)
-          if (toolName === 'searchBlueprint' && output?.sources?.length > 0) {
+          if (toolName === 'searchBlueprint' && output && Array.isArray(output.sources) && output.sources.length > 0) {
+            const srcCount = (output.sources as unknown[]).length;
             elements.push(
               <div
                 key={`${message.id}-sources-${i}`}
                 className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] my-1"
-                style={{ color: 'var(--text-quaternary)' }}
+                style={{ color: 'var(--text-tertiary)' }}
               >
-                Found {output.sources.length} source{output.sources.length !== 1 ? 's' : ''} ({output.confidence} confidence)
+                Found {srcCount} source{srcCount !== 1 ? 's' : ''} ({String(output.confidence)} confidence)
               </div>
+            );
+          }
+
+          // deepResearch - show deep research card
+          if (toolName === 'deepResearch' && output && !output.error) {
+            const researchData = output as unknown as DeepResearchResult;
+            elements.push(
+              <DeepResearchCard
+                key={`${message.id}-deepresearch-${i}`}
+                data={researchData}
+              />
+            );
+          }
+
+          // generateSection - apply section rewrite to blueprint and show result
+          if (toolName === 'generateSection' && output && !output.error) {
+            // Apply the generated content to the blueprint (idempotent — only if
+            // newContent is present and the section hasn't already been overwritten)
+            if (output.newContent && output.section) {
+              const sectionKey = output.section as string;
+              const currentBlueprint = blueprintRef.current;
+              const currentSection = currentBlueprint[sectionKey];
+              // Only apply if section content differs (prevents double-apply on re-renders)
+              if (JSON.stringify(currentSection) !== JSON.stringify(output.newContent)) {
+                const blueprintBefore = JSON.parse(JSON.stringify(currentBlueprint));
+                const updatedBlueprint = { ...currentBlueprint, [sectionKey]: output.newContent };
+                const pendingEdit: PendingEdit = {
+                  section: sectionKey,
+                  fieldPath: '',
+                  oldValue: currentSection,
+                  newValue: output.newContent,
+                  explanation: `Section rewrite: ${output.instruction || ''}`,
+                  diffPreview: typeof output.diffPreview === 'string' ? output.diffPreview : '',
+                };
+                recordEdit(blueprintBefore, updatedBlueprint, [pendingEdit]);
+                blueprintRef.current = updatedBlueprint;
+                onBlueprintUpdate?.(updatedBlueprint);
+              }
+            }
+
+            elements.push(
+              <GenerateSectionCard
+                key={`${message.id}-gensec-done-${i}`}
+                section={String(output.section ?? '')}
+                instruction={String(output.instruction ?? '')}
+                style={String(output.style ?? 'rewrite')}
+                oldContent={output.oldContent}
+                newContent={output.newContent}
+                diffPreview={String(output.diffPreview ?? '')}
+                isApproved
+              />
+            );
+          }
+
+          // compareCompetitors - show comparison table
+          if (toolName === 'compareCompetitors' && output && !output.error) {
+            const compData = output as unknown as ComparisonResult;
+            elements.push(
+              <ComparisonTableCard
+                key={`${message.id}-compare-${i}`}
+                data={compData}
+              />
+            );
+          }
+
+          // analyzeMetrics - show analysis score card
+          if (toolName === 'analyzeMetrics' && output && !output.error) {
+            const analysisData = output as unknown as AnalysisResult;
+            elements.push(
+              <AnalysisScoreCard
+                key={`${message.id}-analyze-${i}`}
+                data={analysisData}
+              />
             );
           }
         }
@@ -476,58 +578,46 @@ export function AgentChat({
       }
     }
 
-    // Flush any remaining text
-    flushText(`${message.id}-text-final`);
+    // Flush any remaining text — mark as final so streaming cursor appears on last bubble
+    flushText(`${message.id}-text-final`, true);
 
     return elements;
   };
 
   return (
     <div className={`flex flex-col h-full ${className || ''}`}>
-      {/* Header */}
-      <div
-        className="flex-shrink-0 px-4 py-3 flex items-center justify-between"
-        style={{
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--bg-elevated)',
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Chat
-          </span>
+      {/* Undo/Redo toolbar — only visible when edit history exists */}
+      {(canUndo || canRedo) && (
+        <div
+          className="flex-shrink-0 px-3 py-1.5 flex items-center justify-end gap-1"
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
+        >
+          <MagneticButton
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className="w-7 h-7 rounded flex items-center justify-center"
+            style={{ background: 'transparent', opacity: canUndo ? 1 : 0.4 }}
+            title={canUndo ? `Undo (${undoDepth})` : 'Nothing to undo'}
+          >
+            <Undo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+          </MagneticButton>
+          <MagneticButton
+            onClick={handleRedo}
+            disabled={!canRedo}
+            className="w-7 h-7 rounded flex items-center justify-center"
+            style={{ background: 'transparent', opacity: canRedo ? 1 : 0.4 }}
+            title="Redo"
+          >
+            <Redo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+          </MagneticButton>
         </div>
-
-        {(canUndo || canRedo) && (
-          <div className="flex items-center gap-1">
-            <MagneticButton
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: 'transparent', opacity: canUndo ? 1 : 0.4 }}
-              title={canUndo ? `Undo (${undoDepth})` : 'Nothing to undo'}
-            >
-              <Undo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            </MagneticButton>
-            <MagneticButton
-              onClick={handleRedo}
-              disabled={!canRedo}
-              className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ background: 'transparent', opacity: canRedo ? 1 : 0.4 }}
-              title="Redo"
-            >
-              <Redo2 className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-            </MagneticButton>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto py-4">
+      <div className="flex-1 overflow-y-auto py-4 px-0 chat-messages-scroll">
         {/* Empty state */}
         {messages.length === 0 && !isLoading && (
-          <div className="px-5 py-8 text-center">
+          <div className="px-4 py-8 text-center">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -553,26 +643,35 @@ export function AgentChat({
         )}
 
         {/* Message list */}
-        {messages.map((message) => (
-          <div key={message.id}>
-            {message.role === 'user' ? (
-              <MessageBubble
-                role="user"
-                content={getTextContent(message)}
-              />
-            ) : (
-              renderMessageParts(message)
-            )}
-          </div>
-        ))}
+        {messages.map((message, msgIndex) => {
+          const isLastAssistant =
+            message.role === 'assistant' &&
+            msgIndex === messages.length - 1 &&
+            isStreaming;
+          return (
+            <div key={message.id}>
+              {message.role === 'user' ? (
+                <MessageBubble
+                  role="user"
+                  content={getTextContent(message)}
+                />
+              ) : (
+                renderMessageParts(message, isLastAssistant)
+              )}
+            </div>
+          );
+        })}
 
-        {/* Typing indicator */}
-        {isLoading && <TypingIndicator />}
+        {/* Typing indicator — only before first text token arrives */}
+        {(isSubmitted || (isStreaming && !messages.some(
+          (m, i) => m.role === 'assistant' && i === messages.length - 1 &&
+            m.parts.some(p => p.type === 'text' && p.text.length > 0)
+        ))) && <TypingIndicator />}
 
         {/* Error display */}
         {error && (
           <div
-            className="mx-5 my-2 px-3 py-2 rounded-lg text-xs"
+            className="mx-4 my-2 px-3 py-2 rounded-lg text-xs"
             style={{
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.2)',
@@ -587,104 +686,12 @@ export function AgentChat({
       </div>
 
       {/* Input area */}
-      <div
-        className="flex-shrink-0 px-3 pb-3 pt-2"
-        style={{ borderTop: '1px solid var(--border-subtle)' }}
-      >
-        {/* Quick suggestions (when conversation exists) */}
-        {messages.length > 0 && !isLoading && (
-          <div className="mb-2">
-            <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} blueprint={blueprint} />
-          </div>
-        )}
-
-        <form
-          ref={formWrapperRef}
+      <div className="flex-shrink-0 px-3.5 pb-3.5 pt-3" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-chat)' }}>
+        <ChatInput
           onSubmit={handleSubmit}
-          className={`rounded-xl transition-all duration-200 ${isVoiceRecording ? 'chat-input-recording' : ''}`}
-          style={{
-            background: 'var(--bg-elevated)',
-            border: `1px solid ${
-              isVoiceRecording
-                ? 'rgba(249, 115, 22, 0.5)'
-                : isFocused
-                  ? 'var(--border-focus)'
-                  : 'var(--border-subtle)'
-            }`,
-          }}
-        >
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                if (isVoiceRecording) {
-                  stopRecordingRef.current?.();
-                } else {
-                  e.currentTarget.blur();
-                }
-              }
-            }}
-            placeholder={
-              isVoiceRecording
-                ? 'Listening...'
-                : isStreaming
-                  ? 'Receiving response...'
-                  : hasPendingApproval
-                    ? 'Approve or reject the edit above...'
-                    : 'Ask about your blueprint...'
-            }
-            disabled={isLoading && !isVoiceRecording}
-            rows={1}
-            className="w-full px-3 pt-2.5 pb-1 text-sm rounded-xl outline-none resize-none overflow-y-auto leading-relaxed bg-transparent"
-            style={{
-              color: 'var(--text-primary)',
-              minHeight: '36px',
-              maxHeight: '240px',
-            }}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-          />
-          <div className="flex items-center justify-between px-2 pb-1.5">
-            <span
-              className="text-[10px] select-none pl-1"
-              style={{ color: 'var(--text-tertiary)', opacity: isVoiceRecording ? 0 : 1 }}
-            >
-              <kbd className="font-sans">&#x23CE;</kbd> send
-              {' · '}
-              <kbd className="font-sans">&#x21E7;&#x23CE;</kbd> newline
-            </span>
-            <div className="flex items-center gap-1">
-              <VoiceInputButton
-                onTranscript={handleTranscript}
-                onRecordingChange={setIsVoiceRecording}
-                stopRecordingRef={stopRecordingRef}
-                disabled={isLoading}
-                compact
-              />
-              <MagneticButton
-                type="submit"
-                disabled={!input.trim() || isLoading}
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: input.trim() && !isLoading
-                    ? 'var(--accent-blue)'
-                    : 'transparent',
-                  color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
-                  opacity: !input.trim() || isLoading ? 0.4 : 1,
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <Send className="w-4 h-4" />
-              </MagneticButton>
-            </div>
-          </div>
-        </form>
+          isLoading={isLoading}
+          onStop={stop}
+        />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { BlueprintEditProvider } from "@/components/strategic-blueprint/blueprint-edit-context";
 import { BlueprintDocument } from "@/components/strategic-research";
 import { AgentChat } from "@/components/chat";
-import { SplitChatLayout } from "@/components/layout";
+import { TwoColumnLayout } from "@/components/layout";
 import { GenerateHeader } from "@/components/generate";
 import { ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
 import type { GenerateStage } from "@/components/generate";
@@ -38,7 +38,7 @@ export function BlueprintReviewView({
       <BackgroundPattern opacity={0.015} />
       <div className="z-10 flex min-h-0 flex-1">
         <BlueprintEditProvider>
-          <SplitChatLayout
+          <TwoColumnLayout
             chatContent={
               <AgentChat
                 blueprint={strategicBlueprint as unknown as Record<string, unknown>}

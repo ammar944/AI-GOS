@@ -1,7 +1,7 @@
 "use client";
 
 import { MediaPlanAgentChat } from "@/components/chat";
-import { SplitChatLayout } from "@/components/layout";
+import { TwoColumnLayout } from "@/components/layout";
 import { MediaPlanDocument } from "@/components/media-plan";
 import { GenerateHeader } from "@/components/generate";
 import { ShaderMeshBackground, BackgroundPattern } from "@/components/ui/sl-background";
@@ -31,14 +31,14 @@ export function MediaPlanReviewView({
     <div className="relative flex h-screen flex-col" style={{ background: 'var(--bg-base)' }}>
       <GenerateHeader
         currentStage={headerStage}
-        hasUnsavedProgress={true}
+        hasUnsavedProgress={!savedMediaPlanId}
         onExit={onStartOver}
         exitUrl="/dashboard"
       />
       <ShaderMeshBackground variant="page" />
       <BackgroundPattern opacity={0.015} />
       <div className="z-10 flex min-h-0 flex-1">
-        <SplitChatLayout
+        <TwoColumnLayout
           chatContent={
             <MediaPlanAgentChat
               mediaPlan={activeMediaPlan as unknown as Record<string, unknown>}

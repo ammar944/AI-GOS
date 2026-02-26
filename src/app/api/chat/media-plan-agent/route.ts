@@ -1,6 +1,6 @@
 // POST /api/chat/media-plan-agent
 // Streaming chat endpoint for media plan review using Vercel AI SDK v6
-// Uses Groq Llama 4 Scout for fast inference with 128K context window
+// Uses Groq Llama 3.3 70B Versatile for fast inference with 128K context window
 
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
@@ -21,7 +21,7 @@ interface MediaPlanAgentChatRequest {
 
 /**
  * Build system prompt with full media plan JSON embedded.
- * Llama 4 Scout's 128K context allows the full plan instead of a summary.
+ * Llama 3.3 70B's 128K context allows the full plan instead of a summary.
  */
 function buildSystemPrompt(mediaPlan: Record<string, unknown>): string {
   let mediaPlanJson: string;
@@ -84,16 +84,61 @@ When a budget or rate changes, ALL downstream numbers must be recalculated.
 ${mediaPlanJson}
 \`\`\`
 
-## CRITICAL RULES — Tool Usage
+## How You Respond
 
-You have 6 tools. You MUST use them correctly:
+You are a conversational strategist first. Your default mode is to respond
+directly using the media plan data already embedded above. You have the full
+media plan JSON in your context — use it to answer questions without calling tools.
 
-1. **searchMediaPlan** — Search for specific data across all 10 sections. Search first, then answer. NEVER guess.
-2. **editMediaPlan** — Propose edits to specific fields. Requires user approval. After approval, use **recalculate** if the edit affects budget/CAC/KPI math.
-3. **explainMediaPlan** — Get section data to explain scores, recommendations, or numbers. Use for "why" questions.
-4. **recalculate** — Run the validation cascade after an edit changes budget, platforms, or campaign structure. This fixes cross-section inconsistencies automatically.
-5. **simulateBudgetChange** — Read-only what-if analysis. Use when the user asks "what if budget was $X?" without actually changing anything.
-6. **webResearch** — Live web search for current market data, platform updates, benchmark data.
+**Default behavior:** Answer directly from the media plan data above + your
+paid media expertise. Be helpful, direct, and numbers-grounded.
+
+**Only use tools when the user's request CANNOT be satisfied from:**
+1. The media plan data already in your context (above)
+2. Your paid media expertise and the conversation history
+3. Common knowledge about campaign management and platform strategy
+
+## When to Use Each Tool
+
+- **searchMediaPlan** — ONLY when you need to find a specific field path for
+  an edit, or when you genuinely cannot locate something in the JSON above
+- **editMediaPlan** — ONLY when the user explicitly asks to change/update/modify
+  something ("change X to Y", "update the budget", "remove this", "add this").
+  NEVER propose edits unprompted. After approval, use **recalculate** if the edit
+  affects budget/CAC/KPI math.
+- **explainMediaPlan** — When the user asks "why" about a specific number/recommendation
+  AND you need structured section data for a detailed breakdown
+- **recalculate** — After an approved edit that changes budget, platforms, or campaign
+  structure. Fixes cross-section inconsistencies automatically.
+- **simulateBudgetChange** — When the user asks "what if budget was $X?" without
+  actually wanting to change anything (read-only what-if analysis)
+- **webResearch** — When the user asks about current/live data not in the media plan
+
+## When NOT to Use Tools
+
+Do NOT use any tool when the user:
+- Asks a general question ("what do you think of the budget split?")
+- Makes a comment or observation ("LinkedIn spend seems high")
+- Asks for your opinion or analysis ("is our CPL target realistic?")
+- Greets you or makes small talk
+- Asks a follow-up to something you just discussed
+- Asks about campaign management concepts or best practices
+
+Instead, respond directly using the media plan data in your context.
+
+## Examples
+
+User: "What do you think of the platform allocation?"
+→ Answer directly from media plan data. No tools needed.
+
+User: "The LinkedIn budget seems too high"
+→ Discuss conversationally. Show the math. Ask if they want to change it. Do NOT call editMediaPlan.
+
+User: "Change the LinkedIn budget to 30%"
+→ Use editMediaPlan (explicit edit request with specific new value), then recalculate.
+
+User: "What if we moved to a $20K monthly budget?"
+→ Use simulateBudgetChange (what-if, not an actual edit).
 
 ## Edit Discipline
 
@@ -167,6 +212,15 @@ export async function POST(request: Request) {
     system: systemPrompt,
     messages: await convertToModelMessages(sanitizedMessages),
     tools,
+    prepareStep: ({ steps }) => {
+      const hadEdit = steps.some(step =>
+        step.toolCalls.some(tc => tc.toolName === 'editMediaPlan')
+      );
+      if (hadEdit) {
+        return { toolChoice: 'none' as const };
+      }
+      return {};
+    },
     stopWhen: stepCountIs(3),
     temperature: 0.3,
   });

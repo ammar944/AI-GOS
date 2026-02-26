@@ -30,7 +30,7 @@ export const MODELS = {
   CLAUDE_HAIKU: 'claude-haiku-4-5-20251001',
 
   // Groq models
-  LLAMA_SCOUT: 'meta-llama/llama-4-scout-17b-16e-instruct',
+  LLAMA_3_3_70B: 'llama-3.3-70b-versatile',
   KIMI_K2: 'moonshotai/kimi-k2-instruct-0905',
   GPT_OSS_20B: 'openai/gpt-oss-20b',
 } as const;
@@ -136,9 +136,9 @@ export const MODEL_COSTS = {
     output: 4.0,
     requestFee: 0,
   },
-  [MODELS.LLAMA_SCOUT]: {
-    input: 0.11,
-    output: 0.34,
+  [MODELS.LLAMA_3_3_70B]: {
+    input: 0.59,
+    output: 0.79,
     requestFee: 0,
   },
   [MODELS.KIMI_K2]: {

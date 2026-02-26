@@ -192,6 +192,7 @@ export async function generateStrategicBlueprint(
     // Only wait for industry before starting Phase 2
     const industryResult = await industryPromise;
     sectionTimings.phase1Industry = Date.now() - phase1Start;
+    console.log(`[Generator] Phase 1 industry: ${Math.round(sectionTimings.phase1Industry / 1000)}s`);
 
     checkAbort();
 
@@ -251,6 +252,7 @@ export async function generateStrategicBlueprint(
     }
 
     sectionTimings.phase2 = Date.now() - phase2Start;
+    console.log(`[Generator] Phase 2 (ICP + Offer + Reconciliation): ${Math.round(sectionTimings.phase2 / 1000)}s`);
 
     checkAbort();
 
@@ -373,6 +375,9 @@ export async function generateStrategicBlueprint(
 
     sectionTimings.phase3 = Date.now() - phase3Start;
     sectionTimings.total = Date.now() - startTime;
+
+    console.log(`[Generator] Phase 3 synthesis: ${Math.round(sectionTimings.phase3 / 1000)}s`);
+    console.log(`[Generator] Total pipeline: ${Math.round(sectionTimings.total / 1000)}s | Phase 1: ${Math.round(sectionTimings.phase1 / 1000)}s, Phase 2: ${Math.round(sectionTimings.phase2 / 1000)}s, Phase 3: ${Math.round(sectionTimings.phase3 / 1000)}s`);
 
     // =========================================================================
     // Build Final Output

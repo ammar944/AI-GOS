@@ -73,3 +73,35 @@ export interface EditHistoryState {
   currentIndex: number;
   maxDepth: number;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 2 tool result types
+// ---------------------------------------------------------------------------
+
+export interface DeepResearchResult {
+  query: string;
+  phases: { name: string; status: 'done' | 'in-progress' | 'pending'; duration: number }[];
+  findings: { title: string; content: string; citations: { label: string; url: string }[] }[];
+  sources: { domain: string; url: string }[];
+  totalDuration: number;
+  totalCost?: number;
+  error?: string;
+}
+
+export interface ComparisonResult {
+  competitors: string[];
+  dimensions: string[];
+  headers: string[];
+  rows: Record<string, string>[];
+  winnerPerColumn?: Record<string, string>;
+  error?: string;
+}
+
+export interface AnalysisResult {
+  section: string;
+  overallScore: number;
+  dimensions: { name: string; score: number; reasoning?: string }[];
+  recommendations: string[];
+  summary?: string;
+  error?: string;
+}

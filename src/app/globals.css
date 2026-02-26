@@ -184,11 +184,16 @@
   --bg-base: rgb(7, 9, 14);           /* Main page background */
   --bg-elevated: rgb(10, 13, 20);     /* Elevated surfaces (900) */
   --bg-surface: rgb(12, 14, 19);      /* Component backgrounds */
+  --bg-chat: #090b10;                 /* Chat panel background */
+  --bg-input: #0e1017;               /* Input field background */
   --bg-hover: rgb(20, 23, 30);        /* Interactive hover states */
   --bg-active: rgb(25, 28, 35);       /* Active/pressed states */
   --bg-card: rgb(12, 14, 19);         /* Card surfaces */
   --bg-card-blue: rgba(51, 136, 255, 0.09); /* Cards with blue tint */
   --bg-black: rgb(0, 0, 0);           /* Pure black (rare) */
+
+  /* Layout */
+  --chat-width: 340px;                /* Chat panel width */
 
   /* Border System - SaaSLaunch uses solid borders */
   --border-line: rgb(31, 31, 31);     /* Default borders, dividers */
@@ -224,6 +229,9 @@
   --accent-blue-subtle: rgba(51, 136, 255, 0.09);
   --accent-blue-glow: rgba(54, 94, 255, 0.15);
   --accent-cyan: rgb(80, 248, 228);      /* Cyan for metrics, highlights */
+  --accent-green: rgb(34, 197, 94);      /* Success, positive scores */
+  --accent-amber: rgb(245, 158, 11);     /* Warning, medium scores */
+  --accent-purple: rgb(167, 139, 250);   /* Comparison, tertiary accent */
   --accent-pink: rgb(255, 202, 226);     /* Pink accent (secondary) */
 
   /* Shader/Gradient Colors - For mesh background */
@@ -973,3 +981,74 @@
 
 /* Tab indicator dots — now using inline Tailwind classes in the component */
 
+/* ============================================
+   Streaming Text Cursor
+   ChatGPT/Claude-style blinking caret that
+   appears at the end of streaming AI responses.
+   ============================================ */
+
+@keyframes streaming-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* The blinking cursor character appended to streaming text */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--accent-blue, rgb(54, 94, 255));
+  border-radius: 1px;
+  animation: streaming-cursor-blink 0.8s step-end infinite;
+}
+
+/* Fade in animation for new content appearing during streaming */
+@keyframes stream-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Applied to new paragraphs/blocks appearing during streaming */
+.stream-content-enter {
+  animation: stream-fade-in 0.15s ease-out both;
+}
+
+/* Smooth scroll behavior for the chat messages container */
+.chat-messages-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Subtle glow on the streaming message bubble to indicate active generation */
+.streaming-bubble {
+  position: relative;
+}
+
+.streaming-bubble::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(54, 94, 255, 0.06) 0%,
+    transparent 50%,
+    rgba(54, 94, 255, 0.03) 100%
+  );
+  animation: streaming-bubble-glow 2s ease-in-out infinite;
+}
+
+@keyframes streaming-bubble-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}

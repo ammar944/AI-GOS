@@ -4,6 +4,10 @@ export { createSearchBlueprintTool } from './search-blueprint';
 export { createEditBlueprintTool } from './edit-blueprint';
 export { createExplainBlueprintTool } from './explain-blueprint';
 export { createWebResearchTool } from './web-research';
+export { createDeepResearchTool } from './deep-research';
+export { createGenerateSectionTool } from './generate-section';
+export { createCompareCompetitorsTool } from './compare-competitors';
+export { createAnalyzeMetricsTool } from './analyze-metrics';
 export {
   getValueAtPath,
   generateDiffPreview,
@@ -19,6 +23,10 @@ import { createSearchBlueprintTool } from './search-blueprint';
 import { createEditBlueprintTool } from './edit-blueprint';
 import { createExplainBlueprintTool } from './explain-blueprint';
 import { createWebResearchTool } from './web-research';
+import { createDeepResearchTool } from './deep-research';
+import { createGenerateSectionTool } from './generate-section';
+import { createCompareCompetitorsTool } from './compare-competitors';
+import { createAnalyzeMetricsTool } from './analyze-metrics';
 
 /**
  * Create all chat tools for a given blueprint context.
@@ -30,6 +38,10 @@ export function createChatTools(blueprintId: string, blueprint: Record<string, u
     editBlueprint: createEditBlueprintTool(blueprint),
     explainBlueprint: createExplainBlueprintTool(blueprint),
     webResearch: createWebResearchTool(),
+    deepResearch: createDeepResearchTool(),
+    generateSection: createGenerateSectionTool(blueprint),
+    compareCompetitors: createCompareCompetitorsTool(blueprint),
+    analyzeMetrics: createAnalyzeMetricsTool(blueprint),
   };
 }
 
