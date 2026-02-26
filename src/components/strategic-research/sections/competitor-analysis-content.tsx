@@ -33,6 +33,7 @@ import {
   CardGrid,
   EmptyExplanation,
   FieldHighlightWrapper,
+  BoolCheck,
   type EditableContentProps,
 } from "./shared-primitives";
 import type {
@@ -221,9 +222,12 @@ function PricingDisplay({ comp, i, isEditing, onFieldChange }: PricingDisplayPro
 
 interface ReviewsBlockProps {
   comp: CompetitorSnapshot;
+  i: number;
+  isEditing?: boolean;
+  onFieldChange?: (field: string, value: unknown) => void;
 }
 
-function ReviewsBlock({ comp }: ReviewsBlockProps) {
+function ReviewsBlock({ comp, i, isEditing, onFieldChange }: ReviewsBlockProps) {
   const [showComplaints, setShowComplaints] = React.useState(false);
   const [showPraise, setShowPraise] = React.useState(false);
 
@@ -319,10 +323,23 @@ function ReviewsBlock({ comp }: ReviewsBlockProps) {
       </div>
 
       {/* AI summary — first ~180 chars, primary review signal */}
-      {tp?.aiSummary && (
-        <p className="mb-3 text-xs italic text-[rgb(100,105,115)]">
-          {excerpt(cleanReviewText(tp.aiSummary), 180)}
-        </p>
+      {(tp?.aiSummary || isEditing) && (
+        <div className="mb-3">
+          {isEditing && onFieldChange ? (
+            <FieldHighlightWrapper fieldPath={`competitors.${i}.reviewData.trustpilot.aiSummary`}>
+              <EditableText
+                value={tp?.aiSummary || ""}
+                onSave={(v) => onFieldChange(`competitors.${i}.reviewData.trustpilot.aiSummary`, v)}
+                multiline
+                placeholder="Add review summary..."
+              />
+            </FieldHighlightWrapper>
+          ) : (
+            <p className="text-xs italic text-[rgb(100,105,115)]">
+              {excerpt(cleanReviewText(tp!.aiSummary!), 180)}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Sentiment disclosures */}
@@ -615,14 +632,24 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
             {priceRangeDisplay}
           </span>
         )}
-        {safeArray(comp?.adPlatforms).map((p, j) => (
-          <span
-            key={j}
-            className="text-[11px] text-[rgb(100,105,115)] bg-[rgba(255,255,255,0.04)] px-1.5 py-0.5 rounded"
-          >
-            {p}
-          </span>
-        ))}
+        {isEditing && onFieldChange ? (
+          <FieldHighlightWrapper fieldPath={`competitors[${i}].adPlatforms`}>
+            <EditableList
+              items={safeArray(comp?.adPlatforms)}
+              onSave={(v) => onFieldChange(`competitors.${i}.adPlatforms`, v)}
+              className="text-xs"
+            />
+          </FieldHighlightWrapper>
+        ) : (
+          safeArray(comp?.adPlatforms).map((p, j) => (
+            <span
+              key={j}
+              className="text-[11px] text-[rgb(100,105,115)] bg-[rgba(255,255,255,0.04)] px-1.5 py-0.5 rounded"
+            >
+              {p}
+            </span>
+          ))
+        )}
         {(comp as { funnels?: string }).funnels && (
           <span className="text-[11px] text-[rgb(160,163,170)] bg-[rgba(255,255,255,0.06)] px-2 py-0.5 rounded">
             {(comp as { funnels?: string }).funnels}
@@ -786,9 +813,22 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
                       </p>
                     )}
                   </div>
-                  <span className="text-[12px] text-[rgb(100,105,115)]">
-                    CTA: {comp.mainOffer.cta}
-                  </span>
+                  <FieldHighlightWrapper fieldPath={`competitors.${i}.mainOffer.cta`}>
+                    <span className="text-[12px] text-[rgb(100,105,115)]">
+                      CTA:{" "}
+                      {isEditing && onFieldChange ? (
+                        <EditableText
+                          value={safeRender(comp.mainOffer.cta)}
+                          onSave={(v) =>
+                            onFieldChange(`competitors.${i}.mainOffer.cta`, v)
+                          }
+                          className="inline"
+                        />
+                      ) : (
+                        <SourcedText>{safeRender(comp.mainOffer.cta)}</SourcedText>
+                      )}
+                    </span>
+                  </FieldHighlightWrapper>
                 </div>
               </FieldHighlightWrapper>
             )}
@@ -813,7 +853,7 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
             )}
 
             {/* Reviews — compact disclosure pattern */}
-            <ReviewsBlock comp={comp} />
+            <ReviewsBlock comp={comp} i={i} isEditing={isEditing} onFieldChange={onFieldChange} />
 
             {/* Ad Messaging Themes as inline tags */}
             {comp?.adMessagingThemes && comp.adMessagingThemes.length > 0 && (
@@ -843,6 +883,96 @@ function CompetitorCardBody({ comp, i, isEditing, onFieldChange }: CompetitorCar
             )}
           </div>
       </DisclosureSection>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* TIER 2.5 — Threat Intelligence (likelyResponse, counterPositioning,*/}
+      {/* topAdHooks) — only shown when threat assessment exists             */}
+      {/* ------------------------------------------------------------------ */}
+      {comp.threatAssessment && (
+        comp.threatAssessment.likelyResponse ||
+        comp.threatAssessment.counterPositioning ||
+        (comp.threatAssessment.topAdHooks && comp.threatAssessment.topAdHooks.length > 0) ||
+        isEditing
+      ) && (
+        <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)] space-y-3">
+          <p className="text-[11px] uppercase tracking-[0.08em] text-[rgb(100,105,115)]">
+            Threat Intelligence
+          </p>
+
+          {/* Likely Response */}
+          {(comp.threatAssessment?.likelyResponse || isEditing) && (
+            <FieldHighlightWrapper fieldPath={`competitors.${i}.threatAssessment.likelyResponse`}>
+              <p className="text-[10px] uppercase tracking-[0.08em] text-[rgb(100,105,115)] mb-1">
+                Likely Response
+              </p>
+              {isEditing && onFieldChange ? (
+                <EditableText
+                  value={safeRender(comp.threatAssessment?.likelyResponse)}
+                  onSave={(v) =>
+                    onFieldChange(`competitors.${i}.threatAssessment.likelyResponse`, v)
+                  }
+                  multiline
+                />
+              ) : (
+                <p className="text-sm text-[rgb(205,208,213)]">
+                  <SourcedText>{safeRender(comp.threatAssessment?.likelyResponse)}</SourcedText>
+                </p>
+              )}
+            </FieldHighlightWrapper>
+          )}
+
+          {/* Counter Positioning */}
+          {(comp.threatAssessment?.counterPositioning || isEditing) && (
+            <FieldHighlightWrapper fieldPath={`competitors.${i}.threatAssessment.counterPositioning`}>
+              <p className="text-[10px] uppercase tracking-[0.08em] text-[rgb(100,105,115)] mb-1">
+                Counter Positioning
+              </p>
+              {isEditing && onFieldChange ? (
+                <EditableText
+                  value={safeRender(comp.threatAssessment?.counterPositioning)}
+                  onSave={(v) =>
+                    onFieldChange(
+                      `competitors.${i}.threatAssessment.counterPositioning`,
+                      v
+                    )
+                  }
+                  multiline
+                />
+              ) : (
+                <p className="text-sm text-[rgb(205,208,213)]">
+                  <SourcedText>{safeRender(comp.threatAssessment?.counterPositioning)}</SourcedText>
+                </p>
+              )}
+            </FieldHighlightWrapper>
+          )}
+
+          {/* Top Ad Hooks */}
+          {((comp.threatAssessment?.topAdHooks && comp.threatAssessment.topAdHooks.length > 0) || isEditing) && (
+            <FieldHighlightWrapper fieldPath={`competitors.${i}.threatAssessment.topAdHooks`}>
+              <p className="text-[10px] uppercase tracking-[0.08em] text-[rgb(100,105,115)] mb-1">
+                Top Ad Hooks
+              </p>
+              {isEditing && onFieldChange ? (
+                <EditableList
+                  items={safeArray(comp.threatAssessment?.topAdHooks)}
+                  onSave={(v) =>
+                    onFieldChange(`competitors.${i}.threatAssessment.topAdHooks`, v)
+                  }
+                  className="text-sm"
+                />
+              ) : (
+                <ul className="text-sm space-y-1">
+                  {safeArray(comp.threatAssessment?.topAdHooks).map((hook, j) => (
+                    <ListItem key={j}>
+                      <SourcedListItem>{hook}</SourcedListItem>
+                    </ListItem>
+                  ))}
+                </ul>
+              )}
+            </FieldHighlightWrapper>
+          )}
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* TIER 3 — Ad Creatives (collapsed by default)                       */}
@@ -1019,15 +1149,54 @@ export function CompetitorAnalysisContent({
                             ` · Score: ${wsg.compositeScore}`}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-[rgb(252,252,250)]">
-                        {wsg.gap}
-                      </p>
-                      <p className="text-xs text-[rgb(100,105,115)] mt-1">
-                        {wsg.evidence}
-                      </p>
-                      <p className="text-xs text-[rgb(205,208,213)] mt-1">
-                        {wsg.recommendedAction}
-                      </p>
+                      {isEditing && onFieldChange ? (
+                        <EditableText
+                          value={safeRender(wsg.gap)}
+                          onSave={(v) =>
+                            onFieldChange(`whiteSpaceGaps.${idx}.gap`, v)
+                          }
+                          className="text-sm font-medium"
+                        />
+                      ) : (
+                        <p className="text-sm font-medium text-[rgb(252,252,250)]">
+                          {wsg.gap}
+                        </p>
+                      )}
+                      {isEditing && onFieldChange ? (
+                        <div className="mt-1">
+                          <EditableText
+                            value={safeRender(wsg.evidence)}
+                            onSave={(v) =>
+                              onFieldChange(`whiteSpaceGaps.${idx}.evidence`, v)
+                            }
+                            multiline
+                            className="text-xs text-[rgb(100,105,115)]"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-[rgb(100,105,115)] mt-1">
+                          {wsg.evidence}
+                        </p>
+                      )}
+                      {isEditing && onFieldChange ? (
+                        <div className="mt-1">
+                          <EditableText
+                            value={safeRender(wsg.recommendedAction)}
+                            onSave={(v) =>
+                              onFieldChange(
+                                `whiteSpaceGaps.${idx}.recommendedAction`,
+                                v
+                              )
+                            }
+                            multiline
+                            className="text-xs"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-[rgb(205,208,213)] mt-1">
+                          {wsg.recommendedAction}
+                        </p>
+                      )}
                     </div>
                   </FieldHighlightWrapper>
                 );
@@ -1140,40 +1309,62 @@ export function CompetitorAnalysisContent({
           isEditing) && (
           <SubSection title="Market Strengths & Weaknesses">
             <div className="grid md:grid-cols-2 gap-4">
-              <div>
+              <FieldHighlightWrapper fieldPath="marketStrengths">
                 <h4 className="font-medium mb-2 text-emerald-400/80">
                   Market Strengths
                 </h4>
-                <ul className="space-y-1">
-                  {safeArray(data?.marketStrengths).map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-emerald-400/80 text-sm leading-relaxed shrink-0">
-                        +
-                      </span>
-                      <span className="text-[rgb(205,208,213)] text-sm leading-relaxed">
-                        <SourcedListItem>{item}</SourcedListItem>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.marketStrengths)}
+                    onSave={(v) => onFieldChange("marketStrengths", v)}
+                    renderPrefix={() => (
+                      <span className="text-emerald-400/80">+</span>
+                    )}
+                    className="text-sm"
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.marketStrengths).map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-emerald-400/80 text-sm leading-relaxed shrink-0">
+                          +
+                        </span>
+                        <span className="text-[rgb(205,208,213)] text-sm leading-relaxed">
+                          <SourcedListItem>{item}</SourcedListItem>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </FieldHighlightWrapper>
+              <FieldHighlightWrapper fieldPath="marketWeaknesses">
                 <h4 className="mb-2 font-medium text-red-400/70">
                   Market Weaknesses
                 </h4>
-                <ul className="space-y-1">
-                  {safeArray(data?.marketWeaknesses).map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-red-400/70 text-sm leading-relaxed shrink-0">
-                        -
-                      </span>
-                      <span className="text-[rgb(205,208,213)] text-sm leading-relaxed">
-                        <SourcedListItem>{item}</SourcedListItem>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                {isEditing && onFieldChange ? (
+                  <EditableList
+                    items={safeArray(data?.marketWeaknesses)}
+                    onSave={(v) => onFieldChange("marketWeaknesses", v)}
+                    renderPrefix={() => (
+                      <span className="text-red-400/70">-</span>
+                    )}
+                    className="text-sm"
+                  />
+                ) : (
+                  <ul className="space-y-1">
+                    {safeArray(data?.marketWeaknesses).map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-red-400/70 text-sm leading-relaxed shrink-0">
+                          -
+                        </span>
+                        <span className="text-[rgb(205,208,213)] text-sm leading-relaxed">
+                          <SourcedListItem>{item}</SourcedListItem>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </FieldHighlightWrapper>
             </div>
           </SubSection>
         )}
@@ -1204,98 +1395,157 @@ export function CompetitorAnalysisContent({
             <div className="grid md:grid-cols-2 gap-4">
               {(safeArray(data?.funnelBreakdown?.landingPagePatterns).length > 0 ||
                 isEditing) && (
-                <div>
+                <FieldHighlightWrapper fieldPath="funnelBreakdown.landingPagePatterns">
                   <h4 className="text-sm font-medium text-[rgb(205,208,213)] mb-2">
                     Landing Page Patterns
                   </h4>
-                  <ul className="space-y-1">
-                    {safeArray(data?.funnelBreakdown?.landingPagePatterns).map(
-                      (item, idx) => (
-                        <ListItem key={idx}>
-                          <SourcedListItem>{item}</SourcedListItem>
-                        </ListItem>
-                      )
-                    )}
-                  </ul>
-                </div>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.funnelBreakdown?.landingPagePatterns)}
+                      onSave={(v) =>
+                        onFieldChange("funnelBreakdown.landingPagePatterns", v)
+                      }
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.funnelBreakdown?.landingPagePatterns).map(
+                        (item, idx) => (
+                          <ListItem key={idx}>
+                            <SourcedListItem>{item}</SourcedListItem>
+                          </ListItem>
+                        )
+                      )}
+                    </ul>
+                  )}
+                </FieldHighlightWrapper>
               )}
               {(safeArray(data?.funnelBreakdown?.headlineStructure).length > 0 ||
                 isEditing) && (
-                <div>
+                <FieldHighlightWrapper fieldPath="funnelBreakdown.headlineStructure">
                   <h4 className="text-sm font-medium text-[rgb(205,208,213)] mb-2">
                     Headline Structure
                   </h4>
-                  <ul className="space-y-1">
-                    {safeArray(data?.funnelBreakdown?.headlineStructure).map(
-                      (item, idx) => (
-                        <ListItem key={idx}>
-                          <SourcedListItem>{item}</SourcedListItem>
-                        </ListItem>
-                      )
-                    )}
-                  </ul>
-                </div>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.funnelBreakdown?.headlineStructure)}
+                      onSave={(v) =>
+                        onFieldChange("funnelBreakdown.headlineStructure", v)
+                      }
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.funnelBreakdown?.headlineStructure).map(
+                        (item, idx) => (
+                          <ListItem key={idx}>
+                            <SourcedListItem>{item}</SourcedListItem>
+                          </ListItem>
+                        )
+                      )}
+                    </ul>
+                  )}
+                </FieldHighlightWrapper>
               )}
               {(safeArray(data?.funnelBreakdown?.ctaHierarchy).length > 0 ||
                 isEditing) && (
-                <div>
+                <FieldHighlightWrapper fieldPath="funnelBreakdown.ctaHierarchy">
                   <h4 className="text-sm font-medium text-[rgb(205,208,213)] mb-2">
                     CTA Hierarchy
                   </h4>
-                  <ul className="space-y-1">
-                    {safeArray(data?.funnelBreakdown?.ctaHierarchy).map(
-                      (item, idx) => (
-                        <ListItem key={idx}>
-                          <SourcedListItem>{item}</SourcedListItem>
-                        </ListItem>
-                      )
-                    )}
-                  </ul>
-                </div>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.funnelBreakdown?.ctaHierarchy)}
+                      onSave={(v) =>
+                        onFieldChange("funnelBreakdown.ctaHierarchy", v)
+                      }
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.funnelBreakdown?.ctaHierarchy).map(
+                        (item, idx) => (
+                          <ListItem key={idx}>
+                            <SourcedListItem>{item}</SourcedListItem>
+                          </ListItem>
+                        )
+                      )}
+                    </ul>
+                  )}
+                </FieldHighlightWrapper>
               )}
               {(safeArray(data?.funnelBreakdown?.socialProofPatterns).length > 0 ||
                 isEditing) && (
-                <div>
+                <FieldHighlightWrapper fieldPath="funnelBreakdown.socialProofPatterns">
                   <h4 className="text-sm font-medium text-[rgb(205,208,213)] mb-2">
                     Social Proof Patterns
                   </h4>
-                  <ul className="space-y-1">
-                    {safeArray(data?.funnelBreakdown?.socialProofPatterns).map(
-                      (item, idx) => (
-                        <ListItem key={idx}>
-                          <SourcedListItem>{item}</SourcedListItem>
-                        </ListItem>
-                      )
-                    )}
-                  </ul>
-                </div>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.funnelBreakdown?.socialProofPatterns)}
+                      onSave={(v) =>
+                        onFieldChange("funnelBreakdown.socialProofPatterns", v)
+                      }
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.funnelBreakdown?.socialProofPatterns).map(
+                        (item, idx) => (
+                          <ListItem key={idx}>
+                            <SourcedListItem>{item}</SourcedListItem>
+                          </ListItem>
+                        )
+                      )}
+                    </ul>
+                  )}
+                </FieldHighlightWrapper>
               )}
               {(safeArray(data?.funnelBreakdown?.leadCaptureMethods).length > 0 ||
                 isEditing) && (
-                <div>
+                <FieldHighlightWrapper fieldPath="funnelBreakdown.leadCaptureMethods">
                   <h4 className="text-sm font-medium text-[rgb(205,208,213)] mb-2">
                     Lead Capture Methods
                   </h4>
-                  <ul className="space-y-1">
-                    {safeArray(data?.funnelBreakdown?.leadCaptureMethods).map(
-                      (item, idx) => (
-                        <ListItem key={idx}>
-                          <SourcedListItem>{item}</SourcedListItem>
-                        </ListItem>
-                      )
-                    )}
-                  </ul>
-                </div>
+                  {isEditing && onFieldChange ? (
+                    <EditableList
+                      items={safeArray(data?.funnelBreakdown?.leadCaptureMethods)}
+                      onSave={(v) =>
+                        onFieldChange("funnelBreakdown.leadCaptureMethods", v)
+                      }
+                      className="text-sm"
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {safeArray(data?.funnelBreakdown?.leadCaptureMethods).map(
+                        (item, idx) => (
+                          <ListItem key={idx}>
+                            <SourcedListItem>{item}</SourcedListItem>
+                          </ListItem>
+                        )
+                      )}
+                    </ul>
+                  )}
+                </FieldHighlightWrapper>
               )}
-              {data?.funnelBreakdown?.formFriction && (
-                <div>
+              {(data?.funnelBreakdown?.formFriction || isEditing) && (
+                <FieldHighlightWrapper fieldPath="funnelBreakdown.formFriction">
                   <p className="text-[10px] uppercase tracking-[0.08em] text-[rgb(100,105,115)] mb-1">
                     Form Friction Level
                   </p>
-                  <span className="text-sm capitalize text-[rgb(205,208,213)]">
-                    {safeRender(data.funnelBreakdown.formFriction)}
-                  </span>
-                </div>
+                  {isEditing && onFieldChange ? (
+                    <EditableText
+                      value={safeRender(data?.funnelBreakdown?.formFriction)}
+                      onSave={(v) =>
+                        onFieldChange("funnelBreakdown.formFriction", v)
+                      }
+                    />
+                  ) : (
+                    <span className="text-sm capitalize text-[rgb(205,208,213)]">
+                      {safeRender(data?.funnelBreakdown?.formFriction)}
+                    </span>
+                  )}
+                </FieldHighlightWrapper>
               )}
             </div>
           </SubSection>
@@ -1308,20 +1558,30 @@ export function CompetitorAnalysisContent({
               <h4 className="text-sm font-medium text-[rgb(205,208,213)] mb-2">
                 Creative Formats Used
               </h4>
-              <div>
-                {creativeFormats.length === 0 ? (
-                  <span className="text-sm text-[rgb(100,105,115)]">
-                    No formats identified
-                  </span>
-                ) : (
-                  creativeFormats.map((label, j) => (
-                    <span key={j} className="text-[13px] text-[rgb(205,208,213)]">
-                      {label}
-                      {j < creativeFormats.length - 1 ? ", " : ""}
+              {isEditing && onFieldChange ? (
+                <div className="space-y-1">
+                  <BoolCheck value={data?.creativeLibrary?.creativeFormats?.ugc || false} label="UGC" isEditing onToggle={(v) => onFieldChange("creativeLibrary.creativeFormats.ugc", v)} />
+                  <BoolCheck value={data?.creativeLibrary?.creativeFormats?.carousels || false} label="Carousels" isEditing onToggle={(v) => onFieldChange("creativeLibrary.creativeFormats.carousels", v)} />
+                  <BoolCheck value={data?.creativeLibrary?.creativeFormats?.statics || false} label="Statics" isEditing onToggle={(v) => onFieldChange("creativeLibrary.creativeFormats.statics", v)} />
+                  <BoolCheck value={data?.creativeLibrary?.creativeFormats?.testimonial || false} label="Testimonials" isEditing onToggle={(v) => onFieldChange("creativeLibrary.creativeFormats.testimonial", v)} />
+                  <BoolCheck value={data?.creativeLibrary?.creativeFormats?.productDemo || false} label="Product Demo" isEditing onToggle={(v) => onFieldChange("creativeLibrary.creativeFormats.productDemo", v)} />
+                </div>
+              ) : (
+                <div>
+                  {creativeFormats.length === 0 ? (
+                    <span className="text-sm text-[rgb(100,105,115)]">
+                      No formats identified
                     </span>
-                  ))
-                )}
-              </div>
+                  ) : (
+                    creativeFormats.map((label, j) => (
+                      <span key={j} className="text-[13px] text-[rgb(205,208,213)]">
+                        {label}
+                        {j < creativeFormats.length - 1 ? ", " : ""}
+                      </span>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </SubSection>
         )}

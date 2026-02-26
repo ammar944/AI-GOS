@@ -39,12 +39,47 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                 title={safeRender(insight?.insight)}
               >
                 <div className="flex items-start justify-between gap-3 mt-1">
-                  <p className="text-[13px] text-[rgb(205,208,213)] leading-relaxed flex-1">
-                    <span className="font-medium text-[rgb(252,252,250)]">Implication: </span>
-                    {safeRender(insight?.implication)}
-                  </p>
-                  {insight?.priority && (
-                    <PriorityBadge priority={insight.priority} className="shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    {isEditing && onFieldChange ? (
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1 block">
+                            Insight
+                          </span>
+                          <EditableText
+                            value={safeRender(insight?.insight)}
+                            onSave={(v) => onFieldChange(`keyInsights.${i}.insight`, v)}
+                            multiline
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1 block">
+                            Implication
+                          </span>
+                          <EditableText
+                            value={safeRender(insight?.implication)}
+                            onSave={(v) => onFieldChange(`keyInsights.${i}.implication`, v)}
+                            multiline
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-[rgb(205,208,213)] leading-relaxed">
+                        <span className="font-medium text-[rgb(252,252,250)]">Implication: </span>
+                        {safeRender(insight?.implication)}
+                      </p>
+                    )}
+                  </div>
+                  {(insight?.priority || isEditing) && (
+                    isEditing && onFieldChange ? (
+                      <EditableText
+                        value={safeRender(insight?.priority || "medium")}
+                        onSave={(v) => onFieldChange(`keyInsights.${i}.priority`, v)}
+                        className="text-[12px] font-medium tabular-nums shrink-0 mt-0.5"
+                      />
+                    ) : (
+                      <PriorityBadge priority={insight.priority!} className="shrink-0 mt-0.5" />
+                    )
                   )}
                 </div>
               </InsightCard>
@@ -83,15 +118,23 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
             <div className="space-y-2.5">
               {data.messagingFramework.adHooks.map((hookItem: any, i: number) => {
                 const sourceType = hookItem?.source?.type;
+                const hookText = typeof hookItem === "string" ? hookItem : hookItem.hook;
 
                 return (
                   <div
                     key={i}
                     className="py-3 border-b border-[rgba(255,255,255,0.06)] last:border-b-0"
                   >
-                    <p className="text-[14px] font-medium text-[rgb(252,252,250)] leading-snug">
-                      &quot;{typeof hookItem === "string" ? hookItem : hookItem.hook}&quot;
-                    </p>
+                    {isEditing && onFieldChange ? (
+                      <EditableText
+                        value={safeRender(hookText)}
+                        onSave={(v) => onFieldChange(`messagingFramework.adHooks.${i}.hook`, v)}
+                      />
+                    ) : (
+                      <p className="text-[14px] font-medium text-[rgb(252,252,250)] leading-snug">
+                        &quot;{hookText}&quot;
+                      </p>
+                    )}
                     {typeof hookItem !== "string" && (
                       <>
                         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -120,11 +163,37 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
                             </span>
                           )}
                         </div>
-                        {(hookItem.technique || hookItem.targetAwareness) && (
+                        {(hookItem.technique || hookItem.targetAwareness || isEditing) && (
                           <div className="flex gap-2 mt-1.5 text-[12px] text-[rgb(100,105,115)]">
-                            {hookItem.technique && <span>Technique: {hookItem.technique}</span>}
-                            {hookItem.technique && hookItem.targetAwareness && <span>·</span>}
-                            {hookItem.targetAwareness && <span>Awareness: {hookItem.targetAwareness}</span>}
+                            {(hookItem.technique || isEditing) && (
+                              <span>
+                                Technique:{" "}
+                                {isEditing && onFieldChange ? (
+                                  <EditableText
+                                    value={hookItem.technique || ""}
+                                    onSave={(v) => onFieldChange(`messagingFramework.adHooks.${i}.technique`, v)}
+                                    placeholder="Add technique..."
+                                  />
+                                ) : (
+                                  hookItem.technique
+                                )}
+                              </span>
+                            )}
+                            {hookItem.technique && hookItem.targetAwareness && !isEditing && <span>·</span>}
+                            {(hookItem.targetAwareness || isEditing) && (
+                              <span>
+                                Awareness:{" "}
+                                {isEditing && onFieldChange ? (
+                                  <EditableText
+                                    value={hookItem.targetAwareness || ""}
+                                    onSave={(v) => onFieldChange(`messagingFramework.adHooks.${i}.targetAwareness`, v)}
+                                    placeholder="Add awareness level..."
+                                  />
+                                ) : (
+                                  hookItem.targetAwareness
+                                )}
+                              </span>
+                            )}
                           </div>
                         )}
                       </>
@@ -145,16 +214,40 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
               <FieldHighlightWrapper key={i} fieldPath={`recommendedPlatforms[${i}]`}>
                 <div className="py-3 border-b border-[rgba(255,255,255,0.06)] last:border-b-0">
                   <div className="flex items-center justify-between mb-1.5">
-                    <h4 className="text-[14px] font-medium text-[rgb(252,252,250)]">
-                      {safeRender(plat?.platform)}
-                    </h4>
-                    {plat?.priority && (
-                      <PriorityBadge priority={plat.priority} />
+                    {isEditing && onFieldChange ? (
+                      <EditableText
+                        value={safeRender(plat?.platform)}
+                        onSave={(v) => onFieldChange(`recommendedPlatforms.${i}.platform`, v)}
+                        className="text-[14px] font-medium text-[rgb(252,252,250)]"
+                      />
+                    ) : (
+                      <h4 className="text-[14px] font-medium text-[rgb(252,252,250)]">
+                        {safeRender(plat?.platform)}
+                      </h4>
+                    )}
+                    {(plat?.priority || isEditing) && (
+                      isEditing && onFieldChange ? (
+                        <EditableText
+                          value={safeRender(plat?.priority || "secondary")}
+                          onSave={(v) => onFieldChange(`recommendedPlatforms.${i}.priority`, v)}
+                          className="text-[12px] font-medium tabular-nums"
+                        />
+                      ) : (
+                        <PriorityBadge priority={plat.priority!} />
+                      )
                     )}
                   </div>
-                  <p className="text-[13px] text-[rgb(205,208,213)] leading-relaxed">
-                    {safeRender(plat?.reasoning)}
-                  </p>
+                  {isEditing && onFieldChange ? (
+                    <EditableText
+                      value={safeRender(plat?.reasoning)}
+                      onSave={(v) => onFieldChange(`recommendedPlatforms.${i}.reasoning`, v)}
+                      multiline
+                    />
+                  ) : (
+                    <p className="text-[13px] text-[rgb(205,208,213)] leading-relaxed">
+                      {safeRender(plat?.reasoning)}
+                    </p>
+                  )}
                 </div>
               </FieldHighlightWrapper>
             ))}

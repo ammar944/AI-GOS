@@ -114,19 +114,64 @@ export function ListItem({ children }: { children: React.ReactNode }) {
 
 /**
  * Boolean check indicator with simple dots.
+ * Supports toggling when isEditing=true and onToggle is provided.
  */
-export function BoolCheck({ value, label }: { value: boolean; label: string }) {
+export function BoolCheck({
+  value,
+  label,
+  isEditing,
+  onToggle,
+}: {
+  value: boolean;
+  label: string;
+  isEditing?: boolean;
+  onToggle?: (newValue: boolean) => void;
+}) {
+  const interactive = isEditing && onToggle != null;
+
   return (
-    <div className="flex items-center gap-2.5 py-1">
-      {value ? (
-        <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] shrink-0" />
-      ) : (
-        <div className="w-1.5 h-1.5 rounded-full bg-[rgb(49,53,63)] shrink-0" />
+    <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      title={interactive ? "Click to toggle" : undefined}
+      onClick={interactive ? () => onToggle(!value) : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggle(!value);
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        "flex items-center gap-2.5 py-1 rounded-sm transition-colors duration-150",
+        interactive && "cursor-pointer group/boolcheck hover:bg-[var(--bg-elevated,rgb(10,13,20))] px-1 -mx-1"
       )}
-      <span className={cn(
-        "text-[13.5px]",
-        value ? "text-[rgb(205,208,213)]" : "text-[rgb(100,105,115)]"
-      )}>
+    >
+      {value ? (
+        <div
+          className={cn(
+            "w-1.5 h-1.5 rounded-full bg-[#22c55e] shrink-0 transition-all duration-150",
+            interactive && "group-hover/boolcheck:ring-2 group-hover/boolcheck:ring-[rgb(54,94,255)] group-hover/boolcheck:ring-offset-1 group-hover/boolcheck:ring-offset-transparent group-hover/boolcheck:ring-dashed"
+          )}
+        />
+      ) : (
+        <div
+          className={cn(
+            "w-1.5 h-1.5 rounded-full bg-[rgb(49,53,63)] shrink-0 transition-all duration-150",
+            interactive && "group-hover/boolcheck:ring-2 group-hover/boolcheck:ring-[rgb(54,94,255)] group-hover/boolcheck:ring-offset-1 group-hover/boolcheck:ring-offset-transparent group-hover/boolcheck:ring-dashed"
+          )}
+        />
+      )}
+      <span
+        className={cn(
+          "text-[13.5px] transition-colors duration-150",
+          value ? "text-[rgb(205,208,213)]" : "text-[rgb(100,105,115)]",
+          interactive && "group-hover/boolcheck:text-[rgb(225,228,233)]"
+        )}
+      >
         {label}
       </span>
     </div>

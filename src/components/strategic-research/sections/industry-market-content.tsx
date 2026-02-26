@@ -49,25 +49,60 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
           </DataCard>
 
           <DataCard label="Market Maturity" fieldPath="categorySnapshot.marketMaturity">
-            <span className="capitalize">{safeRender(data?.categorySnapshot?.marketMaturity)}</span>
+            {isEditing && onFieldChange ? (
+              <EditableText
+                value={safeRender(data?.categorySnapshot?.marketMaturity)}
+                onSave={(v) => onFieldChange("categorySnapshot.marketMaturity", v)}
+              />
+            ) : (
+              <span className="capitalize">{safeRender(data?.categorySnapshot?.marketMaturity)}</span>
+            )}
           </DataCard>
 
           <DataCard label="Awareness Level" fieldPath="categorySnapshot.awarenessLevel">
-            <span className="capitalize">{safeRender(data?.categorySnapshot?.awarenessLevel)}</span>
+            {isEditing && onFieldChange ? (
+              <EditableText
+                value={safeRender(data?.categorySnapshot?.awarenessLevel)}
+                onSave={(v) => onFieldChange("categorySnapshot.awarenessLevel", v)}
+              />
+            ) : (
+              <span className="capitalize">{safeRender(data?.categorySnapshot?.awarenessLevel)}</span>
+            )}
           </DataCard>
 
           <DataCard label="Buying Behavior" fieldPath="categorySnapshot.buyingBehavior">
-            <span className="capitalize">
-              {safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}
-            </span>
+            {isEditing && onFieldChange ? (
+              <EditableText
+                value={safeRender(data?.categorySnapshot?.buyingBehavior)}
+                onSave={(v) => onFieldChange("categorySnapshot.buyingBehavior", v)}
+              />
+            ) : (
+              <span className="capitalize">
+                {safeRender(data?.categorySnapshot?.buyingBehavior)?.replace("_", " ")}
+              </span>
+            )}
           </DataCard>
 
           <DataCard label="Sales Cycle" fieldPath="categorySnapshot.averageSalesCycle">
-            <SourcedText>{safeRender(data?.categorySnapshot?.averageSalesCycle)}</SourcedText>
+            {isEditing && onFieldChange ? (
+              <EditableText
+                value={safeRender(data?.categorySnapshot?.averageSalesCycle)}
+                onSave={(v) => onFieldChange("categorySnapshot.averageSalesCycle", v)}
+              />
+            ) : (
+              <SourcedText>{safeRender(data?.categorySnapshot?.averageSalesCycle)}</SourcedText>
+            )}
           </DataCard>
 
           <DataCard label="Seasonality" fieldPath="categorySnapshot.seasonality">
-            <SourcedText>{safeRender(data?.categorySnapshot?.seasonality)}</SourcedText>
+            {isEditing && onFieldChange ? (
+              <EditableText
+                value={safeRender(data?.categorySnapshot?.seasonality)}
+                onSave={(v) => onFieldChange("categorySnapshot.seasonality", v)}
+              />
+            ) : (
+              <SourcedText>{safeRender(data?.categorySnapshot?.seasonality)}</SourcedText>
+            )}
           </DataCard>
         </CardGrid>
       </SubSection>
@@ -209,7 +244,27 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                 title={safeRender(driver?.driver)}
                 fieldPath={`psychologicalDrivers.drivers[${i}]`}
               >
-                {safeRender(driver?.description)}
+                {isEditing && onFieldChange ? (
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1 block">Driver</span>
+                      <EditableText
+                        value={safeRender(driver?.driver)}
+                        onSave={(v) => onFieldChange(`psychologicalDrivers.drivers.${i}.driver`, v)}
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1 block">Description</span>
+                      <EditableText
+                        value={safeRender(driver?.description)}
+                        onSave={(v) => onFieldChange(`psychologicalDrivers.drivers.${i}.description`, v)}
+                        multiline
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>{safeRender(driver?.description)}</>
+                )}
               </InsightCard>
             ))}
           </CardGrid>
@@ -226,8 +281,30 @@ export function IndustryMarketContent({ data, isEditing, onFieldChange }: Indust
                 title={`"${safeRender(obj?.objection)}"`}
                 fieldPath={`audienceObjections.objections[${i}]`}
               >
-                <span className="text-[rgb(100,105,115)] text-[11px] font-semibold uppercase tracking-wider">Response: </span>
-                {safeRender(obj?.howToAddress)}
+                {isEditing && onFieldChange ? (
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1 block">Objection</span>
+                      <EditableText
+                        value={safeRender(obj?.objection)}
+                        onSave={(v) => onFieldChange(`audienceObjections.objections.${i}.objection`, v)}
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(100,105,115)] mb-1 block">Response</span>
+                      <EditableText
+                        value={safeRender(obj?.howToAddress)}
+                        onSave={(v) => onFieldChange(`audienceObjections.objections.${i}.howToAddress`, v)}
+                        multiline
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-[rgb(100,105,115)] text-[11px] font-semibold uppercase tracking-wider">Response: </span>
+                    {safeRender(obj?.howToAddress)}
+                  </>
+                )}
               </InsightCard>
             ))}
           </div>
