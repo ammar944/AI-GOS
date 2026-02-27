@@ -38,7 +38,7 @@ export function EditApprovalCard({
       transition={{ ...springs.smooth, duration: 0.3 }}
       className="my-2"
     >
-      <GradientBorder className="w-full" innerClassName="p-4 space-y-3">
+      <GradientBorder className="w-full" innerClassName="p-4 space-y-3 overflow-hidden">
         <div className="flex items-center gap-2">
           <motion.div
             className="w-2 h-2 rounded-full"
@@ -52,7 +52,7 @@ export function EditApprovalCard({
         </div>
 
         <div
-          className="rounded-lg p-3 space-y-2"
+          className="rounded-lg p-3 space-y-2 overflow-hidden"
           style={{
             background: 'rgba(0, 0, 0, 0.3)',
             border: '1px solid rgba(245, 158, 11, 0.2)',
@@ -66,7 +66,7 @@ export function EditApprovalCard({
               {SECTION_LABELS[section] || section}
             </span>
             {' / '}
-            <span className="font-mono">{fieldPath}</span>
+            <span className="font-mono break-all">{fieldPath}</span>
           </div>
           <p
             className="text-xs"

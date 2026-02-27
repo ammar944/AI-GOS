@@ -117,21 +117,21 @@ function ArrayDiff({ oldValue, newValue }: { oldValue: unknown[]; newValue: unkn
       {removed.map((item, idx) => (
         <div
           key={`r-${idx}`}
-          className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded"
+          className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded min-w-0"
           style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
         >
-          <span className="font-bold">-</span>
-          <span>{String(item)}</span>
+          <span className="font-bold shrink-0">-</span>
+          <span className="break-all">{String(item)}</span>
         </div>
       ))}
       {added.map((item, idx) => (
         <div
           key={`a-${idx}`}
-          className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded"
+          className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded min-w-0"
           style={{ color: '#22c55e', background: 'rgba(34, 197, 94, 0.1)' }}
         >
-          <span className="font-bold">+</span>
-          <span>{String(item)}</span>
+          <span className="font-bold shrink-0">+</span>
+          <span className="break-all">{String(item)}</span>
         </div>
       ))}
       {unchangedCount > 0 && (
@@ -170,8 +170,9 @@ function ObjectDiff({
           <span className="font-mono font-medium" style={{ color: 'var(--text-secondary)' }}>
             {key}:
           </span>
-          <div className="flex items-center gap-1.5 flex-wrap pl-2">
+          <div className="flex items-center gap-1.5 flex-wrap pl-2 min-w-0">
             <span
+              className="break-all"
               style={{
                 color: '#ef4444',
                 background: 'rgba(239, 68, 68, 0.1)',
@@ -184,6 +185,7 @@ function ObjectDiff({
             </span>
             <span style={{ color: 'var(--text-tertiary)' }}>{'\u2192'}</span>
             <span
+              className="break-all"
               style={{
                 color: '#22c55e',
                 background: 'rgba(34, 197, 94, 0.1)',
@@ -202,8 +204,9 @@ function ObjectDiff({
 
 function PrimitiveDiff({ oldValue, newValue }: { oldValue: unknown; newValue: unknown }) {
   return (
-    <div className="flex items-center gap-2 text-xs flex-wrap">
+    <div className="flex items-center gap-2 text-xs flex-wrap min-w-0">
       <span
+        className="break-all"
         style={{
           color: '#ef4444',
           background: 'rgba(239, 68, 68, 0.1)',
@@ -216,6 +219,7 @@ function PrimitiveDiff({ oldValue, newValue }: { oldValue: unknown; newValue: un
       </span>
       <span style={{ color: 'var(--text-tertiary)' }}>{'\u2192'}</span>
       <span
+        className="break-all"
         style={{
           color: '#22c55e',
           background: 'rgba(34, 197, 94, 0.1)',
@@ -262,7 +266,7 @@ export function EditDiffView({ oldValue, newValue, fieldPath, section: _section 
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springs.smooth}
-      className="rounded-md p-2 space-y-2"
+      className="rounded-md p-2 space-y-2 overflow-hidden"
       style={{ background: 'var(--bg-surface)' }}
     >
       {breadcrumbs.length > 0 && (

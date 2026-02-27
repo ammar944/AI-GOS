@@ -33,7 +33,7 @@ import { MagneticButton } from '@/components/ui/magnetic-button';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { useChatPersistence } from '@/hooks/use-chat-persistence';
 import { useChatShortcuts } from '@/hooks/use-chat-shortcuts';
-import { applyEdits } from '@/lib/ai/chat-tools/utils';
+import { applyEdits, getValueAtPath } from '@/lib/ai/chat-tools/utils';
 import {
   createInitialBranchState,
   createBranch,
@@ -193,12 +193,17 @@ export function AgentChat({
     }
   }, [initialMessages, setMessages]);
 
+  // Ref-stabilize saveMessages so the save effect doesn't re-fire
+  // when Clerk session changes cause the callback reference to update.
+  const saveMessagesRef = useRef(saveMessages);
+  saveMessagesRef.current = saveMessages;
+
   // Auto-save messages to Supabase (debounced 2s via the persistence hook)
   useEffect(() => {
     if (messages.length > 0 && status === 'ready') {
-      saveMessages(messages);
+      saveMessagesRef.current(messages);
     }
-  }, [messages, status, saveMessages]);
+  }, [messages, status]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -279,10 +284,14 @@ export function AgentChat({
       const currentBlueprint = blueprintRef.current;
       const blueprintBefore = JSON.parse(JSON.stringify(currentBlueprint));
 
+      // Look up the actual old value for the undo history diff
+      const editSectionData = currentBlueprint[editInput.section] as Record<string, unknown> | undefined;
+      const actualOldValue = editSectionData ? getValueAtPath(editSectionData, editInput.fieldPath) : undefined;
+
       const pendingEdit: PendingEdit = {
         section: editInput.section,
         fieldPath: editInput.fieldPath,
-        oldValue: undefined,
+        oldValue: actualOldValue,
         newValue: editInput.newValue,
         explanation: '',
         diffPreview: '',
@@ -336,54 +345,46 @@ export function AgentChat({
 
   const handleCreateBranch = useCallback(
     (fromMessageId: string) => {
-      setBranchState((prev) => createBranch(prev, fromMessageId));
+      setBranchState((prev) => {
+        // Snapshot current messages into state before creating the branch
+        // so createBranch sees the latest thread content.
+        const snapshotted =
+          prev.activeBranchId === null
+            ? { ...prev, mainThread: messages }
+            : {
+                ...prev,
+                branches: prev.branches.map((b) =>
+                  b.id === prev.activeBranchId ? { ...b, messages } : b
+                ),
+              };
+        return createBranch(snapshotted, fromMessageId);
+      });
     },
-    []
+    [messages]
   );
-
-  // Guard ref: suppress the branch-sync effect during programmatic branch switches
-  // to prevent infinite loops (switch → setMessages → effect → setBranchState → ...)
-  const isSwitchingBranchRef = useRef(false);
 
   const handleSwitchBranch = useCallback(
     (branchId: string | null) => {
-      isSwitchingBranchRef.current = true;
       setBranchState((prev) => {
-        const next = switchBranch(prev, branchId);
-        // Update useChat messages to reflect the branch content
-        const branchMessages = getActiveMessages(next);
-        setMessages(branchMessages);
+        // Snapshot current thread's messages into state before switching
+        let saved = prev;
+        if (prev.activeBranchId === null) {
+          saved = { ...prev, mainThread: messages };
+        } else {
+          saved = {
+            ...prev,
+            branches: prev.branches.map((b) =>
+              b.id === prev.activeBranchId ? { ...b, messages } : b
+            ),
+          };
+        }
+        const next = switchBranch(saved, branchId);
+        setMessages(getActiveMessages(next));
         return next;
       });
-      // Re-enable sync after the render settles
-      requestAnimationFrame(() => {
-        isSwitchingBranchRef.current = false;
-      });
     },
-    [setMessages]
+    [messages, setMessages]
   );
-
-  // Keep branchState.mainThread in sync with messages from useChat
-  useEffect(() => {
-    // Skip during programmatic branch switches to prevent feedback loop
-    if (isSwitchingBranchRef.current) return;
-
-    if (branchState.activeBranchId === null && messages.length > 0) {
-      setBranchState((prev) => ({
-        ...prev,
-        mainThread: messages,
-      }));
-    } else if (branchState.activeBranchId !== null) {
-      // Sync active branch messages
-      setBranchState((prev) => ({
-        ...prev,
-        branches: prev.branches.map((b) =>
-          b.id === prev.activeBranchId ? { ...b, messages } : b
-        ),
-      }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
 
   // ---------------------------------------------------------------------------
   // Auto-apply generateSection output via effect (NOT during render)
@@ -622,12 +623,16 @@ export function AgentChat({
           const approvalId = toolPart.approval?.id ?? `${message.id}-${i}`;
           const proposedVersion = blueprintVersionRef.current;
 
+          // Look up the current value at the edit path for the diff view
+          const sectionData = blueprintRef.current[editInput.section] as Record<string, unknown> | undefined;
+          const currentOldValue = sectionData ? getValueAtPath(sectionData, editInput.fieldPath) : undefined;
+
           elements.push(
             <EditApprovalCard
               key={`${message.id}-approval-${i}`}
               section={editInput.section}
               fieldPath={editInput.fieldPath}
-              oldValue={undefined}
+              oldValue={currentOldValue}
               newValue={editInput.newValue}
               explanation={editInput.explanation}
               diffPreview={`Field: ${editInput.fieldPath}\nNew value: ${(() => { try { return JSON.stringify(editInput.newValue, null, 2)?.substring(0, 200); } catch { return '[complex value]'; } })()}`}
@@ -692,7 +697,7 @@ export function AgentChat({
                   color: '#22c55e',
                 }}
               >
-                <span className="flex-1">
+                <span className="flex-1 truncate min-w-0">
                   Edit applied to {String(output.section)} / {String(output.fieldPath)}
                 </span>
                 {editCtx && (

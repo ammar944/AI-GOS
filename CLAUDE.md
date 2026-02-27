@@ -19,6 +19,7 @@ npm run test:coverage  # Coverage report (V8 provider)
 Required in `.env.local`:
 ```
 ANTHROPIC_API_KEY=         # Claude models via Vercel AI SDK
+GROQ_API_KEY=              # Groq API (chat agent, voice transcription, synthesis)
 SEARCHAPI_KEY=             # Web search for research
 NEXT_PUBLIC_SUPABASE_URL=  # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Supabase publishable key
@@ -104,3 +105,32 @@ Pre-existing TS errors exist in some test files (openrouter tests, chat blueprin
 ## Deployment
 
 Vercel hosting with serverless functions. Long-running routes use `export const maxDuration = 300` (requires Pro tier). Automatic deploy on push to main.
+
+## V2 Reference Documents
+
+These documents define the V2 vision and should be consulted when planning or implementing V2 features:
+
+- **PRD**: `AI-GOS-v2-PRD.docx` — Full product specification
+- **Design System**: `AI-GOS-v2-Design-System.docx` — Tokens, components, layout
+- **Roadmap**: `AI-GOS-v2-Roadmap.docx` — Sprint breakdown with brain dumps
+
+## V2 Sprint 1 Orchestration
+
+Active sprint implementation. All orchestration files at `.claude/orchestration-aigos-v2-sprint1/`:
+
+| File | Purpose |
+|------|---------|
+| `DISCOVERY.md` | **Authority document** — overrides everything. Key design decisions. |
+| `PHASES.md` | Master plan — 18 tasks across 4 phases |
+| `PROGRESS.md` | Execution tracker — task status and agent assignments |
+| `START.md` | Execution protocol — wave-based parallel agent instructions |
+| `tasks/task-*.md` | Individual task specs with code, contracts, acceptance criteria |
+| `research/*.md` | Research files — existing codebase patterns, chat UI, tokens |
+
+**Key decisions (DISCOVERY.md)**:
+- Vercel AI SDK (NOT Agent SDK) — `streamText` + `toUIMessageStreamResponse()`
+- Model: `claude-opus-4-6` with `thinking: { type: "adaptive" }`
+- No step indicators/wizard — pure chat agent experience
+- Fonts: DM Sans (body), Instrument Sans (heading), JetBrains Mono (mono)
+- Supabase: `journey_sessions` table, service role + Clerk user ID
+- Branch: `aigos-v2`

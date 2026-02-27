@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-GOS — Strategic Blueprint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,450;14..32,500;14..32,600;14..32,700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* AI-GOS actual palette */
+      --bg: rgb(7, 9, 14);
+      --bg-surface: rgb(12, 14, 19);
+      --bg-hover: rgb(20, 23, 30);
+
+      --t1: rgb(252, 252, 250);
+      --t2: rgb(205, 208, 213);
+      --t3: rgb(100, 105, 115);
+      --t4: rgb(49, 53, 63);
+
+      --border: rgb(31, 31, 31);
+
+      --accent: rgb(54, 94, 255);
+      --accent-hover: rgb(0, 111, 255);
+      --accent-dim: rgba(54, 94, 255, 0.15);
+      --cyan: rgb(80, 248, 228);
+
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.10);
+      --amber: #f59e0b;
+      --red: #ef4444;
+
+      --font-body: 'Inter', -apple-system, system-ui, sans-serif;
+      --font-heading: 'Instrument Sans', 'Inter', sans-serif;
+    }
+
+    html { font-size: 15px; }
+
+    body {
+      background: var(--bg);
+      color: var(--t1);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    .page { max-width: 720px; margin: 0 auto; padding: 80px 24px 160px; }
+
+    /* ——— Nav tabs ——— */
+    nav {
+      display: flex;
+      gap: 0;
+      margin-bottom: 64px;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a {
+      display: block;
+      padding: 12px 18px 11px;
+      font-size: 13px;
+      font-weight: 450;
+      color: var(--t3);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.12s;
+    }
+    nav a:hover { color: var(--t2); }
+    nav a.active { color: var(--t1); border-bottom-color: var(--accent); }
+
+    /* ——— Section title ——— */
+    .section { margin-bottom: 72px; }
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      color: var(--t1);
+      margin-bottom: 44px;
+      line-height: 1.3;
+    }
+    .section-title span {
+      color: var(--t3);
+      margin-right: 10px;
+      font-size: 13px;
+      font-weight: 450;
+      letter-spacing: 0;
+      font-family: var(--font-body);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ——— Hero score ——— */
+    .score-hero { margin-bottom: 48px; }
+    .score-hero-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--t3);
+      margin-bottom: 6px;
+    }
+    .score-hero-value {
+      font-size: 52px;
+      font-weight: 300;
+      letter-spacing: -0.04em;
+      color: var(--t1);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .score-hero-value small {
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--t4);
+    }
+
+    /* ——— Label ——— */
+    .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--t3);
+      margin-bottom: 14px;
+      font-family: var(--font-heading);
+    }
+
+    /* ——— Data rows ——— */
+    .rows { margin-bottom: 44px; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .row:first-child { border-top: 1px solid var(--border); }
+    .row-key { font-size: 13.5px; color: var(--t2); }
+    .row-val {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--t1);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    /* ——— Prose ——— */
+    .prose { margin-bottom: 44px; }
+    .prose-item { margin-bottom: 18px; }
+    .prose-item:last-child { margin-bottom: 0; }
+    .prose-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--t1);
+      margin-bottom: 3px;
+      line-height: 1.4;
+    }
+    .prose-body {
+      font-size: 13.5px;
+      color: var(--t2);
+      line-height: 1.65;
+    }
+
+    /* ——— Score bars ——— */
+    .scores { margin-bottom: 44px; }
+    .score-row {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .score-row:first-child { border-top: 1px solid var(--border); }
+    .score-label { font-size: 13.5px; color: var(--t2); flex: 1; }
+    .score-bar {
+      width: 110px;
+      height: 2px;
+      background: var(--border);
+      margin: 0 20px;
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    .score-fill { height: 100%; border-radius: 1px; }
+    .score-num {
+      font-size: 13px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      width: 36px;
+      text-align: right;
+    }
+
+    /* ——— Items ——— */
+    .items { margin-bottom: 44px; }
+    .item {
+      padding: 6px 0 6px 16px;
+      font-size: 13.5px;
+      color: var(--t2);
+      line-height: 1.6;
+      position: relative;
+    }
+    .item::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 14px;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--t4);
+    }
+    .item--warn::before { background: var(--amber); width: 5px; height: 5px; top: 13px; }
+
+    /* ——— Checks ——— */
+    .checks { margin-bottom: 44px; }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      font-size: 13.5px;
+    }
+    .check-icon {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .check--yes .check-icon { background: var(--green-dim); }
+    .check--yes .check-icon svg { width: 10px; height: 10px; stroke: var(--green); stroke-width: 2.5; fill: none; }
+    .check--no .check-icon { background: rgba(255,255,255,0.04); }
+    .check--no .check-icon::after { content: '—'; font-size: 8px; color: var(--t4); }
+    .check--yes { color: var(--t2); }
+    .check--no { color: var(--t3); }
+
+    /* ——— Status ——— */
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-text { font-size: 14px; font-weight: 500; }
+    .status--green .status-dot { background: var(--green); }
+    .status--green .status-text { color: var(--green); }
+    .status--amber .status-dot { background: var(--amber); }
+    .status--amber .status-text { color: var(--amber); }
+
+    /* ——— Callout ——— */
+    .callout {
+      padding-left: 16px;
+      border-left: 2px solid var(--border);
+      margin-bottom: 44px;
+    }
+    .callout p { font-size: 13.5px; color: var(--t2); line-height: 1.65; }
+    .callout strong { color: var(--t1); font-weight: 500; }
+
+    /* ——— Steps ——— */
+    .steps { margin-bottom: 44px; }
+    .step { display: flex; gap: 14px; padding: 7px 0; }
+    .step-num {
+      font-size: 12px; font-weight: 450; color: var(--t3);
+      font-variant-numeric: tabular-nums; min-width: 20px; padding-top: 2px;
+    }
+    .step-text { font-size: 13.5px; color: var(--t2); line-height: 1.6; }
+
+    /* ——— Divider ——— */
+    hr { border: none; height: 1px; background: var(--border); margin: 56px 0; }
+
+    /* ——— Color helpers ——— */
+    .c-accent { color: var(--accent); }
+    .c-green { color: var(--green); }
+    .c-amber { color: var(--amber); }
+    .c-red { color: var(--red); }
+    .c-cyan { color: var(--cyan); }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <nav>
+      <a href="#" class="active">Industry & Market</a>
+      <a href="#">ICP Analysis</a>
+      <a href="#">Offer Analysis</a>
+      <a href="#">Competitors</a>
+      <a href="#">Synthesis</a>
+      <a href="#">Keywords</a>
+    </nav>
+
+    <!-- ===== SECTION 1 ===== -->
+    <div class="section">
+      <h2 class="section-title"><span>01</span> Industry & Market Overview</h2>
+
+      <div class="score-hero">
+        <div class="score-hero-label">Market Viability</div>
+        <div class="score-hero-value">8.4 <small>/10</small></div>
+      </div>
+
+      <div class="label">Category Snapshot</div>
+      <div class="rows">
+        <div class="row"><span class="row-key">Market Size</span><span class="row-val">$4.2B</span></div>
+        <div class="row"><span class="row-key">Growth Rate</span><span class="row-val">18.3% CAGR</span></div>
+        <div class="row"><span class="row-key">Maturity Stage</span><span class="row-val">Growth</span></div>
+        <div class="row"><span class="row-key">Competition Level</span><span class="row-val">Moderate–High</span></div>
+        <div class="row"><span class="row-key">Entry Barrier</span><span class="row-val">Medium</span></div>
+      </div>
+
+      <div class="label">Key Trends</div>
+      <div class="prose">
+        <div class="prose-item">
+          <div class="prose-title">AI-native workflows replacing legacy tools</div>
+          <div class="prose-body">Mid-market SaaS companies are rapidly adopting AI-first solutions, displacing incumbent platforms that bolt on AI features as afterthoughts. Net-new categories are emerging around intelligent automation.</div>
+        </div>
+        <div class="prose-item">
+          <div class="prose-title">Consolidation of point solutions</div>
+          <div class="prose-body">Buyers increasingly prefer all-in-one platforms over best-of-breed stacks, creating opportunity for companies with broad feature coverage and strong integrations.</div>
+        </div>
+        <div class="prose-item">
+          <div class="prose-title">Privacy-first positioning gaining traction</div>
+          <div class="prose-body">Enterprise buyers prioritize vendors with SOC 2 Type II, GDPR compliance, and transparent data handling. This is becoming table stakes rather than a differentiator.</div>
+        </div>
+      </div>
+
+      <div class="label">Score Breakdown</div>
+      <div class="scores">
+        <div class="score-row">
+          <span class="score-label">Market Timing</span>
+          <div class="score-bar"><div class="score-fill" style="width:85%; background:var(--accent)"></div></div>
+          <span class="score-num c-accent">8.5</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Buyer Readiness</span>
+          <div class="score-bar"><div class="score-fill" style="width:78%; background:var(--accent)"></div></div>
+          <span class="score-num c-accent">7.8</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Competitive Density</span>
+          <div class="score-bar"><div class="score-fill" style="width:62%; background:var(--amber)"></div></div>
+          <span class="score-num c-amber">6.2</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Entry Barriers</span>
+          <div class="score-bar"><div class="score-fill" style="width:45%; background:var(--red)"></div></div>
+          <span class="score-num c-red">4.5</span>
+        </div>
+      </div>
+
+      <div class="label">Opportunities</div>
+      <div class="items">
+        <div class="item">Underserved mid-market segment between $500K–$5M ARR companies with limited marketing sophistication</div>
+        <div class="item">No dominant player has cracked the research-to-strategy-to-execution bundle — room for an integrated position</div>
+        <div class="item">Founder-led sales motion viable at this stage with high-touch onboarding and white-glove service</div>
+      </div>
+
+      <div class="label">Blockers & Risks</div>
+      <div class="items">
+        <div class="item item--warn">Incumbents like HubSpot and SEMrush could release competitive AI features within 6–12 months</div>
+        <div class="item item--warn">Market education cost — buyers may not yet understand the strategic blueprint category</div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ===== SECTION 2 ===== -->
+    <div class="section">
+      <h2 class="section-title"><span>02</span> ICP Analysis & Validation</h2>
+
+      <div class="status status--green">
+        <div class="status-dot"></div>
+        <span class="status-text">Validated</span>
+      </div>
+
+      <div class="callout">
+        <p>ICP is well-defined with clear pain points, accessible channels, and validated willingness to pay. Recommended to proceed with current targeting.</p>
+      </div>
+
+      <div class="label">ICP Profile</div>
+      <div class="rows">
+        <div class="row"><span class="row-key">Company Size</span><span class="row-val">50–500 employees</span></div>
+        <div class="row"><span class="row-key">Revenue Range</span><span class="row-val">$2M–$20M</span></div>
+        <div class="row"><span class="row-key">Decision Maker</span><span class="row-val">VP Marketing / CMO</span></div>
+        <div class="row"><span class="row-key">Budget Cycle</span><span class="row-val">Quarterly</span></div>
+        <div class="row"><span class="row-key">Buying Trigger</span><span class="row-val">Failed campaign / new budget</span></div>
+      </div>
+
+      <div class="label">Psychological Drivers</div>
+      <div class="prose">
+        <div class="prose-item">
+          <div class="prose-title">Fear of wasted ad spend</div>
+          <div class="prose-body">Marketing leaders at this level personally feel responsible for ROI. They lose sleep over campaigns that don't convert and need proof before committing budget.</div>
+        </div>
+        <div class="prose-item">
+          <div class="prose-title">Desire for strategic credibility</div>
+          <div class="prose-body">VPs of Marketing want to present data-driven strategies to their CEO and board. They crave tools that make them look sophisticated and informed.</div>
+        </div>
+      </div>
+
+      <div class="label">Validation Signals</div>
+      <div class="checks">
+        <div class="check check--yes">
+          <div class="check-icon"><svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"></polyline></svg></div>
+          Active paid advertising presence
+        </div>
+        <div class="check check--yes">
+          <div class="check-icon"><svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"></polyline></svg></div>
+          Expressed intent for strategy tools on G2/Capterra
+        </div>
+        <div class="check check--no">
+          <div class="check-icon"></div>
+          Has existing agency relationship
+        </div>
+        <div class="check check--yes">
+          <div class="check-icon"><svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"></polyline></svg></div>
+          Budget authority confirmed via surveys
+        </div>
+      </div>
+
+      <div class="callout">
+        <p><strong>Positioning Recommendation</strong> — Lead with "stop guessing, start knowing" messaging. Emphasize data-driven confidence over feature lists. Use case studies showing before/after ROAS improvement.</p>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ===== SECTION 4 ===== -->
+    <div class="section">
+      <h2 class="section-title"><span>04</span> Competitor Analysis</h2>
+
+      <div class="label">Landscape</div>
+      <div class="rows">
+        <div class="row"><span class="row-key">HubSpot Marketing Hub</span><span class="row-val">$3.2B ARR</span></div>
+        <div class="row"><span class="row-key">SEMrush</span><span class="row-val">$340M ARR</span></div>
+        <div class="row"><span class="row-key">SpyFu</span><span class="row-val">$18M ARR</span></div>
+        <div class="row"><span class="row-key">Competitors identified</span><span class="row-val">12</span></div>
+        <div class="row"><span class="row-key">Direct threats</span><span class="row-val c-amber">3</span></div>
+      </div>
+
+      <div class="label">Threat Scores</div>
+      <div class="scores">
+        <div class="score-row">
+          <span class="score-label">HubSpot</span>
+          <div class="score-bar"><div class="score-fill" style="width:72%; background:var(--amber)"></div></div>
+          <span class="score-num c-amber">7.2</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">SEMrush</span>
+          <div class="score-bar"><div class="score-fill" style="width:65%; background:var(--amber)"></div></div>
+          <span class="score-num c-amber">6.5</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">SpyFu</span>
+          <div class="score-bar"><div class="score-fill" style="width:38%; background:var(--green)"></div></div>
+          <span class="score-num" style="color:var(--t2)">3.8</span>
+        </div>
+      </div>
+
+      <div class="label">Competitive Advantages</div>
+      <div class="steps">
+        <div class="step"><span class="step-num">01</span><span class="step-text">End-to-end pipeline from research to strategy document — competitors only solve one piece of the puzzle</span></div>
+        <div class="step"><span class="step-num">02</span><span class="step-text">AI-native architecture enables faster iteration and personalization at scale</span></div>
+        <div class="step"><span class="step-num">03</span><span class="step-text">Interactive editing through a chat agent creates a collaborative experience no competitor offers</span></div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ===== SECTION 5 ===== -->
+    <div class="section">
+      <h2 class="section-title"><span>05</span> Cross-Analysis Synthesis</h2>
+
+      <div class="score-hero">
+        <div class="score-hero-label">Overall Strategy Score</div>
+        <div class="score-hero-value">7.8 <small>/10</small></div>
+      </div>
+
+      <div class="status status--green">
+        <div class="status-dot"></div>
+        <span class="status-text">Proceed</span>
+      </div>
+
+      <div class="callout">
+        <p>The market opportunity is real, the ICP is validated, and competitive density is manageable. Proceed with a focused launch targeting mid-market VP Marketing personas.</p>
+      </div>
+
+      <div class="label">Strategic Priorities</div>
+      <div class="steps">
+        <div class="step"><span class="step-num">01</span><span class="step-text">Build credibility through 3–5 detailed case studies showing measurable ROAS improvement from blueprint-guided campaigns</span></div>
+        <div class="step"><span class="step-num">02</span><span class="step-text">Establish category definition through content marketing — own the "strategic blueprint" term before competitors co-opt it</span></div>
+        <div class="step"><span class="step-num">03</span><span class="step-text">Launch founder-led outbound targeting companies that recently increased ad spend but show declining ROAS</span></div>
+      </div>
+
+      <div class="callout">
+        <p><strong>Key Insight</strong> — The gap between "tools that collect data" and "tools that produce strategy" is where AI-GOS creates the most value. No competitor bridges this gap today.</p>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

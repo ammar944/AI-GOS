@@ -19,6 +19,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -161,19 +162,31 @@ export function BlueprintEditProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const contextValue = useMemo<BlueprintEditContextValue>(
+    () => ({
+      activeEditTarget,
+      notifyEditProposed,
+      notifyEditApproved,
+      notifyEditRejected,
+      clearEditTarget,
+      navigationRequest,
+      requestNavigation,
+      clearNavigationRequest,
+    }),
+    [
+      activeEditTarget,
+      notifyEditProposed,
+      notifyEditApproved,
+      notifyEditRejected,
+      clearEditTarget,
+      navigationRequest,
+      requestNavigation,
+      clearNavigationRequest,
+    ]
+  );
+
   return (
-    <BlueprintEditContext.Provider
-      value={{
-        activeEditTarget,
-        notifyEditProposed,
-        notifyEditApproved,
-        notifyEditRejected,
-        clearEditTarget,
-        navigationRequest,
-        requestNavigation,
-        clearNavigationRequest,
-      }}
-    >
+    <BlueprintEditContext.Provider value={contextValue}>
       {children}
     </BlueprintEditContext.Provider>
   );

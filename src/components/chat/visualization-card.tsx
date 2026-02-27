@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import {
@@ -70,20 +70,36 @@ interface BarVizProps {
 }
 
 function BarViz({ data, config, animated }: BarVizProps) {
+  const gradientId = useId();
+
   return (
-    <ResponsiveContainer width="100%" height={120}>
+    <ResponsiveContainer width="100%" height={80}>
       <BarChart
         data={data}
         margin={{ top: 4, right: 4, left: -28, bottom: 0 }}
         barCategoryGap="28%"
       >
+        <defs>
+          {config.colors.map((color, i) => (
+            <linearGradient
+              key={i}
+              id={`${gradientId}-bar-${i}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={color} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.5} />
+            </linearGradient>
+          ))}
+        </defs>
         <XAxis
           dataKey={config.categoryKey}
           tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }}
           tickLine={false}
           axisLine={false}
           interval={0}
-          // Truncate long labels
           tickFormatter={(v: string) => (v.length > 8 ? `${v.slice(0, 7)}…` : v)}
         />
         <YAxis
@@ -108,8 +124,7 @@ function BarViz({ data, config, animated }: BarVizProps) {
           {data.map((_, index) => (
             <Cell
               key={`cell-${index}`}
-              fill={config.colors[index % config.colors.length]}
-              fillOpacity={0.85}
+              fill={`url(#${gradientId}-bar-${index % config.colors.length})`}
             />
           ))}
         </Bar>
@@ -245,10 +260,12 @@ export function VisualizationCard({ data }: VisualizationCardProps) {
   if (data.error) {
     return (
       <div
-        className="rounded-xl my-2 px-4 py-3"
+        className="rounded-xl my-2"
         style={{
+          padding: '14px',
           border: '1px solid rgba(240,160,48,0.25)',
           background: 'rgba(240,160,48,0.05)',
+          boxShadow: 'var(--shadow-card)',
         }}
       >
         <div className="flex items-center gap-2 mb-1">
@@ -278,12 +295,14 @@ export function VisualizationCard({ data }: VisualizationCardProps) {
       animate="animate"
       transition={springs.smooth}
       className="rounded-xl overflow-hidden my-2"
-      style={{ border: '1px solid var(--border-default)' }}
+      style={{
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+      }}
     >
       {/* Header */}
       <div
-        className="px-4 pt-3 pb-2.5"
-        style={{ background: 'rgba(52,210,123,0.04)' }}
+        style={{ padding: '14px 14px 10px', background: 'rgba(52,210,123,0.04)' }}
       >
         <div className="flex items-center gap-2 mb-1">
           <BarChart3
@@ -298,8 +317,8 @@ export function VisualizationCard({ data }: VisualizationCardProps) {
           </span>
         </div>
         <p
-          className="font-medium leading-snug"
-          style={{ fontSize: '13px', color: 'var(--text-primary)' }}
+          className="leading-snug"
+          style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}
         >
           {data.title}
         </p>
@@ -307,8 +326,7 @@ export function VisualizationCard({ data }: VisualizationCardProps) {
 
       {/* Chart area */}
       <div
-        className="px-2 pt-3 pb-3"
-        style={{ borderTop: '1px solid var(--border-subtle)' }}
+        style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)' }}
       >
         {data.type === 'bar' && (
           <BarViz data={data.data} config={data.config} animated={animated} />
@@ -323,8 +341,7 @@ export function VisualizationCard({ data }: VisualizationCardProps) {
 
       {/* Footer note */}
       <div
-        className="px-4 py-2"
-        style={{ borderTop: '1px solid var(--border-subtle)' }}
+        style={{ padding: '8px 14px', borderTop: '1px solid var(--border-subtle)' }}
       >
         <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', opacity: 0.7 }}>
           Scores from {data.title.toLowerCase().includes('offer') ? 'Offer Analysis' :

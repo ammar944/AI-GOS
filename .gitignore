@@ -44,3 +44,19 @@ next-env.d.ts
 tmpclaude-*
 nul
 .env*.local
+
+# Playwright MCP logs
+.playwright-mcp/
+
+# Claude local state
+.claude-flow/
+.claude/worktrees/
+.claude/statusline.*
+
+# E2E test screenshots (temporary evidence)
+e2e-step*.png
+integration-test-*.png
+regression-*.png
+icp-*.png
+section1-mockup*.png
+dashboard-screenshot.png

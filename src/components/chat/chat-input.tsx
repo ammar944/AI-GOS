@@ -269,7 +269,7 @@ export function ChatInput({
           }
           disabled={isInputDisabled && !isVoiceRecording}
           rows={1}
-          className="w-full px-3 pt-2.5 pb-1 text-[13px] outline-none resize-none overflow-y-auto leading-[1.5] bg-transparent"
+          className="w-full px-3 pt-2.5 pb-1 text-[13px] outline-none resize-none overflow-y-auto leading-[1.5] bg-transparent scrollbar-hide"
           style={{
             color: 'var(--text-primary)',
             minHeight: '20px',

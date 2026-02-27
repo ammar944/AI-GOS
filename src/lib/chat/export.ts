@@ -311,7 +311,7 @@ export function exportToMarkdown(
     const content = formatMessage(message);
     if (!content) continue;
 
-    const prefix = message.role === 'user' ? '**You:**' : '**Egoos Agent:**';
+    const prefix = message.role === 'user' ? '**You:**' : '**AIGOS:**';
     sections.push(`${prefix}\n\n${content}`);
     sections.push('---');
   }

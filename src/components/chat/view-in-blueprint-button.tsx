@@ -23,17 +23,17 @@ export function ViewInBlueprintButton({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, delay: 0.1 }}
       onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-1.5 my-1 rounded-lg text-xs font-medium transition-all duration-150 hover:brightness-125 active:scale-[0.98]"
+      className="flex items-center gap-1.5 px-3 py-1.5 my-1 rounded-lg text-xs font-medium transition-all duration-150 hover:brightness-125 active:scale-[0.98] max-w-full overflow-hidden"
       style={{
         background: 'rgba(96, 165, 250, 0.08)',
         border: '1px solid rgba(96, 165, 250, 0.2)',
         color: 'rgb(96, 165, 250)',
       }}
     >
-      <Eye className="w-3 h-3" />
-      <span>{label}</span>
+      <Eye className="w-3 h-3 shrink-0" />
+      <span className="shrink-0">{label}</span>
       <span
-        className="ml-0.5 text-[10px] font-normal"
+        className="ml-0.5 text-[10px] font-normal truncate min-w-0"
         style={{ color: 'rgba(96, 165, 250, 0.5)' }}
       >
         {SECTION_LABELS[section] || section} / {fieldPath}

@@ -104,13 +104,13 @@ export function TwoColumnLayout({
                     className="text-[13px] font-semibold leading-tight truncate"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    Egoos Agent
+                    AIGOS
                   </span>
                   <span
                     className="text-[11px] leading-tight truncate"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    Strategic Blueprint Assistant
+                    AI Strategy Agent
                   </span>
                 </div>
               </div>
@@ -191,13 +191,13 @@ export function TwoColumnLayout({
                     className="text-[13px] font-semibold leading-tight"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    Egoos Agent
+                    AIGOS
                   </span>
                   <span
                     className="text-[11px] leading-tight"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    Strategic Blueprint Assistant
+                    AI Strategy Agent
                   </span>
                 </div>
               </div>

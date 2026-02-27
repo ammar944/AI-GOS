@@ -59,13 +59,13 @@ export function ChatPanel({ isOpen, onClose, children, undoRedo }: ChatPanelProp
                     className="font-medium text-sm"
                     style={{ color: "var(--text-primary, #ffffff)" }}
                   >
-                    AI Editor
+                    AIGOS
                   </h2>
                   <p
                     className="text-xs"
                     style={{ color: "var(--text-tertiary, #666666)" }}
                   >
-                    Refine your blueprint
+                    AI Strategy Agent
                   </p>
                 </div>
               </div>

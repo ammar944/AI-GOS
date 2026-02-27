@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Section 1 — Industry & Market Overview — Redesign Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,450;14..32,500;14..32,600&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: rgb(7, 9, 14);
+      --t1: rgb(252, 252, 250);
+      --t2: rgb(205, 208, 213);
+      --t3: rgb(100, 105, 115);
+      --t4: rgb(49, 53, 63);
+      --border: rgb(31, 31, 31);
+      --accent: rgb(54, 94, 255);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --font-body: 'Inter', -apple-system, system-ui, sans-serif;
+      --font-heading: 'Instrument Sans', 'Inter', sans-serif;
+    }
+
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--t1);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
+    }
+
+    /* Layout */
+    .shell {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 40px 32px 160px;
+    }
+
+    /* Tab nav */
+    nav {
+      display: flex;
+      gap: 0;
+      margin-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+    }
+    nav a {
+      display: block;
+      padding: 12px 18px 11px;
+      font-size: 13px;
+      font-weight: 450;
+      color: var(--t3);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.12s;
+    }
+    nav a:hover { color: var(--t2); }
+    nav a.active { color: var(--t1); border-bottom-color: var(--accent); }
+
+    /* Section card */
+    .section-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px 44px;
+    }
+
+    /* Section header */
+    .section-header { margin-bottom: 44px; }
+    .section-num {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--t3);
+      font-variant-numeric: tabular-nums;
+      margin-right: 10px;
+    }
+    .section-title {
+      display: inline;
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.025em;
+      color: var(--t1);
+    }
+
+    /* Subsection label */
+    .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--t3);
+      font-family: var(--font-heading);
+      margin-bottom: 12px;
+    }
+
+    /* Sub-label (for nested groups like "Demand Drivers") */
+    .sub-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--t2);
+      margin-bottom: 8px;
+      margin-top: 20px;
+    }
+    .sub-label:first-child { margin-top: 0; }
+
+    /* Subsection spacing */
+    .subsection { margin-bottom: 40px; }
+    .subsection:last-child { margin-bottom: 0; }
+
+    /* Data rows */
+    .rows {}
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .row:first-child { border-top: 1px solid var(--border); }
+    .row-key { font-size: 13.5px; color: var(--t2); }
+    .row-val {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--t1);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    /* List items */
+    .items {}
+    .item {
+      padding: 6px 0 6px 16px;
+      font-size: 13.5px;
+      color: var(--t2);
+      line-height: 1.65;
+      position: relative;
+    }
+    .item::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 15px;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--t4);
+    }
+    .item--warn::before { background: var(--amber); width: 5px; height: 5px; top: 14px; }
+
+    /* Prose blocks */
+    .prose-item { margin-bottom: 20px; }
+    .prose-item:last-child { margin-bottom: 0; }
+    .prose-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--t1);
+      margin-bottom: 3px;
+      line-height: 1.4;
+    }
+    .prose-body {
+      font-size: 13.5px;
+      color: var(--t2);
+      line-height: 1.65;
+    }
+
+    /* Objection block — quote style */
+    .objection { margin-bottom: 24px; }
+    .objection:last-child { margin-bottom: 0; }
+    .objection-quote {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--t1);
+      margin-bottom: 4px;
+      line-height: 1.4;
+      font-style: italic;
+    }
+    .objection-response {
+      font-size: 13.5px;
+      color: var(--t2);
+      line-height: 1.65;
+    }
+    .objection-response .response-tag {
+      color: var(--t3);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 6px;
+    }
+
+    /* Callout */
+    .callout {
+      padding-left: 16px;
+      border-left: 2px solid var(--border);
+    }
+    .callout .item { padding-left: 16px; }
+    .callout .item::before { left: 0; }
+
+    /* Two-column for related lists (no grid, use inline-flex) */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 32px;
+    }
+
+    /* Divider */
+    .divider {
+      border: none;
+      height: 1px;
+      background: var(--border);
+      margin: 40px 0;
+    }
+
+    /* Color helpers */
+    .c-red { color: var(--red); }
+    .c-amber { color: var(--amber); }
+
+    /* Annotation badge */
+    .anno {
+      display: inline-block;
+      margin-top: 32px;
+      padding: 0;
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <nav>
+      <a href="#" class="active">Industry & Market</a>
+      <a href="#">ICP Analysis</a>
+      <a href="#">Offer Analysis</a>
+      <a href="#">Competitors</a>
+      <a href="#">Synthesis</a>
+      <a href="#">Keywords</a>
+    </nav>
+
+    <div class="section-card">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <h2 class="section-title">Industry & Market Overview</h2>
+      </div>
+
+      <!-- ─── Category Snapshot ─── -->
+      <div class="subsection">
+        <div class="label">Category Snapshot</div>
+        <div class="rows">
+          <div class="row"><span class="row-key">Category</span><span class="row-val">AI-Powered Marketing Strategy</span></div>
+          <div class="row"><span class="row-key">Market Maturity</span><span class="row-val">Growth</span></div>
+          <div class="row"><span class="row-key">Awareness Level</span><span class="row-val">Problem Aware</span></div>
+          <div class="row"><span class="row-key">Buying Behavior</span><span class="row-val">Research Heavy</span></div>
+          <div class="row"><span class="row-key">Sales Cycle</span><span class="row-val">30–60 days</span></div>
+          <div class="row"><span class="row-key">Seasonality</span><span class="row-val">Q1 & Q4 peaks (budget planning cycles)</span></div>
+        </div>
+      </div>
+
+      <!-- ─── Market Dynamics ─── -->
+      <div class="subsection">
+        <div class="label">Market Dynamics</div>
+
+        <div class="sub-label">Demand Drivers</div>
+        <div class="items">
+          <div class="item">Rising cost of customer acquisition across paid channels forcing teams to seek strategic guidance before spending</div>
+          <div class="item">Growing frustration with agencies that lack transparency in strategy and attribution</div>
+          <div class="item">AI adoption in marketing operations creating openness to AI-first strategy tools</div>
+        </div>
+
+        <div class="sub-label">Buying Triggers</div>
+        <div class="items">
+          <div class="item">Failed campaign with significant budget loss drives urgent need for pre-campaign strategy</div>
+          <div class="item">New marketing leadership wanting to establish data-driven processes from day one</div>
+          <div class="item">Quarterly budget reviews revealing declining ROAS across channels</div>
+        </div>
+
+        <div class="sub-label">Barriers to Purchase</div>
+        <div class="items">
+          <div class="item item--warn">Skepticism about AI-generated strategy — "can a machine really understand our market?"</div>
+          <div class="item item--warn">Existing agency relationships creating switching costs and political resistance</div>
+          <div class="item item--warn">Unclear ROI model — hard to attribute strategy quality to campaign outcomes</div>
+        </div>
+      </div>
+
+      <!-- ─── Pain Points ─── -->
+      <div class="subsection">
+        <div class="label">Pain Points</div>
+
+        <div class="sub-label">Primary</div>
+        <div class="items">
+          <div class="item">Wasting significant ad spend on campaigns built on assumptions rather than market research</div>
+          <div class="item">No systematic process to validate offers and messaging before launching paid media</div>
+          <div class="item">Competitive intelligence is manual, outdated by the time it reaches decision makers</div>
+        </div>
+
+        <div class="sub-label">Secondary</div>
+        <div class="items">
+          <div class="item">Difficulty articulating marketing strategy to executive stakeholders and board</div>
+          <div class="item">Fragmented tooling — separate platforms for research, strategy, and execution with no connective tissue</div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- ─── Psychological Drivers ─── -->
+      <div class="subsection">
+        <div class="label">Psychological Drivers</div>
+        <div class="prose-item">
+          <div class="prose-title">Fear of wasted ad spend</div>
+          <div class="prose-body">Marketing leaders at this level personally feel responsible for ROI. They lose sleep over campaigns that don't convert and need proof of strategic rigor before committing budget.</div>
+        </div>
+        <div class="prose-item">
+          <div class="prose-title">Desire for strategic credibility</div>
+          <div class="prose-body">VPs of Marketing want to present data-driven strategies to their CEO and board. They crave tools that make them look sophisticated and informed in leadership meetings.</div>
+        </div>
+        <div class="prose-item">
+          <div class="prose-title">Competitive anxiety</div>
+          <div class="prose-body">The fear that competitors are already using advanced tools and gaining an information advantage. Being "behind" on AI adoption feels existential at the mid-market level.</div>
+        </div>
+      </div>
+
+      <!-- ─── Audience Objections ─── -->
+      <div class="subsection">
+        <div class="label">Audience Objections</div>
+        <div class="objection">
+          <div class="objection-quote">"We already have an agency handling our strategy."</div>
+          <div class="objection-response"><span class="response-tag">Response</span>AI-GOS doesn't replace your agency — it gives you an independent strategic lens to evaluate and improve the strategies they propose. Think of it as a second opinion that costs a fraction of a retainer.</div>
+        </div>
+        <div class="objection">
+          <div class="objection-quote">"How can AI understand the nuances of our specific market?"</div>
+          <div class="objection-response"><span class="response-tag">Response</span>The system ingests your specific company data, competitor landscape, and real-time market signals. It's not generic — every blueprint is built from your actual business context and validated against live data.</div>
+        </div>
+        <div class="objection">
+          <div class="objection-quote">"We don't have the budget for another tool right now."</div>
+          <div class="objection-response"><span class="response-tag">Response</span>Consider the cost of your last underperforming campaign. AI-GOS pays for itself if it prevents even one misallocated budget cycle. Most teams see ROI within the first strategic blueprint.</div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- ─── Key Recommendations ─── -->
+      <div class="subsection">
+        <div class="label">Key Recommendations</div>
+        <div class="callout">
+          <div class="items">
+            <div class="item">Lead with "stop guessing, start knowing" messaging that directly addresses the fear of wasted spend</div>
+            <div class="item">Position AI-GOS as a strategic layer that enhances existing workflows rather than replacing them</div>
+            <div class="item">Use before/after case studies showing ROAS improvement from blueprint-guided campaigns</div>
+            <div class="item">Target companies that recently increased ad budgets but show declining efficiency metrics</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="anno">↑ Section 1 mockup — AI-GOS flat design language v4</p>
+
+  </div>
+</body>
+</html>
