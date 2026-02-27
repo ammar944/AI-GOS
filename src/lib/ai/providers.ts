@@ -28,6 +28,7 @@ export const MODELS = {
   // Anthropic models
   CLAUDE_SONNET: 'claude-sonnet-4-20250514',
   CLAUDE_HAIKU: 'claude-haiku-4-5-20251001',
+  CLAUDE_OPUS: 'claude-opus-4-6',
 
   // Groq models
   LLAMA_3_3_70B: 'llama-3.3-70b-versatile',
@@ -134,6 +135,11 @@ export const MODEL_COSTS = {
   [MODELS.CLAUDE_HAIKU]: {
     input: 0.8,
     output: 4.0,
+    requestFee: 0,
+  },
+  [MODELS.CLAUDE_OPUS]: {
+    input: 5.0,
+    output: 25.0,
     requestFee: 0,
   },
   [MODELS.LLAMA_3_3_70B]: {
