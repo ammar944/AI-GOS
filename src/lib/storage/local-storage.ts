@@ -5,6 +5,7 @@ import type { OnboardingFormData } from "@/lib/onboarding/types";
 import type { StrategicBlueprintOutput } from "@/lib/strategic-blueprint/output-types";
 import type { MediaPlanOutput } from "@/lib/media-plan/types";
 import type { AdCopyOutput } from "@/lib/media-plan/ad-copy-types";
+import type { OnboardingState } from "@/lib/journey/session-state";
 
 // Storage keys
 export const STORAGE_KEYS = {
@@ -13,6 +14,7 @@ export const STORAGE_KEYS = {
   GENERATION_STATE: "aigog_generation_state",
   MEDIA_PLAN: "aigog_media_plan",
   AD_COPY: "aigog_ad_copy",
+  JOURNEY_SESSION: "aigog_journey_session",
 } as const;
 
 // Generation state to track progress
@@ -124,6 +126,19 @@ export function setAdCopy(data: AdCopyOutput): boolean {
     updateGenerationState("ad-copy-complete");
   }
   return success;
+}
+
+// Journey Session (v2 onboarding)
+export function getJourneySession(): OnboardingState | null {
+  return getItem<OnboardingState>(STORAGE_KEYS.JOURNEY_SESSION);
+}
+
+export function setJourneySession(data: OnboardingState): boolean {
+  return setItem(STORAGE_KEYS.JOURNEY_SESSION, data);
+}
+
+export function clearJourneySession(): boolean {
+  return removeItem(STORAGE_KEYS.JOURNEY_SESSION);
 }
 
 // Generation State
