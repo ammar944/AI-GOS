@@ -9,6 +9,8 @@ import { EditApprovalCard } from '@/components/chat/edit-approval-card';
 import { ComparisonTableCard } from '@/components/chat/comparison-table-card';
 import { AnalysisScoreCard } from '@/components/chat/analysis-score-card';
 import { VisualizationCard } from '@/components/chat/visualization-card';
+import { AskUserCard } from '@/components/journey/ask-user-card';
+import type { AskUserResult } from '@/components/journey/ask-user-card';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -17,6 +19,7 @@ interface ChatMessageProps {
   messageId?: string;
   isStreaming?: boolean;
   onToolApproval?: (approvalId: string, approved: boolean) => void;
+  onToolOutput?: (toolCallId: string, result: AskUserResult) => void;
   className?: string;
 }
 
@@ -271,11 +274,89 @@ function renderToolPart(
   part: Record<string, unknown>,
   key: string,
   onToolApproval?: (approvalId: string, approved: boolean) => void,
+  onToolOutput?: (toolCallId: string, result: AskUserResult) => void,
 ): React.ReactNode {
   const toolName = (part.type as string).replace('tool-', '');
   const state = part.state as string;
   const input = part.input as Record<string, unknown> | undefined;
   const output = part.output as Record<string, unknown> | undefined;
+
+  // askUser tool — render interactive chip card
+  if (toolName === 'askUser') {
+    const askInput = part.input as {
+      question?: string;
+      fieldName?: string;
+      options?: Array<{ label: string; description?: string }>;
+      multiSelect?: boolean;
+    } | undefined;
+    const toolCallId = (part.toolCallId as string) ?? key;
+
+    if (state === 'input-streaming') {
+      return (
+        <ToolLoadingIndicator
+          key={key}
+          toolName="askUser"
+          args={{ label: 'Preparing question...' }}
+        />
+      );
+    }
+
+    if (state === 'input-available') {
+      if (!askInput) {
+        return (
+          <ToolLoadingIndicator key={key} toolName="askUser" args={{ label: 'Loading question...' }} />
+        );
+      }
+      return (
+        <AskUserCard
+          key={key}
+          toolCallId={toolCallId}
+          question={askInput.question ?? ''}
+          fieldName={askInput.fieldName ?? 'unknown'}
+          options={askInput.options ?? []}
+          multiSelect={askInput.multiSelect ?? false}
+          isSubmitted={false}
+          selectedIndices={[]}
+          onSubmit={(result) => {
+            onToolOutput?.(toolCallId, result);
+          }}
+        />
+      );
+    }
+
+    if (state === 'output-available') {
+      // output may be a JSON string (from addToolOutput) or an object
+      let parsedOutput: Record<string, unknown> | undefined;
+      if (typeof part.output === 'string') {
+        try { parsedOutput = JSON.parse(part.output); } catch { parsedOutput = undefined; }
+      } else {
+        parsedOutput = output;
+      }
+
+      let selectedIndices: number[] = [];
+      if (parsedOutput && 'selectedIndex' in parsedOutput) {
+        selectedIndices = [(parsedOutput as { selectedIndex: number }).selectedIndex];
+      } else if (parsedOutput && 'selectedIndices' in parsedOutput) {
+        selectedIndices = (parsedOutput as { selectedIndices: number[] }).selectedIndices;
+      }
+
+      return (
+        <AskUserCard
+          key={key}
+          toolCallId={toolCallId}
+          question={askInput?.question ?? ''}
+          fieldName={askInput?.fieldName ?? 'unknown'}
+          options={askInput?.options ?? []}
+          multiSelect={askInput?.multiSelect ?? false}
+          isSubmitted={true}
+          selectedIndices={selectedIndices}
+          onSubmit={() => {}}
+        />
+      );
+    }
+
+    return null;
+  }
 
   // Loading states
   if (state === 'input-streaming' || state === 'input-available') {
@@ -426,6 +507,7 @@ function renderMessageParts(
   messageId: string,
   isStreaming: boolean,
   onToolApproval?: (approvalId: string, approved: boolean) => void,
+  onToolOutput?: (toolCallId: string, result: AskUserResult) => void,
 ): React.ReactNode {
   const elements: React.ReactNode[] = [];
   let textAccumulator = '';
@@ -462,6 +544,7 @@ function renderMessageParts(
         <ThinkingBlock
           key={`${messageId}-thinking-${i}`}
           content={(part.text as string) || ''}
+          state={(() => { const s = (part as { state?: string }).state; return s === 'streaming' || s === 'done' ? s : undefined; })()}
         />
       );
       continue;
@@ -470,7 +553,7 @@ function renderMessageParts(
     // Tool parts
     if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
       flushText(`${messageId}-text-before-tool-${i}`);
-      const toolElement = renderToolPart(part as Record<string, unknown>, `${messageId}-tool-${i}`, onToolApproval);
+      const toolElement = renderToolPart(part as Record<string, unknown>, `${messageId}-tool-${i}`, onToolApproval, onToolOutput);
       if (toolElement) {
         elements.push(toolElement);
       }
@@ -519,6 +602,7 @@ function AssistantMessage({
   messageId,
   isStreaming,
   onToolApproval,
+  onToolOutput,
   className,
 }: {
   content?: string;
@@ -526,6 +610,7 @@ function AssistantMessage({
   messageId: string;
   isStreaming: boolean;
   onToolApproval?: (approvalId: string, approved: boolean) => void;
+  onToolOutput?: (toolCallId: string, result: AskUserResult) => void;
   className?: string;
 }) {
   return (
@@ -570,7 +655,7 @@ function AssistantMessage({
         }}
       >
         {parts
-          ? renderMessageParts(parts, messageId, isStreaming, onToolApproval)
+          ? renderMessageParts(parts, messageId, isStreaming, onToolApproval, onToolOutput)
           : (
             <>
               {renderMarkdown(content || '')}
@@ -594,6 +679,7 @@ export function ChatMessage({
   messageId,
   isStreaming = false,
   onToolApproval,
+  onToolOutput,
   className,
 }: ChatMessageProps) {
   if (role === 'user') {
@@ -609,6 +695,7 @@ export function ChatMessage({
       messageId={messageId ?? (content ? 'welcome' : 'msg')}
       isStreaming={isStreaming}
       onToolApproval={onToolApproval}
+      onToolOutput={onToolOutput}
       className={className}
     />
   );

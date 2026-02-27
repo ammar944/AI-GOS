@@ -8,7 +8,8 @@ import { auth } from '@clerk/nextjs/server';
 import { anthropic, MODELS } from '@/lib/ai/providers';
 import { LEAD_AGENT_SYSTEM_PROMPT } from '@/lib/ai/prompts/lead-agent-system';
 import { askUser } from '@/lib/ai/tools/ask-user';
-import { extractAskUserResults, persistToSupabase } from '@/lib/journey/session-state';
+import { extractAskUserResults } from '@/lib/journey/session-state';
+import { persistToSupabase } from '@/lib/journey/session-state.server';
 
 export const maxDuration = 300;
 
