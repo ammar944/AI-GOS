@@ -2,26 +2,16 @@
 
 import { useRef, useMemo, useEffect, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
-import type { UIMessage } from 'ai';
-
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+} from 'ai';
 import { JourneyLayout } from '@/components/journey/journey-layout';
 import { JourneyHeader } from '@/components/journey/journey-header';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
 import { LEAD_AGENT_WELCOME_MESSAGE } from '@/lib/ai/prompts/lead-agent-system';
-
-/**
- * Extract text content from a UIMessage's parts array.
- * Filters for text parts and joins them into a single string.
- */
-function getTextContent(message: UIMessage): string {
-  return message.parts
-    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-    .map((p) => p.text)
-    .join('');
-}
 
 export default function JourneyPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -36,17 +26,47 @@ export default function JourneyPage() {
   );
 
   // Chat hook
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, addToolApprovalResponse, status, error, setMessages } = useChat({
     transport,
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onError: (err) => {
       console.error('Journey chat error:', err);
+      // MissingToolResultsError — strip the last assistant message with orphaned tool calls
+      if (err?.message?.includes('Tool result is missing')) {
+        setMessages((prev) => {
+          const cleaned = [...prev];
+          for (let i = cleaned.length - 1; i >= 0; i--) {
+            if (cleaned[i].role === 'assistant') {
+              cleaned.splice(i, 1);
+              break;
+            }
+          }
+          return cleaned;
+        });
+      }
     },
   });
 
   // Derived state
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
-  const isLoading = isStreaming || isSubmitted;
+
+  // Block input while any tool is waiting for user approval
+  const hasPendingApproval = messages.some(
+    (msg) =>
+      msg.role === 'assistant' &&
+      msg.parts.some(
+        (part) =>
+          typeof part === 'object' &&
+          'type' in part &&
+          typeof (part as Record<string, unknown>).type === 'string' &&
+          ((part as Record<string, unknown>).type as string).startsWith('tool-') &&
+          'state' in part &&
+          (part as Record<string, unknown>).state === 'approval-requested'
+      )
+  );
+
+  const isLoading = isStreaming || isSubmitted || hasPendingApproval;
 
   // Auto-scroll on new messages or status change
   useEffect(() => {
@@ -91,9 +111,13 @@ export default function JourneyPage() {
           return (
             <ChatMessage
               key={message.id}
+              messageId={message.id}
               role={message.role as 'user' | 'assistant'}
-              content={getTextContent(message)}
+              parts={message.parts}
               isStreaming={isThisMessageStreaming}
+              onToolApproval={(approvalId, approved) =>
+                addToolApprovalResponse({ id: approvalId, approved })
+              }
             />
           );
         })}

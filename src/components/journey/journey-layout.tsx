@@ -29,8 +29,8 @@ export function JourneyLayout({
       <div
         className="flex flex-col h-full"
         style={{
-          width: isCentered ? '100%' : '440px',
-          maxWidth: isCentered ? '720px' : '440px',
+          width: isCentered ? '100%' : 'var(--chat-width)',
+          maxWidth: isCentered ? '720px' : 'var(--chat-width)',
           margin: isCentered ? '0 auto' : '0',
           flexShrink: 0,
           transition: 'all 0.3s ease',

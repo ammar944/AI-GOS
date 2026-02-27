@@ -75,6 +75,29 @@ export interface EditHistoryState {
 }
 
 // ---------------------------------------------------------------------------
+// Tool progress streaming (Fix #7 — multi-step progress)
+// ---------------------------------------------------------------------------
+
+/**
+ * Emitted by tools during execution to provide real-time progress updates.
+ * Used with SSE or data stream annotations to show phase transitions
+ * (e.g., Deep Research: Decompose → Research → Synthesize).
+ */
+export interface ToolProgressEvent {
+  toolName: string;
+  phase: string;
+  status: 'start' | 'update' | 'complete';
+  duration?: number;
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Callback type for tool progress emission.
+ * Pass this to tool factory functions to enable streaming progress.
+ */
+export type OnToolProgress = (event: ToolProgressEvent) => void;
+
+// ---------------------------------------------------------------------------
 // Sprint 2 tool result types
 // ---------------------------------------------------------------------------
 

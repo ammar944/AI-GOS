@@ -1,13 +1,41 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { ThinkingBlock } from '@/components/chat/thinking-block';
+import { ToolLoadingIndicator } from '@/components/chat/tool-loading-indicator';
+import { DeepResearchCard } from '@/components/chat/deep-research-card';
+import { EditApprovalCard } from '@/components/chat/edit-approval-card';
+import { ComparisonTableCard } from '@/components/chat/comparison-table-card';
+import { AnalysisScoreCard } from '@/components/chat/analysis-score-card';
+import { VisualizationCard } from '@/components/chat/visualization-card';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
-  content: string;
+  content?: string;
+  parts?: Array<{ type: string; [key: string]: unknown }>;
+  messageId?: string;
   isStreaming?: boolean;
+  onToolApproval?: (approvalId: string, approved: boolean) => void;
   className?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Animation variants
+// ---------------------------------------------------------------------------
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Markdown rendering helpers (kept from v1)
+// ---------------------------------------------------------------------------
 
 /**
  * Render inline formatting: **bold**, *italic*, `code`, [link](url)
@@ -235,9 +263,239 @@ function renderMarkdown(content: string): React.ReactNode {
   return <div className="space-y-1">{segments}</div>;
 }
 
+// ---------------------------------------------------------------------------
+// Tool part rendering
+// ---------------------------------------------------------------------------
+
+function renderToolPart(
+  part: Record<string, unknown>,
+  key: string,
+  onToolApproval?: (approvalId: string, approved: boolean) => void,
+): React.ReactNode {
+  const toolName = (part.type as string).replace('tool-', '');
+  const state = part.state as string;
+  const input = part.input as Record<string, unknown> | undefined;
+  const output = part.output as Record<string, unknown> | undefined;
+
+  // Loading states
+  if (state === 'input-streaming' || state === 'input-available') {
+    return (
+      <ToolLoadingIndicator
+        key={key}
+        toolName={toolName}
+        args={input}
+      />
+    );
+  }
+
+  // Error state
+  if (state === 'output-error') {
+    return (
+      <div
+        key={key}
+        className="px-3 py-2 rounded-lg text-xs my-1"
+        style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.2)',
+          color: '#ef4444',
+        }}
+      >
+        {(part.errorText as string) || 'Tool execution failed'}
+      </div>
+    );
+  }
+
+  // Output available — render specific card
+  if (state === 'output-available' && output) {
+    switch (toolName) {
+      case 'deepResearch':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return <DeepResearchCard key={key} data={output as any} />;
+      case 'compareCompetitors':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return <ComparisonTableCard key={key} data={output as any} />;
+      case 'analyzeMetrics':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return <AnalysisScoreCard key={key} data={output as any} />;
+      case 'createVisualization':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return <VisualizationCard key={key} data={output as any} />;
+      case 'webResearch':
+        return (
+          <div
+            key={key}
+            className="px-3 py-2 rounded-lg text-xs my-1"
+            style={{
+              background: 'rgba(54, 94, 255, 0.06)',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            Research complete
+          </div>
+        );
+      case 'editBlueprint':
+        return (
+          <div
+            key={key}
+            className="px-3 py-2 rounded-lg text-xs my-1 flex items-center gap-1.5"
+            style={{
+              background: 'rgba(34, 197, 94, 0.08)',
+              border: '1px solid rgba(34, 197, 94, 0.2)',
+              color: '#22c55e',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Edit applied
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+
+  // Approval requested state — render EditApprovalCard for editBlueprint
+  if (state === 'approval-requested' && toolName === 'editBlueprint' && input) {
+    const approvalId = (part.approval as Record<string, unknown> | undefined)?.id as string | undefined;
+    const editInput = input as {
+      section: string;
+      fieldPath: string;
+      newValue: unknown;
+      explanation: string;
+    };
+    const fallbackId = `${key}-approval`;
+
+    return (
+      <EditApprovalCard
+        key={key}
+        section={editInput.section}
+        fieldPath={editInput.fieldPath}
+        oldValue={undefined}
+        newValue={editInput.newValue}
+        explanation={editInput.explanation}
+        diffPreview={`Field: ${editInput.fieldPath}\nNew value: ${(() => { try { return JSON.stringify(editInput.newValue, null, 2)?.substring(0, 200); } catch { return '[complex value]'; } })()}`}
+        onApprove={() => onToolApproval?.(approvalId ?? fallbackId, true)}
+        onReject={() => onToolApproval?.(approvalId ?? fallbackId, false)}
+      />
+    );
+  }
+
+  // Approval responded — tool is executing after user approved
+  if (state === 'approval-responded') {
+    return (
+      <div
+        key={key}
+        className="px-3 py-2 rounded-lg text-xs my-1"
+        style={{
+          background: 'var(--bg-hover)',
+          border: '1px solid var(--border-subtle)',
+          color: 'var(--text-tertiary)',
+        }}
+      >
+        Applying edit...
+      </div>
+    );
+  }
+
+  // Output denied — user rejected the edit
+  if (state === 'output-denied') {
+    return (
+      <div
+        key={key}
+        className="px-3 py-2 rounded-lg text-xs my-1"
+        style={{
+          background: 'rgba(239, 68, 68, 0.06)',
+          border: '1px solid rgba(239, 68, 68, 0.15)',
+          color: 'var(--text-tertiary)',
+        }}
+      >
+        Edit rejected
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Message parts rendering
+// ---------------------------------------------------------------------------
+
+function renderMessageParts(
+  parts: Array<{ type: string; [key: string]: unknown }>,
+  messageId: string,
+  isStreaming: boolean,
+  onToolApproval?: (approvalId: string, approved: boolean) => void,
+): React.ReactNode {
+  const elements: React.ReactNode[] = [];
+  let textAccumulator = '';
+
+  const flushText = (key: string, isFinal = false) => {
+    if (textAccumulator.trim()) {
+      elements.push(
+        <div key={key} className="space-y-1">
+          {renderMarkdown(textAccumulator)}
+          {isFinal && isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+        </div>
+      );
+    } else if (isFinal && isStreaming) {
+      elements.push(
+        <span key={key} className="streaming-cursor" aria-hidden="true" />
+      );
+    }
+    textAccumulator = '';
+  };
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+
+    // Text parts — accumulate
+    if (part.type === 'text') {
+      textAccumulator += (part.text as string) || '';
+      continue;
+    }
+
+    // Reasoning/thinking parts
+    if (part.type === 'reasoning') {
+      flushText(`${messageId}-text-before-reasoning-${i}`);
+      elements.push(
+        <ThinkingBlock
+          key={`${messageId}-thinking-${i}`}
+          content={(part.text as string) || ''}
+        />
+      );
+      continue;
+    }
+
+    // Tool parts
+    if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
+      flushText(`${messageId}-text-before-tool-${i}`);
+      const toolElement = renderToolPart(part as Record<string, unknown>, `${messageId}-tool-${i}`, onToolApproval);
+      if (toolElement) {
+        elements.push(toolElement);
+      }
+      continue;
+    }
+  }
+
+  // Flush remaining text
+  flushText(`${messageId}-text-final`, true);
+
+  return <>{elements}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
 function UserMessage({ content, className }: { content: string; className?: string }) {
   return (
-    <div className={cn('flex justify-end mb-4', className)}>
+    <motion.div
+      variants={fadeInUp}
+      initial="hidden"
+      animate="visible"
+      className={cn('flex justify-end mb-4', className)}
+    >
       <div
         className="px-4 py-2.5 max-w-[85%]"
         style={{
@@ -251,21 +509,32 @@ function UserMessage({ content, className }: { content: string; className?: stri
       >
         {content}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 function AssistantMessage({
   content,
+  parts,
+  messageId,
   isStreaming,
+  onToolApproval,
   className,
 }: {
-  content: string;
+  content?: string;
+  parts?: Array<{ type: string; [key: string]: unknown }>;
+  messageId: string;
   isStreaming: boolean;
+  onToolApproval?: (approvalId: string, approved: boolean) => void;
   className?: string;
 }) {
   return (
-    <div className={cn('flex gap-3 mb-4 items-start', className)}>
+    <motion.div
+      variants={fadeInUp}
+      initial="hidden"
+      animate="visible"
+      className={cn('flex gap-3 mb-4 items-start', className)}
+    >
       {/* Gradient avatar */}
       <div
         className="flex-shrink-0 rounded-[7px] flex items-center justify-center"
@@ -300,23 +569,47 @@ function AssistantMessage({
           color: 'var(--text-secondary)',
         }}
       >
-        {renderMarkdown(content)}
-        {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+        {parts
+          ? renderMessageParts(parts, messageId, isStreaming, onToolApproval)
+          : (
+            <>
+              {renderMarkdown(content || '')}
+              {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+            </>
+          )
+        }
       </div>
-    </div>
+    </motion.div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
 
 export function ChatMessage({
   role,
   content,
+  parts,
+  messageId,
   isStreaming = false,
+  onToolApproval,
   className,
 }: ChatMessageProps) {
   if (role === 'user') {
-    return <UserMessage content={content} className={className} />;
+    const textContent = parts
+      ? parts.filter((p) => p.type === 'text').map((p) => p.text as string).join('')
+      : (content || '');
+    return <UserMessage content={textContent} className={className} />;
   }
   return (
-    <AssistantMessage content={content} isStreaming={isStreaming} className={className} />
+    <AssistantMessage
+      content={content}
+      parts={parts}
+      messageId={messageId ?? (content ? 'welcome' : 'msg')}
+      isStreaming={isStreaming}
+      onToolApproval={onToolApproval}
+      className={className}
+    />
   );
 }
