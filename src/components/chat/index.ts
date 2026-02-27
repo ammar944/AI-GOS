@@ -1,7 +1,7 @@
 export { ChatPanel } from "./chat-panel";
 export { MessageBubble } from "./message-bubble";
 export { TypingIndicator } from "./typing-indicator";
-export { QuickSuggestions } from "./quick-suggestions";
+export { FollowUpSuggestions, generateFollowUpSuggestions, EMPTY_STATE_SUGGESTIONS } from "./follow-up-suggestions";
 export { ChatMessage } from "./chat-message";
 export { AgentChat } from "./agent-chat";
 export { MediaPlanAgentChat } from "./media-plan-agent-chat";
@@ -13,7 +13,6 @@ export { GenerateSectionCard } from "./generate-section-card";
 export { ComparisonTableCard } from "./comparison-table-card";
 export { AnalysisScoreCard } from "./analysis-score-card";
 export { VisualizationCard } from "./visualization-card";
-export { FollowUpSuggestions, generateFollowUpSuggestions } from "./follow-up-suggestions";
 export { ResearchProgressCard } from "./research-progress-card";
 export { CitationHoverCard } from "./citation-hover-card";
 export { ExportMenu } from "./export-menu";

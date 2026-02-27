@@ -10,6 +10,13 @@ interface FollowUpSuggestionsProps {
   className?: string;
 }
 
+/** Empty-state suggestions shown at chat start (before any messages) */
+export const EMPTY_STATE_SUGGESTIONS = [
+  'Summarize key insights',
+  'What should I improve?',
+  'Generate ad hooks',
+];
+
 /**
  * Generate contextual follow-up suggestion chips based on the last completed tool.
  */
@@ -20,17 +27,17 @@ export function generateFollowUpSuggestions(
 ): string[] {
   switch (lastToolName ?? '_none') {
     case 'deepResearch':
-      return ['Update blueprint with findings', 'Research deeper', 'Compare top competitors'];
+      return ['Update blueprint with findings', 'Research deeper on this topic', 'Compare top competitors'];
     case 'webResearch':
       return ['Apply this to blueprint', 'Research more on this', 'Summarize key takeaways'];
     case 'editBlueprint':
-      return ['Make another edit', 'Explain the change', 'Undo this edit'];
+      return ['Approve and continue', 'Modify the edit', 'Explain this change'];
     case 'generateSection':
       return ['Refine this section', 'Generate another section', 'Analyze the result'];
     case 'compareCompetitors':
       return ['Focus on market leader', 'Find competitive gaps', 'Update positioning'];
     case 'analyzeMetrics':
-      return ['Fix weakest dimension', 'Rewrite this section', 'Compare to competitor'];
+      return ['Fix the weakest dimension', 'Rewrite this section', 'Compare to competitor'];
     case 'searchBlueprint':
       return ['Edit this section', 'Explain the data', 'Research more'];
     case 'explainBlueprint':
@@ -38,8 +45,7 @@ export function generateFollowUpSuggestions(
     case 'createVisualization':
       return ['Visualize another metric', 'Compare competitors', 'Analyze this data'];
     default:
-      // Generic follow-ups for pure text responses (no tool used)
-      return ['Tell me more', 'Edit a section', 'Analyze my blueprint'];
+      return ['Summarize insights', 'What should I improve?', 'Generate ad hooks'];
   }
 }
 
@@ -58,7 +64,7 @@ export function FollowUpSuggestions({
           key={suggestion}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.08, duration: 0.2 }}
+          transition={{ delay: index * 0.1, duration: 0.2 }}
           onClick={() => !disabled && onSelect(suggestion)}
           disabled={disabled}
           className="flex-shrink-0 cursor-pointer transition-colors duration-150"

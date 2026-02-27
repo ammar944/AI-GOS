@@ -12,8 +12,7 @@ import type { UIMessage } from 'ai';
 
 import { MessageBubble } from './message-bubble';
 import { TypingIndicator } from './typing-indicator';
-import { QuickSuggestions } from './quick-suggestions';
-import { FollowUpSuggestions, generateFollowUpSuggestions } from './follow-up-suggestions';
+import { FollowUpSuggestions, generateFollowUpSuggestions, EMPTY_STATE_SUGGESTIONS } from './follow-up-suggestions';
 import { EditApprovalCard } from './edit-approval-card';
 import { ToolLoadingIndicator } from './tool-loading-indicator';
 import { ResearchResultCard } from './research-result-card';
@@ -122,6 +121,7 @@ export function AgentChat({
     initialMessages,
     isLoading: isPersistenceLoading,
     saveMessages,
+    conversationTitle,
   } = useChatPersistence(blueprintId, conversationId);
 
   // Blueprint edit context — optional (no provider = no highlight, no crash)
@@ -841,6 +841,16 @@ export function AgentChat({
           branchCount={getBranchCount(branchState)}
           onDismiss={() => handleSwitchBranch(null)}
         />
+        {/* Conversation title */}
+        {conversationTitle && conversationTitle !== 'New conversation' && (
+          <span
+            className="truncate text-xs font-medium max-w-[200px]"
+            style={{ color: 'var(--text-secondary)' }}
+            title={conversationTitle}
+          >
+            {conversationTitle}
+          </span>
+        )}
         {/* Spacer to push undo/redo/export to the right */}
         <div className="flex-1" />
         {(canUndo || canRedo) && (
@@ -906,7 +916,11 @@ export function AgentChat({
               </p>
             </motion.div>
 
-            <QuickSuggestions onSelect={handleSuggestionSelect} disabled={isLoading} blueprint={blueprint} />
+            <FollowUpSuggestions
+              suggestions={EMPTY_STATE_SUGGESTIONS}
+              onSelect={handleSuggestionSelect}
+              disabled={isLoading}
+            />
           </div>
         )}
 

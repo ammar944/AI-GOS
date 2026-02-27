@@ -602,7 +602,9 @@ export function MessageBubble({
               </div>
             )}
 
-            {renderContent(content)}
+            <div className={isStreaming ? 'stream-content-enter' : undefined}>
+              {renderContent(content)}
+            </div>
 
             {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
 

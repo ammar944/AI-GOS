@@ -25,86 +25,86 @@ interface ToolConfig {
 
 const TOOL_CONFIG: Record<string, ToolConfig> = {
   searchBlueprint: {
-    label: 'Searching blueprint',
-    description: 'Finding relevant sections and data...',
+    label: 'Searching blueprint...',
+    description: 'Finding relevant sections and data',
     icon: Search,
     color: 'var(--accent-blue)',
   },
   editBlueprint: {
-    label: 'Preparing edit',
-    description: 'Analyzing section and generating changes...',
+    label: 'Proposing edits...',
+    description: 'Analyzing section and generating changes',
     icon: Pencil,
     color: '#f59e0b',
   },
   explainBlueprint: {
-    label: 'Analyzing section',
-    description: 'Building explanation with evidence...',
+    label: 'Analyzing section...',
+    description: 'Building explanation with evidence',
     icon: Lightbulb,
     color: 'var(--accent-cyan)',
   },
   webResearch: {
-    label: 'Web research',
-    description: 'Searching live data sources...',
+    label: 'Searching the web...',
+    description: 'Querying live data sources',
     icon: Globe,
     color: 'var(--accent-blue)',
   },
   deepResearch: {
-    label: 'Deep research',
-    description: 'Running multi-step investigation...',
+    label: 'Researching 5 sub-queries...',
+    description: 'Running multi-step investigation',
     icon: Search,
     color: 'var(--accent-blue)',
   },
   generateSection: {
-    label: 'Generating section',
-    description: 'Rewriting content with AI...',
+    label: 'Generating section...',
+    description: 'Rewriting content with AI',
     icon: RefreshCw,
     color: '#f59e0b',
   },
   compareCompetitors: {
-    label: 'Comparing competitors',
-    description: 'Building comparison matrix...',
+    label: 'Comparing competitors...',
+    description: 'Building comparison matrix',
     icon: BarChart3,
     color: 'var(--accent-purple)',
   },
   analyzeMetrics: {
-    label: 'Analyzing metrics',
-    description: 'Scoring across dimensions...',
+    label: 'Scoring section...',
+    description: 'Evaluating across quality dimensions',
     icon: Activity,
     color: 'var(--accent-cyan)',
   },
   createVisualization: {
-    label: 'Creating chart',
-    description: 'Extracting and formatting data...',
+    label: 'Creating chart...',
+    description: 'Extracting and formatting data',
     icon: Eye,
     color: 'var(--accent-green)',
   },
   searchMediaPlan: {
-    label: 'Searching media plan',
-    description: 'Finding relevant sections and data...',
+    label: 'Searching media plan...',
+    description: 'Finding relevant sections and data',
     icon: Search,
     color: 'var(--accent-blue)',
   },
   editMediaPlan: {
-    label: 'Preparing edit',
-    description: 'Analyzing section and generating changes...',
+    label: 'Proposing edits...',
+    description: 'Analyzing section and generating changes',
     icon: Pencil,
     color: '#f59e0b',
   },
   explainMediaPlan: {
-    label: 'Analyzing section',
-    description: 'Building explanation with evidence...',
+    label: 'Analyzing section...',
+    description: 'Building explanation with evidence',
     icon: Lightbulb,
     color: 'var(--accent-cyan)',
   },
   recalculate: {
-    label: 'Running validation',
-    description: 'Checking budget and KPI consistency...',
+    label: 'Running validation...',
+    description: 'Checking budget and KPI consistency',
     icon: Calculator,
     color: 'var(--accent-green)',
   },
   simulateBudgetChange: {
-    label: 'Simulating budget',
-    description: 'Projecting outcomes for change...',
+    label: 'Simulating budget...',
+    description: 'Projecting outcomes for change',
     icon: TrendingUp,
     color: 'var(--accent-purple)',
   },
@@ -169,8 +169,8 @@ export function ToolLoadingIndicator({ toolName, args, className }: ToolLoadingI
       <div
         className="flex-shrink-0 flex items-center justify-center rounded-md"
         style={{
-          width: 28,
-          height: 28,
+          width: 24,
+          height: 24,
           background: iconBg,
         }}
       >
@@ -186,21 +186,21 @@ export function ToolLoadingIndicator({ toolName, args, className }: ToolLoadingI
       <div className="flex-1 min-w-0">
         <p
           className="font-medium leading-tight truncate"
-          style={{ fontSize: '12px', color: config.color }}
+          style={{ fontSize: '12px', color: 'var(--text-secondary)' }}
         >
           {config.label}
         </p>
         {context ? (
           <p
             className="truncate mt-0.5"
-            style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}
+            style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}
           >
             {context}
           </p>
         ) : (
           <p
             className="truncate mt-0.5"
-            style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}
+            style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}
           >
             {config.description}
           </p>

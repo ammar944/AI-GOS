@@ -1,6 +1,8 @@
 'use client';
 
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { springs } from '@/lib/motion';
 
 interface JourneyLayoutProps {
   phase: 'setup' | 'review';
@@ -18,40 +20,41 @@ export function JourneyLayout({
   const isCentered = phase === 'setup';
 
   return (
-    <div
-      className={cn('flex h-full w-full', className)}
-      style={{
-        background: 'var(--bg-base)',
-        transition: 'all 0.3s ease',
-      }}
-    >
-      {/* Chat Panel */}
-      <div
-        className="flex flex-col h-full"
-        style={{
-          width: isCentered ? '100%' : 'var(--chat-width)',
-          maxWidth: isCentered ? '720px' : 'var(--chat-width)',
-          margin: isCentered ? '0 auto' : '0',
-          flexShrink: 0,
-          transition: 'all 0.3s ease',
+    <div className={cn('flex h-full w-full', className)} style={{ background: 'var(--bg-base)' }}>
+      {/* Chat Panel — animates width on phase change */}
+      <motion.div
+        className="flex flex-col h-full flex-shrink-0"
+        layout
+        animate={{
+          width: isCentered ? '100%' : '440px',
+          maxWidth: isCentered ? '720px' : '440px',
+          marginLeft: isCentered ? 'auto' : '0px',
+          marginRight: isCentered ? 'auto' : '0px',
         }}
+        transition={springs.gentle}
       >
         {chatContent}
-      </div>
+      </motion.div>
 
-      {/* Blueprint Panel — only visible in review phase */}
-      {!isCentered && blueprintContent && (
-        <div
-          className="flex-1 h-full overflow-y-auto"
-          style={{
-            borderLeft: '1px solid var(--border-default)',
-            background: 'var(--bg-elevated)',
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {blueprintContent}
-        </div>
-      )}
+      {/* Blueprint Panel — slides in from right */}
+      <AnimatePresence mode="wait">
+        {!isCentered && blueprintContent && (
+          <motion.div
+            key="blueprint-panel"
+            className="flex-1 h-full overflow-y-auto"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            transition={springs.gentle}
+            style={{
+              borderLeft: '1px solid var(--border-default)',
+              background: 'var(--bg-elevated)',
+            }}
+          >
+            {blueprintContent}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

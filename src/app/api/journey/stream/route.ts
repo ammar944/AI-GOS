@@ -6,7 +6,10 @@ import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
 import { auth } from '@clerk/nextjs/server';
 import { anthropic, MODELS } from '@/lib/ai/providers';
-import { LEAD_AGENT_SYSTEM_PROMPT } from '@/lib/ai/prompts/lead-agent-system';
+import {
+  LEAD_AGENT_SYSTEM_PROMPT,
+  buildResumeContext,
+} from '@/lib/ai/prompts/lead-agent-system';
 import { askUser } from '@/lib/ai/tools/ask-user';
 import { extractAskUserResults } from '@/lib/journey/session-state';
 import { persistToSupabase } from '@/lib/journey/session-state.server';
@@ -15,6 +18,7 @@ export const maxDuration = 300;
 
 interface JourneyStreamRequest {
   messages: UIMessage[];
+  resumeState?: Record<string, unknown>;
 }
 
 export async function POST(request: Request) {
@@ -74,10 +78,20 @@ export async function POST(request: Request) {
     });
   }
 
+  // ── Build system prompt (augment with resume context if present) ────────
+  let systemPrompt = LEAD_AGENT_SYSTEM_PROMPT;
+  if (
+    body.resumeState &&
+    typeof body.resumeState === 'object' &&
+    Object.keys(body.resumeState).length > 0
+  ) {
+    systemPrompt += buildResumeContext(body.resumeState);
+  }
+
   // ── Stream ──────────────────────────────────────────────────────────────
   const result = streamText({
     model: anthropic(MODELS.CLAUDE_OPUS),
-    system: LEAD_AGENT_SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: await convertToModelMessages(sanitizedMessages),
     tools: { askUser },
     stopWhen: stepCountIs(15),

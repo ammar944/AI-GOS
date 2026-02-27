@@ -12,30 +12,91 @@ import { JourneyHeader } from '@/components/journey/journey-header';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
-import { LEAD_AGENT_WELCOME_MESSAGE } from '@/lib/ai/prompts/lead-agent-system';
-import { getJourneySession, setJourneySession } from '@/lib/storage/local-storage';
-import { calculateCompletion, createEmptyState } from '@/lib/journey/session-state';
+import { BlueprintPanel } from '@/components/journey/blueprint-panel';
+import { ResumePrompt } from '@/components/journey/resume-prompt';
+import {
+  LEAD_AGENT_WELCOME_MESSAGE,
+  LEAD_AGENT_RESUME_WELCOME,
+} from '@/lib/ai/prompts/lead-agent-system';
+import {
+  getJourneySession,
+  setJourneySession,
+  clearJourneySession,
+} from '@/lib/storage/local-storage';
+import {
+  calculateCompletion,
+  createEmptyState,
+  hasAnsweredFields,
+  getAnsweredFields,
+} from '@/lib/journey/session-state';
+import { stateToFormData } from '@/lib/journey/state-to-form-data';
+import { computeJourneyProgress } from '@/lib/journey/journey-progress-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
+import type { OnboardingFormData } from '@/lib/onboarding/types';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 
 export default function JourneyPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Resume state
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
+  const [isResuming, setIsResuming] = useState(false);
+  const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
+
+  // Phase: 'setup' = centered chat, 'review' = two-column with blueprint
+  const [phase, setPhase] = useState<'setup' | 'review'>('setup');
+
+  // Converted form data for blueprint generation (set when phase transitions)
+  const [formData, setFormData] = useState<OnboardingFormData | null>(null);
+
   // Start at 0 to match SSR, then hydrate from localStorage in useEffect
   const [completionPercentage, setCompletionPercentage] = useState(0);
+  const [onboardingState, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
   useEffect(() => {
     const saved = getJourneySession();
-    if (saved?.completionPercent) setCompletionPercentage(saved.completionPercent);
+    if (saved) {
+      if (saved.completionPercent) setCompletionPercentage(saved.completionPercent);
+      setOnboardingState(saved);
+      // Resume review phase if previously completed
+      if (saved.phase === 'complete') {
+        setPhase('review');
+        setFormData(stateToFormData(saved));
+      } else if (hasAnsweredFields(saved)) {
+        // Partial session — show resume prompt
+        setSavedSession(saved);
+        setShowResumePrompt(true);
+      }
+    }
   }, []);
 
-  // Transport — stable reference, no body needed for Sprint 1
+  // Compute journey progress from onboarding state
+  // During the journey page, only onboarding is active — blueprint/media plan haven't started
+  const journeyProgress = useMemo(
+    () =>
+      computeJourneyProgress({
+        onboardingState,
+        completedBlueprintSections: new Set(),
+        isBlueprintGenerating: false,
+        completedMediaPlanSections: new Set(),
+        isMediaPlanGenerating: false,
+        isBlueprintComplete: false,
+        isMediaPlanComplete: false,
+      }),
+    [onboardingState]
+  );
+
+  // Transport — body includes resumeState when resuming a previous session.
+  // transportBody changes at most once (when user clicks "Continue"), before
+  // any messages are sent, so recreating the transport is safe.
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: '/api/journey/stream',
+        body: transportBody,
       }),
-    []
+    [transportBody]
   );
 
   // Chat hook
@@ -123,9 +184,22 @@ export default function JourneyPage() {
         updated.completionPercent = completionPercent;
         setJourneySession(updated);
         setCompletionPercentage(completionPercent);
+        setOnboardingState(updated);
+
+        // 3. Detect confirmation → transition to review phase
+        if (result.fieldName === 'confirmation') {
+          const label = 'selectedLabel' in result ? String(result.selectedLabel).toLowerCase() : '';
+          const confirmed = label.includes('looks good') || label.includes("let's go");
+          if (confirmed) {
+            updated.phase = 'complete';
+            setJourneySession(updated);
+            setFormData(stateToFormData(updated));
+            setPhase('review');
+          }
+        }
       }
 
-      // 3. Send tool output to SDK (triggers next round trip via sendAutomaticallyWhen)
+      // 4. Send tool output to SDK (triggers next round trip via sendAutomaticallyWhen)
       addToolOutput({
         tool: 'askUser',
         toolCallId,
@@ -135,6 +209,30 @@ export default function JourneyPage() {
     [addToolOutput]
   );
 
+  // ── Resume handlers ──────────────────────────────────────────────────────
+  const handleResumeContinue = useCallback(() => {
+    if (savedSession) {
+      setTransportBody({ resumeState: getAnsweredFields(savedSession) });
+      setIsResuming(true);
+    }
+    setShowResumePrompt(false);
+  }, [savedSession]);
+
+  const handleResumeStartFresh = useCallback(() => {
+    clearJourneySession();
+    setTransportBody(undefined);
+    setSavedSession(null);
+    setIsResuming(false);
+    setCompletionPercentage(0);
+    setOnboardingState(null);
+    setShowResumePrompt(false);
+  }, []);
+
+  // Welcome message — different when resuming a previous session
+  const welcomeMessage = isResuming
+    ? LEAD_AGENT_RESUME_WELCOME
+    : LEAD_AGENT_WELCOME_MESSAGE;
+
   // Last assistant message gets streaming cursor
   const lastMessage = messages[messages.length - 1];
   const isLastMessageStreaming = isStreaming && lastMessage?.role === 'assistant';
@@ -143,16 +241,24 @@ export default function JourneyPage() {
   const chatContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <JourneyHeader completionPercentage={completionPercentage} />
+      <JourneyHeader completionPercentage={completionPercentage} journeyProgress={journeyProgress} />
 
       {/* Messages area — scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        {/* Welcome message — static, never sent to API */}
-        <ChatMessage
-          role="assistant"
-          content={LEAD_AGENT_WELCOME_MESSAGE}
-          isStreaming={false}
-        />
+        {/* Resume prompt OR welcome message */}
+        {showResumePrompt && savedSession ? (
+          <ResumePrompt
+            session={savedSession}
+            onContinue={handleResumeContinue}
+            onStartFresh={handleResumeStartFresh}
+          />
+        ) : (
+          <ChatMessage
+            role="assistant"
+            content={welcomeMessage}
+            isStreaming={false}
+          />
+        )}
 
         {/* Conversation messages */}
         {messages.map((message, index) => {
@@ -201,16 +307,33 @@ export default function JourneyPage() {
       <div className="flex-shrink-0 px-4 pb-4 pt-0">
         <JourneyChatInput
           onSubmit={handleSubmit}
-          isLoading={isLoading}
-          placeholder="Tell me about your business..."
+          isLoading={isLoading || showResumePrompt}
+          placeholder={
+            showResumePrompt
+              ? 'Choose an option above to continue...'
+              : isResuming
+                ? "Let's pick up where we left off..."
+                : phase === 'review'
+                  ? 'Ask about your blueprint...'
+                  : 'Tell me about your business...'
+          }
         />
       </div>
     </div>
   );
 
+  // Blueprint content for the right panel
+  const blueprintContent = formData ? (
+    <BlueprintPanel onboardingData={formData} />
+  ) : undefined;
+
   return (
     <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
-      <JourneyLayout phase="setup" chatContent={chatContent} />
+      <JourneyLayout
+        phase={phase}
+        chatContent={chatContent}
+        blueprintContent={blueprintContent}
+      />
     </div>
   );
 }

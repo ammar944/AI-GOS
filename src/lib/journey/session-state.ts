@@ -47,6 +47,23 @@ export const REQUIRED_FIELDS: (keyof OnboardingState)[] = [
   'goals',
 ];
 
+export const OPTIONAL_FIELDS: (keyof OnboardingState)[] = [
+  'companyName',
+  'websiteUrl',
+  'teamSize',
+  'monthlyBudget',
+  'currentCac',
+  'targetCpa',
+  'topPerformingChannel',
+  'biggestMarketingChallenge',
+  'buyerPersonaTitle',
+  'salesCycleLength',
+  'avgDealSize',
+  'primaryKpi',
+  'geographicFocus',
+  'seasonalityPattern',
+];
+
 // ── Completion Calculation ─────────────────────────────────────────────────
 
 export function calculateCompletion(state: Partial<OnboardingState>): {
@@ -65,6 +82,34 @@ export function calculateCompletion(state: Partial<OnboardingState>): {
     requiredFieldsCompleted: completed,
     completionPercent: Math.round((completed / REQUIRED_FIELDS.length) * 100),
   };
+}
+
+// ── Resume Helpers ───────────────────────────────────────────────────────
+
+/** Returns true if at least one required field has a non-empty value. */
+export function hasAnsweredFields(state: OnboardingState): boolean {
+  return REQUIRED_FIELDS.some((field) => {
+    const val = state[field];
+    if (val === null || val === undefined) return false;
+    if (typeof val === 'string') return val.trim() !== '';
+    if (Array.isArray(val)) return val.length > 0;
+    return true;
+  });
+}
+
+/** Extracts a flat record of only the fields that have non-empty values. */
+export function getAnsweredFields(
+  state: OnboardingState,
+): Record<string, unknown> {
+  const answered: Record<string, unknown> = {};
+  for (const field of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
+    const val = state[field];
+    if (val === null || val === undefined) continue;
+    if (typeof val === 'string' && val.trim() === '') continue;
+    if (Array.isArray(val) && val.length === 0) continue;
+    answered[field] = val;
+  }
+  return answered;
 }
 
 // ── Extract askUser Results from Messages ──────────────────────────────────

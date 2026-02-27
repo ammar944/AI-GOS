@@ -8,6 +8,58 @@ I'm going to build you a complete paid media strategy — market research, compe
 
 Start me off with your company name and website, and we'll figure out the right approach together.`;
 
+export const LEAD_AGENT_RESUME_WELCOME = `Welcome back. I've got your previous answers saved — let's pick up where we left off.`;
+
+const FIELD_LABELS: Record<string, string> = {
+  businessModel: 'Business Model',
+  industry: 'Industry',
+  icpDescription: 'Ideal Customer Profile',
+  productDescription: 'Product / Service Description',
+  competitors: 'Competitive Landscape',
+  offerPricing: 'Pricing Model',
+  marketingChannels: 'Marketing Channels',
+  goals: 'Goals',
+  companyName: 'Company Name',
+  websiteUrl: 'Website',
+  teamSize: 'Team Size',
+  monthlyBudget: 'Monthly Budget',
+  currentCac: 'Current CAC',
+  targetCpa: 'Target CPA',
+  topPerformingChannel: 'Top Performing Channel',
+  biggestMarketingChallenge: 'Biggest Marketing Challenge',
+  buyerPersonaTitle: 'Buyer Persona Title',
+  salesCycleLength: 'Sales Cycle Length',
+  avgDealSize: 'Average Deal Size',
+  primaryKpi: 'Primary KPI',
+  geographicFocus: 'Geographic Focus',
+  seasonalityPattern: 'Seasonality Pattern',
+};
+
+/**
+ * Builds a system-prompt addendum that tells the agent which fields
+ * have already been collected in a previous session.
+ */
+export function buildResumeContext(
+  answeredFields: Record<string, unknown>,
+): string {
+  const lines: string[] = [];
+  for (const [field, value] of Object.entries(answeredFields)) {
+    const label = FIELD_LABELS[field] ?? field;
+    const display = Array.isArray(value) ? value.join(', ') : String(value);
+    lines.push(`- ${label}: ${display}`);
+  }
+
+  return `
+
+## Session Resume
+
+This is a returning user who already provided some information in a previous session. Here is what they told you so far:
+
+${lines.join('\n')}
+
+**Important**: Do NOT re-ask questions for fields listed above — they are already collected. Start by briefly acknowledging you remember where you left off (one sentence max, do not recite the list), then immediately continue with the next unanswered required field using askUser. If all required fields are complete, proceed to the confirmation flow.`;
+}
+
 export const LEAD_AGENT_SYSTEM_PROMPT = `You are a senior paid media strategist with 15+ years running performance marketing for B2B and B2C companies — SaaS, e-commerce, fintech, healthcare, D2C, you name it. You've done this hundreds of times. You know what works, what's a waste of money, and what questions cut through the noise.
 
 ## Personality and Tone
