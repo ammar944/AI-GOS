@@ -20,18 +20,18 @@ export function JourneyLayout({
   const isCentered = phase === 'setup';
 
   return (
-    <div className={cn('flex h-full w-full', className)} style={{ background: 'var(--bg-base)' }}>
+    <div
+      className={cn('flex h-full w-full', isCentered && 'justify-center', className)}
+      style={{ background: 'var(--bg-base)' }}
+    >
       {/* Chat Panel — animates width on phase change */}
       <motion.div
         className="flex flex-col h-full flex-shrink-0"
-        layout
         animate={{
-          width: isCentered ? '100%' : '440px',
-          maxWidth: isCentered ? '720px' : '440px',
-          marginLeft: isCentered ? 'auto' : '0px',
-          marginRight: isCentered ? 'auto' : '0px',
+          width: isCentered ? 720 : 440,
         }}
         transition={springs.gentle}
+        style={{ maxWidth: isCentered ? '100%' : undefined }}
       >
         {chatContent}
       </motion.div>
