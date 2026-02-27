@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Sans, Geist_Mono } from "next/font/google";
+import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 
-// SaaSLaunch Typography System
-// Body font - Inter
-const inter = Inter({
-  variable: "--font-inter",
+// AI-GOS v2 Typography System
+// Body font - DM Sans
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   display: "swap",
+  weight: ["300", "400", "500", "600"],
 });
 
 // Heading font - Instrument Sans
@@ -21,9 +22,11 @@ const instrumentSans = Instrument_Sans({
 });
 
 // Mono font for data/code
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500"],
 });
 
 // Note: Cabinet Grotesk (display font) requires self-hosting or purchase
@@ -52,7 +55,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className="dark">
         <body
-          className={`${inter.variable} ${instrumentSans.variable} ${geistMono.variable} font-sans antialiased`}
+          className={`${dmSans.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} font-sans antialiased`}
           suppressHydrationWarning
         >
           <ErrorBoundary>{children}</ErrorBoundary>
