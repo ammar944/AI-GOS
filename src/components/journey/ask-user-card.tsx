@@ -293,13 +293,9 @@ export function AskUserCard({
   const chipRole = multiSelect ? 'checkbox' : 'radio';
   const totalChips = options.length + 1; // +1 for "Other"
 
-  // Sync from prop when isSubmitted changes externally
-  useEffect(() => {
-    if (isSubmitted) {
-      setCardState('submitted');
-      setInternalSelected(new Set(selectedIndicesProp));
-    }
-  }, [isSubmitted, selectedIndicesProp]);
+  // Derive effective submission state and selection from props + internal state
+  const submitted = cardState === 'submitted' || isSubmitted;
+  const activeSelected = isSubmitted ? new Set(selectedIndicesProp) : internalSelected;
 
   // ---- Single-select handler ----
   const handleSingleSelect = useCallback(
@@ -404,10 +400,8 @@ export function AskUserCard({
     [cardState, totalChips, options.length, multiSelect, handleOtherClick, handleMultiToggle, handleSingleSelect],
   );
 
-  const submitted = cardState === 'submitted';
-
   // Build selected labels for screen reader announcement
-  const selectedLabels = Array.from(internalSelected)
+  const selectedLabels = Array.from(activeSelected)
     .sort((a, b) => a - b)
     .map((i) => options[i]?.label)
     .filter(Boolean);
@@ -430,7 +424,7 @@ export function AskUserCard({
         )}
       >
         {options.map((option, index) => {
-          const isSelected = internalSelected.has(index);
+          const isSelected = activeSelected.has(index);
           const isFadedOut =
             !multiSelect &&
             singleHighlight !== null &&
@@ -494,7 +488,7 @@ export function AskUserCard({
 
       {/* Multi-select "Done" button */}
       <AnimatePresence>
-        {multiSelect && cardState === 'selecting' && internalSelected.size > 0 && (
+        {multiSelect && cardState === 'selecting' && activeSelected.size > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -510,7 +504,7 @@ export function AskUserCard({
                 color: '#ffffff',
               }}
             >
-              Done ({internalSelected.size})
+              Done ({activeSelected.size})
             </button>
           </motion.div>
         )}

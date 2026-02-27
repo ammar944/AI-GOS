@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     temperature: 0.3,
     providerOptions: {
       anthropic: {
-        thinking: { type: 'adaptive' },
+        thinking: { type: 'enabled', budgetTokens: 10000 },
       },
     },
     onFinish: async ({ usage, steps }) => {

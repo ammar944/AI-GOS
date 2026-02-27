@@ -17,21 +17,21 @@ export function ThinkingBlock({
 }: ThinkingBlockProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  // Self-managed timer: starts on mount, ticks while streaming, freezes on done
-  const startTimeRef = useRef<number>(Date.now());
+  // Self-managed timer: starts on mount, ticks while streaming, freezes when interval stops
+  const startTimeRef = useRef<number>(0);
   const [elapsed, setElapsed] = useState(0);
-  const frozenElapsedRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (state === 'streaming') {
-      const interval = setInterval(() => {
-        setElapsed(Date.now() - startTimeRef.current);
-      }, 100);
-      return () => clearInterval(interval);
-    } else if (state === 'done' && frozenElapsedRef.current === null) {
-      frozenElapsedRef.current = Date.now() - startTimeRef.current;
-      setElapsed(frozenElapsedRef.current);
-    }
+    startTimeRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (state !== 'streaming') return;
+
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - startTimeRef.current);
+    }, 100);
+    return () => clearInterval(interval);
   }, [state]);
 
   const label = (() => {
@@ -39,8 +39,7 @@ export function ThinkingBlock({
       return `Thinking for ${(elapsed / 1000).toFixed(1)}s`;
     }
     if (state === 'done') {
-      const finalElapsed = frozenElapsedRef.current ?? elapsed;
-      return `Thought for ${(finalElapsed / 1000).toFixed(1)}s`;
+      return `Thought for ${(elapsed / 1000).toFixed(1)}s`;
     }
     return 'Thinking';
   })();
