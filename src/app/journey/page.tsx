@@ -7,12 +7,11 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
-import { JourneyLayout } from '@/components/journey/journey-layout';
+import { AppShell, ShellProvider } from '@/components/shell';
 import { JourneyHeader } from '@/components/journey/journey-header';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
-import { BlueprintPanel } from '@/components/journey/blueprint-panel';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
@@ -29,13 +28,56 @@ import {
   hasAnsweredFields,
   getAnsweredFields,
 } from '@/lib/journey/session-state';
-import { stateToFormData } from '@/lib/journey/state-to-form-data';
 import { computeJourneyProgress } from '@/lib/journey/journey-progress-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
-import type { OnboardingFormData } from '@/lib/onboarding/types';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 
+function SidebarPlaceholder() {
+  return (
+    <div className="flex flex-col h-full p-4">
+      <div
+        className="font-heading font-bold"
+        style={{
+          fontSize: '15px',
+          background: 'linear-gradient(180deg, #ffffff 0%, #93c5fd 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}
+      >
+        AI-GOS
+      </div>
+      <div className="mt-6 text-xs" style={{ color: 'var(--text-quaternary)' }}>
+        Navigation placeholder
+      </div>
+    </div>
+  );
+}
+
+function RightPanelPlaceholder() {
+  return (
+    <div className="flex flex-col h-full p-4">
+      <div
+        className="text-[10.5px] font-semibold uppercase tracking-wider"
+        style={{ color: 'var(--text-tertiary)' }}
+      >
+        Context Panel
+      </div>
+      <div className="mt-4 text-xs" style={{ color: 'var(--text-quaternary)' }}>
+        Blueprint & research status will appear here
+      </div>
+    </div>
+  );
+}
+
 export default function JourneyPage() {
+  return (
+    <ShellProvider>
+      <JourneyPageContent />
+    </ShellProvider>
+  );
+}
+
+function JourneyPageContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Resume state
@@ -43,12 +85,6 @@ export default function JourneyPage() {
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [isResuming, setIsResuming] = useState(false);
   const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
-
-  // Phase: 'setup' = centered chat, 'review' = two-column with blueprint
-  const [phase, setPhase] = useState<'setup' | 'review'>('setup');
-
-  // Converted form data for blueprint generation (set when phase transitions)
-  const [formData, setFormData] = useState<OnboardingFormData | null>(null);
 
   // Start at 0 to match SSR, then hydrate from localStorage in useEffect
   const [completionPercentage, setCompletionPercentage] = useState(0);
@@ -59,12 +95,8 @@ export default function JourneyPage() {
     if (saved) {
       if (saved.completionPercent) setCompletionPercentage(saved.completionPercent);
       setOnboardingState(saved);
-      // Resume review phase if previously completed
-      if (saved.phase === 'complete') {
-        setPhase('review');
-        setFormData(stateToFormData(saved));
-      } else if (hasAnsweredFields(saved)) {
-        // Partial session — show resume prompt
+      if (hasAnsweredFields(saved)) {
+        // Partial or complete session — show resume prompt
         setSavedSession(saved);
         setShowResumePrompt(true);
       }
@@ -186,20 +218,18 @@ export default function JourneyPage() {
         setCompletionPercentage(completionPercent);
         setOnboardingState(updated);
 
-        // 3. Detect confirmation → transition to review phase
+        // Mark phase as complete on confirmation
         if (result.fieldName === 'confirmation') {
           const label = 'selectedLabel' in result ? String(result.selectedLabel).toLowerCase() : '';
           const confirmed = label.includes('looks good') || label.includes("let's go");
           if (confirmed) {
             updated.phase = 'complete';
             setJourneySession(updated);
-            setFormData(stateToFormData(updated));
-            setPhase('review');
           }
         }
       }
 
-      // 4. Send tool output to SDK (triggers next round trip via sendAutomaticallyWhen)
+      // 3. Send tool output to SDK (triggers next round trip via sendAutomaticallyWhen)
       addToolOutput({
         tool: 'askUser',
         toolCallId,
@@ -237,7 +267,7 @@ export default function JourneyPage() {
   const lastMessage = messages[messages.length - 1];
   const isLastMessageStreaming = isStreaming && lastMessage?.role === 'assistant';
 
-  // Chat content passed to JourneyLayout
+  // Chat content
   const chatContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -313,27 +343,21 @@ export default function JourneyPage() {
               ? 'Choose an option above to continue...'
               : isResuming
                 ? "Let's pick up where we left off..."
-                : phase === 'review'
-                  ? 'Ask about your blueprint...'
-                  : 'Tell me about your business...'
+                : 'Tell me about your business...'
           }
         />
       </div>
     </div>
   );
 
-  // Blueprint content for the right panel
-  const blueprintContent = formData ? (
-    <BlueprintPanel onboardingData={formData} />
-  ) : undefined;
-
   return (
     <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
-      <JourneyLayout
-        phase={phase}
-        chatContent={chatContent}
-        blueprintContent={blueprintContent}
-      />
+      <AppShell
+        sidebar={<SidebarPlaceholder />}
+        rightPanel={<RightPanelPlaceholder />}
+      >
+        {chatContent}
+      </AppShell>
     </div>
   );
 }

@@ -15,6 +15,7 @@ export const STORAGE_KEYS = {
   MEDIA_PLAN: "aigog_media_plan",
   AD_COPY: "aigog_ad_copy",
   JOURNEY_SESSION: "aigog_journey_session",
+  SHELL_STATE: "aigog_shell_state",
 } as const;
 
 // Generation state to track progress
