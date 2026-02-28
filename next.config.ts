@@ -54,6 +54,17 @@ const nextConfig: NextConfig = {
         hostname: '*.foreplay.co',
         pathname: '/**',
       },
+      // Clerk user avatars
+      {
+        protocol: 'https',
+        hostname: 'img.clerk.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.clerk.dev',
+        pathname: '/**',
+      },
     ],
   },
 };

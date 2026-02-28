@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   AD_COPY: "aigog_ad_copy",
   JOURNEY_SESSION: "aigog_journey_session",
   SHELL_STATE: "aigog_shell_state",
+  SESSION_HISTORY: "aigos_session_history",
 } as const;
 
 // Generation state to track progress
@@ -26,6 +27,14 @@ export interface GenerationState {
     | "media-plan-complete"
     | "media-plan-approved"
     | "ad-copy-complete";
+  lastUpdated: string;
+}
+
+export interface SessionSummary {
+  id: string;
+  companyName: string | null;
+  status: 'active' | 'complete' | 'draft';
+  completionPercent: number;
   lastUpdated: string;
 }
 
@@ -140,6 +149,34 @@ export function setJourneySession(data: OnboardingState): boolean {
 
 export function clearJourneySession(): boolean {
   return removeItem(STORAGE_KEYS.JOURNEY_SESSION);
+}
+
+// Session History (sidebar recent sessions)
+export function getSessionHistory(): SessionSummary[] {
+  return getItem<SessionSummary[]>(STORAGE_KEYS.SESSION_HISTORY) ?? [];
+}
+
+export function addSessionToHistory(summary: SessionSummary): boolean {
+  const history = getSessionHistory();
+  const existing = history.findIndex(s => s.id === summary.id);
+  if (existing !== -1) {
+    history[existing] = summary;
+  } else {
+    history.unshift(summary);
+  }
+  // Keep max 20 entries, FIFO
+  return setItem(STORAGE_KEYS.SESSION_HISTORY, history.slice(0, 20));
+}
+
+export function updateSessionInHistory(
+  id: string,
+  updates: Partial<Omit<SessionSummary, 'id'>>,
+): boolean {
+  const history = getSessionHistory();
+  const index = history.findIndex(s => s.id === id);
+  if (index === -1) return false;
+  history[index] = { ...history[index], ...updates };
+  return setItem(STORAGE_KEYS.SESSION_HISTORY, history);
 }
 
 // Generation State

@@ -7,7 +7,7 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
-import { AppShell, ShellProvider } from '@/components/shell';
+import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
 import { JourneyHeader } from '@/components/journey/journey-header';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
@@ -31,27 +31,6 @@ import {
 import { computeJourneyProgress } from '@/lib/journey/journey-progress-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
-
-function SidebarPlaceholder() {
-  return (
-    <div className="flex flex-col h-full p-4">
-      <div
-        className="font-heading font-bold"
-        style={{
-          fontSize: '15px',
-          background: 'linear-gradient(180deg, #ffffff 0%, #93c5fd 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}
-      >
-        AI-GOS
-      </div>
-      <div className="mt-6 text-xs" style={{ color: 'var(--text-quaternary)' }}>
-        Navigation placeholder
-      </div>
-    </div>
-  );
-}
 
 function RightPanelPlaceholder() {
   return (
@@ -353,7 +332,7 @@ function JourneyPageContent() {
   return (
     <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
       <AppShell
-        sidebar={<SidebarPlaceholder />}
+        sidebar={<AppSidebar />}
         rightPanel={<RightPanelPlaceholder />}
       >
         {chatContent}
