@@ -9,7 +9,7 @@ interface ResearchSectionsProps {
   messages: UIMessage[];
 }
 
-type ResearchStatus = 'done' | 'running' | 'pending';
+type ResearchStatus = 'done' | 'running' | 'pending' | 'error';
 
 interface ResearchItem {
   key: string;
@@ -45,6 +45,7 @@ function deriveResearchStatus(
       if (!input || input.section !== key) continue;
 
       const state = p.state as string | undefined;
+      if (state === 'output-error') return 'error';
       if (state === 'output-available') return 'done';
       if (state === 'input-streaming' || state === 'input-available') {
         return 'running';
@@ -64,6 +65,15 @@ function StatusDot({ status }: StatusDotProps) {
       <div
         className="flex-shrink-0 rounded-full"
         style={{ width: 7, height: 7, background: 'var(--accent-green)' }}
+      />
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div
+        className="flex-shrink-0 rounded-full"
+        style={{ width: 7, height: 7, background: 'var(--status-error, #ef4444)' }}
       />
     );
   }
@@ -109,9 +119,11 @@ function ResearchRow({ item, status }: ResearchRowProps) {
   const labelColor =
     status === 'done'
       ? 'var(--text-secondary)'
-      : status === 'running'
-        ? 'var(--accent-blue)'
-        : 'var(--text-quaternary)';
+      : status === 'error'
+        ? 'var(--status-error, #ef4444)'
+        : status === 'running'
+          ? 'var(--accent-blue)'
+          : 'var(--text-quaternary)';
 
   const labelWeight = status === 'running' ? 500 : 400;
 
@@ -161,6 +173,17 @@ function ResearchRow({ item, status }: ResearchRowProps) {
             }}
           >
             Running...
+          </span>
+        )}
+        {status === 'error' && (
+          <span
+            style={{
+              fontSize: 11,
+              color: 'var(--status-error, #ef4444)',
+              opacity: 0.7,
+            }}
+          >
+            Failed
           </span>
         )}
       </div>

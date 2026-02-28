@@ -31,22 +31,7 @@ import {
 import { computeJourneyProgress } from '@/lib/journey/journey-progress-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
-
-function RightPanelPlaceholder() {
-  return (
-    <div className="flex flex-col h-full p-4">
-      <div
-        className="text-[10.5px] font-semibold uppercase tracking-wider"
-        style={{ color: 'var(--text-tertiary)' }}
-      >
-        Context Panel
-      </div>
-      <div className="mt-4 text-xs" style={{ color: 'var(--text-quaternary)' }}>
-        Blueprint & research status will appear here
-      </div>
-    </div>
-  );
-}
+import { ContextPanel } from '@/components/shell/context-panel';
 
 export default function JourneyPage() {
   return (
@@ -333,7 +318,13 @@ function JourneyPageContent() {
     <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
       <AppShell
         sidebar={<AppSidebar />}
-        rightPanel={<RightPanelPlaceholder />}
+        rightPanel={
+          <ContextPanel
+            onboardingState={onboardingState}
+            messages={messages}
+            journeyProgress={journeyProgress}
+          />
+        }
       >
         {chatContent}
       </AppShell>
