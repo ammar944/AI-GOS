@@ -11,6 +11,7 @@ import { AnalysisScoreCard } from '@/components/chat/analysis-score-card';
 import { VisualizationCard } from '@/components/chat/visualization-card';
 import { AskUserCard } from '@/components/journey/ask-user-card';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
+import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -356,6 +357,63 @@ function renderToolPart(
     }
 
     return null;
+  }
+
+  // runResearch tool — render inline research card
+  if (toolName === 'runResearch') {
+    const researchInput = input as { section?: string } | undefined;
+    const sectionName = researchInput?.section ?? 'unknown';
+
+    if (state === 'output-available') {
+      let parsedOutput: Record<string, unknown> | undefined;
+      if (typeof part.output === 'string') {
+        try { parsedOutput = JSON.parse(part.output as string); } catch { parsedOutput = undefined; }
+      } else {
+        parsedOutput = output;
+      }
+
+      if (parsedOutput?.status === 'error') {
+        return (
+          <ResearchInlineCard
+            key={key}
+            section={sectionName}
+            status="error"
+            error={parsedOutput.error as string}
+          />
+        );
+      }
+
+      return (
+        <ResearchInlineCard
+          key={key}
+          section={sectionName}
+          status="complete"
+          data={parsedOutput?.data as Record<string, unknown>}
+          durationMs={parsedOutput?.durationMs as number}
+          sourceCount={(parsedOutput?.sources as unknown[])?.length}
+        />
+      );
+    }
+
+    if (state === 'output-error') {
+      return (
+        <ResearchInlineCard
+          key={key}
+          section={sectionName}
+          status="error"
+          error={(part.errorText as string) || 'Research failed'}
+        />
+      );
+    }
+
+    // input-streaming, input-available → loading
+    return (
+      <ResearchInlineCard
+        key={key}
+        section={sectionName}
+        status="loading"
+      />
+    );
   }
 
   // Loading states

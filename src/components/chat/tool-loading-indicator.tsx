@@ -108,6 +108,12 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     icon: TrendingUp,
     color: 'var(--accent-purple)',
   },
+  runResearch: {
+    label: 'Running research...',
+    description: 'Executing market research with Perplexity',
+    icon: Search,
+    color: 'var(--accent-blue)',
+  },
 };
 
 const DEFAULT_CONFIG: ToolConfig = {
@@ -131,6 +137,16 @@ function getArgContext(toolName: string, args?: Record<string, unknown>): string
   }
   if (toolName === 'webResearch' && typeof args.query === 'string') {
     return truncate(args.query);
+  }
+  if (toolName === 'runResearch' && typeof args.section === 'string') {
+    const sectionLabels: Record<string, string> = {
+      industryMarket: 'Industry & Market',
+      competitors: 'Competitors',
+      icpValidation: 'ICP Validation',
+      offerAnalysis: 'Offer Analysis',
+      crossAnalysis: 'Cross-Analysis',
+    };
+    return sectionLabels[args.section] ?? args.section;
   }
   return null;
 }
