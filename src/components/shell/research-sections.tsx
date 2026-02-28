@@ -18,10 +18,10 @@ interface ResearchItem {
 
 const RESEARCH_ITEMS: ResearchItem[] = [
   { key: 'industryMarket', label: 'Industry & Market' },
-  { key: 'competitorAnalysis', label: 'Competitor Analysis' },
+  { key: 'competitors', label: 'Competitor Analysis' },
   { key: 'icpValidation', label: 'ICP Validation' },
   { key: 'offerAnalysis', label: 'Offer Analysis' },
-  { key: 'crossAnalysisSynthesis', label: 'Cross-Analysis Synthesis' },
+  { key: 'crossAnalysis', label: 'Cross-Analysis Synthesis' },
 ];
 
 function deriveResearchStatus(

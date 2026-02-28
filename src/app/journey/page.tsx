@@ -8,7 +8,6 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
 import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
-import { JourneyHeader } from '@/components/journey/journey-header';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
@@ -50,14 +49,11 @@ function JourneyPageContent() {
   const [isResuming, setIsResuming] = useState(false);
   const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
 
-  // Start at 0 to match SSR, then hydrate from localStorage in useEffect
-  const [completionPercentage, setCompletionPercentage] = useState(0);
   const [onboardingState, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
   useEffect(() => {
     const saved = getJourneySession();
     if (saved) {
-      if (saved.completionPercent) setCompletionPercentage(saved.completionPercent);
       setOnboardingState(saved);
       if (hasAnsweredFields(saved)) {
         // Partial or complete session — show resume prompt
@@ -179,7 +175,6 @@ function JourneyPageContent() {
         updated.requiredFieldsCompleted = requiredFieldsCompleted;
         updated.completionPercent = completionPercent;
         setJourneySession(updated);
-        setCompletionPercentage(completionPercent);
         setOnboardingState(updated);
 
         // Mark phase as complete on confirmation
@@ -217,7 +212,6 @@ function JourneyPageContent() {
     setTransportBody(undefined);
     setSavedSession(null);
     setIsResuming(false);
-    setCompletionPercentage(0);
     setOnboardingState(null);
     setShowResumePrompt(false);
   }, []);
@@ -234,9 +228,6 @@ function JourneyPageContent() {
   // Chat content
   const chatContent = (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <JourneyHeader completionPercentage={completionPercentage} journeyProgress={journeyProgress} />
-
       {/* Messages area — scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {/* Resume prompt OR welcome message */}
