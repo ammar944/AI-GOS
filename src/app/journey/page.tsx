@@ -31,6 +31,7 @@ import { computeJourneyProgress } from '@/lib/journey/journey-progress-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { ContextPanel } from '@/components/shell/context-panel';
+import { WelcomeState } from '@/components/journey/welcome-state';
 
 export default function JourneyPage() {
   return (
@@ -136,6 +137,22 @@ function JourneyPageContent() {
   );
 
   const isLoading = isStreaming || isSubmitted || hasPendingToolInteraction;
+
+  // Progressive reveal — derive journey phase from conversation state
+  // Phase 0: No messages yet → welcome state, no right panel
+  // Phase 1: Messages exist but no research yet → chat flowing, no right panel
+  // Phase 2: First research has fired → right panel slides in
+  const hasMessages = messages.length > 0;
+  const hasResearch = messages.some(
+    (msg) =>
+      msg.parts?.some(
+        (p) =>
+          typeof p === 'object' &&
+          'type' in p &&
+          (p as Record<string, unknown>).type === 'tool-runResearch'
+      )
+  );
+  const journeyPhase = !hasMessages ? 0 : hasResearch ? 2 : 1;
 
   // Auto-scroll on new messages or status change
   useEffect(() => {
@@ -310,14 +327,20 @@ function JourneyPageContent() {
       <AppShell
         sidebar={<AppSidebar />}
         rightPanel={
-          <ContextPanel
-            onboardingState={onboardingState}
-            messages={messages}
-            journeyProgress={journeyProgress}
-          />
+          journeyPhase >= 2 ? (
+            <ContextPanel
+              onboardingState={onboardingState}
+              messages={messages}
+              journeyProgress={journeyProgress}
+            />
+          ) : undefined
         }
       >
-        {chatContent}
+        {journeyPhase === 0 && !showResumePrompt ? (
+          <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
+        ) : (
+          chatContent
+        )}
       </AppShell>
     </div>
   );

@@ -26,7 +26,7 @@ const SECTION_META: Record<string, SectionMeta> = {
 };
 const DEFAULT_META: SectionMeta = { label: 'Research', icon: Globe, color: 'var(--accent-blue)' };
 
-const DOT_COLORS = ['var(--accent-blue)', 'var(--accent-cyan, #06b6d4)', 'var(--accent-green, #22c55e)', 'var(--accent-purple, #a855f7)', '#f59e0b'];
+const DOT_COLORS = ['var(--accent-blue)', 'var(--section-keyword)', 'var(--status-success)', 'var(--section-offer)', 'var(--section-competitor)'];
 
 const CARD_STYLE: React.CSSProperties = {
   padding: '10px 12px',
@@ -97,7 +97,7 @@ function LoadingCard({ meta }: { meta: SectionMeta }) {
     ? `color-mix(in srgb, ${meta.color} 12%, transparent)`
     : `${meta.color}1f`;
   return (
-    <div className="flex items-center gap-2.5" style={CARD_STYLE}>
+    <div className="flex items-center gap-2.5" style={CARD_STYLE} role="status" aria-label={`Researching ${meta.label}`}>
       <div className="flex-shrink-0 flex items-center justify-center rounded-md" style={{ width: 24, height: 24, background: iconBg }}>
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
           <Icon style={{ width: 13, height: 13, color: meta.color }} />
@@ -133,7 +133,7 @@ function CompleteCard({ meta, findings, durationMs, sourceCount }: { meta: Secti
         disabled={findings.length === 0}
         aria-expanded={expanded}
         className={cn(
-          'w-full flex items-center gap-2.5 text-left outline-none rounded-[10px]',
+          'w-full flex items-center gap-2.5 text-left outline-none rounded-[10px] focus-ring',
           'focus-visible:ring-2 focus-visible:ring-offset-1',
           findings.length > 0 ? 'cursor-pointer' : 'cursor-default',
         )}

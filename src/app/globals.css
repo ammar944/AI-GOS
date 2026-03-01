@@ -322,6 +322,48 @@
   --radius-2xl: 32px;   /* Large containers */
   --radius-full: 999px; /* Pill buttons, tags */
 
+  /* ── V2 Premium Design Tokens ─────────────────────────────────────────────── */
+
+  /* Glass surfaces */
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --bg-glass-hover: rgba(255, 255, 255, 0.06);
+
+  /* Code blocks */
+  --bg-code-inline: rgba(255, 255, 255, 0.06);
+  --bg-code-block: rgba(10, 12, 16, 0.8);
+
+  /* Status background/border pairs */
+  --status-error-bg: rgba(239, 68, 68, 0.08);
+  --status-error-border: rgba(239, 68, 68, 0.20);
+  --status-success-bg: rgba(34, 197, 94, 0.08);
+  --status-success-border: rgba(34, 197, 94, 0.20);
+
+  /* Chip / Tag states */
+  --bg-chip: rgba(54, 94, 255, 0.08);
+  --bg-chip-hover: rgba(54, 94, 255, 0.12);
+  --bg-chip-selected: rgba(54, 94, 255, 0.16);
+  --border-chip-selected: rgba(54, 94, 255, 0.35);
+
+  /* Status colors */
+  --status-success: rgb(34, 197, 94);
+  --status-success-glow: rgba(34, 197, 94, 0.4);
+  --status-active: rgb(54, 94, 255);
+  --status-active-glow: rgba(54, 94, 255, 0.4);
+  --status-pending: rgb(100, 105, 115);
+  --status-error: #ef4444;
+
+  /* Logo gradient */
+  --logo-gradient: linear-gradient(135deg, #fff 30%, #93c5fd 100%);
+
+  /* Overlay layers */
+  --bg-overlay-subtle: rgba(0, 0, 0, 0.4);
+  --bg-overlay-light: rgba(0, 0, 0, 0.6);
+
+  /* Transition speeds */
+  --transition-fast: 100ms ease;
+  --transition-normal: 150ms ease;
+  --transition-slow: 300ms ease;
+
   /* Section Accent Colors */
   --section-market: #3b7aff;
   --section-market-text: #6fa0ff;
@@ -1056,6 +1098,48 @@
 /* Applied to new paragraphs/blocks appearing during streaming */
 .stream-content-enter {
   animation: stream-fade-in 0.15s ease-out both;
+}
+
+/* ============================================
+   V2 Premium Utility Classes
+   MUST be unlayered (outside @layer) to beat
+   Tailwind v4 @layer utilities specificity.
+   ============================================ */
+
+/* Interactive row — hover background for sidebar rows */
+.interactive-row {
+  transition: background var(--transition-normal), color var(--transition-normal);
+}
+.interactive-row:hover {
+  background: var(--bg-hover) !important;
+}
+
+/* Focus ring — keyboard-accessible focus indicator */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Press scale — subtle tap feedback */
+.press-scale {
+  transition: transform var(--transition-fast);
+}
+.press-scale:active {
+  transform: scale(0.97);
+}
+
+/* Hover lift — subtle card elevation on hover */
+.hover-lift {
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+.hover-lift:hover {
+  transform: translateY(-1px);
+}
+
+/* View arrow — dim by default, full opacity on parent hover */
+.interactive-row:hover .view-arrow {
+  opacity: 1 !important;
 }
 
 /* ============================================

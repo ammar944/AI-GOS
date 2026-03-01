@@ -102,7 +102,7 @@ function Chip({
       onClick={onClick}
       onKeyDown={onKeyDown}
       className={cn(
-        'relative text-left transition-all outline-none',
+        'relative text-left transition-all outline-none focus-ring',
         'focus-visible:ring-2 focus-visible:ring-offset-1',
         isPill ? 'px-4 py-2' : 'px-4 py-3',
         isDisabled && 'cursor-default',
@@ -113,7 +113,7 @@ function Chip({
         background: isOther
           ? 'transparent'
           : isSelected
-            ? 'rgba(54, 94, 255, 0.08)'
+            ? 'var(--bg-chip-selected)'
             : 'var(--bg-hover)',
         border: isOther
           ? '1.5px dashed var(--border-default)'
@@ -126,8 +126,9 @@ function Chip({
         opacity: isFadedOut ? 0.4 : isDisabled && !isSelected ? 0.5 : 1,
         pointerEvents: isDisabled ? 'none' : 'auto',
         boxShadow: isSelected
-          ? '0 0 12px rgba(54, 94, 255, 0.15), 0 0 4px rgba(54, 94, 255, 0.1)'
+          ? '0 0 12px var(--bg-chip-selected), 0 0 4px var(--bg-chip-hover)'
           : 'none',
+        transition: 'background var(--transition-slow), border-color var(--transition-slow)',
         '--tw-ring-color': 'var(--accent-blue)',
         '--tw-ring-offset-color': 'var(--bg-base)',
       } as React.CSSProperties}
@@ -247,10 +248,10 @@ function OtherInput({ onSubmit, isPill, isDisabled }: OtherInputProps) {
         <button
           onClick={handleSubmit}
           disabled={isDisabled || !text.trim()}
-          className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-opacity disabled:opacity-30"
+          className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-opacity disabled:opacity-30 focus-ring"
           style={{
             background: 'var(--accent-blue)',
-            color: '#ffffff',
+            color: 'var(--text-white)',
           }}
         >
           Done
@@ -498,10 +499,10 @@ export function AskUserCard({
           >
             <button
               onClick={handleMultiDone}
-              className="px-5 py-1.5 rounded-full text-sm font-medium transition-all hover:brightness-110"
+              className="px-5 py-1.5 rounded-full text-sm font-medium transition-all hover:brightness-110 focus-ring"
               style={{
                 background: 'var(--accent-blue)',
-                color: '#ffffff',
+                color: 'var(--text-white)',
               }}
             >
               Done ({activeSelected.size})

@@ -29,7 +29,7 @@ export function ResumePrompt({
         style={{
           width: '24px',
           height: '24px',
-          background: 'linear-gradient(135deg, var(--accent-blue), #006fff)',
+          background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))',
           marginTop: '1px',
         }}
         aria-hidden="true"
@@ -39,7 +39,7 @@ export function ResumePrompt({
           height="10"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#ffffff"
+          stroke="var(--text-white)"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -69,18 +69,13 @@ export function ResumePrompt({
         <div className="flex flex-col gap-2 max-w-xs">
           <button
             onClick={onContinue}
-            className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
+            className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all focus-ring press-scale hover:opacity-90"
             style={{
-              background: 'var(--accent-blue, rgb(54, 94, 255))',
-              color: '#ffffff',
+              background: 'var(--accent-blue)',
+              color: 'var(--text-white)',
               border: 'none',
               cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.opacity = '0.9';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.opacity = '1';
+              transition: 'opacity var(--transition-normal)',
             }}
           >
             Continue where you left off
@@ -88,20 +83,13 @@ export function ResumePrompt({
 
           <button
             onClick={onStartFresh}
-            className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
+            className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all focus-ring press-scale hover:opacity-80"
             style={{
               background: 'transparent',
               color: 'var(--text-tertiary)',
               border: '1px solid var(--border-default)',
               cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-hover, var(--border-default))';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-default)';
-              e.currentTarget.style.color = 'var(--text-tertiary)';
+              transition: 'opacity var(--transition-normal)',
             }}
           >
             Start fresh

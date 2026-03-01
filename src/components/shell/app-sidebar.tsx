@@ -46,7 +46,7 @@ function Logo({ collapsed }: LogoProps) {
             fontWeight: 700,
             fontSize: '14px',
             letterSpacing: '-0.02em',
-            background: 'linear-gradient(135deg, #fff 30%, #93c5fd 100%)',
+            background: 'var(--logo-gradient)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             userSelect: 'none',
@@ -73,7 +73,7 @@ function Logo({ collapsed }: LogoProps) {
           fontWeight: 700,
           fontSize: '16px',
           letterSpacing: '-0.02em',
-          background: 'linear-gradient(135deg, #fff 30%, #93c5fd 100%)',
+          background: 'var(--logo-gradient)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           userSelect: 'none',
@@ -126,7 +126,7 @@ export function AppSidebar() {
       </nav>
 
       {/* Divider */}
-      <div style={{ height: 1, background: 'var(--border-default)', margin: '8px 16px' }} />
+      <div className="h-px mx-4 my-2" style={{ background: 'var(--border-default)' }} />
 
       {/* Session List */}
       <SessionList collapsed={collapsed} />

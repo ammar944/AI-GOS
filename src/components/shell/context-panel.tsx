@@ -33,7 +33,7 @@ function PanelSection({ title, defaultOpen = true, children }: PanelSectionProps
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between w-full text-left"
+        className="flex items-center justify-between w-full text-left focus-ring"
         style={{
           padding: '14px 16px 10px',
           cursor: 'pointer',

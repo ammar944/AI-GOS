@@ -46,30 +46,25 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session, isActive }: SessionRowProps) {
-  const [hovered, setHovered] = useState(false);
-  const showHover = hovered || isActive;
-
   return (
     <div
       role="button"
       tabIndex={0}
       // TODO: Navigate to session route once multi-session is implemented
-      onClick={() => console.log('Navigate to session:', session.id)}
+      onClick={() => { /* TODO: Navigate to session route once multi-session is implemented */ }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          console.log('Navigate to session:', session.id);
+          // TODO: Navigate to session route
         }
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={cn('flex items-center cursor-pointer select-none')}
+      className={cn('interactive-row flex items-center cursor-pointer select-none')}
       style={{
         gap: 8,
         padding: '7px 10px',
         borderRadius: 7,
-        transition: 'all 0.15s ease',
-        background: showHover ? 'var(--bg-hover)' : 'transparent',
+        transition: 'background var(--transition-normal)',
+        background: isActive ? 'var(--bg-hover)' : 'transparent',
         overflow: 'hidden',
       }}
     >
@@ -78,13 +73,13 @@ function SessionRow({ session, isActive }: SessionRowProps) {
         className="truncate"
         style={{
           fontSize: 12.5,
-          color: showHover ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+          color: isActive ? 'var(--text-secondary)' : 'var(--text-tertiary)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
           minWidth: 0,
           flex: '1 1 0',
-          transition: 'color 0.15s ease',
+          transition: 'color var(--transition-normal)',
         }}
       >
         {session.companyName ?? 'New Session'}

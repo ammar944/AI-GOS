@@ -7,10 +7,10 @@ import { SlashCommandPalette, type SlashCommand } from '@/components/chat/slash-
 
 const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-blue)' },
-  { name: 'edit', description: 'Edit a blueprint section', icon: 'Pencil', color: '#f59e0b' },
-  { name: 'compare', description: 'Compare competitors or strategies', icon: 'GitCompare', color: '#a855f7' },
-  { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: '#06b6d4' },
-  { name: 'visualize', description: 'Generate visual breakdowns', icon: 'Eye', color: '#22c55e' },
+  { name: 'edit', description: 'Edit a blueprint section', icon: 'Pencil', color: 'var(--accent-amber)' },
+  { name: 'compare', description: 'Compare competitors or strategies', icon: 'GitCompare', color: 'var(--accent-purple)' },
+  { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: 'var(--accent-cyan)' },
+  { name: 'visualize', description: 'Generate visual breakdowns', icon: 'Eye', color: 'var(--accent-green)' },
 ];
 
 interface JourneyChatInputProps {
@@ -145,12 +145,12 @@ export function JourneyChatInput({
           gap: '8px',
           padding: '12px',
           borderRadius: '16px',
-          background: 'rgba(10, 13, 20, 0.8)',
+          background: 'var(--bg-glass)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           border: `1px solid ${isFocused ? 'var(--border-focus)' : 'var(--border-subtle)'}`,
           boxShadow: isFocused
-            ? '0 0 0 3px var(--accent-blue-glow), 0 0 20px rgba(54, 94, 255, 0.1)'
+            ? '0 0 0 3px var(--accent-blue-glow), 0 0 20px var(--accent-blue-glow)'
             : 'none',
           transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         }}
@@ -177,7 +177,7 @@ export function JourneyChatInput({
           placeholder={placeholder}
           disabled={disabled || (isLoading && !canSend)}
           rows={1}
-          className="flex-1 bg-transparent outline-none resize-none scrollbar-hide text-sm leading-relaxed"
+          className="flex-1 bg-transparent outline-none resize-none scrollbar-hide text-sm leading-relaxed focus-ring"
           style={{
             color: 'var(--text-primary)',
             minHeight: '20px',
@@ -200,11 +200,12 @@ export function JourneyChatInput({
             height: '32px',
             borderRadius: '50%',
             background: canSend ? 'var(--accent-blue)' : 'transparent',
-            color: canSend ? '#ffffff' : 'var(--text-tertiary)',
-            boxShadow: canSend ? '0 0 12px rgba(54, 94, 255, 0.4)' : 'none',
+            color: canSend ? 'var(--text-white)' : 'var(--text-tertiary)',
+            boxShadow: canSend ? '0 0 12px var(--accent-blue-glow)' : 'none',
             border: 'none',
             cursor: canSend ? 'pointer' : 'default',
-            transition: 'background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease',
+            transform: canSend ? undefined : 'scale(0.9)',
+            transition: 'background var(--transition-normal), box-shadow var(--transition-normal), color var(--transition-normal), transform var(--transition-normal)',
           }}
         >
           <Send size={15} />

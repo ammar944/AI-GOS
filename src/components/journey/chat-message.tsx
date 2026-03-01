@@ -70,7 +70,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
           key={index}
           className="px-1.5 py-0.5 rounded text-xs font-mono"
           style={{
-            background: 'rgba(255, 255, 255, 0.08)',
+            background: 'var(--bg-code-inline)',
             color: 'var(--accent-cyan)',
           }}
         >
@@ -111,7 +111,7 @@ function renderCodeBlock(code: string, language?: string): React.ReactNode {
     <pre
       className="text-xs p-3 rounded overflow-auto font-mono my-2"
       style={{
-        background: 'rgba(0, 0, 0, 0.3)',
+        background: 'var(--bg-code-block)',
         border: '1px solid var(--border-subtle)',
       }}
     >
@@ -434,9 +434,9 @@ function renderToolPart(
         key={key}
         className="px-3 py-2 rounded-lg text-xs my-1"
         style={{
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.2)',
-          color: '#ef4444',
+          background: 'var(--status-error-bg)',
+          border: '1px solid var(--status-error-border)',
+          color: 'var(--status-error)',
         }}
       >
         {(part.errorText as string) || 'Tool execution failed'}
@@ -465,7 +465,7 @@ function renderToolPart(
             key={key}
             className="px-3 py-2 rounded-lg text-xs my-1"
             style={{
-              background: 'rgba(54, 94, 255, 0.06)',
+              background: 'var(--bg-chip)',
               border: '1px solid var(--border-default)',
               color: 'var(--text-secondary)',
             }}
@@ -479,9 +479,9 @@ function renderToolPart(
             key={key}
             className="px-3 py-2 rounded-lg text-xs my-1 flex items-center gap-1.5"
             style={{
-              background: 'rgba(34, 197, 94, 0.08)',
-              border: '1px solid rgba(34, 197, 94, 0.2)',
-              color: '#22c55e',
+              background: 'var(--status-success-bg)',
+              border: '1px solid var(--status-success-border)',
+              color: 'var(--status-success)',
             }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -543,8 +543,8 @@ function renderToolPart(
         key={key}
         className="px-3 py-2 rounded-lg text-xs my-1"
         style={{
-          background: 'rgba(239, 68, 68, 0.06)',
-          border: '1px solid rgba(239, 68, 68, 0.15)',
+          background: 'var(--status-error-bg)',
+          border: '1px solid var(--status-error-border)',
           color: 'var(--text-tertiary)',
         }}
       >
@@ -684,7 +684,7 @@ function AssistantMessage({
         style={{
           width: '24px',
           height: '24px',
-          background: 'linear-gradient(135deg, var(--accent-blue), #006fff)',
+          background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))',
           marginTop: '1px',
         }}
         aria-hidden="true"
@@ -694,7 +694,7 @@ function AssistantMessage({
           height="10"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#ffffff"
+          stroke="var(--text-white)"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"

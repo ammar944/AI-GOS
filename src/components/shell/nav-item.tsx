@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
 import { type LucideIcon, Lock } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -17,7 +16,6 @@ interface NavItemProps {
 
 export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: NavItemProps) {
   const pathname = usePathname();
-  const [hovered, setHovered] = useState(false);
 
   // Use startsWith for future dynamic routes like /journey/[sessionId]
   // Special case: "/" should only match exactly to avoid matching all routes
@@ -26,27 +24,17 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
       ? pathname === '/'
       : pathname === href || pathname.startsWith(href + '/');
 
-  // Compute background
-  let background = 'transparent';
-  if (isActive) {
-    background = 'rgba(54, 94, 255, 0.12)'; // --accent-blue-dim
-  } else if (hovered && !locked) {
-    background = 'var(--bg-hover)';
-  }
+  // Compute background — active state only; hover handled by .interactive-row CSS
+  const background = isActive ? 'var(--bg-chip-hover)' : 'transparent';
 
-  // Compute text color
-  let color = 'var(--text-tertiary)';
-  if (isActive) {
-    color = 'var(--text-primary)';
-  } else if (hovered && !locked) {
-    color = 'var(--text-secondary)';
-  }
+  // Compute text color — active state only; hover handled by CSS
+  const color = isActive ? 'var(--text-primary)' : 'var(--text-tertiary)';
 
   // Icon color is accent-blue when active, otherwise inherits from parent
   const iconColor = isActive ? 'var(--accent-blue)' : 'currentColor';
 
-  // Icon opacity: active = 1, hover = 0.85, default = 0.6
-  const iconOpacity = isActive ? 1 : hovered && !locked ? 0.85 : 0.6;
+  // Icon opacity: active = 1, default = 0.6
+  const iconOpacity = isActive ? 1 : 0.6;
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',
@@ -63,11 +51,10 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
     border: 'none',
     width: '100%',
     textAlign: 'left' as const,
-    transition: 'all 0.15s ease',
+    transition: 'background var(--transition-normal), color var(--transition-normal)',
     opacity: locked ? 0.4 : 1,
     cursor: locked ? 'not-allowed' : 'pointer',
-    // Reset default button appearance
-    outline: 'none',
+    // Reset default button appearance — outline handled by .focus-ring class
     appearance: 'none' as const,
     WebkitAppearance: 'none' as const,
   };
@@ -82,7 +69,7 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
     flexShrink: 0,
     color: iconColor,
     opacity: iconOpacity,
-    transition: 'opacity 0.15s ease, color 0.15s ease',
+    transition: 'opacity var(--transition-fast), color var(--transition-fast)',
   };
 
   const lockBadgeStyle: React.CSSProperties = {
@@ -114,29 +101,24 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
     </>
   );
 
-  const sharedEventProps = {
-    onMouseEnter: () => setHovered(true),
-    onMouseLeave: () => setHovered(false),
-  };
-
   const itemNode = locked ? (
     <button
       type="button"
+      className="interactive-row focus-ring"
       style={containerStyle}
       aria-disabled="true"
       aria-label={label}
       onClick={(e) => e.preventDefault()}
-      {...sharedEventProps}
     >
       {innerContent}
     </button>
   ) : (
     <Link
       href={href}
+      className="interactive-row focus-ring"
       style={containerStyle}
       aria-current={isActive ? 'page' : undefined}
       aria-label={collapsed ? label : undefined}
-      {...sharedEventProps}
     >
       {innerContent}
     </Link>

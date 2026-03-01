@@ -46,7 +46,7 @@ function StatusIndicator({ status, size = 'md' }: { status: StageStatus; size?: 
         animate={{ scale: 1 }}
         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         className={cn(dimensions, 'rounded-full flex items-center justify-center')}
-        style={{ background: 'var(--accent-green, rgb(34, 197, 94))' }}
+        style={{ background: 'var(--status-success)' }}
       >
         <Check className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3'} strokeWidth={3} style={{ color: 'white' }} />
       </motion.div>
@@ -59,8 +59,8 @@ function StatusIndicator({ status, size = 'md' }: { status: StageStatus; size?: 
         className={cn(dotSize, 'rounded-full')}
         style={{
           background: status === 'active'
-            ? 'var(--accent-blue, rgb(54, 94, 255))'
-            : 'var(--text-quaternary, rgb(71, 76, 89))',
+            ? 'var(--status-active)'
+            : 'var(--status-pending)',
         }}
       />
       {status === 'active' && (
@@ -68,7 +68,7 @@ function StatusIndicator({ status, size = 'md' }: { status: StageStatus; size?: 
           animate={{ scale: [1, 2, 1], opacity: [0.4, 0, 0.4] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           className={cn(dotSize, 'absolute rounded-full')}
-          style={{ background: 'var(--accent-blue, rgb(54, 94, 255))' }}
+          style={{ background: 'var(--status-active)' }}
         />
       )}
     </div>
@@ -83,7 +83,7 @@ function ConnectionLine({ isComplete }: { isComplete: boolean }) {
       className="relative h-0.5 overflow-hidden rounded-full"
       style={{
         width: 24,
-        background: 'rgba(255, 255, 255, 0.06)',
+        background: 'var(--bg-overlay-light)',
       }}
     >
       <motion.div
@@ -92,7 +92,7 @@ function ConnectionLine({ isComplete }: { isComplete: boolean }) {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="h-full origin-left"
         style={{
-          background: 'linear-gradient(90deg, rgba(34, 197, 94, 0.6), rgba(34, 197, 94, 0.3))',
+          background: 'linear-gradient(90deg, var(--status-success-glow), var(--status-success-glow))',
         }}
       />
     </div>
@@ -114,7 +114,7 @@ function CompactStage({ stage, index, isLast, isExpanded, onToggle }: CompactSta
         type="button"
         onClick={onToggle}
         className={cn(
-          'flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-all duration-200',
+          'flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-all duration-200 focus-ring',
           'hover:bg-white/[0.04] cursor-pointer select-none',
           stage.status === 'pending' && 'opacity-50',
         )}
@@ -126,7 +126,7 @@ function CompactStage({ stage, index, isLast, isExpanded, onToggle }: CompactSta
           className="text-xs font-medium whitespace-nowrap"
           style={{
             color: stage.status === 'completed'
-              ? 'var(--accent-green, rgb(34, 197, 94))'
+              ? 'var(--status-success)'
               : stage.status === 'active'
                 ? 'var(--text-primary)'
                 : 'var(--text-tertiary)',
@@ -141,7 +141,7 @@ function CompactStage({ stage, index, isLast, isExpanded, onToggle }: CompactSta
             className="text-[10px] tabular-nums"
             style={{
               color: stage.status === 'completed'
-                ? 'var(--accent-green, rgb(34, 197, 94))'
+                ? 'var(--status-success)'
                 : 'var(--text-tertiary)',
               fontFamily: 'var(--font-mono)',
             }}
@@ -180,8 +180,8 @@ function SubstageDropdown({ substages }: { substages: SubStage[] }) {
       <div
         className="mt-1 py-2 px-3 rounded-lg"
         style={{
-          background: 'var(--bg-elevated, rgba(255, 255, 255, 0.03))',
-          border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.06))',
+          background: 'var(--bg-overlay-subtle)',
+          border: '1px solid var(--bg-overlay-light)',
         }}
       >
         <div className="flex flex-col gap-1.5">
@@ -192,9 +192,9 @@ function SubstageDropdown({ substages }: { substages: SubStage[] }) {
                 className="text-[11px]"
                 style={{
                   color: sub.status === 'completed'
-                    ? 'var(--accent-green, rgb(34, 197, 94))'
+                    ? 'var(--status-success)'
                     : sub.status === 'active'
-                      ? 'var(--accent-blue, rgb(54, 94, 255))'
+                      ? 'var(--status-active)'
                       : 'var(--text-tertiary)',
                   fontFamily: 'var(--font-body)',
                 }}
@@ -222,7 +222,7 @@ function ExpandedStage({ stage, index, isLast }: ExpandedStageProps) {
             className="flex-1 w-px mt-2 mb-1"
             style={{
               background: stage.status === 'completed'
-                ? 'rgba(34, 197, 94, 0.3)'
+                ? 'var(--status-success-glow)'
                 : 'rgba(255, 255, 255, 0.08)',
             }}
           />
@@ -236,7 +236,7 @@ function ExpandedStage({ stage, index, isLast }: ExpandedStageProps) {
             className="text-sm font-medium"
             style={{
               color: stage.status === 'completed'
-                ? 'var(--accent-green, rgb(34, 197, 94))'
+                ? 'var(--status-success)'
                 : stage.status === 'active'
                   ? 'var(--text-primary)'
                   : 'var(--text-tertiary)',
@@ -264,10 +264,10 @@ function ExpandedStage({ stage, index, isLast }: ExpandedStageProps) {
                 className="text-xs"
                 style={{
                   color: sub.status === 'completed'
-                    ? 'var(--accent-green, rgb(34, 197, 94))'
+                    ? 'var(--status-success)'
                     : sub.status === 'active'
-                      ? 'var(--accent-blue, rgb(54, 94, 255))'
-                      : 'var(--text-quaternary, rgb(71, 76, 89))',
+                      ? 'var(--status-active)'
+                      : 'var(--status-pending)',
                 }}
               >
                 {sub.label}

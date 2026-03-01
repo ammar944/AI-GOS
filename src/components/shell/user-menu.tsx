@@ -38,8 +38,8 @@ function UserAvatar({ user }: { user: ReturnType<typeof useUser>['user'] }) {
         width: '28px',
         height: '28px',
         borderRadius: '7px',
-        background: 'linear-gradient(135deg, var(--accent-blue), #006fff)',
-        color: '#ffffff',
+        background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))',
+        color: 'var(--text-white)',
         fontSize: '11px',
         fontWeight: 600,
         display: 'flex',
@@ -72,7 +72,7 @@ export function UserMenu({ collapsed }: UserMenuProps) {
             through a separate inline style key so cascade order is correct. */}
         <button
           className={cn(
-            'w-full flex items-center gap-[10px] outline-none border-0',
+            'w-full flex items-center gap-[10px] outline-none border-0 focus-ring',
             'transition-colors duration-150',
             'hover:bg-[var(--bg-hover)]',
             collapsed ? 'justify-center px-0 py-3' : 'px-4 py-3',

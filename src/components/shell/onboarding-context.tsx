@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import { REQUIRED_FIELDS, OPTIONAL_FIELDS } from '@/lib/journey/session-state';
@@ -65,8 +66,10 @@ interface ContextRowProps {
 }
 
 function ContextRow({ label, value, isEmpty }: ContextRowProps) {
+  const displayValue = isEmpty ? 'Waiting...' : value;
+
   return (
-    <div className="flex items-start gap-2" style={{ minHeight: 20 }}>
+    <div className={cn('interactive-row flex items-start gap-2')} style={{ minHeight: 20 }}>
       <span
         className="flex-shrink-0"
         style={{
@@ -79,7 +82,11 @@ function ContextRow({ label, value, isEmpty }: ContextRowProps) {
       >
         {label}
       </span>
-      <span
+      <motion.span
+        key={displayValue}
+        initial={{ opacity: 0.5 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
         className={cn('flex-1 min-w-0 truncate')}
         title={value ?? undefined}
         style={{
@@ -91,10 +98,11 @@ function ContextRow({ label, value, isEmpty }: ContextRowProps) {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
+          display: 'block',
         }}
       >
-        {isEmpty ? 'Waiting...' : value}
-      </span>
+        {displayValue}
+      </motion.span>
     </div>
   );
 }

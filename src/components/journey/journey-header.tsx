@@ -30,7 +30,7 @@ export function JourneyHeader({
           className="font-heading font-bold flex-shrink-0"
           style={{
             fontSize: '15px',
-            background: 'linear-gradient(180deg, #ffffff 0%, #93c5fd 100%)',
+            background: 'var(--logo-gradient)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -54,15 +54,17 @@ export function JourneyHeader({
         style={{
           height: '2px',
           width: '100%',
-          backgroundColor: 'var(--border-subtle, rgba(255, 255, 255, 0.06))',
+          backgroundColor: 'var(--bg-overlay-light)',
         }}
       >
         <div
+          role="progressbar"
+          aria-valuenow={clamped}
           style={{
             height: '100%',
             width: `${clamped}%`,
-            backgroundColor: 'var(--accent-blue, rgb(54, 94, 255))',
-            transition: 'width 0.3s ease',
+            backgroundColor: 'var(--accent-blue)',
+            transition: 'width 0.5s ease',
           }}
         />
       </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { UIMessage } from 'ai';
 
@@ -73,7 +72,7 @@ function StatusDot({ status }: StatusDotProps) {
     return (
       <div
         className="flex-shrink-0 rounded-full"
-        style={{ width: 7, height: 7, background: 'var(--status-error, #ef4444)' }}
+        style={{ width: 7, height: 7, background: 'var(--status-error)' }}
       />
     );
   }
@@ -114,13 +113,11 @@ interface ResearchRowProps {
 }
 
 function ResearchRow({ item, status }: ResearchRowProps) {
-  const [hovered, setHovered] = useState(false);
-
   const labelColor =
     status === 'done'
       ? 'var(--text-secondary)'
       : status === 'error'
-        ? 'var(--status-error, #ef4444)'
+        ? 'var(--status-error)'
         : status === 'running'
           ? 'var(--accent-blue)'
           : 'var(--text-quaternary)';
@@ -130,14 +127,12 @@ function ResearchRow({ item, status }: ResearchRowProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between transition-colors duration-150 cursor-default rounded-lg'
+        'interactive-row flex items-center justify-between cursor-default rounded-lg'
       )}
       style={{
         padding: '8px 10px',
-        background: hovered ? 'var(--bg-hover)' : 'transparent',
+        background: 'transparent',
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-center gap-2 min-w-0">
         <StatusDot status={status} />
@@ -151,18 +146,19 @@ function ResearchRow({ item, status }: ResearchRowProps) {
 
       {/* Right side action/state text */}
       <div className="flex-shrink-0 ml-2">
-        {status === 'done' && hovered && (
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+        {status === 'done' && (
+          <span
             style={{
               fontSize: 11,
               color: 'var(--accent-blue)',
               fontWeight: 500,
+              opacity: 0.5,
+              transition: 'opacity var(--transition-normal)',
             }}
+            className="view-arrow"
           >
             View →
-          </motion.span>
+          </span>
         )}
         {status === 'running' && (
           <span
@@ -179,7 +175,7 @@ function ResearchRow({ item, status }: ResearchRowProps) {
           <span
             style={{
               fontSize: 11,
-              color: 'var(--status-error, #ef4444)',
+              color: 'var(--status-error)',
               opacity: 0.7,
             }}
           >

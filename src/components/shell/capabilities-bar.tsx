@@ -1,6 +1,8 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { fastStagger, staggerItem } from '@/lib/motion';
 
 interface Capability {
   label: string;
@@ -21,18 +23,20 @@ interface CapabilityTagProps {
 
 function CapabilityTag({ capability }: CapabilityTagProps) {
   return (
-    <span
+    <motion.span
+      variants={staggerItem}
       className={cn('inline-block')}
+      title={capability.active ? undefined : 'Coming soon'}
       style={{
         fontFamily: 'var(--font-mono)',
         fontSize: 10,
         padding: '3px 8px',
         borderRadius: 5,
         background: capability.active
-          ? 'rgba(54, 94, 255, 0.12)'
+          ? 'var(--bg-chip-hover)'
           : 'var(--bg-hover)',
         border: capability.active
-          ? '1px solid rgba(54, 94, 255, 0.2)'
+          ? '1px solid var(--border-chip-selected)'
           : '1px solid var(--border-subtle)',
         color: capability.active
           ? 'var(--accent-blue)'
@@ -42,16 +46,21 @@ function CapabilityTag({ capability }: CapabilityTagProps) {
       }}
     >
       {capability.label}
-    </span>
+    </motion.span>
   );
 }
 
 export function CapabilitiesBar() {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <motion.div
+      className="flex flex-wrap gap-1.5"
+      variants={fastStagger}
+      initial="initial"
+      animate="animate"
+    >
       {CAPABILITIES.map((cap) => (
         <CapabilityTag key={cap.label} capability={cap} />
       ))}
-    </div>
+    </motion.div>
   );
 }

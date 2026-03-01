@@ -25,7 +25,7 @@ function StageDot({ status }: StageDotProps) {
         }}
       >
         <Check
-          style={{ width: 10, height: 10, color: '#fff', strokeWidth: 2.5 }}
+          style={{ width: 10, height: 10, color: 'var(--text-white)', strokeWidth: 2.5 }}
         />
       </div>
     );
@@ -81,9 +81,10 @@ function ConnectorLine({ afterCompleted }: ConnectorLineProps) {
         height: 16,
         marginLeft: 8,
         background: afterCompleted
-          ? 'rgba(34, 197, 94, 0.4)'
+          ? 'var(--status-success-glow)'
           : 'var(--border-default)',
         borderRadius: 1,
+        transition: 'background var(--transition-slow)',
       }}
     />
   );
