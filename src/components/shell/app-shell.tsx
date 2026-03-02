@@ -38,8 +38,10 @@ export function AppShell({ sidebar, children, rightPanel, className }: AppShellP
         transition={springs.gentle}
         className="flex-shrink-0 flex-col h-full overflow-y-auto overflow-x-hidden hidden lg:flex"
         style={{
-          borderRight: '1px solid var(--border-default)',
-          background: 'var(--bg-elevated)',
+          borderRight: '1px solid var(--border-glass)',
+          background: 'var(--bg-glass-panel)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
         }}
       >
         {sidebar}
@@ -68,8 +70,10 @@ export function AppShell({ sidebar, children, rightPanel, className }: AppShellP
             transition={springs.gentle}
             className="flex-shrink-0 flex-col h-full overflow-y-auto overflow-x-hidden hidden lg:flex"
             style={{
-              borderLeft: '1px solid var(--border-default)',
-              background: 'var(--bg-elevated)',
+              borderLeft: '1px solid var(--border-glass)',
+              background: 'var(--bg-glass-panel)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
             }}
           >
             {rightPanel}
