@@ -217,8 +217,8 @@
 
   /* Background Hierarchy - Blue-tinted blacks, NOT pure black */
   --bg-base: rgb(7, 9, 14);           /* Main page background */
-  --bg-elevated: rgb(10, 13, 20);     /* Elevated surfaces (900) */
-  --bg-surface: rgb(12, 14, 19);      /* Component backgrounds */
+  --bg-elevated: rgba(10, 13, 20, 0.6);   /* Elevated surfaces — semi-transparent for glass */
+  --bg-surface: rgba(12, 14, 19, 0.5);    /* Component backgrounds — semi-transparent for glass */
   --bg-chat: #090b10;                 /* Chat panel background */
   --bg-input: #0e1017;               /* Input field background */
   --bg-hover: rgb(20, 23, 30);        /* Interactive hover states */
@@ -231,9 +231,9 @@
   --chat-width: 340px;                /* Chat panel width */
 
   /* Border System - SaaSLaunch uses solid borders */
-  --border-line: rgb(31, 31, 31);     /* Default borders, dividers */
+  --border-line: rgba(255, 255, 255, 0.06);     /* Soft borders, dividers */
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgb(31, 31, 31);
+  --border-default: rgba(255, 255, 255, 0.06);
   --border-hover: rgb(45, 45, 50);
   --border-focus: rgb(54, 94, 255);
   --border-strong: rgb(50, 50, 55);
@@ -327,6 +327,10 @@
   /* Glass surfaces */
   --bg-glass: rgba(255, 255, 255, 0.03);
   --bg-glass-hover: rgba(255, 255, 255, 0.06);
+
+  /* Glass panels — sidebar and right panel */
+  --bg-glass-panel: rgba(255, 255, 255, 0.015);
+  --border-glass: rgba(255, 255, 255, 0.04);
 
   /* Code blocks */
   --bg-code-inline: rgba(255, 255, 255, 0.06);

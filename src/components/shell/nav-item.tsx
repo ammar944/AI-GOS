@@ -25,7 +25,7 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
       : pathname === href || pathname.startsWith(href + '/');
 
   // Compute background — active state only; hover handled by .interactive-row CSS
-  const background = isActive ? 'var(--bg-chip-hover)' : 'transparent';
+  const background = isActive ? 'var(--bg-glass-hover)' : 'transparent';
 
   // Compute text color — active state only; hover handled by CSS
   const color = isActive ? 'var(--text-primary)' : 'var(--text-tertiary)';
@@ -33,8 +33,8 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
   // Icon color is accent-blue when active, otherwise inherits from parent
   const iconColor = isActive ? 'var(--accent-blue)' : 'currentColor';
 
-  // Icon opacity: active = 1, default = 0.6
-  const iconOpacity = isActive ? 1 : 0.6;
+  // Icon opacity: active = 1, default = 0.5
+  const iconOpacity = isActive ? 1 : 0.5;
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',

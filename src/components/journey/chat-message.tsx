@@ -648,8 +648,10 @@ function UserMessage({ content, className }: { content: string; className?: stri
       <div
         className="px-4 py-2.5 max-w-[85%]"
         style={{
-          background: 'var(--bg-hover)',
-          border: '1px solid var(--border-default)',
+          background: 'var(--bg-glass)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: '14px 14px 4px 14px',
           color: 'var(--text-primary)',
           fontSize: '13.5px',

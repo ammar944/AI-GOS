@@ -33,7 +33,7 @@ function Logo({ collapsed }: LogoProps) {
     return (
       <div
         style={{
-          padding: '16px 0 12px',
+          padding: '20px 0 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -61,7 +61,7 @@ function Logo({ collapsed }: LogoProps) {
   return (
     <div
       style={{
-        padding: '16px 16px 12px',
+        padding: '20px 16px 16px',
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
