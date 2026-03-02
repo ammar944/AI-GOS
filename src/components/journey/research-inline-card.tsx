@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, Users, Target, Package, Layers, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ export interface ResearchInlineCardProps {
   error?: string;
   durationMs?: number;
   sourceCount?: number;
+  onViewFull?: () => void;
   className?: string;
 }
 
@@ -25,6 +26,48 @@ const SECTION_META: Record<string, SectionMeta> = {
   crossAnalysis:  { label: 'Strategic Synthesis',        icon: Layers,  color: '#f59e0b' },
 };
 const DEFAULT_META: SectionMeta = { label: 'Research', icon: Globe, color: 'var(--accent-blue)' };
+
+// Per-section scanning phrases shown during loading — give realistic "working" feel
+const SCANNING_PHRASES: Record<string, string[]> = {
+  industryMarket: [
+    'Scanning market landscape...',
+    'Pulling industry benchmarks...',
+    'Analyzing pain points from G2 & Reddit...',
+    'Mapping buying behaviors...',
+    'Identifying demand drivers...',
+    'Checking seasonal patterns...',
+  ],
+  competitors: [
+    'Identifying top competitors...',
+    'Analyzing ad creative strategies...',
+    'Running keyword intelligence...',
+    'Benchmarking landing pages...',
+    'Mapping funnel structures...',
+    'Scanning white-space gaps...',
+  ],
+  icpValidation: [
+    'Validating audience targeting feasibility...',
+    'Checking audience size estimates...',
+    'Analyzing trigger events...',
+    'Assessing ICP-product fit...',
+    'Scoring risk signals...',
+  ],
+  offerAnalysis: [
+    'Benchmarking pricing models...',
+    'Scanning offer clarity signals...',
+    'Checking red flags...',
+    'Comparing market positioning...',
+    'Scoring offer strength...',
+  ],
+  crossAnalysis: [
+    'Synthesizing research findings...',
+    'Identifying positioning gaps...',
+    'Mapping platform opportunities...',
+    'Drafting strategic recommendations...',
+    'Building ad hook frameworks...',
+  ],
+};
+const DEFAULT_PHRASES = ['Analyzing...', 'Researching...', 'Processing...'];
 
 const DOT_COLORS = ['var(--accent-blue)', 'var(--section-keyword)', 'var(--status-success)', 'var(--section-offer)', 'var(--section-competitor)'];
 
@@ -91,37 +134,79 @@ function extractTopFindings(section: string, data?: Record<string, unknown>): st
   return [];
 }
 
-function LoadingCard({ meta }: { meta: SectionMeta }) {
+function useAnimatedPhrase(phrases: string[]) {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % phrases.length);
+        setVisible(true);
+      }, 300);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, [phrases]);
+
+  return { phrase: phrases[idx], visible };
+}
+
+function LoadingCard({ meta, section }: { meta: SectionMeta; section: string }) {
   const Icon = meta.icon;
   const iconBg = meta.color.startsWith('var(')
     ? `color-mix(in srgb, ${meta.color} 12%, transparent)`
     : `${meta.color}1f`;
+  const phrases = SCANNING_PHRASES[section] ?? DEFAULT_PHRASES;
+  const { phrase, visible } = useAnimatedPhrase(phrases);
+
   return (
-    <div className="flex items-center gap-2.5" style={CARD_STYLE} role="status" aria-label={`Researching ${meta.label}`}>
-      <div className="flex-shrink-0 flex items-center justify-center rounded-md" style={{ width: 24, height: 24, background: iconBg }}>
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
-          <Icon style={{ width: 13, height: 13, color: meta.color }} />
-        </motion.div>
+    <div style={CARD_STYLE} role="status" aria-label={`Researching ${meta.label}`}>
+      <div className="flex items-center gap-2.5">
+        <div className="flex-shrink-0 flex items-center justify-center rounded-md" style={{ width: 24, height: 24, background: iconBg }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
+            <Icon style={{ width: 13, height: 13, color: meta.color }} />
+          </motion.div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium leading-tight truncate" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            {meta.label}
+          </p>
+          <motion.p
+            key={phrase}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -4 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="truncate mt-0.5"
+            style={{ fontSize: '11px', color: 'var(--text-tertiary)', minHeight: '16px' }}
+          >
+            {phrase}
+          </motion.p>
+        </div>
+        <motion.span
+          className="flex-shrink-0 rounded-full"
+          style={{ width: 6, height: 6, background: meta.color }}
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium leading-tight truncate" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-          Researching {meta.label}...
-        </p>
-        <p className="truncate mt-0.5" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-          Usually takes 15–30 seconds
-        </p>
-      </div>
-      <motion.span
-        className="flex-shrink-0 rounded-full"
-        style={{ width: 6, height: 6, background: meta.color }}
-        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-      />
     </div>
   );
 }
 
-function CompleteCard({ meta, findings, durationMs, sourceCount }: { meta: SectionMeta; findings: string[]; durationMs?: number; sourceCount?: number }) {
+function CompleteCard({
+  meta,
+  findings,
+  durationMs,
+  sourceCount,
+  onViewFull,
+}: {
+  meta: SectionMeta;
+  findings: string[];
+  durationMs?: number;
+  sourceCount?: number;
+  onViewFull?: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const Icon = meta.icon;
   const durationLabel = durationMs !== undefined ? (durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${durationMs}ms`) : null;
@@ -180,6 +265,35 @@ function CompleteCard({ meta, findings, durationMs, sourceCount }: { meta: Secti
           </motion.div>
         )}
       </AnimatePresence>
+
+      {onViewFull && (
+        <div style={{ padding: '0 12px 10px', marginTop: findings.length > 0 ? 0 : 4 }}>
+          <button
+            onClick={onViewFull}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: '1px solid var(--border-subtle)',
+              background: 'transparent',
+              color: 'var(--accent-blue)',
+              fontSize: '11px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              textAlign: 'center',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'color-mix(in srgb, var(--accent-blue) 8%, transparent)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            }}
+          >
+            View full analysis →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -202,7 +316,7 @@ function ErrorCard({ meta, error }: { meta: SectionMeta; error?: string }) {
   );
 }
 
-export function ResearchInlineCard({ section, status, data, error, durationMs, sourceCount, className }: ResearchInlineCardProps) {
+export function ResearchInlineCard({ section, status, data, error, durationMs, sourceCount, onViewFull, className }: ResearchInlineCardProps) {
   const meta = SECTION_META[section] ?? DEFAULT_META;
   const findings = extractTopFindings(section, data);
   return (
@@ -213,8 +327,8 @@ export function ResearchInlineCard({ section, status, data, error, durationMs, s
       transition={{ duration: 0.18 }}
       className={cn('w-full', className)}
     >
-      {status === 'loading'  && <LoadingCard  meta={meta} />}
-      {status === 'complete' && <CompleteCard meta={meta} findings={findings} durationMs={durationMs} sourceCount={sourceCount} />}
+      {status === 'loading'  && <LoadingCard  meta={meta} section={section} />}
+      {status === 'complete' && <CompleteCard meta={meta} findings={findings} durationMs={durationMs} sourceCount={sourceCount} onViewFull={onViewFull} />}
       {status === 'error'    && <ErrorCard    meta={meta} error={error} />}
     </motion.div>
   );
