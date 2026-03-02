@@ -15,6 +15,14 @@ interface ResearchItem {
   label: string;
 }
 
+const TOOL_NAME_BY_SECTION: Record<string, string> = {
+  industryMarket: 'tool-researchIndustry',
+  competitors:    'tool-researchCompetitors',
+  icpValidation:  'tool-researchICP',
+  offerAnalysis:  'tool-researchOffer',
+  crossAnalysis:  'tool-synthesizeResearch',
+};
+
 const RESEARCH_ITEMS: ResearchItem[] = [
   { key: 'industryMarket', label: 'Industry & Market' },
   { key: 'competitors', label: 'Competitor Analysis' },
@@ -32,16 +40,11 @@ function deriveResearchStatus(
     for (const part of msg.parts) {
       if (typeof part !== 'object' || !part) continue;
       const p = part as Record<string, unknown>;
-      if (
-        typeof p.type !== 'string' ||
-        !p.type.startsWith('tool-runResearch')
-      ) {
+      const expectedToolType = TOOL_NAME_BY_SECTION[key];
+      if (typeof p.type !== 'string' || p.type !== expectedToolType) {
         continue;
       }
-
-      // Check if the input section matches this key
-      const input = p.input as Record<string, unknown> | undefined;
-      if (!input || input.section !== key) continue;
+      // No need to check input.section — each tool maps to exactly one section
 
       const state = p.state as string | undefined;
       if (state === 'output-error') return 'error';
