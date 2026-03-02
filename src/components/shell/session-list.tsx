@@ -122,14 +122,13 @@ export function SessionList({ collapsed, currentSessionId }: SessionListProps) {
           <div
             style={{
               padding: '8px 16px 4px',
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
+              fontSize: 11,
+              fontWeight: 500,
+              letterSpacing: '0.01em',
               color: 'var(--text-quaternary)',
             }}
           >
-            Recent Sessions
+            Recent
           </div>
 
           {/* Scrollable session rows */}
