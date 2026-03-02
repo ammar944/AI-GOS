@@ -134,6 +134,8 @@ export function UserMenu({ collapsed }: UserMenuProps) {
         )}
         style={{
           background: 'var(--bg-surface)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           border: '1px solid var(--border-default)',
           borderRadius: '8px',
           boxShadow: 'var(--shadow-elevated)',
