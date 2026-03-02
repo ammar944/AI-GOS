@@ -52,6 +52,12 @@ function JourneyPageContent() {
   const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
 
   const [onboardingState, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
+  const [activePanelSection, setActivePanelSection] = useState<string | null>(null);
+
+  const handleViewResearchSection = useCallback((section: string) => {
+    setRightPanelCollapsed(false); // open right panel
+    setActivePanelSection(section);
+  }, [setRightPanelCollapsed]);
 
   useEffect(() => {
     const saved = getJourneySession();
@@ -144,13 +150,20 @@ function JourneyPageContent() {
   // Phase 1: Messages exist but no research yet → chat flowing, no right panel
   // Phase 2: First research has fired → right panel slides in
   const hasMessages = messages.length > 0;
+  const RESEARCH_TOOL_TYPES = [
+    'tool-researchIndustry',
+    'tool-researchCompetitors',
+    'tool-researchICP',
+    'tool-researchOffer',
+    'tool-synthesizeResearch',
+  ];
   const hasResearch = messages.some(
     (msg) =>
       msg.parts?.some(
         (p) =>
           typeof p === 'object' &&
           'type' in p &&
-          (p as Record<string, unknown>).type === 'tool-runResearch'
+          RESEARCH_TOOL_TYPES.includes((p as Record<string, unknown>).type as string)
       )
   );
   const journeyPhase = !hasMessages ? 0 : hasResearch ? 2 : 1;
@@ -296,6 +309,7 @@ function JourneyPageContent() {
                 addToolApprovalResponse({ id: approvalId, approved })
               }
               onToolOutput={handleAskUserResponse}
+              onViewResearchSection={handleViewResearchSection}
             />
           );
         })}
@@ -346,6 +360,7 @@ function JourneyPageContent() {
           onboardingState={onboardingState}
           messages={messages}
           journeyProgress={journeyProgress}
+          activeSectionKey={activePanelSection}
         />
       }
     >

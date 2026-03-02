@@ -21,6 +21,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   onToolApproval?: (approvalId: string, approved: boolean) => void;
   onToolOutput?: (toolCallId: string, result: AskUserResult) => void;
+  onViewResearchSection?: (section: string) => void;
   className?: string;
 }
 
@@ -276,6 +277,7 @@ function renderToolPart(
   key: string,
   onToolApproval?: (approvalId: string, approved: boolean) => void,
   onToolOutput?: (toolCallId: string, result: AskUserResult) => void,
+  onViewResearchSection?: (section: string) => void,
 ): React.ReactNode {
   const toolName = (part.type as string).replace('tool-', '');
   const state = part.state as string;
@@ -399,6 +401,7 @@ function renderToolPart(
           data={parsedOutput?.data as Record<string, unknown>}
           durationMs={parsedOutput?.durationMs as number}
           sourceCount={(parsedOutput?.sources as unknown[])?.length}
+          onViewFull={onViewResearchSection ? () => onViewResearchSection(sectionName) : undefined}
         />
       );
     }
@@ -574,6 +577,7 @@ function renderMessageParts(
   isStreaming: boolean,
   onToolApproval?: (approvalId: string, approved: boolean) => void,
   onToolOutput?: (toolCallId: string, result: AskUserResult) => void,
+  onViewResearchSection?: (section: string) => void,
 ): React.ReactNode {
   const elements: React.ReactNode[] = [];
   let textAccumulator = '';
@@ -619,7 +623,7 @@ function renderMessageParts(
     // Tool parts
     if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
       flushText(`${messageId}-text-before-tool-${i}`);
-      const toolElement = renderToolPart(part as Record<string, unknown>, `${messageId}-tool-${i}`, onToolApproval, onToolOutput);
+      const toolElement = renderToolPart(part as Record<string, unknown>, `${messageId}-tool-${i}`, onToolApproval, onToolOutput, onViewResearchSection);
       if (toolElement) {
         elements.push(toolElement);
       }
@@ -671,6 +675,7 @@ function AssistantMessage({
   isStreaming,
   onToolApproval,
   onToolOutput,
+  onViewResearchSection,
   className,
 }: {
   content?: string;
@@ -679,6 +684,7 @@ function AssistantMessage({
   isStreaming: boolean;
   onToolApproval?: (approvalId: string, approved: boolean) => void;
   onToolOutput?: (toolCallId: string, result: AskUserResult) => void;
+  onViewResearchSection?: (section: string) => void;
   className?: string;
 }) {
   return (
@@ -723,7 +729,7 @@ function AssistantMessage({
         }}
       >
         {parts
-          ? renderMessageParts(parts, messageId, isStreaming, onToolApproval, onToolOutput)
+          ? renderMessageParts(parts, messageId, isStreaming, onToolApproval, onToolOutput, onViewResearchSection)
           : (
             <>
               {renderMarkdown(content || '')}
@@ -748,6 +754,7 @@ export function ChatMessage({
   isStreaming = false,
   onToolApproval,
   onToolOutput,
+  onViewResearchSection,
   className,
 }: ChatMessageProps) {
   if (role === 'user') {
@@ -764,6 +771,7 @@ export function ChatMessage({
       isStreaming={isStreaming}
       onToolApproval={onToolApproval}
       onToolOutput={onToolOutput}
+      onViewResearchSection={onViewResearchSection}
       className={className}
     />
   );
