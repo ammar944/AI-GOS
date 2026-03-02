@@ -12,9 +12,12 @@ import {
 } from '@/lib/ai/prompts/lead-agent-system';
 import { askUser } from '@/lib/ai/tools/ask-user';
 import {
-  createRunResearchTool,
-  extractResearchResults,
-} from '@/lib/ai/tools/run-research';
+  researchIndustry,
+  researchCompetitors,
+  researchICP,
+  researchOffer,
+  synthesizeResearch,
+} from '@/lib/ai/tools/research';
 import { extractAskUserResults } from '@/lib/journey/session-state';
 import { persistToSupabase } from '@/lib/journey/session-state.server';
 
@@ -92,16 +95,19 @@ export async function POST(request: Request) {
     systemPrompt += buildResumeContext(body.resumeState);
   }
 
-  // ── Extract previous research from message history ──────────────────────
-  const previousResearch = extractResearchResults(sanitizedMessages);
-  const runResearch = createRunResearchTool({ previousResearch });
-
   // ── Stream ──────────────────────────────────────────────────────────────
   const result = streamText({
     model: anthropic(MODELS.CLAUDE_OPUS),
     system: systemPrompt,
     messages: await convertToModelMessages(sanitizedMessages),
-    tools: { askUser, runResearch },
+    tools: {
+      askUser,
+      researchIndustry,
+      researchCompetitors,
+      researchICP,
+      researchOffer,
+      synthesizeResearch,
+    },
     stopWhen: stepCountIs(20),
     temperature: 0.3,
     providerOptions: {

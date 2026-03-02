@@ -162,10 +162,18 @@ function JourneyPageContent() {
     }
   }, [journeyPhase, setRightPanelCollapsed]);
 
-  // Auto-scroll on new messages or status change
+  // Prevent document-level scroll — this is a full-screen app shell
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  // Auto-scroll on new messages only (not status — fires on every streaming token)
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, status]);
+  }, [messages]);
 
   // Submit handler
   const handleSubmit = useCallback(
@@ -254,7 +262,7 @@ function JourneyPageContent() {
   const chatContent = (
     <div className="flex flex-col h-full">
       {/* Messages area — scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
         {/* Resume prompt OR welcome message */}
         {showResumePrompt && savedSession ? (
           <ResumePrompt
@@ -331,25 +339,21 @@ function JourneyPageContent() {
   );
 
   return (
-    <div className="h-screen" style={{ background: 'var(--bg-base)' }}>
-      <AppShell
-        sidebar={<AppSidebar />}
-        rightPanel={
-          journeyPhase >= 2 ? (
-            <ContextPanel
-              onboardingState={onboardingState}
-              messages={messages}
-              journeyProgress={journeyProgress}
-            />
-          ) : undefined
-        }
-      >
-        {journeyPhase === 0 && !showResumePrompt ? (
-          <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
-        ) : (
-          chatContent
-        )}
-      </AppShell>
-    </div>
+    <AppShell
+      sidebar={<AppSidebar />}
+      rightPanel={
+        <ContextPanel
+          onboardingState={onboardingState}
+          messages={messages}
+          journeyProgress={journeyProgress}
+        />
+      }
+    >
+      {journeyPhase === 0 && !showResumePrompt ? (
+        <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
+      ) : (
+        chatContent
+      )}
+    </AppShell>
   );
 }

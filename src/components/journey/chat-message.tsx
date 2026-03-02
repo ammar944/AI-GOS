@@ -359,10 +359,18 @@ function renderToolPart(
     return null;
   }
 
-  // runResearch tool — render inline research card
-  if (toolName === 'runResearch') {
-    const researchInput = input as { section?: string } | undefined;
-    const sectionName = researchInput?.section ?? 'unknown';
+  // Research tools — render inline research cards
+  const RESEARCH_TOOL_SECTIONS: Record<string, string> = {
+    researchIndustry: 'industryMarket',
+    researchCompetitors: 'competitors',
+    researchICP: 'icpValidation',
+    researchOffer: 'offerAnalysis',
+    synthesizeResearch: 'crossAnalysis',
+    // legacy
+    runResearch: (input as { section?: string } | undefined)?.section ?? 'unknown',
+  };
+  if (toolName in RESEARCH_TOOL_SECTIONS) {
+    const sectionName = RESEARCH_TOOL_SECTIONS[toolName];
 
     if (state === 'output-available') {
       let parsedOutput: Record<string, unknown> | undefined;
