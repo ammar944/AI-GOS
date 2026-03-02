@@ -9,8 +9,11 @@ import type { OnboardingState } from '@/lib/journey/session-state';
 import { springs } from '@/lib/motion';
 import { ProgressTracker } from './progress-tracker';
 import { ResearchSections } from './research-sections';
+import { ResearchCanvas } from './research-canvas';
 import { OnboardingContext } from './onboarding-context';
 import { CapabilitiesBar } from './capabilities-bar';
+import { useResearchData } from '@/hooks/use-research-data';
+import type { ResearchSectionKey } from '@/hooks/use-research-data';
 
 // ── PanelSection ──────────────────────────────────────────────────────────────
 
@@ -91,13 +94,21 @@ interface ContextPanelProps {
   onboardingState: Partial<OnboardingState> | null;
   messages: UIMessage[];
   journeyProgress: JourneyProgress;
+  activeSectionKey?: string | null;
 }
 
 export function ContextPanel({
   onboardingState,
   messages,
   journeyProgress,
+  activeSectionKey,
 }: ContextPanelProps) {
+  const { sections, completedSections, anyRunning } = useResearchData(messages);
+  const [activeCanvasSection, setActiveCanvasSection] = useState<string | null>(null);
+
+  // External prop takes priority
+  const effectiveActiveSection = activeSectionKey ?? activeCanvasSection;
+
   return (
     <div
       className="flex flex-col h-full overflow-y-auto"
@@ -113,7 +124,17 @@ export function ContextPanel({
       </PanelSection>
 
       <PanelSection title="Research" defaultOpen={true}>
-        <ResearchSections messages={messages} />
+        {(anyRunning || completedSections.length > 0) ? (
+          <div style={{ margin: '0 -16px', height: 320 }}>
+            <ResearchCanvas
+              sections={sections}
+              activeSection={effectiveActiveSection as ResearchSectionKey | null}
+              onTabChange={(key) => setActiveCanvasSection(key)}
+            />
+          </div>
+        ) : (
+          <ResearchSections messages={messages} />
+        )}
       </PanelSection>
 
       <PanelSection title="Context" defaultOpen={true}>
