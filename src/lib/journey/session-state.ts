@@ -147,6 +147,37 @@ export function extractAskUserResults(
   return results;
 }
 
+// ── Extract Research Outputs from Messages ──────────────────────────────
+// Maps tool part types to section keys (mirrors use-research-data.ts but server-safe)
+const TOOL_SECTION_MAP: Record<string, string> = {
+  'tool-researchIndustry':    'industryMarket',
+  'tool-researchCompetitors': 'competitors',
+  'tool-researchICP':         'icpValidation',
+  'tool-researchOffer':       'offerAnalysis',
+  'tool-synthesizeResearch':  'crossAnalysis',
+};
+
+/** Extracts completed research outputs from messages, keyed by section name. */
+export function extractResearchOutputs(
+  messages: UIMessage[],
+): Record<string, unknown> {
+  const research: Record<string, unknown> = {};
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue;
+    for (const part of msg.parts) {
+      if (typeof part !== 'object' || !part) continue;
+      const p = part as Record<string, unknown>;
+      if (typeof p.type !== 'string') continue;
+      const sectionKey = TOOL_SECTION_MAP[p.type];
+      if (!sectionKey) continue;
+      if (p.state !== 'output-available') continue;
+      const output = p.output as Record<string, unknown> | undefined;
+      if (output?.data) research[sectionKey] = output.data;
+    }
+  }
+  return research;
+}
+
 // ── Empty State Factory ────────────────────────────────────────────────────
 
 export function createEmptyState(): OnboardingState {

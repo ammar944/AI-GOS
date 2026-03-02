@@ -45,3 +45,20 @@ export async function persistToSupabase(
     console.error('[journey] Supabase persistence failed:', error);
   }
 }
+
+export async function persistResearchToSupabase(
+  userId: string,
+  research: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+    await supabase
+      .from('journey_sessions')
+      .upsert(
+        { user_id: userId, research_output: research, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+  } catch (err) {
+    console.error('[journey] failed to persist research output', err);
+  }
+}

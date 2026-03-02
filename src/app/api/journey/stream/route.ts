@@ -18,8 +18,8 @@ import {
   researchOffer,
   synthesizeResearch,
 } from '@/lib/ai/tools/research';
-import { extractAskUserResults } from '@/lib/journey/session-state';
-import { persistToSupabase } from '@/lib/journey/session-state.server';
+import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
+import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
 
 export const maxDuration = 300;
 
@@ -83,6 +83,12 @@ export async function POST(request: Request) {
     persistToSupabase(userId, askUserFields).catch(() => {
       // Already handled internally with console.error
     });
+  }
+
+  // ── Persist research outputs from completed tools ───────────────────────
+  const researchOutputs = extractResearchOutputs(body.messages);
+  if (Object.keys(researchOutputs).length > 0) {
+    persistResearchToSupabase(userId, researchOutputs).catch(() => {});
   }
 
   // ── Build system prompt (augment with resume context if present) ────────
