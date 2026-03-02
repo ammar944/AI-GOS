@@ -7,7 +7,7 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
-import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
+import { AppShell, AppSidebar, ShellProvider, useShell } from '@/components/shell';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
@@ -43,6 +43,7 @@ export default function JourneyPage() {
 
 function JourneyPageContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { setRightPanelCollapsed } = useShell();
 
   // Resume state
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -153,6 +154,13 @@ function JourneyPageContent() {
       )
   );
   const journeyPhase = !hasMessages ? 0 : hasResearch ? 2 : 1;
+
+  // Force right panel open when Phase 2 triggers (research fired)
+  useEffect(() => {
+    if (journeyPhase >= 2) {
+      setRightPanelCollapsed(false);
+    }
+  }, [journeyPhase, setRightPanelCollapsed]);
 
   // Auto-scroll on new messages or status change
   useEffect(() => {
