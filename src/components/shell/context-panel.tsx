@@ -43,10 +43,9 @@ function PanelSection({ title, defaultOpen = true, children }: PanelSectionProps
       >
         <span
           style={{
-            fontSize: 10.5,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontWeight: 600,
+            fontSize: 12,
+            letterSpacing: '0.01em',
+            fontWeight: 500,
             color: 'var(--text-tertiary)',
           }}
         >
@@ -109,19 +108,19 @@ export function ContextPanel({
       }}
     >
       {/* Webkit scrollbar override via inline styles won't work — handled in CSS above */}
-      <PanelSection title="PROGRESS" defaultOpen={true}>
+      <PanelSection title="Progress" defaultOpen={true}>
         <ProgressTracker journeyProgress={journeyProgress} />
       </PanelSection>
 
-      <PanelSection title="RESEARCH" defaultOpen={true}>
+      <PanelSection title="Research" defaultOpen={true}>
         <ResearchSections messages={messages} />
       </PanelSection>
 
-      <PanelSection title="CONTEXT" defaultOpen={true}>
+      <PanelSection title="Context" defaultOpen={true}>
         <OnboardingContext onboardingState={onboardingState} />
       </PanelSection>
 
-      <PanelSection title="CAPABILITIES" defaultOpen={true}>
+      <PanelSection title="Capabilities" defaultOpen={true}>
         <CapabilitiesBar />
       </PanelSection>
     </div>
