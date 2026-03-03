@@ -95,6 +95,7 @@ interface ContextPanelProps {
   messages: UIMessage[];
   journeyProgress: JourneyProgress;
   activeSectionKey?: string | null;
+  onClearActiveSection?: () => void;
 }
 
 export function ContextPanel({
@@ -102,11 +103,12 @@ export function ContextPanel({
   messages,
   journeyProgress,
   activeSectionKey,
+  onClearActiveSection,
 }: ContextPanelProps) {
   const { sections, completedSections, anyRunning } = useResearchData(messages);
   const [activeCanvasSection, setActiveCanvasSection] = useState<string | null>(null);
 
-  // External prop takes priority
+  // External prop takes priority; clears when user manually selects a tab
   const effectiveActiveSection = activeSectionKey ?? activeCanvasSection;
 
   return (
@@ -129,7 +131,10 @@ export function ContextPanel({
             <ResearchCanvas
               sections={sections}
               activeSection={effectiveActiveSection as ResearchSectionKey | null}
-              onTabChange={(key) => setActiveCanvasSection(key)}
+              onTabChange={(key) => {
+                setActiveCanvasSection(key);
+                onClearActiveSection?.(); // clear external override so user's choice sticks
+              }}
             />
           </div>
         ) : (

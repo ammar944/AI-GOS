@@ -451,13 +451,27 @@ function OfferContent({ data }: { data: Record<string, unknown> }) {
 }
 
 // Synthesis tab content
+// Tool output schema: positioningStrategy.recommendedAngle, messagingAngles[].exampleHook,
+// platformRecommendations[].platform, keyInsights[].insight, criticalSuccessFactors[], nextSteps[]
 function SynthesisContent({ data }: { data: Record<string, unknown> }) {
-  const positioning = get<string>(data, 'positioningStatement') ?? '';
-  const hooks = arr(data.adHooks).map(str).filter(Boolean);
-  const platforms = arr(data.recommendedPlatforms).map(str).filter(Boolean);
-  const insights = arr(data.keyInsights).map(str).filter(Boolean);
+  // positioningStrategy is an object — extract recommendedAngle as the display string
+  const positioningStrategy = get<Record<string, unknown>>(data, 'positioningStrategy');
+  const positioning = get<string>(positioningStrategy, 'recommendedAngle') ?? get<string>(data, 'positioningStatement') ?? '';
+  // keyInsights items are objects { insight, source, implication }
+  const insights = arr(data.keyInsights)
+    .map((item) => get<string>(item as Record<string, unknown>, 'insight') ?? str(item))
+    .filter(Boolean);
+  // messagingAngles items are objects { angle, targetEmotion, exampleHook, evidence }
+  const hooks = arr(data.messagingAngles)
+    .map((item) => get<string>(item as Record<string, unknown>, 'exampleHook') ?? get<string>(item as Record<string, unknown>, 'angle') ?? str(item))
+    .filter(Boolean);
+  // platformRecommendations items are objects { platform, role, budgetAllocation, ... }
+  const platforms = arr(data.platformRecommendations)
+    .map((item) => get<string>(item as Record<string, unknown>, 'platform') ?? str(item))
+    .filter(Boolean);
   const critical = arr(data.criticalSuccessFactors).map(str).filter(Boolean);
-  const quickWins = arr(data.quickWins).map(str).filter(Boolean);
+  // nextSteps is the correct field name (tool doesn't emit quickWins)
+  const quickWins = arr(data.nextSteps).map(str).filter(Boolean);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -505,7 +519,7 @@ function SynthesisContent({ data }: { data: Record<string, unknown> }) {
       )}
       {quickWins.length > 0 && (
         <div>
-          <SectionLabel>Quick Wins</SectionLabel>
+          <SectionLabel>Next Steps</SectionLabel>
           <BulletList items={quickWins} color="var(--accent-green, #22c55e)" />
         </div>
       )}

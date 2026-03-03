@@ -6,6 +6,17 @@ import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
 
+function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+  try { return JSON.parse(trimmed); } catch {}
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
+  const first = trimmed.indexOf('{');
+  const last = trimmed.lastIndexOf('}');
+  if (first >= 0 && last > first) { return JSON.parse(trimmed.slice(first, last + 1)); }
+  throw new Error('No parseable JSON found');
+}
+
 const ICP_SYSTEM_PROMPT = `You are an expert ICP analyst validating whether a target audience is viable for paid media.
 
 TASK: Critically assess whether this ICP can be profitably targeted with paid ads.
@@ -55,6 +66,8 @@ Assess risks across these categories (1 = low risk, 5 = high risk):
 5. proof_credibility — can the client substantiate ad claims?
 
 OUTPUT FORMAT:
+CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.
+
 After completing your research, respond with a JSON object. Structure:
 {
   "finalVerdict": {
@@ -143,16 +156,14 @@ export const researchICP = tool({
 
       const finalMsg = await stream.finalMessage();
 
-      const textBlock = finalMsg.content.find((b) => b.type === 'text');
+      const textBlock = finalMsg.content.findLast((b) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
       let data: unknown;
       try {
-        const jsonMatch = resultText.match(/```(?:json)?\s*([\s\S]*?)```/) ??
-          resultText.match(/(\{[\s\S]*\})/);
-        const jsonStr = jsonMatch ? jsonMatch[1].trim() : resultText.trim();
-        data = JSON.parse(jsonStr);
+        data = extractJson(resultText);
       } catch {
+        console.error('[researchICP] JSON extraction failed. Raw text preview:', resultText.slice(0, 300));
         data = { summary: resultText };
       }
 

@@ -6,6 +6,22 @@ import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
 
+// Robust JSON extraction: handles model preamble before the JSON object.
+// Tries direct parse → fenced code block → first{...last} slice.
+function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+  // Strategy 1: direct parse (model followed JSON-only instruction)
+  try { return JSON.parse(trimmed); } catch {}
+  // Strategy 2: fenced code block ```json ... ``` or ``` ... ```
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
+  // Strategy 3: slice from first { to last } (strips prose preamble/suffix)
+  const first = trimmed.indexOf('{');
+  const last = trimmed.lastIndexOf('}');
+  if (first >= 0 && last > first) { return JSON.parse(trimmed.slice(first, last + 1)); }
+  throw new Error('No parseable JSON found');
+}
+
 const INDUSTRY_SYSTEM_PROMPT = `You are an expert market researcher with real-time web search capabilities.
 
 TASK: Research the industry and market landscape to inform a paid media strategy.
@@ -32,6 +48,8 @@ QUALITY STANDARDS:
 - Make insights actionable for paid media targeting
 
 OUTPUT FORMAT:
+CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.
+
 After completing your research, respond with a JSON object containing your findings. Structure:
 {
   "categorySnapshot": {
@@ -87,17 +105,14 @@ export const researchIndustry = tool({
 
       const finalMsg = await stream.finalMessage();
 
-      const textBlock = finalMsg.content.find((b) => b.type === 'text');
+      const textBlock = finalMsg.content.findLast((b) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
       let data: unknown;
       try {
-        // Extract JSON from the text — it may be wrapped in markdown code fences
-        const jsonMatch = resultText.match(/```(?:json)?\s*([\s\S]*?)```/) ??
-          resultText.match(/(\{[\s\S]*\})/);
-        const jsonStr = jsonMatch ? jsonMatch[1].trim() : resultText.trim();
-        data = JSON.parse(jsonStr);
+        data = extractJson(resultText);
       } catch {
+        console.error('[researchIndustry] JSON extraction failed. Raw text preview:', resultText.slice(0, 300));
         data = { summary: resultText };
       }
 

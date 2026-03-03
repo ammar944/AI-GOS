@@ -175,10 +175,15 @@ function JourneyPageContent() {
     }
   }, [journeyPhase, setRightPanelCollapsed]);
 
-  // Prevent document-level scroll — this is a full-screen app shell
+  // Prevent document-level scroll — this is a full-screen app shell.
+  // Must lock BOTH html and body: when body has overflow:hidden, browsers
+  // can transfer scroll to the html element, which scrollIntoView exploits —
+  // scrolling the entire app shell 656px above the viewport (blank canvas bug).
   useEffect(() => {
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
     return () => {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
   }, []);
@@ -361,6 +366,7 @@ function JourneyPageContent() {
           messages={messages}
           journeyProgress={journeyProgress}
           activeSectionKey={activePanelSection}
+          onClearActiveSection={() => setActivePanelSection(null)}
         />
       }
     >

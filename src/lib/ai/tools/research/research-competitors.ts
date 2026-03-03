@@ -7,6 +7,17 @@ import Anthropic from '@anthropic-ai/sdk';
 import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
 import { adLibraryTool, spyfuTool, pagespeedTool } from '@/lib/ai/tools/mcp';
 
+function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+  try { return JSON.parse(trimmed); } catch {}
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
+  const first = trimmed.indexOf('{');
+  const last = trimmed.lastIndexOf('}');
+  if (first >= 0 && last > first) { return JSON.parse(trimmed.slice(first, last + 1)); }
+  throw new Error('No parseable JSON found');
+}
+
 const COMPETITORS_SYSTEM_PROMPT = `You are an expert competitive analyst researching the competitor landscape for a paid media strategy.
 
 TASK: Research competitors to inform paid media positioning and messaging.
@@ -47,6 +58,8 @@ Identify gaps using this framework:
 4. Channel White Space — platforms with few active competitor ads
 
 OUTPUT FORMAT:
+CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.
+
 After completing your research, respond with a JSON object. Structure:
 {
   "competitors": [
@@ -114,16 +127,14 @@ export const researchCompetitors = tool({
 
       const finalMsg = await stream.finalMessage();
 
-      const textBlock = finalMsg.content.find((b) => b.type === 'text');
+      const textBlock = finalMsg.content.findLast((b) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
       let data: unknown;
       try {
-        const jsonMatch = resultText.match(/```(?:json)?\s*([\s\S]*?)```/) ??
-          resultText.match(/(\{[\s\S]*\})/);
-        const jsonStr = jsonMatch ? jsonMatch[1].trim() : resultText.trim();
-        data = JSON.parse(jsonStr);
+        data = extractJson(resultText);
       } catch {
+        console.error('[researchCompetitors] JSON extraction failed. Raw text preview:', resultText.slice(0, 300));
         data = { summary: resultText };
       }
 
