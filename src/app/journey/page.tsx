@@ -9,12 +9,15 @@ import {
 } from 'ai';
 import { useUser } from '@clerk/nextjs';
 import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
+import { OnboardingContext } from '@/components/shell/onboarding-context';
+import { ResearchCanvas } from '@/components/shell/research-canvas';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+import { useResearchData } from '@/hooks/use-research-data';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -154,6 +157,9 @@ function JourneyPageContent() {
       setResearchTimedOut(true);
     },
   });
+
+  // Research data — drives right panel tabs
+  const { sections: researchSections } = useResearchData(messages);
 
   // Derived state
   const isStreaming = status === 'streaming';
@@ -386,8 +392,25 @@ function JourneyPageContent() {
     </div>
   );
 
+  const rightPanel = (
+    <div className="flex flex-col h-full">
+      {/* Company intel — always visible */}
+      <div style={{ padding: '16px 14px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-quaternary)', marginBottom: 10 }}>
+          Company Intel
+        </p>
+        <OnboardingContext onboardingState={onboardingState} />
+      </div>
+
+      {/* Research canvas — appears as sections complete */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ResearchCanvas sections={researchSections} />
+      </div>
+    </div>
+  );
+
   return (
-    <AppShell sidebar={<AppSidebar />}>
+    <AppShell sidebar={<AppSidebar />} rightPanel={rightPanel}>
       {journeyPhase === 0 && !showResumePrompt ? (
         <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
       ) : (
