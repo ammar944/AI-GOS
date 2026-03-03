@@ -79,7 +79,12 @@ export const competitorFastHits = tool({
         messages: [{ role: 'user', content: userContent }],
       });
 
-      const finalMsg = await runner.runUntilDone();
+      const finalMsg = await Promise.race([
+        runner.runUntilDone(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Fast hits sub-agent timed out after 30s')), 30_000)
+        ),
+      ]);
 
       const textBlock = finalMsg.content.findLast((b) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';

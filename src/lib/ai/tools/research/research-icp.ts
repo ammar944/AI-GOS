@@ -154,7 +154,12 @@ export const researchICP = tool({
           },
         ],
       });
-      const finalMsg = await runner.runUntilDone();
+      const finalMsg = await Promise.race([
+        runner.runUntilDone(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Research sub-agent timed out after 120s')), 120_000)
+        ),
+      ]);
 
       const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';

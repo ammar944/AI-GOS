@@ -76,7 +76,7 @@ export const researchKeywords = tool({
     const startTime = Date.now();
 
     try {
-      const stream = client.beta.messages.stream({
+      const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 4000,
         tools: [spyfuTool],
@@ -84,7 +84,13 @@ export const researchKeywords = tool({
         messages: [{ role: 'user', content: `Find keyword opportunities for:\n\n${context}` }],
       });
 
-      const finalMsg = await stream.finalMessage();
+      const finalMsg = await Promise.race([
+        runner.runUntilDone(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Research sub-agent timed out after 120s')), 120_000)
+        ),
+      ]);
+
       const textBlock = finalMsg.content.findLast((b) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 

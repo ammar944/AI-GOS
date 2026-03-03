@@ -119,7 +119,6 @@ export async function POST(request: Request) {
       researchKeywords,
     },
     stopWhen: stepCountIs(25),
-    temperature: 0.3,
     providerOptions: {
       anthropic: {
         thinking: { type: 'enabled', budgetTokens: 10000 },

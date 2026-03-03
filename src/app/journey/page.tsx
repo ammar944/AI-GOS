@@ -41,7 +41,6 @@ export default function JourneyPage() {
 }
 
 function JourneyPageContent() {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
 
@@ -154,7 +153,7 @@ function JourneyPageContent() {
       container.scrollHeight - container.scrollTop - container.clientHeight < 150;
 
     if (isNewMessage || isNearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }
   }, [messages]);
 
@@ -303,8 +302,6 @@ function JourneyPageContent() {
           </div>
         )}
 
-        {/* Scroll anchor */}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input — pinned to bottom */}

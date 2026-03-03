@@ -17,12 +17,20 @@ export const perplexitySearch = betaZodTool({
   run: async ({ query, context }) => {
     try {
       const prompt = context ? `${query}\n\nContext: ${context}` : query;
-      const response = await generateText({
-        model: perplexity(MODELS.SONAR_PRO),
-        prompt,
-        maxOutputTokens: 4000,
-        temperature: 0.3,
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 40_000); // 40s hard limit
+      let response;
+      try {
+        response = await generateText({
+          model: perplexity(MODELS.SONAR_PRO),
+          prompt,
+          maxOutputTokens: 4000,
+          temperature: 0.3,
+          abortSignal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
       // Extract sources if available (Vercel AI SDK v6 format)
       const sources: { url: string; title: string }[] = [];
