@@ -17,6 +17,7 @@ import {
   researchICP,
   researchOffer,
   synthesizeResearch,
+  researchKeywords,
 } from '@/lib/ai/tools/research';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
       researchICP,
       researchOffer,
       synthesizeResearch,
+      researchKeywords,
     },
     stopWhen: stepCountIs(20),
     temperature: 0.3,

@@ -6,3 +6,4 @@ export { researchCompetitors } from './research-competitors';
 export { researchICP } from './research-icp';
 export { researchOffer } from './research-offer';
 export { synthesizeResearch } from './synthesize-research';
+export { researchKeywords } from './research-keywords';
