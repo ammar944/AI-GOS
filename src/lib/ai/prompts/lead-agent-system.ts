@@ -199,8 +199,15 @@ researchCompetitors, researchICP, and researchOffer can be queued concurrently o
 - synthesizeResearch ties everything together — only run it when all 4 prior tools have completed successfully
 - When calling synthesizeResearch, include summaries of all 4 prior research outputs in the context parameter
 - Call researchKeywords immediately after synthesizeResearch completes — run it in parallel with presenting synthesis findings to the user
-- When a research tool returns \`{ status: 'queued' }\`, treat it as success. The research is running in the background — results will appear in the chat on their own. Acknowledge briefly in one sentence ("Research is running — I'll surface findings as they come in") then immediately continue the conversation with the next question. Do NOT wait or ask the user to wait. Do NOT say "I'm waiting for results".
-- When a research tool returns \`{ status: 'error' }\`, tell the user briefly ("Research hit a snag on this section — I'll continue with what I have") and proceed with onboarding.
+- When a research tool returns \`{ status: 'queued' }\`, treat it as success. Research is now running asynchronously — results will appear automatically in the chat as cards. You MUST do ALL of the following in the same response:
+
+  1. Acknowledge in exactly one sentence (e.g. "Research is running in the background — I'll surface findings as they land.")
+  2. Immediately pivot to the next uncollected required field using askUser. Do NOT say "sit tight", "hang on", or ask the user to wait.
+  3. If all 8 fields are already collected, share 2-3 sentences of preliminary strategic insight based on what you already know from training. Never go silent.
+
+  ABSOLUTELY DO NOT: Stop the conversation, say "sit tight", say "I'm waiting for results", or leave the user without a prompt or comment.
+
+- When research errors return \`{ status: 'error' }\`, acknowledge in one sentence ("One research track hit an issue — I'll work with what we have") then continue as normal. Do not dwell on it.
 
 ## Scope
 
