@@ -369,7 +369,7 @@ function renderToolPart(
     researchICP: 'icpValidation',
     researchOffer: 'offerAnalysis',
     synthesizeResearch: 'crossAnalysis',
-    'tool-researchKeywords': 'keywordIntel',
+    researchKeywords: 'keywordIntel',
     // legacy
     runResearch: (input as { section?: string } | undefined)?.section ?? 'unknown',
   };
