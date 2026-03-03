@@ -1,0 +1,55 @@
+// Dispatch a research job to the Railway worker.
+// Returns immediately (fire-and-forget from the lead agent's perspective).
+
+import { auth } from '@clerk/nextjs/server';
+
+export interface DispatchResult {
+  status: 'queued' | 'error';
+  section: string;
+  jobId?: string;
+  error?: string;
+}
+
+export async function dispatchResearch(
+  tool: string,
+  section: string,
+  context: string,
+): Promise<DispatchResult> {
+  const { userId } = await auth();
+  if (!userId) {
+    return { status: 'error', section, error: 'Unauthorized' };
+  }
+
+  const workerUrl = process.env.RAILWAY_WORKER_URL;
+  const apiKey = process.env.RAILWAY_API_KEY;
+
+  if (!workerUrl) {
+    console.error('[dispatch] RAILWAY_WORKER_URL not configured');
+    return { status: 'error', section, error: 'Research worker not configured' };
+  }
+
+  const jobId = crypto.randomUUID();
+
+  try {
+    const res = await fetch(`${workerUrl}/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({ tool, context, userId, jobId }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[dispatch] Worker rejected ${tool}: ${res.status} ${body}`);
+      return { status: 'error', section, error: `Worker error: ${res.status}` };
+    }
+
+    return { status: 'queued', section, jobId };
+  } catch (error) {
+    console.error(`[dispatch] Failed to reach worker for ${tool}:`, error);
+    return { status: 'error', section, error: error instanceof Error ? error.message : String(error) };
+  }
+}

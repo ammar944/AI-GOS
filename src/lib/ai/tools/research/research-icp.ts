@@ -1,134 +1,15 @@
 // Research Tool: ICP Validation
-// Sprint 3 T3.3 — Anthropic SDK sub-agent with perplexitySearch
+// Async: dispatches to Railway worker, returns immediately
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import Anthropic from '@anthropic-ai/sdk';
-import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { webSearch } from '@/lib/ai/tools/web-search';
-
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  try { return JSON.parse(trimmed); } catch {}
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
-  const first = trimmed.indexOf('{');
-  const last = trimmed.lastIndexOf('}');
-  if (first >= 0 && last > first) { return JSON.parse(trimmed.slice(first, last + 1)); }
-  throw new Error('No parseable JSON found');
-}
-
-const ICP_SYSTEM_PROMPT = `You are an expert ICP analyst validating whether a target audience is viable for paid media.
-
-TASK: Critically assess whether this ICP can be profitably targeted with paid ads.
-
-VALIDATION APPROACH:
-1. Check targeting feasibility on Meta, LinkedIn, and Google
-2. Verify adequate audience scale for testing
-3. Assess pain-solution fit strength
-4. Evaluate economic feasibility (budget authority, purchasing power)
-
-TOOL USAGE:
-Use webSearch to gather data on:
-1. Audience size and reachability on major ad platforms
-2. Industry pain points and frustrations from forums/communities
-3. Typical buying behavior and decision process for this audience
-4. Competitive ad landscape for this audience segment
-5. Economic profile and spending behavior
-
-BE CRITICAL:
-- Flag real concerns, do not sugarcoat
-- "validated" = truly ready for ads
-- "workable" = proceed with caution
-- "invalid" = do not spend money until fixed
-
-TRIGGER EVENT ANALYSIS:
-For each ICP segment, identify 4-6 specific trigger events that create an active buying window:
-- Event description (e.g., "New CMO hired at target company")
-- Estimated annual frequency across TAM
-- Urgency level: immediate (0-30 days), near-term (1-3 months), planning-cycle (3-6 months)
-- Detection method for paid targeting
-- Recommended ad hook tied to this trigger
-
-SEGMENT SIZING:
-For each ICP segment, estimate:
-- Total addressable accounts (number of companies matching firmographics)
-- Total addressable contacts (number of individuals in target roles)
-- Segment share of total ICP (as percentage)
-- Priority tier (1 = highest) with raw factor scores for: painSeverity (1-10), budgetAuthority (1-10), reachability (1-10), triggerFrequency (1-10)
-- Recommended budget weight (percentage of total paid budget)
-
-RISK SCORING:
-Assess risks across these categories (1 = low risk, 5 = high risk):
-1. audience_reachability — ICP size on target platforms vs budget
-2. budget_adequacy — budget vs platform minimums and competitive CPC
-3. pain_strength — is pain acute enough for cold traffic conversion?
-4. competitive_intensity — ad auction density and competitor spend
-5. proof_credibility — can the client substantiate ad claims?
-
-OUTPUT FORMAT:
-CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.
-
-After completing your research, respond with a JSON object. Structure:
-{
-  "finalVerdict": {
-    "status": "validated | workable | invalid",
-    "reasoning": "string — why this verdict was reached",
-    "confidenceLevel": "high | medium | low"
-  },
-  "painSolutionFit": {
-    "fitAssessment": "strong | moderate | weak",
-    "primaryPain": "string — the core pain this product addresses",
-    "fitReasoning": "string — evidence for the fit assessment"
-  },
-  "segments": [
-    {
-      "name": "string — segment name",
-      "description": "string",
-      "totalAddressableAccounts": "string — estimated number",
-      "totalAddressableContacts": "string — estimated number",
-      "segmentShare": "string — percentage of total ICP",
-      "priorityTier": 1,
-      "factorScores": {
-        "painSeverity": 1-10,
-        "budgetAuthority": 1-10,
-        "reachability": 1-10,
-        "triggerFrequency": 1-10
-      },
-      "recommendedBudgetWeight": "string — percentage"
-    }
-  ],
-  "triggerEvents": [
-    {
-      "event": "string — specific trigger event",
-      "annualFrequency": "string — estimated frequency across TAM",
-      "urgencyLevel": "immediate | near-term | planning-cycle",
-      "detectionMethod": "string — how to target this on ad platforms",
-      "recommendedAdHook": "string — ad hook tied to this trigger"
-    }
-  ],
-  "riskScores": [
-    {
-      "category": "string — risk category name",
-      "risk": "string — specific risk description",
-      "probability": 1-5,
-      "impact": 1-5,
-      "mitigation": "string — how to mitigate"
-    }
-  ],
-  "platformReachability": {
-    "meta": "string — audience size estimate on Meta",
-    "linkedin": "string — audience size estimate on LinkedIn",
-    "google": "string — search volume and intent assessment"
-  }
-}`;
+import { dispatchResearch } from './dispatch';
 
 export const researchICP = tool({
   description:
     'Validate the Ideal Customer Profile for paid media targeting. ' +
-    'Runs a Claude Opus sub-agent with live Perplexity web search to assess: ' +
-    'targeting feasibility, audience scale, pain-solution fit, economic viability, ' +
-    'trigger events, segment sizing, SAM, and sensitivity analysis. ' +
+    'Runs a sub-agent to assess: targeting feasibility, audience scale, pain-solution fit, ' +
+    'economic viability, trigger events, segment sizing, and risk scoring. ' +
     'Call this after researchIndustry completes AND icpDescription is collected.',
   inputSchema: z.object({
     context: z
@@ -138,54 +19,6 @@ export const researchICP = tool({
       ),
   }),
   execute: async ({ context }) => {
-    const client = new Anthropic();
-    const startTime = Date.now();
-
-    try {
-      const runner = client.beta.messages.toolRunner({
-        model: 'claude-opus-4-6',
-        max_tokens: 8000,
-        tools: [webSearch],
-        system: ICP_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `Validate the ICP for paid media:\n\n${context}`,
-          },
-        ],
-      });
-      const finalMsg = await Promise.race([
-        runner.runUntilDone(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Research sub-agent timed out after 120s')), 120_000)
-        ),
-      ]);
-
-      const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
-      const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
-
-      let data: unknown;
-      try {
-        data = extractJson(resultText);
-      } catch {
-        console.error('[researchICP] JSON extraction failed. Raw text preview:', resultText.slice(0, 300));
-        data = { summary: resultText };
-      }
-
-      return {
-        status: 'complete' as const,
-        section: 'icpValidation' as const,
-        data,
-        sources: [],
-        durationMs: Date.now() - startTime,
-      };
-    } catch (error) {
-      return {
-        status: 'error' as const,
-        section: 'icpValidation' as const,
-        error: error instanceof Error ? error.message : String(error),
-        durationMs: Date.now() - startTime,
-      };
-    }
+    return dispatchResearch('researchICP', 'icpValidation', context);
   },
 });
