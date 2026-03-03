@@ -17,6 +17,7 @@
     "@ai-sdk/perplexity": "^3.0.17",
     "@ai-sdk/react": "^3.0.75",
     "@anthropic-ai/sdk": "^0.78.0",
+    "@antv/mcp-server-chart": "^0.9.10",
     "@clerk/nextjs": "^6.36.8",
     "@mendable/firecrawl-js": "^4.12.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
