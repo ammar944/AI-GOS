@@ -12,6 +12,7 @@ import { VisualizationCard } from '@/components/chat/visualization-card';
 import { AskUserCard } from '@/components/journey/ask-user-card';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
+import { ResearchSubsectionReveal } from '@/components/journey/research-subsection-reveal';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -368,6 +369,7 @@ function renderToolPart(
     researchICP: 'icpValidation',
     researchOffer: 'offerAnalysis',
     synthesizeResearch: 'crossAnalysis',
+    'tool-researchKeywords': 'keywordIntel',
     // legacy
     runResearch: (input as { section?: string } | undefined)?.section ?? 'unknown',
   };
@@ -394,15 +396,21 @@ function renderToolPart(
       }
 
       return (
-        <ResearchInlineCard
-          key={key}
-          section={sectionName}
-          status="complete"
-          data={parsedOutput?.data as Record<string, unknown>}
-          durationMs={parsedOutput?.durationMs as number}
-          sourceCount={(parsedOutput?.sources as unknown[])?.length}
-          onViewFull={onViewResearchSection ? () => onViewResearchSection(sectionName) : undefined}
-        />
+        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <ResearchInlineCard
+            section={sectionName}
+            status="complete"
+            data={parsedOutput?.data as Record<string, unknown>}
+            durationMs={parsedOutput?.durationMs as number}
+            sourceCount={(parsedOutput?.sources as unknown[])?.length}
+            onViewFull={onViewResearchSection ? () => onViewResearchSection(sectionName) : undefined}
+          />
+          <ResearchSubsectionReveal
+            sectionKey={sectionName}
+            data={parsedOutput?.data as Record<string, unknown> | null}
+            status="complete"
+          />
+        </div>
       );
     }
 
