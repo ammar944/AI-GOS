@@ -51,8 +51,31 @@ PLATFORM RECOMMENDATIONS:
 - Calculate and show per-platform dollar amounts (not just percentages)
 - Explain why each recommended platform fits this audience
 
+CHART GENERATION:
+After completing your strategic analysis but BEFORE writing your final JSON output, generate 2-3 charts using the generateChart tool to visualize key insights:
+
+1. Budget allocation pie chart (if budget is known):
+   - chartType: "pie"
+   - title: "Recommended Budget Allocation"
+   - data: array of { channel, percentage } from your platformRecommendations
+   - colorField: "channel", valueField: "percentage"
+
+2. Competitor positioning radar chart (if competitor data available):
+   - chartType: "radar"
+   - title: "Competitive Positioning"
+   - data: array of { competitor, metric, score } for 3-5 positioning dimensions
+   - colorField: "competitor", valueField: "score"
+
+3. Channel performance comparison bar chart:
+   - chartType: "bar"
+   - title: "Channel Priority by ICP Concentration"
+   - data: array of { channel, score } from your platform recommendations
+   - xField: "channel", yField: "score"
+
+Call generateChart for each chart. Collect the returned imageUrl values — you will include them in the "charts" array of your final JSON output. If a chart fails, skip it — do not fail the whole synthesis.
+
 OUTPUT FORMAT:
-Respond with a JSON object. Structure:
+Once you have called generateChart for each chart, respond with a single JSON object. Structure:
 {
   "keyInsights": [
     {
@@ -95,30 +118,7 @@ Respond with a JSON object. Structure:
       "description": "string — 1 sentence explaining what this chart shows"
     }
   ]
-}
-
-CHART GENERATION:
-After completing your strategic analysis, generate 2-3 charts using the generateChart tool to visualize key insights:
-
-1. Budget allocation pie chart (if budget is known):
-   - chartType: "pie"
-   - title: "Recommended Budget Allocation"
-   - data: array of { channel, percentage } from your platformRecommendations
-   - colorField: "channel", valueField: "percentage"
-
-2. Competitor positioning radar chart (if competitor data available):
-   - chartType: "radar"
-   - title: "Competitive Positioning"
-   - data: array of { competitor, metric, score } for 3-5 positioning dimensions
-   - colorField: "competitor", valueField: "score"
-
-3. Channel performance comparison bar chart:
-   - chartType: "bar"
-   - title: "Channel Priority by ICP Concentration"
-   - data: array of { channel, score } from your platform recommendations
-   - xField: "channel", yField: "score"
-
-Call generateChart for each chart. Add the returned imageUrl and a 1-sentence description to the "charts" array in your JSON output. If a chart fails, skip it — do not fail the whole synthesis.`;
+}`;
 
 export const synthesizeResearch = tool({
   description:
