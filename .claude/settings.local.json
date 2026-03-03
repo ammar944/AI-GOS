@@ -126,7 +126,9 @@
       "Bash(kill:*)",
       "Bash(git:*)",
       "Bash(npx playwright:*)",
-      "mcp__plugin_playwright_playwright__browser_console_messages"
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_network_requests"
     ]
   },
   "enableAllProjectMcpServers": true,

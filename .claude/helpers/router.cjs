@@ -1,29 +1,21 @@
 #!/usr/bin/env node
 /**
- * Claude Flow Agent Router
- * Routes tasks to optimal agents based on learned patterns
+ * Agent Router — Routes tasks to optimal agent based on keyword patterns
+ * Aligned with the 4-agent setup: frontend, backend, qa, researcher
  */
 
 const AGENT_CAPABILITIES = {
-  coder: ['code-generation', 'refactoring', 'debugging', 'implementation'],
-  tester: ['unit-testing', 'integration-testing', 'coverage', 'test-generation'],
-  reviewer: ['code-review', 'security-audit', 'quality-check', 'best-practices'],
-  researcher: ['web-search', 'documentation', 'analysis', 'summarization'],
-  architect: ['system-design', 'architecture', 'patterns', 'scalability'],
-  'backend-dev': ['api', 'database', 'server', 'authentication'],
-  'frontend-dev': ['ui', 'react', 'css', 'components'],
-  devops: ['ci-cd', 'docker', 'deployment', 'infrastructure'],
+  frontend: ['ui', 'react', 'component', 'page', 'layout', 'css', 'tailwind', 'shadcn', 'animation', 'responsive', 'design', 'styling', 'font'],
+  backend: ['api', 'route', 'endpoint', 'database', 'supabase', 'ai-sdk', 'pipeline', 'streaming', 'sse', 'auth', 'clerk', 'server', 'migration'],
+  qa: ['test', 'spec', 'coverage', 'review', 'verify', 'check', 'lint', 'build', 'bug', 'fix', 'debug', 'error', 'failing'],
+  researcher: ['research', 'find', 'search', 'explore', 'understand', 'how', 'where', 'trace', 'investigate', 'architecture', 'pattern'],
 };
 
 const TASK_PATTERNS = {
-  'implement|create|build|add|write code': 'coder',
-  'test|spec|coverage|unit test|integration': 'tester',
-  'review|audit|check|validate|security': 'reviewer',
-  'research|find|search|documentation|explore': 'researcher',
-  'design|architect|structure|plan': 'architect',
-  'api|endpoint|server|backend|database': 'backend-dev',
-  'ui|frontend|component|react|css|style': 'frontend-dev',
-  'deploy|docker|ci|cd|pipeline|infrastructure': 'devops',
+  'component|page|layout|ui|css|tailwind|shadcn|style|animation|responsive|font|visual|design|icon': 'frontend',
+  'api|route|endpoint|database|supabase|stream|sse|auth|clerk|pipeline|generate|ai.sdk|perplexity|anthropic|provider|migration': 'backend',
+  'test|spec|coverage|review|verify|lint|build|bug|debug|error|failing|broken|fix|ci|type.error': 'qa',
+  'research|find|search|explore|understand|how.does|where.is|trace|investigate|pattern|architecture|explain|what.is': 'researcher',
 };
 
 function routeTask(task) {
@@ -34,29 +26,28 @@ function routeTask(task) {
     if (regex.test(taskLower)) {
       return {
         agent,
-        confidence: 0.8,
-        reason: `Matched pattern: ${pattern}`,
+        confidence: 0.85,
+        reason: `Matched pattern: ${pattern.split('|').find(p => new RegExp(p, 'i').test(taskLower))}`,
       };
     }
   }
 
   return {
-    agent: 'coder',
+    agent: 'researcher',
     confidence: 0.5,
-    reason: 'Default routing - no specific pattern matched',
+    reason: 'No specific pattern matched — start with research',
   };
 }
 
 module.exports = { routeTask, AGENT_CAPABILITIES, TASK_PATTERNS };
 
-// CLI - only run when executed directly
 if (require.main === module) {
   const task = process.argv.slice(2).join(' ');
   if (task) {
     const result = routeTask(task);
     console.log(JSON.stringify(result, null, 2));
   } else {
-    console.log('Usage: router.js <task description>');
+    console.log('Usage: router.cjs <task description>');
     console.log('\nAvailable agents:', Object.keys(AGENT_CAPABILITIES).join(', '));
   }
 }

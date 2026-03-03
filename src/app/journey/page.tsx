@@ -7,7 +7,7 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
-import { AppShell, AppSidebar, ShellProvider, useShell } from '@/components/shell';
+import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
@@ -27,10 +27,8 @@ import {
   hasAnsweredFields,
   getAnsweredFields,
 } from '@/lib/journey/session-state';
-import { computeJourneyProgress } from '@/lib/journey/journey-progress-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
-import { ContextPanel } from '@/components/shell/context-panel';
 import { WelcomeState } from '@/components/journey/welcome-state';
 
 export default function JourneyPage() {
@@ -43,7 +41,6 @@ export default function JourneyPage() {
 
 function JourneyPageContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { setRightPanelCollapsed } = useShell();
 
   // Resume state
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -52,12 +49,6 @@ function JourneyPageContent() {
   const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
 
   const [onboardingState, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
-  const [activePanelSection, setActivePanelSection] = useState<string | null>(null);
-
-  const handleViewResearchSection = useCallback((section: string) => {
-    setRightPanelCollapsed(false); // open right panel
-    setActivePanelSection(section);
-  }, [setRightPanelCollapsed]);
 
   useEffect(() => {
     const saved = getJourneySession();
@@ -70,22 +61,6 @@ function JourneyPageContent() {
       }
     }
   }, []);
-
-  // Compute journey progress from onboarding state
-  // During the journey page, only onboarding is active — blueprint/media plan haven't started
-  const journeyProgress = useMemo(
-    () =>
-      computeJourneyProgress({
-        onboardingState,
-        completedBlueprintSections: new Set(),
-        isBlueprintGenerating: false,
-        completedMediaPlanSections: new Set(),
-        isMediaPlanGenerating: false,
-        isBlueprintComplete: false,
-        isMediaPlanComplete: false,
-      }),
-    [onboardingState]
-  );
 
   // Transport — body includes resumeState when resuming a previous session.
   // transportBody changes at most once (when user clicks "Continue"), before
@@ -145,35 +120,8 @@ function JourneyPageContent() {
 
   const isLoading = isStreaming || isSubmitted || hasPendingToolInteraction;
 
-  // Progressive reveal — derive journey phase from conversation state
-  // Phase 0: No messages yet → welcome state, no right panel
-  // Phase 1: Messages exist but no research yet → chat flowing, no right panel
-  // Phase 2: First research has fired → right panel slides in
   const hasMessages = messages.length > 0;
-  const RESEARCH_TOOL_TYPES = [
-    'tool-researchIndustry',
-    'tool-researchCompetitors',
-    'tool-researchICP',
-    'tool-researchOffer',
-    'tool-synthesizeResearch',
-  ];
-  const hasResearch = messages.some(
-    (msg) =>
-      msg.parts?.some(
-        (p) =>
-          typeof p === 'object' &&
-          'type' in p &&
-          RESEARCH_TOOL_TYPES.includes((p as Record<string, unknown>).type as string)
-      )
-  );
-  const journeyPhase = !hasMessages ? 0 : hasResearch ? 2 : 1;
-
-  // Force right panel open when Phase 2 triggers (research fired)
-  useEffect(() => {
-    if (journeyPhase >= 2) {
-      setRightPanelCollapsed(false);
-    }
-  }, [journeyPhase, setRightPanelCollapsed]);
+  const journeyPhase = hasMessages ? 1 : 0;
 
   // Prevent document-level scroll — this is a full-screen app shell.
   // Must lock BOTH html and body: when body has overflow:hidden, browsers
@@ -314,7 +262,6 @@ function JourneyPageContent() {
                 addToolApprovalResponse({ id: approvalId, approved })
               }
               onToolOutput={handleAskUserResponse}
-              onViewResearchSection={handleViewResearchSection}
             />
           );
         })}
@@ -358,18 +305,7 @@ function JourneyPageContent() {
   );
 
   return (
-    <AppShell
-      sidebar={<AppSidebar />}
-      rightPanel={
-        <ContextPanel
-          onboardingState={onboardingState}
-          messages={messages}
-          journeyProgress={journeyProgress}
-          activeSectionKey={activePanelSection}
-          onClearActiveSection={() => setActivePanelSection(null)}
-        />
-      }
-    >
+    <AppShell sidebar={<AppSidebar />}>
       {journeyPhase === 0 && !showResumePrompt ? (
         <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
       ) : (
