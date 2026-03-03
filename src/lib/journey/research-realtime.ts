@@ -94,7 +94,7 @@ export function useResearchRealtime({
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         if (!data?.research_results) return;
         const results = data.research_results as Record<
