@@ -15,7 +15,8 @@ export function useSubsectionReveal(
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    // Only run once per section completion
+    // Only schedule once — guard prevents re-runs when `data` reference changes
+    // (chat re-renders cause JSON.parse to produce new object references)
     if (status !== 'complete' || !data || scheduledRef.current) return;
     scheduledRef.current = true;
 
@@ -26,11 +27,15 @@ export function useSubsectionReveal(
       }, index * delayMs);
       timersRef.current.push(timer);
     });
-
-    return () => {
-      timersRef.current.forEach(clearTimeout);
-    };
+    // No cleanup return here — timers must survive parent re-renders.
+    // Unmount cleanup lives in the dedicated effect below.
   }, [status, sectionKey, data, delayMs]);
+
+  // Cancel pending timers only on real component unmount
+  useEffect(() => {
+    const timers = timersRef;
+    return () => { timers.current.forEach(clearTimeout); };
+  }, []);
 
   // Reset if section goes back to non-complete (edge case)
   useEffect(() => {
