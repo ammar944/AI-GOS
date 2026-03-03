@@ -30,6 +30,7 @@ import {
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { WelcomeState } from '@/components/journey/welcome-state';
+import { ProfileCard } from '@/components/journey/profile-card';
 
 export default function JourneyPage() {
   return (
@@ -243,6 +244,9 @@ function JourneyPageContent() {
             isStreaming={false}
           />
         )}
+
+        {/* Inline profile card — renders once at least one field is answered */}
+        <ProfileCard state={onboardingState} />
 
         {/* Conversation messages */}
         {messages.map((message, index) => {
