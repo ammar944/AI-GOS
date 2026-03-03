@@ -4,6 +4,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
+import { chartTool } from '@/lib/ai/tools/mcp';
 
 const SYNTHESIS_SYSTEM_PROMPT = `You are synthesizing research into an actionable paid media strategy.
 
@@ -85,8 +86,39 @@ Respond with a JSON object. Structure:
   ],
   "criticalSuccessFactors": ["string — 3-5 factors that will determine campaign success"],
   "nextSteps": ["string — 5-7 specific actions achievable in the next 2 weeks"],
-  "strategicNarrative": "string — 2-3 paragraph summary of the complete paid media strategy"
-}`;
+  "strategicNarrative": "string — 2-3 paragraph summary of the complete paid media strategy",
+  "charts": [
+    {
+      "chartType": "pie | radar | bar | funnel | word_cloud",
+      "title": "string",
+      "imageUrl": "string — URL returned by generateChart tool",
+      "description": "string — 1 sentence explaining what this chart shows"
+    }
+  ]
+}
+
+CHART GENERATION:
+After completing your strategic analysis, generate 2-3 charts using the generateChart tool to visualize key insights:
+
+1. Budget allocation pie chart (if budget is known):
+   - chartType: "pie"
+   - title: "Recommended Budget Allocation"
+   - data: array of { channel, percentage } from your platformRecommendations
+   - colorField: "channel", valueField: "percentage"
+
+2. Competitor positioning radar chart (if competitor data available):
+   - chartType: "radar"
+   - title: "Competitive Positioning"
+   - data: array of { competitor, metric, score } for 3-5 positioning dimensions
+   - colorField: "competitor", valueField: "score"
+
+3. Channel performance comparison bar chart:
+   - chartType: "bar"
+   - title: "Channel Priority by ICP Concentration"
+   - data: array of { channel, score } from your platform recommendations
+   - xField: "channel", yField: "score"
+
+Call generateChart for each chart. Add the returned imageUrl and a 1-sentence description to the "charts" array in your JSON output. If a chart fails, skip it — do not fail the whole synthesis.`;
 
 export const synthesizeResearch = tool({
   description:
@@ -110,7 +142,7 @@ export const synthesizeResearch = tool({
       const stream = client.beta.messages.stream({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
-        tools: [],
+        tools: [chartTool],
         system: SYNTHESIS_SYSTEM_PROMPT,
         messages: [
           {
