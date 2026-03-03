@@ -42,6 +42,8 @@ export default function JourneyPage() {
 
 function JourneyPageContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(0);
 
   // Resume state
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -137,9 +139,23 @@ function JourneyPageContent() {
     };
   }, []);
 
-  // Auto-scroll on new messages only (not status — fires on every streaming token)
+  // Smart auto-scroll — only follow to bottom if user is already near it,
+  // OR a genuinely new message was added (not just a part state mutation).
+  // This prevents the chip-click trap where streaming token updates yank
+  // the user back to bottom every time they try to scroll up.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollAreaRef.current;
+    if (!container) return;
+
+    const isNewMessage = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+
+    if (isNewMessage || isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Submit handler
@@ -229,7 +245,7 @@ function JourneyPageContent() {
   const chatContent = (
     <div className="flex flex-col h-full">
       {/* Messages area — scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
+      <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
         {/* Resume prompt OR welcome message */}
         {showResumePrompt && savedSession ? (
           <ResumePrompt
