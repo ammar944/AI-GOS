@@ -14,6 +14,26 @@ npm run test:run -- src/lib/ai/__tests__/research.test.ts  # Single test file
 npm run test:coverage  # Coverage report (V8 provider)
 ```
 
+## Research Worker (Local Dev)
+
+The research pipeline requires the Railway worker running locally:
+
+```bash
+# Terminal 1: Next.js
+npm run dev
+
+# Terminal 2: Research worker
+cd research-worker
+cp .env.example .env  # fill in your keys
+npm run dev           # starts on :3001
+```
+
+Add to `.env.local`:
+```
+RAILWAY_WORKER_URL=http://localhost:3001
+RAILWAY_API_KEY=dev-secret
+```
+
 ## Environment Variables
 
 Required in `.env.local`:
@@ -33,6 +53,8 @@ PERPLEXITY_API_KEY=   # Perplexity Sonar Pro for research
 FOREPLAY_API_KEY=     # Creative intelligence enrichment
 FIRECRAWL_API_KEY=    # Pricing page scraping
 SPYFU_API_KEY=        # Keyword intelligence
+RAILWAY_WORKER_URL=   # Research worker URL (e.g. https://your-worker.railway.app). Required for research tools to work — without it all research dispatches silently fail.
+RAILWAY_API_KEY=      # Bearer token for worker auth (set same value in worker env)
 ```
 
 ## Architecture

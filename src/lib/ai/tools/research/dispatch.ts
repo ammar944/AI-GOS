@@ -24,8 +24,31 @@ export async function dispatchResearch(
   const apiKey = process.env.RAILWAY_API_KEY;
 
   if (!workerUrl) {
-    console.error('[dispatch] RAILWAY_WORKER_URL not configured');
-    return { status: 'error', section, error: 'Research worker not configured' };
+    console.error(
+      '[dispatch] RAILWAY_WORKER_URL not set — research cannot run. ' +
+      'Set RAILWAY_WORKER_URL in .env.local (run worker with: cd research-worker && npm run dev)'
+    );
+    return {
+      status: 'error',
+      section,
+      error: 'Research worker not reachable. RAILWAY_WORKER_URL is not configured.'
+    };
+  }
+
+  // Quick health check — fail fast if worker is unreachable
+  try {
+    const health = await fetch(`${workerUrl}/health`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!health.ok) {
+      return { status: 'error', section, error: `Worker unhealthy: ${health.status}` };
+    }
+  } catch {
+    return {
+      status: 'error',
+      section,
+      error: 'Research worker is not reachable. Check RAILWAY_WORKER_URL and ensure the worker is running.'
+    };
   }
 
   const jobId = crypto.randomUUID();
