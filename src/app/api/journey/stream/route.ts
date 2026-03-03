@@ -11,6 +11,7 @@ import {
   buildResumeContext,
 } from '@/lib/ai/prompts/lead-agent-system';
 import { askUser } from '@/lib/ai/tools/ask-user';
+import { competitorFastHits } from '@/lib/ai/tools/competitor-fast-hits';
 import {
   researchIndustry,
   researchCompetitors,
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
     messages: await convertToModelMessages(sanitizedMessages),
     tools: {
       askUser,
+      competitorFastHits,
       researchIndustry,
       researchCompetitors,
       researchICP,
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
       synthesizeResearch,
       researchKeywords,
     },
-    stopWhen: stepCountIs(20),
+    stopWhen: stepCountIs(25),
     temperature: 0.3,
     providerOptions: {
       anthropic: {
