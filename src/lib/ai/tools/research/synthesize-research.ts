@@ -6,6 +6,7 @@ import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { chartTool } from '@/lib/ai/tools/mcp';
+import { PAID_ADS_SKILL } from '@/lib/ai/prompts/skills/paid-ads-skill';
 
 const SYNTHESIS_SYSTEM_PROMPT = `You are synthesizing research into an actionable paid media strategy.
 
@@ -144,7 +145,7 @@ export const synthesizeResearch = tool({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
         tools: [chartTool],
-        system: SYNTHESIS_SYSTEM_PROMPT,
+        system: PAID_ADS_SKILL + '\n\n---\n\n' + SYNTHESIS_SYSTEM_PROMPT,
         messages: [
           {
             role: 'user',

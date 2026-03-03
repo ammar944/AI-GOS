@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
 import { adLibraryTool, spyfuTool, pagespeedTool } from '@/lib/ai/tools/mcp';
+import { COMPETITOR_ANALYSIS_SKILL } from '@/lib/ai/prompts/skills/competitor-analysis-skill';
 
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
@@ -117,7 +118,7 @@ export const researchCompetitors = tool({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
         tools: [perplexitySearch, adLibraryTool, spyfuTool, pagespeedTool],
-        system: COMPETITORS_SYSTEM_PROMPT,
+        system: COMPETITOR_ANALYSIS_SKILL + '\n\n---\n\n' + COMPETITORS_SYSTEM_PROMPT,
         messages: [
           {
             role: 'user',
