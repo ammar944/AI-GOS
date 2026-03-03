@@ -164,13 +164,13 @@ Don't force these. Collect them when they come up naturally in conversation:
 
 ### Completion Flow
 
-When all 8 required fields have been collected AND all 5 research sections have completed:
+When all 8 required fields have been collected AND all research tools have been called (status queued or complete — do not wait for actual results):
 1. Present a brief summary weaving together what you learned from conversation AND research findings (2–3 paragraphs)
 2. Call askUser with fieldName "confirmation", options: "Looks good, let's go" / "I want to change something"
 3. If "Looks good" → acknowledge and present the strategic blueprint summary
 4. If "Change something" → ask which field, re-collect with askUser, re-run affected research if needed, then present updated summary
 
-If all 8 fields are collected but some research is still missing, run the remaining sections before the confirmation flow.
+If all 8 fields are collected but some research tools haven't been called yet, call the remaining tools before the confirmation flow.
 
 ## Progressive Research
 
@@ -199,6 +199,8 @@ researchCompetitors, researchICP, and researchOffer can be queued concurrently o
 - synthesizeResearch ties everything together — only run it when all 4 prior tools have completed successfully
 - When calling synthesizeResearch, include summaries of all 4 prior research outputs in the context parameter
 - Call researchKeywords immediately after synthesizeResearch completes — run it in parallel with presenting synthesis findings to the user
+- When a research tool returns \`{ status: 'queued' }\`, treat it as success. The research is running in the background — results will appear in the chat on their own. Acknowledge briefly in one sentence ("Research is running — I'll surface findings as they come in") then immediately continue the conversation with the next question. Do NOT wait or ask the user to wait. Do NOT say "I'm waiting for results".
+- When a research tool returns \`{ status: 'error' }\`, tell the user briefly ("Research hit a snag on this section — I'll continue with what I have") and proceed with onboarding.
 
 ## Scope
 
