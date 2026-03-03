@@ -154,7 +154,7 @@ export const synthesizeResearch = tool({
       });
       const finalMsg = await runner.runUntilDone();
 
-      const textBlock = finalMsg.content.find((b: BetaContentBlock) => b.type === 'text');
+      const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
       let data: unknown;
