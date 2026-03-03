@@ -7,11 +7,14 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
+import { useUser } from '@clerk/nextjs';
 import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
+import { useResearchRealtime } from '@/lib/journey/research-realtime';
+import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -38,6 +41,18 @@ export default function JourneyPage() {
       <JourneyPageContent />
     </ShellProvider>
   );
+}
+
+function sectionToToolName(section: string): string {
+  const map: Record<string, string> = {
+    industryMarket: 'researchIndustry',
+    competitors: 'researchCompetitors',
+    icpValidation: 'researchICP',
+    offerAnalysis: 'researchOffer',
+    crossAnalysis: 'synthesizeResearch',
+    keywordIntel: 'researchKeywords',
+  };
+  return map[section] ?? section;
 }
 
 function JourneyPageContent() {
@@ -97,6 +112,40 @@ function JourneyPageContent() {
           return cleaned;
         });
       }
+    },
+  });
+
+  // Supabase Realtime — receive async research results
+  const { user } = useUser();
+
+  useResearchRealtime({
+    userId: user?.id,
+    onSectionComplete: (section: string, result: ResearchSectionResult) => {
+      const toolName = sectionToToolName(section);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const syntheticMessage: any = {
+        id: `realtime-${section}-${Date.now()}`,
+        role: 'assistant' as const,
+        content: '',
+        parts: [
+          {
+            type: `tool-${toolName}`,
+            toolName,
+            toolCallId: `realtime-${section}`,
+            state: 'output-available' as const,
+            input: {},
+            output: JSON.stringify(result),
+          },
+        ],
+        createdAt: new Date(),
+      };
+      setMessages((prev) => [...prev, syntheticMessage]);
+    },
+    onAllSectionsComplete: (allResults: Record<string, ResearchSectionResult>) => {
+      const synthesisContext = JSON.stringify(allResults, null, 2);
+      sendMessage({
+        text: `[SYSTEM] All 4 research sections complete. Please synthesize the research now. Here are the results:\n\n${synthesisContext}`,
+      });
     },
   });
 
