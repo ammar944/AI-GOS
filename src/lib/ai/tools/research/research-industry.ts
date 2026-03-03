@@ -5,7 +5,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
+import { webSearch } from '@/lib/ai/tools/web-search';
 
 // Robust JSON extraction: handles model preamble before the JSON object.
 // Tries direct parse → fenced code block → first{...last} slice.
@@ -35,7 +35,7 @@ RESEARCH FOCUS:
 - Demand drivers and barriers
 
 TOOL USAGE:
-Use the perplexitySearch tool to gather live market data. Run multiple searches:
+Use the webSearch tool to gather live market data. Run multiple searches:
 1. Industry overview and market size
 2. Customer pain points and complaints (search G2/Reddit/forums)
 3. Buying behavior and decision process
@@ -94,7 +94,7 @@ export const researchIndustry = tool({
       const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
-        tools: [perplexitySearch],
+        tools: [webSearch],
         system: INDUSTRY_SYSTEM_PROMPT,
         messages: [
           {

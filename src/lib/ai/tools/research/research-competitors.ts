@@ -5,7 +5,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
+import { webSearch } from '@/lib/ai/tools/web-search';
 import { adLibraryTool, spyfuTool, pagespeedTool } from '@/lib/ai/tools/mcp';
 import { COMPETITOR_ANALYSIS_SKILL } from '@/lib/ai/prompts/skills/competitor-analysis-skill';
 
@@ -32,8 +32,8 @@ CRITICAL — COMPETITOR DISAMBIGUATION:
 - When in doubt between similar-named companies, choose the one with the most similar target customer, product category, and go-to-market approach
 
 TOOL USAGE PLAN:
-1. Use perplexitySearch to identify 3-5 direct competitors and their positioning
-2. Use perplexitySearch again to find competitor weaknesses from G2 and Capterra reviews
+1. Use webSearch to identify 3-5 direct competitors and their positioning
+2. Use webSearch again to find competitor weaknesses from G2 and Capterra reviews
 3. Use adLibraryTool to check competitor ad creatives (use their domain names)
 4. Use spyfuTool for keyword and spend intelligence on each competitor
 5. Use pagespeedTool to benchmark competitor landing pages
@@ -117,7 +117,7 @@ export const researchCompetitors = tool({
       const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
-        tools: [perplexitySearch, adLibraryTool, spyfuTool, pagespeedTool],
+        tools: [webSearch, adLibraryTool, spyfuTool, pagespeedTool],
         system: COMPETITOR_ANALYSIS_SKILL + '\n\n---\n\n' + COMPETITORS_SYSTEM_PROMPT,
         messages: [
           {

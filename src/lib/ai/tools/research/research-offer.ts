@@ -5,7 +5,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
+import { webSearch } from '@/lib/ai/tools/web-search';
 import { firecrawlTool } from '@/lib/ai/tools/mcp';
 
 function extractJson(text: string): unknown {
@@ -30,12 +30,12 @@ EVALUATION APPROACH:
 4. Red Flags — What could hurt ad performance?
 
 TOOL USAGE:
-1. Use perplexitySearch to research:
+1. Use webSearch to research:
    - Market pricing benchmarks for this type of offer
    - Competitor pricing and positioning
    - Customer objections commonly heard in this market
 2. If the client has a pricing page URL or website URL in the context, use firecrawlTool to scrape it for actual pricing details
-3. Use perplexitySearch again to find competitor pricing pages if known
+3. Use webSearch again to find competitor pricing pages if known
 
 SCORING GUIDELINES:
 - Score based on competitive positioning
@@ -111,7 +111,7 @@ export const researchOffer = tool({
       const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
-        tools: [perplexitySearch, firecrawlTool],
+        tools: [webSearch, firecrawlTool],
         system: OFFER_SYSTEM_PROMPT,
         messages: [
           {

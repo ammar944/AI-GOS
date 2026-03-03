@@ -5,7 +5,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
+import { webSearch } from '@/lib/ai/tools/web-search';
 
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
@@ -29,7 +29,7 @@ VALIDATION APPROACH:
 4. Evaluate economic feasibility (budget authority, purchasing power)
 
 TOOL USAGE:
-Use perplexitySearch to gather data on:
+Use webSearch to gather data on:
 1. Audience size and reachability on major ad platforms
 2. Industry pain points and frustrations from forums/communities
 3. Typical buying behavior and decision process for this audience
@@ -145,7 +145,7 @@ export const researchICP = tool({
       const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
-        tools: [perplexitySearch],
+        tools: [webSearch],
         system: ICP_SYSTEM_PROMPT,
         messages: [
           {
