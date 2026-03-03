@@ -117,6 +117,7 @@ function JourneyPageContent() {
 
   // Supabase Realtime — receive async research results
   const { user } = useUser();
+  const [researchTimedOut, setResearchTimedOut] = useState(false);
 
   useResearchRealtime({
     userId: user?.id,
@@ -141,11 +142,16 @@ function JourneyPageContent() {
       };
       setMessages((prev) => [...prev, syntheticMessage]);
     },
-    onAllSectionsComplete: (allResults: Record<string, ResearchSectionResult>) => {
-      const synthesisContext = JSON.stringify(allResults, null, 2);
+    onAllSectionsComplete: () => {
+      // All 4 research cards are now visible in chat.
+      // Send as a natural user turn so it doesn't render as a broken [SYSTEM] artifact.
       sendMessage({
-        text: `[SYSTEM] All 4 research sections complete. Please synthesize the research now. Here are the results:\n\n${synthesisContext}`,
+        text: "Okay — looks like the research is all in. What's your read on everything you found?",
       });
+    },
+    onTimeout: (pendingSections) => {
+      console.warn('[journey] Research timed out, pending:', pendingSections);
+      setResearchTimedOut(true);
     },
   });
 
@@ -348,6 +354,16 @@ function JourneyPageContent() {
             }}
           >
             {error.message || 'Something went wrong. Please try again.'}
+          </div>
+        )}
+
+        {/* Research timeout warning */}
+        {researchTimedOut && (
+          <div className="mx-auto max-w-[720px] px-4 py-2">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+              Research is taking longer than expected. The worker may be temporarily unavailable.
+              You can continue the conversation — results will appear if they complete.
+            </div>
           </div>
         )}
 

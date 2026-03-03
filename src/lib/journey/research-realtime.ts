@@ -17,6 +17,8 @@ interface UseResearchRealtimeOptions {
   onAllSectionsComplete?: (
     allResults: Record<string, ResearchSectionResult>,
   ) => void;
+  onTimeout?: (pendingSections: string[]) => void;
+  timeoutMs?: number;
 }
 
 const SYNTHESIS_PREREQUISITES = new Set([
@@ -35,19 +37,32 @@ export function useResearchRealtime({
   userId,
   onSectionComplete,
   onAllSectionsComplete,
+  onTimeout,
+  timeoutMs,
 }: UseResearchRealtimeOptions) {
   const seenSections = useRef<Set<string>>(new Set());
   const seenResults = useRef<Record<string, ResearchSectionResult>>({});
   const synthesisTriggered = useRef(false);
   const onSectionCompleteRef = useRef(onSectionComplete);
   const onAllSectionsCompleteRef = useRef(onAllSectionsComplete);
+  const onTimeoutRef = useRef(onTimeout);
   onSectionCompleteRef.current = onSectionComplete;
   onAllSectionsCompleteRef.current = onAllSectionsComplete;
+  onTimeoutRef.current = onTimeout;
 
   useEffect(() => {
     if (!userId) return;
 
     const supabase = createClient();
+
+    const timeout = setTimeout(() => {
+      const pending = [...SYNTHESIS_PREREQUISITES].filter(
+        (s) => !seenSections.current.has(s),
+      );
+      if (pending.length > 0) {
+        onTimeoutRef.current?.(pending);
+      }
+    }, timeoutMs ?? 3 * 60 * 1000);
 
     function handleNewSection(
       section: string,
@@ -117,7 +132,8 @@ export function useResearchRealtime({
       .subscribe();
 
     return () => {
+      clearTimeout(timeout);
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, timeoutMs]);
 }
