@@ -4,6 +4,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
+import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { perplexitySearch } from '@/lib/ai/tools/perplexity-search';
 
 // Robust JSON extraction: handles model preamble before the JSON object.
@@ -90,7 +91,7 @@ export const researchIndustry = tool({
     const startTime = Date.now();
 
     try {
-      const stream = client.beta.messages.stream({
+      const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
         tools: [perplexitySearch],
@@ -102,10 +103,9 @@ export const researchIndustry = tool({
           },
         ],
       });
+      const finalMsg = await runner.runUntilDone();
 
-      const finalMsg = await stream.finalMessage();
-
-      const textBlock = finalMsg.content.findLast((b) => b.type === 'text');
+      const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
       let data: unknown;

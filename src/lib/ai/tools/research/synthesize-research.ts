@@ -4,6 +4,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
+import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { chartTool } from '@/lib/ai/tools/mcp';
 
 const SYNTHESIS_SYSTEM_PROMPT = `You are synthesizing research into an actionable paid media strategy.
@@ -139,7 +140,7 @@ export const synthesizeResearch = tool({
     const startTime = Date.now();
 
     try {
-      const stream = client.beta.messages.stream({
+      const runner = client.beta.messages.toolRunner({
         model: 'claude-opus-4-6',
         max_tokens: 8000,
         tools: [chartTool],
@@ -151,10 +152,9 @@ export const synthesizeResearch = tool({
           },
         ],
       });
+      const finalMsg = await runner.runUntilDone();
 
-      const finalMsg = await stream.finalMessage();
-
-      const textBlock = finalMsg.content.find((b) => b.type === 'text');
+      const textBlock = finalMsg.content.find((b: BetaContentBlock) => b.type === 'text');
       const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
       let data: unknown;
