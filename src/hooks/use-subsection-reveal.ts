@@ -1,0 +1,46 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { buildSubsectionCards } from '@/components/journey/intel-cards/build-subsection-cards';
+import type { SubsectionCard } from '@/components/journey/intel-cards/build-subsection-cards';
+
+export function useSubsectionReveal(
+  sectionKey: string,
+  data: Record<string, unknown> | null | undefined,
+  status: 'pending' | 'running' | 'complete' | 'error',
+  delayMs = 1500
+): SubsectionCard[] {
+  const [revealed, setRevealed] = useState<SubsectionCard[]>([]);
+  const scheduledRef = useRef(false);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    // Only run once per section completion
+    if (status !== 'complete' || !data || scheduledRef.current) return;
+    scheduledRef.current = true;
+
+    const cards = buildSubsectionCards(sectionKey, data);
+    cards.forEach((card, index) => {
+      const timer = setTimeout(() => {
+        setRevealed((prev) => [...prev, card]);
+      }, index * delayMs);
+      timersRef.current.push(timer);
+    });
+
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, [status, sectionKey, data, delayMs]);
+
+  // Reset if section goes back to non-complete (edge case)
+  useEffect(() => {
+    if (status === 'pending' || status === 'running') {
+      setRevealed([]);
+      scheduledRef.current = false;
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    }
+  }, [status]);
+
+  return revealed;
+}
