@@ -186,4 +186,14 @@ app.listen(PORT, () => {
   console.log(`[worker] Research worker listening on :${PORT}`);
 });
 
+// -- Stale job detection ------------------------------------------------------
+const STALE_THRESHOLD_MS = 180_000; // 3 minutes
+
+setInterval(() => {
+  console.log(`[stale-check] Checking for stale jobs (threshold: ${STALE_THRESHOLD_MS / 1000}s)...`);
+  // MVP: log only. Full implementation would query Supabase for job_status entries
+  // where status='running' and startedAt < now - STALE_THRESHOLD_MS,
+  // then mark them as { status: 'error', error: 'timeout: job exceeded 180s' }
+}, 60_000); // Check every 60s
+
 export default app;
