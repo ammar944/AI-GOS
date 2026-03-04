@@ -4,3 +4,4 @@ export { runResearchICP } from './icp';
 export { runResearchOffer } from './offer';
 export { runSynthesizeResearch } from './synthesize';
 export { runResearchKeywords } from './keywords';
+export { runMediaPlanner } from './media-planner';
