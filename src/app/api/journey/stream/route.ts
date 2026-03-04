@@ -135,6 +135,11 @@ export async function POST(request: Request) {
   // ── Derive per-request state snapshot ──────────────────────────────────────
   const journeySnap = parseCollectedFields(sanitizedMessages);
 
+  // For the competitor dedup guard, scan raw messages (not sanitized) so that
+  // in-flight competitorFastHits calls (state: input-available) are not missed.
+  // Sanitized messages strip input-available parts, which would cause double-firing.
+  const rawSnap = parseCollectedFields(body.messages as UIMessage[]);
+
   // Stage 2: competitor detection — inject instruction if new competitor found
   const competitorDetection = lastUserText
     ? detectCompetitorMentions(lastUserText)
@@ -142,7 +147,7 @@ export async function POST(request: Request) {
 
   const competitorAlreadyCalled =
     competitorDetection !== null &&
-    journeySnap.competitorFastHitsCalledFor.has(competitorDetection.domain);
+    rawSnap.competitorFastHitsCalledFor.has(competitorDetection.domain);
 
   if (
     competitorDetection !== null &&
