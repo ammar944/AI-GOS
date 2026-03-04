@@ -1,9 +1,9 @@
 // Research Tool: Offer Analysis
-// Async: dispatches to Railway worker, returns immediately
+// Dispatches to Railway worker, polls for result
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import { dispatchAndWait } from './dispatch-and-wait';
 
 export const researchOffer = tool({
   description:
@@ -19,6 +19,6 @@ export const researchOffer = tool({
       ),
   }),
   execute: async ({ context }) => {
-    return dispatchResearch('researchOffer', 'offerAnalysis', context);
+    return dispatchAndWait('researchOffer', 'offerAnalysis', context);
   },
 });

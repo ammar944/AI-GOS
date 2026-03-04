@@ -1,12 +1,10 @@
-// src/lib/ai/tools/research/synthesize-research.ts
 // Research Tool: Cross-Analysis Synthesis
-// Async: waits for prerequisites, then dispatches to Railway worker
+// Dispatches to Railway worker, polls for result
+// Model now controls sequencing — no waitForResearchReadiness needed
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { auth } from '@clerk/nextjs/server';
-import { dispatchResearch } from './dispatch';
-import { waitForResearchReadiness } from '@/lib/journey/research-readiness';
+import { dispatchAndWait } from './dispatch-and-wait';
 
 export const synthesizeResearch = tool({
   description:
@@ -23,21 +21,6 @@ export const synthesizeResearch = tool({
       ),
   }),
   execute: async ({ context }) => {
-    const { userId } = await auth();
-    if (!userId) {
-      return { status: 'error', section: 'crossAnalysis', error: 'Unauthorized' };
-    }
-
-    // Poll Supabase until all 4 prerequisites are complete (max 5 min)
-    const readiness = await waitForResearchReadiness(userId);
-
-    if (!readiness.ready) {
-      console.warn(
-        '[synthesizeResearch] Proceeding despite incomplete prerequisites:',
-        readiness.missingSections,
-      );
-    }
-
-    return dispatchResearch('synthesizeResearch', 'crossAnalysis', context);
+    return dispatchAndWait('synthesizeResearch', 'crossAnalysis', context);
   },
 });

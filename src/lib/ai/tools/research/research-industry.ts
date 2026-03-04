@@ -1,9 +1,9 @@
 // Research Tool: Industry & Market Research
-// Async: dispatches to Railway worker, returns immediately
+// Dispatches to Railway worker, polls for result
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import { dispatchAndWait } from './dispatch-and-wait';
 
 export const researchIndustry = tool({
   description:
@@ -19,6 +19,6 @@ export const researchIndustry = tool({
       ),
   }),
   execute: async ({ context }) => {
-    return dispatchResearch('researchIndustry', 'industryMarket', context);
+    return dispatchAndWait('researchIndustry', 'industryMarket', context);
   },
 });

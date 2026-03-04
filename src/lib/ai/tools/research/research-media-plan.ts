@@ -1,9 +1,9 @@
 // Research Tool: Media Planner
-// Async: dispatches to Railway worker, returns immediately
+// Dispatches to Railway worker, polls for result
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import { dispatchAndWait } from './dispatch-and-wait';
 
 export const researchMediaPlan = tool({
   description:
@@ -19,6 +19,6 @@ export const researchMediaPlan = tool({
       ),
   }),
   execute: async ({ context }) => {
-    return dispatchResearch('researchMediaPlan', 'mediaPlan', context);
+    return dispatchAndWait('researchMediaPlan', 'mediaPlan', context);
   },
 });
