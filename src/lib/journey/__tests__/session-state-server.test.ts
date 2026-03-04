@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock @clerk/nextjs/server so createAdminClient can be imported
 vi.mock('@clerk/nextjs/server', () => ({
@@ -25,6 +25,11 @@ vi.mock('@/lib/supabase/server', () => ({
 describe('persistResearchToSupabase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('returns { ok: true } on successful write', async () => {
@@ -37,24 +42,28 @@ describe('persistResearchToSupabase', () => {
     expect(result.error).toBeUndefined();
   });
 
-  it('returns { ok: false, error } when Supabase returns an error', async () => {
-    mockUpsert.mockResolvedValue({ error: { message: 'connection refused', code: '08006' } });
+  it('returns { ok: false, error } when Supabase returns a non-retryable error', async () => {
+    // Use a non-retryable code (unique violation) — ensures no retry attempt is made
+    mockUpsert.mockResolvedValue({ error: { message: 'duplicate key value', code: '23505' } });
 
     const { persistResearchToSupabase } = await import('../session-state.server');
     const result = await persistResearchToSupabase('user-2', { industryMarket: { status: 'complete' } });
 
     expect(result.ok).toBe(false);
-    expect(result.error).toContain('connection refused');
+    expect(result.error).toContain('duplicate key value');
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
   });
 
-  it('retries once on a transient Supabase error before returning failure', async () => {
-    // First call fails, second succeeds
+  it('retries once on a transient Supabase error before returning success', async () => {
+    // First call fails (transient), second succeeds
     mockUpsert
       .mockResolvedValueOnce({ error: { message: 'timeout', code: '57014' } })
       .mockResolvedValueOnce({ error: null });
 
     const { persistResearchToSupabase } = await import('../session-state.server');
-    const result = await persistResearchToSupabase('user-3', { industryMarket: {} });
+    const promise = persistResearchToSupabase('user-3', { industryMarket: {} });
+    await vi.runAllTimersAsync(); // advance the 1s retry delay
+    const result = await promise;
 
     expect(result.ok).toBe(true);
     expect(mockUpsert).toHaveBeenCalledTimes(2);
@@ -66,7 +75,9 @@ describe('persistResearchToSupabase', () => {
       .mockResolvedValueOnce({ error: { message: 'timeout again', code: '57014' } });
 
     const { persistResearchToSupabase } = await import('../session-state.server');
-    const result = await persistResearchToSupabase('user-4', { industryMarket: {} });
+    const promise = persistResearchToSupabase('user-4', { industryMarket: {} });
+    await vi.runAllTimersAsync(); // advance the 1s retry delay
+    const result = await promise;
 
     expect(result.ok).toBe(false);
     expect(mockUpsert).toHaveBeenCalledTimes(2);

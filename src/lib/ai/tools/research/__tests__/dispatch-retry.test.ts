@@ -25,21 +25,17 @@ describe('dispatchResearch retry logic', () => {
   });
 
   it('succeeds on the first attempt when /run returns 202', async () => {
-    // Health check + dispatch both succeed first try
-    mockFetch
-      .mockResolvedValueOnce(makeResponse(200)) // /health
-      .mockResolvedValueOnce(makeResponse(202)); // /run
+    mockFetch.mockResolvedValueOnce(makeResponse(202));
 
     const { dispatchResearch } = await import('../dispatch');
     const result = await dispatchResearch('researchIndustry', 'industryMarket', 'ctx');
 
     expect(result.status).toBe('queued');
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('retries /run up to 3 times on network error before returning error', async () => {
     mockFetch
-      .mockResolvedValueOnce(makeResponse(200))        // /health ok
       .mockRejectedValueOnce(new Error('ECONNREFUSED')) // attempt 1
       .mockRejectedValueOnce(new Error('ECONNREFUSED')) // attempt 2
       .mockRejectedValueOnce(new Error('ECONNREFUSED')); // attempt 3
@@ -48,13 +44,11 @@ describe('dispatchResearch retry logic', () => {
     const result = await dispatchResearch('researchIndustry', 'industryMarket', 'ctx');
 
     expect(result.status).toBe('error');
-    // health + 3 dispatch attempts = 4 total
-    expect(mockFetch).toHaveBeenCalledTimes(4);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
   it('succeeds on second attempt if first /run throws', async () => {
     mockFetch
-      .mockResolvedValueOnce(makeResponse(200))         // /health ok
       .mockRejectedValueOnce(new Error('fetch failed')) // attempt 1 fails
       .mockResolvedValueOnce(makeResponse(202));         // attempt 2 succeeds
 
@@ -62,19 +56,16 @@ describe('dispatchResearch retry logic', () => {
     const result = await dispatchResearch('researchIndustry', 'industryMarket', 'ctx');
 
     expect(result.status).toBe('queued');
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it('does NOT retry on a 400 non-retryable worker response', async () => {
-    mockFetch
-      .mockResolvedValueOnce(makeResponse(200))         // /health ok
-      .mockResolvedValueOnce(makeResponse(400, 'bad')); // /run 400 — not retryable
+    mockFetch.mockResolvedValueOnce(makeResponse(400, 'bad'));
 
     const { dispatchResearch } = await import('../dispatch');
     const result = await dispatchResearch('researchIndustry', 'industryMarket', 'ctx');
 
     expect(result.status).toBe('error');
-    // health + 1 dispatch attempt only (no retry on 4xx)
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -59,6 +59,17 @@ const TOOL_RUNNERS: Record<ToolName, (context: string) => Promise<ResearchResult
   researchKeywords: runResearchKeywords,
 };
 
+// Maps tool name → section key used in journey_sessions.research_results.
+// The readiness poller checks section keys, not tool names.
+const TOOL_SECTION_MAP: Record<ToolName, string> = {
+  researchIndustry: 'industryMarket',
+  researchCompetitors: 'competitors',
+  researchICP: 'icpValidation',
+  researchOffer: 'offerAnalysis',
+  synthesizeResearch: 'crossAnalysis',
+  researchKeywords: 'keywords',
+};
+
 // -- Health -------------------------------------------------------------------
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString() });
@@ -114,9 +125,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[worker] Unhandled error in ${tool}:`, error);
-      await writeResearchResult(userId, tool, {
+      const section = TOOL_SECTION_MAP[tool] ?? tool;
+      await writeResearchResult(userId, section, {
         status: 'error',
-        section: tool,
+        section,
         error: errorMsg,
         durationMs: Date.now() - startMs,
       });

@@ -25,10 +25,12 @@ async function withRetry(
       return await fn();
     } catch (err) {
       lastError = err;
+      // AbortError is NOT retried — it means the timeout expired (deterministic),
+      // not a transient network blip. Retrying a timed-out request multiplies latency.
       const isNetworkError =
         err instanceof Error &&
-        (err.name === 'AbortError' ||
-          err.message.includes('fetch failed') ||
+        err.name !== 'AbortError' &&
+        (err.message.includes('fetch failed') ||
           err.message.includes('ECONNREFUSED') ||
           err.message.includes('ECONNRESET') ||
           err.message.includes('network'));
@@ -63,22 +65,6 @@ export async function dispatchResearch(
       status: 'error',
       section,
       error: 'Research worker not reachable. RAILWAY_WORKER_URL is not configured.',
-    };
-  }
-
-  // Quick health check — fail fast if worker is unreachable
-  try {
-    const health = await fetch(`${workerUrl}/health`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!health.ok) {
-      return { status: 'error', section, error: `Worker unhealthy: ${health.status}` };
-    }
-  } catch {
-    return {
-      status: 'error',
-      section,
-      error: 'Research worker is not reachable. Check RAILWAY_WORKER_URL and ensure the worker is running.',
     };
   }
 
