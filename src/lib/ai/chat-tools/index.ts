@@ -9,6 +9,10 @@ export { createGenerateSectionTool } from './generate-section';
 export { createCompareCompetitorsTool } from './compare-competitors';
 export { createAnalyzeMetricsTool } from './analyze-metrics';
 export { createVisualizationTool } from './create-visualization';
+export { createQueryBlueprintTool } from './query-blueprint';
+export { createDeepDiveTool } from './deep-dive';
+export { buildBlueprintIndex } from './blueprint-index';
+export type { BlueprintIndex, SectionSummary } from './blueprint-index';
 export {
   getValueAtPath,
   generateDiffPreview,
@@ -29,10 +33,14 @@ import { createGenerateSectionTool } from './generate-section';
 import { createCompareCompetitorsTool } from './compare-competitors';
 import { createAnalyzeMetricsTool } from './analyze-metrics';
 import { createVisualizationTool } from './create-visualization';
+import { createQueryBlueprintTool } from './query-blueprint';
+import { createDeepDiveTool } from './deep-dive';
 
 /**
  * Create all chat tools for a given blueprint context.
  * Returns a tools object suitable for streamText().
+ *
+ * Tool count: 11 (was 9 — added queryBlueprint + deepDive for progressive disclosure)
  */
 export function createChatTools(blueprintId: string, blueprint: Record<string, unknown>) {
   return {
@@ -45,6 +53,8 @@ export function createChatTools(blueprintId: string, blueprint: Record<string, u
     compareCompetitors: createCompareCompetitorsTool(blueprint),
     analyzeMetrics: createAnalyzeMetricsTool(blueprint),
     createVisualization: createVisualizationTool(blueprint),
+    queryBlueprint: createQueryBlueprintTool(blueprint),
+    deepDive: createDeepDiveTool(blueprint),
   };
 }
 

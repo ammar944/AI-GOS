@@ -141,3 +141,29 @@ export interface VisualizationResult {
   };
   error?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 5: Progressive disclosure tool result types
+// ---------------------------------------------------------------------------
+
+export interface QueryBlueprintResult {
+  section: string;
+  label: string;
+  status: 'loaded' | 'empty';
+  aspect?: string;
+  summary: Record<string, unknown> | null;
+  tokenEstimate?: number;
+  error?: string;
+  note?: string;
+}
+
+export interface DeepDiveResult {
+  section: string;
+  label: string;
+  field?: string;
+  status: 'loaded' | 'empty' | 'field-not-found';
+  data: unknown;
+  tokenEstimate?: number;
+  error?: string;
+  warning?: string;
+}
