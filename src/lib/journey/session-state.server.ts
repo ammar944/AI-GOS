@@ -1,16 +1,30 @@
+// src/lib/journey/session-state.server.ts
 import { createAdminClient } from '@/lib/supabase/server';
 
 // ── Supabase Persistence ───────────────────────────────────────────────────
 // Per DISCOVERY.md D11 (REVISED): Fetch-then-merge JSONB metadata column.
-// Per DISCOVERY.md D22: Silent fail with console.error on write failure.
 //
 // Server-only: This file imports @/lib/supabase/server which transitively
 // imports @clerk/nextjs/server. Must NOT be imported from client components.
 
+export interface PersistResult {
+  ok: boolean;
+  error?: string;
+}
+
+// Transient Supabase error codes worth retrying (connection/timeout issues)
+const RETRYABLE_PG_CODES = new Set(['08006', '08001', '57014', '40001', '40P01']);
+
+function isRetryableSupabaseError(err: { code?: string; message?: string }): boolean {
+  if (err.code && RETRYABLE_PG_CODES.has(err.code)) return true;
+  const msg = (err.message ?? '').toLowerCase();
+  return msg.includes('timeout') || msg.includes('connection') || msg.includes('reset');
+}
+
 export async function persistToSupabase(
   userId: string,
   fields: Record<string, unknown>,
-): Promise<void> {
+): Promise<PersistResult> {
   try {
     const supabase = createAdminClient();
 
@@ -32,7 +46,7 @@ export async function persistToSupabase(
     };
 
     // Upsert (D12: one session per user, UNIQUE on user_id)
-    await supabase.from('journey_sessions').upsert(
+    const { error } = await supabase.from('journey_sessions').upsert(
       {
         user_id: userId,
         metadata: merged,
@@ -40,25 +54,49 @@ export async function persistToSupabase(
       },
       { onConflict: 'user_id' },
     );
+
+    if (error) {
+      console.error('[journey] Supabase persistToSupabase failed:', error.message);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
   } catch (error) {
-    // Silent fail — localStorage is the fallback (DISCOVERY.md D22)
-    console.error('[journey] Supabase persistence failed:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[journey] Supabase persistence threw unexpectedly:', msg);
+    return { ok: false, error: msg };
   }
 }
 
 export async function persistResearchToSupabase(
   userId: string,
   research: Record<string, unknown>,
-): Promise<void> {
+  attempt = 1,
+): Promise<PersistResult> {
   try {
     const supabase = createAdminClient();
-    await supabase
+    const { error } = await supabase
       .from('journey_sessions')
       .upsert(
         { user_id: userId, research_output: research, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
+        { onConflict: 'user_id' },
       );
+
+    if (error) {
+      const shouldRetry = attempt < 2 && isRetryableSupabaseError(error);
+      if (shouldRetry) {
+        console.warn(`[journey] Supabase write failed (attempt ${attempt}) — retrying in 1s:`, error.message);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return persistResearchToSupabase(userId, research, attempt + 1);
+      }
+      console.error(`[journey] persistResearchToSupabase failed after ${attempt} attempt(s):`, error.message);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
   } catch (err) {
-    console.error('[journey] failed to persist research output', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[journey] persistResearchToSupabase threw unexpectedly:', msg);
+    return { ok: false, error: msg };
   }
 }

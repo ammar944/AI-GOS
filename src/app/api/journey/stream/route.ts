@@ -90,15 +90,21 @@ export async function POST(request: Request) {
   const askUserFields = extractAskUserResults(body.messages);
   if (Object.keys(askUserFields).length > 0) {
     // Fire-and-forget — do not await, do not block the response
-    persistToSupabase(userId, askUserFields).catch(() => {
-      // Already handled internally with console.error
+    persistToSupabase(userId, askUserFields).then((result) => {
+      if (!result.ok) {
+        console.error('[journey/stream] askUser persist failed:', result.error);
+      }
     });
   }
 
   // ── Persist research outputs from completed tools ───────────────────────
   const researchOutputs = extractResearchOutputs(body.messages);
   if (Object.keys(researchOutputs).length > 0) {
-    persistResearchToSupabase(userId, researchOutputs).catch(() => {});
+    persistResearchToSupabase(userId, researchOutputs).then((result) => {
+      if (!result.ok) {
+        console.error('[journey/stream] research persist failed:', result.error);
+      }
+    });
   }
 
   // ── Build system prompt (augment with resume context if present) ────────
