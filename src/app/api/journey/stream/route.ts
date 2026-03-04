@@ -23,6 +23,8 @@ import {
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
 import { validateWorkerUrl } from '@/lib/env';
+import { parseCollectedFields } from '@/lib/ai/journey-state';
+import { detectCompetitorMentions } from '@/lib/ai/competitor-detector';
 
 // Validate RAILWAY_WORKER_URL at module load time (fires on cold start).
 // If missing, logs an actionable error before any user request hits dispatch.
@@ -86,6 +88,19 @@ export async function POST(request: Request) {
     }),
   })) as UIMessage[];
 
+  // ── Extract last user message for competitor detection ───────────────────────
+  const lastUserMessage = [...sanitizedMessages]
+    .reverse()
+    .find((m) => m.role === 'user');
+  const lastUserText =
+    lastUserMessage?.parts
+      .filter(
+        (p): p is { type: 'text'; text: string } =>
+          typeof p === 'object' && p !== null && (p as { type: string }).type === 'text',
+      )
+      .map((p) => p.text)
+      .join(' ') ?? '';
+
   // ── Persist askUser results from previous round trips ──────────────────
   const askUserFields = extractAskUserResults(body.messages);
   if (Object.keys(askUserFields).length > 0) {
@@ -115,6 +130,34 @@ export async function POST(request: Request) {
     Object.keys(body.resumeState).length > 0
   ) {
     systemPrompt += buildResumeContext(body.resumeState);
+  }
+
+  // ── Derive per-request state snapshot ──────────────────────────────────────
+  const journeySnap = parseCollectedFields(sanitizedMessages);
+
+  // Stage 2: competitor detection — inject instruction if new competitor found
+  const competitorDetection = lastUserText
+    ? detectCompetitorMentions(lastUserText)
+    : null;
+
+  const competitorAlreadyCalled =
+    competitorDetection !== null &&
+    journeySnap.competitorFastHitsCalledFor.has(competitorDetection.domain);
+
+  if (
+    competitorDetection !== null &&
+    !competitorAlreadyCalled
+  ) {
+    const domainLabel = competitorDetection.inferredDomain
+      ? `${competitorDetection.domain} (inferred from "${competitorDetection.rawMention}")`
+      : competitorDetection.domain;
+
+    systemPrompt += `\n\n## Stage 2 Directive (this request only)\n\nThe user's latest message contains a competitor reference: **${competitorDetection.rawMention}**. Extracted domain: \`${competitorDetection.domain}\` ${competitorDetection.inferredDomain ? '(inferred — verify if incorrect)' : ''}.\n\nIMPORTANTLY: Call \`competitorFastHits\` with \`competitorUrl: "${competitorDetection.domain}"\` as your FIRST action in this response — before writing any text. After the tool completes, briefly acknowledge the finding (1-2 sentences) then continue with the next onboarding question. Domain used: ${domainLabel}.`;
+  }
+
+  // Strategist Mode guard: prevent askUser calls after synthesis completes
+  if (journeySnap.synthComplete) {
+    systemPrompt += `\n\n## Strategist Mode (enforced)\n\nSynthesis is complete. You are now in Strategist Mode. ABSOLUTE RULES:\n- Do NOT call \`askUser\` to collect more onboarding fields. The onboarding phase is over.\n- Do NOT call any research tools again — all research has been dispatched.\n- Respond to the user's strategic questions with specific, opinionated recommendations.\n- If the user asks a question that requires data you don't have, acknowledge the gap and give your best take based on what was collected.`;
   }
 
   // ── Stream ──────────────────────────────────────────────────────────────
