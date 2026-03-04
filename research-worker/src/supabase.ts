@@ -1,3 +1,6 @@
+// Required Supabase column (add via migration if not present):
+// ALTER TABLE journey_sessions ADD COLUMN IF NOT EXISTS job_status JSONB DEFAULT '{}';
+
 import { createClient } from '@supabase/supabase-js';
 
 function getClient() {
@@ -53,5 +56,54 @@ export async function writeResearchResult(
     console.error(`[supabase] Failed to write ${section} result:`, updateError.message);
   } else {
     console.log(`[worker] Wrote ${section} result (${result.status}) for user ${userId}`);
+  }
+}
+
+export type JobStatus = 'running' | 'complete' | 'error';
+
+export interface JobStatusRow {
+  status: JobStatus;
+  tool: string;
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+/**
+ * Write a job status entry into journey_sessions.job_status JSONB column.
+ * Called synchronously before the job runs (status: 'running') and again
+ * on completion or failure. This anchors every job in Supabase so crashes
+ * leave a detectable 'running' record rather than silent data loss.
+ */
+export async function writeJobStatus(
+  userId: string,
+  jobId: string,
+  row: JobStatusRow,
+): Promise<void> {
+  const supabase = getClient();
+
+  const { data: session, error: fetchError } = await supabase
+    .from('journey_sessions')
+    .select('id, job_status')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (fetchError || !session) {
+    console.error(`[supabase] writeJobStatus: no session for user ${userId}:`, fetchError?.message);
+    return;
+  }
+
+  const existing = (session.job_status as Record<string, unknown>) ?? {};
+  const updated = { ...existing, [jobId]: row };
+
+  const { error: updateError } = await supabase
+    .from('journey_sessions')
+    .update({ job_status: updated })
+    .eq('id', session.id);
+
+  if (updateError) {
+    console.error(`[supabase] writeJobStatus failed for job ${jobId}:`, updateError.message);
   }
 }

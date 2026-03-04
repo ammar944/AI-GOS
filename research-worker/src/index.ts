@@ -7,7 +7,7 @@ import {
   runSynthesizeResearch,
   runResearchKeywords,
 } from './runners';
-import { writeResearchResult, type ResearchResult } from './supabase';
+import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -65,7 +65,7 @@ app.get('/health', (_req, res) => {
 });
 
 // -- Run ----------------------------------------------------------------------
-app.post('/run', requireApiKey, (req: express.Request, res: express.Response) => {
+app.post('/run', requireApiKey, async (req: express.Request, res: express.Response) => {
   const { tool, context, userId, jobId } = req.body as RunJobRequest;
 
   if (!tool || !context || !userId || !jobId) {
@@ -79,25 +79,56 @@ app.post('/run', requireApiKey, (req: express.Request, res: express.Response) =>
     return;
   }
 
-  // Return 202 immediately — job runs in background
+  // Write job status to Supabase BEFORE returning 202.
+  // If the process crashes after this point, the row stays as 'running'
+  // — detectable rather than silently lost.
+  try {
+    await writeJobStatus(userId, jobId, {
+      status: 'running',
+      tool,
+      startedAt: new Date().toISOString(),
+    });
+  } catch (statusErr) {
+    // Non-fatal — log and proceed. Research is more important than status tracking.
+    console.error(`[worker] writeJobStatus failed for ${jobId}:`, statusErr);
+  }
+
+  // Return 202 now — job continues asynchronously in background
   res.status(202).json({ status: 'accepted', jobId });
 
-  setImmediate(async () => {
+  // Run the job in a detached async context. This is intentional — we've
+  // already committed the job to Supabase above, so crashes are observable.
+  void (async () => {
     console.log(`[worker] Starting ${tool} for user ${userId} (job ${jobId})`);
+    const startMs = Date.now();
     try {
       const result = await runner(context);
       await writeResearchResult(userId, result.section, result);
+      await writeJobStatus(userId, jobId, {
+        status: 'complete',
+        tool,
+        startedAt: new Date(startMs).toISOString(),
+        completedAt: new Date().toISOString(),
+      });
       console.log(`[worker] Completed ${tool} for user ${userId} in ${result.durationMs}ms`);
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[worker] Unhandled error in ${tool}:`, error);
       await writeResearchResult(userId, tool, {
         status: 'error',
         section: tool,
-        error: error instanceof Error ? error.message : String(error),
-        durationMs: 0,
+        error: errorMsg,
+        durationMs: Date.now() - startMs,
+      });
+      await writeJobStatus(userId, jobId, {
+        status: 'error',
+        tool,
+        startedAt: new Date(startMs).toISOString(),
+        completedAt: new Date().toISOString(),
+        error: errorMsg,
       });
     }
-  });
+  })();
 });
 
 // -- Start --------------------------------------------------------------------
