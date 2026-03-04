@@ -12,6 +12,38 @@ function getClient() {
   });
 }
 
+/**
+ * Retry a Supabase operation with exponential backoff (1s, 2s, 4s).
+ * The supplied fn must throw on failure — silent returns are not retried.
+ */
+async function withSupabaseRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = 3,
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delayMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+        console.warn(
+          `[supabase] ${label} failed (attempt ${attempt}/${maxRetries}), retrying in ${delayMs}ms:`,
+          err instanceof Error ? err.message : String(err),
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  const message =
+    lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`[supabase] ${label} failed after ${maxRetries} attempts: ${message}`);
+}
+
 export interface ResearchResult {
   status: 'complete' | 'error';
   section: string;
@@ -20,11 +52,7 @@ export interface ResearchResult {
   durationMs: number;
 }
 
-/**
- * Write a single research section result to journey_sessions.research_results.
- * Uses JSONB merge so concurrent writes don't overwrite each other.
- */
-export async function writeResearchResult(
+async function writeResearchResultInner(
   userId: string,
   section: string,
   result: ResearchResult,
@@ -40,8 +68,9 @@ export async function writeResearchResult(
     .single();
 
   if (fetchError || !session) {
-    console.error(`[supabase] Could not find session for user ${userId}:`, fetchError?.message);
-    return;
+    throw new Error(
+      `Could not find session for user ${userId}: ${fetchError?.message ?? 'no session returned'}`,
+    );
   }
 
   const existing = (session.research_results as Record<string, unknown>) ?? {};
@@ -53,10 +82,26 @@ export async function writeResearchResult(
     .eq('id', session.id);
 
   if (updateError) {
-    console.error(`[supabase] Failed to write ${section} result:`, updateError.message);
-  } else {
-    console.log(`[worker] Wrote ${section} result (${result.status}) for user ${userId}`);
+    throw new Error(`Failed to write ${section} result: ${updateError.message}`);
   }
+
+  console.log(`[worker] Wrote ${section} result (${result.status}) for user ${userId}`);
+}
+
+/**
+ * Write a single research section result to journey_sessions.research_results.
+ * Uses JSONB merge so concurrent writes don't overwrite each other.
+ * Retries up to 3 times with exponential backoff on failure.
+ */
+export async function writeResearchResult(
+  userId: string,
+  section: string,
+  result: ResearchResult,
+): Promise<void> {
+  await withSupabaseRetry(
+    () => writeResearchResultInner(userId, section, result),
+    `writeResearchResult(${section}, user=${userId})`,
+  );
 }
 
 export type JobStatus = 'running' | 'complete' | 'error';
@@ -69,13 +114,7 @@ export interface JobStatusRow {
   error?: string;
 }
 
-/**
- * Write a job status entry into journey_sessions.job_status JSONB column.
- * Called synchronously before the job runs (status: 'running') and again
- * on completion or failure. This anchors every job in Supabase so crashes
- * leave a detectable 'running' record rather than silent data loss.
- */
-export async function writeJobStatus(
+async function writeJobStatusInner(
   userId: string,
   jobId: string,
   row: JobStatusRow,
@@ -91,8 +130,9 @@ export async function writeJobStatus(
     .single();
 
   if (fetchError || !session) {
-    console.error(`[supabase] writeJobStatus: no session for user ${userId}:`, fetchError?.message);
-    return;
+    throw new Error(
+      `writeJobStatus: no session for user ${userId}: ${fetchError?.message ?? 'no session returned'}`,
+    );
   }
 
   const existing = (session.job_status as Record<string, unknown>) ?? {};
@@ -104,6 +144,24 @@ export async function writeJobStatus(
     .eq('id', session.id);
 
   if (updateError) {
-    console.error(`[supabase] writeJobStatus failed for job ${jobId}:`, updateError.message);
+    throw new Error(`writeJobStatus failed for job ${jobId}: ${updateError.message}`);
   }
+}
+
+/**
+ * Write a job status entry into journey_sessions.job_status JSONB column.
+ * Called synchronously before the job runs (status: 'running') and again
+ * on completion or failure. This anchors every job in Supabase so crashes
+ * leave a detectable 'running' record rather than silent data loss.
+ * Retries up to 3 times with exponential backoff on failure.
+ */
+export async function writeJobStatus(
+  userId: string,
+  jobId: string,
+  row: JobStatusRow,
+): Promise<void> {
+  await withSupabaseRetry(
+    () => writeJobStatusInner(userId, jobId, row),
+    `writeJobStatus(job=${jobId}, user=${userId})`,
+  );
 }
