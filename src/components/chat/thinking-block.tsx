@@ -15,7 +15,9 @@ export function ThinkingBlock({
   state,
   defaultOpen = false,
 }: ThinkingBlockProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  // Auto-open while streaming, auto-close when done (unless user toggled)
+  const userToggledRef = useRef<boolean>(false);
+  const [isOpen, setIsOpen] = useState(() => state === 'streaming' || defaultOpen);
 
   // Self-managed timer: starts on mount, ticks while streaming, freezes when interval stops
   const startTimeRef = useRef<number>(0);
@@ -32,6 +34,20 @@ export function ThinkingBlock({
       setElapsed(Date.now() - startTimeRef.current);
     }, 100);
     return () => clearInterval(interval);
+  }, [state]);
+
+  // Auto-open when streaming starts
+  useEffect(() => {
+    if (state === 'streaming' && !userToggledRef.current) {
+      setIsOpen(true);
+    }
+  }, [state]);
+
+  // Auto-close when streaming ends — only if user hasn't manually interacted
+  useEffect(() => {
+    if (state === 'done' && !userToggledRef.current) {
+      setIsOpen(false);
+    }
   }, [state]);
 
   const label = (() => {
@@ -55,7 +71,10 @@ export function ThinkingBlock({
       {/* Toggle button */}
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => {
+          userToggledRef.current = true;
+          setIsOpen((prev) => !prev);
+        }}
         className="flex items-center gap-1.5 cursor-pointer bg-transparent border-0 p-0 outline-none"
         aria-expanded={isOpen}
       >
