@@ -43,7 +43,7 @@ describe('compressResearchOutput', () => {
   });
 
   it('returns a valid CompressedSummary from raw data', async () => {
-    const { compressResearchOutput } = await import('../compress');
+    const { compressResearchOutput } = await import('../compress.js');
     const result = await compressResearchOutput('industryMarket', {
       categorySnapshot: { category: 'B2B SaaS', marketMaturity: 'growing' },
       painPoints: { primary: ['High CAC', 'Long sales cycles'] },
@@ -57,7 +57,7 @@ describe('compressResearchOutput', () => {
   it('returns fallback summary when Haiku call fails', async () => {
     mockCreate.mockRejectedValueOnce(new Error('API error'));
 
-    const { compressResearchOutput } = await import('../compress');
+    const { compressResearchOutput } = await import('../compress.js');
     const result = await compressResearchOutput('industryMarket', {
       summary: 'Market is growing rapidly',
     });

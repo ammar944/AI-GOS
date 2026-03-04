@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CompressedSummarySchema, type CompressedSummary } from '../compressed-summary';
+import { CompressedSummarySchema, type CompressedSummary } from '../compressed-summary.js';
 
 describe('CompressedSummarySchema', () => {
   it('validates a complete summary', () => {

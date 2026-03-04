@@ -8,7 +8,7 @@ vi.mock('fs', () => ({
 
 describe('writeDeadLetter', () => {
   it('writes a JSON file to the dead-letters directory', async () => {
-    const { writeDeadLetter } = await import('../dead-letter');
+    const { writeDeadLetter } = await import('../dead-letter.js');
     writeDeadLetter('user-123', 'industryMarket', { data: 'test' }, 'Supabase timeout');
 
     expect(fs.mkdirSync).toHaveBeenCalled();
