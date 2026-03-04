@@ -22,6 +22,14 @@ import {
 } from '@/lib/ai/tools/research';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
+import { validateWorkerUrl } from '@/lib/env';
+
+// Validate RAILWAY_WORKER_URL at module load time (fires on cold start).
+// If missing, logs an actionable error before any user request hits dispatch.
+const workerValidation = validateWorkerUrl();
+if (!workerValidation.configured) {
+  console.error('[journey/stream] STARTUP WARNING:', workerValidation.message);
+}
 
 export const maxDuration = 300;
 

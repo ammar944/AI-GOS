@@ -123,3 +123,30 @@ export function getRequiredEnv(key: string): string {
 export function hasEnv(key: string): boolean {
   return getEnv(key) !== undefined;
 }
+
+export interface WorkerUrlValidationResult {
+  configured: boolean;
+  message?: string;
+}
+
+/**
+ * Validates that RAILWAY_WORKER_URL is configured.
+ * Call this at route cold-start to surface the missing var in deployment logs
+ * before a user request hits the dispatch layer and fails silently.
+ *
+ * @returns { configured: true } if set and non-empty
+ * @returns { configured: false, message } with actionable instructions if missing
+ */
+export function validateWorkerUrl(): WorkerUrlValidationResult {
+  const url = process.env.RAILWAY_WORKER_URL?.trim();
+  if (url) {
+    return { configured: true };
+  }
+  return {
+    configured: false,
+    message:
+      'RAILWAY_WORKER_URL is not set — all research dispatches will fail silently. ' +
+      'Local dev: cd research-worker && npm run dev, then set RAILWAY_WORKER_URL=http://localhost:3001 in .env.local. ' +
+      'Production: set RAILWAY_WORKER_URL to your deployed Railway service URL.',
+  };
+}
