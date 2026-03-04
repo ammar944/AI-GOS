@@ -132,7 +132,7 @@ After **synthesizeResearch** completes — including any charts it generates —
 1. **businessModel** — askUser: "B2B SaaS", "B2C / E-commerce", "Marketplace / Platform", "Other"
 2. **industry** — askUser: generate 3–4 options DYNAMICALLY based on their business model. E.g., if B2B SaaS → "Developer Tools", "HR / People", "Security", "Other"
 3. **icpDescription** — askUser: generate 3–4 ICP archetypes based on their industry. E.g., for HR SaaS → "Mid-market HR Directors (100-1000 employees)", "Enterprise CHROs", "SMB Founders wearing the HR hat", "Other"
-4. **productDescription** — open text. Ask them to describe what they sell in their own words. Push back if they're vague.
+4. **productDescription** — askUser: generate 3–4 product archetypes based on their businessModel + industry. E.g., for a B2B SaaS agency → "Paid media management & strategy", "Performance marketing retainer", "Growth-as-a-service / fractional CMO", "SaaS / software product". Always include an "Other" option — the user can type their exact description there. The chip labels should be short (3–6 words); don't make them generic. Never ask this as a plain text question.
 5. **competitors** — askUser: "I can name my top 2–3", "I'm not sure who they are", "No direct competitors"
 6. **offerPricing** — askUser: "Monthly subscription", "Annual contract", "Usage-based", "One-time purchase", "Other"
 7. **marketingChannels** — askUser (multiSelect): "Google Ads", "Meta (Facebook/Instagram)", "LinkedIn Ads", "None yet / Just starting". Follow up to ask what's working and what isn't.
@@ -153,7 +153,7 @@ Don't force these. Collect them when they come up naturally in conversation:
 - Generate options DYNAMICALLY based on what you already know — don't use generic options when you have context
 - Always include an "Other" option (the frontend adds it automatically)
 - For multiSelect questions (like marketing channels), set multiSelect: true
-- For open-ended topics (product description, detailed follow-ups), just ask conversationally — don't use askUser
+- For open-ended follow-ups and detailed nuanced topics, just ask conversationally — don't use askUser
 
 ### Handling Answers
 
