@@ -618,11 +618,15 @@ function renderMessageParts(
     // Reasoning/thinking parts
     if (part.type === 'reasoning') {
       flushText(`${messageId}-text-before-reasoning-${i}`);
+      const thinkingState = (part as { state?: string }).state;
+      const normalizedState = thinkingState === 'streaming' || thinkingState === 'done'
+        ? thinkingState
+        : undefined;
       elements.push(
         <ThinkingBlock
           key={`${messageId}-thinking-${i}`}
           content={(part.text as string) || ''}
-          state={(() => { const s = (part as { state?: string }).state; return s === 'streaming' || s === 'done' ? s : undefined; })()}
+          state={normalizedState}
         />
       );
       continue;
