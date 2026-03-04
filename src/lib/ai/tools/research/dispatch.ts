@@ -1,3 +1,4 @@
+// src/lib/ai/tools/research/dispatch.ts
 // Dispatch a research job to the Railway worker.
 // Returns immediately (fire-and-forget from the lead agent's perspective).
 
@@ -8,6 +9,36 @@ export interface DispatchResult {
   section: string;
   jobId?: string;
   error?: string;
+}
+
+// Retry a fetch call up to maxAttempts times on network errors only.
+// Does NOT retry on HTTP 4xx/5xx — those are deterministic failures.
+async function withRetry(
+  fn: () => Promise<Response>,
+  label: string,
+  maxAttempts = 3,
+  baseDelayMs = 500,
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const isNetworkError =
+        err instanceof Error &&
+        (err.name === 'AbortError' ||
+          err.message.includes('fetch failed') ||
+          err.message.includes('ECONNREFUSED') ||
+          err.message.includes('ECONNRESET') ||
+          err.message.includes('network'));
+      if (!isNetworkError || attempt === maxAttempts) throw err;
+      const delay = baseDelayMs * Math.pow(2, attempt - 1); // 500ms, 1s, 2s
+      console.warn(`[dispatch] ${label} attempt ${attempt} failed — retrying in ${delay}ms:`, err);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
 }
 
 export async function dispatchResearch(
@@ -31,7 +62,7 @@ export async function dispatchResearch(
     return {
       status: 'error',
       section,
-      error: 'Research worker not reachable. RAILWAY_WORKER_URL is not configured.'
+      error: 'Research worker not reachable. RAILWAY_WORKER_URL is not configured.',
     };
   }
 
@@ -47,22 +78,26 @@ export async function dispatchResearch(
     return {
       status: 'error',
       section,
-      error: 'Research worker is not reachable. Check RAILWAY_WORKER_URL and ensure the worker is running.'
+      error: 'Research worker is not reachable. Check RAILWAY_WORKER_URL and ensure the worker is running.',
     };
   }
 
   const jobId = crypto.randomUUID();
 
   try {
-    const res = await fetch(`${workerUrl}/run`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-      },
-      body: JSON.stringify({ tool, context, userId, jobId }),
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await withRetry(
+      () =>
+        fetch(`${workerUrl}/run`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          },
+          body: JSON.stringify({ tool, context, userId, jobId }),
+          signal: AbortSignal.timeout(5000),
+        }),
+      tool,
+    );
 
     if (!res.ok) {
       const body = await res.text();
@@ -72,7 +107,11 @@ export async function dispatchResearch(
 
     return { status: 'queued', section, jobId };
   } catch (error) {
-    console.error(`[dispatch] Failed to reach worker for ${tool}:`, error);
-    return { status: 'error', section, error: error instanceof Error ? error.message : String(error) };
+    console.error(`[dispatch] Failed to reach worker for ${tool} after retries:`, error);
+    return {
+      status: 'error',
+      section,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
