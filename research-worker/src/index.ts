@@ -76,7 +76,11 @@ const TOOL_SECTION_MAP: Record<ToolName, string> = {
 
 // -- Health -------------------------------------------------------------------
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', ts: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // -- Run ----------------------------------------------------------------------
