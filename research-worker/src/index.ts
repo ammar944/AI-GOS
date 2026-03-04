@@ -9,6 +9,8 @@ import {
   runMediaPlanner,
 } from './runners';
 import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
+import { compressResearchOutput } from './compress';
+import { writeDeadLetter } from './dead-letter';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -118,7 +120,30 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     const startMs = Date.now();
     try {
       const result = await runner(context);
-      await writeResearchResult(userId, result.section, result);
+
+      // Compress successful results before writing to Supabase
+      if (result.status === 'complete' && result.data) {
+        try {
+          const rawLength = JSON.stringify(result.data).length;
+          const compressed = await compressResearchOutput(result.section, result.data);
+          const compressedLength = JSON.stringify(compressed).length;
+          console.log(`[${tool}] Compressed: ${rawLength} → ${compressedLength} chars`);
+          result.data = compressed;
+        } catch (compressError) {
+          console.warn(`[${tool}] Compression failed, using raw data:`, compressError);
+          // Keep raw data — don't lose results
+        }
+      }
+
+      try {
+        await writeResearchResult(userId, result.section, result);
+      } catch (writeError) {
+        console.error(
+          `[worker] writeResearchResult failed after retries for ${result.section}:`,
+          writeError,
+        );
+        writeDeadLetter(userId, result.section, result, String(writeError));
+      }
       await writeJobStatus(userId, jobId, {
         status: 'complete',
         tool,
@@ -130,12 +155,21 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[worker] Unhandled error in ${tool}:`, error);
       const section = TOOL_SECTION_MAP[tool] ?? tool;
-      await writeResearchResult(userId, section, {
-        status: 'error',
+      const errorResult = {
+        status: 'error' as const,
         section,
         error: errorMsg,
         durationMs: Date.now() - startMs,
-      });
+      };
+      try {
+        await writeResearchResult(userId, section, errorResult);
+      } catch (writeError) {
+        console.error(
+          `[worker] writeResearchResult failed after retries for ${section}:`,
+          writeError,
+        );
+        writeDeadLetter(userId, section, errorResult, String(writeError));
+      }
       await writeJobStatus(userId, jobId, {
         status: 'error',
         tool,
