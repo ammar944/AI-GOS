@@ -8,6 +8,7 @@ export interface DispatchResult {
   status: 'queued' | 'error';
   section: string;
   jobId?: string;
+  userId?: string;
   error?: string;
 }
 
@@ -91,7 +92,7 @@ export async function dispatchResearch(
       return { status: 'error', section, error: `Worker error: ${res.status}` };
     }
 
-    return { status: 'queued', section, jobId };
+    return { status: 'queued', section, jobId, userId };
   } catch (error) {
     console.error(`[dispatch] Failed to reach worker for ${tool} after retries:`, error);
     return {
