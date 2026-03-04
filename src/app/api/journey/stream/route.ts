@@ -108,6 +108,7 @@ export async function POST(request: Request) {
     model: anthropic(MODELS.CLAUDE_OPUS),
     system: systemPrompt,
     messages: await convertToModelMessages(sanitizedMessages),
+    maxRetries: 0,
     tools: {
       askUser,
       competitorFastHits,
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
     stopWhen: stepCountIs(25),
     providerOptions: {
       anthropic: {
-        thinking: { type: 'enabled', budgetTokens: 10000 },
+        thinking: { type: 'enabled', budgetTokens: 5000 },
       },
     },
     onFinish: async ({ usage, steps }) => {
