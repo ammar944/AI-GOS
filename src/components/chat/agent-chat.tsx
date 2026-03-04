@@ -572,6 +572,23 @@ export function AgentChat({
         continue;
       }
 
+      // Reasoning parts — render directly via SDK, do not accumulate as text
+      if (part.type === 'reasoning') {
+        flushText(`${message.id}-text-before-reasoning-${i}`);
+        const thinkingState = (part as { state?: string }).state;
+        const normalizedState = thinkingState === 'streaming' || thinkingState === 'done'
+          ? thinkingState
+          : undefined;
+        elements.push(
+          <ThinkingBlock
+            key={`${message.id}-reasoning-${i}`}
+            content={(part as { text?: string }).text ?? ''}
+            state={normalizedState}
+          />
+        );
+        continue;
+      }
+
       // Flush accumulated text before rendering tool parts
       flushText(`${message.id}-text-${i}`);
 
