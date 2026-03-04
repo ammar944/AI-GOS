@@ -50,4 +50,9 @@ describe('buildErrorResponse', () => {
     const result = buildErrorResponse('unknownTool', 'Failed', 1000);
     expect(result.suggestion).toBe('Continue with available data.');
   });
+
+  it('formats duration correctly', () => {
+    const result = buildErrorResponse('researchICP', 'Failed', 1500);
+    expect(result.duration).toBe('1.5s');
+  });
 });
