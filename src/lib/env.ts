@@ -15,6 +15,17 @@ const REQUIRED_ENV_VARS = {
   ] as const,
 } as const;
 
+// Phase 2 optional vars (add to .env.local when ready):
+// GOOGLE_ADS_DEVELOPER_TOKEN=your-developer-token
+// GOOGLE_ADS_CLIENT_ID=your-client-id.apps.googleusercontent.com
+// GOOGLE_ADS_CLIENT_SECRET=your-client-secret
+// GOOGLE_ADS_REFRESH_TOKEN=1//your-refresh-token
+// GOOGLE_ADS_CUSTOMER_ID=1234567890
+// META_ACCESS_TOKEN=EAAxxxxx...
+// META_BUSINESS_ACCOUNT_ID=123456789
+// GA4_PROPERTY_ID=123456789
+// GA4_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":...}
+
 /**
  * Optional environment variables
  */
@@ -26,6 +37,18 @@ const OPTIONAL_ENV_VARS = {
     "ENABLE_FOREPLAY",      // Feature flag to enable Foreplay enrichment (true/false)
     "FIRECRAWL_API_KEY",    // Firecrawl API key for pricing page scraping
     "GROQ_API_KEY",         // Groq API key for Whisper voice transcription
+    // Phase 2: Google Ads API (OAuth2 service account flow)
+    "GOOGLE_ADS_DEVELOPER_TOKEN",   // Required by every Google Ads API request
+    "GOOGLE_ADS_CLIENT_ID",         // OAuth2 client ID
+    "GOOGLE_ADS_CLIENT_SECRET",     // OAuth2 client secret
+    "GOOGLE_ADS_REFRESH_TOKEN",     // Long-lived refresh token from OAuth2 consent
+    "GOOGLE_ADS_CUSTOMER_ID",       // Default customer ID (10-digit, no dashes)
+    // Phase 2: Meta Marketing API (long-lived access token)
+    "META_ACCESS_TOKEN",            // System user access token (never expires)
+    "META_BUSINESS_ACCOUNT_ID",     // Meta Business Manager account ID
+    // Phase 2: Google Analytics 4 Data API (service account JSON)
+    "GA4_PROPERTY_ID",              // GA4 property ID (numeric, e.g. "123456789")
+    "GA4_SERVICE_ACCOUNT_JSON",     // Full JSON string of service account credentials
   ] as const,
   public: ["NEXT_PUBLIC_APP_URL"] as const,
 } as const;
