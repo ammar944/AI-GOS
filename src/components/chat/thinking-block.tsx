@@ -78,18 +78,35 @@ export function ThinkingBlock({
         className="flex items-center gap-1.5 cursor-pointer bg-transparent border-0 p-0 outline-none"
         aria-expanded={isOpen}
       >
-        <ChevronRight
-          className="w-3 h-3"
-          style={{
-            color: "var(--text-tertiary, #666666)",
-            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-            transition: "transform 0.2s ease",
-          }}
-        />
+        {state === 'streaming' ? (
+          <motion.span
+            animate={{ opacity: [1, 0.4, 1] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ display: 'flex', alignItems: 'center' }}
+          >
+            <ChevronRight
+              className="w-3 h-3"
+              style={{
+                color: "var(--accent-blue, rgb(54, 94, 255))",
+                transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 0.2s ease",
+              }}
+            />
+          </motion.span>
+        ) : (
+          <ChevronRight
+            className="w-3 h-3"
+            style={{
+              color: "var(--text-tertiary, #666666)",
+              transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
+          />
+        )}
         <span
           style={{
             fontSize: "11.5px",
-            color: "var(--text-tertiary, #666666)",
+            color: state === 'streaming' ? "var(--accent-blue, rgb(54, 94, 255))" : "var(--text-tertiary, #666666)",
           }}
         >
           {label}
