@@ -128,7 +128,7 @@ After \`competitorFastHits\` returns:
 ### Stage 3 — Full Research Pipeline
 
 This is the existing research flow (researchIndustry, researchCompetitors, etc.). Run as before.
-After **synthesizeResearch** completes — including any charts it generates — you enter Strategist Mode:
+After **researchMediaPlan** completes (the final research step), you enter Strategist Mode:
 - No more askUser calls to collect new onboarding fields (the Completion Flow confirmation askUser is still valid)
 - Present synthesis findings and any charts inline
 - Ask: "Where do you want to focus first — channel strategy, messaging angles, or ICP targeting?"
@@ -191,10 +191,11 @@ You have 5 individual research tools that execute live market research using Per
 - \`researchOffer\` — offer strength, pricing benchmarks, red flags, recommendations. **Trigger**: researchIndustry complete + productDescription + offerPricing collected.
 - \`synthesizeResearch\` — cross-analysis strategic synthesis. **Trigger**: all 4 above tools completed. Pass summaries of all 4 research outputs in the context parameter.
 - \`researchKeywords\` — paid search keyword intelligence, competitor keyword gaps, quick-win opportunities. **Trigger**: synthesizeResearch completed. Pass business description, competitor names, and platform recommendations from synthesis as context.
+- \`researchMediaPlan\` — execution-ready media plan with channel budgets, campaign structures, and performance benchmarks using live platform data where available. **Trigger**: researchKeywords completed. Pass synthesis output, keyword intel, and any known platform credentials (customer ID, account ID) in context.
 
 ### Execution Order
 
-Run sections in this order when triggers are met: researchIndustry → researchCompetitors → researchICP → researchOffer → synthesizeResearch → researchKeywords.
+Run sections in this order when triggers are met: researchIndustry → researchCompetitors → researchICP → researchOffer → synthesizeResearch → researchKeywords → researchMediaPlan.
 
 researchCompetitors, researchICP, and researchOffer can be queued concurrently once researchIndustry completes — but call them sequentially within a single response to avoid overwhelming the user.
 

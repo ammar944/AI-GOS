@@ -7,3 +7,4 @@ export { researchICP } from './research-icp';
 export { researchOffer } from './research-offer';
 export { synthesizeResearch } from './synthesize-research';
 export { researchKeywords } from './research-keywords';
+export { researchMediaPlan } from './research-media-plan';

@@ -6,6 +6,7 @@ import {
   runResearchOffer,
   runSynthesizeResearch,
   runResearchKeywords,
+  runMediaPlanner,
 } from './runners';
 import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
 
@@ -41,7 +42,8 @@ type ToolName =
   | 'researchICP'
   | 'researchOffer'
   | 'synthesizeResearch'
-  | 'researchKeywords';
+  | 'researchKeywords'
+  | 'researchMediaPlan';
 
 interface RunJobRequest {
   tool: ToolName;
@@ -57,6 +59,7 @@ const TOOL_RUNNERS: Record<ToolName, (context: string) => Promise<ResearchResult
   researchOffer: runResearchOffer,
   synthesizeResearch: runSynthesizeResearch,
   researchKeywords: runResearchKeywords,
+  researchMediaPlan: runMediaPlanner,
 };
 
 // Maps tool name → section key used in journey_sessions.research_results.
@@ -68,6 +71,7 @@ const TOOL_SECTION_MAP: Record<ToolName, string> = {
   researchOffer: 'offerAnalysis',
   synthesizeResearch: 'crossAnalysis',
   researchKeywords: 'keywords',
+  researchMediaPlan: 'mediaPlan',
 };
 
 // -- Health -------------------------------------------------------------------

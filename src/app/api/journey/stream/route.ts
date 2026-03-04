@@ -19,6 +19,7 @@ import {
   researchOffer,
   synthesizeResearch,
   researchKeywords,
+  researchMediaPlan,
 } from '@/lib/ai/tools/research';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
@@ -180,6 +181,7 @@ export async function POST(request: Request) {
       researchOffer,
       synthesizeResearch,
       researchKeywords,
+      researchMediaPlan,
     },
     stopWhen: stepCountIs(25),
     providerOptions: {
