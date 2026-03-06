@@ -13,6 +13,7 @@ import { AskUserCard } from '@/components/journey/ask-user-card';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 import { ResearchSubsectionReveal } from '@/components/journey/research-subsection-reveal';
+import { ScrapeLoadingCard } from '@/components/journey/scrape-loading-card';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -360,6 +361,29 @@ function renderToolPart(
     }
 
     return null;
+  }
+
+  // scrapeClientSite — rich loading card with progressive steps
+  if (toolName === 'scrapeClientSite') {
+    if (state === 'input-streaming' || state === 'input-available') {
+      const websiteUrl = (input as { websiteUrl?: string } | undefined)?.websiteUrl;
+      return <ScrapeLoadingCard key={key} websiteUrl={websiteUrl} />;
+    }
+    // When complete, render nothing (the agent will stream text with the results)
+    if (state === 'output-available' || state === 'output-error') {
+      return null;
+    }
+  }
+
+  // competitorFastHits — also show a targeted loading state
+  if (toolName === 'competitorFastHits') {
+    if (state === 'input-streaming' || state === 'input-available') {
+      const competitorUrl = (input as { competitorUrl?: string } | undefined)?.competitorUrl;
+      return <ScrapeLoadingCard key={key} websiteUrl={competitorUrl} />;
+    }
+    if (state === 'output-available' || state === 'output-error') {
+      return null;
+    }
   }
 
   // Research tools — render inline research cards

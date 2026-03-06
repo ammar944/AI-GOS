@@ -159,8 +159,31 @@ function JourneyPageContent() {
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
 
-  // Block input while any tool is waiting for user interaction (chips or approval)
-  const hasPendingToolInteraction = messages.some(
+  // Find pending tool interactions — separate askUser (allows typing) from others (blocks input)
+  const pendingAskUser = useMemo(() => {
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue;
+      for (const part of msg.parts) {
+        if (
+          typeof part === 'object' &&
+          'type' in part &&
+          (part as Record<string, unknown>).type === 'tool-askUser' &&
+          'state' in part &&
+          (part as Record<string, unknown>).state === 'input-available'
+        ) {
+          const partAny = part as Record<string, unknown>;
+          const input = partAny.input as { fieldName?: string } | undefined;
+          return {
+            toolCallId: (partAny.toolCallId as string) ?? '',
+            fieldName: input?.fieldName ?? 'unknown',
+          };
+        }
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const hasPendingApproval = messages.some(
     (msg) =>
       msg.role === 'assistant' &&
       msg.parts.some(
@@ -169,13 +192,14 @@ function JourneyPageContent() {
           'type' in part &&
           typeof (part as Record<string, unknown>).type === 'string' &&
           ((part as Record<string, unknown>).type as string).startsWith('tool-') &&
+          (part as Record<string, unknown>).type !== 'tool-askUser' &&
           'state' in part &&
           ((part as Record<string, unknown>).state === 'approval-requested' ||
             (part as Record<string, unknown>).state === 'input-available')
       )
   );
 
-  const isLoading = isStreaming || isSubmitted || hasPendingToolInteraction;
+  const isLoading = isStreaming || isSubmitted || hasPendingApproval;
 
   const hasMessages = messages.length > 0;
   const journeyPhase = hasMessages ? 1 : 0;
@@ -211,15 +235,6 @@ function JourneyPageContent() {
       container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }
   }, [messages]);
-
-  // Submit handler
-  const handleSubmit = useCallback(
-    (content: string) => {
-      if (!content.trim() || isLoading) return;
-      sendMessage({ text: content.trim() });
-    },
-    [isLoading, sendMessage]
-  );
 
   // Handle askUser chip tap → persist to localStorage + send tool output
   const handleAskUserResponse = useCallback(
@@ -266,6 +281,24 @@ function JourneyPageContent() {
       });
     },
     [addToolOutput]
+  );
+
+  // Submit handler — if askUser chips are showing, resolve them with the typed text
+  const handleSubmit = useCallback(
+    (content: string) => {
+      if (!content.trim() || isLoading) return;
+
+      if (pendingAskUser) {
+        handleAskUserResponse(pendingAskUser.toolCallId, {
+          fieldName: pendingAskUser.fieldName,
+          otherText: content.trim(),
+        });
+        return;
+      }
+
+      sendMessage({ text: content.trim() });
+    },
+    [isLoading, sendMessage, pendingAskUser, handleAskUserResponse]
   );
 
   // ── Resume handlers ──────────────────────────────────────────────────────
@@ -373,13 +406,15 @@ function JourneyPageContent() {
       <div className="flex-shrink-0 px-4 pb-4 pt-0">
         <JourneyChatInput
           onSubmit={handleSubmit}
-          isLoading={isLoading || showResumePrompt}
+          isLoading={(isLoading && !pendingAskUser) || showResumePrompt}
           placeholder={
             showResumePrompt
               ? 'Choose an option above to continue...'
-              : isResuming
-                ? "Let's pick up where we left off..."
-                : 'Tell me about your business...'
+              : pendingAskUser
+                ? 'Pick an option or type your own answer...'
+                : isResuming
+                  ? "Let's pick up where we left off..."
+                  : 'Tell me about your business...'
           }
         />
       </div>
