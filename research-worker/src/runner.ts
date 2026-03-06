@@ -24,11 +24,29 @@ export async function runWithBackoff(
 
 export function extractJson(text: string): unknown {
   const trimmed = text.trim();
+
+  // 1. Try full response as-is
   try { return JSON.parse(trimmed); } catch {}
+
+  // 2. Try fenced code block
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
+
+  // 3. Extract first { to last } substring
   const first = trimmed.indexOf('{');
   const last = trimmed.lastIndexOf('}');
-  if (first >= 0 && last > first) { return JSON.parse(trimmed.slice(first, last + 1)); }
-  throw new Error('No parseable JSON found');
+  if (first >= 0 && last > first) {
+    const candidate = trimmed.slice(first, last + 1);
+    try { return JSON.parse(candidate); } catch {}
+
+    // 4. Fix common Haiku JSON issues: trailing commas before } or ]
+    const fixed = candidate
+      .replace(/,\s*([\]}])/g, '$1');
+    try { return JSON.parse(fixed); } catch {}
+  }
+
+  // 5. Fallback: return raw text wrapped in an object so callers always get an object
+  const RAW_LIMIT = 4000;
+  const raw = trimmed.length > RAW_LIMIT ? trimmed.slice(0, RAW_LIMIT) + '...' : trimmed;
+  return { raw };
 }
