@@ -13,6 +13,7 @@ export interface ResearchSectionResult {
 
 interface UseResearchRealtimeOptions {
   userId: string | null | undefined;
+  sessionId?: string | null;
   onSectionComplete: (section: string, result: ResearchSectionResult) => void;
   onAllSectionsComplete?: (
     allResults: Record<string, ResearchSectionResult>,
@@ -35,6 +36,7 @@ const SYNTHESIS_PREREQUISITES = new Set([
  */
 export function useResearchRealtime({
   userId,
+  sessionId,
   onSectionComplete,
   onAllSectionsComplete,
   onTimeout,
@@ -51,6 +53,11 @@ export function useResearchRealtime({
   onTimeoutRef.current = onTimeout;
 
   useEffect(() => {
+    // Reset tracking state when session changes (new conversation)
+    seenSections.current = new Set();
+    seenResults.current = {};
+    synthesisTriggered.current = false;
+
     if (!userId) return;
 
     const supabase = createClient();
@@ -87,24 +94,26 @@ export function useResearchRealtime({
       }
     }
 
-    // On mount, check for already-completed sections (page refresh case)
-    supabase
-      .from('journey_sessions')
-      .select('research_results')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.research_results) return;
-        const results = data.research_results as Record<
-          string,
-          ResearchSectionResult
-        >;
-        for (const [section, result] of Object.entries(results)) {
-          handleNewSection(section, result);
-        }
-      });
+    // On mount, check for already-completed sections (page refresh / resume case).
+    // Only load when we have a specific session to scope to — prevents stale
+    // research results from a previous conversation leaking into a fresh one.
+    if (sessionId) {
+      supabase
+        .from('journey_sessions')
+        .select('research_results')
+        .eq('id', sessionId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!data?.research_results) return;
+          const results = data.research_results as Record<
+            string,
+            ResearchSectionResult
+          >;
+          for (const [section, result] of Object.entries(results)) {
+            handleNewSection(section, result);
+          }
+        });
+    }
 
     // Subscribe to future changes
     const channel = supabase
@@ -118,8 +127,10 @@ export function useResearchRealtime({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          const results = (payload.new as Record<string, unknown>)
-            .research_results as Record<
+          const row = payload.new as Record<string, unknown>;
+          // When scoped to a session, ignore updates from other sessions
+          if (sessionId && row.id !== sessionId) return;
+          const results = row.research_results as Record<
             string,
             ResearchSectionResult
           > | null;
@@ -135,5 +146,5 @@ export function useResearchRealtime({
       clearTimeout(timeout);
       supabase.removeChannel(channel);
     };
-  }, [userId, timeoutMs]);
+  }, [userId, sessionId, timeoutMs]);
 }

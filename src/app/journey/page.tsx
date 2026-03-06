@@ -15,6 +15,7 @@ import { TypingIndicator } from '@/components/journey/typing-indicator';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+import { createClient } from '@/lib/supabase/client';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -118,9 +119,25 @@ function JourneyPageContent() {
   // Supabase Realtime — receive async research results
   const { user } = useUser();
   const [researchTimedOut, setResearchTimedOut] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Fetch the Supabase session row ID to scope realtime subscription
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createClient();
+    supabase
+      .from('journey_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setSessionId(data?.id ?? null);
+      });
+  }, [user?.id]);
 
   useResearchRealtime({
     userId: user?.id,
+    sessionId,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
       const toolName = sectionToToolName(section);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -322,6 +339,7 @@ function JourneyPageContent() {
     setIsResuming(false);
     setOnboardingState(null);
     setShowResumePrompt(false);
+    setSessionId(null); // Reset realtime scope — prevents stale research data
   }, []);
 
   // Welcome message — different when resuming a previous session
