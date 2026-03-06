@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 export interface ResearchSectionResult {
   status: 'complete' | 'error';
@@ -58,9 +58,9 @@ export function useResearchRealtime({
     seenResults.current = {};
     synthesisTriggered.current = false;
 
-    if (!userId) return;
+    if (!userId || !sessionId) return;
 
-    const supabase = createClient();
+    const supabase = getBrowserClient();
 
     const timeout = setTimeout(() => {
       const pending = [...SYNTHESIS_PREREQUISITES].filter(
@@ -144,7 +144,11 @@ export function useResearchRealtime({
 
     return () => {
       clearTimeout(timeout);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel).then(() => {
+        if (supabase.getChannels().length === 0) {
+          supabase.realtime.disconnect();
+        }
+      });
     };
   }, [userId, sessionId, timeoutMs]);
 }

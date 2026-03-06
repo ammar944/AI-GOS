@@ -15,7 +15,7 @@ import { TypingIndicator } from '@/components/journey/typing-indicator';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
-import { createClient } from '@/lib/supabase/client';
+import { getBrowserClient } from '@/lib/supabase/client';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -124,7 +124,7 @@ function JourneyPageContent() {
   // Fetch the Supabase session row ID to scope realtime subscription
   useEffect(() => {
     if (!user?.id) return;
-    const supabase = createClient();
+    const supabase = getBrowserClient();
     supabase
       .from('journey_sessions')
       .select('id')

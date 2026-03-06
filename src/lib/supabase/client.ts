@@ -13,6 +13,22 @@ export function createClient() {
 }
 
 /**
+ * Singleton browser client — prevents multiple GoTrueClient instances
+ * and avoids orphaned WebSocket connections from repeated createClient() calls.
+ */
+let browserClient: ReturnType<typeof createSupabaseClient> | null = null;
+export function getBrowserClient() {
+  if (!browserClient) {
+    browserClient = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { realtime: { params: { eventsPerSecond: 10 } } }
+    );
+  }
+  return browserClient;
+}
+
+/**
  * Creates a Supabase client with Clerk session token for RLS.
  * Use this in client components that need RLS-protected access.
  *
