@@ -8,15 +8,14 @@
 import type { UIMessage } from 'ai';
 import { extractAskUserResults } from '@/lib/journey/session-state';
 
-// The 8 required onboarding fields in collection order
+// The required onboarding fields — minimum needed to build a strategy
 const REQUIRED_FIELDS = [
+  'websiteUrl',
   'businessModel',
-  'industry',
-  'icpDescription',
+  'primaryIcpDescription',
   'productDescription',
-  'competitors',
-  'offerPricing',
-  'marketingChannels',
+  'topCompetitors',
+  'monthlyAdBudget',
   'goals',
 ] as const;
 
@@ -25,15 +24,9 @@ type RequiredField = (typeof REQUIRED_FIELDS)[number];
 export interface JourneyStateSnapshot {
   /** All collected fields (required + optional), raw values from askUser outputs */
   collectedFields: Record<string, unknown>;
-  /** True when businessModel has a non-empty value */
-  hasBusinessModel: boolean;
-  /** True when industry has a non-empty value */
-  hasIndustry: boolean;
-  /** True when both businessModel AND industry are collected — Stage 1 trigger */
-  shouldFireStage1: boolean;
   /** True when synthesizeResearch has a completed output-available part in messages */
   synthComplete: boolean;
-  /** Count of the 8 required fields that have non-empty values (0-8) */
+  /** Count of the 7 required fields that have non-empty values (0-7) */
   requiredFieldCount: number;
   /** Domains for which competitorFastHits has already been called (or is in-flight). */
   competitorFastHitsCalledFor: Set<string>;
@@ -99,10 +92,6 @@ function detectCompetitorFastHitsCalled(messages: UIMessage[]): Set<string> {
 export function parseCollectedFields(messages: UIMessage[]): JourneyStateSnapshot {
   const collectedFields = extractAskUserResults(messages);
 
-  const hasBusinessModel = isCollected(collectedFields['businessModel']);
-  const hasIndustry = isCollected(collectedFields['industry']);
-  const shouldFireStage1 = hasBusinessModel && hasIndustry;
-
   const requiredFieldCount = REQUIRED_FIELDS.filter((f: RequiredField) =>
     isCollected(collectedFields[f])
   ).length;
@@ -112,11 +101,183 @@ export function parseCollectedFields(messages: UIMessage[]): JourneyStateSnapsho
 
   return {
     collectedFields,
-    hasBusinessModel,
-    hasIndustry,
-    shouldFireStage1,
     synthComplete,
     requiredFieldCount,
     competitorFastHitsCalledFor,
+  };
+}
+
+// ── Phase Definitions ─────────────────────────────────────────────────────
+// Maps the 6 conversational phases to the fields they require.
+
+interface PhaseDefinition {
+  phase: number;
+  name: string;
+  /** At least one of these must be collected to consider the phase "started" */
+  primaryFields: string[];
+  /** Additional fields in this phase (not all required) */
+  secondaryFields: string[];
+  /** Minimum secondary fields needed (in addition to at least one primary) */
+  minSecondary: number;
+}
+
+const PHASE_DEFINITIONS: PhaseDefinition[] = [
+  {
+    phase: 1,
+    name: 'Discovery',
+    primaryFields: ['companyName', 'websiteUrl'],
+    secondaryFields: ['businessModel'],
+    minSecondary: 1,
+  },
+  {
+    phase: 2,
+    name: 'ICP Deep Dive',
+    primaryFields: ['primaryIcpDescription'],
+    secondaryFields: [
+      'industryVertical',
+      'jobTitles',
+      'companySize',
+      'geography',
+      'easiestToClose',
+      'buyingTriggers',
+      'bestClientSources',
+    ],
+    minSecondary: 2,
+  },
+  {
+    phase: 3,
+    name: 'Product & Offer',
+    primaryFields: ['productDescription'],
+    secondaryFields: [
+      'coreDeliverables',
+      'pricingTiers',
+      'valueProp',
+      'currentFunnelType',
+    ],
+    minSecondary: 1,
+  },
+  {
+    phase: 4,
+    name: 'Competitive Landscape',
+    primaryFields: ['topCompetitors'],
+    secondaryFields: [
+      'uniqueEdge',
+      'competitorFrustrations',
+      'marketBottlenecks',
+    ],
+    minSecondary: 1,
+  },
+  {
+    phase: 5,
+    name: 'Customer Journey',
+    primaryFields: [
+      'situationBeforeBuying',
+      'desiredTransformation',
+      'commonObjections',
+      'salesCycleLength',
+    ],
+    secondaryFields: ['salesProcessOverview'],
+    minSecondary: 0,
+  },
+  {
+    phase: 6,
+    name: 'Brand & Budget',
+    primaryFields: ['monthlyAdBudget'],
+    secondaryFields: [
+      'goals',
+      'brandPositioning',
+      'campaignDuration',
+      'targetCpl',
+      'targetCac',
+    ],
+    minSecondary: 0,
+  },
+];
+
+export interface OnboardingProgress {
+  /** Current phase number (1-6) based on which fields are collected */
+  phase: number;
+  /** Human-readable name of the current phase */
+  phaseName: string;
+  /** All field names that have been collected so far */
+  completedFields: string[];
+  /** Fields the agent should ask about next (from current + next phases) */
+  nextFields: string[];
+  /** True when Phase 1 is complete (businessModel + industryVertical/primaryIcpDescription) */
+  readyForResearch: boolean;
+  /** True when all 7 REQUIRED_FIELDS are collected */
+  readyForCompletion: boolean;
+}
+
+function isPhaseComplete(
+  def: PhaseDefinition,
+  fields: Record<string, unknown>,
+): boolean {
+  const hasPrimary = def.primaryFields.some((f) => isCollected(fields[f]));
+  if (!hasPrimary) return false;
+  const secondaryCount = def.secondaryFields.filter((f) =>
+    isCollected(fields[f]),
+  ).length;
+  return secondaryCount >= def.minSecondary;
+}
+
+/**
+ * Derive high-level onboarding progress from collected fields.
+ *
+ * Maps the flat field bag to the 6-phase conversation flow defined in
+ * the lead agent prompt, returning the current phase, completed fields,
+ * and what to ask next.
+ */
+export function getOnboardingProgress(
+  snapshot: JourneyStateSnapshot,
+): OnboardingProgress {
+  const fields = snapshot.collectedFields;
+
+  // Collect all field names that have values
+  const allPhaseFields = PHASE_DEFINITIONS.flatMap((d) => [
+    ...d.primaryFields,
+    ...d.secondaryFields,
+  ]);
+  const completedFields = allPhaseFields.filter((f) => isCollected(fields[f]));
+
+  // Find current phase (first incomplete phase)
+  let currentPhase = 6;
+  let currentPhaseName = 'Brand & Budget';
+  for (const def of PHASE_DEFINITIONS) {
+    if (!isPhaseComplete(def, fields)) {
+      currentPhase = def.phase;
+      currentPhaseName = def.name;
+      break;
+    }
+  }
+
+  // Next fields: uncollected fields from current phase + next phase
+  const nextFields: string[] = [];
+  for (const def of PHASE_DEFINITIONS) {
+    if (def.phase < currentPhase) continue;
+    if (def.phase > currentPhase + 1) break;
+    for (const f of [...def.primaryFields, ...def.secondaryFields]) {
+      if (!isCollected(fields[f])) nextFields.push(f);
+    }
+  }
+
+  // readyForResearch: businessModel collected + either industryVertical or primaryIcpDescription
+  const readyForResearch =
+    isCollected(fields['businessModel']) &&
+    (isCollected(fields['industryVertical']) ||
+      isCollected(fields['primaryIcpDescription']));
+
+  // readyForCompletion: all 7 REQUIRED_FIELDS collected
+  const readyForCompletion = REQUIRED_FIELDS.every((f) =>
+    isCollected(fields[f]),
+  );
+
+  return {
+    phase: currentPhase,
+    phaseName: currentPhaseName,
+    completedFields,
+    nextFields,
+    readyForResearch,
+    readyForCompletion,
   };
 }
