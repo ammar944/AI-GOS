@@ -4,8 +4,8 @@ import {
 } from '@/lib/journey/read-research-result';
 
 export interface PollOptions {
-  maxWaitMs?: number; // Default: 120_000 (2 minutes)
-  intervalMs?: number; // Default: 5_000 (5 seconds)
+  maxWaitMs?: number; // Default: 300_000 (5 minutes)
+  intervalMs?: number; // Default: 3_000 (3 seconds)
 }
 
 export interface PollResult {
@@ -25,8 +25,8 @@ export async function pollForResult(
   jobId: string,
   opts?: PollOptions,
 ): Promise<PollResult> {
-  const maxWaitMs = opts?.maxWaitMs ?? 120_000;
-  const intervalMs = opts?.intervalMs ?? 5_000;
+  const maxWaitMs = opts?.maxWaitMs ?? 300_000;
+  const intervalMs = opts?.intervalMs ?? 3_000;
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitMs) {

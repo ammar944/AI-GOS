@@ -142,7 +142,7 @@ export async function runMediaPlanner(context: string): Promise<ResearchResult> 
         return Promise.race([
           runner.runUntilDone(),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Media planner timed out after 150s')), 150_000),
+            setTimeout(() => reject(new Error('Media planner timed out after 180s')), 180_000),
           ),
         ]);
       },

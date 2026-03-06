@@ -85,6 +85,9 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// -- Active job tracking (for stale detection) --------------------------------
+const activeJobs = new Map<string, { tool: string; userId: string; startedAt: number }>();
+
 // -- Run ----------------------------------------------------------------------
 app.post('/run', requireApiKey, async (req: express.Request, res: express.Response) => {
   const { tool, context, userId, jobId } = req.body as RunJobRequest;
@@ -100,6 +103,8 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     return;
   }
 
+  const startMs = Date.now();
+
   // Write job status to Supabase BEFORE returning 202.
   // If the process crashes after this point, the row stays as 'running'
   // — detectable rather than silently lost.
@@ -107,12 +112,15 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     await writeJobStatus(userId, jobId, {
       status: 'running',
       tool,
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(startMs).toISOString(),
     });
   } catch (statusErr) {
     // Non-fatal — log and proceed. Research is more important than status tracking.
     console.error(`[worker] writeJobStatus failed for ${jobId}:`, statusErr);
   }
+
+  // Track active job for stale detection
+  activeJobs.set(jobId, { tool, userId, startedAt: startMs });
 
   // Return 202 now — job continues asynchronously in background
   res.status(202).json({ status: 'accepted', jobId });
@@ -121,7 +129,21 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   // already committed the job to Supabase above, so crashes are observable.
   void (async () => {
     console.log(`[worker] Starting ${tool} for user ${userId} (job ${jobId})`);
-    const startMs = Date.now();
+
+    // Heartbeat: write 'running' status every 30s so the poller knows we're alive
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        await writeJobStatus(userId, jobId, {
+          status: 'running',
+          tool,
+          startedAt: new Date(startMs).toISOString(),
+          lastHeartbeat: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn(`[heartbeat] Failed for ${jobId}:`, err);
+      }
+    }, 30_000);
+
     try {
       const result = await runner(context);
 
@@ -181,6 +203,9 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         completedAt: new Date().toISOString(),
         error: errorMsg,
       });
+    } finally {
+      clearInterval(heartbeatInterval);
+      activeJobs.delete(jobId);
     }
   })();
 });
@@ -191,13 +216,23 @@ app.listen(PORT, () => {
 });
 
 // -- Stale job detection ------------------------------------------------------
-const STALE_THRESHOLD_MS = 180_000; // 3 minutes
+const STALE_THRESHOLD_MS = 300_000; // 5 minutes
 
 setInterval(() => {
-  console.log(`[stale-check] Checking for stale jobs (threshold: ${STALE_THRESHOLD_MS / 1000}s)...`);
-  // MVP: log only. Full implementation would query Supabase for job_status entries
-  // where status='running' and startedAt < now - STALE_THRESHOLD_MS,
-  // then mark them as { status: 'error', error: 'timeout: job exceeded 180s' }
+  const now = Date.now();
+  for (const [jobId, job] of activeJobs) {
+    if (now - job.startedAt > STALE_THRESHOLD_MS) {
+      console.error(`[stale-check] Job ${jobId} (${job.tool}) exceeded ${STALE_THRESHOLD_MS / 1000}s — marking as error`);
+      writeJobStatus(job.userId, jobId, {
+        status: 'error',
+        tool: job.tool,
+        error: `timeout: job exceeded ${STALE_THRESHOLD_MS / 1000}s`,
+        startedAt: new Date(job.startedAt).toISOString(),
+        completedAt: new Date().toISOString(),
+      }).catch(err => console.error('[stale-check] writeJobStatus failed:', err));
+      activeJobs.delete(jobId);
+    }
+  }
 }, 60_000); // Check every 60s
 
 export default app;

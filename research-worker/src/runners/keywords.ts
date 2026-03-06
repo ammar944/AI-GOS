@@ -58,7 +58,7 @@ export async function runResearchKeywords(context: string): Promise<ResearchResu
         });
         return Promise.race([
           runner.runUntilDone(),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sub-agent timed out after 120s')), 120_000)),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sub-agent timed out after 180s')), 180_000)),
         ]);
       },
       'researchKeywords',

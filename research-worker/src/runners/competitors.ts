@@ -120,7 +120,7 @@ export async function runResearchCompetitors(context: string): Promise<ResearchR
         });
         return Promise.race([
           runner.runUntilDone(),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sub-agent timed out after 120s')), 120_000)),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sub-agent timed out after 240s')), 240_000)),
         ]);
       },
       'researchCompetitors',

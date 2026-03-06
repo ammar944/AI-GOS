@@ -164,7 +164,7 @@ export async function runSynthesizeResearch(context: string): Promise<ResearchRe
         });
         return Promise.race([
           runner.runUntilDone(),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sub-agent timed out after 120s')), 120_000)),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sub-agent timed out after 180s')), 180_000)),
         ]);
       },
       'synthesizeResearch',

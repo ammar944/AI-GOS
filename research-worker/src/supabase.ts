@@ -111,6 +111,7 @@ export interface JobStatusRow {
   tool: string;
   startedAt: string;
   completedAt?: string;
+  lastHeartbeat?: string;
   error?: string;
 }
 
