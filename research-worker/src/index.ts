@@ -1,3 +1,10 @@
+import 'dotenv/config';
+import { resolve } from 'path';
+import { config } from 'dotenv';
+
+// Load parent .env.local for Supabase credentials and API keys
+config({ path: resolve(__dirname, '../../.env.local') });
+
 import express from 'express';
 import {
   runResearchIndustry,
