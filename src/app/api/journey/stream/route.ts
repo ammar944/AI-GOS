@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai/prompts/lead-agent-system';
 import { askUser } from '@/lib/ai/tools/ask-user';
 import { competitorFastHits } from '@/lib/ai/tools/competitor-fast-hits';
+import { scrapeClientSite } from '@/lib/ai/tools/scrape-client-site';
 import {
   researchIndustry,
   researchCompetitors,
@@ -52,7 +53,15 @@ export async function POST(request: Request) {
   }
 
   // ── Parse request ───────────────────────────────────────────────────────
-  const body: JourneyStreamRequest = await request.json();
+  let body: JourneyStreamRequest;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON in request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
   if (!body.messages || !Array.isArray(body.messages)) {
     return new Response(
@@ -90,9 +99,7 @@ export async function POST(request: Request) {
   })) as UIMessage[];
 
   // ── Extract last user message for competitor detection ───────────────────────
-  const lastUserMessage = [...sanitizedMessages]
-    .reverse()
-    .find((m) => m.role === 'user');
+  const lastUserMessage = sanitizedMessages.findLast((m) => m.role === 'user');
   const lastUserText =
     lastUserMessage?.parts
       .filter(
@@ -110,6 +117,8 @@ export async function POST(request: Request) {
       if (!result.ok) {
         console.error('[journey/stream] askUser persist failed:', result.error);
       }
+    }).catch((err) => {
+      console.error('[journey/stream] askUser persist threw:', err);
     });
   }
 
@@ -120,6 +129,8 @@ export async function POST(request: Request) {
       if (!result.ok) {
         console.error('[journey/stream] research persist failed:', result.error);
       }
+    }).catch((err) => {
+      console.error('[journey/stream] research persist threw:', err);
     });
   }
 
@@ -175,6 +186,7 @@ export async function POST(request: Request) {
     tools: {
       askUser,
       competitorFastHits,
+      scrapeClientSite,
       researchIndustry,
       researchCompetitors,
       researchICP,
