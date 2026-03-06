@@ -60,3 +60,6 @@ regression-*.png
 icp-*.png
 section1-mockup*.png
 dashboard-screenshot.png
+
+docs/screenshots/
+*.docx

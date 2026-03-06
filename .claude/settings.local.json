@@ -128,7 +128,15 @@
       "Bash(npx playwright:*)",
       "mcp__plugin_playwright_playwright__browser_console_messages",
       "mcp__plugin_playwright_playwright__browser_resize",
-      "mcp__plugin_playwright_playwright__browser_network_requests"
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "Bash(claude:*)",
+      "Bash(railway:*)",
+      "Bash(openssl rand:*)",
+      "Bash(pandoc:*)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:cursor.com)",
+      "WebFetch(domain:manus.im)",
+      "Bash(# Also clean up any other stale worktree branches\ngit branch | grep worktree-agent | xargs -r git branch -D 2>&1)"
     ]
   },
   "enableAllProjectMcpServers": true,
