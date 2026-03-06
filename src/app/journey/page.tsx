@@ -125,7 +125,7 @@ function JourneyPageContent() {
       const toolName = sectionToToolName(section);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const syntheticMessage: any = {
-        id: `realtime-${section}-${Date.now()}`,
+        id: `realtime-${section}-${crypto.randomUUID()}`,
         role: 'assistant' as const,
         content: '',
         parts: [
@@ -140,7 +140,12 @@ function JourneyPageContent() {
         ],
         createdAt: new Date(),
       };
-      setMessages((prev) => [...prev, syntheticMessage]);
+      setMessages((prev) => {
+        // Don't add duplicate section results
+        if (prev.some((m) => m.id?.startsWith(`realtime-${section}`)))
+          return prev;
+        return [...prev, syntheticMessage];
+      });
     },
     onAllSectionsComplete: () => {
       // All 4 research cards are now visible in chat.
