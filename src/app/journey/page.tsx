@@ -106,6 +106,17 @@ function sectionToToolName(section: string): string {
   return map[section] ?? section;
 }
 
+// Reverse: tool name → section key (for tracking active research from tool calls)
+const TOOL_TO_SECTION: Record<string, string> = {
+  researchIndustry: 'industryMarket',
+  researchCompetitors: 'competitors',
+  researchICP: 'icpValidation',
+  researchOffer: 'offerAnalysis',
+  synthesizeResearch: 'crossAnalysis',
+  researchKeywords: 'keywordIntel',
+  researchMediaPlan: 'mediaPlan',
+};
+
 // Derive stepper phase from research state
 function deriveStepperPhase(researchResults: Record<string, ResearchSectionResult | null>): {
   currentPhase: StepperPhase;
@@ -238,6 +249,34 @@ function JourneyPageContent() {
       }
     },
   });
+
+  // Track research tool calls from the agent stream → mark sections as active (loading)
+  useEffect(() => {
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue;
+      for (const part of msg.parts) {
+        if (typeof part !== 'object' || !part || !('type' in part)) continue;
+        const p = part as Record<string, unknown>;
+        // Match tool invocation parts for research tools
+        if (p.type !== 'tool-invocation') continue;
+        const toolName = p.toolName as string | undefined;
+        if (!toolName || !TOOL_TO_SECTION[toolName]) continue;
+        const section = TOOL_TO_SECTION[toolName];
+        // Only mark as active if not already complete
+        setActiveResearch((prev) => {
+          if (researchResults[section]) return prev; // already complete
+          if (prev.has(section)) return prev; // already tracking
+          const next = new Set(prev);
+          next.add(section);
+          return next;
+        });
+        // Add terminal log for research kickoff (deduplicated by section)
+        const sectionLabel = SECTION_META[section] ?? section;
+        addLog('run', `Researching ${sectionLabel}...`);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   // Supabase Realtime — receive async research results
   const { user } = useUser();
