@@ -173,7 +173,8 @@ export async function POST(request: Request) {
 
   if (
     competitorDetection !== null &&
-    !competitorAlreadyCalled
+    !competitorAlreadyCalled &&
+    !isPrefillMessage
   ) {
     const domainLabel = competitorDetection.inferredDomain
       ? `${competitorDetection.domain} (inferred from "${competitorDetection.rawMention}")`
@@ -188,9 +189,38 @@ export async function POST(request: Request) {
   }
 
   // Prefill research trigger: when user accepted prefill data, inject explicit instruction
-  // to fire researchIndustry immediately. This parallels the Stage 2 / Strategist Mode pattern.
+  // to fire researchIndustry immediately. Bifurcated: first call vs already-dispatched.
   if (isPrefillMessage) {
-    systemPrompt += `\n\n## Prefill Research Directive (this request only)
+    // Check if researchIndustry has already been dispatched in this conversation
+    const industryAlreadyCalled = sanitizedMessages.some((m) =>
+      m.role === 'assistant' &&
+      m.parts.some((p) => {
+        const part = p as Record<string, unknown>;
+        return (
+          (part.type === 'tool-invocation' && part.toolName === 'researchIndustry') ||
+          (typeof part.type === 'string' && part.type === 'tool-researchIndustry')
+        );
+      })
+    );
+
+    if (industryAlreadyCalled) {
+      // Auto-send loop fired after tool returned { status: 'queued' } — research is still running
+      systemPrompt += `\n\n## Research Running Directive (this request only)
+
+researchIndustry has been dispatched and is running asynchronously (30-60 seconds). The user will see results appear in the artifact panel automatically.
+
+YOUR ONLY RESPONSE: "Research is underway — your market overview will appear in the panel shortly."
+
+Then STOP. Do NOT:
+- Ask any questions
+- Continue the onboarding
+- Call any tools
+- Suggest next steps
+- Add commentary
+
+Just acknowledge research is running and end your response.`;
+    } else {
+      systemPrompt += `\n\n## Prefill Research Directive (this request only)
 
 The user's message contains structured prefill data that was reviewed and accepted through the UI. ALL prefill fields are confirmed — do NOT re-ask or re-confirm any of them.
 
@@ -203,34 +233,15 @@ After calling researchIndustry:
 4. Wait for the research results to arrive before continuing.
 
 The user will review research results in an artifact panel and click "Looks Good" when satisfied. When you receive their approval message, acknowledge briefly and tell them you're preparing the next section.`;
+    }
   }
 
-  // Check if industryMarket research has completed and user hasn't responded yet
-  const industryResultMsgIndex = sanitizedMessages.findIndex((m) =>
-    m.role === 'assistant' &&
-    m.parts.some((p) => {
-      const part = p as Record<string, unknown>;
-      return (
-        part.type === 'tool-researchIndustry' &&
-        part.state === 'output-available'
-      );
-    })
-  );
+  // Approval handling: when user approves a section via the artifact panel button
+  const isApprovalMessage = lastUserText.startsWith('[SECTION_APPROVED]');
+  if (isApprovalMessage && !journeySnap.synthComplete) {
+    systemPrompt += `\n\n## Section Approved Directive (this request only)
 
-  const userRespondedToIndustry =
-    industryResultMsgIndex !== -1 &&
-    sanitizedMessages
-      .slice(industryResultMsgIndex + 1)
-      .some((m) => m.role === 'user');
-
-  if (industryResultMsgIndex !== -1 && !userRespondedToIndustry && !journeySnap.synthComplete) {
-    systemPrompt += `\n\n## Section Review Directive (this request only)
-
-Industry research (Section 1: Market Overview) results have arrived and are displayed in the artifact panel. The user can see the full research document.
-
-YOUR RESPONSE: "Take a look at the market overview in the panel. If everything looks right, hit 'Looks Good' — or tell me what you'd like me to change."
-
-Keep it to 1-2 sentences. Do NOT summarize the research (they can read it). Do NOT ask new onboarding questions yet.`;
+The user has approved the current research section in the artifact panel. Acknowledge briefly (e.g., "Market overview locked in.") and continue to the next onboarding phase — ask the next question to gather information for the next research section (competitors, ICP, or offer depending on what's needed next).`;
   }
 
   // ── Stream ──────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useJourneyPrefill } from '@/hooks/use-journey-prefill';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -219,6 +220,36 @@ function JourneyPageContent() {
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactSection, setArtifactSection] = useState<string>('industryMarket');
   const [artifactApproved, setArtifactApproved] = useState(false);
+  const artifactAutoOpenedRef = useRef(false);
+
+  // Session reset signal — increment to clear stale research data from Realtime hook
+  const [realtimeResetSignal, setRealtimeResetSignal] = useState(0);
+
+  // Clear stale research data from Supabase and reset local state.
+  // Called when starting a NEW session (accept prefill / skip / start fresh).
+  const resetResearchState = useCallback((userId: string) => {
+    // 1. Clear local React state
+    setResearchResults({});
+    setActiveResearch(new Set());
+    setTerminalLogs([]);
+    setArtifactOpen(false);
+    setArtifactApproved(false);
+    artifactAutoOpenedRef.current = false;
+    pendingWakeUpsRef.current = [];
+
+    // 2. Reset the Realtime hook's internal seen-sections tracking
+    setRealtimeResetSignal((n) => n + 1);
+
+    // 3. Clear stale Supabase data so Realtime initial fetch doesn't find old results
+    const supabase = createSupabaseClient();
+    supabase
+      .from('journey_sessions')
+      .update({ research_results: null, job_status: null })
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) console.error('[journey] Failed to clear stale research data:', error);
+      });
+  }, []);
 
   useEffect(() => {
     const saved = getJourneySession();
@@ -282,6 +313,11 @@ function JourneyPageContent() {
           next.add(section);
           return next;
         });
+        // Auto-open artifact panel when industryMarket research starts (once)
+        if (section === 'industryMarket' && !artifactAutoOpenedRef.current) {
+          artifactAutoOpenedRef.current = true;
+          setArtifactOpen(true);
+        }
         // Add terminal log for research kickoff (deduplicated by section)
         const sectionLabel = SECTION_META[section] ?? section;
         addLog('run', `Researching ${sectionLabel}...`);
@@ -301,6 +337,7 @@ function JourneyPageContent() {
 
   useResearchRealtime({
     userId: user?.id,
+    resetSignal: realtimeResetSignal,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
       // Track research completion (always update state regardless of phase)
       setResearchResults((prev) => ({ ...prev, [section]: result }));
@@ -313,6 +350,11 @@ function JourneyPageContent() {
       // Add terminal log
       const sectionLabel = SECTION_META[section] ?? section;
       addLog('ok', `${sectionLabel} research complete`);
+
+      // Auto-open artifact panel when industryMarket research lands
+      if (section === 'industryMarket' && journeyPhaseRef.current === 'chat') {
+        setArtifactOpen(true);
+      }
 
       // Only inject synthetic messages and wake the agent when in 'chat' phase.
       // During prefilling/review, the user hasn't accepted context yet — queue the wake-up.
@@ -341,12 +383,19 @@ function JourneyPageContent() {
       };
       setMessages((prev) => [...prev, syntheticMessage]);
 
-      // Wake the agent to continue onboarding after research completes
+      // Wake the agent — differentiate industryMarket (artifact review) from other sections
       if (statusRef.current !== 'streaming' && statusRef.current !== 'submitted') {
-        sendMessage({
-          text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
-          metadata: { hidden: true },
-        });
+        if (section === 'industryMarket') {
+          sendMessage({
+            text: `[Research complete: ${sectionLabel}] The market overview is ready in the artifact panel. Prompt the user to review it: "Your market overview is ready — take a look in the panel. If everything looks good, hit 'Looks Good'. Otherwise tell me what you'd like changed."`,
+            metadata: { hidden: true },
+          });
+        } else {
+          sendMessage({
+            text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
+            metadata: { hidden: true },
+          });
+        }
       }
     },
     onAllSectionsComplete: () => {
@@ -578,18 +627,22 @@ function JourneyPageContent() {
 
   const handleResumeStartFresh = useCallback(() => {
     clearJourneySession();
+    if (user?.id) resetResearchState(user.id);
     setTransportBody(undefined);
     setSavedSession(null);
     setIsResuming(false);
     setOnboardingState(null);
     setJourneyPhase('welcome');
     addLog('inf', 'Starting fresh journey');
-  }, [addLog]);
+  }, [addLog, user?.id, resetResearchState]);
 
   // Prefill accept — build context message from extracted fields and send to lead agent
   const handleAcceptPrefill = useCallback(
     (editedFields?: Record<string, string>) => {
       if (!partialResult) return;
+
+      // Clear stale research data from previous sessions BEFORE entering chat
+      if (user?.id) resetResearchState(user.id);
 
       // Derive company name for the visible message
       const nameField = editedFields?.companyName
@@ -624,15 +677,16 @@ function JourneyPageContent() {
 
       setJourneyPhase('chat');
     },
-    [partialResult, fieldsFound, sendMessage, addLog],
+    [partialResult, fieldsFound, sendMessage, addLog, user?.id, resetResearchState],
   );
 
   const handleSkipPrefill = useCallback(() => {
     stopPrefill();
+    if (user?.id) resetResearchState(user.id);
     addLog('inf', 'Skipped prefill — starting without website analysis');
     sendMessage({ text: 'Start without website analysis' });
     setJourneyPhase('chat');
-  }, [stopPrefill, addLog, sendMessage]);
+  }, [stopPrefill, addLog, sendMessage, user?.id, resetResearchState]);
 
   const handleArtifactApprove = useCallback(() => {
     setArtifactApproved(true);
@@ -667,7 +721,7 @@ function JourneyPageContent() {
         cards.push({
           section,
           status: 'complete',
-          data: result as unknown as Record<string, unknown>,
+          data: (result.data ?? undefined) as Record<string, unknown> | undefined,
         });
       }
     }
@@ -685,7 +739,7 @@ function JourneyPageContent() {
     return 'loading';
   }, [researchResults, activeResearch, artifactSection]);
 
-  const artifactData = researchResults[artifactSection] as unknown as Record<string, unknown> | undefined;
+  const artifactData = (researchResults[artifactSection]?.data ?? undefined) as Record<string, unknown> | undefined;
 
   // Whether to show artifact trigger in chat (research dispatched or complete for this section)
   const showArtifactTrigger = activeResearch.has(artifactSection) || !!researchResults[artifactSection];

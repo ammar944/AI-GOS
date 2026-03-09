@@ -32,6 +32,7 @@ After completing your research, respond with a JSON object containing your findi
 {
   "categorySnapshot": {
     "category": "string — specific market category name",
+    "marketSize": "string — estimated TAM/SAM (e.g. '$50B', '$2.3B SAM')",
     "marketMaturity": "emerging | growing | mature | declining",
     "buyingBehavior": "string — how buyers evaluate and purchase",
     "awarenessLevel": "unaware | problem-aware | solution-aware | product-aware | most-aware",
@@ -42,8 +43,18 @@ After completing your research, respond with a JSON object containing your findi
     "secondary": ["string — secondary pain points (2-4 items)"],
     "triggers": ["string — events that trigger purchase consideration"]
   },
-  "marketTrends": ["string — key market trends (3-5 items)"],
-  "seasonalPatterns": "string — seasonal buying patterns if any",
+  "marketDynamics": {
+    "demandDrivers": ["string — key demand drivers fueling the market (3-5 items)"],
+    "buyingTriggers": ["string — specific events/moments that trigger a purchase decision (3-5 items)"],
+    "barriersToPurchase": ["string — common objections and friction points that delay or prevent purchase (3-5 items)"]
+  },
+  "trendSignals": [
+    {
+      "trend": "string — name of the trend",
+      "direction": "rising | stable | declining",
+      "evidence": "string — brief supporting data point or source"
+    }
+  ],
   "messagingOpportunities": {
     "angles": ["string — strong messaging angles for paid ads"],
     "summaryRecommendations": ["string — actionable recommendations for paid media strategy"]

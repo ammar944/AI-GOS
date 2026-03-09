@@ -69,9 +69,9 @@ function extractTopMetrics(section: string, data?: Record<string, unknown>): { k
     if (section === 'industryMarket') {
       const snap = data.categorySnapshot as Record<string, unknown> | undefined;
       return [
-        snap?.tam ? { key: 'TAM', value: String(snap.tam) } : null,
-        snap?.cagr ? { key: 'CAGR', value: String(snap.cagr) } : null,
-        data.marketMaturity ? { key: 'Maturity', value: String(data.marketMaturity) } : null,
+        snap?.marketSize ? { key: 'Market Size', value: String(snap.marketSize) } : null,
+        snap?.marketMaturity ? { key: 'Maturity', value: String(snap.marketMaturity) } : null,
+        snap?.category ? { key: 'Category', value: String(snap.category) } : null,
       ].filter(Boolean) as { key: string; value: string }[];
     }
     if (section === 'competitors') {
@@ -97,7 +97,10 @@ function extractDescription(section: string, data?: Record<string, unknown>): st
   try {
     if (section === 'industryMarket') {
       const snap = data.categorySnapshot as Record<string, unknown> | undefined;
-      if (snap?.category) return `Identified 4.2k potential entry points within the ${snap.category} vertical.`;
+      if (snap?.category) {
+        const size = snap.marketSize ? ` (${snap.marketSize})` : '';
+        return `Market overview complete for the ${snap.category} vertical${size}.`;
+      }
     }
     if (section === 'competitors') {
       const comps = Array.isArray(data.competitors) ? data.competitors : [];

@@ -148,18 +148,14 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     try {
       const result = await runner(context);
 
-      // Compress successful results before writing to Supabase
+      // Compression disabled — raw runner data flows through to Supabase
+      // so artifact-panel.tsx and research-inline-card.tsx can render
+      // structured fields (categorySnapshot, marketDynamics, etc.) directly.
+      // See: compress.ts transforms data into CompressedSummary shape which
+      // has zero overlap with what the frontend renderers expect.
       if (result.status === 'complete' && result.data) {
-        try {
-          const rawLength = JSON.stringify(result.data).length;
-          const compressed = await compressResearchOutput(result.section, result.data);
-          const compressedLength = JSON.stringify(compressed).length;
-          console.log(`[${tool}] Compressed: ${rawLength} → ${compressedLength} chars`);
-          result.data = compressed;
-        } catch (compressError) {
-          console.warn(`[${tool}] Compression failed, using raw data:`, compressError);
-          // Keep raw data — don't lose results
-        }
+        const rawLength = JSON.stringify(result.data).length;
+        console.log(`[${tool}] Raw data: ${rawLength} chars (compression bypassed)`);
       }
 
       try {

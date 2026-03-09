@@ -19,6 +19,8 @@ interface UseResearchRealtimeOptions {
   ) => void;
   onTimeout?: (pendingSections: string[]) => void;
   timeoutMs?: number;
+  /** Increment to reset internal seen-sections state (e.g. when starting a new session). */
+  resetSignal?: number;
 }
 
 const SYNTHESIS_PREREQUISITES = new Set([
@@ -39,6 +41,7 @@ export function useResearchRealtime({
   onAllSectionsComplete,
   onTimeout,
   timeoutMs,
+  resetSignal,
 }: UseResearchRealtimeOptions) {
   const seenSections = useRef<Set<string>>(new Set());
   const seenResults = useRef<Record<string, ResearchSectionResult>>({});
@@ -52,6 +55,11 @@ export function useResearchRealtime({
 
   useEffect(() => {
     if (!userId) return;
+
+    // Reset internal state when this effect re-runs (resetSignal changed or userId changed)
+    seenSections.current = new Set();
+    seenResults.current = {};
+    synthesisTriggered.current = false;
 
     const supabase = createClient();
 
@@ -87,24 +95,28 @@ export function useResearchRealtime({
       }
     }
 
-    // On mount, check for already-completed sections (page refresh case)
-    supabase
-      .from('journey_sessions')
-      .select('research_results')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.research_results) return;
-        const results = data.research_results as Record<
-          string,
-          ResearchSectionResult
-        >;
-        for (const [section, result] of Object.entries(results)) {
-          handleNewSection(section, result);
-        }
-      });
+    // On mount (resetSignal === 0), check for already-completed sections (page refresh case).
+    // When resetSignal > 0, we explicitly started a new session — skip the initial fetch
+    // because we just cleared the Supabase data and the async clear may not have committed yet.
+    if (!resetSignal) {
+      supabase
+        .from('journey_sessions')
+        .select('research_results')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!data?.research_results) return;
+          const results = data.research_results as Record<
+            string,
+            ResearchSectionResult
+          >;
+          for (const [section, result] of Object.entries(results)) {
+            handleNewSection(section, result);
+          }
+        });
+    }
 
     // Subscribe to future changes
     const channel = supabase
@@ -135,5 +147,5 @@ export function useResearchRealtime({
       clearTimeout(timeout);
       supabase.removeChannel(channel);
     };
-  }, [userId, timeoutMs]);
+  }, [userId, timeoutMs, resetSignal]);
 }

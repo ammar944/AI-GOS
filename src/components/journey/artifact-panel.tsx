@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -266,12 +266,15 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 // -- Progressive Reveal --------------------------------------------------------
 function useProgressiveReveal(isComplete: boolean, totalBlocks: number) {
   const [visibleBlocks, setVisibleBlocks] = useState(0);
-  const hasRevealed = useRef(false);
 
   useEffect(() => {
-    if (!isComplete || hasRevealed.current) return;
-    hasRevealed.current = true;
+    if (!isComplete || totalBlocks === 0) {
+      setVisibleBlocks(0);
+      return;
+    }
 
+    // Reset before starting reveal (handles strict mode double-fire)
+    setVisibleBlocks(0);
     let current = 0;
     const interval = setInterval(() => {
       current += 1;
