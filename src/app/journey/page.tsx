@@ -186,6 +186,10 @@ function deriveProgressItems(
 function JourneyPageContent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
+  const statusRef = useRef<string>('ready');
+  const journeyPhaseRef = useRef<'welcome' | 'prefilling' | 'review' | 'resume' | 'chat'>('welcome');
+  // Sections that completed before the user reached 'chat' phase — wake-ups queued
+  const pendingWakeUpsRef = useRef<string[]>([]);
 
   // Journey phase: controls which view renders
   const [journeyPhase, setJourneyPhase] = useState<'welcome' | 'prefilling' | 'review' | 'resume' | 'chat'>('welcome');
@@ -298,7 +302,7 @@ function JourneyPageContent() {
   useResearchRealtime({
     userId: user?.id,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
-      // Track research completion
+      // Track research completion (always update state regardless of phase)
       setResearchResults((prev) => ({ ...prev, [section]: result }));
       setActiveResearch((prev) => {
         const next = new Set(prev);
@@ -309,6 +313,13 @@ function JourneyPageContent() {
       // Add terminal log
       const sectionLabel = SECTION_META[section] ?? section;
       addLog('ok', `${sectionLabel} research complete`);
+
+      // Only inject synthetic messages and wake the agent when in 'chat' phase.
+      // During prefilling/review, the user hasn't accepted context yet — queue the wake-up.
+      if (journeyPhaseRef.current !== 'chat') {
+        pendingWakeUpsRef.current.push(section);
+        return;
+      }
 
       const toolName = sectionToToolName(section);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -329,12 +340,23 @@ function JourneyPageContent() {
         createdAt: new Date(),
       };
       setMessages((prev) => [...prev, syntheticMessage]);
+
+      // Wake the agent to continue onboarding after research completes
+      if (statusRef.current !== 'streaming' && statusRef.current !== 'submitted') {
+        sendMessage({
+          text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
+          metadata: { hidden: true },
+        });
+      }
     },
     onAllSectionsComplete: () => {
       addLog('ok', 'All research sections complete');
-      sendMessage({
-        text: "Okay — looks like the research is all in. What's your read on everything you found?",
-      });
+      // Only send the visible "research is in" message when in chat phase
+      if (journeyPhaseRef.current === 'chat') {
+        sendMessage({
+          text: "Okay — looks like the research is all in. What's your read on everything you found?",
+        });
+      }
     },
     onTimeout: (pendingSections) => {
       console.warn('[journey] Research timed out, pending:', pendingSections);
@@ -346,6 +368,46 @@ function JourneyPageContent() {
   // Derived state
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
+  statusRef.current = status;
+  journeyPhaseRef.current = journeyPhase;
+
+  // Flush queued research wake-ups when entering chat phase
+  useEffect(() => {
+    if (journeyPhase !== 'chat') return;
+    const queued = pendingWakeUpsRef.current;
+    if (queued.length === 0) return;
+    pendingWakeUpsRef.current = [];
+
+    // Inject synthetic tool messages for each completed section
+    for (const section of queued) {
+      const toolName = sectionToToolName(section);
+      const result = researchResults[section];
+      if (!result) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const syntheticMessage: any = {
+        id: `realtime-${section}-${Date.now()}`,
+        role: 'assistant' as const,
+        content: '',
+        parts: [
+          {
+            type: `tool-${toolName}`,
+            toolName,
+            toolCallId: `realtime-${section}`,
+            state: 'output-available' as const,
+            input: {},
+            output: JSON.stringify(result),
+          },
+        ],
+        createdAt: new Date(),
+      };
+      setMessages((prev) => [...prev, syntheticMessage]);
+    }
+
+    // Don't send a separate wake-up — the prefill acceptance message
+    // (sent by handleAcceptPrefill / handleSkipPrefill) already wakes the agent.
+    // The agent will see the synthetic tool results in context.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [journeyPhase]);
 
   // Stepper state
   const { currentPhase, completedPhases } = deriveStepperPhase(researchResults);
@@ -529,6 +591,14 @@ function JourneyPageContent() {
     (editedFields?: Record<string, string>) => {
       if (!partialResult) return;
 
+      // Derive company name for the visible message
+      const nameField = editedFields?.companyName
+        ?? (partialResult.companyName && typeof partialResult.companyName === 'object' && 'value' in partialResult.companyName
+          ? (partialResult.companyName as { value?: string | null }).value
+          : null);
+      const displayName = nameField || 'this company';
+
+      // Build full context for the agent
       const lines: string[] = ["Here's what I found about the company:"];
       for (const [key, label] of Object.entries(PREFILL_FIELD_LABELS)) {
         if (editedFields?.[key]) {
@@ -545,7 +615,13 @@ function JourneyPageContent() {
       lines.push('', 'Please use this context and begin the research journey.');
 
       addLog('ok', `Accepted ${fieldsFound} prefill fields`);
-      sendMessage({ text: lines.join('\n') });
+
+      // Single message: agent sees full context, UI shows compact text
+      sendMessage({
+        text: lines.join('\n'),
+        metadata: { hidden: false, displayText: `Company profile accepted for ${displayName}` },
+      });
+
       setJourneyPhase('chat');
     },
     [partialResult, fieldsFound, sendMessage, addLog],
@@ -647,14 +723,16 @@ function JourneyPageContent() {
                     ref={scrollAreaRef}
                     className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-32 space-y-8"
                   >
-                    {/* Welcome message */}
-                    <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                      <ChatMessage
-                        role="assistant"
-                        content={welcomeMessage}
-                        isStreaming={false}
-                      />
-                    </div>
+                    {/* Welcome message — hide once conversation messages exist */}
+                    {messages.length === 0 && (
+                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                        <ChatMessage
+                          role="assistant"
+                          content={welcomeMessage}
+                          isStreaming={false}
+                        />
+                      </div>
+                    )}
 
                     {/* Research module cards grid — skip industryMarket when artifact handles it */}
                     {researchCards.filter(c => !(c.section === 'industryMarket' && showArtifactTrigger)).length > 0 && (
@@ -679,6 +757,9 @@ function JourneyPageContent() {
                       .filter((m) => {
                         // Hide section approval messages
                         if (m.role === 'user' && m.parts?.some(p => 'type' in p && p.type === 'text' && 'text' in p && typeof p.text === 'string' && p.text.startsWith('[SECTION_APPROVED]'))) return false;
+                        // Hide messages with hidden metadata
+                        if ((m.metadata as Record<string, unknown>)?.hidden) return false;
+                        // Synthetic research messages already shown in researchCards grid
                         if (m.id.startsWith('realtime-')) return false;
                         return true;
                       })
@@ -688,12 +769,20 @@ function JourneyPageContent() {
                           message.id === messages[messages.length - 1]?.id &&
                           isLastMessageStreaming;
 
+                        // If displayText metadata exists, override parts so the UI
+                        // shows the compact text instead of the full agent context
+                        const metadata = message.metadata as Record<string, unknown> | undefined;
+                        const displayText = metadata?.displayText as string | undefined;
+                        const effectiveParts = displayText
+                          ? [{ type: 'text' as const, text: displayText }]
+                          : message.parts;
+
                         return (
                           <div key={message.id} className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
                             <ChatMessage
                               messageId={message.id}
                               role={message.role as 'user' | 'assistant'}
-                              parts={message.parts}
+                              parts={effectiveParts}
                               isStreaming={isThisMessageStreaming}
                               onToolApproval={(approvalId, approved) =>
                                 addToolApprovalResponse({ id: approvalId, approved })

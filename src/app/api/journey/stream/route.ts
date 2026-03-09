@@ -144,6 +144,16 @@ export async function POST(request: Request) {
     systemPrompt += buildResumeContext(body.resumeState);
   }
 
+  // ── Prefill detection ──────────────────────────────────────────────────────
+  // Detect if this is the first request and the user's message contains prefill data.
+  // Prefill messages start with "Here's what I found about the company:" and are sent
+  // as plain text (not askUser tool results), so parseCollectedFields won't count them.
+  // We inject an explicit directive telling the agent to fire researchIndustry immediately.
+  const userMessages = sanitizedMessages.filter((m) => m.role === 'user');
+  const isFirstRequest = userMessages.length === 1;
+  const PREFILL_PREFIX = "Here's what I found about the company:";
+  const isPrefillMessage = isFirstRequest && lastUserText.startsWith(PREFILL_PREFIX);
+
   // ── Derive per-request state snapshot ──────────────────────────────────────
   const journeySnap = parseCollectedFields(sanitizedMessages);
 
@@ -175,6 +185,12 @@ export async function POST(request: Request) {
   // Strategist Mode guard: prevent askUser calls after synthesis completes
   if (journeySnap.synthComplete) {
     systemPrompt += `\n\n## Strategist Mode (enforced)\n\nSynthesis is complete. You are now in Strategist Mode. ABSOLUTE RULES:\n- Do NOT call \`askUser\` to collect more onboarding fields. The onboarding phase is over.\n- Do NOT call any research tools again — all research has been dispatched.\n- Respond to the user's strategic questions with specific, opinionated recommendations.\n- If the user asks a question that requires data you don't have, acknowledge the gap and give your best take based on what was collected.`;
+  }
+
+  // Prefill research trigger: when user accepted prefill data, inject explicit instruction
+  // to fire researchIndustry immediately. This parallels the Stage 2 / Strategist Mode pattern.
+  if (isPrefillMessage) {
+    systemPrompt += `\n\n## Prefill Research Directive (this request only)\n\nThe user's message contains structured prefill data that was reviewed and accepted through the UI. ALL prefill fields are confirmed — do NOT re-ask or re-confirm any of them.\n\nACTION REQUIRED: Call \`researchIndustry\` as your FIRST action in this response. The prefill data provides businessModel and industry context — that is sufficient to trigger industry research. Pass the relevant context from the prefill fields.\n\nAfter calling researchIndustry, briefly acknowledge what you know from the prefill (2-3 sentences max — do NOT recite every field) and tell the user research is running. Then continue onboarding by asking about fields NOT covered by prefill (e.g., detailed ICP in their own words, competitor names, pricing details, budget, goals).`;
   }
 
   // ── Stream ──────────────────────────────────────────────────────────────
