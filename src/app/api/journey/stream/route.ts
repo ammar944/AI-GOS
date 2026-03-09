@@ -190,7 +190,42 @@ export async function POST(request: Request) {
   // Prefill research trigger: when user accepted prefill data, inject explicit instruction
   // to fire researchIndustry immediately. This parallels the Stage 2 / Strategist Mode pattern.
   if (isPrefillMessage) {
-    systemPrompt += `\n\n## Prefill Research Directive (this request only)\n\nThe user's message contains structured prefill data that was reviewed and accepted through the UI. ALL prefill fields are confirmed — do NOT re-ask or re-confirm any of them.\n\nACTION REQUIRED: Call \`researchIndustry\` as your FIRST action in this response. The prefill data provides businessModel and industry context — that is sufficient to trigger industry research. Pass the relevant context from the prefill fields.\n\nAfter calling researchIndustry, briefly acknowledge what you know from the prefill (2-3 sentences max — do NOT recite every field) and tell the user research is running. Then continue onboarding by asking about fields NOT covered by prefill (e.g., detailed ICP in their own words, competitor names, pricing details, budget, goals).`;
+    systemPrompt += `\n\n## Prefill Research Directive (this request only)
+
+The user's message contains structured prefill data that was reviewed and accepted through the UI. ALL prefill fields are confirmed — do NOT re-ask or re-confirm any of them.
+
+ACTION REQUIRED: Call \`researchIndustry\` as your FIRST action in this response. The prefill data provides businessModel and industry context — that is sufficient to trigger industry research. Pass the relevant context from the prefill fields.
+
+After calling researchIndustry:
+1. Say "Building your market overview now..." (one sentence, no more)
+2. Share 2-3 sentences of preliminary strategic observations from the prefill data
+3. STOP. Do NOT ask the user any questions while research is running.
+4. Wait for the research results to arrive before continuing.
+
+The user will review research results in an artifact panel and click "Looks Good" when satisfied. When you receive their approval message, acknowledge briefly and tell them you're preparing the next section.`;
+  }
+
+  // Check if industryMarket research has completed (result in messages) but conversation hasn't moved past it
+  const hasIndustryResult = sanitizedMessages.some((m) =>
+    m.parts.some((p) => {
+      const part = p as Record<string, unknown>;
+      return (
+        typeof part.type === 'string' &&
+        part.type.startsWith('tool-') &&
+        part.toolName === 'researchIndustry' &&
+        part.state === 'output-available'
+      );
+    })
+  );
+
+  if (hasIndustryResult && !journeySnap.synthComplete) {
+    systemPrompt += `\n\n## Section Review Directive (this request only)
+
+Industry research (Section 1: Market Overview) results have arrived and are displayed in the artifact panel. The user can see the full research document.
+
+YOUR RESPONSE: "Take a look at the market overview in the panel. If everything looks right, hit 'Looks Good' — or tell me what you'd like me to change."
+
+Keep it to 1-2 sentences. Do NOT summarize the research (they can read it). Do NOT ask new onboarding questions yet.`;
   }
 
   // ── Stream ──────────────────────────────────────────────────────────────
