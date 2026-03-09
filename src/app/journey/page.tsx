@@ -38,7 +38,10 @@ import { JourneyStepper, type StepperPhase } from '@/components/journey/journey-
 import { TerminalStream, type TerminalLogEntry } from '@/components/journey/terminal-stream';
 import { JourneyProgressPanel, type ProgressItem } from '@/components/journey/journey-progress-panel';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
-import { ProfileCard } from '@/components/journey/profile-card';
+import { ArtifactTriggerCard } from '@/components/journey/artifact-trigger-card';
+import { ArtifactPanel } from '@/components/journey/artifact-panel';
+import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
@@ -207,6 +210,11 @@ function JourneyPageContent() {
   const [researchResults, setResearchResults] = useState<Record<string, ResearchSectionResult | null>>({});
   const [activeResearch, setActiveResearch] = useState<Set<string>>(new Set());
   const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
+
+  // Artifact panel state
+  const [artifactOpen, setArtifactOpen] = useState(false);
+  const [artifactSection, setArtifactSection] = useState<string>('industryMarket');
+  const [artifactApproved, setArtifactApproved] = useState(false);
 
   useEffect(() => {
     const saved = getJourneySession();
@@ -550,6 +558,13 @@ function JourneyPageContent() {
     setJourneyPhase('chat');
   }, [stopPrefill, addLog, sendMessage]);
 
+  const handleArtifactApprove = useCallback(() => {
+    setArtifactApproved(true);
+    sendMessage({
+      text: '[SECTION_APPROVED] Looks good — approve Market Overview',
+    });
+  }, [sendMessage]);
+
   const welcomeMessage = isResuming
     ? LEAD_AGENT_RESUME_WELCOME
     : LEAD_AGENT_WELCOME_MESSAGE;
@@ -584,6 +599,21 @@ function JourneyPageContent() {
     return cards;
   }, [activeResearch, researchResults]);
 
+  // Artifact panel status — derived from existing research state
+  const artifactStatus: 'loading' | 'complete' | 'error' = useMemo(() => {
+    if (researchResults[artifactSection]) {
+      const result = researchResults[artifactSection];
+      return result?.status === 'error' ? 'error' : 'complete';
+    }
+    if (activeResearch.has(artifactSection)) return 'loading';
+    return 'loading';
+  }, [researchResults, activeResearch, artifactSection]);
+
+  const artifactData = researchResults[artifactSection] as unknown as Record<string, unknown> | undefined;
+
+  // Whether to show artifact trigger in chat (research dispatched or complete for this section)
+  const showArtifactTrigger = activeResearch.has(artifactSection) || !!researchResults[artifactSection];
+
   const showChatView = journeyPhase === 'chat';
   const showResumeView = journeyPhase === 'resume';
 
@@ -607,117 +637,154 @@ function JourneyPageContent() {
                 completedPhases={completedPhases}
               />
 
-              {/* Scrollable content */}
-              <section
-                ref={scrollAreaRef}
-                className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12"
-              >
-                {/* Welcome message */}
-                <div className="max-w-3xl mx-auto">
-                  <ChatMessage
-                    role="assistant"
-                    content={welcomeMessage}
-                    isStreaming={false}
-                  />
+              <div className="flex flex-1 overflow-hidden">
+                {/* Chat column */}
+                <div className={cn(
+                  'flex flex-col relative overflow-hidden transition-all duration-300',
+                  artifactOpen ? 'w-[40%]' : 'w-full',
+                )}>
+                  <section
+                    ref={scrollAreaRef}
+                    className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-32 space-y-8"
+                  >
+                    {/* Welcome message */}
+                    <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                      <ChatMessage
+                        role="assistant"
+                        content={welcomeMessage}
+                        isStreaming={false}
+                      />
+                    </div>
+
+                    {/* Research module cards grid — skip industryMarket when artifact handles it */}
+                    {researchCards.filter(c => !(c.section === 'industryMarket' && showArtifactTrigger)).length > 0 && (
+                      <div className={cn('grid gap-4 mx-auto', artifactOpen ? 'grid-cols-1 max-w-full' : 'grid-cols-2 max-w-5xl')}>
+                        {researchCards
+                          .filter(c => !(c.section === 'industryMarket' && showArtifactTrigger))
+                          .map((card) => (
+                            <ResearchInlineCard key={card.section} section={card.section} status={card.status} data={card.data} />
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Terminal logs */}
+                    {terminalLogs.length > 0 && (
+                      <div className={artifactOpen ? '' : 'max-w-5xl mx-auto'}>
+                        <TerminalStream logs={terminalLogs} />
+                      </div>
+                    )}
+
+                    {/* Conversation messages */}
+                    {messages
+                      .filter((m) => {
+                        // Hide section approval messages
+                        if (m.role === 'user' && m.parts?.some(p => 'type' in p && p.type === 'text' && 'text' in p && typeof p.text === 'string' && p.text.startsWith('[SECTION_APPROVED]'))) return false;
+                        if (m.id.startsWith('realtime-')) return false;
+                        return true;
+                      })
+                      .map((message, _index, filteredArr) => {
+                        const isThisMessageStreaming =
+                          message.role === 'assistant' &&
+                          message.id === messages[messages.length - 1]?.id &&
+                          isLastMessageStreaming;
+
+                        return (
+                          <div key={message.id} className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                            <ChatMessage
+                              messageId={message.id}
+                              role={message.role as 'user' | 'assistant'}
+                              parts={message.parts}
+                              isStreaming={isThisMessageStreaming}
+                              onToolApproval={(approvalId, approved) =>
+                                addToolApprovalResponse({ id: approvalId, approved })
+                              }
+                              onToolOutput={handleAskUserResponse}
+                            />
+                          </div>
+                        );
+                      })}
+
+                    {/* Artifact trigger card — appears inline when research fires */}
+                    {showArtifactTrigger && (
+                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                        <ArtifactTriggerCard
+                          section={artifactSection}
+                          status={artifactStatus}
+                          onClick={() => setArtifactOpen(true)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Typing indicator */}
+                    {isSubmitted && (
+                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                        <TypingIndicator className="ml-9" />
+                      </div>
+                    )}
+
+                    {/* Error display */}
+                    {error && (
+                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                        <div
+                          className="px-3 py-2 rounded-lg text-xs"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            color: '#ef4444',
+                          }}
+                        >
+                          {error.message || 'Something went wrong. Please try again.'}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Research timeout */}
+                    {researchTimedOut && (
+                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                          Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Floating Input Bar */}
+                  <div className="absolute bottom-8 left-0 right-0 flex justify-center px-6 pointer-events-none">
+                    <JourneyChatInput
+                      onSubmit={handleSubmit}
+                      isLoading={isLoading && !pendingAskUser}
+                      placeholder={
+                        pendingAskUser
+                          ? 'Pick an option or type your own answer...'
+                          : isResuming
+                            ? "Let's pick up where we left off..."
+                            : 'Ask AI-GOS to refine the strategy...'
+                      }
+                    />
+                  </div>
                 </div>
 
-                {/* Research module cards — 2-column grid */}
-                {researchCards.length > 0 && (
-                  <div className="grid grid-cols-2 gap-6 max-w-5xl mx-auto">
-                    {researchCards.map((card) => (
-                      <ResearchInlineCard
-                        key={card.section}
-                        section={card.section}
-                        status={card.status}
-                        data={card.data}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Terminal log stream */}
-                {terminalLogs.length > 0 && (
-                  <div className="max-w-5xl mx-auto">
-                    <TerminalStream logs={terminalLogs} />
-                  </div>
-                )}
-
-                {/* Conversation messages */}
-                {messages.map((message, index) => {
-                  const isThisMessageStreaming =
-                    message.role === 'assistant' &&
-                    index === messages.length - 1 &&
-                    isLastMessageStreaming;
-
-                  return (
-                    <div key={message.id} className="max-w-3xl mx-auto">
-                      <ChatMessage
-                        messageId={message.id}
-                        role={message.role as 'user' | 'assistant'}
-                        parts={message.parts}
-                        isStreaming={isThisMessageStreaming}
-                        onToolApproval={(approvalId, approved) =>
-                          addToolApprovalResponse({ id: approvalId, approved })
-                        }
-                        onToolOutput={handleAskUserResponse}
-                      />
-                    </div>
-                  );
-                })}
-
-                {/* Typing indicator */}
-                {isSubmitted && (
-                  <div className="max-w-3xl mx-auto">
-                    <TypingIndicator className="ml-9" />
-                  </div>
-                )}
-
-                {/* Profile snapshot card */}
-                {onboardingState && (
-                  <div className="max-w-5xl mx-auto">
-                    <ProfileCard state={onboardingState} />
-                  </div>
-                )}
-
-                {/* Error display */}
-                {error && (
-                  <div className="max-w-3xl mx-auto">
-                    <div
-                      className="px-3 py-2 rounded-lg text-xs"
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        color: '#ef4444',
-                      }}
+                {/* Artifact Panel — right side */}
+                <AnimatePresence>
+                  {artifactOpen && (
+                    <motion.div
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: '60%', opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="overflow-hidden"
                     >
-                      {error.message || 'Something went wrong. Please try again.'}
-                    </div>
-                  </div>
-                )}
-
-                {/* Research timeout warning */}
-                {researchTimedOut && (
-                  <div className="max-w-3xl mx-auto">
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                      Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* Floating Input Bar */}
-              <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
-                <JourneyChatInput
-                  onSubmit={handleSubmit}
-                  isLoading={isLoading && !pendingAskUser}
-                  placeholder={
-                    pendingAskUser
-                      ? 'Pick an option or type your own answer...'
-                      : isResuming
-                        ? "Let's pick up where we left off..."
-                        : 'Ask AI-GOS to refine the strategy...'
-                  }
-                />
+                      <ArtifactPanel
+                        section={artifactSection}
+                        status={artifactStatus}
+                        data={artifactData}
+                        approved={artifactApproved}
+                        onApprove={handleArtifactApprove}
+                        onClose={() => setArtifactOpen(false)}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </>
           ) : showResumeView ? (
@@ -764,14 +831,16 @@ function JourneyPageContent() {
           )}
         </main>
 
-        {/* Right Panel — Journey Progress */}
-        <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
-          <JourneyProgressPanel
-            items={showChatView ? progressItems : DEMO_PROGRESS_ITEMS}
-            computeStatus="stable"
-            computePercent={85}
-          />
-        </aside>
+        {/* Right Panel — Journey Progress (hidden when artifact panel is open) */}
+        {!artifactOpen && (
+          <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
+            <JourneyProgressPanel
+              items={showChatView ? progressItems : DEMO_PROGRESS_ITEMS}
+              computeStatus="stable"
+              computePercent={85}
+            />
+          </aside>
+        )}
       </div>
     </div>
   );
