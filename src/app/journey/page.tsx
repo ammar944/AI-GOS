@@ -682,7 +682,7 @@ function JourneyPageContent() {
                         if (m.id.startsWith('realtime-')) return false;
                         return true;
                       })
-                      .map((message, _index, filteredArr) => {
+                      .map((message) => {
                         const isThisMessageStreaming =
                           message.role === 'assistant' &&
                           message.id === messages[messages.length - 1]?.id &&

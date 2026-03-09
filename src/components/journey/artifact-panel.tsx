@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 
 interface ArtifactPanelProps {
   section: string;
@@ -13,14 +14,6 @@ interface ArtifactPanelProps {
   onApprove: () => void;
   onClose: () => void;
 }
-
-const SECTION_META: Record<string, { label: string; moduleNumber: string }> = {
-  industryMarket: { label: 'Market Overview', moduleNumber: '01' },
-  competitors: { label: 'Competitor Intel', moduleNumber: '02' },
-  icpValidation: { label: 'ICP Validation', moduleNumber: '03' },
-  offerAnalysis: { label: 'Offer Analysis', moduleNumber: '04' },
-  crossAnalysis: { label: 'Strategic Synthesis', moduleNumber: '05' },
-};
 
 // -- Scanning phrases for loading state ----------------------------------------
 const SCANNING_PHRASES = [
@@ -247,7 +240,7 @@ export function ArtifactPanel({
   onApprove,
   onClose,
 }: ArtifactPanelProps) {
-  const meta = SECTION_META[section] ?? { label: 'Research', moduleNumber: '00' };
+  const meta = SECTION_META[section] ?? DEFAULT_SECTION_META;
   const isComplete = status === 'complete';
 
   return (
@@ -279,6 +272,7 @@ export function ArtifactPanel({
         </div>
         <button
           onClick={onClose}
+          aria-label="Close artifact panel"
           className="p-1.5 rounded-lg hover:bg-white/[0.05] text-text-tertiary hover:text-text-secondary transition-colors"
         >
           <X className="w-4 h-4" />
@@ -292,7 +286,7 @@ export function ArtifactPanel({
           <IndustryMarketDocument data={data} />
         )}
         {status === 'error' && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="min-h-full flex items-center justify-center">
             <p className="text-sm text-accent-red">Research failed. The agent will continue with available data.</p>
           </div>
         )}

@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 
 interface ArtifactTriggerCardProps {
   section: string;
@@ -11,21 +12,13 @@ interface ArtifactTriggerCardProps {
   className?: string;
 }
 
-const SECTION_META: Record<string, { label: string; moduleNumber: string }> = {
-  industryMarket: { label: 'Market Overview', moduleNumber: '01' },
-  competitors: { label: 'Competitor Intel', moduleNumber: '02' },
-  icpValidation: { label: 'ICP Validation', moduleNumber: '03' },
-  offerAnalysis: { label: 'Offer Analysis', moduleNumber: '04' },
-  crossAnalysis: { label: 'Strategic Synthesis', moduleNumber: '05' },
-};
-
 export function ArtifactTriggerCard({
   section,
   status,
   onClick,
   className,
 }: ArtifactTriggerCardProps) {
-  const meta = SECTION_META[section] ?? { label: 'Research', moduleNumber: '00' };
+  const meta = SECTION_META[section] ?? DEFAULT_SECTION_META;
   const isComplete = status === 'complete';
   const isError = status === 'error';
 
@@ -35,6 +28,7 @@ export function ArtifactTriggerCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       onClick={onClick}
+      aria-label={`View ${meta.label} artifact`}
       className={cn(
         'w-full glass-surface rounded-[var(--radius-module)] p-5 flex items-center justify-between gap-4',
         'cursor-pointer hover:bg-white/[0.05] transition-colors duration-200',
