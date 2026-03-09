@@ -33,7 +33,6 @@ import {
 } from '@/lib/journey/session-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
-import { JourneyHeader } from '@/components/journey/journey-header';
 import { JourneyStepper, type StepperPhase } from '@/components/journey/journey-stepper';
 import { TerminalStream, type TerminalLogEntry } from '@/components/journey/terminal-stream';
 import { JourneyProgressPanel, type ProgressItem } from '@/components/journey/journey-progress-panel';
@@ -48,33 +47,6 @@ const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
   { id: 'creativeGen', label: 'Creative Gen', status: 'queued', detail: 'Queued' },
 ];
 
-// Placeholder research cards matching the mockup's initial state (2 cards in grid)
-const PLACEHOLDER_RESEARCH_CARDS: Array<{
-  section: string;
-  status: 'loading' | 'complete';
-  data?: Record<string, unknown>;
-}> = [
-  {
-    section: 'industryMarket',
-    status: 'complete',
-    data: {
-      categorySnapshot: {
-        tam: '$14.2B',
-        cagr: '18.4%',
-        category: 'cloud infrastructure',
-      },
-    },
-  },
-  { section: 'competitors', status: 'loading' },
-];
-
-// Placeholder terminal lines matching the mockup's initial state
-const PLACEHOLDER_TERMINAL_LOGS: TerminalLogEntry[] = [
-  { level: 'ok', message: 'Connection established to LinkedIn Sales Navigator API', timestamp: Date.now() },
-  { level: 'run', message: 'Scanning 850 profiles for Ideal Customer Persona match', timestamp: Date.now() },
-  { level: 'inf', message: 'Found signal: "Kubernetes cost optimization" mentioned in 42 recent posts', timestamp: Date.now() },
-  { level: 'inf', message: 'Mapping decision makers at: Vercel, HashiCorp, Supabase', timestamp: Date.now() },
-];
 
 export default function JourneyPage() {
   return (
@@ -485,12 +457,6 @@ function JourneyPageContent() {
       className="h-screen flex flex-col font-sans"
       style={{ background: '#050505', color: '#E5E5E5', overflow: 'hidden' }}
     >
-      {/* Header — spans full width */}
-      <JourneyHeader
-        completionPercentage={showActiveContent ? completionPercentage : 65}
-        onNewJourney={showActiveContent ? () => {} : undefined}
-      />
-
       {/* Body — sidebar + main + right panel */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar */}
@@ -632,53 +598,19 @@ function JourneyPageContent() {
               </div>
             </>
           ) : (
-            <>
-              {/* Stepper — show default state */}
-              <JourneyStepper
-                currentPhase={currentPhase}
-                completedPhases={completedPhases}
-              />
-
-              {/* Scrollable content with placeholders matching mockup */}
-              <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12">
-                {/* Hero message */}
-                <div className="max-w-3xl mx-auto text-center space-y-4">
-                  <h2 className="text-3xl font-light text-white/90">
-                    Initialize a performance-driven market analysis for{' '}
-                    <span className="text-brand-accent">SaaS Infrastructure</span>.
-                  </h2>
-                  <p className="text-white/40 text-sm">
-                    Targeting Series A startups in North America.
-                  </p>
-                </div>
-
-                {/* Placeholder research cards — 2-column grid */}
-                <div className="grid grid-cols-2 gap-6 max-w-5xl mx-auto">
-                  {PLACEHOLDER_RESEARCH_CARDS.map((card) => (
-                    <ResearchInlineCard
-                      key={card.section}
-                      section={card.section}
-                      status={card.status}
-                      data={card.data}
-                    />
-                  ))}
-                </div>
-
-                {/* Placeholder terminal stream */}
-                <div className="max-w-5xl mx-auto">
-                  <TerminalStream logs={PLACEHOLDER_TERMINAL_LOGS} />
-                </div>
-              </section>
-
-              {/* Floating Input Bar */}
-              <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
-                <JourneyChatInput
-                  onSubmit={handleSubmit}
-                  isLoading={isLoading}
-                  placeholder="Ask AI-GOS to refine the strategy..."
-                />
-              </div>
-            </>
+            <WelcomeForm
+              onAnalyze={(websiteUrl, linkedinUrl) => {
+                const msg = linkedinUrl
+                  ? `Website: ${websiteUrl}\nLinkedIn: ${linkedinUrl}`
+                  : `Website: ${websiteUrl}`;
+                addLog('run', `Analyzing ${websiteUrl}`);
+                sendMessage({ text: msg });
+              }}
+              onSkip={() => {
+                addLog('inf', 'Starting without website analysis');
+                sendMessage({ text: 'Start without website analysis' });
+              }}
+            />
           )}
         </main>
 
@@ -692,6 +624,138 @@ function JourneyPageContent() {
         </aside>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Welcome form — URL inputs matching the journey-v2 mockup
+// ---------------------------------------------------------------------------
+function WelcomeForm({
+  onAnalyze,
+  onSkip,
+}: {
+  onAnalyze: (websiteUrl: string, linkedinUrl: string) => void;
+  onSkip: () => void;
+}) {
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+
+  return (
+    <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
+      <div className="max-w-3xl mx-auto flex flex-col items-center pt-12 space-y-10">
+        {/* Badge */}
+        <span className="inline-block text-xs font-medium tracking-wide text-white/60 border border-white/10 rounded-full px-4 py-1.5">
+          AI-GOS
+        </span>
+
+        {/* Hero */}
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl md:text-5xl font-light text-white/95 leading-tight">
+            Build your paid media{' '}
+            <span className="text-brand-accent">strategy.</span>
+          </h1>
+          <p className="text-white/40 text-sm max-w-lg mx-auto">
+            Drop your website URL and EGOS handles the rest — market research, competitive intel, ICP validation, and a full media plan.
+          </p>
+          <p className="text-white/25 text-xs">~10 min to complete strategy</p>
+        </div>
+
+        {/* Step cards */}
+        <div className="grid grid-cols-3 gap-4 w-full">
+          {[
+            {
+              num: 1,
+              color: 'bg-brand-accent',
+              title: 'Seed context',
+              desc: 'Give EGOS your homepage to pull business context automatically.',
+            },
+            {
+              num: 2,
+              color: 'bg-brand-success',
+              title: 'Verify findings',
+              desc: 'Review and approve what AI discovered before research begins.',
+            },
+            {
+              num: 3,
+              color: 'bg-brand-success',
+              title: 'Watch research stream',
+              desc: 'Six research sections generate live with evidence and citations.',
+            },
+          ].map((step) => (
+            <div
+              key={step.num}
+              className="glass-surface rounded-2xl p-5 space-y-3"
+            >
+              <div className={`w-7 h-7 rounded-lg ${step.color} flex items-center justify-center text-xs font-bold text-black`}>
+                {step.num}
+              </div>
+              <h3 className="text-sm font-medium text-white/90">{step.title}</h3>
+              <p className="text-xs text-white/40 leading-relaxed">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* URL inputs */}
+        <div className="w-full glass-surface rounded-2xl p-6 space-y-5">
+          {/* Website URL */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-white/60">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              Company website
+            </label>
+            <input
+              type="url"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://example.com"
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
+            />
+          </div>
+
+          {/* LinkedIn URL */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-white/60">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+              </svg>
+              LinkedIn company page
+            </label>
+            <input
+              type="url"
+              value={linkedinUrl}
+              onChange={(e) => setLinkedinUrl(e.target.value)}
+              placeholder="https://linkedin.com/company/your-company"
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-3 w-full">
+          <button
+            onClick={() => {
+              if (websiteUrl.trim()) onAnalyze(websiteUrl.trim(), linkedinUrl.trim());
+            }}
+            disabled={!websiteUrl.trim()}
+            className="flex-1 flex items-center justify-center gap-2 bg-brand-accent hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed px-6 py-3 rounded-xl text-sm font-medium text-white transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            Analyze website first
+          </button>
+          <button
+            onClick={onSkip}
+            className="flex-1 px-6 py-3 rounded-xl text-sm font-medium text-white/60 border border-white/10 hover:bg-white/5 hover:text-white/80 transition-all"
+          >
+            Start without website analysis
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
