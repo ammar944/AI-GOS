@@ -4,27 +4,49 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home,
-  Compass,
-  FileText,
-  Rocket,
-  Palette,
+  Shield,
+  Download,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { LucideIcon } from 'lucide-react';
+
+type NavIconType = React.ComponentType<{ width?: number; height?: number; strokeWidth?: number }>;
 
 interface NavEntry {
-  icon: LucideIcon;
+  icon: NavIconType;
   label: string;
   href: string;
 }
 
+// Custom SVG icons matching the mockup exactly
+
+function JourneyIcon({ width = 18, height = 18, strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement> & { width?: number; height?: number; strokeWidth?: number }) {
+  return (
+    <svg fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth} viewBox="0 0 24 24" width={width} height={height} {...props}>
+      <path d="M12 2v20" />
+      <path d="m4.93 4.93 14.14 14.14" />
+      <path d="M2 12h20" />
+      <path d="m19.07 4.93-14.14 14.14" />
+    </svg>
+  );
+}
+
+function BlueprintsIcon({ width = 18, height = 18, strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement> & { width?: number; height?: number; strokeWidth?: number }) {
+  return (
+    <svg fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth} viewBox="0 0 24 24" width={width} height={height} {...props}>
+      <rect height="18" rx="2" width="18" x="3" y="3" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS: NavEntry[] = [
-  { icon: Home,    label: 'Home',        href: '/' },
-  { icon: Compass, label: 'Journey',     href: '/journey' },
-  { icon: FileText,label: 'Blueprints',  href: '/blueprints' },
-  { icon: Rocket,  label: 'Ad Launcher', href: '/ads' },
-  { icon: Palette, label: 'Creatives',   href: '/creatives' },
+  { icon: Home,           label: 'Home',        href: '/' },
+  { icon: JourneyIcon,    label: 'Journey',     href: '/journey' },
+  { icon: BlueprintsIcon, label: 'Blueprints',  href: '/blueprints' },
+  { icon: Shield,         label: 'Ad Launcher', href: '/ads' },
+  { icon: Download,       label: 'Creatives',   href: '/creatives' },
 ];
 
 const SETTINGS_ITEM: NavEntry = { icon: Settings, label: 'Settings', href: '/settings' };

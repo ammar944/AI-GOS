@@ -33,13 +33,48 @@ import {
 } from '@/lib/journey/session-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
-import { WelcomeState } from '@/components/journey/welcome-state';
 import { JourneyHeader } from '@/components/journey/journey-header';
 import { JourneyStepper, type StepperPhase } from '@/components/journey/journey-stepper';
 import { TerminalStream, type TerminalLogEntry } from '@/components/journey/terminal-stream';
 import { JourneyProgressPanel, type ProgressItem } from '@/components/journey/journey-progress-panel';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 import { ProfileCard } from '@/components/journey/profile-card';
+
+// Demo progress items matching the mockup's right panel
+const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
+  { id: 'marketResearch', label: 'Market Research', status: 'complete', detail: 'Completed 12m ago' },
+  { id: 'icpValidation', label: 'ICP Validation', status: 'active', detail: 'Processing data...' },
+  { id: 'adAngleCreation', label: 'Ad Angle Creation', status: 'queued', detail: 'Queued' },
+  { id: 'creativeGen', label: 'Creative Gen', status: 'queued', detail: 'Queued' },
+];
+
+// Placeholder research cards matching the mockup's initial state (2 cards in grid)
+const PLACEHOLDER_RESEARCH_CARDS: Array<{
+  section: string;
+  status: 'loading' | 'complete';
+  data?: Record<string, unknown>;
+}> = [
+  {
+    section: 'industryMarket',
+    status: 'complete',
+    data: {
+      categorySnapshot: {
+        tam: '$14.2B',
+        cagr: '18.4%',
+        category: 'cloud infrastructure',
+      },
+    },
+  },
+  { section: 'competitors', status: 'loading' },
+];
+
+// Placeholder terminal lines matching the mockup's initial state
+const PLACEHOLDER_TERMINAL_LOGS: TerminalLogEntry[] = [
+  { level: 'ok', message: 'Connection established to LinkedIn Sales Navigator API', timestamp: Date.now() },
+  { level: 'run', message: 'Scanning 850 profiles for Ideal Customer Persona match', timestamp: Date.now() },
+  { level: 'inf', message: 'Found signal: "Kubernetes cost optimization" mentioned in 42 recent posts', timestamp: Date.now() },
+  { level: 'inf', message: 'Mapping decision makers at: Vercel, HashiCorp, Supabase', timestamp: Date.now() },
+];
 
 export default function JourneyPage() {
   return (
@@ -452,7 +487,7 @@ function JourneyPageContent() {
     >
       {/* Header — spans full width */}
       <JourneyHeader
-        completionPercentage={completionPercentage}
+        completionPercentage={showActiveContent ? completionPercentage : 65}
         onNewJourney={showActiveContent ? () => {} : undefined}
       />
 
@@ -497,7 +532,7 @@ function JourneyPageContent() {
 
                 {/* Research module cards — 2-column grid */}
                 {researchCards.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+                  <div className="grid grid-cols-2 gap-6 max-w-5xl mx-auto">
                     {researchCards.map((card) => (
                       <ResearchInlineCard
                         key={card.section}
@@ -569,8 +604,8 @@ function JourneyPageContent() {
                   </div>
                 )}
 
-                {/* Research timeout warning */}
-                {researchTimedOut && (
+                {/* Research timeout warning — only during active chat, not welcome/resume */}
+                {researchTimedOut && hasMessages && (
                   <div className="max-w-3xl mx-auto">
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                       Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
@@ -597,14 +632,60 @@ function JourneyPageContent() {
               </div>
             </>
           ) : (
-            <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
+            <>
+              {/* Stepper — show default state */}
+              <JourneyStepper
+                currentPhase={currentPhase}
+                completedPhases={completedPhases}
+              />
+
+              {/* Scrollable content with placeholders matching mockup */}
+              <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12">
+                {/* Hero message */}
+                <div className="max-w-3xl mx-auto text-center space-y-4">
+                  <h2 className="text-3xl font-light text-white/90">
+                    Initialize a performance-driven market analysis for{' '}
+                    <span className="text-brand-accent">SaaS Infrastructure</span>.
+                  </h2>
+                  <p className="text-white/40 text-sm">
+                    Targeting Series A startups in North America.
+                  </p>
+                </div>
+
+                {/* Placeholder research cards — 2-column grid */}
+                <div className="grid grid-cols-2 gap-6 max-w-5xl mx-auto">
+                  {PLACEHOLDER_RESEARCH_CARDS.map((card) => (
+                    <ResearchInlineCard
+                      key={card.section}
+                      section={card.section}
+                      status={card.status}
+                      data={card.data}
+                    />
+                  ))}
+                </div>
+
+                {/* Placeholder terminal stream */}
+                <div className="max-w-5xl mx-auto">
+                  <TerminalStream logs={PLACEHOLDER_TERMINAL_LOGS} />
+                </div>
+              </section>
+
+              {/* Floating Input Bar */}
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
+                <JourneyChatInput
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  placeholder="Ask AI-GOS to refine the strategy..."
+                />
+              </div>
+            </>
           )}
         </main>
 
         {/* Right Panel — Journey Progress */}
         <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
           <JourneyProgressPanel
-            items={progressItems}
+            items={showActiveContent ? progressItems : DEMO_PROGRESS_ITEMS}
             computeStatus="stable"
             computePercent={85}
           />
