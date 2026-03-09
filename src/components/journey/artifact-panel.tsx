@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -72,11 +72,30 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
   const messaging = data.messagingOpportunities as Record<string, unknown> | undefined;
   const trends = data.trendSignals as Array<Record<string, unknown>> | undefined;
 
+  // Count total renderable blocks
+  const totalBlocks = [
+    snapshot,
+    painPoints?.primary,
+    dynamics?.demandDrivers,
+    dynamics?.buyingTriggers,
+    dynamics?.barriersToPurchase,
+    trends?.length ? trends : undefined,
+    messaging?.summaryRecommendations,
+  ].filter(Boolean).length;
+
+  const visibleBlocks = useProgressiveReveal(true, totalBlocks);
+  let blockIndex = 0;
+
   return (
     <div className="space-y-8 pb-8">
       {/* Category Snapshot -- stat blocks */}
-      {!!snapshot && (
-        <section>
+      {!!snapshot && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="snapshot"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-4">
             Category Snapshot
           </h3>
@@ -100,12 +119,17 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               <StatBlock label="Sales Cycle" value={String(snapshot.averageSalesCycle)} />
             )}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Pain Points */}
-      {!!painPoints?.primary && Array.isArray(painPoints.primary) && (
-        <section>
+      {!!painPoints?.primary && Array.isArray(painPoints.primary) && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="painPoints"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Pain Points
           </h3>
@@ -117,12 +141,17 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </section>
+        </motion.section>
       )}
 
       {/* Market Dynamics -- Demand Drivers */}
-      {!!dynamics?.demandDrivers && Array.isArray(dynamics.demandDrivers) && (
-        <section>
+      {!!dynamics?.demandDrivers && Array.isArray(dynamics.demandDrivers) && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="demandDrivers"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Demand Drivers
           </h3>
@@ -134,12 +163,17 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </section>
+        </motion.section>
       )}
 
       {/* Buying Triggers */}
-      {!!dynamics?.buyingTriggers && Array.isArray(dynamics.buyingTriggers) && (
-        <section>
+      {!!dynamics?.buyingTriggers && Array.isArray(dynamics.buyingTriggers) && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="buyingTriggers"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Buying Triggers
           </h3>
@@ -151,12 +185,17 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </section>
+        </motion.section>
       )}
 
       {/* Barriers to Purchase */}
-      {!!dynamics?.barriersToPurchase && Array.isArray(dynamics.barriersToPurchase) && (
-        <section>
+      {!!dynamics?.barriersToPurchase && Array.isArray(dynamics.barriersToPurchase) && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="barriers"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Barriers to Purchase
           </h3>
@@ -168,12 +207,17 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </section>
+        </motion.section>
       )}
 
       {/* Trend Signals */}
-      {trends && trends.length > 0 && (
-        <section>
+      {trends && trends.length > 0 && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="trends"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Trend Signals
           </h3>
@@ -195,12 +239,17 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Messaging Opportunities */}
-      {!!messaging?.summaryRecommendations && Array.isArray(messaging.summaryRecommendations) && (
-        <section>
+      {!!messaging?.summaryRecommendations && Array.isArray(messaging.summaryRecommendations) && ++blockIndex && blockIndex <= visibleBlocks && (
+        <motion.section
+          key="messaging"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Messaging Opportunities
           </h3>
@@ -212,7 +261,7 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </section>
+        </motion.section>
       )}
     </div>
   );
@@ -229,6 +278,29 @@ function StatBlock({ label, value }: { label: string; value: string }) {
       </span>
     </div>
   );
+}
+
+// -- Progressive Reveal --------------------------------------------------------
+function useProgressiveReveal(isComplete: boolean, totalBlocks: number) {
+  const [visibleBlocks, setVisibleBlocks] = useState(0);
+  const hasRevealed = useRef(false);
+
+  useEffect(() => {
+    if (!isComplete || hasRevealed.current) return;
+    hasRevealed.current = true;
+
+    let current = 0;
+    const interval = setInterval(() => {
+      current += 1;
+      setVisibleBlocks(current);
+      if (current >= totalBlocks) clearInterval(interval);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [isComplete, totalBlocks]);
+
+  // If already revealed (e.g., panel re-opened), show all
+  return hasRevealed.current && visibleBlocks >= totalBlocks ? totalBlocks : visibleBlocks;
 }
 
 // -- Main Export ---------------------------------------------------------------
