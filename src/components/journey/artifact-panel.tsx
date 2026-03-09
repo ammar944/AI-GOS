@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -72,64 +72,35 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
   const messaging = data.messagingOpportunities as Record<string, unknown> | undefined;
   const trends = data.trendSignals as Array<Record<string, unknown>> | undefined;
 
-  // Count total renderable blocks
-  const totalBlocks = [
-    snapshot,
-    painPoints?.primary,
-    dynamics?.demandDrivers,
-    dynamics?.buyingTriggers,
-    dynamics?.barriersToPurchase,
-    trends?.length ? trends : undefined,
-    messaging?.summaryRecommendations,
-  ].filter(Boolean).length;
+  // Build ordered list of renderable blocks — avoids side effects in JSX
+  const blocks: Array<{ key: string; render: () => React.ReactNode }> = [];
 
-  const visibleBlocks = useProgressiveReveal(true, totalBlocks);
-  let blockIndex = 0;
-
-  return (
-    <div className="space-y-8 pb-8">
-      {/* Category Snapshot -- stat blocks */}
-      {!!snapshot && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="snapshot"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (snapshot) {
+    blocks.push({
+      key: 'snapshot',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-4">
             Category Snapshot
           </h3>
           <div className="grid grid-cols-3 gap-3">
-            {!!snapshot.category && (
-              <StatBlock label="Category" value={String(snapshot.category)} />
-            )}
-            {!!snapshot.marketSize && (
-              <StatBlock label="Market Size" value={String(snapshot.marketSize)} />
-            )}
-            {!!snapshot.marketMaturity && (
-              <StatBlock label="Maturity" value={String(snapshot.marketMaturity)} />
-            )}
-            {!!snapshot.awarenessLevel && (
-              <StatBlock label="Awareness" value={String(snapshot.awarenessLevel)} />
-            )}
-            {!!snapshot.buyingBehavior && (
-              <StatBlock label="Buying Behavior" value={String(snapshot.buyingBehavior).replace('_', ' ')} />
-            )}
-            {!!snapshot.averageSalesCycle && (
-              <StatBlock label="Sales Cycle" value={String(snapshot.averageSalesCycle)} />
-            )}
+            {!!snapshot.category && <StatBlock label="Category" value={String(snapshot.category)} />}
+            {!!snapshot.marketSize && <StatBlock label="Market Size" value={String(snapshot.marketSize)} />}
+            {!!snapshot.marketMaturity && <StatBlock label="Maturity" value={String(snapshot.marketMaturity)} />}
+            {!!snapshot.awarenessLevel && <StatBlock label="Awareness" value={String(snapshot.awarenessLevel)} />}
+            {!!snapshot.buyingBehavior && <StatBlock label="Buying Behavior" value={String(snapshot.buyingBehavior).replaceAll('_', ' ')} />}
+            {!!snapshot.averageSalesCycle && <StatBlock label="Sales Cycle" value={String(snapshot.averageSalesCycle)} />}
           </div>
-        </motion.section>
-      )}
+        </>
+      ),
+    });
+  }
 
-      {/* Pain Points */}
-      {!!painPoints?.primary && Array.isArray(painPoints.primary) && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="painPoints"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (painPoints?.primary && Array.isArray(painPoints.primary)) {
+    blocks.push({
+      key: 'painPoints',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Pain Points
           </h3>
@@ -141,17 +112,16 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </motion.section>
-      )}
+        </>
+      ),
+    });
+  }
 
-      {/* Market Dynamics -- Demand Drivers */}
-      {!!dynamics?.demandDrivers && Array.isArray(dynamics.demandDrivers) && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="demandDrivers"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (dynamics?.demandDrivers && Array.isArray(dynamics.demandDrivers)) {
+    blocks.push({
+      key: 'demandDrivers',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Demand Drivers
           </h3>
@@ -163,17 +133,16 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </motion.section>
-      )}
+        </>
+      ),
+    });
+  }
 
-      {/* Buying Triggers */}
-      {!!dynamics?.buyingTriggers && Array.isArray(dynamics.buyingTriggers) && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="buyingTriggers"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (dynamics?.buyingTriggers && Array.isArray(dynamics.buyingTriggers)) {
+    blocks.push({
+      key: 'buyingTriggers',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Buying Triggers
           </h3>
@@ -185,17 +154,16 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </motion.section>
-      )}
+        </>
+      ),
+    });
+  }
 
-      {/* Barriers to Purchase */}
-      {!!dynamics?.barriersToPurchase && Array.isArray(dynamics.barriersToPurchase) && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="barriers"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (dynamics?.barriersToPurchase && Array.isArray(dynamics.barriersToPurchase)) {
+    blocks.push({
+      key: 'barriers',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Barriers to Purchase
           </h3>
@@ -207,17 +175,16 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
-        </motion.section>
-      )}
+        </>
+      ),
+    });
+  }
 
-      {/* Trend Signals */}
-      {trends && trends.length > 0 && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="trends"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (trends && trends.length > 0) {
+    blocks.push({
+      key: 'trends',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Trend Signals
           </h3>
@@ -239,17 +206,16 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </div>
             ))}
           </div>
-        </motion.section>
-      )}
+        </>
+      ),
+    });
+  }
 
-      {/* Messaging Opportunities */}
-      {!!messaging?.summaryRecommendations && Array.isArray(messaging.summaryRecommendations) && ++blockIndex && blockIndex <= visibleBlocks && (
-        <motion.section
-          key="messaging"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+  if (messaging?.summaryRecommendations && Array.isArray(messaging.summaryRecommendations)) {
+    blocks.push({
+      key: 'messaging',
+      render: () => (
+        <>
           <h3 className="text-xs font-mono text-[var(--section-market-text)] uppercase tracking-widest mb-3">
             Messaging Opportunities
           </h3>
@@ -261,8 +227,25 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
               </li>
             ))}
           </ul>
+        </>
+      ),
+    });
+  }
+
+  const visibleBlocks = useProgressiveReveal(true, blocks.length);
+
+  return (
+    <div className="space-y-8 pb-8">
+      {blocks.slice(0, visibleBlocks).map(({ key, render }) => (
+        <motion.section
+          key={key}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {render()}
         </motion.section>
-      )}
+      ))}
     </div>
   );
 }
@@ -299,8 +282,7 @@ function useProgressiveReveal(isComplete: boolean, totalBlocks: number) {
     return () => clearInterval(interval);
   }, [isComplete, totalBlocks]);
 
-  // If already revealed (e.g., panel re-opened), show all
-  return hasRevealed.current && visibleBlocks >= totalBlocks ? totalBlocks : visibleBlocks;
+  return visibleBlocks;
 }
 
 // -- Main Export ---------------------------------------------------------------
