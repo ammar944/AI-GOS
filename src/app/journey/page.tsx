@@ -596,8 +596,10 @@ function JourneyPageContent() {
   return (
     <AppShell sidebar={<AppSidebar />} rightPanel={rightPanel} wide>
       {hasMessages || showResumePrompt ? chatContent : (
-        <div className="flex flex-col h-full">
-          <JourneyHeader completionPercentage={0} />
+        <div className="flex flex-col h-full"
+          style={{ background: 'var(--bg-base)' }}
+        >
+          <JourneyHeader completionPercentage={0} onNewJourney={undefined} />
           <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
       )}
