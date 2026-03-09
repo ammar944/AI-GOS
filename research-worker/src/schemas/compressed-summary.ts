@@ -4,9 +4,18 @@ export const CompressedSummarySchema = z.object({
   keyFindings: z.array(z.string()).min(1).max(7).describe(
     'Top findings, most important first. Max 7.',
   ),
-  dataPoints: z.record(z.string(), z.string()).describe(
-    'Key metric → value pairs (e.g., { "marketSize": "$50B", "avgCAC": "$1,200" })',
-  ),
+  dataPoints: z.record(z.string(), z.union([z.string(), z.number(), z.record(z.string(), z.unknown())]))
+    .transform((rec) => {
+      // Coerce all values to strings so downstream consumers get a flat map
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(rec)) {
+        out[k] = typeof v === 'string' ? v : JSON.stringify(v);
+      }
+      return out;
+    })
+    .describe(
+      'Key metric → value pairs (e.g., { "marketSize": "$50B", "avgCAC": "$1,200" })',
+    ),
   confidence: z.enum(['high', 'medium', 'low']).describe(
     'Overall confidence in findings based on source quality and coverage',
   ),
