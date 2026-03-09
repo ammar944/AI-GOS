@@ -16,8 +16,8 @@ interface TerminalStreamProps {
 }
 
 const LEVEL_COLORS: Record<string, string> = {
-  ok: 'text-emerald-400',
-  run: 'text-blue-400',
+  ok: 'text-brand-success',
+  run: 'text-brand-accent',
   inf: 'text-white/20',
   warn: 'text-amber-400',
   err: 'text-red-400',
@@ -55,23 +55,8 @@ export function TerminalStream({
 
   return (
     <div
-      className={cn('rounded-3xl p-6 overflow-hidden', className)}
-      style={{
-        background: 'rgba(0, 0, 0, 0.4)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
-      }}
+      className={cn('glass-surface rounded-module p-6 font-mono text-[11px] text-white/40 bg-black/40', className)}
     >
-      {/* Terminal header dots */}
-      <div className="flex items-center gap-1.5 mb-4">
-        <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-        <span className="ml-2 text-[10px] font-mono text-white/20 uppercase tracking-widest">
-          live feed
-        </span>
-      </div>
-
       {/* Lines */}
       <div
         ref={containerRef}
@@ -79,17 +64,19 @@ export function TerminalStream({
         style={{ maxHeight: '160px' }}
       >
         {visibleLines.map((entry, i) => (
-          <div key={i} className="flex gap-2 font-mono text-[11px] leading-relaxed">
-            <span className={cn('flex-shrink-0', LEVEL_COLORS[entry.level] || 'text-white/20')}>
+          <p key={i}>
+            <span className={cn(LEVEL_COLORS[entry.level] || 'text-white/20')}>
               [{LEVEL_LABELS[entry.level] || entry.level.toUpperCase()}]
-            </span>
-            <span className="text-white/40">{entry.message}</span>
-          </div>
+            </span>{' '}
+            {entry.message}
+          </p>
         ))}
         {/* Blinking cursor */}
-        <div className="font-mono text-[11px] text-white/40">
-          <span className={showCursor ? 'opacity-100' : 'opacity-0'}>_</span>
-        </div>
+        <p>
+          <span className={cn('text-brand-accent', showCursor ? 'opacity-100' : 'opacity-0')}>
+            _
+          </span>
+        </p>
       </div>
     </div>
   );

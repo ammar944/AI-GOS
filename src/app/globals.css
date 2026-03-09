@@ -1246,3 +1246,10 @@
 .animate-subtle-pulse {
   animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Animated progress bar at top of header */
+.header-progress {
+  background: linear-gradient(90deg, #3c83f6 0%, #10B981 100%);
+  height: 2px;
+  transition: width 1s ease-in-out;
+}

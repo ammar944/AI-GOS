@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Home,
   Compass,
@@ -8,134 +10,64 @@ import {
   Palette,
   Settings,
 } from 'lucide-react';
-import { useShell } from '@/components/shell/shell-provider';
-import { NavItem } from '@/components/shell/nav-item';
-import { SessionList } from '@/components/shell/session-list';
-import { UserMenu } from '@/components/shell/user-menu';
+import { cn } from '@/lib/utils';
+import type { LucideIcon } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { icon: Home,     label: 'Home',        href: '/' },
-  { icon: Compass,  label: 'Journey',     href: '/journey' },
-  { icon: FileText, label: 'Blueprints',  href: '/blueprints' },
-  { icon: Rocket,   label: 'Ad Launcher', href: '/ads',       locked: true },
-  { icon: Palette,  label: 'Creatives',   href: '/creatives', locked: true },
-  { icon: Settings, label: 'Settings',    href: '/settings' },
-] as const;
-
-// ─── Logo ──────────────────────────────────────────────────────────────────────
-
-interface LogoProps {
-  collapsed: boolean;
+interface NavEntry {
+  icon: LucideIcon;
+  label: string;
+  href: string;
 }
 
-function Logo({ collapsed }: LogoProps) {
-  if (collapsed) {
-    return (
-      <div
-        style={{
-          padding: '20px 0 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontWeight: 700,
-            fontSize: '14px',
-            letterSpacing: '-0.02em',
-            background: 'var(--logo-gradient)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            userSelect: 'none',
-          }}
-        >
-          AI
-        </span>
-      </div>
-    );
-  }
+const NAV_ITEMS: NavEntry[] = [
+  { icon: Home,    label: 'Home',        href: '/' },
+  { icon: Compass, label: 'Journey',     href: '/journey' },
+  { icon: FileText,label: 'Blueprints',  href: '/blueprints' },
+  { icon: Rocket,  label: 'Ad Launcher', href: '/ads' },
+  { icon: Palette, label: 'Creatives',   href: '/creatives' },
+];
+
+const SETTINGS_ITEM: NavEntry = { icon: Settings, label: 'Settings', href: '/settings' };
+
+function SidebarLink({ item }: { item: NavEntry }) {
+  const pathname = usePathname();
+  const isActive =
+    item.href === '/'
+      ? pathname === '/'
+      : pathname === item.href || pathname.startsWith(item.href + '/');
+
+  const Icon = item.icon;
 
   return (
-    <div
-      style={{
-        padding: '20px 16px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-      }}
+    <Link
+      href={item.href}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2 text-sm rounded-control transition-all',
+        isActive
+          ? 'text-brand-accent bg-white/5 font-medium'
+          : 'text-white/50 hover:text-white hover:bg-white/5',
+      )}
     >
-      <span
-        style={{
-          fontFamily: 'var(--font-heading)',
-          fontWeight: 700,
-          fontSize: '16px',
-          letterSpacing: '-0.02em',
-          background: 'var(--logo-gradient)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          userSelect: 'none',
-        }}
-      >
-        AI-GOS
-      </span>
-
-      <span
-        style={{
-          fontSize: '10px',
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--text-quaternary)',
-          padding: '2px 6px',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '4px',
-          userSelect: 'none',
-          lineHeight: 1.4,
-        }}
-      >
-        v2
-      </span>
-    </div>
+      <Icon width={18} height={18} strokeWidth={2} />
+      {item.label}
+    </Link>
   );
 }
 
-// ─── AppSidebar ────────────────────────────────────────────────────────────────
-
 export function AppSidebar() {
-  const { sidebarCollapsed } = useShell();
-  const collapsed = sidebarCollapsed;
-
   return (
-    <div className="flex flex-col h-full select-none">
-      {/* Logo */}
-      <Logo collapsed={collapsed} />
-
+    <aside className="w-64 flex-none border-r border-brand-border flex flex-col p-6 space-y-8">
       {/* Navigation */}
-      <nav aria-label="Main navigation" style={{ padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+      <nav className="space-y-1">
         {NAV_ITEMS.map((item) => (
-          <NavItem
-            key={item.href}
-            icon={item.icon}
-            label={item.label}
-            href={item.href}
-            locked={'locked' in item ? item.locked : false}
-            collapsed={collapsed}
-          />
+          <SidebarLink key={item.href} item={item} />
         ))}
       </nav>
 
-      {/* Divider */}
-      <div className="h-px mx-4 my-2" style={{ background: 'var(--border-default)' }} />
-
-      {/* Session List */}
-      <SessionList collapsed={collapsed} />
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* User Menu */}
-      <UserMenu collapsed={collapsed} />
-    </div>
+      {/* Settings at bottom, separated */}
+      <div className="mt-auto border-t border-brand-border pt-6">
+        <SidebarLink item={SETTINGS_ITEM} />
+      </div>
+    </aside>
   );
 }

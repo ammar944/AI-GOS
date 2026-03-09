@@ -8,7 +8,8 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from 'ai';
 import { useUser } from '@clerk/nextjs';
-import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
+import { ShellProvider } from '@/components/shell';
+import { AppSidebar } from '@/components/shell/app-sidebar';
 import { ChatMessage } from '@/components/journey/chat-message';
 import { JourneyChatInput } from '@/components/journey/chat-input';
 import { TypingIndicator } from '@/components/journey/typing-indicator';
@@ -33,12 +34,12 @@ import {
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { WelcomeState } from '@/components/journey/welcome-state';
-import { ProfileCard } from '@/components/journey/profile-card';
 import { JourneyHeader } from '@/components/journey/journey-header';
 import { JourneyStepper, type StepperPhase } from '@/components/journey/journey-stepper';
 import { TerminalStream, type TerminalLogEntry } from '@/components/journey/terminal-stream';
 import { JourneyProgressPanel, type ProgressItem } from '@/components/journey/journey-progress-panel';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
+import { ProfileCard } from '@/components/journey/profile-card';
 
 export default function JourneyPage() {
   return (
@@ -442,168 +443,174 @@ function JourneyPageContent() {
     return cards;
   }, [activeResearch, researchResults]);
 
-  // Right panel
-  const rightPanel = (
-    <JourneyProgressPanel
-      items={progressItems}
-      computeStatus="stable"
-      computePercent={85}
-    />
-  );
-
-  // Main chat/research content
-  const chatContent = (
-    <div className="flex flex-col h-full">
-      {/* V2 Header */}
-      <JourneyHeader completionPercentage={completionPercentage} />
-
-      {/* Main content area with stepper */}
-      <div className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-transparent to-white/[0.01]">
-        {/* Stepper */}
-        <JourneyStepper
-          currentPhase={currentPhase}
-          completedPhases={completedPhases}
-        />
-
-        {/* Scrollable content */}
-        <section
-          ref={scrollAreaRef}
-          className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12"
-        >
-          {/* Resume prompt OR welcome message */}
-          {showResumePrompt && savedSession ? (
-            <div className="max-w-3xl mx-auto">
-              <ResumePrompt
-                session={savedSession}
-                onContinue={handleResumeContinue}
-                onStartFresh={handleResumeStartFresh}
-              />
-            </div>
-          ) : (
-            <div className="max-w-3xl mx-auto">
-              <ChatMessage
-                role="assistant"
-                content={welcomeMessage}
-                isStreaming={false}
-              />
-            </div>
-          )}
-
-          {/* Research module cards — 2-column grid */}
-          {researchCards.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-              {researchCards.map((card) => (
-                <ResearchInlineCard
-                  key={card.section}
-                  section={card.section}
-                  status={card.status}
-                  data={card.data}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Terminal log stream */}
-          {terminalLogs.length > 0 && (
-            <div className="max-w-5xl mx-auto">
-              <TerminalStream logs={terminalLogs} />
-            </div>
-          )}
-
-          {/* Conversation messages */}
-          {messages.map((message, index) => {
-            const isThisMessageStreaming =
-              message.role === 'assistant' &&
-              index === messages.length - 1 &&
-              isLastMessageStreaming;
-
-            return (
-              <div key={message.id} className="max-w-3xl mx-auto">
-                <ChatMessage
-                  messageId={message.id}
-                  role={message.role as 'user' | 'assistant'}
-                  parts={message.parts}
-                  isStreaming={isThisMessageStreaming}
-                  onToolApproval={(approvalId, approved) =>
-                    addToolApprovalResponse({ id: approvalId, approved })
-                  }
-                  onToolOutput={handleAskUserResponse}
-                />
-              </div>
-            );
-          })}
-
-          {/* Typing indicator */}
-          {isSubmitted && (
-            <div className="max-w-3xl mx-auto">
-              <TypingIndicator className="ml-9" />
-            </div>
-          )}
-
-          {/* Profile snapshot card */}
-          {onboardingState && (
-            <div className="max-w-5xl mx-auto">
-              <ProfileCard state={onboardingState} />
-            </div>
-          )}
-
-          {/* Error display */}
-          {error && (
-            <div className="max-w-3xl mx-auto">
-              <div
-                className="px-3 py-2 rounded-lg text-xs"
-                style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  color: '#ef4444',
-                }}
-              >
-                {error.message || 'Something went wrong. Please try again.'}
-              </div>
-            </div>
-          )}
-
-          {/* Research timeout warning */}
-          {researchTimedOut && (
-            <div className="max-w-3xl mx-auto">
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Floating Input Bar */}
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
-          <JourneyChatInput
-            onSubmit={handleSubmit}
-            isLoading={(isLoading && !pendingAskUser) || showResumePrompt}
-            placeholder={
-              showResumePrompt
-                ? 'Choose an option above to continue...'
-                : pendingAskUser
-                  ? 'Pick an option or type your own answer...'
-                  : isResuming
-                    ? "Let's pick up where we left off..."
-                    : 'Ask AI-GOS to refine the strategy...'
-            }
-          />
-        </div>
-      </div>
-    </div>
-  );
+  const showActiveContent = hasMessages || showResumePrompt;
 
   return (
-    <AppShell sidebar={<AppSidebar />} rightPanel={rightPanel} wide>
-      {hasMessages || showResumePrompt ? chatContent : (
-        <div className="flex flex-col h-full"
-          style={{ background: 'var(--bg-base)' }}
-        >
-          <JourneyHeader completionPercentage={0} onNewJourney={undefined} />
-          <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
-        </div>
-      )}
-    </AppShell>
+    <div
+      className="h-screen flex flex-col font-sans"
+      style={{ background: '#050505', color: '#E5E5E5', overflow: 'hidden' }}
+    >
+      {/* Header — spans full width */}
+      <JourneyHeader
+        completionPercentage={completionPercentage}
+        onNewJourney={showActiveContent ? () => {} : undefined}
+      />
+
+      {/* Body — sidebar + main + right panel */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar */}
+        <AppSidebar />
+
+        {/* Main Workspace */}
+        <main className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-transparent to-white/[0.01]">
+          {showActiveContent ? (
+            <>
+              {/* Stepper */}
+              <JourneyStepper
+                currentPhase={currentPhase}
+                completedPhases={completedPhases}
+              />
+
+              {/* Scrollable content */}
+              <section
+                ref={scrollAreaRef}
+                className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12"
+              >
+                {/* Resume prompt OR welcome message */}
+                {showResumePrompt && savedSession ? (
+                  <div className="max-w-3xl mx-auto">
+                    <ResumePrompt
+                      session={savedSession}
+                      onContinue={handleResumeContinue}
+                      onStartFresh={handleResumeStartFresh}
+                    />
+                  </div>
+                ) : (
+                  <div className="max-w-3xl mx-auto">
+                    <ChatMessage
+                      role="assistant"
+                      content={welcomeMessage}
+                      isStreaming={false}
+                    />
+                  </div>
+                )}
+
+                {/* Research module cards — 2-column grid */}
+                {researchCards.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+                    {researchCards.map((card) => (
+                      <ResearchInlineCard
+                        key={card.section}
+                        section={card.section}
+                        status={card.status}
+                        data={card.data}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Terminal log stream */}
+                {terminalLogs.length > 0 && (
+                  <div className="max-w-5xl mx-auto">
+                    <TerminalStream logs={terminalLogs} />
+                  </div>
+                )}
+
+                {/* Conversation messages */}
+                {messages.map((message, index) => {
+                  const isThisMessageStreaming =
+                    message.role === 'assistant' &&
+                    index === messages.length - 1 &&
+                    isLastMessageStreaming;
+
+                  return (
+                    <div key={message.id} className="max-w-3xl mx-auto">
+                      <ChatMessage
+                        messageId={message.id}
+                        role={message.role as 'user' | 'assistant'}
+                        parts={message.parts}
+                        isStreaming={isThisMessageStreaming}
+                        onToolApproval={(approvalId, approved) =>
+                          addToolApprovalResponse({ id: approvalId, approved })
+                        }
+                        onToolOutput={handleAskUserResponse}
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* Typing indicator */}
+                {isSubmitted && (
+                  <div className="max-w-3xl mx-auto">
+                    <TypingIndicator className="ml-9" />
+                  </div>
+                )}
+
+                {/* Profile snapshot card */}
+                {onboardingState && (
+                  <div className="max-w-5xl mx-auto">
+                    <ProfileCard state={onboardingState} />
+                  </div>
+                )}
+
+                {/* Error display */}
+                {error && (
+                  <div className="max-w-3xl mx-auto">
+                    <div
+                      className="px-3 py-2 rounded-lg text-xs"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                      }}
+                    >
+                      {error.message || 'Something went wrong. Please try again.'}
+                    </div>
+                  </div>
+                )}
+
+                {/* Research timeout warning */}
+                {researchTimedOut && (
+                  <div className="max-w-3xl mx-auto">
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                      Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* Floating Input Bar */}
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
+                <JourneyChatInput
+                  onSubmit={handleSubmit}
+                  isLoading={(isLoading && !pendingAskUser) || showResumePrompt}
+                  placeholder={
+                    showResumePrompt
+                      ? 'Choose an option above to continue...'
+                      : pendingAskUser
+                        ? 'Pick an option or type your own answer...'
+                        : isResuming
+                          ? "Let's pick up where we left off..."
+                          : 'Ask AI-GOS to refine the strategy...'
+                  }
+                />
+              </div>
+            </>
+          ) : (
+            <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
+          )}
+        </main>
+
+        {/* Right Panel — Journey Progress */}
+        <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
+          <JourneyProgressPanel
+            items={progressItems}
+            computeStatus="stable"
+            computePercent={85}
+          />
+        </aside>
+      </div>
+    </div>
   );
 }
 
