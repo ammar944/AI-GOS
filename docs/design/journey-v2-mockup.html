@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI-GOS V2 | Command Center</title>
+<!-- Tailwind CSS v3 CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter (as a high-quality fallback for Geist) and JetBrains Mono for Technical logs -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              background: '#050505',
+              accent: '#3c83f6',
+              success: '#10B981',
+              surface: 'rgba(255, 255, 255, 0.03)',
+              border: 'rgba(255, 255, 255, 0.06)',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          borderRadius: {
+            'module': '24px',
+            'control': '12px',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-layout">
+    body {
+      background-color: #050505;
+      color: #E5E5E5;
+      overflow: hidden; /* Desktop app feel */
+    }
+    
+    .glass-surface {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    /* Pulse animation for active research cards */
+    @keyframes subtle-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .animate-subtle-pulse {
+      animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Animated progress bar at top */
+    .header-progress {
+      background: linear-gradient(90deg, #3c83f6 0%, #10B981 100%);
+      height: 2px;
+      width: 65%; /* Simulated progress */
+      transition: width 1s ease-in-out;
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col font-sans">
+<!-- BEGIN: Header -->
+<header class="relative flex-none h-16 flex items-center justify-between px-8 border-b border-brand-border">
+<!-- Top Progress Bar -->
+<div class="absolute top-0 left-0 w-full h-[2px] bg-white/5">
+<div class="header-progress"></div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-accent to-brand-success flex items-center justify-center font-bold text-black text-xs">
+        EG
+      </div>
+<span class="text-sm font-medium tracking-tight">AI-GOS <span class="text-white/40">V2.0</span></span>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-xs text-white/50 hover:text-white transition-colors">Documentation</button>
+<button class="bg-brand-accent hover:bg-blue-600 px-4 py-2 rounded-control text-xs font-medium transition-all">
+        New Journey
+      </button>
+</div>
+</header>
+<!-- END: Header -->
+<div class="flex flex-1 overflow-hidden">
+<!-- BEGIN: Left Sidebar -->
+<aside class="w-64 flex-none border-r border-brand-border flex flex-col p-6 space-y-8">
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-brand-accent bg-white/5 rounded-control font-medium" href="#">
+<svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          Home
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/5 rounded-control transition-all" href="#">
+<svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20"></path><path d="m4.93 4.93 14.14 14.14"></path><path d="M2 12h20"></path><path d="m19.07 4.93-14.14 14.14"></path></svg>
+          Journey
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/5 rounded-control transition-all" href="#">
+<svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><rect height="18" rx="2" width="18" x="3" y="3"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+          Blueprints
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/5 rounded-control transition-all" href="#">
+<svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path></svg>
+          Ad Launcher
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/5 rounded-control transition-all" href="#">
+<svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+          Creatives
+        </a>
+</nav>
+<div class="mt-auto border-t border-brand-border pt-6">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/5 rounded-control transition-all" href="#">
+<svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Settings
+        </a>
+</div>
+</aside>
+<!-- END: Left Sidebar -->
+<!-- BEGIN: Main Workspace -->
+<main class="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-transparent to-white/[0.01]">
+<!-- Minimal Stepper -->
+<div class="flex justify-center gap-12 py-8 flex-none" data-purpose="stepper">
+<div class="flex flex-col items-center gap-2 group cursor-default">
+<div class="w-2.5 h-2.5 rounded-full bg-brand-success ring-4 ring-brand-success/20"></div>
+<span class="text-[10px] uppercase tracking-widest text-brand-success font-semibold">Discovery</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-100">
+<div class="w-2.5 h-2.5 rounded-full bg-brand-accent animate-pulse"></div>
+<span class="text-[10px] uppercase tracking-widest text-brand-accent font-semibold">Validation</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-30">
+<div class="w-2.5 h-2.5 rounded-full bg-white/50"></div>
+<span class="text-[10px] uppercase tracking-widest text-white/50 font-semibold">Strategy</span>
+</div>
+<div class="flex flex-col items-center gap-2 opacity-30">
+<div class="w-2.5 h-2.5 rounded-full bg-white/50"></div>
+<span class="text-[10px] uppercase tracking-widest text-white/50 font-semibold">Launch</span>
+</div>
+</div>
+<!-- Content Stream -->
+<section class="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12">
+<!-- Chat Area Message -->
+<div class="max-w-3xl mx-auto text-center space-y-4" data-purpose="message-user">
+<h2 class="text-3xl font-light text-white/90">Initialize a performance-driven market analysis for <span class="text-brand-accent">SaaS Infrastructure</span>.</h2>
+<p class="text-white/40 text-sm">Targeting Series A startups in North America.</p>
+</div>
+<!-- Research Grid -->
+<div class="grid grid-cols-2 gap-6 max-w-5xl mx-auto" data-purpose="research-cards">
+<!-- Card: Market Overview -->
+<div class="glass-surface p-6 rounded-module relative overflow-hidden">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-mono text-white/40 uppercase tracking-tighter">Module 01</span>
+<div class="w-2 h-2 rounded-full bg-brand-success shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+</div>
+<h3 class="text-lg font-medium mb-2">Market Overview</h3>
+<p class="text-sm text-white/50 leading-relaxed mb-4">Identified 4.2k potential entry points within the cloud infrastructure vertical.</p>
+<div class="space-y-1 text-[11px] font-mono text-white/30">
+<div class="flex justify-between"><span>TAM:</span> <span>$14.2B</span></div>
+<div class="flex justify-between"><span>CAGR:</span> <span>18.4%</span></div>
+</div>
+</div>
+<!-- Card: Competitor Intel (Active) -->
+<div class="glass-surface p-6 rounded-module border-brand-accent/30 bg-brand-accent/[0.01]">
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-mono text-brand-accent uppercase tracking-tighter">Module 02</span>
+<div class="flex gap-1">
+<div class="w-1 h-1 rounded-full bg-brand-accent animate-subtle-pulse"></div>
+<div class="w-1 h-1 rounded-full bg-brand-accent animate-subtle-pulse delay-75"></div>
+<div class="w-1 h-1 rounded-full bg-brand-accent animate-subtle-pulse delay-150"></div>
+</div>
+</div>
+<h3 class="text-lg font-medium mb-2 text-brand-accent">Competitor Intel</h3>
+<p class="text-sm text-white/70 leading-relaxed">Scraping G2 reviews and pricing pages for direct competitors...</p>
+<div class="mt-4 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="bg-brand-accent h-full w-[45%]"></div>
+</div>
+</div>
+</div>
+<!-- Technical Data Stream -->
+<div class="max-w-5xl mx-auto" data-purpose="technical-stream">
+<div class="glass-surface rounded-module p-6 font-mono text-[11px] text-white/40 space-y-1 bg-black/40">
+<p><span class="text-brand-success">[OK]</span> Connection established to LinkedIn Sales Navigator API</p>
+<p><span class="text-brand-accent">[RUN]</span> Scanning 850 profiles for Ideal Customer Persona match</p>
+<p><span class="text-white/20">[INF]</span> Found signal: "Kubernetes cost optimization" mentioned in 42 recent posts</p>
+<p><span class="text-white/20">[INF]</span> Mapping decision makers at: Vercel, HashiCorp, Supabase</p>
+<p><span class="text-brand-accent animate-pulse">_</span></p>
+</div>
+</div>
+<!-- AI Response (Chat Style) -->
+<div class="max-w-3xl mx-auto pl-6 border-l-2 border-brand-accent/40 py-2" data-purpose="ai-response">
+<p class="text-white/80 leading-relaxed font-light text-lg">
+            "I've identified a significant gap in mid-market serverless monitoring. While Enterprise tools exist, Series A startups are currently overpaying for features they don't use. I recommend focusing our first blueprint on 'Lean Infrastructure Observability'."
+          </p>
+</div>
+<!-- Profile Card: What I know -->
+<div class="max-w-5xl mx-auto glass-surface rounded-module p-8" data-purpose="summary-grid">
+<h4 class="text-xs font-mono text-white/30 uppercase tracking-widest mb-6">Profile Snapshot: Project Alpha</h4>
+<div class="grid grid-cols-3 gap-8">
+<div>
+<p class="text-[10px] text-white/30 uppercase mb-2">Primary ICP</p>
+<p class="text-sm font-medium">DevOps Leads @ Series A</p>
+</div>
+<div>
+<p class="text-[10px] text-white/30 uppercase mb-2">Pain Point</p>
+<p class="text-sm font-medium">Cloud Cost Attribution</p>
+</div>
+<div>
+<p class="text-[10px] text-white/30 uppercase mb-2">Active Channels</p>
+<p class="text-sm font-medium">LinkedIn, Twitter, Reddit</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Floating Input Bar -->
+<div class="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
+<div class="w-full max-w-2xl pointer-events-auto">
+<div class="relative group">
+<div class="absolute -inset-0.5 bg-gradient-to-r from-brand-accent to-brand-success rounded-control blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
+<div class="relative flex items-center bg-[#0a0a0a] border border-white/10 rounded-control px-4 py-3 shadow-2xl">
+<input class="bg-transparent border-none focus:ring-0 text-sm text-white placeholder-white/20 w-full" placeholder="Ask AI-GOS to refine the strategy..." type="text"/>
+<button class="ml-2 p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-all">
+<svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><line x1="22" x2="11" y1="2" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- END: Main Workspace -->
+<!-- BEGIN: Right Panel (Journey Progress) -->
+<aside class="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
+<h3 class="text-xs font-mono text-white/30 uppercase tracking-widest mb-10">Journey Progress</h3>
+<div class="relative flex-1">
+<!-- Vertical Timeline Line -->
+<div class="absolute left-[7px] top-2 bottom-2 w-[1px] bg-white/10"></div>
+<div class="space-y-12 relative">
+<!-- Item Complete -->
+<div class="flex gap-4">
+<div class="relative z-10 w-3.5 h-3.5 rounded-full bg-brand-success border-4 border-[#050505]"></div>
+<div class="flex flex-col gap-1 -mt-1">
+<span class="text-xs font-medium">Market Research</span>
+<span class="text-[10px] text-white/30">Completed 12m ago</span>
+</div>
+</div>
+<!-- Item Running -->
+<div class="flex gap-4">
+<div class="relative z-10 w-3.5 h-3.5 rounded-full bg-brand-accent border-4 border-[#050505] animate-pulse"></div>
+<div class="flex flex-col gap-1 -mt-1">
+<span class="text-xs font-medium text-brand-accent">ICP Validation</span>
+<span class="text-[10px] text-brand-accent/60">Processing data...</span>
+</div>
+</div>
+<!-- Item Queued -->
+<div class="flex gap-4 opacity-30">
+<div class="relative z-10 w-3.5 h-3.5 rounded-full bg-white/20 border-4 border-[#050505]"></div>
+<div class="flex flex-col gap-1 -mt-1">
+<span class="text-xs font-medium">Ad Angle Creation</span>
+<span class="text-[10px]">Queued</span>
+</div>
+</div>
+<!-- Item Error (Example) -->
+<div class="flex gap-4 opacity-30">
+<div class="relative z-10 w-3.5 h-3.5 rounded-full bg-white/20 border-4 border-[#050505]"></div>
+<div class="flex flex-col gap-1 -mt-1">
+<span class="text-xs font-medium">Creative Gen</span>
+<span class="text-[10px]">Queued</span>
+</div>
+</div>
+</div>
+</div>
+<!-- System Status Footer -->
+<div class="mt-auto glass-surface rounded-xl p-4 border border-white/5">
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] text-white/40">Compute Node</span>
+<span class="text-[10px] text-brand-success">Stable</span>
+</div>
+<div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="bg-brand-success h-full w-[85%]"></div>
+</div>
+</div>
+</aside>
+<!-- END: Right Panel -->
+</div>
+</body></html>

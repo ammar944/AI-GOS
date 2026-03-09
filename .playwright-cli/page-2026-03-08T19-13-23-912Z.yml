@@ -1,0 +1,360 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]: AI-GOS
+          - generic [ref=e7]: v2
+        - navigation "Main navigation" [ref=e8]:
+          - link "Home" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12]
+            - generic [ref=e15]: Home
+          - link "Journey" [ref=e17] [cursor=pointer]:
+            - /url: /journey
+            - img [ref=e19]
+            - generic [ref=e22]: Journey
+          - link "Blueprints" [ref=e24] [cursor=pointer]:
+            - /url: /blueprints
+            - img [ref=e26]
+            - generic [ref=e29]: Blueprints
+          - button "Ad Launcher" [disabled] [ref=e31]:
+            - generic [ref=e32]:
+              - img [ref=e33]
+              - img [ref=e39]
+            - generic [ref=e42]: Ad Launcher
+          - button "Creatives" [disabled] [ref=e44]:
+            - generic [ref=e45]:
+              - img [ref=e46]
+              - img [ref=e53]
+            - generic [ref=e56]: Creatives
+          - link "Settings" [ref=e58] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e60]
+            - generic [ref=e63]: Settings
+        - button "User menu" [ref=e66] [cursor=pointer]:
+          - img "Ammar" [ref=e138]
+          - generic [ref=e68]:
+            - generic [ref=e69]: Ammar
+            - generic [ref=e70]: Pro plan
+          - img [ref=e71]
+    - main [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - generic [ref=e78]: EGOS
+              - generic [ref=e80]:
+                - generic [ref=e81]: Tell EGOS about your business
+                - generic [ref=e82]: A focused, source-backed strategy session built around your product and market.
+            - button "New Journey" [ref=e83]:
+              - img [ref=e84]
+              - text: New Journey
+          - progressbar [ref=e211]
+        - generic [ref=e139]:
+          - generic [ref=e140]:
+            - generic [ref=e141]:
+              - img [ref=e143]
+              - paragraph [ref=e148]: Tell me your company name and drop your website URL — I'll take a look at what you've built and we'll figure out how to grow it.
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - generic [ref=e214]:
+                  - generic [ref=e215]: What I know so far
+                  - generic [ref=e216]: Saved context from your website, review, and chat so far.
+                - generic [ref=e217]: 6/8 essentials confirmed
+              - generic [ref=e218]:
+                - generic [ref=e219]:
+                  - generic [ref=e220]: Company
+                  - generic "NewCo" [ref=e530]
+                - generic [ref=e222]:
+                  - generic [ref=e223]: Model
+                  - generic "B2B SaaS" [ref=e224]
+                - generic [ref=e225]:
+                  - generic [ref=e226]: ICP
+                  - generic "Product managers at mid-market SaaS companies" [ref=e227]: Product managers at mid-market SaaS co…
+                - generic [ref=e228]:
+                  - generic [ref=e229]: Product
+                  - generic "Sprint planning management tool for teams" [ref=e230]: Sprint planning management tool for te…
+                - generic [ref=e450]:
+                  - generic [ref=e451]: Competitors
+                  - generic "Jira,Linear,Shortcut" [ref=e452]
+                - generic [ref=e565]:
+                  - generic [ref=e566]: Pricing
+                  - generic "Free, Pro (per seat/month - price TBD), Enterprise (custom pricing)" [ref=e567]: Free, Pro (per seat/month - price TBD)…
+                - generic [ref=e602]:
+                  - generic [ref=e603]: Goals
+                  - generic "Scale signups for the free trial" [ref=e604]
+                - generic [ref=e379]:
+                  - generic [ref=e380]: Budget
+                  - generic "$10-25K/mo" [ref=e381]
+              - generic [ref=e233]: Next, answer the guided questions so I can sharpen the research and recommendations.
+            - generic [ref=e150]: Please start the onboarding process.
+            - generic [ref=e163]:
+              - img [ref=e165]
+              - generic [ref=e167]:
+                - button "Thought for 0.7s" [ref=e169] [cursor=pointer]:
+                  - img [ref=e170]
+                  - generic [ref=e172]: Thought for 0.7s
+                - generic [ref=e175]:
+                  - paragraph [ref=e176]: Hey, welcome — glad to have you here. Let's build out your paid media strategy.
+                  - paragraph [ref=e177]: To kick things off, what's your company name and website URL? And in a sentence or two, what do you sell — just so I have context before I dig into your site.
+            - generic [ref=e179]: I run a B2B SaaS company called TestCo that helps teams manage their sprint planning
+            - generic [ref=e180]:
+              - img [ref=e182]
+              - generic [ref=e184]:
+                - button "Thought for 2.1s" [ref=e186] [cursor=pointer]:
+                  - img [ref=e187]
+                  - generic [ref=e189]: Thought for 2.1s
+                - generic [ref=e192]:
+                  - paragraph [ref=e193]: Sprint planning tools — that's a space I know well. Lots of movement there right now.
+                  - paragraph [ref=e194]: What's your website URL? I want to pull up your site and do some homework before we go deeper. That way I'm not asking you questions your homepage already answers.
+            - generic [ref=e196]: We don't have a website yet - we're still in early stages. Our target customers are product managers at mid-market SaaS companies
+            - generic [ref=e197]:
+              - img [ref=e199]
+              - generic [ref=e201]:
+                - button "Thought for 9.2s" [ref=e234] [cursor=pointer]:
+                  - img [ref=e235]
+                  - generic [ref=e207]: Thought for 9.2s
+                - paragraph [ref=e240]: No website, no problem — we'll work with what you've got. Let me lock in what you've told me so far.
+                - button "Industry Research" [ref=e242]:
+                  - generic [ref=e243]:
+                    - img [ref=e244]
+                    - generic [ref=e247]: Industry Research
+                  - generic [ref=e248]:
+                    - img [ref=e250]
+                    - img [ref=e252]
+                - generic [ref=e258]:
+                  - paragraph [ref=e259]: Research on the industry landscape didn't complete — I'll build from the data we collect together. No worries, let's keep moving.
+                  - paragraph [ref=e260]: "So — product managers at mid-market SaaS companies. That's a solid starting point. I want to sharpen that a bit. Tell me more about these PMs: what's their day-to-day pain that makes sprint planning hard enough to buy a tool for? And what size teams are they typically managing?"
+                  - paragraph [ref=e261]: "Also, two quick ones to keep us rolling:"
+                - group "What size companies are you targeting?" [ref=e312]:
+                  - generic [ref=e313]: What size companies are you targeting?
+                  - generic [ref=e314]:
+                    - checkbox "11-50 employees" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: 11-50 employees
+                    - checkbox "51-200 employees" [checked] [disabled]:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - generic: 51-200 employees
+                    - checkbox "201-1000 employees" [checked] [disabled]:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - generic: 201-1000 employees
+                    - checkbox "1000+ employees" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: 1000+ employees
+                    - checkbox "Other" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Other
+                  - generic [ref=e340]: "Selected: 51-200 employees, 201-1000 employees"
+                - radiogroup "What kind of monthly ad budget are you working with?" [ref=e351]:
+                  - generic [ref=e352]: What kind of monthly ad budget are you working with?
+                  - generic [ref=e353]:
+                    - radio "<$2K/mo" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: <$2K/mo
+                    - radio "$2-5K/mo" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: $2-5K/mo
+                    - radio "$5-10K/mo" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: $5-10K/mo
+                    - radio "$10-25K/mo" [checked] [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: $10-25K/mo
+                    - radio "$25K+/mo" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: $25K+/mo
+                    - radio "Other" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Other
+                  - generic [ref=e378]: "Selected: $10-25K/mo"
+                - generic [ref=e384]:
+                  - paragraph [ref=e385]: Good — 51-200 and 201-1000 employee companies, with a $10-25K/mo budget. That's a real budget to work with in this space.
+                  - paragraph [ref=e386]: Now back to those PMs — what's the pain that drives them to look for a tool like yours? And who do you run into most in competitive situations? Who are your top 2-3 competitors?
+            - generic [ref=e391]: Our main competitors are Jira, Linear, and Shortcut. The biggest pain point is that PMs waste hours every week manually updating sprint boards and reconciling across tools.
+            - generic [ref=e392]:
+              - img [ref=e394]
+              - generic [ref=e396]:
+                - button "Thought for 3.1s" [ref=e398] [cursor=pointer]:
+                  - img [ref=e399]
+                  - generic [ref=e401]: Thought for 3.1s
+                - generic [ref=e455]:
+                  - paragraph [ref=e456]: "Interesting — Jira is leaning hard into AI with their Rovo agents and positioning around cross-tool orchestration, which is exactly the pain point you're solving. But here's the thing: they're running zero paid ads right now. For a company that size, that signals they're coasting on brand and organic, which leaves a real window for you to own the paid acquisition lane, especially with mid-market PMs who find Jira bloated."
+                  - paragraph [ref=e457]: That's a useful dynamic — you're not going to outbrand Atlassian, but you can absolutely outmaneuver them on targeted messaging to PMs who are frustrated with exactly the complexity Jira creates.
+                  - paragraph [ref=e458]: "A couple things I want to dig into: what do you do that Jira, Linear, and Shortcut genuinely can't match? And what's the #1 complaint you hear from people switching away from those tools?"
+            - generic [ref=e460]: I'm not sure, I haven't really thought about what makes us different
+            - generic [ref=e461]:
+              - img [ref=e463]
+              - generic [ref=e465]:
+                - button "Thought for 7.3s" [ref=e475] [cursor=pointer]:
+                  - img [ref=e476]
+                  - generic [ref=e471]: Thought for 7.3s
+                - generic [ref=e480]:
+                  - paragraph [ref=e481]:
+                    - text: That's honest, and it's more common than you'd think at this stage. Here's the thing though — you don't need a grand differentiator to run effective ads. You need a
+                    - emphasis [ref=e482]: specific
+                    - text: message that resonates with a
+                    - emphasis [ref=e483]: specific
+                    - text: pain. "PMs waste hours every week manually updating sprint boards" — that's actually a strong hook on its own. We can sharpen positioning through the campaign work.
+                  - paragraph [ref=e484]: "Let me park that and keep moving. A few things I need to understand about your product and how you're selling it:"
+                  - paragraph [ref=e485]: Walk me through your pricing — do you have tiers set up yet, or is that still being figured out? And where are your customers — US-only, or are you going broader?
+                - group "How are people converting right now (or how do you plan to convert them)?" [ref=e486]:
+                  - generic [ref=e487]: How are people converting right now (or how do you plan to convert them)?
+                  - generic [ref=e488]:
+                    - checkbox "Free Trial" [checked] [disabled]:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic:
+                          - generic: Free Trial
+                    - checkbox "Product Demo" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Product Demo
+                    - checkbox "Booking / Calendar Page" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Booking / Calendar Page
+                    - checkbox "Lead Form" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Lead Form
+                    - checkbox "Waitlist / Early Access" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Waitlist / Early Access
+                    - checkbox "Other" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Other
+                  - generic [ref=e519]: "Selected: Free Trial"
+                - paragraph [ref=e528]: Free trial — that's the right move for this space. PMs want to get their hands on the tool before committing. How long is the trial, and do you have any sense yet of what your trial-to-paid conversion looks like?
+            - generic [ref=e532]: Actually, our company is called NewCo, not TestCo. And we're US-only for now with a 14-day free trial. No conversion data yet since we just launched.
+            - generic [ref=e533]:
+              - img [ref=e535]
+              - generic [ref=e537]:
+                - button "Thought for 1.8s" [ref=e539] [cursor=pointer]:
+                  - img [ref=e540]
+                  - generic [ref=e542]: Thought for 1.8s
+                - generic [ref=e546]:
+                  - paragraph [ref=e547]: Got it — NewCo it is, sorry about that. US-only, 14-day free trial, fresh launch with no conversion data yet. That's fine — we'll build benchmarks as we go rather than guessing.
+                  - paragraph [ref=e548]: "Since you're early, pricing is going to matter a lot for how we position the ads. Do you have pricing tiers set, or is it still fluid? And one more: describe your ideal customer the day before they find you — what's going wrong in their world that makes them open to trying something new?"
+            - generic [ref=e550]: We have three tiers - Free, Pro at /seat/month, and Enterprise at custom pricing. The ideal customer is a PM who just got yelled at in standup because the sprint board doesn't reflect reality and they spent 45 minutes before the meeting trying to update it.
+            - generic [ref=e551]:
+              - img [ref=e553]
+              - generic [ref=e555]:
+                - button "Thought for 6.7s" [ref=e568] [cursor=pointer]:
+                  - img [ref=e569]
+                  - generic [ref=e561]: Thought for 6.7s
+                - generic [ref=e573]:
+                  - paragraph [ref=e574]: That "yelled at in standup" moment is gold for ad creative — it's visceral, specific, and every PM has lived it. That's the kind of pain you build a whole campaign around.
+                  - paragraph [ref=e575]: Quick thing — what's the actual dollar amount on the Pro tier? You said per seat/month but I missed the number.
+                  - paragraph [ref=e576]: "And let's keep rolling on a couple more:"
+                - radiogroup "What's your primary goal with paid ads right now?" [ref=e577]:
+                  - generic [ref=e578]: What's your primary goal with paid ads right now?
+                  - generic [ref=e579]:
+                    - radio "Generate early traction / first users" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Generate early traction / first users
+                    - radio "Validate messaging and positioning" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Validate messaging and positioning
+                    - radio "Scale signups for the free trial" [checked] [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Scale signups for the free trial
+                    - radio "Build a waitlist or pipeline" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Build a waitlist or pipeline
+                    - radio "Other" [disabled]:
+                      - generic:
+                        - generic:
+                          - generic: Other
+                  - generic [ref=e600]: "Selected: Scale signups for the free trial"
+                - paragraph [ref=e608]: "Scale free trial signups — makes sense at this stage. When someone does sign up for the trial, what's the #1 reason they might not convert to paid? Or is it too early to know?"
+            - generic [ref=e611]: Too early to know conversion blockers. The Pro tier is /seat/month by the way. I think we have enough info now - can we start the research?
+            - generic [ref=e612]:
+              - img [ref=e614]
+              - generic [ref=e616]:
+                - button "Thought for 9.4s" [ref=e626] [cursor=pointer]:
+                  - img [ref=e627]
+                  - generic [ref=e622]: Thought for 9.4s
+                - generic [ref=e631]:
+                  - paragraph [ref=e632]: Noted on the Pro tier — though I think the actual dollar amount got cut off both times. If you can drop that number in when you get a chance, it'll help with the offer analysis.
+                  - paragraph [ref=e633]: Let me kick off the research with everything we've got.
+                - button "Industry Research" [ref=e635]:
+                  - generic [ref=e636]:
+                    - img [ref=e637]
+                    - generic [ref=e640]: Industry Research
+                  - generic [ref=e641]:
+                    - img [ref=e643]
+                    - img [ref=e645]
+                - paragraph [ref=e652]: Research on industry landscape hit a technical issue again. Here's what I'll do — let me try firing the other sections that don't strictly depend on it, and I'll build the industry picture from what we've collected together.
+                - button "ICP Validation" [ref=e654]:
+                  - generic [ref=e655]:
+                    - img [ref=e656]
+                    - generic [ref=e660]: ICP Validation
+                  - generic [ref=e661]:
+                    - img [ref=e663]
+                    - img [ref=e665]
+                - button "Competitor Intel" [ref=e670]:
+                  - generic [ref=e671]:
+                    - img [ref=e672]
+                    - generic [ref=e677]: Competitor Intel
+                  - generic [ref=e678]:
+                    - img [ref=e680]
+                    - img [ref=e682]
+                - generic [ref=e688]:
+                  - paragraph [ref=e689]: The research tools are hitting a system-level issue right now — this isn't on your end. The research agents aren't completing for any section at the moment.
+                  - paragraph [ref=e690]: "Here's what I can do: I've collected a strong foundation on NewCo, and the competitor snapshot on Jira already gave us useful intel. Let me give you a strategic summary of where we stand based on everything we've discussed, and when the research tools come back online, we can generate the full deep-dive sections."
+                  - paragraph [ref=e691]:
+                    - strong [ref=e692]: "What I know so far:"
+                  - paragraph [ref=e693]: You're a freshly launched B2B SaaS selling to US-based product managers at mid-market SaaS companies (51-1000 employees). The core pain is brutal — PMs burning 45+ minutes before standups reconciling sprint boards across tools. You're running a freemium model with a 14-day Pro trial, competing against Jira (bloated, zero paid ads, relying on brand), Linear, and Shortcut. You've got $10-25K/mo to work with and the goal is scaling free trial signups.
+                  - paragraph [ref=e694]: The "standup embarrassment" angle is your strongest creative hook. Jira's absence from paid channels is a genuine opportunity. The biggest gap right now is your differentiation story — but that can emerge from early campaign data as you see what resonates.
+                  - paragraph [ref=e695]: Want me to outline a preliminary channel and campaign strategy with what we have, or would you rather wait until the research tools are back up for the full analysis?
+            - generic [ref=e388]: Research is taking longer than expected. The worker may be temporarily unavailable. You can continue the conversation - results will appear if they complete.
+          - generic [ref=e157]:
+            - textbox "Tell me about your business..." [ref=e609]
+            - button "Send message" [disabled] [ref=e159]:
+              - img [ref=e160]
+    - complementary [ref=e272]:
+      - generic [ref=e275]:
+        - generic [ref=e276]: Journey progress
+        - generic [ref=e277]: Research sections in motion
+        - generic [ref=e278]: Track what is already finished, what is actively generating, and what will unlock next.
+        - generic [ref=e279]: 0 of 7 complete
+        - generic [ref=e281]:
+          - generic [ref=e282]:
+            - img [ref=e696]
+            - generic [ref=e287]: Industry Research
+          - generic [ref=e288]:
+            - img [ref=e698]
+            - generic [ref=e291]: Competitor Intel
+          - generic [ref=e292]:
+            - img [ref=e700]
+            - generic [ref=e295]: ICP Validation
+          - generic [ref=e299]: Offer Analysis
+          - generic [ref=e303]: Strategic Synthesis
+          - generic [ref=e307]: Keyword Intelligence
+          - generic [ref=e311]: Media Plan
+  - button "Open Next.js Dev Tools" [ref=e133] [cursor=pointer]:
+    - img [ref=e134]
+  - alert [ref=e137]

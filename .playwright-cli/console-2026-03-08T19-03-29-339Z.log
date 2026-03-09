@@ -1,0 +1,49 @@
+[    1076ms] [WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[    1077ms] [WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[    1433ms] Error: Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <InnerScrollAndFocusHandler segmentPath={[...]} focusAndScrollRef={{apply:false, ...}}>
+      <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+        <LoadingBoundary name="/" loading={null}>
+          <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+            <RedirectBoundary>
+              <RedirectErrorBoundary router={{...}}>
+                <InnerLayoutRouter url="/sign-in" tree={[...]} params={{sign-in:[...]}} cacheNode={{lazyData:null, ...}} ...>
+                  <SegmentViewNode type="page" pagePath="/AI-GOS-ma...">
+                    <SegmentTrieNode>
+                    <SignInPage>
+                      <div className="flex min-h...">
+                        <SignIn forceRedirectUrl="/dashboard" signUpUrl="/sign-up">
+                          <withClerk(SignIn) path="/sign-in" forceRedirectUrl="/dashboard" signUpUrl="/sign-up" ...>
+                            <SignIn path="/sign-in" forceRedirectUrl="/dashboard" signUpUrl="/sign-up" routing="path" ...>
+                              <ClerkHostRenderer component="SignIn" mount={function} unmount={function} ...>
++                               <div ref={{current:null}} data-clerk-component="SignIn">
+                  ...
+                ...
+      ...
+
+    at throwOnHydrationMismatch (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:3342:56)
+    at beginWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6769:918)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:959:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9556:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9450:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9434:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9062:186)
+    at performSyncWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10232:9)
+    at flushSyncWorkAcrossRoots_impl (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10148:316)
+    at processRootScheduleInMicrotask (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10169:106)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10243:158
+[    1466ms] [WARNING] Clerk: The "signInFallbackRedirectUrl" prop ("http://localhost:3000/dashboard") has priority over the legacy "afterSignInUrl" (or "redirectUrl") ("http://localhost:3000/dashboard"), which will be completely ignored in this case. "afterSignInUrl" (or "redirectUrl" prop) should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[    1595ms] [WARNING] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[    1912ms] [WARNING] Image with src "/salf2.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287

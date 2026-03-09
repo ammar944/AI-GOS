@@ -135,8 +135,8 @@ function JourneyPageContent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
 
-  // Resume state
-  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  // Journey phase: controls which view renders
+  const [journeyPhase, setJourneyPhase] = useState<'welcome' | 'resume' | 'chat'>('welcome');
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [isResuming, setIsResuming] = useState(false);
   const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
@@ -154,7 +154,7 @@ function JourneyPageContent() {
       setOnboardingState(saved);
       if (hasAnsweredFields(saved)) {
         setSavedSession(saved);
-        setShowResumePrompt(true);
+        setJourneyPhase('resume');
       }
     }
   }, []);
@@ -403,7 +403,7 @@ function JourneyPageContent() {
       setIsResuming(true);
       addLog('ok', 'Resuming previous session');
     }
-    setShowResumePrompt(false);
+    setJourneyPhase('chat');
   }, [savedSession, addLog]);
 
   const handleResumeStartFresh = useCallback(() => {
@@ -412,7 +412,7 @@ function JourneyPageContent() {
     setSavedSession(null);
     setIsResuming(false);
     setOnboardingState(null);
-    setShowResumePrompt(false);
+    setJourneyPhase('welcome');
     addLog('inf', 'Starting fresh journey');
   }, [addLog]);
 
@@ -450,7 +450,8 @@ function JourneyPageContent() {
     return cards;
   }, [activeResearch, researchResults]);
 
-  const showActiveContent = hasMessages || showResumePrompt;
+  const showChatView = journeyPhase === 'chat';
+  const showResumeView = journeyPhase === 'resume';
 
   return (
     <div
@@ -464,7 +465,7 @@ function JourneyPageContent() {
 
         {/* Main Workspace */}
         <main className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-transparent to-white/[0.01]">
-          {showActiveContent ? (
+          {showChatView ? (
             <>
               {/* Stepper */}
               <JourneyStepper
@@ -477,24 +478,14 @@ function JourneyPageContent() {
                 ref={scrollAreaRef}
                 className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12"
               >
-                {/* Resume prompt OR welcome message */}
-                {showResumePrompt && savedSession ? (
-                  <div className="max-w-3xl mx-auto">
-                    <ResumePrompt
-                      session={savedSession}
-                      onContinue={handleResumeContinue}
-                      onStartFresh={handleResumeStartFresh}
-                    />
-                  </div>
-                ) : (
-                  <div className="max-w-3xl mx-auto">
-                    <ChatMessage
-                      role="assistant"
-                      content={welcomeMessage}
-                      isStreaming={false}
-                    />
-                  </div>
-                )}
+                {/* Welcome message */}
+                <div className="max-w-3xl mx-auto">
+                  <ChatMessage
+                    role="assistant"
+                    content={welcomeMessage}
+                    isStreaming={false}
+                  />
+                </div>
 
                 {/* Research module cards — 2-column grid */}
                 {researchCards.length > 0 && (
@@ -570,8 +561,8 @@ function JourneyPageContent() {
                   </div>
                 )}
 
-                {/* Research timeout warning — only during active chat, not welcome/resume */}
-                {researchTimedOut && hasMessages && (
+                {/* Research timeout warning */}
+                {researchTimedOut && (
                   <div className="max-w-3xl mx-auto">
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                       Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
@@ -584,19 +575,27 @@ function JourneyPageContent() {
               <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
                 <JourneyChatInput
                   onSubmit={handleSubmit}
-                  isLoading={(isLoading && !pendingAskUser) || showResumePrompt}
+                  isLoading={isLoading && !pendingAskUser}
                   placeholder={
-                    showResumePrompt
-                      ? 'Choose an option above to continue...'
-                      : pendingAskUser
-                        ? 'Pick an option or type your own answer...'
-                        : isResuming
-                          ? "Let's pick up where we left off..."
-                          : 'Ask AI-GOS to refine the strategy...'
+                    pendingAskUser
+                      ? 'Pick an option or type your own answer...'
+                      : isResuming
+                        ? "Let's pick up where we left off..."
+                        : 'Ask AI-GOS to refine the strategy...'
                   }
                 />
               </div>
             </>
+          ) : showResumeView ? (
+            <div className="flex-1 flex items-center justify-center px-12">
+              <div className="max-w-3xl w-full">
+                <ResumePrompt
+                  session={savedSession!}
+                  onContinue={handleResumeContinue}
+                  onStartFresh={handleResumeStartFresh}
+                />
+              </div>
+            </div>
           ) : (
             <WelcomeForm
               onAnalyze={(websiteUrl, linkedinUrl) => {
@@ -604,10 +603,12 @@ function JourneyPageContent() {
                   ? `Website: ${websiteUrl}\nLinkedIn: ${linkedinUrl}`
                   : `Website: ${websiteUrl}`;
                 addLog('run', `Analyzing ${websiteUrl}`);
+                setJourneyPhase('chat');
                 sendMessage({ text: msg });
               }}
               onSkip={() => {
                 addLog('inf', 'Starting without website analysis');
+                setJourneyPhase('chat');
                 sendMessage({ text: 'Start without website analysis' });
               }}
             />
@@ -617,7 +618,7 @@ function JourneyPageContent() {
         {/* Right Panel — Journey Progress */}
         <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
           <JourneyProgressPanel
-            items={showActiveContent ? progressItems : DEMO_PROGRESS_ITEMS}
+            items={showChatView ? progressItems : DEMO_PROGRESS_ITEMS}
             computeStatus="stable"
             computePercent={85}
           />

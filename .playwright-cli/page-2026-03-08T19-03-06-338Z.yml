@@ -1,0 +1,29 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e8] [cursor=pointer]:
+    - img [ref=e9]
+  - alert [ref=e12]
+  - generic [ref=e100]:
+    - generic [ref=e101]:
+      - generic [ref=e103]:
+        - heading "Use another method" [level=1] [ref=e104]
+        - paragraph [ref=e105]: Facing issues? You can use any of these methods to sign in.
+      - generic [ref=e107]:
+        - button "Sign in with Google Continue with Google" [ref=e111] [cursor=pointer]:
+          - generic [ref=e112]:
+            - img "Sign in with Google" [ref=e114]
+            - generic [ref=e115]: Continue with Google
+        - link "Back" [ref=e117] [cursor=pointer]:
+          - /url: http://localhost:3000/sign-in/factor-one
+          - paragraph [ref=e118]: Back
+    - generic [ref=e119]:
+      - generic [ref=e120]:
+        - generic [ref=e121]: Don’t have any of these?
+        - link "Get help" [ref=e122] [cursor=pointer]:
+          - /url: http://localhost:3000/sign-in/factor-one
+      - generic [ref=e124]:
+        - generic [ref=e126]:
+          - paragraph [ref=e127]: Secured by
+          - link "Clerk logo" [ref=e128] [cursor=pointer]:
+            - /url: https://go.clerk.com/components
+            - img [ref=e129]
+        - paragraph [ref=e134]: Development mode

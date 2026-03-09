@@ -1,0 +1,19 @@
+[POST] http://localhost:3000/sign-in => [200] OK
+[POST] http://localhost:3000/sign-in => [200] OK
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/dev_browser?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4 => [200] 
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/environment?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&_method=PATCH&__clerk_db_jwt=dvb_3AfpE4adqa4KZiVZTuFj9scw3Oz => [200] 
+[GET] https://fleet-bengal-80.clerk.accounts.dev/v1/client?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3AfpE4adqa4KZiVZTuFj9scw3Oz => [200] 
+[GET] http://localhost:3000/sign-in/SignIn_clerk_catchall_check_1772993364682 => [200] OK
+[POST] https://clerk-telemetry.com/v1/event => [200] 
+[POST] https://clerk-telemetry.com/v1/event => [200] 
+[POST] https://clerk-telemetry.com/v1/event => [200] 
+[POST] https://clerk-telemetry.com/v1/event => [200] 
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/client/sign_ins?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3AfpE4adqa4KZiVZTuFj9scw3Oz => [422] 
+[GET] blob:https://challenges.cloudflare.com/dc07df8d-3e53-4e2f-a915-eb3a1ef498bd
+[POST] https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/1861833880:1772990600:1LLAqa1_yqXCgObzODM7UhMm1bXcPCNcG7fbV6Ae-ks/9d93d4b03bc71a72/pKjzmJFxz2kNGKlQdzA8g6j_GEAPfOCFEgLGST4Z1V4-1772993784-1.2.1.1-V8hPRU_f5DxeNAECSjww79oD8pBGn7an_doYQPUd4akNNz8HIsQVxwPfVWlkLpKe => [200] 
+[GET] https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/pat/9d93d4b03bc71a72/1772993784551/6d0b8986cdddee76fc5a372b884ccd06759fa80d50a03be0215469eab6d15145/8yk5NYXUchpM01P => [401] 
+[POST] https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/1861833880:1772990600:1LLAqa1_yqXCgObzODM7UhMm1bXcPCNcG7fbV6Ae-ks/9d93d4b03bc71a72/pKjzmJFxz2kNGKlQdzA8g6j_GEAPfOCFEgLGST4Z1V4-1772993784-1.2.1.1-V8hPRU_f5DxeNAECSjww79oD8pBGn7an_doYQPUd4akNNz8HIsQVxwPfVWlkLpKe => [200] 
+[GET] blob:https://challenges.cloudflare.com/7f86f0e4-7b12-4c80-b3fb-8d0b2c00901f
+[POST] https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/1861833880:1772990600:1LLAqa1_yqXCgObzODM7UhMm1bXcPCNcG7fbV6Ae-ks/9d93d7a6da0c4121/.CVWNTI.upz8_MMKIdVjYWSqKbvBWt64ZgCpIimKLPM-1772993905-1.2.1.1-W6RnFf7WijMdZ673pEG.Alo1WTAgMZNiONgSuagfBOn9Xtryjve8j_Pj8fK0vJxv => [200] 
+[GET] https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/pat/9d93d7a6da0c4121/1772993906033/3445e23ed52098822fa2addced143913351ff1a78eb2af5ef279dc9b01df62c3/zTYK-s3_fkUDh1n => [401] 
+[POST] https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/1861833880:1772990600:1LLAqa1_yqXCgObzODM7UhMm1bXcPCNcG7fbV6Ae-ks/9d93d7a6da0c4121/.CVWNTI.upz8_MMKIdVjYWSqKbvBWt64ZgCpIimKLPM-1772993905-1.2.1.1-W6RnFf7WijMdZ673pEG.Alo1WTAgMZNiONgSuagfBOn9Xtryjve8j_Pj8fK0vJxv => [200] 

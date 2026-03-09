@@ -1,0 +1,62 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e17]:
+        - heading "Create your account" [level=1] [ref=e18]
+        - paragraph [ref=e19]: Welcome! Please fill in the details to get started.
+      - generic [ref=e20]:
+        - button "Sign in with Google Continue with Google" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - img "Sign in with Google" [ref=e26]
+            - generic [ref=e27]: Continue with Google
+        - paragraph [ref=e30]: or
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - generic [ref=e36]:
+                - generic [ref=e37]:
+                  - generic [ref=e38]: First name
+                  - generic [ref=e39]: Optional
+                - textbox "First name" [ref=e40]: Test
+              - generic [ref=e43]:
+                - generic [ref=e44]:
+                  - generic [ref=e45]: Last name
+                  - generic [ref=e46]: Optional
+                - textbox "Last name" [ref=e47]: User
+            - generic [ref=e51]:
+              - generic [ref=e53]: Email address
+              - textbox "Email address" [ref=e54]:
+                - /placeholder: Enter your email address
+                - text: testuser.aigos@gmail.com
+            - generic [ref=e57]:
+              - generic [ref=e58]:
+                - generic [ref=e60]: Password
+                - generic [ref=e61]:
+                  - textbox "Password" [ref=e62]:
+                    - /placeholder: Enter your password
+                    - text: TestPassword123!
+                  - button "Show password" [ref=e63] [cursor=pointer]:
+                    - img [ref=e64]
+              - generic [ref=e67]: This password has been found as part of a breach and can not be used, please try another password instead.
+              - paragraph [ref=e94]:
+                - img [ref=e95]
+                - text: This password has been found as part of a breach and can not be used, please try another password instead.
+          - button "Continue" [ref=e70] [cursor=pointer]:
+            - generic [ref=e97]:
+              - text: Continue
+              - img [ref=e98]
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - generic [ref=e76]: Already have an account?
+        - link "Sign in" [ref=e77] [cursor=pointer]:
+          - /url: http://localhost:3000/sign-in
+      - generic [ref=e79]:
+        - generic [ref=e81]:
+          - paragraph [ref=e82]: Secured by
+          - link "Clerk logo" [ref=e83] [cursor=pointer]:
+            - /url: https://go.clerk.com/components
+            - img [ref=e84]
+        - paragraph [ref=e89]: Development mode
+  - button "Open Next.js Dev Tools" [ref=e8] [cursor=pointer]:
+    - img [ref=e9]
+  - alert [ref=e12]

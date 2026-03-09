@@ -1,0 +1,96 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]: AI-GOS
+          - generic [ref=e7]: v2
+        - navigation "Main navigation" [ref=e8]:
+          - link "Home" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12]
+            - generic [ref=e15]: Home
+          - link "Journey" [ref=e17] [cursor=pointer]:
+            - /url: /journey
+            - img [ref=e19]
+            - generic [ref=e22]: Journey
+          - link "Blueprints" [ref=e24] [cursor=pointer]:
+            - /url: /blueprints
+            - img [ref=e26]
+            - generic [ref=e29]: Blueprints
+          - button "Ad Launcher" [disabled] [ref=e31]:
+            - generic [ref=e32]:
+              - img [ref=e33]
+              - img [ref=e39]
+            - generic [ref=e42]: Ad Launcher
+          - button "Creatives" [disabled] [ref=e44]:
+            - generic [ref=e45]:
+              - img [ref=e46]
+              - img [ref=e53]
+            - generic [ref=e56]: Creatives
+          - link "Settings" [ref=e58] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e60]
+            - generic [ref=e63]: Settings
+        - button "User menu" [ref=e66] [cursor=pointer]:
+          - generic [ref=e67]: "?"
+          - generic [ref=e68]:
+            - generic [ref=e69]: Account
+            - generic [ref=e70]: Pro plan
+          - img [ref=e71]
+    - main [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - generic [ref=e78]: EGOS
+              - generic [ref=e80]:
+                - generic [ref=e81]: Start with your company URL
+                - generic [ref=e82]: We will scrape the site, confirm the essentials, and stream the strategy directly into chat.
+            - button "New Journey" [ref=e83]:
+              - img [ref=e84]
+              - text: New Journey
+          - generic [ref=e85]:
+            - progressbar
+        - generic [ref=e87]:
+          - generic [ref=e88]: AI-GOS
+          - heading "Build your paid media strategy ." [level=1] [ref=e89]:
+            - text: Build your paid media
+            - generic [ref=e90]: strategy
+            - text: .
+          - paragraph [ref=e92]: Drop your website URL and EGOS handles the rest — market research, competitive intel, ICP validation, and a full media plan.
+          - paragraph [ref=e93]: ~10 min to complete strategy
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - generic [ref=e96]: "1"
+              - generic [ref=e97]: Seed context
+              - generic [ref=e98]: Give EGOS your homepage to pull business context automatically.
+            - generic [ref=e99]:
+              - generic [ref=e100]: "2"
+              - generic [ref=e101]: Verify findings
+              - generic [ref=e102]: Review and approve what AI discovered before research begins.
+            - generic [ref=e103]:
+              - generic [ref=e104]: "3"
+              - generic [ref=e105]: Watch research stream
+              - generic [ref=e106]: Six research sections generate live with evidence and citations.
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - img [ref=e111]
+                - text: Company website
+              - textbox "Company website" [ref=e114]:
+                - /placeholder: https://example.com
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - img [ref=e117]
+                - text: LinkedIn company page
+              - textbox "LinkedIn company page" [ref=e121]:
+                - /placeholder: https://linkedin.com/company/your-company
+            - generic [ref=e122]:
+              - button "Analyze website first" [disabled] [ref=e123]:
+                - img [ref=e124]
+                - text: Analyze website first
+              - button "Start without website analysis" [ref=e127]
+  - button "Open Next.js Dev Tools" [ref=e133] [cursor=pointer]:
+    - img [ref=e134]
+  - alert [ref=e137]
