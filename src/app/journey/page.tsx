@@ -66,8 +66,13 @@ const PREFILL_FIELD_LABELS: Record<string, string> = {
   customerTransformation: 'Customer Transformation',
   commonObjections: 'Common Objections',
   brandPositioning: 'Brand Positioning',
+  testimonialQuote: 'Testimonial Quote',
+  caseStudiesUrl: 'Case Studies URL',
+  testimonialsUrl: 'Testimonials URL',
+  pricingUrl: 'Pricing URL',
+  demoUrl: 'Demo URL',
 };
-const TOTAL_PREFILL_FIELDS = 16;
+const TOTAL_PREFILL_FIELDS = Object.keys(PREFILL_FIELD_LABELS).length;
 
 export default function JourneyPage() {
   return (
