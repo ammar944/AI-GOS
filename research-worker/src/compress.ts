@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { CompressedSummarySchema, type CompressedSummary } from './schemas/compressed-summary.js';
-import { extractJson } from './runner.js';
+import { CompressedSummarySchema, type CompressedSummary } from './schemas/compressed-summary';
+import { extractJson } from './runner';
 
 const COMPRESSION_PROMPT = `Condense this research output into a structured summary.
 Focus on actionable findings for a paid media strategy. Max 1500 tokens total.
