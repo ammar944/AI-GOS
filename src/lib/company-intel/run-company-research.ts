@@ -35,7 +35,8 @@ const SCRAPE_PATHS = [
 
 const MAX_PAGE_CHARS = 3000;
 const MAX_TOTAL_CHARS = 15000;
-const SCRAPE_TIMEOUT = 15000;
+const SCRAPE_TIMEOUT = 8000; // 8s per page — fast fail to avoid blocking Perplexity stream
+const TOTAL_SCRAPE_TIMEOUT = 20000; // 20s max for entire scrape phase
 
 export interface CompanyResearchInput {
   websiteUrl: string;
@@ -153,7 +154,16 @@ export async function runCompanyResearch({
   websiteUrl,
   linkedinUrl,
 }: CompanyResearchInput) {
-  const scrapedContent = await scrapeWebsiteContent(websiteUrl);
+  // Race scrape against total timeout — never let scraping block the Perplexity stream
+  const scrapedContent = await Promise.race([
+    scrapeWebsiteContent(websiteUrl),
+    new Promise<string>((resolve) => {
+      setTimeout(() => {
+        console.warn('[company-research] Scrape phase timed out after 20s — continuing with search-only');
+        resolve('');
+      }, TOTAL_SCRAPE_TIMEOUT);
+    }),
+  ]);
 
   const userPrompt = `Research this company thoroughly:
 - Website: ${websiteUrl}
