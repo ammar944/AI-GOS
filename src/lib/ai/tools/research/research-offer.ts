@@ -10,7 +10,7 @@ export const researchOffer = tool({
     'Analyse the client\'s offer and pricing for paid media viability. ' +
     'Runs a sub-agent to assess: offer strength, pricing benchmarks, red flags, ' +
     'competitor pricing, and recommendations. ' +
-    'Call this after researchIndustry is queued AND productDescription + offerPricing are collected. ' +
+    'Call this after researchIndustry results have arrived AND productDescription + pricingTiers are collected from the user. ' +
     'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z

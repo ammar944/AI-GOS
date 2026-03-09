@@ -10,7 +10,7 @@ export const researchICP = tool({
     'Validate the Ideal Customer Profile for paid media targeting. ' +
     'Runs a sub-agent to assess: targeting feasibility, audience scale, pain-solution fit, ' +
     'economic viability, trigger events, segment sizing, and risk scoring. ' +
-    'Call this after researchIndustry is queued AND icpDescription is collected. ' +
+    'Call this after researchIndustry results have arrived AND the user has provided a detailed ICP description. ' +
     'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z

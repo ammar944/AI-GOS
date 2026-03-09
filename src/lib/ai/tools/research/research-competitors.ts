@@ -9,7 +9,7 @@ export const researchCompetitors = tool({
   description:
     'Research competitors for the client\'s business using live web data, ad library analysis, ' +
     'SpyFu keyword intelligence, and PageSpeed benchmarks. ' +
-    'Call this after researchIndustry is queued AND productDescription is collected. ' +
+    'Call this after researchIndustry results have arrived AND productDescription + topCompetitors are collected from the user. ' +
     'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z
