@@ -27,6 +27,7 @@ export function ArtifactTriggerCard({
 }: ArtifactTriggerCardProps) {
   const meta = SECTION_META[section] ?? { label: 'Research', moduleNumber: '00' };
   const isComplete = status === 'complete';
+  const isError = status === 'error';
 
   return (
     <motion.button
@@ -43,7 +44,9 @@ export function ArtifactTriggerCard({
     >
       <div className="flex items-center gap-4">
         {/* Status indicator */}
-        {isComplete ? (
+        {isError ? (
+          <div className="w-2.5 h-2.5 rounded-full bg-accent-red shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+        ) : isComplete ? (
           <div className="w-2.5 h-2.5 rounded-full bg-accent-green shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
         ) : (
           <div className="flex gap-1">
@@ -66,7 +69,7 @@ export function ArtifactTriggerCard({
       {/* Arrow */}
       <div className="flex items-center gap-2 text-text-tertiary group-hover:text-text-secondary transition-colors">
         <span className="text-xs">
-          {isComplete ? 'View artifact' : 'View progress'}
+          {isError ? 'View details' : isComplete ? 'View artifact' : 'View progress'}
         </span>
         <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
       </div>

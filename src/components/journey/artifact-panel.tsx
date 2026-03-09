@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,13 +33,12 @@ const SCANNING_PHRASES = [
 
 function useAnimatedPhrase(phrases: string[]) {
   const [idx, setIdx] = useState(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => {
       setIdx((i) => (i + 1) % phrases.length);
     }, 3000);
     return () => clearInterval(interval);
-  });
+  }, [phrases.length]);
   return phrases[idx];
 }
 
@@ -265,7 +264,7 @@ export function ArtifactPanel({
           {approved ? (
             <div className="w-2.5 h-2.5 rounded-full bg-accent-green shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
           ) : isComplete ? (
-            <div className="w-2.5 h-2.5 rounded-full bg-[var(--section-market)] shadow-[0_0_10px_var(--section-market)]/30" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[var(--section-market)]" style={{ boxShadow: '0 0 10px color-mix(in srgb, var(--section-market) 30%, transparent)' }} />
           ) : (
             <Loader2 className="w-4 h-4 text-[var(--section-market)] animate-spin" />
           )}
