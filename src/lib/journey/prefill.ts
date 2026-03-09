@@ -1,7 +1,20 @@
 import type { DeepPartial } from 'ai';
 import type { CompanyResearchOutput, ResearchedField } from '@/lib/company-intel/schemas';
-import type { JourneyFieldName, OnboardingState } from '@/lib/journey/session-state';
-import { setProposedField } from '@/lib/journey/session-state';
+import type { OnboardingState } from '@/lib/journey/session-state';
+
+// All 32 onboarding field names from the lead agent's FIELD_LABELS
+type JourneyFieldName =
+  | keyof OnboardingState
+  | 'companyName' | 'websiteUrl' | 'businessModel' | 'primaryIcpDescription'
+  | 'industryVertical' | 'jobTitles' | 'companySize' | 'geography'
+  | 'headquartersLocation' | 'easiestToClose' | 'buyingTriggers' | 'bestClientSources'
+  | 'productDescription' | 'coreDeliverables' | 'pricingTiers' | 'valueProp'
+  | 'currentFunnelType' | 'guarantees' | 'topCompetitors' | 'uniqueEdge'
+  | 'competitorFrustrations' | 'marketBottlenecks' | 'marketProblem'
+  | 'situationBeforeBuying' | 'desiredTransformation' | 'commonObjections'
+  | 'salesCycleLength' | 'salesProcessOverview' | 'brandPositioning'
+  | 'monthlyAdBudget' | 'campaignDuration' | 'targetCpl' | 'targetCac' | 'goals'
+  | 'testimonialQuote';
 
 /** Accept both `Partial` and the deeper `PartialObject` returned by `experimental_useObject`. */
 type LooseResearchResult = DeepPartial<CompanyResearchOutput> | Partial<CompanyResearchOutput>;
@@ -30,40 +43,49 @@ const FIELD_LABELS: Partial<Record<JourneyFieldName, string>> = {
   primaryIcpDescription: 'Ideal Customer Profile',
   jobTitles: 'Target Job Titles',
   companySize: 'Company Size',
-  geography: 'Geography',
+  geography: 'Geographic Focus',
+  headquartersLocation: 'Headquarters',
   productDescription: 'Product Description',
   coreDeliverables: 'Core Deliverables',
   valueProp: 'Value Proposition',
-  pricingTiers: 'Pricing',
+  pricingTiers: 'Pricing Tiers',
+  guarantees: 'Guarantees',
   topCompetitors: 'Top Competitors',
   uniqueEdge: 'Unique Edge',
-  marketBottlenecks: 'Market Bottlenecks',
+  marketProblem: 'Market Problem',
+  situationBeforeBuying: 'Before State',
   desiredTransformation: 'Desired Transformation',
   commonObjections: 'Common Objections',
   brandPositioning: 'Brand Positioning',
+  testimonialQuote: 'Testimonial Quote',
 };
 
+// Schema field names now match journey field names 1:1 — no mapping needed
 const RESEARCH_TO_JOURNEY_MAP: Array<{
   journeyField: JourneyFieldName;
   researchField: keyof CompanyResearchOutput;
 }> = [
   { journeyField: 'companyName', researchField: 'companyName' },
-  { journeyField: 'businessModel', researchField: 'industry' },
-  { journeyField: 'industryVertical', researchField: 'industry' },
-  { journeyField: 'primaryIcpDescription', researchField: 'targetCustomers' },
-  { journeyField: 'jobTitles', researchField: 'targetJobTitles' },
+  { journeyField: 'businessModel', researchField: 'businessModel' },
+  { journeyField: 'industryVertical', researchField: 'industryVertical' },
+  { journeyField: 'primaryIcpDescription', researchField: 'primaryIcpDescription' },
+  { journeyField: 'jobTitles', researchField: 'jobTitles' },
   { journeyField: 'companySize', researchField: 'companySize' },
-  { journeyField: 'geography', researchField: 'headquartersLocation' },
+  { journeyField: 'geography', researchField: 'geography' },
+  { journeyField: 'headquartersLocation', researchField: 'headquartersLocation' },
   { journeyField: 'productDescription', researchField: 'productDescription' },
-  { journeyField: 'coreDeliverables', researchField: 'coreFeatures' },
-  { journeyField: 'valueProp', researchField: 'valueProposition' },
-  { journeyField: 'pricingTiers', researchField: 'pricing' },
-  { journeyField: 'topCompetitors', researchField: 'competitors' },
-  { journeyField: 'uniqueEdge', researchField: 'uniqueDifferentiator' },
-  { journeyField: 'marketBottlenecks', researchField: 'marketProblem' },
-  { journeyField: 'desiredTransformation', researchField: 'customerTransformation' },
+  { journeyField: 'coreDeliverables', researchField: 'coreDeliverables' },
+  { journeyField: 'valueProp', researchField: 'valueProp' },
+  { journeyField: 'pricingTiers', researchField: 'pricingTiers' },
+  { journeyField: 'guarantees', researchField: 'guarantees' },
+  { journeyField: 'topCompetitors', researchField: 'topCompetitors' },
+  { journeyField: 'uniqueEdge', researchField: 'uniqueEdge' },
+  { journeyField: 'marketProblem', researchField: 'marketProblem' },
+  { journeyField: 'situationBeforeBuying', researchField: 'situationBeforeBuying' },
+  { journeyField: 'desiredTransformation', researchField: 'desiredTransformation' },
   { journeyField: 'commonObjections', researchField: 'commonObjections' },
   { journeyField: 'brandPositioning', researchField: 'brandPositioning' },
+  { journeyField: 'testimonialQuote', researchField: 'testimonialQuote' },
 ];
 
 function asResearchedField(value: unknown): ResearchedField | null {
@@ -97,20 +119,22 @@ export function buildJourneyPrefillProposals(
 export function buildJourneyPrefillProposalsFromState(
   state: Partial<OnboardingState> | null | undefined,
 ): JourneyPrefillProposal[] {
-  if (!state?.proposals) return [];
+  if (!state) return [];
 
+  // Extract non-null string fields from state as proposals
   const proposals: JourneyPrefillProposal[] = [];
-  for (const [fieldName, proposal] of Object.entries(state.proposals)) {
-    if (!proposal?.value || typeof proposal.value !== 'string' || !proposal.sourceUrl) continue;
+  for (const mapping of RESEARCH_TO_JOURNEY_MAP) {
+    const key = mapping.journeyField as keyof OnboardingState;
+    const value = state[key];
+    if (!value || typeof value !== 'string') continue;
 
-    const normalizedField = fieldName as JourneyFieldName;
     proposals.push({
-      fieldName: normalizedField,
-      label: FIELD_LABELS[normalizedField] ?? normalizedField,
-      value: proposal.value,
-      confidence: proposal.confidence ?? 0,
-      sourceUrl: proposal.sourceUrl ?? null,
-      reasoning: proposal.reasoning ?? 'Prefill proposal restored from saved journey state.',
+      fieldName: mapping.journeyField,
+      label: FIELD_LABELS[mapping.journeyField] ?? mapping.journeyField,
+      value,
+      confidence: 70,
+      sourceUrl: null,
+      reasoning: 'Restored from saved journey state.',
     });
   }
 
@@ -121,15 +145,14 @@ export function applyJourneyPrefillProposals(
   state: OnboardingState,
   result: LooseResearchResult | null | undefined,
 ): OnboardingState {
-  let next = state;
   const proposals = buildJourneyPrefillProposals(result);
+  // Shallow-merge proposed values into state
+  const updates: Partial<OnboardingState> = {};
   for (const proposal of proposals) {
-    next = setProposedField(next, proposal.fieldName, proposal.value, {
-      source: proposal.sourceUrl?.includes('linkedin.com') ? 'linkedin' : 'prefill',
-      confidence: proposal.confidence,
-      sourceUrl: proposal.sourceUrl,
-      reasoning: proposal.reasoning,
-    });
+    const key = proposal.fieldName as keyof OnboardingState;
+    if (key in state) {
+      (updates as Record<string, unknown>)[key] = proposal.value;
+    }
   }
-  return next;
+  return { ...state, ...updates };
 }

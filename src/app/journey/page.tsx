@@ -49,30 +49,42 @@ const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
 ];
 
 // Prefill field labels for streaming display & review
+// Aligned 1:1 with companyResearchSchema field names (which match lead agent FIELD_LABELS)
 const PREFILL_FIELD_LABELS: Record<string, string> = {
+  // Business Basics
   companyName: 'Company Name',
-  industry: 'Industry',
-  targetCustomers: 'Target Customers',
-  targetJobTitles: 'Target Job Titles',
+  businessModel: 'Business Model',
+  industryVertical: 'Industry Vertical',
+  // ICP
+  primaryIcpDescription: 'Ideal Customer Profile',
+  jobTitles: 'Target Job Titles',
   companySize: 'Company Size',
+  geography: 'Geographic Focus',
   headquartersLocation: 'Headquarters',
+  // Product & Offer
   productDescription: 'Product Description',
-  coreFeatures: 'Core Features',
-  valueProposition: 'Value Proposition',
-  pricing: 'Pricing',
-  competitors: 'Competitors',
-  uniqueDifferentiator: 'Unique Differentiator',
+  coreDeliverables: 'Core Deliverables',
+  pricingTiers: 'Pricing Tiers',
+  valueProp: 'Value Proposition',
+  guarantees: 'Guarantees',
+  // Market & Competition
+  topCompetitors: 'Top Competitors',
+  uniqueEdge: 'Unique Edge',
   marketProblem: 'Market Problem',
-  customerTransformation: 'Customer Transformation',
+  // Customer Journey
+  situationBeforeBuying: 'Before State',
+  desiredTransformation: 'Desired Transformation',
   commonObjections: 'Common Objections',
+  // Brand
   brandPositioning: 'Brand Positioning',
   testimonialQuote: 'Testimonial Quote',
+  // Asset URLs
   caseStudiesUrl: 'Case Studies URL',
   testimonialsUrl: 'Testimonials URL',
   pricingUrl: 'Pricing URL',
   demoUrl: 'Demo URL',
 };
-const TOTAL_PREFILL_FIELDS = Object.keys(PREFILL_FIELD_LABELS).length;
+const TOTAL_PREFILL_FIELDS = Object.keys(PREFILL_FIELD_LABELS).length; // 25
 
 export default function JourneyPage() {
   return (

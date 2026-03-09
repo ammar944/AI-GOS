@@ -5,23 +5,40 @@ import { useCallback, useMemo } from 'react';
 import type { DeepPartial } from 'ai';
 import { companyResearchSchema, type CompanyResearchOutput } from '@/lib/company-intel/schemas';
 
+// Aligned with companyResearchSchema field names (matches lead agent FIELD_LABELS)
 const RESEARCH_FIELD_KEYS = [
+  // Business Basics
   'companyName',
-  'industry',
-  'targetCustomers',
-  'targetJobTitles',
+  'businessModel',
+  'industryVertical',
+  // ICP
+  'primaryIcpDescription',
+  'jobTitles',
   'companySize',
+  'geography',
   'headquartersLocation',
+  // Product & Offer
   'productDescription',
-  'coreFeatures',
-  'valueProposition',
-  'pricing',
-  'competitors',
-  'uniqueDifferentiator',
+  'coreDeliverables',
+  'pricingTiers',
+  'valueProp',
+  'guarantees',
+  // Market & Competition
+  'topCompetitors',
+  'uniqueEdge',
   'marketProblem',
-  'customerTransformation',
+  // Customer Journey
+  'situationBeforeBuying',
+  'desiredTransformation',
   'commonObjections',
+  // Brand
   'brandPositioning',
+  'testimonialQuote',
+  // Asset URLs
+  'caseStudiesUrl',
+  'testimonialsUrl',
+  'pricingUrl',
+  'demoUrl',
 ] as const;
 
 export interface UseJourneyPrefillReturn {

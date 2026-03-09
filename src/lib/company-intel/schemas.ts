@@ -1,6 +1,9 @@
 // Company Research Zod Schemas
 // Used with Vercel AI SDK streamObject/generateObject for structured extraction
 // CRITICAL: Every .describe() hint reinforces factual-only extraction — no hallucination
+//
+// Field names are aligned 1:1 with the lead agent's FIELD_LABELS (32 onboarding fields).
+// 22 of 32 fields are extractable from a website; 10 are user-only (budget, goals, etc.).
 
 import { z } from 'zod';
 
@@ -28,68 +31,81 @@ const researchedFieldSchema = z.object({
 }).describe('A single extracted field with provenance. null value = not found.');
 
 // =============================================================================
-// Company Research Output Schema
+// Company Research Output Schema — aligned with lead agent's 32 onboarding fields
+// 22 extractable fields + confidenceNotes + asset URLs
 // =============================================================================
 
 export const companyResearchSchema = z.object({
-  // --- Step 1: Business Basics ---
+  // ── Business Basics (Phase 1) ─────────────────────────────────────────────
   companyName: researchedFieldSchema
     .describe('The official company name exactly as displayed on their website. Do NOT guess abbreviated or full names.'),
 
-  industry: researchedFieldSchema
-    .describe('The primary industry/vertical (e.g., "B2B SaaS", "Healthcare IT", "E-commerce"). Only state what is clear from their website.'),
+  businessModel: researchedFieldSchema
+    .describe('Their business model: "B2B SaaS", "B2C / E-commerce", "Marketplace / Platform", "Agency / Services", or other. Infer from their website positioning, pricing model, and target audience.'),
 
-  // --- Step 2: ICP (Ideal Customer Profile) ---
-  targetCustomers: researchedFieldSchema
-    .describe('Who they sell to — specific industries, company types, or personas mentioned on their site. Only include if explicitly stated.'),
+  industryVertical: researchedFieldSchema
+    .describe('The primary industry/vertical they operate in (e.g., "B2B SaaS Marketing", "Healthcare IT", "FinTech"). Only state what is clear from their website.'),
 
-  targetJobTitles: researchedFieldSchema
-    .describe('Specific job titles they target (e.g., "CMOs", "Engineering Managers"). Only if mentioned in their copy, case studies, or testimonials.'),
+  // ── ICP — Ideal Customer Profile (Phase 2) ────────────────────────────────
+  primaryIcpDescription: researchedFieldSchema
+    .describe('Detailed description of who they sell to — industries, company types, personas, pain points they address. Extract from "who we serve", case studies, and marketing copy. Use their words.'),
+
+  jobTitles: researchedFieldSchema
+    .describe('Specific job titles they target (e.g., "CMOs", "Engineering Managers", "Founders"). Only if mentioned in their copy, case studies, or testimonials.'),
 
   companySize: researchedFieldSchema
     .describe('Employee count or range from LinkedIn or their website (e.g., "51-200 employees", "500+"). Use LinkedIn data if available.'),
 
+  geography: researchedFieldSchema
+    .describe('Geographic focus — where their customers are. Extract from site copy, case studies, footer. E.g., "US-only", "North America", "Global". null if not stated.'),
+
   headquartersLocation: researchedFieldSchema
     .describe('City and country of headquarters. Only from their website footer, about page, or LinkedIn.'),
 
-  // --- Step 3: Product & Offer ---
+  // ── Product & Offer (Phase 3) ─────────────────────────────────────────────
   productDescription: researchedFieldSchema
     .describe('What their product/service does — use THEIR words from the website, not your interpretation.'),
 
-  coreFeatures: researchedFieldSchema
-    .describe('Main features or deliverables they highlight on their features/product page. List only what they explicitly mention.'),
+  coreDeliverables: researchedFieldSchema
+    .describe('Main features, deliverables, or services they highlight on their features/product/services page. List only what they explicitly mention.'),
 
-  valueProposition: researchedFieldSchema
-    .describe('Their main value prop, tagline, or hero statement — quote directly from their homepage if possible.'),
-
-  pricing: researchedFieldSchema
+  pricingTiers: researchedFieldSchema
     .describe('Pricing information ONLY if publicly visible on their pricing page. Include plan names and prices. null if no public pricing.'),
 
-  // --- Step 4: Market & Competition ---
-  competitors: researchedFieldSchema
-    .describe('Named competitors ONLY if mentioned on their website (e.g., comparison pages, "why us" sections) or clearly identifiable from the same market. Do NOT fabricate competitor names.'),
+  valueProp: researchedFieldSchema
+    .describe('Their main value prop, tagline, or hero statement — quote directly from their homepage if possible.'),
 
-  uniqueDifferentiator: researchedFieldSchema
+  guarantees: researchedFieldSchema
+    .describe('Any guarantees, warranties, SLAs, or risk-reversal promises on their site. E.g., "30-day money-back guarantee", "99.9% uptime SLA". null if none found.'),
+
+  // ── Market & Competition (Phase 4) ────────────────────────────────────────
+  topCompetitors: researchedFieldSchema
+    .describe('Named competitors ONLY if mentioned on their website (comparison pages, "why us" sections, case studies) or clearly identifiable from the same market. Do NOT fabricate competitor names.'),
+
+  uniqueEdge: researchedFieldSchema
     .describe('What they claim makes them different — use their own words from "why us", comparison, or about pages.'),
 
   marketProblem: researchedFieldSchema
     .describe('The problem they say they solve — from their homepage, about page, or marketing copy. Use their framing.'),
 
-  // --- Step 5: Customer Journey ---
-  customerTransformation: researchedFieldSchema
+  // ── Customer Journey (Phase 5) ────────────────────────────────────────────
+  situationBeforeBuying: researchedFieldSchema
+    .describe('The "before" state of their customers — pain points, struggles, failed alternatives mentioned in case studies, testimonials, or marketing copy. null if not described.'),
+
+  desiredTransformation: researchedFieldSchema
     .describe('The outcome/transformation they promise customers — from case studies, testimonials, or marketing copy.'),
 
   commonObjections: researchedFieldSchema
     .describe('Objections they address on their site (FAQ sections, "is this right for me" pages). null if no objection-handling content found.'),
 
-  // --- Step 6: Brand & Positioning ---
+  // ── Brand & Positioning (Phase 6) ─────────────────────────────────────────
   brandPositioning: researchedFieldSchema
     .describe('How they position themselves in the market — their brand identity statement or positioning from their about/homepage.'),
 
   testimonialQuote: researchedFieldSchema
     .describe('An actual customer testimonial quote found on their website. Must be a real quote with attribution if available. NEVER fabricate quotes.'),
 
-  // --- Step 7: Detected Asset URLs ---
+  // ── Detected Asset URLs ───────────────────────────────────────────────────
   caseStudiesUrl: researchedFieldSchema
     .describe('URL to their case studies page if it exists. Must be a real URL you found by navigating their site. null if no case studies page.'),
 
@@ -102,12 +118,13 @@ export const companyResearchSchema = z.object({
   demoUrl: researchedFieldSchema
     .describe('URL to their demo, free trial, or signup page if it exists. null if not found.'),
 
-  // --- Overall Assessment ---
+  // ── Overall Assessment ────────────────────────────────────────────────────
   confidenceNotes: z.string()
     .describe('2-3 sentence summary: what was easy to find vs. hard to find. Note any pages that were inaccessible or content-light. Be honest about gaps.'),
 
 }).describe(
-  'Company research extraction. CRITICAL RULES: ' +
+  'Company research extraction aligned with the 32-field onboarding schema. ' +
+  'CRITICAL RULES: ' +
   '(1) ONLY return information you can verify from the actual website, LinkedIn page, or search results. ' +
   '(2) If you cannot find a piece of information, the value MUST be null — do NOT guess or infer. ' +
   '(3) Every non-null value must have a sourceUrl pointing to where you found it. ' +
