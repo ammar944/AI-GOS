@@ -205,20 +205,25 @@ After calling researchIndustry:
 The user will review research results in an artifact panel and click "Looks Good" when satisfied. When you receive their approval message, acknowledge briefly and tell them you're preparing the next section.`;
   }
 
-  // Check if industryMarket research has completed (result in messages) but conversation hasn't moved past it
-  const hasIndustryResult = sanitizedMessages.some((m) =>
+  // Check if industryMarket research has completed and user hasn't responded yet
+  const industryResultMsgIndex = sanitizedMessages.findIndex((m) =>
+    m.role === 'assistant' &&
     m.parts.some((p) => {
       const part = p as Record<string, unknown>;
       return (
-        typeof part.type === 'string' &&
-        part.type.startsWith('tool-') &&
-        part.toolName === 'researchIndustry' &&
+        part.type === 'tool-researchIndustry' &&
         part.state === 'output-available'
       );
     })
   );
 
-  if (hasIndustryResult && !journeySnap.synthComplete) {
+  const userRespondedToIndustry =
+    industryResultMsgIndex !== -1 &&
+    sanitizedMessages
+      .slice(industryResultMsgIndex + 1)
+      .some((m) => m.role === 'user');
+
+  if (industryResultMsgIndex !== -1 && !userRespondedToIndustry && !journeySnap.synthComplete) {
     systemPrompt += `\n\n## Section Review Directive (this request only)
 
 Industry research (Section 1: Market Overview) results have arrived and are displayed in the artifact panel. The user can see the full research document.
