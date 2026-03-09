@@ -94,6 +94,17 @@
   --shadow-v2-card: var(--shadow-card);
   --shadow-v2-elevated: var(--shadow-elevated);
   --shadow-glow-blue: var(--shadow-glow-blue);
+
+  /* V2 Command Center — Brand Colors */
+  --color-brand-background: #050505;
+  --color-brand-accent: #3c83f6;
+  --color-brand-success: #10B981;
+  --color-brand-surface: rgba(255, 255, 255, 0.03);
+  --color-brand-border: rgba(255, 255, 255, 0.06);
+
+  /* V2 Command Center — Border Radius Scale */
+  --radius-module: 24px;
+  --radius-control: 12px;
 }
 
 /* ============================================
@@ -1194,4 +1205,44 @@
 @keyframes streaming-bubble-glow {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
+}
+
+/* ============================================
+   V2 Command Center — Glass Surface Utility
+   ============================================ */
+.glass-surface {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Custom scrollbar for V2 panels */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* V2 Right panel glass */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.015);
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Pulse animation for active research cards */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.animate-subtle-pulse {
+  animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

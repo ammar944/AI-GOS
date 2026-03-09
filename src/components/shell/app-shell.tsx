@@ -15,9 +15,11 @@ interface AppShellProps {
   children: ReactNode;
   rightPanel?: ReactNode;
   className?: string;
+  /** When true, removes the max-w-[720px] constraint on the center workspace */
+  wide?: boolean;
 }
 
-export function AppShell({ sidebar, children, rightPanel, className }: AppShellProps) {
+export function AppShell({ sidebar, children, rightPanel, className, wide }: AppShellProps) {
   const { sidebarCollapsed, rightPanelCollapsed } = useShell();
 
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
@@ -54,7 +56,7 @@ export function AppShell({ sidebar, children, rightPanel, className }: AppShellP
         className="flex-1 flex flex-col h-full min-w-0"
         style={{ background: 'var(--bg-base)' }}
       >
-        <div className="flex flex-col h-full w-full max-w-[720px] mx-auto">
+        <div className={cn('flex flex-col h-full w-full mx-auto', !wide && 'max-w-[720px]')}>
           {children}
         </div>
       </motion.main>

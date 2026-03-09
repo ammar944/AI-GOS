@@ -19,28 +19,17 @@ const FIELDS: FieldDef[] = [
   { key: 'websiteUrl', label: 'Website' },
   { key: 'businessModel', label: 'Model' },
   { key: 'industry', label: 'Industry' },
-  { key: 'icpDescription', label: 'ICP' },
+  { key: 'icpDescription', label: 'Primary ICP' },
   { key: 'productDescription', label: 'Product' },
   { key: 'competitors', label: 'Competitors' },
   { key: 'offerPricing', label: 'Pricing' },
   {
     key: 'marketingChannels',
-    label: 'Channels',
+    label: 'Active Channels',
     format: (v) => (Array.isArray(v) ? v.join(', ') : String(v)),
   },
-  { key: 'goals', label: 'Goals' },
+  { key: 'goals', label: 'Pain Point' },
   { key: 'monthlyBudget', label: 'Budget' },
-];
-
-const REQUIRED_KEYS: Array<keyof OnboardingState> = [
-  'businessModel',
-  'industry',
-  'icpDescription',
-  'productDescription',
-  'competitors',
-  'offerPricing',
-  'marketingChannels',
-  'goals',
 ];
 
 export function ProfileCard({ state, className }: ProfileCardProps) {
@@ -55,76 +44,39 @@ export function ProfileCard({ state, className }: ProfileCardProps) {
 
   if (answeredFields.length === 0) return null;
 
-  const requiredAnswered = REQUIRED_KEYS.filter((k) => {
-    const v = state[k];
-    return v !== undefined && v !== null && v !== '';
-  }).length;
-  const progress = requiredAnswered / REQUIRED_KEYS.length;
+  // Take first 6 fields for the 3-column grid
+  const displayFields = answeredFields.slice(0, 6);
 
   return (
     <div
-      className={cn('mb-6 rounded-xl p-4', className)}
-      style={{
-        background: 'var(--bg-glass-panel)',
-        border: '1px solid var(--border-glass)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-      }}
+      className={cn(
+        'glass-surface rounded-[24px] p-8',
+        className
+      )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <span
-          className="text-xs font-medium tracking-wide uppercase"
-          style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-instrument-sans)' }}
-        >
-          Client Dossier
-        </span>
-        <span
-          className="text-xs"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          {requiredAnswered}/{REQUIRED_KEYS.length} fields
-        </span>
-      </div>
+      {/* Section title */}
+      <h4 className="text-xs font-mono text-white/30 uppercase tracking-widest mb-6">
+        Profile Snapshot: {state.companyName || 'Project Alpha'}
+      </h4>
 
-      {/* Fields grid */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mb-3">
-        {answeredFields.map(({ key, label, format }) => {
+      {/* 3-column grid */}
+      <div className="grid grid-cols-3 gap-8">
+        {displayFields.map(({ key, label, format }) => {
           const raw = state[key];
           const value = format ? format(raw) : String(raw);
-          const truncated = value.length > 40 ? value.slice(0, 38) + '…' : value;
+          const truncated = value.length > 50 ? value.slice(0, 48) + '…' : value;
+
           return (
-            <div key={key} className="flex flex-col gap-0.5">
-              <span
-                className="text-[10px] uppercase tracking-wider"
-                style={{ color: 'var(--text-muted)' }}
-              >
+            <div key={key}>
+              <p className="text-[10px] text-white/30 uppercase mb-2">
                 {label}
-              </span>
-              <span
-                className="text-xs leading-snug"
-                style={{ color: 'var(--text-primary)' }}
-                title={value}
-              >
+              </p>
+              <p className="text-sm font-medium" title={value}>
                 {truncated}
-              </span>
+              </p>
             </div>
           );
         })}
-      </div>
-
-      {/* Progress bar */}
-      <div
-        className="h-0.5 w-full rounded-full overflow-hidden"
-        style={{ background: 'var(--border-glass)' }}
-      >
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${Math.round(progress * 100)}%`,
-            background: 'var(--accent-primary, #6366f1)',
-          }}
-        />
       </div>
     </div>
   );

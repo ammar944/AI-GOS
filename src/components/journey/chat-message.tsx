@@ -683,23 +683,9 @@ function UserMessage({ content, className }: { content: string; className?: stri
       variants={fadeInUp}
       initial="hidden"
       animate="visible"
-      className={cn('flex justify-end mb-4', className)}
+      className={cn('max-w-3xl mx-auto text-center space-y-4 mb-8', className)}
     >
-      <div
-        className="px-4 py-2.5 max-w-[85%]"
-        style={{
-          background: 'var(--bg-glass)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '14px 14px 4px 14px',
-          color: 'var(--text-primary)',
-          fontSize: '13.5px',
-          lineHeight: '1.65',
-        }}
-      >
-        {content}
-      </div>
+      <h2 className="text-3xl font-light text-white/90">{content}</h2>
     </motion.div>
   );
 }
@@ -728,51 +714,33 @@ function AssistantMessage({
       variants={fadeInUp}
       initial="hidden"
       animate="visible"
-      className={cn('flex gap-3 mb-4 items-start', className)}
+      className={cn('mb-6', className)}
     >
-      {/* Gradient avatar */}
+      {/* V2 blockquote style — left blue border, no avatar */}
       <div
-        className="flex-shrink-0 rounded-[7px] flex items-center justify-center"
+        className="pl-4"
         style={{
-          width: '24px',
-          height: '24px',
-          background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))',
-          marginTop: '1px',
+          borderLeft: '2px solid rgba(60, 131, 246, 0.40)',
         }}
-        aria-hidden="true"
       >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--text-white)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <div
+          className="flex-1 min-w-0 font-light"
+          style={{
+            fontSize: '15px',
+            lineHeight: '1.75',
+            color: 'rgba(255, 255, 255, 0.80)',
+          }}
         >
-          <path d="M12 3l1.88 5.76a2 2 0 001.27 1.27L21 12l-5.85 1.97a2 2 0 00-1.27 1.27L12 21l-1.88-5.76a2 2 0 00-1.27-1.27L3 12l5.85-1.97a2 2 0 001.27-1.27L12 3z" />
-        </svg>
-      </div>
-
-      {/* Message content */}
-      <div
-        className="flex-1 min-w-0"
-        style={{
-          fontSize: '13.5px',
-          lineHeight: '1.65',
-          color: 'var(--text-secondary)',
-        }}
-      >
-        {parts
-          ? renderMessageParts(parts, messageId, isStreaming, onToolApproval, onToolOutput, onViewResearchSection)
-          : (
-            <>
-              {renderMarkdown(content || '')}
-              {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
-            </>
-          )
-        }
+          {parts
+            ? renderMessageParts(parts, messageId, isStreaming, onToolApproval, onToolOutput, onViewResearchSection)
+            : (
+              <>
+                {renderMarkdown(content || '')}
+                {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+              </>
+            )
+          }
+        </div>
       </div>
     </motion.div>
   );

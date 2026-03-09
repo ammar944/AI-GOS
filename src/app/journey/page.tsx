@@ -34,6 +34,11 @@ import type { OnboardingState } from '@/lib/journey/session-state';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { WelcomeState } from '@/components/journey/welcome-state';
 import { ProfileCard } from '@/components/journey/profile-card';
+import { JourneyHeader } from '@/components/journey/journey-header';
+import { JourneyStepper, type StepperPhase } from '@/components/journey/journey-stepper';
+import { TerminalStream, type TerminalLogEntry } from '@/components/journey/terminal-stream';
+import { JourneyProgressPanel, type ProgressItem } from '@/components/journey/journey-progress-panel';
+import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 
 export default function JourneyPage() {
   return (
@@ -55,6 +60,69 @@ function sectionToToolName(section: string): string {
   return map[section] ?? section;
 }
 
+// Derive stepper phase from research state
+function deriveStepperPhase(researchResults: Record<string, ResearchSectionResult | null>): {
+  currentPhase: StepperPhase;
+  completedPhases: StepperPhase[];
+} {
+  const hasMarket = !!researchResults.industryMarket;
+  const hasCompetitors = !!researchResults.competitors;
+  const hasICP = !!researchResults.icpValidation;
+  const hasOffer = !!researchResults.offerAnalysis;
+  const hasSynthesis = !!researchResults.crossAnalysis;
+
+  const completedPhases: StepperPhase[] = [];
+  let currentPhase: StepperPhase = 'discovery';
+
+  if (hasMarket) {
+    completedPhases.push('discovery');
+    currentPhase = 'validation';
+  }
+  if (hasCompetitors && hasICP) {
+    completedPhases.push('validation');
+    currentPhase = 'strategy';
+  }
+  if (hasOffer && hasSynthesis) {
+    completedPhases.push('strategy');
+    currentPhase = 'launch';
+  }
+
+  return { currentPhase, completedPhases };
+}
+
+// Derive progress panel items from research state
+function deriveProgressItems(
+  researchResults: Record<string, ResearchSectionResult | null>,
+  activeResearch: Set<string>
+): ProgressItem[] {
+  const sections = [
+    { id: 'industryMarket', label: 'Market Research' },
+    { id: 'icpValidation', label: 'ICP Validation' },
+    { id: 'competitors', label: 'Competitor Intel' },
+    { id: 'offerAnalysis', label: 'Offer Analysis' },
+    { id: 'crossAnalysis', label: 'Strategic Synthesis' },
+    { id: 'keywordIntel', label: 'Keyword Intel' },
+  ];
+
+  return sections.map((s) => {
+    const result = researchResults[s.id];
+    const isActive = activeResearch.has(s.id);
+
+    let status: ProgressItem['status'] = 'queued';
+    let detail = 'Queued';
+
+    if (result) {
+      status = 'complete';
+      detail = 'Completed';
+    } else if (isActive) {
+      status = 'active';
+      detail = 'Processing data...';
+    }
+
+    return { id: s.id, label: s.label, status, detail };
+  });
+}
+
 function JourneyPageContent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
@@ -67,21 +135,22 @@ function JourneyPageContent() {
 
   const [onboardingState, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
+  // Research state tracking
+  const [researchResults, setResearchResults] = useState<Record<string, ResearchSectionResult | null>>({});
+  const [activeResearch, setActiveResearch] = useState<Set<string>>(new Set());
+  const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
+
   useEffect(() => {
     const saved = getJourneySession();
     if (saved) {
       setOnboardingState(saved);
       if (hasAnsweredFields(saved)) {
-        // Partial or complete session — show resume prompt
         setSavedSession(saved);
         setShowResumePrompt(true);
       }
     }
   }, []);
 
-  // Transport — body includes resumeState when resuming a previous session.
-  // transportBody changes at most once (when user clicks "Continue"), before
-  // any messages are sent, so recreating the transport is safe.
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -91,7 +160,6 @@ function JourneyPageContent() {
     [transportBody]
   );
 
-  // Chat hook
   const { messages, sendMessage, addToolOutput, addToolApprovalResponse, status, error, setMessages } = useChat({
     transport,
     sendAutomaticallyWhen: ({ messages }) =>
@@ -99,7 +167,6 @@ function JourneyPageContent() {
       lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
     onError: (err) => {
       console.error('Journey chat error:', err);
-      // MissingToolResultsError — strip the last assistant message with orphaned tool calls
       if (err?.message?.includes('Tool result is missing')) {
         setMessages((prev) => {
           const cleaned = [...prev];
@@ -119,9 +186,26 @@ function JourneyPageContent() {
   const { user } = useUser();
   const [researchTimedOut, setResearchTimedOut] = useState(false);
 
+  // Add terminal log helper
+  const addLog = useCallback((level: TerminalLogEntry['level'], message: string) => {
+    setTerminalLogs((prev) => [...prev.slice(-50), { level, message, timestamp: Date.now() }]);
+  }, []);
+
   useResearchRealtime({
     userId: user?.id,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
+      // Track research completion
+      setResearchResults((prev) => ({ ...prev, [section]: result }));
+      setActiveResearch((prev) => {
+        const next = new Set(prev);
+        next.delete(section);
+        return next;
+      });
+
+      // Add terminal log
+      const sectionLabel = SECTION_META[section] ?? section;
+      addLog('ok', `${sectionLabel} research complete`);
+
       const toolName = sectionToToolName(section);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const syntheticMessage: any = {
@@ -143,14 +227,14 @@ function JourneyPageContent() {
       setMessages((prev) => [...prev, syntheticMessage]);
     },
     onAllSectionsComplete: () => {
-      // All 4 research cards are now visible in chat.
-      // Send as a natural user turn so it doesn't render as a broken [SYSTEM] artifact.
+      addLog('ok', 'All research sections complete');
       sendMessage({
         text: "Okay — looks like the research is all in. What's your read on everything you found?",
       });
     },
     onTimeout: (pendingSections) => {
       console.warn('[journey] Research timed out, pending:', pendingSections);
+      addLog('warn', `Research timed out for: ${pendingSections.join(', ')}`);
       setResearchTimedOut(true);
     },
   });
@@ -159,7 +243,20 @@ function JourneyPageContent() {
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
 
-  // Find pending tool interactions — separate askUser (allows typing) from others (blocks input)
+  // Stepper state
+  const { currentPhase, completedPhases } = deriveStepperPhase(researchResults);
+
+  // Progress panel items
+  const progressItems = deriveProgressItems(researchResults, activeResearch);
+
+  // Completion percentage
+  const completionPercentage = useMemo(() => {
+    const totalSections = 6;
+    const completedCount = Object.values(researchResults).filter(Boolean).length;
+    return Math.round((completedCount / totalSections) * 100);
+  }, [researchResults]);
+
+  // Find pending tool interactions
   const pendingAskUser = useMemo(() => {
     for (const msg of messages) {
       if (msg.role !== 'assistant') continue;
@@ -200,14 +297,9 @@ function JourneyPageContent() {
   );
 
   const isLoading = isStreaming || isSubmitted || hasPendingApproval;
-
   const hasMessages = messages.length > 0;
-  const journeyPhase = hasMessages ? 1 : 0;
 
-  // Prevent document-level scroll — this is a full-screen app shell.
-  // Must lock BOTH html and body: when body has overflow:hidden, browsers
-  // can transfer scroll to the html element, which scrollIntoView exploits —
-  // scrolling the entire app shell 656px above the viewport (blank canvas bug).
+  // Prevent document-level scroll
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
@@ -217,10 +309,7 @@ function JourneyPageContent() {
     };
   }, []);
 
-  // Smart auto-scroll — only follow to bottom if user is already near it,
-  // OR a genuinely new message was added (not just a part state mutation).
-  // This prevents the chip-click trap where streaming token updates yank
-  // the user back to bottom every time they try to scroll up.
+  // Smart auto-scroll
   useEffect(() => {
     const container = scrollAreaRef.current;
     if (!container) return;
@@ -236,10 +325,9 @@ function JourneyPageContent() {
     }
   }, [messages]);
 
-  // Handle askUser chip tap → persist to localStorage + send tool output
+  // Handle askUser chip tap
   const handleAskUserResponse = useCallback(
     (toolCallId: string, result: AskUserResult) => {
-      // 1. Extract the value for localStorage persistence
       const value: unknown = 'selectedLabels' in result
         ? result.selectedLabels
         : 'selectedLabel' in result
@@ -248,7 +336,6 @@ function JourneyPageContent() {
             ? result.otherText
             : null;
 
-      // 2. Update localStorage immediately (belt — fast hydration)
       if (value !== null) {
         const current = getJourneySession() ?? createEmptyState();
         const updated: OnboardingState = {
@@ -262,7 +349,6 @@ function JourneyPageContent() {
         setJourneySession(updated);
         setOnboardingState(updated);
 
-        // Mark phase as complete on confirmation
         if (result.fieldName === 'confirmation') {
           const label = 'selectedLabel' in result ? String(result.selectedLabel).toLowerCase() : '';
           const confirmed = label.includes('looks good') || label.includes("let's go");
@@ -273,7 +359,6 @@ function JourneyPageContent() {
         }
       }
 
-      // 3. Send tool output to SDK (triggers next round trip via sendAutomaticallyWhen)
       addToolOutput({
         tool: 'askUser',
         toolCallId,
@@ -283,7 +368,7 @@ function JourneyPageContent() {
     [addToolOutput]
   );
 
-  // Submit handler — if askUser chips are showing, resolve them with the typed text
+  // Submit handler
   const handleSubmit = useCallback(
     (content: string) => {
       if (!content.trim() || isLoading) return;
@@ -296,19 +381,22 @@ function JourneyPageContent() {
         return;
       }
 
+      // Add terminal log for user messages
+      addLog('run', `Processing: "${content.trim().slice(0, 60)}${content.trim().length > 60 ? '...' : ''}"`);
       sendMessage({ text: content.trim() });
     },
-    [isLoading, sendMessage, pendingAskUser, handleAskUserResponse]
+    [isLoading, sendMessage, pendingAskUser, handleAskUserResponse, addLog]
   );
 
-  // ── Resume handlers ──────────────────────────────────────────────────────
+  // Resume handlers
   const handleResumeContinue = useCallback(() => {
     if (savedSession) {
       setTransportBody({ resumeState: getAnsweredFields(savedSession) });
       setIsResuming(true);
+      addLog('ok', 'Resuming previous session');
     }
     setShowResumePrompt(false);
-  }, [savedSession]);
+  }, [savedSession, addLog]);
 
   const handleResumeStartFresh = useCallback(() => {
     clearJourneySession();
@@ -317,117 +405,212 @@ function JourneyPageContent() {
     setIsResuming(false);
     setOnboardingState(null);
     setShowResumePrompt(false);
-  }, []);
+    addLog('inf', 'Starting fresh journey');
+  }, [addLog]);
 
-  // Welcome message — different when resuming a previous session
   const welcomeMessage = isResuming
     ? LEAD_AGENT_RESUME_WELCOME
     : LEAD_AGENT_WELCOME_MESSAGE;
 
-  // Last assistant message gets streaming cursor
   const lastMessage = messages[messages.length - 1];
   const isLastMessageStreaming = isStreaming && lastMessage?.role === 'assistant';
 
-  // Chat content
+  // Extract research card data from messages for the 2-column grid
+  const researchCards = useMemo(() => {
+    const cards: Array<{
+      section: string;
+      status: 'loading' | 'complete' | 'error';
+      data?: Record<string, unknown>;
+    }> = [];
+
+    // From active research
+    for (const section of activeResearch) {
+      cards.push({ section, status: 'loading' });
+    }
+
+    // From completed research
+    for (const [section, result] of Object.entries(researchResults)) {
+      if (result) {
+        cards.push({
+          section,
+          status: 'complete',
+          data: result as unknown as Record<string, unknown>,
+        });
+      }
+    }
+
+    return cards;
+  }, [activeResearch, researchResults]);
+
+  // Right panel
+  const rightPanel = (
+    <JourneyProgressPanel
+      items={progressItems}
+      computeStatus="stable"
+      computePercent={85}
+    />
+  );
+
+  // Main chat/research content
   const chatContent = (
     <div className="flex flex-col h-full">
-      {/* Messages area — scrollable */}
-      <div ref={scrollAreaRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
-        {/* Resume prompt OR welcome message */}
-        {showResumePrompt && savedSession ? (
-          <ResumePrompt
-            session={savedSession}
-            onContinue={handleResumeContinue}
-            onStartFresh={handleResumeStartFresh}
-          />
-        ) : (
-          <ChatMessage
-            role="assistant"
-            content={welcomeMessage}
-            isStreaming={false}
-          />
-        )}
+      {/* V2 Header */}
+      <JourneyHeader completionPercentage={completionPercentage} />
 
-        {/* Inline profile card — renders once at least one field is answered */}
-        <ProfileCard state={onboardingState} />
-
-        {/* Conversation messages */}
-        {messages.map((message, index) => {
-          const isThisMessageStreaming =
-            message.role === 'assistant' &&
-            index === messages.length - 1 &&
-            isLastMessageStreaming;
-
-          return (
-            <ChatMessage
-              key={message.id}
-              messageId={message.id}
-              role={message.role as 'user' | 'assistant'}
-              parts={message.parts}
-              isStreaming={isThisMessageStreaming}
-              onToolApproval={(approvalId, approved) =>
-                addToolApprovalResponse({ id: approvalId, approved })
-              }
-              onToolOutput={handleAskUserResponse}
-            />
-          );
-        })}
-
-        {/* Typing indicator — only while waiting for first token */}
-        {isSubmitted && <TypingIndicator className="ml-9" />}
-
-        {/* Error display */}
-        {error && (
-          <div
-            className="mx-0 my-2 px-3 py-2 rounded-lg text-xs"
-            style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: '#ef4444',
-            }}
-          >
-            {error.message || 'Something went wrong. Please try again.'}
-          </div>
-        )}
-
-        {/* Research timeout warning */}
-        {researchTimedOut && (
-          <div className="mx-auto max-w-[720px] px-4 py-2">
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-              Research is taking longer than expected. The worker may be temporarily unavailable.
-              You can continue the conversation — results will appear if they complete.
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* Input — pinned to bottom */}
-      <div className="flex-shrink-0 px-4 pb-4 pt-0">
-        <JourneyChatInput
-          onSubmit={handleSubmit}
-          isLoading={(isLoading && !pendingAskUser) || showResumePrompt}
-          placeholder={
-            showResumePrompt
-              ? 'Choose an option above to continue...'
-              : pendingAskUser
-                ? 'Pick an option or type your own answer...'
-                : isResuming
-                  ? "Let's pick up where we left off..."
-                  : 'Tell me about your business...'
-          }
+      {/* Main content area with stepper */}
+      <div className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-transparent to-white/[0.01]">
+        {/* Stepper */}
+        <JourneyStepper
+          currentPhase={currentPhase}
+          completedPhases={completedPhases}
         />
+
+        {/* Scrollable content */}
+        <section
+          ref={scrollAreaRef}
+          className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12"
+        >
+          {/* Resume prompt OR welcome message */}
+          {showResumePrompt && savedSession ? (
+            <div className="max-w-3xl mx-auto">
+              <ResumePrompt
+                session={savedSession}
+                onContinue={handleResumeContinue}
+                onStartFresh={handleResumeStartFresh}
+              />
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto">
+              <ChatMessage
+                role="assistant"
+                content={welcomeMessage}
+                isStreaming={false}
+              />
+            </div>
+          )}
+
+          {/* Research module cards — 2-column grid */}
+          {researchCards.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+              {researchCards.map((card) => (
+                <ResearchInlineCard
+                  key={card.section}
+                  section={card.section}
+                  status={card.status}
+                  data={card.data}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Terminal log stream */}
+          {terminalLogs.length > 0 && (
+            <div className="max-w-5xl mx-auto">
+              <TerminalStream logs={terminalLogs} />
+            </div>
+          )}
+
+          {/* Conversation messages */}
+          {messages.map((message, index) => {
+            const isThisMessageStreaming =
+              message.role === 'assistant' &&
+              index === messages.length - 1 &&
+              isLastMessageStreaming;
+
+            return (
+              <div key={message.id} className="max-w-3xl mx-auto">
+                <ChatMessage
+                  messageId={message.id}
+                  role={message.role as 'user' | 'assistant'}
+                  parts={message.parts}
+                  isStreaming={isThisMessageStreaming}
+                  onToolApproval={(approvalId, approved) =>
+                    addToolApprovalResponse({ id: approvalId, approved })
+                  }
+                  onToolOutput={handleAskUserResponse}
+                />
+              </div>
+            );
+          })}
+
+          {/* Typing indicator */}
+          {isSubmitted && (
+            <div className="max-w-3xl mx-auto">
+              <TypingIndicator className="ml-9" />
+            </div>
+          )}
+
+          {/* Profile snapshot card */}
+          {onboardingState && (
+            <div className="max-w-5xl mx-auto">
+              <ProfileCard state={onboardingState} />
+            </div>
+          )}
+
+          {/* Error display */}
+          {error && (
+            <div className="max-w-3xl mx-auto">
+              <div
+                className="px-3 py-2 rounded-lg text-xs"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  color: '#ef4444',
+                }}
+              >
+                {error.message || 'Something went wrong. Please try again.'}
+              </div>
+            </div>
+          )}
+
+          {/* Research timeout warning */}
+          {researchTimedOut && (
+            <div className="max-w-3xl mx-auto">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Floating Input Bar */}
+        <div className="absolute bottom-8 left-0 right-0 flex justify-center px-12 pointer-events-none">
+          <JourneyChatInput
+            onSubmit={handleSubmit}
+            isLoading={(isLoading && !pendingAskUser) || showResumePrompt}
+            placeholder={
+              showResumePrompt
+                ? 'Choose an option above to continue...'
+                : pendingAskUser
+                  ? 'Pick an option or type your own answer...'
+                  : isResuming
+                    ? "Let's pick up where we left off..."
+                    : 'Ask AI-GOS to refine the strategy...'
+            }
+          />
+        </div>
       </div>
     </div>
   );
 
   return (
-    <AppShell sidebar={<AppSidebar />}>
-      {journeyPhase === 0 && !showResumePrompt ? (
-        <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
-      ) : (
-        chatContent
+    <AppShell sidebar={<AppSidebar />} rightPanel={rightPanel} wide>
+      {hasMessages || showResumePrompt ? chatContent : (
+        <div className="flex flex-col h-full">
+          <JourneyHeader completionPercentage={0} />
+          <WelcomeState onSubmit={handleSubmit} isLoading={isLoading} />
+        </div>
       )}
     </AppShell>
   );
 }
+
+// Section label mapping for terminal logs
+const SECTION_META: Record<string, string> = {
+  industryMarket: 'Market Overview',
+  competitors: 'Competitor Intel',
+  icpValidation: 'ICP Validation',
+  offerAnalysis: 'Offer Analysis',
+  crossAnalysis: 'Strategic Synthesis',
+  keywordIntel: 'Keyword Intel',
+};

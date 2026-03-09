@@ -25,7 +25,7 @@ export function JourneyChatInput({
   onSubmit,
   isLoading,
   disabled = false,
-  placeholder = 'Tell me about your business...',
+  placeholder = 'Ask AI-GOS to refine the strategy...',
   className,
 }: JourneyChatInputProps) {
   const [input, setInput] = useState('');
@@ -43,12 +43,11 @@ export function JourneyChatInput({
     [isSlashPaletteOpen, slashFilter]
   );
 
-  // Derived safe index — clamped to filtered list bounds without useEffect
   const safeSelectedIndex = filteredCommands.length === 0
     ? 0
     : Math.min(selectedCommandIndex, filteredCommands.length - 1);
 
-  // Auto-resize textarea: min 1 row, max 120px
+  // Auto-resize textarea
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -56,9 +55,7 @@ export function JourneyChatInput({
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, []);
 
-  useEffect(() => {
-    autoResize();
-  }, [input, autoResize]);
+  useEffect(() => { autoResize(); }, [input, autoResize]);
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -67,29 +64,22 @@ export function JourneyChatInput({
     setInput('');
     setIsSlashPaletteOpen(false);
     setSelectedCommandIndex(0);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   }, [input, isLoading, disabled, onSubmit]);
 
   const handleCommandSelect = useCallback((command: SlashCommand) => {
     setInput(`/${command.name} `);
     setIsSlashPaletteOpen(false);
     setSelectedCommandIndex(0);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-    });
+    requestAnimationFrame(() => { textareaRef.current?.focus(); });
   }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Slash command palette navigation
       if (isSlashPaletteOpen && filteredCommands.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setSelectedCommandIndex((prev) =>
-            prev < filteredCommands.length - 1 ? prev + 1 : prev
-          );
+          setSelectedCommandIndex((prev) => prev < filteredCommands.length - 1 ? prev + 1 : prev);
           return;
         }
         if (e.key === 'ArrowUp') {
@@ -109,7 +99,6 @@ export function JourneyChatInput({
           return;
         }
       }
-
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
@@ -121,96 +110,61 @@ export function JourneyChatInput({
   const canSend = input.trim().length > 0 && !isLoading && !disabled;
 
   return (
-    <div className={cn('relative', className)}>
-      {/* Gradient fade above input */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          top: '-48px',
-          left: 0,
-          right: 0,
-          height: '48px',
-          background: 'linear-gradient(to bottom, transparent, var(--bg-base))',
-          pointerEvents: 'none',
-        }}
-      />
+    <div className={cn('w-full max-w-2xl pointer-events-auto', className)}>
+        <div className="relative group">
+          {/* Gradient glow border */}
+          <div
+            className={cn(
+              'absolute -inset-0.5 bg-gradient-to-r from-brand-accent to-brand-success rounded-[12px] blur transition duration-500',
+              isFocused ? 'opacity-40' : 'opacity-20',
+            )}
+          />
+          {/* Input container */}
+          <div className="relative flex items-center bg-[#0a0a0a] border border-white/10 rounded-[12px] px-4 py-3 shadow-2xl">
+            {/* Slash command palette */}
+            <SlashCommandPalette
+              commands={filteredCommands}
+              isOpen={isSlashPaletteOpen}
+              selectedIndex={safeSelectedIndex}
+              onSelect={handleCommandSelect}
+            />
 
-      {/* Glassmorphism container */}
-      <div
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: '8px',
-          padding: '12px',
-          borderRadius: '16px',
-          background: 'var(--bg-glass)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: `1px solid ${isFocused ? 'var(--border-focus)' : 'var(--border-subtle)'}`,
-          boxShadow: isFocused
-            ? '0 0 0 3px var(--accent-blue-glow), 0 0 20px var(--accent-blue-glow)'
-            : 'none',
-          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-        }}
-      >
-        {/* Slash command palette — above input */}
-        <SlashCommandPalette
-          commands={filteredCommands}
-          isOpen={isSlashPaletteOpen}
-          selectedIndex={safeSelectedIndex}
-          onSelect={handleCommandSelect}
-        />
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                const value = e.target.value;
+                setInput(value);
+                setIsSlashPaletteOpen(value.startsWith('/'));
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder={placeholder}
+              disabled={disabled || (isLoading && !canSend)}
+              rows={1}
+              className="flex-1 bg-transparent outline-none resize-none scrollbar-hide text-sm text-white placeholder-white/20 leading-relaxed"
+              style={{ minHeight: '20px', maxHeight: '120px' }}
+            />
 
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => {
-            const value = e.target.value;
-            setInput(value);
-            setIsSlashPaletteOpen(value.startsWith('/'));
-          }}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder={placeholder}
-          disabled={disabled || (isLoading && !canSend)}
-          rows={1}
-          className="flex-1 bg-transparent outline-none resize-none scrollbar-hide text-sm leading-relaxed focus-ring"
-          style={{
-            color: 'var(--text-primary)',
-            minHeight: '20px',
-            maxHeight: '120px',
-          }}
-        />
-
-        {/* Send button: 32px circle, accent-blue + glow when active, muted when empty */}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSend}
-          aria-label="Send message"
-          style={{
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            background: canSend ? 'var(--accent-blue)' : 'transparent',
-            color: canSend ? 'var(--text-white)' : 'var(--text-tertiary)',
-            boxShadow: canSend ? '0 0 12px var(--accent-blue-glow)' : 'none',
-            border: 'none',
-            cursor: canSend ? 'pointer' : 'default',
-            transform: canSend ? undefined : 'scale(0.9)',
-            transition: 'background var(--transition-normal), box-shadow var(--transition-normal), color var(--transition-normal), transform var(--transition-normal)',
-          }}
-        >
-          <Send size={15} />
-        </button>
+            {/* Send button */}
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canSend}
+              aria-label="Send message"
+              className={cn(
+                'ml-2 p-2 rounded-lg transition-all',
+                canSend
+                  ? 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+                  : 'text-white/20 cursor-default',
+              )}
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
   );
 }
+
