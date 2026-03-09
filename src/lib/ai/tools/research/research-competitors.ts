@@ -1,15 +1,16 @@
 // Research Tool: Competitor Analysis
-// Dispatches to Railway worker, polls for result
+// Fire-and-forget: dispatches to Railway worker and returns immediately.
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchAndWait } from './dispatch-and-wait';
+import { dispatchResearch } from './dispatch';
 
 export const researchCompetitors = tool({
   description:
     'Research competitors for the client\'s business using live web data, ad library analysis, ' +
     'SpyFu keyword intelligence, and PageSpeed benchmarks. ' +
-    'Call this after researchIndustry completes AND productDescription is collected.',
+    'Call this after researchIndustry is queued AND productDescription is collected. ' +
+    'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z
       .string()
@@ -18,6 +19,6 @@ export const researchCompetitors = tool({
       ),
   }),
   execute: async ({ context }) => {
-    return dispatchAndWait('researchCompetitors', 'competitors', context);
+    return dispatchResearch('researchCompetitors', 'competitors', context);
   },
 });

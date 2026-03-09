@@ -62,7 +62,7 @@ export function useResearchRealtime({
       if (pending.length > 0) {
         onTimeoutRef.current?.(pending);
       }
-    }, timeoutMs ?? 3 * 60 * 1000);
+    }, timeoutMs ?? 5 * 60 * 1000);
 
     function handleNewSection(
       section: string,

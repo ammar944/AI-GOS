@@ -1,16 +1,17 @@
 // Research Tool: ICP Validation
-// Dispatches to Railway worker, polls for result
+// Fire-and-forget: dispatches to Railway worker and returns immediately.
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchAndWait } from './dispatch-and-wait';
+import { dispatchResearch } from './dispatch';
 
 export const researchICP = tool({
   description:
     'Validate the Ideal Customer Profile for paid media targeting. ' +
     'Runs a sub-agent to assess: targeting feasibility, audience scale, pain-solution fit, ' +
     'economic viability, trigger events, segment sizing, and risk scoring. ' +
-    'Call this after researchIndustry completes AND icpDescription is collected.',
+    'Call this after researchIndustry is queued AND icpDescription is collected. ' +
+    'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z
       .string()
@@ -19,6 +20,6 @@ export const researchICP = tool({
       ),
   }),
   execute: async ({ context }) => {
-    return dispatchAndWait('researchICP', 'icpValidation', context);
+    return dispatchResearch('researchICP', 'icpValidation', context);
   },
 });

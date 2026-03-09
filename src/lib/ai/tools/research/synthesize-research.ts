@@ -1,18 +1,18 @@
 // Research Tool: Cross-Analysis Synthesis
-// Dispatches to Railway worker, polls for result
-// Model now controls sequencing — no waitForResearchReadiness needed
+// Fire-and-forget: dispatches to Railway worker and returns immediately.
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchAndWait } from './dispatch-and-wait';
+import { dispatchResearch } from './dispatch';
 
 export const synthesizeResearch = tool({
   description:
     'Synthesise all completed research into a cross-analysis strategic summary. ' +
     'Runs a sub-agent to produce: key insights, recommended platforms, strategic narrative, ' +
     'and media buying priorities. ' +
-    'ONLY call this after all 4 prior research tools have completed successfully. ' +
-    'Pass summaries of all 4 prior research outputs in the context parameter.',
+    'ONLY call this after all 4 prior research tools have been queued. ' +
+    'Pass summaries of all 4 prior research outputs in the context parameter. ' +
+    'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z
       .string()
@@ -21,6 +21,6 @@ export const synthesizeResearch = tool({
       ),
   }),
   execute: async ({ context }) => {
-    return dispatchAndWait('synthesizeResearch', 'crossAnalysis', context);
+    return dispatchResearch('synthesizeResearch', 'crossAnalysis', context);
   },
 });

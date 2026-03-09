@@ -1,22 +1,23 @@
 // Research Tool: Keyword Intelligence
-// Dispatches to Railway worker, polls for result
+// Fire-and-forget: dispatches to Railway worker and returns immediately.
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchAndWait } from './dispatch-and-wait';
+import { dispatchResearch } from './dispatch';
 
 export const researchKeywords = tool({
   description:
     'Research keyword intelligence for paid search campaigns. ' +
     'Runs a sub-agent with SpyFu to identify high-value search terms, ' +
     'competitor keyword gaps, and quick-win opportunities. ' +
-    'Call this after synthesizeResearch completes.',
+    'Call this after synthesizeResearch is queued. ' +
+    'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
     context: z.string().describe(
       'Business context including product description, competitors identified, and platform recommendations from synthesis',
     ),
   }),
   execute: async ({ context }) => {
-    return dispatchAndWait('researchKeywords', 'keywordIntel', context);
+    return dispatchResearch('researchKeywords', 'keywordIntel', context);
   },
 });
