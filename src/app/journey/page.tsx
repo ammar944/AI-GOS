@@ -365,12 +365,16 @@ function JourneyPageContent() {
     }
   }, [messages]);
 
-  // Auto-transition from prefilling → review when stream completes
+  // Auto-transition from prefilling → review/chat when stream completes
   useEffect(() => {
-    if (journeyPhase === 'prefilling' && prefillStarted && !isPrefilling && fieldsFound > 0) {
+    if (journeyPhase !== 'prefilling' || !prefillStarted || isPrefilling) return;
+    // Stream finished — transition based on result
+    if (fieldsFound > 0) {
       const timer = setTimeout(() => setJourneyPhase('review'), 800);
       return () => clearTimeout(timer);
     }
+    // 0 fields found (error or empty result) — don't auto-transition,
+    // let the user see the state and click "skip" in PrefillStreamView
   }, [journeyPhase, prefillStarted, isPrefilling, fieldsFound]);
 
   // Handle askUser chip tap
@@ -784,6 +788,21 @@ function PrefillStreamView({
               className="mt-3 text-xs text-white/50 hover:text-white/80 underline transition-colors"
             >
               Skip and start without analysis
+            </button>
+          </div>
+        )}
+
+        {/* Stream finished with 0 fields and no captured error — let user continue */}
+        {!isPrefilling && fieldsFound === 0 && !error && (
+          <div className="w-full glass-surface rounded-xl p-4 text-center" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+            <p className="text-sm text-white/60">
+              Could not extract fields from this website. You can still continue — the agent will ask for details directly.
+            </p>
+            <button
+              onClick={onSkip}
+              className="mt-3 text-xs text-white/50 hover:text-white/80 underline transition-colors"
+            >
+              Continue without prefill
             </button>
           </div>
         )}

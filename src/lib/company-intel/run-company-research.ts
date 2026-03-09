@@ -64,27 +64,6 @@ export function isLinkedInCompanyUrl(str: string): boolean {
   }
 }
 
-async function callWithRetry<T>(
-  fn: () => T,
-  label: string,
-  maxRetries = 2,
-): Promise<T> {
-  let lastError: Error | null = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      if (attempt < maxRetries) {
-        const delay = 1000 * Math.pow(2, attempt);
-        console.warn(`[company-research] ${label} attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-  }
-  throw lastError ?? new Error(`${label} failed after retries`);
-}
-
 async function checkDomainReachable(baseUrl: string): Promise<boolean> {
   try {
     const controller = new AbortController();
@@ -155,6 +134,8 @@ export async function runCompanyResearch({
   linkedinUrl,
 }: CompanyResearchInput) {
   // Race scrape against total timeout — never let scraping block the Perplexity stream
+  console.log('[company-research] Starting scrape for:', websiteUrl);
+  const scrapeStart = Date.now();
   const scrapedContent = await Promise.race([
     scrapeWebsiteContent(websiteUrl),
     new Promise<string>((resolve) => {
@@ -164,6 +145,7 @@ export async function runCompanyResearch({
       }, TOTAL_SCRAPE_TIMEOUT);
     }),
   ]);
+  console.log(`[company-research] Scrape done in ${Date.now() - scrapeStart}ms, content: ${scrapedContent.length} chars`);
 
   const userPrompt = `Research this company thoroughly:
 - Website: ${websiteUrl}
@@ -176,15 +158,29 @@ ${scrapedContent
 For any field you cannot verify from actual sources, set the value to null.
 Be thorough but honest — a null value is better than a fabricated one.`;
 
-  return callWithRetry(
-    () => streamObject({
-      model: perplexity(MODELS.SONAR_PRO),
-      schema: companyResearchSchema,
-      system: SYSTEM_PROMPT,
-      prompt: userPrompt,
-      temperature: 0.1,
-      maxOutputTokens: 4000,
-    }),
-    'Perplexity streamObject',
-  );
+  console.log('[company-research] Starting Perplexity streamObject...');
+  const result = streamObject({
+    model: perplexity(MODELS.SONAR_PRO),
+    schema: companyResearchSchema,
+    system: SYSTEM_PROMPT,
+    prompt: userPrompt,
+    temperature: 0.1,
+    maxOutputTokens: 4000,
+    onFinish: ({ object, error, usage }) => {
+      if (error) {
+        console.error('[company-research] streamObject finished with error:', error);
+      } else {
+        const fieldCount = object ? Object.keys(object).filter(k =>
+          k !== 'confidenceNotes' && (object as Record<string, unknown>)[k] &&
+          typeof (object as Record<string, unknown>)[k] === 'object' &&
+          ((object as Record<string, { value?: string | null }>)[k])?.value != null
+        ).length : 0;
+        console.log(`[company-research] streamObject finished — ${fieldCount} fields with values`, {
+          inputTokens: usage?.inputTokens,
+          outputTokens: usage?.outputTokens,
+        });
+      }
+    },
+  });
+  return result;
 }

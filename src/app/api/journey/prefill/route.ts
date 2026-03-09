@@ -47,6 +47,16 @@ export async function POST(request: Request) {
     }
   }
 
-  const result = await runCompanyResearch({ websiteUrl, linkedinUrl });
-  return result.toTextStreamResponse();
+  console.log('[prefill] Starting research for:', websiteUrl, linkedinUrl ? `+ LinkedIn: ${linkedinUrl}` : '');
+  try {
+    const result = await runCompanyResearch({ websiteUrl, linkedinUrl });
+    console.log('[prefill] streamObject created — starting stream response');
+    return result.toTextStreamResponse();
+  } catch (error) {
+    console.error('[prefill] runCompanyResearch failed:', error);
+    return new Response(JSON.stringify({ error: 'Research failed' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
