@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { createTextStreamResponse } from 'ai';
 import {
   isLinkedInCompanyUrl,
   isValidUrl,
@@ -51,7 +52,16 @@ export async function POST(request: Request) {
   try {
     const result = await runCompanyResearch({ websiteUrl, linkedinUrl });
     console.log('[prefill] streamObject created — starting stream response');
-    return result.toTextStreamResponse();
+
+    // Use createTextStreamResponse for safer stream handling in Next.js 16
+    // avoids "Controller is already closed" errors from toTextStreamResponse()
+    return createTextStreamResponse({
+      textStream: result.textStream,
+      headers: {
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
   } catch (error) {
     console.error('[prefill] runCompanyResearch failed:', error);
     return new Response(JSON.stringify({ error: 'Research failed' }), {
