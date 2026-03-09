@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/blueprint-preview(.*)", // Design preview page
   "/api/blueprints/(.*)",
   "/api/webhooks/(.*)", // Clerk webhooks - verified via svix signature
+
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
