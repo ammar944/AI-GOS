@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import type { PipelineState } from '@/lib/research/pipeline-types';
+
 const validIndustryResearchData = {
   categorySnapshot: {
     category: 'AI attribution software',
@@ -60,6 +62,75 @@ const validCompetitorIntelData = {
     },
   ],
 } as const;
+
+const samplePipelineState: PipelineState = {
+  runId: 'run-pipeline-1',
+  currentSectionId: 'competitorIntel',
+  status: 'running',
+  approvedSectionIds: ['industryResearch'],
+  sections: [
+    {
+      id: 'industryResearch',
+      toolName: 'researchIndustry',
+      boundaryKey: 'industryMarket',
+      displayName: 'Market Overview',
+      status: 'approved',
+      data: { market: 'B2B SaaS' },
+      jobId: 'job-1',
+      error: null,
+    },
+    {
+      id: 'competitorIntel',
+      toolName: 'researchCompetitors',
+      boundaryKey: 'competitors',
+      displayName: 'Competitor Intel',
+      status: 'running',
+      data: null,
+      jobId: 'job-2',
+      error: null,
+    },
+    {
+      id: 'icpValidation',
+      toolName: 'researchICP',
+      boundaryKey: 'icpValidation',
+      displayName: 'ICP Validation',
+      status: 'pending',
+      data: null,
+      jobId: null,
+      error: null,
+    },
+    {
+      id: 'offerAnalysis',
+      toolName: 'researchOffer',
+      boundaryKey: 'offerAnalysis',
+      displayName: 'Offer Analysis',
+      status: 'pending',
+      data: null,
+      jobId: null,
+      error: null,
+    },
+    {
+      id: 'strategicSynthesis',
+      toolName: 'synthesizeResearch',
+      boundaryKey: 'crossAnalysis',
+      displayName: 'Strategic Synthesis',
+      status: 'pending',
+      data: null,
+      jobId: null,
+      error: null,
+    },
+    {
+      id: 'keywordIntel',
+      toolName: 'researchKeywords',
+      boundaryKey: 'keywordIntel',
+      displayName: 'Keyword Intelligence',
+      status: 'pending',
+      data: null,
+      jobId: null,
+      error: null,
+    },
+  ],
+};
 
 // Mock @clerk/nextjs/server so createAdminClient can be imported
 vi.mock('@clerk/nextjs/server', () => ({
@@ -324,6 +395,132 @@ describe('persistToSupabase', () => {
         user_id: 'user-9',
       }),
       { onConflict: 'user_id' },
+    );
+  });
+});
+
+describe('readPipelineState', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns the persisted pipeline state from session metadata', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        metadata: {
+          researchPipeline: samplePipelineState,
+        },
+      },
+      error: null,
+    });
+
+    const { readPipelineState } = await import('../session-state.server');
+
+    await expect(readPipelineState('user-10')).resolves.toEqual(samplePipelineState);
+  });
+
+  it('returns null when the session metadata does not contain a pipeline state', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        metadata: {
+          onboardingData: { companyName: 'Acme' },
+        },
+      },
+      error: null,
+    });
+
+    const { readPipelineState } = await import('../session-state.server');
+
+    await expect(readPipelineState('user-11')).resolves.toBeNull();
+  });
+
+  it('throws a contextual error when the pipeline state query fails', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+
+    const { readPipelineState } = await import('../session-state.server');
+
+    await expect(readPipelineState('user-12')).rejects.toThrow(
+      'Failed to read pipeline state for user user-12: database unavailable',
+    );
+  });
+
+  it('throws when persisted pipeline metadata has an invalid shape', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        metadata: {
+          researchPipeline: {
+            runId: '',
+          },
+        },
+      },
+      error: null,
+    });
+
+    const { readPipelineState } = await import('../session-state.server');
+
+    await expect(readPipelineState('user-13')).rejects.toThrow(
+      'Invalid persisted pipeline state for user user-13:',
+    );
+  });
+});
+
+describe('persistPipelineState', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRpc.mockResolvedValue({ error: null });
+  });
+
+  it('persists pipeline metadata through the atomic merge rpc', async () => {
+    const { persistPipelineState } = await import('../session-state.server');
+
+    await persistPipelineState('user-13', samplePipelineState, {
+      onboardingData: { companyName: 'Acme' },
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_metadata_keys', {
+      p_user_id: 'user-13',
+      p_keys: expect.objectContaining({
+        researchPipeline: samplePipelineState,
+        activeJourneyRunId: samplePipelineState.runId,
+        onboardingData: { companyName: 'Acme' },
+        lastUpdated: expect.any(String),
+      }),
+    });
+  });
+
+  it('does not allow extra metadata to override reserved pipeline keys', async () => {
+    const { persistPipelineState } = await import('../session-state.server');
+
+    await persistPipelineState('user-14', samplePipelineState, {
+      researchPipeline: { runId: 'stale-run' },
+      activeJourneyRunId: 'stale-run',
+      lastUpdated: '2000-01-01T00:00:00.000Z',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_metadata_keys', {
+      p_user_id: 'user-14',
+      p_keys: expect.objectContaining({
+        researchPipeline: samplePipelineState,
+        activeJourneyRunId: samplePipelineState.runId,
+        lastUpdated: expect.any(String),
+      }),
+    });
+  });
+
+  it('throws a contextual error when the metadata merge rpc fails', async () => {
+    mockRpc.mockResolvedValue({
+      error: { message: 'rpc failure' },
+    });
+
+    const { persistPipelineState } = await import('../session-state.server');
+
+    await expect(
+      persistPipelineState('user-15', samplePipelineState),
+    ).rejects.toThrow(
+      'Failed to persist pipeline state for user user-15 and run run-pipeline-1: rpc failure',
     );
   });
 });

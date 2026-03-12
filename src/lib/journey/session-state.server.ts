@@ -5,9 +5,11 @@ import {
   getJourneyRunIdFromMetadata,
 } from '@/lib/journey/journey-run';
 import { normalizeStoredResearchResults } from '@/lib/journey/research-result-contract';
+import { pipelineStateSchema, type PipelineState } from '@/lib/research/pipeline-types';
 
 // ── Supabase Persistence ───────────────────────────────────────────────────
-// Metadata still uses fetch-then-merge JSONB updates.
+// General metadata snapshots still use fetch-then-merge JSONB updates.
+// Pipeline metadata uses an atomic merge RPC to avoid partial writes.
 // Research artifacts use RPC helpers for atomic per-section writes.
 //
 // Server-only: This file imports @/lib/supabase/server which transitively
@@ -62,6 +64,10 @@ function getResearchRunIdsBySection(
   return runIdsBySection;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 async function readCurrentJourneyRunId(
   userId: string,
 ): Promise<string | null> {
@@ -79,6 +85,60 @@ async function readCurrentJourneyRunId(
   return getJourneyRunIdFromMetadata(
     (data?.metadata as Record<string, unknown> | null | undefined) ?? null,
   );
+}
+
+export async function readPipelineState(userId: string): Promise<PipelineState | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('metadata')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to read pipeline state for user ${userId}: ${error.message}`);
+  }
+
+  if (!isRecord(data?.metadata)) {
+    return null;
+  }
+
+  const pipelineState = data.metadata.researchPipeline;
+  if (!pipelineState) {
+    return null;
+  }
+
+  const parsedPipelineState = pipelineStateSchema.safeParse(pipelineState);
+  if (!parsedPipelineState.success) {
+    throw new Error(
+      `Invalid persisted pipeline state for user ${userId}: ${parsedPipelineState.error.message}`,
+    );
+  }
+
+  return parsedPipelineState.data;
+}
+
+export async function persistPipelineState(
+  userId: string,
+  pipelineState: PipelineState,
+  extraMetadata: Record<string, unknown> = {},
+): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.rpc('merge_journey_session_metadata_keys', {
+    p_user_id: userId,
+    p_keys: {
+      ...extraMetadata,
+      researchPipeline: pipelineState,
+      [JOURNEY_ACTIVE_RUN_METADATA_KEY]: pipelineState.runId,
+      lastUpdated: new Date().toISOString(),
+    },
+  });
+
+  if (error) {
+    throw new Error(
+      `Failed to persist pipeline state for user ${userId} and run ${pipelineState.runId}: ${error.message}`,
+    );
+  }
 }
 
 export async function persistToSupabase(

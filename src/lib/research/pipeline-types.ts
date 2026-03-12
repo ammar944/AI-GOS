@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type {
   CanonicalResearchSectionId,
   ResearchToolName,
@@ -52,6 +54,42 @@ export interface PipelineSectionConfig {
   boundaryKey: string;
   displayName: string;
 }
+
+export const pipelineSectionIdSchema = z.enum(PIPELINE_SECTION_ORDER);
+export const pipelineStatusSchema = z.enum([
+  'idle',
+  'running',
+  'gated',
+  'complete',
+  'error',
+]);
+export const sectionStatusSchema = z.enum([
+  'pending',
+  'queued',
+  'running',
+  'complete',
+  'approved',
+  'editing',
+  'stale',
+  'error',
+]);
+export const sectionStateSchema = z.object({
+  id: pipelineSectionIdSchema,
+  toolName: z.string().min(1),
+  boundaryKey: z.string().min(1),
+  displayName: z.string().min(1),
+  status: sectionStatusSchema,
+  data: z.record(z.string(), z.unknown()).nullable(),
+  jobId: z.string().nullable(),
+  error: z.string().nullable(),
+});
+export const pipelineStateSchema = z.object({
+  runId: z.string().min(1),
+  currentSectionId: pipelineSectionIdSchema.nullable(),
+  status: pipelineStatusSchema,
+  approvedSectionIds: z.array(pipelineSectionIdSchema),
+  sections: z.array(sectionStateSchema),
+});
 
 export const PIPELINE_SECTION_CONFIG: Record<
   PipelineSectionId,
