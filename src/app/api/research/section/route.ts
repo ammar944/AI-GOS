@@ -103,18 +103,7 @@ export async function PATCH(request: Request): Promise<Response> {
       updatedState,
       canonicalSectionId as PipelineSectionId,
     );
-    const persistResult = await persistPipelineState(userId, invalidatedState);
-
-    if (!persistResult.ok) {
-      return NextResponse.json(
-        {
-          error:
-            persistResult.error ??
-            'Failed to persist pipeline state after section update',
-        },
-        { status: 500 },
-      );
-    }
+    await persistPipelineState(userId, invalidatedState);
 
     return NextResponse.json({
       status: 'updated',

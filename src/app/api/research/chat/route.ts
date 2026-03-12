@@ -205,17 +205,7 @@ export async function POST(request: Request): Promise<Response> {
               updatedState,
               normalizedSectionId as PipelineSectionId,
             );
-            const persistResult = await persistPipelineState(
-              userId,
-              invalidatedState,
-            );
-
-            if (!persistResult.ok) {
-              throw new Error(
-                persistResult.error ??
-                  `Failed to persist pipeline state for ${normalizedSectionId}`,
-              );
-            }
+            await persistPipelineState(userId, invalidatedState);
 
             return {
               status: 'updated',

@@ -25,6 +25,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 
 const advancePipelineRequestSchema = z.object({
   runId: z.string().min(1),
+  retry: z.boolean().optional(),
 });
 
 function createJsonErrorResponse(error: string, status: number): NextResponse {
@@ -148,7 +149,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return createJsonErrorResponse('Invalid request body: runId is required', 400);
   }
 
-  const { runId } = parsedBody.data;
+  const { runId, retry = false } = parsedBody.data;
 
   let pipelineState;
   try {
@@ -169,20 +170,48 @@ export async function POST(request: Request): Promise<NextResponse> {
     (section) => section.id === pipelineState.currentSectionId,
   );
   const currentStatus = currentSection?.status ?? 'unknown';
-  if (!currentSection || currentSection.status !== 'complete') {
+  if (!currentSection) {
     return createJsonErrorResponse(
       `Section ${pipelineState.currentSectionId} is ${currentStatus}, not complete`,
       409,
     );
   }
 
-  let approvedState = markSectionApproved(
-    pipelineState,
-    pipelineState.currentSectionId,
-  );
-  const nextSectionId = getNextSectionId(approvedState.approvedSectionIds);
+  if (retry) {
+    if (currentSection.status !== 'error') {
+      return createJsonErrorResponse(
+        `Section ${pipelineState.currentSectionId} is ${currentStatus}, not error`,
+        409,
+      );
+    }
+  } else if (currentSection.status !== 'complete') {
+    return createJsonErrorResponse(
+      `Section ${pipelineState.currentSectionId} is ${currentStatus}, not complete`,
+      409,
+    );
+  }
 
-  if (!nextSectionId) {
+  const targetSectionId = retry
+    ? pipelineState.currentSectionId
+    : getNextSectionId(
+        markSectionApproved(
+          pipelineState,
+          pipelineState.currentSectionId,
+        ).approvedSectionIds,
+      );
+
+  const approvedState = retry
+    ? pipelineState
+    : markSectionApproved(
+        pipelineState,
+        pipelineState.currentSectionId,
+      );
+
+  if (!targetSectionId) {
+    if (retry) {
+      return createJsonErrorResponse('No active section available for retry', 409);
+    }
+
     const completeState = {
       ...approvedState,
       status: 'complete' as const,
@@ -208,12 +237,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return createJsonErrorResponse(getErrorMessage(error), 500);
   }
 
-  const config = PIPELINE_SECTION_CONFIG[nextSectionId];
   const context = buildContextForSection(
-    nextSectionId,
+    targetSectionId,
     sessionContext.onboardingData,
     sessionContext.researchResults,
   );
+  const config = PIPELINE_SECTION_CONFIG[targetSectionId];
   const dispatchResult = await dispatchResearchForUser(
     config.toolName,
     config.boundaryKey,
@@ -227,7 +256,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...approvedState,
       status: 'error' as const,
       sections: approvedState.sections.map((section) =>
-        section.id === nextSectionId
+        section.id === targetSectionId
           ? {
               ...section,
               status: 'error' as const,
@@ -254,7 +283,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const runningState = markSectionRunning(
     approvedState,
-    nextSectionId,
+    targetSectionId,
     dispatchResult.jobId ?? runId,
   );
 
@@ -268,8 +297,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   return NextResponse.json({
-    status: 'advanced',
+    status: retry ? 'retried' : 'advanced',
     runId,
-    section: nextSectionId,
+    section: targetSectionId,
   });
 }

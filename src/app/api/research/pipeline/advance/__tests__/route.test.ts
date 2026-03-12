@@ -195,6 +195,70 @@ describe('POST /api/research/pipeline/advance', () => {
     });
   });
 
+  it('re-dispatches the current section when retrying an error state', async () => {
+    const erroredState = markSectionRunning(
+      createInitialPipelineState('run-123'),
+      'competitorIntel',
+      'job-failed',
+    );
+
+    mockReadPipelineState.mockResolvedValue({
+      ...erroredState,
+      status: 'error',
+      sections: erroredState.sections.map((section) =>
+        section.id === 'competitorIntel'
+          ? {
+              ...section,
+              status: 'error',
+              error: 'worker unavailable',
+            }
+          : section,
+      ),
+    });
+    mockDispatchResearchForUser.mockResolvedValue({
+      status: 'queued',
+      section: 'competitors',
+      jobId: 'job-retry',
+      userId: 'user-1',
+    });
+
+    const { POST } = await import('../route');
+    const response = await POST(buildRequest({ runId: 'run-123', retry: true }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'retried',
+      runId: 'run-123',
+      section: 'competitorIntel',
+    });
+    expect(mockBuildCompetitorContext).toHaveBeenCalledWith({
+      onboardingData: sampleOnboardingData,
+      industryResearch: sampleResearchResults.industryResearch,
+    });
+    expect(mockDispatchResearchForUser).toHaveBeenCalledWith(
+      'researchCompetitors',
+      'competitors',
+      'competitor context',
+      'user-1',
+      { activeRunId: 'run-123' },
+    );
+    expect(mockPersistPipelineState).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        status: 'running',
+        currentSectionId: 'competitorIntel',
+        sections: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'competitorIntel',
+            status: 'running',
+            jobId: 'job-retry',
+            error: null,
+          }),
+        ]),
+      }),
+    );
+  });
+
   it('returns complete when approving the final section', async () => {
     const completeReadyState = buildCompletedState('keywordIntel', [
       'industryResearch',
