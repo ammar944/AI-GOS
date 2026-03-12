@@ -23,7 +23,9 @@ import { shouldAutoSendJourneyMessages } from '@/lib/journey/chat-auto-send';
 import { filterJourneyMessageParts } from '@/lib/journey/filter-chat-parts';
 import { extractResearchDispatchState } from '@/lib/journey/research-dispatch-state';
 import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
-import { shouldIgnoreDispatchError } from '@/lib/journey/research-recovery';
+import {
+  shouldIgnoreDispatchError,
+} from '@/lib/journey/research-recovery';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -49,6 +51,7 @@ import { JourneyStudioPreviewShell } from '@/components/journey/studio-preview-s
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 import { ArtifactTriggerCard } from '@/components/journey/artifact-trigger-card';
 import { ArtifactPanel } from '@/components/journey/artifact-panel';
+import { JourneyWorkerStatusBanner } from '@/components/journey/journey-worker-status-banner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import {
@@ -74,6 +77,7 @@ import {
 } from '@/lib/journey/field-catalog';
 import { getManualPrefillPreset } from '@/lib/journey/manual-prefill-presets';
 import { isJourneyStudioPreview } from '@/lib/journey/journey-preview';
+import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-status';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
@@ -203,6 +207,47 @@ function getJourneyStudioStatusDetail(
 
   const completedResearchCount = progressItems.filter((item) => item.status === 'complete').length;
   return `${completedResearchCount} research ${completedResearchCount === 1 ? 'module' : 'modules'} completed`;
+}
+
+function getMessageTextPartText(part: unknown): string | null {
+  if (
+    typeof part !== 'object' ||
+    part === null ||
+    !('type' in part) ||
+    !('text' in part)
+  ) {
+    return null;
+  }
+
+  if (part.type !== 'text' || typeof part.text !== 'string') {
+    return null;
+  }
+
+  return part.text;
+}
+
+function isHiddenJourneyMessage(message: UIMessage): boolean {
+  const metadata = message.metadata;
+  return Boolean(
+    metadata &&
+      typeof metadata === 'object' &&
+      'hidden' in metadata &&
+      metadata.hidden === true,
+  );
+}
+
+function logJourneyDebug(
+  event: string,
+  payload: Record<string, unknown>,
+): void {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  console.debug('[journey][debug]', {
+    event,
+    ...payload,
+  });
 }
 
 export default function JourneyPage() {
@@ -377,6 +422,7 @@ function JourneyPageContent() {
   // Research state tracking
   const [researchResults, setResearchResults] = useState<Record<string, ResearchSectionResult | null>>({});
   const [activeResearch, setActiveResearch] = useState<Set<string>>(new Set());
+  const [dispatchTimeoutFallbackSections, setDispatchTimeoutFallbackSections] = useState<Set<string>>(new Set());
   const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
 
   // Artifact panel state
@@ -398,6 +444,7 @@ function JourneyPageContent() {
     // 1. Clear local React state
     setResearchResults({});
     setActiveResearch(new Set());
+    setDispatchTimeoutFallbackSections(new Set());
     setTerminalLogs([]);
     setArtifactOpen(false);
     setArtifactFeedbackSection(null);
@@ -550,7 +597,6 @@ function JourneyPageContent() {
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
   });
-  const [researchTimedOut, setResearchTimedOut] = useState(false);
 
   // Add terminal log helper
   const addLog = useCallback((level: TerminalLogEntry['level'], message: string) => {
@@ -591,6 +637,16 @@ function JourneyPageContent() {
     (section: string) => {
       const hasPreviousResult = Boolean(researchResults[section]);
       const isAlreadyQueued = activeResearch.has(section) && !hasPreviousResult;
+
+      setDispatchTimeoutFallbackSections((prev) => {
+        if (!prev.has(section)) {
+          return prev;
+        }
+
+        const next = new Set(prev);
+        next.delete(section);
+        return next;
+      });
 
       if (isAlreadyQueued) {
         return;
@@ -641,6 +697,7 @@ function JourneyPageContent() {
       addLog,
       approvedArtifactSections,
       artifactFeedbackSection,
+      setDispatchTimeoutFallbackSections,
       recentlyApprovedArtifactSection,
       researchResults,
       resetArtifactSectionTracking,
@@ -660,6 +717,15 @@ function JourneyPageContent() {
 
       if (shouldIgnore) {
         markResearchQueued(section);
+        setDispatchTimeoutFallbackSections((prev) => {
+          if (prev.has(section)) {
+            return prev;
+          }
+
+          const next = new Set(prev);
+          next.add(section);
+          return next;
+        });
         if (!loggedResearchTimeoutFallbacksRef.current.has(section)) {
           loggedResearchTimeoutFallbacksRef.current.add(section);
           const sectionLabel = SECTION_META[section] ?? section;
@@ -670,6 +736,16 @@ function JourneyPageContent() {
         }
         return;
       }
+
+      setDispatchTimeoutFallbackSections((prev) => {
+        if (!prev.has(section)) {
+          return prev;
+        }
+
+        const next = new Set(prev);
+        next.delete(section);
+        return next;
+      });
 
       setActiveResearch((prev) => {
         if (!prev.has(section)) return prev;
@@ -711,6 +787,7 @@ function JourneyPageContent() {
       markResearchQueued,
       researchJobActivity,
       resetArtifactSectionTracking,
+      setDispatchTimeoutFallbackSections,
       showArtifactSection,
     ],
   );
@@ -731,6 +808,62 @@ function JourneyPageContent() {
       );
     }
   }, [markResearchDispatchError, markResearchQueued, messages]);
+
+  useEffect(() => {
+    const erroredSections = Object.entries(researchJobActivity).filter(
+      ([, activity]) =>
+        activity.status === 'error' &&
+        typeof activity.error === 'string' &&
+        activity.error.trim().length > 0,
+    );
+    if (erroredSections.length === 0) {
+      return;
+    }
+
+    setActiveResearch((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+
+      for (const [section] of erroredSections) {
+        changed = next.delete(section) || changed;
+      }
+
+      return changed ? next : prev;
+    });
+
+    setDispatchTimeoutFallbackSections((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+
+      for (const [section] of erroredSections) {
+        changed = next.delete(section) || changed;
+      }
+
+      return changed ? next : prev;
+    });
+
+    setResearchResults((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      for (const [section, activity] of erroredSections) {
+        const currentError = next[section];
+        if (currentError?.status === 'error' && currentError.error === activity.error) {
+          continue;
+        }
+
+        next[section] = {
+          status: 'error',
+          section,
+          error: activity.error,
+          durationMs: 0,
+        };
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [researchJobActivity]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -766,6 +899,15 @@ function JourneyPageContent() {
       // Track research completion (always update state regardless of phase)
       setResearchResults((prev) => ({ ...prev, [section]: result }));
       setActiveResearch((prev) => {
+        const next = new Set(prev);
+        next.delete(section);
+        return next;
+      });
+      setDispatchTimeoutFallbackSections((prev) => {
+        if (!prev.has(section)) {
+          return prev;
+        }
+
         const next = new Set(prev);
         next.delete(section);
         return next;
@@ -815,9 +957,17 @@ function JourneyPageContent() {
       }
 
       if (!shouldWakeAgentForSection(section)) {
+        logJourneyDebug('hidden-wake-up-suppressed', {
+          reason: 'realtime-complete',
+          section,
+        });
         return;
       }
 
+      logJourneyDebug('hidden-wake-up-dispatched', {
+        reason: 'realtime-complete',
+        section,
+      });
       sendMessage({
         text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
         metadata: { hidden: true },
@@ -832,7 +982,6 @@ function JourneyPageContent() {
   // Only show timeout warnings for sections that are actually running.
   useEffect(() => {
     if (activeResearch.size === 0) {
-      setResearchTimedOut(false);
       return;
     }
 
@@ -840,7 +989,13 @@ function JourneyPageContent() {
       const pendingSections = [...activeResearch];
       console.warn('[journey] Research timed out, pending:', pendingSections);
       addLog('warn', `Research timed out for: ${pendingSections.join(', ')}`);
-      setResearchTimedOut(true);
+      setDispatchTimeoutFallbackSections((prev) => {
+        const next = new Set(prev);
+        for (const section of pendingSections) {
+          next.add(section);
+        }
+        return next;
+      });
     }, 5 * 60 * 1000);
 
     return () => clearTimeout(timer);
@@ -875,10 +1030,20 @@ function JourneyPageContent() {
 
       appendRealtimeResearchMessage(section, result);
 
-      shouldWakeAgent = shouldWakeAgentForSection(section) || shouldWakeAgent;
+      const shouldWakeForSection = shouldWakeAgentForSection(section);
+      if (!shouldWakeForSection) {
+        logJourneyDebug('hidden-wake-up-suppressed', {
+          reason: 'pending-flush',
+          section,
+        });
+      }
+      shouldWakeAgent = shouldWakeForSection || shouldWakeAgent;
     }
 
     if (shouldWakeAgent) {
+      logJourneyDebug('hidden-wake-up-dispatched', {
+        reason: 'pending-flush',
+      });
       sendMessage({
         text: '[Research complete] New research results have been received. Continue the onboarding conversation — ask the next question based on what phase we\'re in.',
         metadata: { hidden: true },
@@ -900,6 +1065,21 @@ function JourneyPageContent() {
 
   // Progress panel items
   const progressItems = deriveProgressItems(researchResults, activeResearch);
+  const workerStatusItems = useMemo(
+    () =>
+      buildJourneyWorkerStatusItems({
+        activeResearch,
+        researchJobActivity,
+        researchResults,
+        timedOutSections: dispatchTimeoutFallbackSections,
+      }),
+    [
+      activeResearch,
+      dispatchTimeoutFallbackSections,
+      researchJobActivity,
+      researchResults,
+    ],
+  );
 
   // Find pending tool interactions
   const pendingAskUser = useMemo(() => {
@@ -1226,10 +1406,12 @@ function JourneyPageContent() {
 
     // From active research
     for (const section of activeResearch) {
+      const activity = researchJobActivity[section];
       cards.set(section, {
         section,
-        status: 'loading',
-        activity: researchJobActivity[section],
+        status: activity?.status === 'error' ? 'error' : 'loading',
+        activity,
+        error: activity?.status === 'error' ? activity.error : undefined,
       });
     }
 
@@ -1255,9 +1437,12 @@ function JourneyPageContent() {
       const result = researchResults[artifactSection];
       return result?.status === 'complete' ? 'complete' : 'error';
     }
+    if (researchJobActivity[artifactSection]?.status === 'error') {
+      return 'error';
+    }
     if (activeResearch.has(artifactSection)) return 'loading';
     return 'loading';
-  }, [researchResults, activeResearch, artifactSection]);
+  }, [researchResults, researchJobActivity, activeResearch, artifactSection]);
 
   const artifactData = (researchResults[artifactSection]?.data ?? undefined) as Record<string, unknown> | undefined;
   const artifactActivity = researchJobActivity[artifactSection];
@@ -1422,6 +1607,12 @@ function JourneyPageContent() {
               </div>
             )}
 
+            {workerStatusItems.length > 0 && (
+              <div className={wideContentWidthClass}>
+                <JourneyWorkerStatusBanner items={workerStatusItems} />
+              </div>
+            )}
+
             {terminalLogs.length > 0 && (
               <div className={wideContentWidthClass}>
                 <TerminalStream logs={terminalLogs} />
@@ -1430,8 +1621,15 @@ function JourneyPageContent() {
 
             {messages
               .filter((m) => {
-                if (m.role === 'user' && m.parts?.some(p => 'type' in p && p.type === 'text' && 'text' in p && typeof p.text === 'string' && p.text.startsWith('[SECTION_APPROVED'))) return false;
-                if ((m.metadata as Record<string, unknown>)?.hidden) return false;
+                if (
+                  m.role === 'user' &&
+                  m.parts?.some((part) =>
+                    getMessageTextPartText(part)?.startsWith('[SECTION_APPROVED') === true,
+                  )
+                ) {
+                  return false;
+                }
+                if (isHiddenJourneyMessage(m)) return false;
                 if (m.id.startsWith('realtime-')) return false;
                 return true;
               })
@@ -1522,7 +1720,7 @@ function JourneyPageContent() {
               </div>
             )}
 
-            {researchTimedOut && (
+            {dispatchTimeoutFallbackSections.size > 0 && activeResearch.size > 0 && (
               <div className={conversationWidthClass}>
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                   Research is taking longer than expected. You can continue the conversation — results will appear if they complete.

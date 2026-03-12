@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentProps } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ThinkingBlock } from '@/components/chat/thinking-block';
@@ -11,6 +12,10 @@ import { AnalysisScoreCard } from '@/components/chat/analysis-score-card';
 import { VisualizationCard } from '@/components/chat/visualization-card';
 import { AskUserCard } from '@/components/journey/ask-user-card';
 import type { AskUserResult } from '@/components/journey/ask-user-card';
+import {
+  JourneyKeywordIntelDetail,
+  getJourneyKeywordIntelDetailData,
+} from '@/components/journey/journey-keyword-intel-detail';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 import { ResearchSubsectionReveal } from '@/components/journey/research-subsection-reveal';
 import { ScrapeLoadingCard } from '@/components/journey/scrape-loading-card';
@@ -18,7 +23,7 @@ import { ScrapeLoadingCard } from '@/components/journey/scrape-loading-card';
 interface ChatMessageProps {
   role: 'user' | 'assistant';
   content?: string;
-  parts?: Array<{ type: string; [key: string]: unknown }>;
+  parts?: unknown[];
   messageId?: string;
   isStreaming?: boolean;
   onToolApproval?: (approvalId: string, approved: boolean) => void;
@@ -39,6 +44,40 @@ const fadeInUp = {
     transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
   },
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+type DeepResearchCardData = ComponentProps<typeof DeepResearchCard>['data'];
+type ComparisonTableCardData = ComponentProps<typeof ComparisonTableCard>['data'];
+type AnalysisScoreCardData = ComponentProps<typeof AnalysisScoreCard>['data'];
+type VisualizationCardData = ComponentProps<typeof VisualizationCard>['data'];
+
+function getPartType(part: unknown): string | null {
+  if (!isRecord(part) || typeof part.type !== 'string') {
+    return null;
+  }
+
+  return part.type;
+}
+
+function isTextPart(part: unknown): part is { type: 'text'; text?: string } {
+  return getPartType(part) === 'text';
+}
+
+function parseToolOutput(output: unknown): Record<string, unknown> | undefined {
+  if (typeof output === 'string') {
+    try {
+      const parsed = JSON.parse(output) as unknown;
+      return isRecord(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return isRecord(output) ? output : undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Markdown rendering helpers (kept from v1)
@@ -281,10 +320,15 @@ function renderToolPart(
   onToolOutput?: (toolCallId: string, result: AskUserResult) => void,
   onViewResearchSection?: (section: string) => void,
 ): React.ReactNode {
-  const toolName = (part.type as string).replace('tool-', '');
-  const state = part.state as string;
-  const input = part.input as Record<string, unknown> | undefined;
-  const output = part.output as Record<string, unknown> | undefined;
+  const partType = typeof part.type === 'string' ? part.type : '';
+  if (!partType.startsWith('tool-')) {
+    return null;
+  }
+
+  const toolName = partType.replace('tool-', '');
+  const state = typeof part.state === 'string' ? part.state : undefined;
+  const input = isRecord(part.input) ? part.input : undefined;
+  const output = parseToolOutput(part.output);
 
   // askUser tool — render interactive chip card
   if (toolName === 'askUser') {
@@ -330,13 +374,7 @@ function renderToolPart(
     }
 
     if (state === 'output-available') {
-      // output may be a JSON string (from addToolOutput) or an object
-      let parsedOutput: Record<string, unknown> | undefined;
-      if (typeof part.output === 'string') {
-        try { parsedOutput = JSON.parse(part.output); } catch { parsedOutput = undefined; }
-      } else {
-        parsedOutput = output;
-      }
+      const parsedOutput = parseToolOutput(part.output);
 
       let selectedIndices: number[] = [];
       if (parsedOutput && 'selectedIndex' in parsedOutput) {
@@ -367,7 +405,7 @@ function renderToolPart(
   if (toolName === 'scrapeClientSite') {
     if (state === 'input-streaming' || state === 'input-available') {
       const websiteUrl = (input as { websiteUrl?: string } | undefined)?.websiteUrl;
-      return <ScrapeLoadingCard key={key} websiteUrl={websiteUrl} />;
+      return <ScrapeLoadingCard key={key} websiteUrl={websiteUrl} mode="prefill" />;
     }
     // When complete, render nothing (the agent will stream text with the results)
     if (state === 'output-available' || state === 'output-error') {
@@ -379,7 +417,7 @@ function renderToolPart(
   if (toolName === 'competitorFastHits') {
     if (state === 'input-streaming' || state === 'input-available') {
       const competitorUrl = (input as { competitorUrl?: string } | undefined)?.competitorUrl;
-      return <ScrapeLoadingCard key={key} websiteUrl={competitorUrl} />;
+      return <ScrapeLoadingCard key={key} websiteUrl={competitorUrl} mode="competitor" />;
     }
     if (state === 'output-available' || state === 'output-error') {
       return null;
@@ -401,12 +439,23 @@ function renderToolPart(
     const sectionName = RESEARCH_TOOL_SECTIONS[toolName];
 
     if (state === 'output-available') {
-      let parsedOutput: Record<string, unknown> | undefined;
-      if (typeof part.output === 'string') {
-        try { parsedOutput = JSON.parse(part.output as string); } catch { parsedOutput = undefined; }
-      } else {
-        parsedOutput = output;
+      const parsedOutput = parseToolOutput(part.output);
+      if (!parsedOutput) {
+        return (
+          <ResearchInlineCard
+            key={key}
+            section={sectionName}
+            status="error"
+            error="Malformed research payload"
+          />
+        );
       }
+
+      const parsedData = isRecord(parsedOutput?.data) ? parsedOutput.data : undefined;
+      const keywordData =
+        sectionName === 'keywordIntel'
+          ? getJourneyKeywordIntelDetailData(parsedData)
+          : null;
 
       if (parsedOutput?.status === 'error') {
         return (
@@ -424,16 +473,20 @@ function renderToolPart(
           <ResearchInlineCard
             section={sectionName}
             status="complete"
-            data={parsedOutput?.data as Record<string, unknown>}
+            data={parsedData}
             durationMs={parsedOutput?.durationMs as number}
             sourceCount={(parsedOutput?.sources as unknown[])?.length}
             onViewFull={onViewResearchSection ? () => onViewResearchSection(sectionName) : undefined}
           />
-          <ResearchSubsectionReveal
-            sectionKey={sectionName}
-            data={parsedOutput?.data as Record<string, unknown> | null}
-            status="complete"
-          />
+          {keywordData ? (
+            <JourneyKeywordIntelDetail data={keywordData} className="mt-4" />
+          ) : (
+            <ResearchSubsectionReveal
+              sectionKey={sectionName}
+              data={parsedData ?? null}
+              status="complete"
+            />
+          )}
         </div>
       );
     }
@@ -491,17 +544,22 @@ function renderToolPart(
   if (state === 'output-available' && output) {
     switch (toolName) {
       case 'deepResearch':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <DeepResearchCard key={key} data={output as any} />;
+        return <DeepResearchCard key={key} data={output as DeepResearchCardData} />;
       case 'compareCompetitors':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <ComparisonTableCard key={key} data={output as any} />;
+        return (
+          <ComparisonTableCard
+            key={key}
+            data={output as ComparisonTableCardData}
+          />
+        );
       case 'analyzeMetrics':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <AnalysisScoreCard key={key} data={output as any} />;
+        return (
+          <AnalysisScoreCard key={key} data={output as AnalysisScoreCardData} />
+        );
       case 'createVisualization':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <VisualizationCard key={key} data={output as any} />;
+        return (
+          <VisualizationCard key={key} data={output as VisualizationCardData} />
+        );
       case 'webResearch':
         return (
           <div
@@ -604,7 +662,7 @@ function renderToolPart(
 // ---------------------------------------------------------------------------
 
 function renderMessageParts(
-  parts: Array<{ type: string; [key: string]: unknown }>,
+  parts: unknown[],
   messageId: string,
   isStreaming: boolean,
   onToolApproval?: (approvalId: string, approved: boolean) => void,
@@ -632,24 +690,25 @@ function renderMessageParts(
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
+    const partType = getPartType(part);
 
     // Text parts — accumulate
-    if (part.type === 'text') {
-      textAccumulator += (part.text as string) || '';
+    if (isTextPart(part)) {
+      textAccumulator += part.text ?? '';
       continue;
     }
 
     // Reasoning/thinking parts
-    if (part.type === 'reasoning') {
+    if (partType === 'reasoning' && isRecord(part)) {
       flushText(`${messageId}-text-before-reasoning-${i}`);
-      const thinkingState = (part as { state?: string }).state;
+      const thinkingState = typeof part.state === 'string' ? part.state : undefined;
       const normalizedState = thinkingState === 'streaming' || thinkingState === 'done'
         ? thinkingState
         : undefined;
       elements.push(
         <ThinkingBlock
           key={`${messageId}-thinking-${i}`}
-          content={(part.text as string) || ''}
+          content={typeof part.text === 'string' ? part.text : ''}
           state={normalizedState}
         />
       );
@@ -657,9 +716,15 @@ function renderMessageParts(
     }
 
     // Tool parts
-    if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
+    if (partType?.startsWith('tool-') && isRecord(part)) {
       flushText(`${messageId}-text-before-tool-${i}`);
-      const toolElement = renderToolPart(part as Record<string, unknown>, `${messageId}-tool-${i}`, onToolApproval, onToolOutput, onViewResearchSection);
+      const toolElement = renderToolPart(
+        part,
+        `${messageId}-tool-${i}`,
+        onToolApproval,
+        onToolOutput,
+        onViewResearchSection,
+      );
       if (toolElement) {
         elements.push(toolElement);
       }
@@ -701,7 +766,7 @@ function AssistantMessage({
   className,
 }: {
   content?: string;
-  parts?: Array<{ type: string; [key: string]: unknown }>;
+  parts?: unknown[];
   messageId: string;
   isStreaming: boolean;
   onToolApproval?: (approvalId: string, approved: boolean) => void;
@@ -763,7 +828,10 @@ export function ChatMessage({
 }: ChatMessageProps) {
   if (role === 'user') {
     const textContent = parts
-      ? parts.filter((p) => p.type === 'text').map((p) => p.text as string).join('')
+      ? parts
+          .filter(isTextPart)
+          .map((part) => part.text ?? '')
+          .join('')
       : (content || '');
     return <UserMessage content={textContent} className={className} />;
   }

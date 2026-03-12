@@ -3,10 +3,6 @@ import type { HTMLAttributes } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ChatMessage } from '../chat-message';
 
-const { industryCardRenderCount } = vi.hoisted(() => ({
-  industryCardRenderCount: { current: 0 },
-}));
-
 vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
@@ -14,11 +10,19 @@ vi.mock('framer-motion', () => ({
 }));
 
 vi.mock('@/components/chat/thinking-block', () => ({
-  ThinkingBlock: () => <div data-testid="thinking-block" />,
+  ThinkingBlock: ({
+    content,
+    state,
+  }: {
+    content: string;
+    state?: string;
+  }) => <div data-testid="thinking-block">{`${state ?? 'none'}:${content}`}</div>,
 }));
 
 vi.mock('@/components/chat/tool-loading-indicator', () => ({
-  ToolLoadingIndicator: ({ toolName }: { toolName: string }) => <div data-testid={`loading-${toolName}`} />,
+  ToolLoadingIndicator: ({ toolName }: { toolName: string }) => (
+    <div data-testid={`loading-${toolName}`} />
+  ),
 }));
 
 vi.mock('@/components/chat/deep-research-card', () => ({
@@ -45,369 +49,168 @@ vi.mock('@/components/journey/ask-user-card', () => ({
   AskUserCard: () => <div data-testid="ask-user-card" />,
 }));
 
+vi.mock('@/components/journey/journey-keyword-intel-detail', () => ({
+  JourneyKeywordIntelDetail: () => <div data-testid="keyword-intel-detail" />,
+  getJourneyKeywordIntelDetailData: () => null,
+}));
+
 vi.mock('@/components/journey/research-inline-card', () => ({
-  ResearchInlineCard: () => <div data-testid="legacy-research-inline-card" />,
+  ResearchInlineCard: ({
+    section,
+    status,
+    error,
+  }: {
+    section: string;
+    status: string;
+    error?: string;
+  }) => (
+    <div data-testid={`research-inline-${section}`}>
+      {`${section}:${status}:${error ?? 'ok'}`}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/journey/research-subsection-reveal', () => ({
-  ResearchSubsectionReveal: () => <div data-testid="legacy-research-subsection-reveal" />,
+  ResearchSubsectionReveal: ({ sectionKey }: { sectionKey: string }) => (
+    <div data-testid={`research-subsection-${sectionKey}`} />
+  ),
 }));
 
 vi.mock('@/components/journey/scrape-loading-card', () => ({
   ScrapeLoadingCard: () => <div data-testid="scrape-loading-card" />,
 }));
 
-vi.mock('@/components/journey/research-cards', () => ({
-  MarketOverviewCard: ({
-    citations,
-    status,
-    error,
-  }: {
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    (() => {
-      industryCardRenderCount.current += 1;
-      return (
-        <div data-testid="industryResearch-card">
-          {status ?? 'complete'}:{error ?? citations?.map((citation) => citation.url).join(',') ?? ''}
-        </div>
-      );
-    })()
-  ),
-  CompetitorIntelCard: ({
-    citations,
-    status,
-    error,
-  }: {
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    <div data-testid="competitorIntel-card">
-      {status ?? 'complete'}:{error ?? citations?.map((citation) => citation.url).join(',') ?? ''}
-    </div>
-  ),
-  ICPCard: ({
-    citations,
-    status,
-    error,
-  }: {
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    <div data-testid="icpValidation-card">
-      {status ?? 'complete'}:{error ?? citations?.map((citation) => citation.url).join(',') ?? ''}
-    </div>
-  ),
-  OfferAnalysisCard: ({
-    data,
-    citations,
-    status,
-    error,
-  }: {
-    data?: Record<string, unknown>;
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    <div data-testid="offerAnalysis-card">
-      {status ?? 'complete'}:
-      {error ??
-        (typeof data?.recommendation === 'object' &&
-        data.recommendation &&
-        typeof (data.recommendation as { status?: string }).status === 'string'
-          ? (data.recommendation as { status: string }).status
-          : typeof data?.content === 'string'
-            ? data.content
-            : citations?.map((citation) => citation.url).join(',') ?? '')}
-    </div>
-  ),
-  StrategySummaryCard: ({
-    data,
-    citations,
-    status,
-    error,
-  }: {
-    data?: Record<string, unknown>;
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    <div data-testid="strategicSynthesis-card">
-      {status ?? 'complete'}:
-      {error ??
-        (typeof data?.recommendedPositioning === 'string'
-          ? data.recommendedPositioning
-          : typeof data?.content === 'string'
-            ? data.content
-            : citations?.map((citation) => citation.url).join(',') ?? '')}
-    </div>
-  ),
-  KeywordIntelCard: ({
-    citations,
-    status,
-    error,
-  }: {
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    <div data-testid="keywordIntel-card">
-      {status ?? 'complete'}:{error ?? citations?.map((citation) => citation.url).join(',') ?? ''}
-    </div>
-  ),
-  MediaPlanCard: ({
-    citations,
-    status,
-    error,
-  }: {
-    citations?: Array<{ url: string }>;
-    status?: string;
-    error?: string;
-  }) => (
-    <div data-testid="mediaPlan-card">
-      {status ?? 'complete'}:{error ?? citations?.map((citation) => citation.url).join(',') ?? ''}
-    </div>
-  ),
-}));
-
 describe('ChatMessage', () => {
-  it('does not rerender a completed research card for unrelated streaming updates', () => {
-    industryCardRenderCount.current = 0;
-
-    const props = {
-      role: 'assistant' as const,
-      messageId: 'memo-msg',
-      parts: [
-        {
-          type: 'tool-generateResearch',
-          state: 'output-available',
-          toolCallId: 'research-call',
-          input: { sectionId: 'industryResearch' },
-          output: {
-            status: 'complete',
-            sectionId: 'industryResearch',
-            content: 'Research body',
-            citations: [{ number: 1, url: 'https://example.com/report' }],
-          },
-        },
-      ],
-      researchStreaming: {
-        industryResearch: { text: 'industry text', status: 'complete' as const },
-      },
-    };
-
-    const { rerender } = render(<ChatMessage {...props} />);
-    expect(industryCardRenderCount.current).toBe(1);
-
-    rerender(
-      <ChatMessage
-        {...props}
-        researchStreaming={{
-          ...props.researchStreaming,
-          keywordIntel: { text: 'other section delta', status: 'running' },
-        }}
-      />,
-    );
-
-    expect(industryCardRenderCount.current).toBe(1);
-  });
-
-  it('does not render legacy research tool cards in Journey chat', () => {
+  it('renders current Journey research tool output inline', () => {
     render(
       <ChatMessage
         role="assistant"
-        messageId="legacy-msg"
+        messageId="research-output"
         parts={[
           {
             type: 'tool-researchIndustry',
             state: 'output-available',
-            toolCallId: 'legacy-call',
-            input: { context: 'ctx' },
-            output: { status: 'complete', section: 'industryMarket', data: {} },
-          },
-        ]}
-      />,
-    );
-
-    expect(screen.queryByTestId('legacy-research-inline-card')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('legacy-research-subsection-reveal')).not.toBeInTheDocument();
-  });
-
-  it('renders generateResearch cards for canonical Journey sections', () => {
-    render(
-      <ChatMessage
-        role="assistant"
-        messageId="new-msg"
-        parts={[
-          {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-call',
-            input: { sectionId: 'industryResearch' },
-            output: {
+            toolCallId: 'industry-1',
+            toolName: 'researchIndustry',
+            input: {},
+            output: JSON.stringify({
               status: 'complete',
-              sectionId: 'industryResearch',
-              content: 'Research body',
-              fileIds: [],
-            },
+              section: 'industryMarket',
+              data: { summary: 'Market overview ready' },
+            }),
           },
         ]}
       />,
     );
 
-    expect(screen.getByTestId('industryResearch-card')).toBeInTheDocument();
+    expect(screen.getByTestId('research-inline-industryMarket')).toHaveTextContent(
+      'industryMarket:complete:ok',
+    );
+    expect(
+      screen.getByTestId('research-subsection-industryMarket'),
+    ).toBeInTheDocument();
   });
 
-  it('renders an error card when generateResearch returns an error payload', () => {
+  it('renders research dispatch errors inline without crashing the assistant turn', () => {
     render(
       <ChatMessage
         role="assistant"
-        messageId="error-msg"
+        messageId="research-error"
         parts={[
           {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-call',
-            input: { sectionId: 'industryResearch' },
-            output: {
-              status: 'error',
-              sectionId: 'industryResearch',
-              error: 'Revision chain rejected',
-            },
+            type: 'tool-researchCompetitors',
+            state: 'output-error',
+            toolCallId: 'competitors-1',
+            toolName: 'researchCompetitors',
+            errorText: 'Worker error: 500',
+          },
+          {
+            type: 'text',
+            text: 'I will retry once the worker is healthy.',
           },
         ]}
       />,
     );
 
-    expect(screen.getByTestId('industryResearch-card')).toHaveTextContent(
-      'error:Revision chain rejected',
+    expect(screen.getByTestId('research-inline-competitors')).toHaveTextContent(
+      'competitors:error:Worker error: 500',
     );
+    expect(
+      screen.getByText('I will retry once the worker is healthy.'),
+    ).toBeInTheDocument();
   });
 
-  it('passes structured citations through when the section output does not use footnote markup', () => {
+  it('renders malformed research output payloads as explicit errors instead of fake completions', () => {
     render(
       <ChatMessage
         role="assistant"
-        messageId="citation-msg"
+        messageId="research-invalid-output"
         parts={[
           {
-            type: 'tool-generateResearch',
+            type: 'tool-researchIndustry',
             state: 'output-available',
-            toolCallId: 'research-call',
-            input: { sectionId: 'industryResearch' },
-            output: {
-              status: 'complete',
-              sectionId: 'industryResearch',
-              content: 'Research body without inline footnotes',
-              citations: [
-                {
-                  number: 1,
-                  url: 'https://example.com/report',
-                  title: 'Market report',
-                },
-              ],
-              fileIds: [],
-            },
+            toolCallId: 'industry-bad-1',
+            toolName: 'researchIndustry',
+            output: '{bad json',
           },
         ]}
       />,
     );
 
-    expect(screen.getByTestId('industryResearch-card')).toHaveTextContent(
-      'https://example.com/report',
+    expect(screen.getByTestId('research-inline-industryMarket')).toHaveTextContent(
+      'industryMarket:error:Malformed research payload',
     );
+    expect(
+      screen.queryByTestId('research-subsection-industryMarket'),
+    ).not.toBeInTheDocument();
   });
 
-  it('passes typed wave 1 data through to the offer analysis card', () => {
+  it('does not crash when assistant parts include malformed or partial entries', () => {
     render(
       <ChatMessage
         role="assistant"
-        messageId="offer-typed-msg"
+        messageId="malformed-assistant"
         parts={[
+          undefined,
+          null,
+          { foo: 'bar' },
           {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-call',
-            input: { sectionId: 'offerAnalysis' },
-            output: {
-              status: 'complete',
-              sectionId: 'offerAnalysis',
-              content: 'Offer fallback narrative',
-              data: {
-                recommendation: {
-                  status: 'adjust_messaging',
-                },
-              },
-              fileIds: [],
-            },
+            type: 'reasoning',
+            state: 'streaming',
+            text: 'Checking whether the worker responded.',
+          },
+          {
+            type: 'tool-researchIndustry',
+            toolName: 'researchIndustry',
+          },
+          {
+            type: 'text',
+            text: 'Still rendering the valid content.',
           },
         ]}
       />,
     );
 
-    expect(screen.getByTestId('offerAnalysis-card')).toHaveTextContent(
-      'complete:adjust_messaging',
+    expect(screen.getByTestId('thinking-block')).toHaveTextContent(
+      'streaming:Checking whether the worker responded.',
     );
+    expect(
+      screen.getByText('Still rendering the valid content.'),
+    ).toBeInTheDocument();
   });
 
-  it('passes typed wave 1 data through to the strategic synthesis card', () => {
+  it('ignores malformed user parts and still renders the valid text payload', () => {
     render(
       <ChatMessage
-        role="assistant"
-        messageId="strategy-typed-msg"
+        role="user"
         parts={[
-          {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-call',
-            input: { sectionId: 'strategicSynthesis' },
-            output: {
-              status: 'complete',
-              sectionId: 'strategicSynthesis',
-              content: 'Strategy fallback narrative',
-              data: {
-                recommendedPositioning: 'Own the fastest path to pipeline visibility.',
-              },
-              fileIds: [],
-            },
-          },
+          undefined,
+          { text: 'missing type' },
+          { type: 'text', text: 'Looks good' },
         ]}
       />,
     );
 
-    expect(screen.getByTestId('strategicSynthesis-card')).toHaveTextContent(
-      'complete:Own the fastest path to pipeline visibility.',
-    );
-  });
-
-  it('keeps the content fallback when typed wave 1 data is absent', () => {
-    render(
-      <ChatMessage
-        role="assistant"
-        messageId="offer-fallback-msg"
-        parts={[
-          {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-call',
-            input: { sectionId: 'offerAnalysis' },
-            output: {
-              status: 'complete',
-              sectionId: 'offerAnalysis',
-              content: 'Offer fallback narrative',
-              fileIds: [],
-            },
-          },
-        ]}
-      />,
-    );
-
-    expect(screen.getByTestId('offerAnalysis-card')).toHaveTextContent(
-      'complete:Offer fallback narrative',
-    );
+    expect(screen.getByText('Looks good')).toBeInTheDocument();
   });
 });

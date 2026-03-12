@@ -11,6 +11,7 @@ const {
   addToolOutputMock,
   chatControls,
   guardedFetchMock,
+  researchJobActivityValue,
   realtimeControls,
   sendMessageMock,
   setJourneySessionMock,
@@ -48,6 +49,19 @@ const {
     addToolOutputMock: vi.fn(),
     addToolApprovalResponseMock: vi.fn(),
     setJourneySessionMock: vi.fn(),
+    researchJobActivityValue: {
+      current: {} as Record<
+        string,
+        {
+          jobId: string;
+          lastHeartbeat?: string;
+          section: string;
+          startedAt: string;
+          status: 'running' | 'complete' | 'error';
+          tool: string;
+        }
+      >,
+    },
     guardedFetchMock: vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true }),
@@ -241,7 +255,7 @@ vi.mock('@/lib/journey/research-realtime', async () => {
 });
 
 vi.mock('@/lib/journey/research-job-activity', () => ({
-  useResearchJobActivity: () => ({}),
+  useResearchJobActivity: () => researchJobActivityValue.current,
 }));
 
 vi.mock('@/lib/journey/http', () => ({
@@ -389,12 +403,36 @@ async function emitQueuedResearchDispatch(
   });
 }
 
+async function emitResearchDispatchError(
+  toolName: 'researchIndustry' | 'researchCompetitors' | 'researchKeywords',
+  errorText: string,
+): Promise<void> {
+  const message: UIMessage = {
+    id: `dispatch-error-${toolName}-${chatControls.getMessages().length + 1}`,
+    role: 'assistant',
+    parts: [
+      {
+        type: `tool-${toolName}`,
+        state: 'output-error',
+        toolName,
+        errorText,
+      } as unknown as UIMessage['parts'][number],
+    ],
+  };
+
+  await act(async () => {
+    chatControls.setMessages((currentMessages) => [...currentMessages, message]);
+  });
+}
+
 describe('JourneyPage artifact orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'debug').mockImplementation(() => undefined);
     window.sessionStorage.clear();
     chatControls.reset();
     realtimeControls.reset();
+    researchJobActivityValue.current = {};
     guardedFetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true }),
@@ -574,6 +612,62 @@ describe('JourneyPage artifact orchestration', () => {
       expect.objectContaining({
         metadata: { hidden: true },
       }),
+    );
+    expect(console.debug).toHaveBeenCalledWith(
+      '[journey][debug]',
+      expect.objectContaining({
+        event: 'hidden-wake-up-dispatched',
+        section: 'keywordIntel',
+      }),
+    );
+    expect(console.debug).toHaveBeenCalledWith(
+      '[journey][debug]',
+      expect.objectContaining({
+        event: 'hidden-wake-up-suppressed',
+        section: 'keywordIntel',
+      }),
+    );
+  });
+
+  it('shows a worker-unavailable banner when dispatch fails before pickup', async () => {
+    await renderJourneyChat();
+
+    await emitResearchDispatchError('researchIndustry', 'fetch failed');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
+        'Worker unavailable',
+      );
+    });
+
+    expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
+      'Start the research worker on :3001',
+    );
+  });
+
+  it('shows a timeout banner when the chat request times out but the worker keeps running', async () => {
+    researchJobActivityValue.current = {
+      industryMarket: {
+        jobId: 'job-1',
+        section: 'industryMarket',
+        startedAt: '2026-03-12T09:00:00.000Z',
+        status: 'running',
+        tool: 'researchIndustry',
+      },
+    };
+
+    await renderJourneyChat();
+    await emitQueuedResearchDispatch('researchIndustry');
+    await emitResearchDispatchError('researchIndustry', 'Request timed out.');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
+        'Chat timed out',
+      );
+    });
+
+    expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
+      'worker is still running in the background',
     );
   });
 });
