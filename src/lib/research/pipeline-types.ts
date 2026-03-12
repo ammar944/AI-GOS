@@ -56,6 +56,14 @@ export interface PipelineSectionConfig {
 }
 
 export const pipelineSectionIdSchema = z.enum(PIPELINE_SECTION_ORDER);
+export const pipelineToolNameSchema = z.enum([
+  'researchIndustry',
+  'researchCompetitors',
+  'researchICP',
+  'researchOffer',
+  'synthesizeResearch',
+  'researchKeywords',
+]);
 export const pipelineStatusSchema = z.enum([
   'idle',
   'running',
@@ -75,7 +83,7 @@ export const sectionStatusSchema = z.enum([
 ]);
 export const sectionStateSchema = z.object({
   id: pipelineSectionIdSchema,
-  toolName: z.string().min(1),
+  toolName: pipelineToolNameSchema,
   boundaryKey: z.string().min(1),
   displayName: z.string().min(1),
   status: sectionStatusSchema,
