@@ -1,8 +1,14 @@
 // src/lib/journey/session-state.server.ts
 import { createAdminClient } from '@/lib/supabase/server';
+import {
+  JOURNEY_ACTIVE_RUN_METADATA_KEY,
+  getJourneyRunIdFromMetadata,
+} from '@/lib/journey/journey-run';
+import { normalizeStoredResearchResults } from '@/lib/journey/research-result-contract';
 
 // ── Supabase Persistence ───────────────────────────────────────────────────
-// Per DISCOVERY.md D11 (REVISED): Fetch-then-merge JSONB metadata column.
+// Metadata still uses fetch-then-merge JSONB updates.
+// Research artifacts use RPC helpers for atomic per-section writes.
 //
 // Server-only: This file imports @/lib/supabase/server which transitively
 // imports @clerk/nextjs/server. Must NOT be imported from client components.
@@ -10,6 +16,11 @@ import { createAdminClient } from '@/lib/supabase/server';
 export interface PersistResult {
   ok: boolean;
   error?: string;
+  skipped?: boolean;
+}
+
+interface PersistedResearchResult {
+  runId?: string;
 }
 
 // Transient Supabase error codes worth retrying (connection/timeout issues)
@@ -21,11 +32,73 @@ function isRetryableSupabaseError(err: { code?: string; message?: string }): boo
   return msg.includes('timeout') || msg.includes('connection') || msg.includes('reset');
 }
 
+function getResearchRunId(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const runId = (value as PersistedResearchResult).runId;
+  return typeof runId === 'string' && runId.length > 0 ? runId : undefined;
+}
+
+function getResearchRunIdsBySection(
+  research: Record<string, unknown>,
+): Map<string, string> {
+  const runIdsBySection = new Map<string, string>();
+
+  for (const [section, value] of Object.entries(research)) {
+    const runId = getResearchRunId(value);
+    if (!runId) {
+      continue;
+    }
+
+    const normalized = normalizeStoredResearchResults({ [section]: value }, 'canonical');
+    const normalizedSection = Object.keys(normalized)[0];
+    if (normalizedSection) {
+      runIdsBySection.set(normalizedSection, runId);
+    }
+  }
+
+  return runIdsBySection;
+}
+
+async function readCurrentJourneyRunId(
+  userId: string,
+): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('metadata')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return getJourneyRunIdFromMetadata(
+    (data?.metadata as Record<string, unknown> | null | undefined) ?? null,
+  );
+}
+
 export async function persistToSupabase(
   userId: string,
   fields: Record<string, unknown>,
+  activeRunId?: string,
 ): Promise<PersistResult> {
   try {
+    if (activeRunId) {
+      const currentRunId = await readCurrentJourneyRunId(userId);
+      if (currentRunId && currentRunId !== activeRunId) {
+        console.warn('[journey] Skipping stale session persist for inactive run:', {
+          activeRunId,
+          currentRunId,
+          userId,
+        });
+        return { ok: true, skipped: true };
+      }
+    }
+
     const supabase = createAdminClient();
 
     // Fetch current metadata (D13: fetch-then-merge pattern)
@@ -42,6 +115,7 @@ export async function persistToSupabase(
     const merged = {
       ...currentMetadata,
       ...fields,
+      ...(activeRunId ? { [JOURNEY_ACTIVE_RUN_METADATA_KEY]: activeRunId } : {}),
       lastUpdated: new Date().toISOString(),
     };
 
@@ -71,26 +145,54 @@ export async function persistToSupabase(
 export async function persistResearchToSupabase(
   userId: string,
   research: Record<string, unknown>,
+  activeRunId?: string,
   attempt = 1,
 ): Promise<PersistResult> {
   try {
+    if (activeRunId) {
+      const currentRunId = await readCurrentJourneyRunId(userId);
+      if (currentRunId !== activeRunId) {
+        console.warn('[journey] Skipping stale research persist for inactive run:', {
+          activeRunId,
+          currentRunId,
+          userId,
+        });
+        return { ok: true, skipped: true };
+      }
+    }
+
     const supabase = createAdminClient();
-    const { error } = await supabase
-      .from('journey_sessions')
-      .upsert(
-        { user_id: userId, research_output: research, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' },
+    const normalizedResearch = normalizeStoredResearchResults(research, 'canonical');
+    const runIdsBySection = getResearchRunIdsBySection(research);
+
+    for (const [section, result] of Object.entries(normalizedResearch)) {
+      const runId = runIdsBySection.get(section) ?? activeRunId;
+      const { error } = await supabase.rpc(
+        'merge_journey_session_research_result',
+        {
+          p_user_id: userId,
+          p_section: section,
+          p_result: runId ? { ...result, runId } : result,
+        },
       );
 
-    if (error) {
-      const shouldRetry = attempt < 2 && isRetryableSupabaseError(error);
-      if (shouldRetry) {
-        console.warn(`[journey] Supabase write failed (attempt ${attempt}) — retrying in 1s:`, error.message);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return persistResearchToSupabase(userId, research, attempt + 1);
+      if (error) {
+        const shouldRetry = attempt < 2 && isRetryableSupabaseError(error);
+        if (shouldRetry) {
+          console.warn(
+            `[journey] Supabase write failed (attempt ${attempt}) — retrying in 1s:`,
+            error.message,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return persistResearchToSupabase(userId, research, activeRunId, attempt + 1);
+        }
+
+        console.error(
+          `[journey] persistResearchToSupabase failed after ${attempt} attempt(s):`,
+          error.message,
+        );
+        return { ok: false, error: error.message };
       }
-      console.error(`[journey] persistResearchToSupabase failed after ${attempt} attempt(s):`, error.message);
-      return { ok: false, error: error.message };
     }
 
     return { ok: true };

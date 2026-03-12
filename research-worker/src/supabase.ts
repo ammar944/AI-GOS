@@ -2,6 +2,9 @@
 // ALTER TABLE journey_sessions ADD COLUMN IF NOT EXISTS job_status JSONB DEFAULT '{}';
 
 import { createClient } from '@supabase/supabase-js';
+import type { RunnerTelemetry } from './telemetry';
+
+const ACTIVE_RUN_ID_KEY = 'activeJourneyRunId';
 
 function getClient() {
   const url = process.env.SUPABASE_URL;
@@ -45,11 +48,62 @@ async function withSupabaseRetry<T>(
 }
 
 export interface ResearchResult {
-  status: 'complete' | 'error';
+  runId?: string;
+  status: 'complete' | 'partial' | 'error';
   section: string;
   data?: unknown;
   error?: string;
   durationMs: number;
+  rawText?: string;
+  citations?: Array<{
+    number?: number;
+    url: string;
+    title?: string;
+  }>;
+  provenance?: {
+    status: 'sourced' | 'missing';
+    citationCount: number;
+  };
+  validation?: {
+    section?: string;
+    issues?: Array<{
+      code: string;
+      message: string;
+      path?: string;
+    }>;
+  };
+  telemetry?: RunnerTelemetry;
+}
+
+async function isActiveJourneyRun(
+  userId: string,
+  runId: string | undefined,
+): Promise<boolean> {
+  if (!runId) {
+    return true;
+  }
+
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('metadata')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to read active journey run for ${userId}: ${error.message}`);
+  }
+
+  const currentRunId =
+    data?.metadata &&
+    typeof data.metadata === 'object' &&
+    !Array.isArray(data.metadata) &&
+    ACTIVE_RUN_ID_KEY in data.metadata &&
+    typeof data.metadata[ACTIVE_RUN_ID_KEY] === 'string'
+      ? (data.metadata[ACTIVE_RUN_ID_KEY] as string)
+      : null;
+
+  return currentRunId === runId;
 }
 
 async function writeResearchResultInner(
@@ -57,32 +111,24 @@ async function writeResearchResultInner(
   section: string,
   result: ResearchResult,
 ): Promise<void> {
-  const supabase = getClient();
-
-  const { data: session, error: fetchError } = await supabase
-    .from('journey_sessions')
-    .select('id, research_results')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (fetchError || !session) {
-    throw new Error(
-      `Could not find session for user ${userId}: ${fetchError?.message ?? 'no session returned'}`,
-    );
+  if (!(await isActiveJourneyRun(userId, result.runId))) {
+    console.warn('[worker] Skipping stale research result for inactive run:', {
+      section,
+      runId: result.runId ?? null,
+      userId,
+    });
+    return;
   }
 
-  const existing = (session.research_results as Record<string, unknown>) ?? {};
-  const updated = { ...existing, [section]: result };
+  const supabase = getClient();
+  const { error } = await supabase.rpc('merge_journey_session_research_result', {
+    p_user_id: userId,
+    p_section: section,
+    p_result: result,
+  });
 
-  const { error: updateError } = await supabase
-    .from('journey_sessions')
-    .update({ research_results: updated })
-    .eq('id', session.id);
-
-  if (updateError) {
-    throw new Error(`Failed to write ${section} result: ${updateError.message}`);
+  if (error) {
+    throw new Error(`Failed to write ${section} result: ${error.message}`);
   }
 
   console.log(`[worker] Wrote ${section} result (${result.status}) for user ${userId}`);
@@ -106,13 +152,57 @@ export async function writeResearchResult(
 
 export type JobStatus = 'running' | 'complete' | 'error';
 
+export interface JobStatusUpdate {
+  at: string;
+  id: string;
+  message: string;
+  phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+}
+
 export interface JobStatusRow {
+  runId?: string;
   status: JobStatus;
   tool: string;
   startedAt: string;
   completedAt?: string;
   lastHeartbeat?: string;
   error?: string;
+  updates?: JobStatusUpdate[];
+  telemetry?: RunnerTelemetry;
+}
+
+function mergeJobUpdates(
+  existing: JobStatusUpdate[] | undefined,
+  incoming: JobStatusUpdate[] | undefined,
+): JobStatusUpdate[] | undefined {
+  if (!existing?.length && !incoming?.length) {
+    return undefined;
+  }
+
+  const deduped = new Map<string, JobStatusUpdate>();
+
+  for (const update of existing ?? []) {
+    deduped.set(update.id, update);
+  }
+
+  for (const update of incoming ?? []) {
+    deduped.set(update.id, update);
+  }
+
+  return [...deduped.values()].sort((left, right) =>
+    left.at.localeCompare(right.at),
+  );
+}
+
+function mergeJobStatusRow(
+  existing: JobStatusRow | undefined,
+  incoming: JobStatusRow,
+): JobStatusRow {
+  return {
+    ...existing,
+    ...incoming,
+    updates: mergeJobUpdates(existing?.updates, incoming.updates),
+  };
 }
 
 async function writeJobStatusInner(
@@ -120,32 +210,24 @@ async function writeJobStatusInner(
   jobId: string,
   row: JobStatusRow,
 ): Promise<void> {
-  const supabase = getClient();
-
-  const { data: session, error: fetchError } = await supabase
-    .from('journey_sessions')
-    .select('id, job_status')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (fetchError || !session) {
-    throw new Error(
-      `writeJobStatus: no session for user ${userId}: ${fetchError?.message ?? 'no session returned'}`,
-    );
+  if (!(await isActiveJourneyRun(userId, row.runId))) {
+    console.warn('[worker] Skipping stale job status for inactive run:', {
+      jobId,
+      runId: row.runId ?? null,
+      userId,
+    });
+    return;
   }
 
-  const existing = (session.job_status as Record<string, unknown>) ?? {};
-  const updated = { ...existing, [jobId]: row };
+  const supabase = getClient();
+  const { error } = await supabase.rpc('merge_journey_session_job_status', {
+    p_user_id: userId,
+    p_job_id: jobId,
+    p_row: row,
+  });
 
-  const { error: updateError } = await supabase
-    .from('journey_sessions')
-    .update({ job_status: updated })
-    .eq('id', session.id);
-
-  if (updateError) {
-    throw new Error(`writeJobStatus failed for job ${jobId}: ${updateError.message}`);
+  if (error) {
+    throw new Error(`writeJobStatus failed for job ${jobId}: ${error.message}`);
   }
 }
 

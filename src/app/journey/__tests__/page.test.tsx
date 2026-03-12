@@ -10,6 +10,7 @@ const {
   addToolApprovalResponseMock,
   addToolOutputMock,
   chatControls,
+  guardedFetchMock,
   realtimeControls,
   sendMessageMock,
   setJourneySessionMock,
@@ -21,12 +22,36 @@ const {
   let onSectionComplete:
     | ((section: string, result: ResearchSectionResult) => void)
     | null = null;
+  let activeRunId: string | null = null;
+
+  const sendMessageMock = vi.fn(
+    (message: { text: string; metadata?: Record<string, unknown> }) => {
+      const nextMessage: UIMessage = {
+        id: `user-${messages.length + 1}`,
+        role: 'user',
+        metadata: message.metadata,
+        parts: [
+          {
+            type: 'text',
+            text: message.text,
+          } as unknown as UIMessage['parts'][number],
+        ],
+      } as UIMessage;
+
+      messages = [...messages, nextMessage];
+      messageListeners.forEach((listener) => listener(messages));
+    },
+  );
 
   return {
-    sendMessageMock: vi.fn(),
+    sendMessageMock,
     addToolOutputMock: vi.fn(),
     addToolApprovalResponseMock: vi.fn(),
     setJourneySessionMock: vi.fn(),
+    guardedFetchMock: vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    }),
     chatControls: {
       addMessageListener(listener: (nextMessages: UIMessage[]) => void): () => void {
         messageListeners.add(listener);
@@ -57,6 +82,10 @@ const {
         status = nextStatus;
         statusListeners.forEach((listener) => listener(status));
       },
+      appendMessage(nextMessage: UIMessage): void {
+        messages = [...messages, nextMessage];
+        messageListeners.forEach((listener) => listener(messages));
+      },
       reset(): void {
         messages = [];
         status = 'ready';
@@ -65,14 +94,20 @@ const {
     realtimeControls: {
       setHandler(
         nextHandler: ((section: string, result: ResearchSectionResult) => void) | null,
+        nextActiveRunId: string | null,
       ): void {
-        onSectionComplete = nextHandler;
+        activeRunId = nextActiveRunId;
+        onSectionComplete = nextActiveRunId ? nextHandler : null;
       },
       emit(section: string, result: ResearchSectionResult): void {
         onSectionComplete?.(section, result);
       },
+      getActiveRunId(): string | null {
+        return activeRunId;
+      },
       reset(): void {
         onSectionComplete = null;
+        activeRunId = null;
       },
     },
   };
@@ -189,22 +224,29 @@ vi.mock('@/lib/journey/research-realtime', async () => {
 
   return {
     useResearchRealtime: ({
+      activeRunId,
       onSectionComplete,
     }: {
+      activeRunId?: string | null;
       onSectionComplete: (section: string, result: ResearchSectionResult) => void;
     }) => {
       React.useEffect(() => {
-        realtimeControls.setHandler(onSectionComplete);
+        realtimeControls.setHandler(onSectionComplete, activeRunId ?? null);
         return () => {
-          realtimeControls.setHandler(null);
+          realtimeControls.setHandler(null, null);
         };
-      }, [onSectionComplete]);
+      }, [activeRunId, onSectionComplete]);
     },
   };
 });
 
 vi.mock('@/lib/journey/research-job-activity', () => ({
   useResearchJobActivity: () => ({}),
+}));
+
+vi.mock('@/lib/journey/http', () => ({
+  createJourneyGuardedFetch: () => guardedFetchMock,
+  formatJourneyErrorMessage: () => 'Journey failed',
 }));
 
 vi.mock('@/components/journey/journey-stepper', () => ({
@@ -227,30 +269,35 @@ vi.mock('@/components/journey/research-inline-card', () => ({
 
 vi.mock('@/components/journey/artifact-trigger-card', () => ({
   ArtifactTriggerCard: ({
+    approved,
     onClick,
     section,
   }: {
+    approved: boolean;
     onClick: () => void;
     section: string;
   }) => (
     <button type="button" data-testid={`artifact-trigger-${section}`} onClick={onClick}>
-      reopen {section}
+      reopen {section} {approved ? 'approved' : 'pending'}
     </button>
   ),
 }));
 
 vi.mock('@/components/journey/artifact-panel', () => ({
   ArtifactPanel: ({
+    approved,
     section,
     onApprove,
     onClose,
   }: {
+    approved: boolean;
     section: string;
     onApprove: () => void;
     onClose: () => void;
   }) => (
     <div data-testid="artifact-panel">
       <span>{section}</span>
+      <span>{approved ? 'approved' : 'pending'}</span>
       <button type="button" onClick={onApprove}>
         approve artifact
       </button>
@@ -345,12 +392,51 @@ async function emitQueuedResearchDispatch(
 describe('JourneyPage artifact orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     chatControls.reset();
     realtimeControls.reset();
+    guardedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    });
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: vi.fn(),
     });
+  });
+
+  it('starts a clean run when website analysis is skipped', async () => {
+    render(<JourneyPage />);
+
+    expect(realtimeControls.getActiveRunId()).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start without website analysis' }));
+    });
+
+    await waitFor(() => {
+      expect(guardedFetchMock).toHaveBeenCalledWith(
+        '/api/journey/session',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+
+    const [, requestInit] = guardedFetchMock.mock.calls[0] as [
+      string,
+      { body?: string },
+    ];
+    const payload = JSON.parse(requestInit.body ?? '{}') as {
+      activeRunId?: unknown;
+      clearResearch?: unknown;
+    };
+
+    expect(payload.clearResearch).toBe(true);
+    expect(typeof payload.activeRunId).toBe('string');
+    expect(String(payload.activeRunId)).not.toHaveLength(0);
+    expect(realtimeControls.getActiveRunId()).toBe(String(payload.activeRunId));
   });
 
   it('opens a newly completed review artifact when it first becomes ready', async () => {
@@ -421,6 +507,30 @@ describe('JourneyPage artifact orchestration', () => {
 
     expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
     expect(sendMessageMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps approval UI aligned with the backend approval history on hydration', async () => {
+    await renderJourneyChat();
+
+    await act(async () => {
+      chatControls.appendMessage({
+        id: 'approval-industry',
+        role: 'user',
+        parts: [
+          {
+            type: 'text',
+            text: '[SECTION_APPROVED:industryMarket] Looks good',
+          } as unknown as UIMessage['parts'][number],
+        ],
+      } as UIMessage);
+    });
+
+    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
+
+    expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('artifact-trigger-industryMarket')).toHaveTextContent(
+      'approved',
+    );
   });
 
   it('reopens an approved review section when a real rerun is queued', async () => {

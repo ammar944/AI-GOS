@@ -1,71 +1,118 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import {
+  normalizeStoredResearchResults,
+  type StoredResearchResult,
+} from '@/lib/journey/research-result-contract';
+import {
+  buildJourneySessionUrl,
+  doesJourneyRunMatchActiveRun,
+  getJourneyRunIdFromMetadata,
+} from '@/lib/journey/journey-run';
+import { applyJourneySandboxSectionResets } from '@/lib/journey/research-sandbox';
 
-export interface ResearchSectionResult {
-  status: 'complete' | 'error';
-  section: string;
-  data?: unknown;
-  error?: string;
-  durationMs: number;
+export type ResearchSectionResult = StoredResearchResult<unknown, string>;
+
+export function getResearchResultSignature(
+  result: ResearchSectionResult,
+): string {
+  return JSON.stringify({
+    status: result.status,
+    section: result.section,
+    data: result.data ?? null,
+    error: result.error ?? null,
+    durationMs: result.durationMs,
+    telemetry: result.telemetry ?? null,
+  });
+}
+
+export function shouldHandleResearchResult(
+  seenResults: Map<string, string>,
+  section: string,
+  result: ResearchSectionResult,
+): boolean {
+  const signature = getResearchResultSignature(result);
+  if (seenResults.get(section) === signature) {
+    return false;
+  }
+
+  seenResults.set(section, signature);
+  return true;
+}
+
+export function isJourneySessionRowFresh(
+  updatedAt: string | null | undefined,
+  ignoreUpdatedBefore: string | null | undefined,
+): boolean {
+  if (!updatedAt || !ignoreUpdatedBefore) {
+    return true;
+  }
+
+  return Date.parse(updatedAt) >= Date.parse(ignoreUpdatedBefore);
 }
 
 interface UseResearchRealtimeOptions {
   userId: string | null | undefined;
+  activeRunId?: string | null;
   onSectionComplete: (section: string, result: ResearchSectionResult) => void;
-  onAllSectionsComplete?: (
-    allResults: Record<string, ResearchSectionResult>,
-  ) => void;
   onTimeout?: (pendingSections: string[]) => void;
   timeoutMs?: number;
   /** Increment to reset internal seen-sections state (e.g. when starting a new session). */
   resetSignal?: number;
+  ignoreUpdatedBefore?: string | null;
 }
 
-const SYNTHESIS_PREREQUISITES = new Set([
+const CORE_RESEARCH_SECTIONS = new Set([
   'industryMarket',
   'competitors',
   'icpValidation',
   'offerAnalysis',
 ]);
 
+interface JourneySessionSnapshotResponse {
+  metadata: Record<string, unknown> | null;
+  researchResults: Record<string, unknown> | null;
+  jobStatus: Record<string, unknown> | null;
+  updatedAt: string | null;
+  runId?: string | null;
+  error?: string;
+}
+
 /**
  * Subscribe to Supabase Realtime for research results.
  * Calls onSectionComplete whenever a new section arrives in journey_sessions.research_results.
- * Calls onAllSectionsComplete when all 4 prerequisite sections are complete.
  */
 export function useResearchRealtime({
   userId,
+  activeRunId,
   onSectionComplete,
-  onAllSectionsComplete,
   onTimeout,
   timeoutMs,
   resetSignal,
+  ignoreUpdatedBefore,
 }: UseResearchRealtimeOptions) {
-  const seenSections = useRef<Set<string>>(new Set());
-  const seenResults = useRef<Record<string, ResearchSectionResult>>({});
-  const synthesisTriggered = useRef(false);
+  const seenResults = useRef<Map<string, string>>(new Map());
   const onSectionCompleteRef = useRef(onSectionComplete);
-  const onAllSectionsCompleteRef = useRef(onAllSectionsComplete);
   const onTimeoutRef = useRef(onTimeout);
-  onSectionCompleteRef.current = onSectionComplete;
-  onAllSectionsCompleteRef.current = onAllSectionsComplete;
-  onTimeoutRef.current = onTimeout;
 
   useEffect(() => {
-    if (!userId) return;
+    onSectionCompleteRef.current = onSectionComplete;
+  }, [onSectionComplete]);
+
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout;
+  }, [onTimeout]);
+
+  useEffect(() => {
+    if (!userId || !activeRunId) return;
 
     // Reset internal state when this effect re-runs (resetSignal changed or userId changed)
-    seenSections.current = new Set();
-    seenResults.current = {};
-    synthesisTriggered.current = false;
-
-    const supabase = createClient();
+    seenResults.current = new Map();
 
     const timeout = setTimeout(() => {
-      const pending = [...SYNTHESIS_PREREQUISITES].filter(
-        (s) => !seenSections.current.has(s),
+      const pending = [...CORE_RESEARCH_SECTIONS].filter(
+        (s) => !seenResults.current.has(s),
       );
       if (pending.length > 0) {
         onTimeoutRef.current?.(pending);
@@ -76,76 +123,70 @@ export function useResearchRealtime({
       section: string,
       result: ResearchSectionResult,
     ) {
-      if (seenSections.current.has(section)) return;
-      seenSections.current.add(section);
-      seenResults.current = { ...seenResults.current, [section]: result };
-      onSectionCompleteRef.current(section, result);
-
-      // Check if all 4 synthesis prerequisites are complete
-      const allResults = seenResults.current;
-      const completedPrereqs = [...SYNTHESIS_PREREQUISITES].filter(
-        (s) => allResults[s]?.status === 'complete',
-      );
-      if (
-        completedPrereqs.length === SYNTHESIS_PREREQUISITES.size &&
-        !synthesisTriggered.current
-      ) {
-        synthesisTriggered.current = true;
-        onAllSectionsCompleteRef.current?.(allResults);
+      if (!shouldHandleResearchResult(seenResults.current, section, result)) {
+        return;
       }
+      onSectionCompleteRef.current(section, result);
     }
 
-    // On mount (resetSignal === 0), check for already-completed sections (page refresh case).
-    // When resetSignal > 0, we explicitly started a new session — skip the initial fetch
-    // because we just cleared the Supabase data and the async clear may not have committed yet.
-    if (!resetSignal) {
-      supabase
-        .from('journey_sessions')
-        .select('research_results')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (!data?.research_results) return;
-          const results = data.research_results as Record<
-            string,
-            ResearchSectionResult
-          >;
-          for (const [section, result] of Object.entries(results)) {
-            handleNewSection(section, result);
-          }
+    let cancelled = false;
+
+    const fetchCurrentResults = async () => {
+      try {
+        const response = await fetch(buildJourneySessionUrl(activeRunId), {
+          cache: 'no-store',
+          credentials: 'same-origin',
         });
-    }
 
-    // Subscribe to future changes
-    const channel = supabase
-      .channel(`research-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'journey_sessions',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const results = (payload.new as Record<string, unknown>)
-            .research_results as Record<
-            string,
-            ResearchSectionResult
-          > | null;
-          if (!results) return;
-          for (const [section, result] of Object.entries(results)) {
-            handleNewSection(section, result);
+        if (!response.ok) {
+          if (!cancelled) {
+            console.error('[journey] Failed to fetch current research results:', {
+              status: response.status,
+            });
           }
-        },
-      )
-      .subscribe();
+          return;
+        }
+
+        const data = (await response.json()) as JourneySessionSnapshotResponse;
+        const snapshotRunId =
+          data.runId ?? getJourneyRunIdFromMetadata(data.metadata);
+        if (
+          (snapshotRunId !== null &&
+            !doesJourneyRunMatchActiveRun(activeRunId, snapshotRunId)) ||
+          !data.researchResults ||
+          !isJourneySessionRowFresh(data.updatedAt, ignoreUpdatedBefore)
+        ) {
+          return;
+        }
+
+        const filtered = applyJourneySandboxSectionResets({
+          metadata: data.metadata,
+          researchResults: data.researchResults,
+          jobStatus: data.jobStatus,
+        });
+        const results = normalizeStoredResearchResults(
+          filtered.researchResults,
+          'boundary',
+        );
+        for (const [section, result] of Object.entries(results)) {
+          handleNewSection(section, result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('[journey] Failed to fetch current research results:', error);
+        }
+      }
+    };
+
+    void fetchCurrentResults();
+    const interval = window.setInterval(() => {
+      void fetchCurrentResults();
+    }, 2000);
 
     return () => {
+      cancelled = true;
       clearTimeout(timeout);
-      supabase.removeChannel(channel);
+      window.clearInterval(interval);
     };
-  }, [userId, timeoutMs, resetSignal]);
+  }, [activeRunId, userId, timeoutMs, resetSignal, ignoreUpdatedBefore]);
 }

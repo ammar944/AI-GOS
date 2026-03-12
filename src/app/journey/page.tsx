@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useChat } from '@ai-sdk/react';
 import {
@@ -17,6 +18,7 @@ import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useJourneyPrefill } from '@/hooks/use-journey-prefill';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+import { getJourneyApprovalState } from '@/lib/ai/journey-review-gates';
 import { shouldAutoSendJourneyMessages } from '@/lib/journey/chat-auto-send';
 import { filterJourneyMessageParts } from '@/lib/journey/filter-chat-parts';
 import { extractResearchDispatchState } from '@/lib/journey/research-dispatch-state';
@@ -53,6 +55,11 @@ import {
   createJourneyGuardedFetch,
   formatJourneyErrorMessage,
 } from '@/lib/journey/http';
+import {
+  createJourneyRunId,
+  getStoredJourneyRunId,
+  setStoredJourneyRunId,
+} from '@/lib/journey/journey-run';
 import {
   drainPendingSectionWakeUps,
   enqueuePendingSectionWakeUp,
@@ -352,7 +359,18 @@ function JourneyPageContent() {
       }),
     [partialResult, prefillWebsiteUrl],
   );
-  const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
+  const [activeRunId, setActiveRunId] = useState<string | null>(() => getStoredJourneyRunId());
+  const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
+  const transportBody = useMemo(() => {
+    if (!activeRunId && !resumeTransportState) {
+      return undefined;
+    }
+
+    return {
+      ...(activeRunId ? { activeRunId } : {}),
+      ...(resumeTransportState ? { resumeState: resumeTransportState } : {}),
+    };
+  }, [activeRunId, resumeTransportState]);
 
   const [, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
@@ -364,7 +382,6 @@ function JourneyPageContent() {
   // Artifact panel state
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactSection, setArtifactSection] = useState<string>('industryMarket');
-  const [approvedArtifactSections, setApprovedArtifactSections] = useState<Record<string, true>>({});
   const [artifactFeedbackSection, setArtifactFeedbackSection] = useState<string | null>(null);
   const [recentlyApprovedArtifactSection, setRecentlyApprovedArtifactSection] = useState<string | null>(null);
   const artifactAutoOpenedSectionsRef = useRef<Set<string>>(new Set());
@@ -375,7 +392,7 @@ function JourneyPageContent() {
 
   // Clear stale research data from Supabase and reset local state.
   // Called when starting a NEW session (accept prefill / skip / start fresh).
-  const resetResearchState = useCallback((userId: string) => {
+  const resetResearchState = useCallback((userId: string, nextRunId: string) => {
     const resetAt = new Date().toISOString();
 
     // 1. Clear local React state
@@ -383,7 +400,6 @@ function JourneyPageContent() {
     setActiveResearch(new Set());
     setTerminalLogs([]);
     setArtifactOpen(false);
-    setApprovedArtifactSections({});
     setArtifactFeedbackSection(null);
     setRecentlyApprovedArtifactSection(null);
     artifactAutoOpenedSectionsRef.current = new Set();
@@ -401,7 +417,7 @@ function JourneyPageContent() {
     void createJourneyGuardedFetch('Journey')('/api/journey/session', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clearResearch: true }),
+      body: JSON.stringify({ clearResearch: true, activeRunId: nextRunId }),
     }).catch((error) => {
       console.error('[journey] Failed to clear stale research data:', error);
     });
@@ -414,12 +430,6 @@ function JourneyPageContent() {
 
   const resetArtifactSectionTracking = useCallback((section: string) => {
     resetSectionWakeUpTracking(section);
-    setApprovedArtifactSections((prev) => {
-      if (!prev[section]) return prev;
-      const next = { ...prev };
-      delete next[section];
-      return next;
-    });
     setArtifactFeedbackSection((prev) => (prev === section ? null : prev));
     setRecentlyApprovedArtifactSection((prev) => (prev === section ? null : prev));
     artifactAutoOpenedSectionsRef.current = resetTrackedSection(
@@ -506,11 +516,37 @@ function JourneyPageContent() {
       }
     },
   });
+  const approvalState = useMemo(() => getJourneyApprovalState(messages), [messages]);
+  const approvedArtifactSections = approvalState.approvedSections;
+
+  const resetConversationState = useCallback(() => {
+    setMessages([]);
+  }, [setMessages]);
+
+  const commitActiveRunId = useCallback((nextRunId: string) => {
+    flushSync(() => {
+      setActiveRunId(nextRunId);
+      setResumeTransportState(undefined);
+    });
+    setStoredJourneyRunId(nextRunId);
+  }, []);
 
   // Supabase Realtime — receive async research results
   const { user } = useUser();
+
+  const beginFreshJourneyRun = useCallback((): string => {
+    const nextRunId = createJourneyRunId();
+    commitActiveRunId(nextRunId);
+    resetConversationState();
+    if (user?.id) {
+      resetResearchState(user.id, nextRunId);
+    }
+    return nextRunId;
+  }, [commitActiveRunId, resetConversationState, resetResearchState, user?.id]);
+
   const researchJobActivity = useResearchJobActivity({
-    userId: user?.id,
+    userId: journeyPhase === 'chat' ? user?.id : null,
+    activeRunId,
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
   });
@@ -522,7 +558,10 @@ function JourneyPageContent() {
   }, []);
 
   const persistAcceptedJourneyFields = useCallback(
-    (fields: Record<string, string>) => {
+    (
+      fields: Record<string, string>,
+      nextRunId?: string,
+    ) => {
       const acceptedFields = Object.fromEntries(
         Object.entries(fields).filter(([, value]) => value.trim().length > 0),
       );
@@ -535,14 +574,17 @@ function JourneyPageContent() {
       void guardedFetch('/api/journey/session', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: acceptedFields }),
+        body: JSON.stringify({
+          fields: acceptedFields,
+          activeRunId: nextRunId ?? activeRunId,
+        }),
       }).catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         console.error('[journey] failed to persist accepted prefill fields:', message);
         addLog('warn', 'Accepted onboarding fields were not persisted to session metadata');
       });
     },
-    [addLog],
+    [activeRunId, addLog],
   );
 
   const markResearchQueued = useCallback(
@@ -578,7 +620,7 @@ function JourneyPageContent() {
       if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
         if (
           hasPreviousResult ||
-          approvedArtifactSections[section] ||
+          approvedArtifactSections.has(section) ||
           artifactFeedbackSection === section ||
           recentlyApprovedArtifactSection === section
         ) {
@@ -716,7 +758,8 @@ function JourneyPageContent() {
   );
 
   useResearchRealtime({
-    userId: user?.id,
+    userId: journeyPhase === 'chat' ? user?.id : null,
+    activeRunId,
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
@@ -754,12 +797,17 @@ function JourneyPageContent() {
         return;
       }
 
-      appendRealtimeResearchMessage(section, result);
-
       if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
+        if (approvedArtifactSections.has(section)) {
+          return;
+        }
+
+        appendRealtimeResearchMessage(section, result);
         showArtifactSection(section, { automatic: true });
         return;
       }
+
+      appendRealtimeResearchMessage(section, result);
 
       if (statusRef.current === 'streaming' || statusRef.current === 'submitted') {
         queuePendingWakeUp(section);
@@ -815,12 +863,17 @@ function JourneyPageContent() {
       const result = researchResults[section];
       if (!result || result.status !== 'complete') continue;
 
-      appendRealtimeResearchMessage(section, result);
-
       if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
+        if (approvedArtifactSections.has(section)) {
+          continue;
+        }
+
+        appendRealtimeResearchMessage(section, result);
         showArtifactSection(section, { automatic: true });
         continue;
       }
+
+      appendRealtimeResearchMessage(section, result);
 
       shouldWakeAgent = shouldWakeAgentForSection(section) || shouldWakeAgent;
     }
@@ -835,6 +888,7 @@ function JourneyPageContent() {
     journeyPhase,
     status,
     researchResults,
+    approvedArtifactSections,
     appendRealtimeResearchMessage,
     sendMessage,
     shouldWakeAgentForSection,
@@ -945,6 +999,7 @@ function JourneyPageContent() {
         const current = getJourneySession() ?? createEmptyState();
         const updated: OnboardingState = {
           ...current,
+          activeJourneyRunId: activeRunId ?? current.activeJourneyRunId ?? null,
           [result.fieldName]: value,
           lastUpdated: new Date().toISOString(),
         };
@@ -952,6 +1007,7 @@ function JourneyPageContent() {
         updated.requiredFieldsCompleted = requiredFieldsCompleted;
         updated.completionPercent = completionPercent;
         setJourneySession(updated);
+        setStoredJourneyRunId(updated.activeJourneyRunId ?? null);
         setOnboardingState(updated);
 
         if (result.fieldName === 'confirmation') {
@@ -970,7 +1026,7 @@ function JourneyPageContent() {
         output: JSON.stringify(result),
       });
     },
-    [addToolOutput]
+    [activeRunId, addToolOutput]
   );
 
   // Submit handler
@@ -1019,30 +1075,38 @@ function JourneyPageContent() {
 
   // Resume handlers
   const handleResumeContinue = useCallback(() => {
-    if (savedSession) {
-      setTransportBody({ resumeState: getAnsweredFields(savedSession) });
-      setIsResuming(true);
-      addLog('ok', 'Resuming previous session');
+    if (!savedSession) {
+      setJourneyPhase('chat');
+      return;
     }
+
+    const nextRunId =
+      savedSession.activeJourneyRunId && savedSession.activeJourneyRunId.trim().length > 0
+        ? savedSession.activeJourneyRunId
+        : activeRunId ?? createJourneyRunId();
+    commitActiveRunId(nextRunId);
+
+    setResumeTransportState(getAnsweredFields(savedSession));
+    setIsResuming(true);
+    addLog('ok', 'Resuming previous session');
     setJourneyPhase('chat');
-  }, [savedSession, addLog]);
+  }, [activeRunId, addLog, commitActiveRunId, savedSession]);
 
   const handleResumeStartFresh = useCallback(() => {
     clearJourneySession();
-    if (user?.id) resetResearchState(user.id);
-    setTransportBody(undefined);
+    beginFreshJourneyRun();
     setSavedSession(null);
     setIsResuming(false);
     setOnboardingState(null);
     setJourneyPhase('welcome');
     addLog('inf', 'Starting fresh journey');
-  }, [addLog, user?.id, resetResearchState]);
+  }, [addLog, beginFreshJourneyRun]);
 
   // Prefill accept — build context message from extracted fields + blocker inputs and send to lead agent
   const handleAcceptPrefill = useCallback(
     ({ editedFields, manualFields }: PrefillAcceptPayload = {}) => {
       // Clear stale research data from previous sessions BEFORE entering chat
-      if (user?.id) resetResearchState(user.id);
+      const nextRunId = beginFreshJourneyRun();
 
       const partialResultRecord = partialResult as Record<string, unknown> | null | undefined;
       const acceptedJourneyFields: Record<string, string> = {};
@@ -1088,37 +1152,43 @@ function JourneyPageContent() {
       }
       lines.push('', 'Please use this context and begin the research journey.');
 
-      persistAcceptedJourneyFields(acceptedJourneyFields);
+      persistAcceptedJourneyFields(acceptedJourneyFields, nextRunId);
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
       // Single message: agent sees full context, UI shows compact text
       sendMessage({
         text: lines.join('\n'),
-        metadata: { hidden: false, displayText: `Company profile accepted for ${displayName}` },
+        metadata: {
+          hidden: false,
+          displayText: `Company profile accepted for ${displayName}`,
+          activeRunId: nextRunId,
+        },
       });
 
       setJourneyPhase('chat');
     },
     [
       addLog,
+      beginFreshJourneyRun,
       partialResult,
       persistAcceptedJourneyFields,
-      resetResearchState,
       sendMessage,
-      user?.id,
     ],
   );
 
   const handleSkipPrefill = useCallback(() => {
+    const nextRunId = beginFreshJourneyRun();
     stopPrefill();
     setPrefillStarted(false);
     addLog('inf', 'Skipping website analysis — moving to manual onboarding');
     setJourneyPhase('chat');
-    sendMessage({ text: 'Start without website analysis' });
-  }, [stopPrefill, addLog, sendMessage]);
+    sendMessage({
+      text: 'Start without website analysis',
+      metadata: { activeRunId: nextRunId },
+    });
+  }, [addLog, beginFreshJourneyRun, sendMessage, stopPrefill]);
 
   const handleArtifactApprove = useCallback(() => {
-    setApprovedArtifactSections((prev) => ({ ...prev, [artifactSection]: true }));
     setArtifactFeedbackSection(null);
     setRecentlyApprovedArtifactSection(artifactSection);
     setArtifactOpen(false);
@@ -1191,7 +1261,7 @@ function JourneyPageContent() {
 
   const artifactData = (researchResults[artifactSection]?.data ?? undefined) as Record<string, unknown> | undefined;
   const artifactActivity = researchJobActivity[artifactSection];
-  const artifactApproved = Boolean(approvedArtifactSections[artifactSection]);
+  const artifactApproved = approvedArtifactSections.has(artifactSection);
   const approvedSectionLabel =
     recentlyApprovedArtifactSection
       ? SECTION_META[recentlyApprovedArtifactSection] ?? recentlyApprovedArtifactSection
@@ -1553,11 +1623,7 @@ function JourneyPageContent() {
         setJourneyPhase('prefilling');
         addLog('run', `Analyzing ${websiteUrl}`);
       }}
-      onSkip={() => {
-        addLog('inf', 'Starting without website analysis');
-        setJourneyPhase('chat');
-        sendMessage({ text: 'Start without website analysis' });
-      }}
+      onSkip={handleSkipPrefill}
     />
   );
 

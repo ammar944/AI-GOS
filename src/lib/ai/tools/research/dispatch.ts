@@ -3,6 +3,7 @@
 // Returns immediately (fire-and-forget from the lead agent's perspective).
 
 import { auth } from '@clerk/nextjs/server';
+import type { ToolExecutionOptions } from 'ai';
 
 export interface DispatchResult {
   status: 'queued' | 'error';
@@ -10,6 +11,28 @@ export interface DispatchResult {
   jobId?: string;
   userId?: string;
   error?: string;
+}
+
+export interface DispatchResearchOptions {
+  activeRunId?: string | null;
+}
+
+export interface JourneyToolExecutionContext {
+  activeRunId?: string | null;
+}
+
+export function getActiveRunIdFromToolExecutionOptions(
+  options: ToolExecutionOptions,
+): string | null {
+  const context = options.experimental_context;
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    return null;
+  }
+
+  const { activeRunId } = context as JourneyToolExecutionContext;
+  return typeof activeRunId === 'string' && activeRunId.trim().length > 0
+    ? activeRunId
+    : null;
 }
 
 // Retry a fetch call up to maxAttempts times on network errors only.
@@ -44,16 +67,13 @@ async function withRetry(
   throw lastError;
 }
 
-export async function dispatchResearch(
+export async function dispatchResearchForUser(
   tool: string,
   section: string,
   context: string,
+  userId: string,
+  options: DispatchResearchOptions = {},
 ): Promise<DispatchResult> {
-  const { userId } = await auth();
-  if (!userId) {
-    return { status: 'error', section, error: 'Unauthorized' };
-  }
-
   const workerUrl = process.env.RAILWAY_WORKER_URL;
   const apiKey = process.env.RAILWAY_API_KEY;
 
@@ -80,7 +100,15 @@ export async function dispatchResearch(
             'Content-Type': 'application/json',
             ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
           },
-          body: JSON.stringify({ tool, context, userId, jobId }),
+          body: JSON.stringify({
+            tool,
+            context,
+            userId,
+            jobId,
+            ...(typeof options.activeRunId === 'string' && options.activeRunId.length > 0
+              ? { runId: options.activeRunId }
+              : {}),
+          }),
           signal: AbortSignal.timeout(5000),
         }),
       tool,
@@ -101,4 +129,18 @@ export async function dispatchResearch(
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+export async function dispatchResearch(
+  tool: string,
+  section: string,
+  context: string,
+  options: DispatchResearchOptions = {},
+): Promise<DispatchResult> {
+  const { userId } = await auth();
+  if (!userId) {
+    return { status: 'error', section, error: 'Unauthorized' };
+  }
+
+  return dispatchResearchForUser(tool, section, context, userId, options);
 }

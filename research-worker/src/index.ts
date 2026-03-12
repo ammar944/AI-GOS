@@ -10,8 +10,9 @@ import {
   runMediaPlanner,
 } from './runners';
 import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
-import { compressResearchOutput } from './compress';
 import { writeDeadLetter } from './dead-letter';
+import type { RunnerProgressReporter } from './runner';
+import { TOOL_SECTION_MAP } from './section-map';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -53,9 +54,10 @@ interface RunJobRequest {
   context: string;
   userId: string;
   jobId: string;
+  runId?: string;
 }
 
-const TOOL_RUNNERS: Record<ToolName, (context: string) => Promise<ResearchResult>> = {
+const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgressReporter) => Promise<ResearchResult>> = {
   researchIndustry: runResearchIndustry,
   researchCompetitors: runResearchCompetitors,
   researchICP: runResearchICP,
@@ -63,18 +65,6 @@ const TOOL_RUNNERS: Record<ToolName, (context: string) => Promise<ResearchResult
   synthesizeResearch: runSynthesizeResearch,
   researchKeywords: runResearchKeywords,
   researchMediaPlan: runMediaPlanner,
-};
-
-// Maps tool name → section key used in journey_sessions.research_results.
-// The readiness poller checks section keys, not tool names.
-const TOOL_SECTION_MAP: Record<ToolName, string> = {
-  researchIndustry: 'industryMarket',
-  researchCompetitors: 'competitors',
-  researchICP: 'icpValidation',
-  researchOffer: 'offerAnalysis',
-  synthesizeResearch: 'crossAnalysis',
-  researchKeywords: 'keywords',
-  researchMediaPlan: 'mediaPlan',
 };
 
 // -- Health -------------------------------------------------------------------
@@ -86,12 +76,45 @@ app.get('/health', (_req, res) => {
   });
 });
 
+app.get('/capabilities', (_req, res) => {
+  res.json({
+    status: 'ok',
+    tools: {
+      webSearch: true,
+      spyfu: Boolean(process.env.SPYFU_API_KEY),
+      firecrawl: Boolean(process.env.FIRECRAWL_API_KEY),
+      googleAds: Boolean(
+        process.env.GOOGLE_ADS_DEVELOPER_TOKEN &&
+          process.env.GOOGLE_ADS_CLIENT_ID &&
+          process.env.GOOGLE_ADS_CLIENT_SECRET &&
+          process.env.GOOGLE_ADS_REFRESH_TOKEN &&
+          process.env.GOOGLE_ADS_CUSTOMER_ID,
+      ),
+      metaAds: Boolean(
+        process.env.META_ACCESS_TOKEN && process.env.META_BUSINESS_ACCOUNT_ID,
+      ),
+      ga4: Boolean(
+        process.env.GA4_PROPERTY_ID && process.env.GA4_SERVICE_ACCOUNT_JSON,
+      ),
+      charting: true,
+    },
+  });
+});
+
 // -- Active job tracking (for stale detection) --------------------------------
-const activeJobs = new Map<string, { tool: string; userId: string; startedAt: number }>();
+const activeJobs = new Map<
+  string,
+  {
+    tool: string;
+    userId: string;
+    startedAt: number;
+    runId?: string;
+  }
+>();
 
 // -- Run ----------------------------------------------------------------------
 app.post('/run', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { tool, context, userId, jobId } = req.body as RunJobRequest;
+  const { tool, context, userId, jobId, runId } = req.body as RunJobRequest;
 
   if (!tool || !context || !userId || !jobId) {
     res.status(400).json({ error: 'tool, context, userId, jobId are required' });
@@ -111,9 +134,18 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   // — detectable rather than silently lost.
   try {
     await writeJobStatus(userId, jobId, {
+      runId,
       status: 'running',
       tool,
       startedAt: new Date(startMs).toISOString(),
+      updates: [
+        {
+          at: new Date(startMs).toISOString(),
+          id: crypto.randomUUID(),
+          message: 'worker accepted research job',
+          phase: 'runner',
+        },
+      ],
     });
   } catch (statusErr) {
     // Non-fatal — log and proceed. Research is more important than status tracking.
@@ -121,7 +153,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   }
 
   // Track active job for stale detection
-  activeJobs.set(jobId, { tool, userId, startedAt: startMs });
+  activeJobs.set(jobId, { tool, userId, startedAt: startMs, runId });
 
   // Return 202 now — job continues asynchronously in background
   res.status(202).json({ status: 'accepted', jobId });
@@ -130,23 +162,65 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   // already committed the job to Supabase above, so crashes are observable.
   void (async () => {
     console.log(`[worker] Starting ${tool} for user ${userId} (job ${jobId})`);
+    let statusWriteChain = Promise.resolve();
+    let lastProgressSignature: string | null = null;
+    let jobFinalized = false;
+
+    const queueJobStatusWrite = (row: Parameters<typeof writeJobStatus>[2]) => {
+      statusWriteChain = statusWriteChain
+        .then(() => writeJobStatus(userId, jobId, row))
+        .catch((err) => {
+          console.warn(`[status] Failed to persist update for ${jobId}:`, err);
+        });
+
+      return statusWriteChain;
+    };
+
+    const emitProgress: RunnerProgressReporter = async (update) => {
+      const signature = `${update.phase}:${update.message}`;
+      if (signature === lastProgressSignature) {
+        return;
+      }
+      lastProgressSignature = signature;
+
+      await queueJobStatusWrite({
+        runId,
+        status: 'running',
+        tool,
+        startedAt: new Date(startMs).toISOString(),
+        lastHeartbeat: new Date().toISOString(),
+        updates: [
+          {
+            at: update.at ?? new Date().toISOString(),
+            id: update.id ?? crypto.randomUUID(),
+            message: update.message,
+            phase: update.phase,
+          },
+        ],
+      });
+    };
 
     // Heartbeat: write 'running' status every 30s so the poller knows we're alive
     const heartbeatInterval = setInterval(async () => {
-      try {
-        await writeJobStatus(userId, jobId, {
-          status: 'running',
-          tool,
-          startedAt: new Date(startMs).toISOString(),
-          lastHeartbeat: new Date().toISOString(),
-        });
-      } catch (err) {
-        console.warn(`[heartbeat] Failed for ${jobId}:`, err);
+      if (jobFinalized) {
+        return;
       }
+
+      await queueJobStatusWrite({
+        runId,
+        status: 'running',
+        tool,
+        startedAt: new Date(startMs).toISOString(),
+        lastHeartbeat: new Date().toISOString(),
+      });
     }, 30_000);
 
     try {
-      const result = await runner(context);
+      await emitProgress({
+        message: 'launching research sub-agent',
+        phase: 'runner',
+      });
+      const result = await runner(context, emitProgress);
 
       // Compression disabled — raw runner data flows through to Supabase
       // so artifact-panel.tsx and research-inline-card.tsx can render
@@ -158,8 +232,19 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         console.log(`[${tool}] Raw data: ${rawLength} chars (compression bypassed)`);
       }
 
+      await emitProgress({
+        message:
+          result.status === 'complete'
+            ? 'writing completed artifact to Journey'
+            : 'writing research error state to Journey',
+        phase: result.status === 'complete' ? 'output' : 'error',
+      });
+
       try {
-        await writeResearchResult(userId, result.section, result);
+        await writeResearchResult(userId, result.section, {
+          ...result,
+          runId,
+        });
       } catch (writeError) {
         console.error(
           `[worker] writeResearchResult failed after retries for ${result.section}:`,
@@ -167,18 +252,37 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         );
         writeDeadLetter(userId, result.section, result, String(writeError));
       }
-      await writeJobStatus(userId, jobId, {
-        status: 'complete',
+      jobFinalized = true;
+      clearInterval(heartbeatInterval);
+      await queueJobStatusWrite({
+        runId,
+        status: result.status === 'complete' ? 'complete' : 'error',
         tool,
         startedAt: new Date(startMs).toISOString(),
         completedAt: new Date().toISOString(),
+        error: result.status === 'complete' ? undefined : result.error,
+        telemetry: result.telemetry,
+        updates: [
+          {
+            at: new Date().toISOString(),
+            id: crypto.randomUUID(),
+            message:
+              result.status === 'complete'
+                ? 'research complete'
+                : result.error ?? 'research failed validation',
+            phase: result.status === 'complete' ? 'output' : 'error',
+          },
+        ],
       });
-      console.log(`[worker] Completed ${tool} for user ${userId} in ${result.durationMs}ms`);
+      console.log(
+        `[worker] ${result.status === 'complete' ? 'Completed' : 'Recorded error for'} ${tool} for user ${userId} in ${result.durationMs}ms`,
+      );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[worker] Unhandled error in ${tool}:`, error);
       const section = TOOL_SECTION_MAP[tool] ?? tool;
       const errorResult = {
+        runId,
         status: 'error' as const,
         section,
         error: errorMsg,
@@ -193,12 +297,23 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         );
         writeDeadLetter(userId, section, errorResult, String(writeError));
       }
-      await writeJobStatus(userId, jobId, {
+      jobFinalized = true;
+      clearInterval(heartbeatInterval);
+      await queueJobStatusWrite({
+        runId,
         status: 'error',
         tool,
         startedAt: new Date(startMs).toISOString(),
         completedAt: new Date().toISOString(),
         error: errorMsg,
+        updates: [
+          {
+            at: new Date().toISOString(),
+            id: crypto.randomUUID(),
+            message: errorMsg,
+            phase: 'error',
+          },
+        ],
       });
     } finally {
       clearInterval(heartbeatInterval);
@@ -221,6 +336,7 @@ setInterval(() => {
     if (now - job.startedAt > STALE_THRESHOLD_MS) {
       console.error(`[stale-check] Job ${jobId} (${job.tool}) exceeded ${STALE_THRESHOLD_MS / 1000}s — marking as error`);
       writeJobStatus(job.userId, jobId, {
+        runId: job.runId,
         status: 'error',
         tool: job.tool,
         error: `timeout: job exceeded ${STALE_THRESHOLD_MS / 1000}s`,

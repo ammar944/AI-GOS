@@ -34,6 +34,23 @@ describe('dispatchResearch retry logic', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
+  it('threads the active run id to the worker dispatch', async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(202));
+
+    const { dispatchResearch } = await import('../dispatch');
+    await dispatchResearch('researchIndustry', 'industryMarket', 'ctx', {
+      activeRunId: 'run-123',
+    });
+
+    const [, requestInit] = mockFetch.mock.calls[0] as [
+      string,
+      { body?: string },
+    ];
+    const payload = JSON.parse(requestInit.body ?? '{}') as { runId?: unknown };
+
+    expect(payload.runId).toBe('run-123');
+  });
+
   it('retries /run up to 3 times on network error before returning error', async () => {
     mockFetch
       .mockRejectedValueOnce(new Error('ECONNREFUSED')) // attempt 1

@@ -31,7 +31,7 @@ export const confirmJourneyFields = tool({
       | {
           confirmedState?: unknown;
           userId?: string;
-          sessionId?: string;
+          activeRunId?: string;
         }
       | undefined;
 
@@ -62,8 +62,8 @@ export const confirmJourneyFields = tool({
       });
     }
 
-    if (ctx?.userId && ctx?.sessionId && confirmedFields.length > 0) {
-      await persistToSupabase(ctx.userId, next as OnboardingState, ctx.sessionId);
+    if (ctx?.userId && ctx?.activeRunId && confirmedFields.length > 0) {
+      await persistToSupabase(ctx.userId, next as OnboardingState, ctx.activeRunId);
     }
 
     return {
