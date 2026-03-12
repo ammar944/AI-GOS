@@ -23,7 +23,6 @@ import {
   researchOffer,
   synthesizeResearch,
   researchKeywords,
-  researchMediaPlan,
 } from '@/lib/ai/tools/research';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
@@ -271,7 +270,7 @@ export async function POST(request: Request) {
     systemPrompt += `\n\n## Stage 2 Directive (this request only)\n\nThe user's latest message contains a competitor reference: **${competitorDetection.rawMention}**. Extracted domain: \`${competitorDetection.domain}\` ${competitorDetection.inferredDomain ? '(inferred — verify if incorrect)' : ''}.\n\nIMPORTANTLY: Call \`competitorFastHits\` with \`competitorUrl: "${competitorDetection.domain}"\` as your FIRST action in this response — before writing any text.\n\n${postCompetitorInstruction}\n\nDomain used: ${domainLabel}.`;
   }
 
-  // Strategist Mode guard: only unlock after synthesis, keywords, and media plan complete
+  // Strategist Mode guard: unlock after synthesis and keyword intel complete
   if (journeySnap.strategistModeReady) {
     systemPrompt += `\n\n## Strategist Mode (enforced)\n\nThe full downstream research sequence is complete. You are now in Strategist Mode. ABSOLUTE RULES:\n- Do NOT call \`askUser\` to collect more onboarding fields. The onboarding phase is over.\n- Do NOT call any research tools again — all research has been dispatched.\n- Respond to the user's strategic questions with specific, opinionated recommendations.\n- If the user asks a question that requires data you don't have, acknowledge the gap and give your best take based on what was collected.`;
   }
@@ -441,14 +440,12 @@ ${nextDirective}`;
     } else if (latestApprovedSection === 'offerAnalysis') {
       const nextDirective =
         downstreamPlan.nextTool === 'synthesizeResearch'
-          ? 'Call `synthesizeResearch` as your FIRST action in this response. After calling it, say "Offer analysis is locked. I’m synthesizing the full picture now, then I’ll move into keyword and media planning." Then STOP.'
+          ? 'Call `synthesizeResearch` as your FIRST action in this response. After calling it, say "Offer analysis is locked. I’m synthesizing the full picture now, then I’ll move into keyword intelligence." Then STOP.'
           : downstreamPlan.nextTool === 'researchKeywords'
             ? 'Call `researchKeywords` as your FIRST action in this response. After calling it, say "Synthesis is locked. I’m launching keyword intelligence next so the paid-search structure is grounded in the strategy." Then STOP.'
-            : downstreamPlan.nextTool === 'researchMediaPlan'
-              ? 'Call `researchMediaPlan` as your FIRST action in this response. After calling it, say "Keyword intelligence is locked. I’m building the execution-ready media plan now." Then STOP.'
-              : downstreamPlan.strategistModeReady
-                ? 'Briefly acknowledge that the downstream research sequence is already complete and continue in Strategist Mode.'
-                : 'The downstream research sequence is already running. Briefly acknowledge that it is underway and STOP.';
+            : downstreamPlan.strategistModeReady
+              ? 'Briefly acknowledge that keyword intelligence is locked and continue in Strategist Mode.'
+              : 'The downstream research sequence is already running. Briefly acknowledge that it is underway and STOP.';
 
       systemPrompt += `\n\n## Section Approved Directive (this request only)
 
@@ -529,7 +526,7 @@ All onboarding research sections have been completed and approved. Strategic syn
 YOUR RESPONSE MUST:
 - Say that the onboarding research sections are locked and you are synthesizing the full picture
 - Call \`synthesizeResearch\` as your FIRST action
-- After calling it, say "All core sections are locked. I’m synthesizing the strategy now, then I’ll move into keyword and media planning." and STOP`;
+- After calling it, say "All core sections are locked. I’m synthesizing the strategy now, then I’ll move into keyword intelligence." and STOP`;
     } else if (downstreamPlan.nextTool === 'researchKeywords') {
       systemPrompt += `\n\n## Sequential Recovery (this request only)
 
@@ -539,15 +536,6 @@ YOUR RESPONSE MUST:
 - Say that the strategic synthesis is locked and keyword intelligence is next
 - Call \`researchKeywords\` as your FIRST action
 - After calling it, say "Strategy synthesis is locked. I’m launching keyword intelligence now so the paid-search structure is grounded in the strategy." and STOP`;
-    } else if (downstreamPlan.nextTool === 'researchMediaPlan') {
-      systemPrompt += `\n\n## Sequential Recovery (this request only)
-
-Keyword Intelligence is complete, but the Media Plan has not been dispatched yet.
-
-YOUR RESPONSE MUST:
-- Say that keyword intelligence is locked and media planning is next
-- Call \`researchMediaPlan\` as your FIRST action
-- After calling it, say "Keyword intelligence is locked. I’m building the execution-ready media plan now." and STOP`;
     }
   }
 
@@ -570,7 +558,6 @@ YOUR RESPONSE MUST:
       researchOffer,
       synthesizeResearch,
       researchKeywords,
-      researchMediaPlan,
     },
     stopWhen: stepCountIs(25),
     providerOptions: {

@@ -4,7 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 
-// AI-GOS v2 Typography System
+// AIGOS v2 Typography System
 // Body font - DM Sans
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",

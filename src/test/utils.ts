@@ -1,7 +1,7 @@
 /**
  * Test Utilities
  *
- * Common test helpers and utilities for the AI-GOS test suite.
+ * Common test helpers and utilities for the AIGOS test suite.
  */
 
 import React from "react";

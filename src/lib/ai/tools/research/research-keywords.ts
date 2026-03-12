@@ -3,7 +3,10 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import {
+  dispatchResearch,
+  getActiveRunIdFromToolExecutionOptions,
+} from './dispatch';
 
 export const researchKeywords = tool({
   description:
@@ -17,7 +20,9 @@ export const researchKeywords = tool({
       'Business context including product description, competitors identified, and platform recommendations from synthesis',
     ),
   }),
-  execute: async ({ context }) => {
-    return dispatchResearch('researchKeywords', 'keywordIntel', context);
+  execute: async ({ context }, options) => {
+    return dispatchResearch('researchKeywords', 'keywordIntel', context, {
+      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    });
   },
 });

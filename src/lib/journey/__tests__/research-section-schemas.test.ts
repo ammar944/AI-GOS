@@ -47,14 +47,51 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
         competitors: [
           {
             name: 'PipelinePro',
+            website: 'https://pipelinepro.test',
+            positioning: 'Fast attribution for growth-stage SaaS teams',
+            price: '$499/mo',
+            pricingConfidence: 'high',
             strengths: ['Strong category awareness'],
             weaknesses: ['Weak onboarding depth'],
             opportunities: ['Win on implementation speed'],
+            ourAdvantage: 'Lead with faster time-to-value and clearer attribution proof.',
+            adActivity: {
+              activeAdCount: 14,
+              platforms: ['LinkedIn', 'Google'],
+              themes: ['Revenue visibility', 'Faster implementation'],
+              evidence:
+                'SearchAPI and ad-library enrichment both show active prospecting creatives.',
+              sourceConfidence: 'high',
+            },
+            threatAssessment: {
+              threatFactors: {
+                marketShareRecognition: 7,
+                adSpendIntensity: 6,
+                productOverlap: 8,
+                priceCompetitiveness: 5,
+                growthTrajectory: 6,
+              },
+              topAdHooks: ['Fix attribution before the board meeting'],
+              counterPositioning:
+                'Position against their slow onboarding and enterprise-heavy setup.',
+            },
           },
         ],
-        marketStrengths: ['Buyers understand the category'],
-        marketWeaknesses: ['Most vendors sound interchangeable'],
-        whiteSpaceGaps: ['Faster time-to-value messaging'],
+        marketPatterns: ['Most vendors default to platform-first messaging'],
+        marketStrengths: ['Buyers already understand the category'],
+        marketWeaknesses: ['Most positioning sounds interchangeable'],
+        whiteSpaceGaps: [
+          {
+            gap: 'Faster time-to-value messaging',
+            type: 'messaging',
+            evidence: 'Review complaints center on slow onboarding and implementation drag.',
+            exploitability: 8,
+            impact: 9,
+            recommendedAction: 'Lead with launch speed in paid creative and landing page proof.',
+          },
+        ],
+        overallLandscape:
+          'Crowded market with strong demand but weak differentiation on onboarding speed.',
       } satisfies JourneySectionDataMap['competitorIntel'],
     ],
     [
@@ -74,13 +111,6 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
     [
       'offerAnalysis',
       {
-        offerClarity: {
-          clearlyArticulated: true,
-          solvesRealPain: true,
-          benefitsEasyToUnderstand: true,
-          transformationMeasurable: true,
-          valuePropositionObvious: true,
-        },
         offerStrength: {
           painRelevance: 8,
           urgency: 7,
@@ -90,19 +120,37 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
           pricingLogic: 7,
           overallScore: 7,
         },
-        marketOfferFit: {
-          marketWantsNow: true,
-          competitorsOfferSimilar: true,
-          priceMatchesExpectations: true,
-          proofStrongForColdTraffic: false,
-          transformationBelievable: true,
-        },
-        redFlags: ['weak_or_no_proof'],
         recommendation: {
-          status: 'adjust_messaging',
-          reasoning: 'The offer is credible, but proof needs to be more explicit.',
-          actionItems: ['Lead with quantified proof on landing pages'],
+          status: 'needs-work',
+          summary: 'The offer is credible, but it needs stronger proof and a clearer launch plan.',
+          topStrengths: ['Clear operational pain solved', 'Pricing is in-market'],
+          priorityFixes: ['Add quantified proof to the landing page'],
+          recommendedActionPlan: [
+            'Rewrite the hero section around a measurable before/after outcome.',
+          ],
         },
+        redFlags: [
+          {
+            issue: 'Thin proof for cold traffic',
+            severity: 'high',
+            priority: 1,
+            recommendedAction: 'Add quantified case-study proof to the offer page.',
+            launchBlocker: true,
+            evidence: 'The current page has no outcome metrics or named customer proof.',
+          },
+        ],
+        pricingAnalysis: {
+          currentPricing: '$3,000/month',
+          marketBenchmark: '$2,000-$4,500/month',
+          pricingPosition: 'mid-market',
+          coldTrafficViability:
+            'Viable if the landing page carries stronger proof and a tighter promise.',
+        },
+        marketFitAssessment:
+          'The market wants the outcome, but the current package needs more proof to convert cold traffic.',
+        messagingRecommendations: [
+          'Lead with the measurable revenue outcome before listing deliverables.',
+        ],
       } satisfies JourneySectionDataMap['offerAnalysis'],
     ],
     [
@@ -115,48 +163,151 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
             priority: 'high',
           },
         ],
-        recommendedPositioning:
-          'Position the offer as the fastest path to trustworthy pipeline visibility.',
         positioningStrategy: {
-          primary:
-            'Own the category around fast, operator-friendly revenue visibility.',
-          alternatives: ['Differentiate on implementation support'],
-          differentiators: ['Faster deployment'],
-          avoidPositions: ['Generic all-in-one analytics'],
+          recommendedAngle:
+            'Position the offer as the fastest path to trustworthy pipeline visibility.',
+          alternativeAngles: ['Differentiate on implementation support'],
+          leadRecommendation:
+            'Speed-to-value is the sharpest gap against competitor onboarding friction.',
+          keyDifferentiator: 'Faster deployment with revenue-accountable reporting.',
         },
-        recommendedPlatforms: [
+        platformRecommendations: [
           {
             platform: 'LinkedIn',
-            reasoning: 'Core buyers are concentrated there.',
-            priority: 'primary',
+            role: 'primary',
+            budgetAllocation: '60% ($3,000)',
+            rationale: 'Core buyers are concentrated there.',
+            priority: 1,
           },
         ],
-        potentialBlockers: ['Thin proof library for cold traffic'],
-        nextSteps: ['Refresh proof and case studies before scaling spend'],
-        messagingFramework: {
-          coreMessage: 'Get trustworthy pipeline visibility in days, not months.',
+        messagingAngles: [
+          {
+            angle: 'Faster proof of pipeline impact',
+            targetEmotion: 'Confidence',
+            exampleHook: 'Get trustworthy attribution before next month’s board review.',
+            evidence: 'Review and interview data both highlight proof and reporting anxiety.',
+          },
+        ],
+        planningContext: {
+          monthlyBudget: '$5,000/month',
+          targetCpl: '$300',
+          targetCac: '$2,000',
+          downstreamSequence: ['keywordIntel', 'mediaPlan'],
         },
+        nextSteps: ['Refresh proof and case studies before scaling spend'],
+        criticalSuccessFactors: ['Thin proof library for cold traffic'],
+        strategicNarrative:
+          'Position the offer around trust and speed, then use LinkedIn plus search to capture demand.',
       } satisfies JourneySectionDataMap['strategicSynthesis'],
     ],
     [
       'keywordIntel',
       {
-        keywords: [{ keyword: 'marketing attribution software' }],
-        quickWins: [{ keyword: 'b2b attribution tool', opportunity: 82 }],
-        highIntentKeywords: [{ keyword: 'best b2b attribution software' }],
-        clientStrengths: [{ keyword: 'fast attribution setup' }],
-        contentTopicClusters: [{ theme: 'ROI reporting', keywords: ['pipeline reporting'] }],
-        metadata: { totalKeywordsAnalyzed: 24 },
+        totalKeywordsFound: 24,
+        competitorGapCount: 6,
+        campaignGroups: [
+          {
+            campaign: 'Core High-Intent Search',
+            intent: 'bottom-of-funnel',
+            recommendedMonthlyBudget: 2500,
+            adGroups: [
+              {
+                name: 'Attribution Software',
+                recommendedMatchTypes: ['phrase', 'exact'],
+                keywords: [
+                  {
+                    keyword: 'marketing attribution software',
+                    searchVolume: 2400,
+                    estimatedCpc: '$18.40',
+                    difficulty: 'high',
+                    priorityScore: 91,
+                    confidence: 'high',
+                  },
+                ],
+                negativeKeywords: ['free', 'jobs'],
+              },
+            ],
+          },
+        ],
+        topOpportunities: [
+          {
+            keyword: 'marketing attribution software',
+            searchVolume: 2400,
+            estimatedCpc: '$18.40',
+            difficulty: 'high',
+            priorityScore: 91,
+            confidence: 'high',
+          },
+        ],
+        recommendedStartingSet: [
+          {
+            keyword: 'marketing attribution software',
+            campaign: 'Core High-Intent Search',
+            adGroup: 'Attribution Software',
+            recommendedMonthlyBudget: 900,
+            reason: 'Highest-intent head term with strong budget fit.',
+            priorityScore: 91,
+          },
+        ],
+        competitorGaps: [
+          {
+            keyword: 'dreamdata alternative',
+            competitorName: 'Dreamdata',
+            searchVolume: 320,
+            estimatedCpc: '$16.20',
+            priorityScore: 84,
+          },
+        ],
+        negativeKeywords: [
+          {
+            keyword: 'free',
+            reason: 'Low purchase intent',
+          },
+        ],
+        confidenceNotes: ['Competitor gap volumes are directional because SpyFu coverage is sparse.'],
+        quickWins: ['Launch competitor alternative ad groups first.'],
       } satisfies JourneySectionDataMap['keywordIntel'],
     ],
     [
       'mediaPlan',
       {
-        allocations: [{ channel: 'LinkedIn', percentage: 60 }],
-        totalBudget: '$10,000/mo',
-        timeline: ['Week 1: launch ICP tests'],
-        kpis: [{ channel: 'LinkedIn', target: '< $300 CPL' }],
-        testingPlan: ['Test speed-to-value vs. proof-led hooks'],
+        channelPlan: [
+          {
+            platform: 'LinkedIn',
+            role: 'primary',
+            monthlyBudget: 3000,
+            budgetPercentage: 60,
+            campaignStructure: {
+              campaigns: [
+                {
+                  name: 'RevOps Demand Gen',
+                  type: 'lead-generation',
+                  dailyBudget: 100,
+                  targeting: 'Revenue leaders at B2B SaaS companies',
+                  bidStrategy: 'Maximize leads',
+                },
+              ],
+            },
+          },
+        ],
+        launchSequence: [
+          {
+            week: 1,
+            actions: ['Launch LinkedIn retargeting and search capture'],
+            milestone: 'Launch',
+          },
+        ],
+        kpiFramework: {
+          northStar: 'Qualified pipeline generated',
+          weeklyReview: ['Review CPL by audience', 'Check CRM attribution integrity'],
+        },
+        budgetSummary: {
+          totalMonthly: 5000,
+          byPlatform: [
+            { platform: 'LinkedIn', amount: 3000, percentage: 60 },
+            { platform: 'Google Search', amount: 2000, percentage: 40 },
+          ],
+        },
       } satisfies JourneySectionDataMap['mediaPlan'],
     ],
   ])('accepts a representative payload for %s', (sectionId, payload) => {

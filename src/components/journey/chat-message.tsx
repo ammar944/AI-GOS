@@ -558,7 +558,7 @@ function renderToolPart(
         );
       case 'createVisualization':
         return (
-          <VisualizationCard key={key} data={output as VisualizationCardData} />
+          <VisualizationCard key={key} data={output as unknown as VisualizationCardData} />
         );
       case 'webResearch':
         return (

@@ -1,4 +1,4 @@
--- Journey Sessions table for AI-GOS v2
+-- Journey Sessions table for AIGOS v2
 -- Stores session state for the /journey chat interface
 -- Auth: Service role + Clerk ID (no RLS needed per DISCOVERY.md D8)
 

@@ -4,106 +4,70 @@ import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 export const strategicInsightSchema = z.object({
   insight: nonEmptyStringSchema,
   source: z
-    .enum(['industryResearch', 'icpValidation', 'offerAnalysis', 'competitorIntel'])
+    .enum([
+      'industryResearch',
+      'competitorIntel',
+      'icpValidation',
+      'offerAnalysis',
+    ])
     .optional(),
   implication: nonEmptyStringSchema,
   priority: z.enum(['high', 'medium', 'low']),
 });
 
-export const recommendedPlatformSchema = z.object({
-  platform: z
-    .enum(['Meta', 'LinkedIn', 'Google', 'YouTube', 'TikTok'])
-    .or(nonEmptyStringSchema),
-  reasoning: nonEmptyStringSchema,
-  priority: z.enum(['primary', 'secondary', 'testing']),
+export const positioningStrategySchema = z.object({
+  recommendedAngle: nonEmptyStringSchema,
+  alternativeAngles: nonEmptyStringArraySchema,
+  leadRecommendation: nonEmptyStringSchema,
+  keyDifferentiator: nonEmptyStringSchema,
 });
 
-export const adHookSchema = z.object({
-  hook: nonEmptyStringSchema,
-  technique: z.enum([
-    'controversial',
-    'revelation',
-    'myth-bust',
-    'status-quo-challenge',
-    'curiosity-gap',
-    'story',
-    'fear',
-    'social-proof',
-    'urgency',
-    'authority',
-    'comparison',
-  ]),
-  targetAwareness: z.enum([
-    'unaware',
-    'problem-aware',
-    'solution-aware',
-    'product-aware',
-    'most-aware',
-  ]),
-  source: z
-    .object({
-      type: z.enum(['extracted', 'inspired', 'generated']),
-      competitors: z.array(z.string()).optional(),
-      platform: z.enum(['linkedin', 'meta', 'google']).optional(),
-    })
-    .optional(),
+export const platformRecommendationSchema = z.object({
+  platform: nonEmptyStringSchema,
+  role: z.enum(['primary', 'secondary', 'testing', 'retargeting']),
+  budgetAllocation: nonEmptyStringSchema,
+  rationale: nonEmptyStringSchema,
+  priority: z.number().int().positive(),
 });
 
 export const messagingAngleSchema = z.object({
-  name: nonEmptyStringSchema,
-  description: nonEmptyStringSchema,
+  angle: nonEmptyStringSchema,
   targetEmotion: nonEmptyStringSchema,
-  exampleHeadline: nonEmptyStringSchema,
-});
-
-export const proofPointDetailedSchema = z.object({
-  claim: nonEmptyStringSchema,
+  exampleHook: nonEmptyStringSchema,
   evidence: nonEmptyStringSchema,
-  source: nonEmptyStringSchema.optional(),
 });
 
-export const objectionHandlerSchema = z.object({
-  objection: nonEmptyStringSchema,
-  response: nonEmptyStringSchema,
-  reframe: nonEmptyStringSchema,
+export const planningContextSchema = z.object({
+  monthlyBudget: nonEmptyStringSchema.optional(),
+  targetCpl: nonEmptyStringSchema.optional(),
+  targetCac: nonEmptyStringSchema.optional(),
+  downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).min(1),
 });
 
-export const budgetAllocationSchema = z.object({
-  platform: nonEmptyStringSchema,
-  percentage: z.number().min(0).max(100),
-  reasoning: nonEmptyStringSchema,
+export const synthesisChartSchema = z.object({
+  chartType: z.enum(['pie', 'radar', 'bar', 'funnel', 'word_cloud']),
+  title: nonEmptyStringSchema,
+  imageUrl: nonEmptyStringSchema,
+  description: nonEmptyStringSchema,
 });
 
 export const strategicSynthesisDataSchema = z.object({
   keyInsights: z.array(strategicInsightSchema).min(1),
-  recommendedPositioning: nonEmptyStringSchema,
-  positioningStrategy: z.object({
-    primary: nonEmptyStringSchema,
-    alternatives: nonEmptyStringArraySchema,
-    differentiators: nonEmptyStringArraySchema,
-    avoidPositions: nonEmptyStringArraySchema,
-  }),
-  recommendedPlatforms: z.array(recommendedPlatformSchema).min(1),
-  potentialBlockers: nonEmptyStringArraySchema,
+  positioningStrategy: positioningStrategySchema,
+  platformRecommendations: z.array(platformRecommendationSchema).min(1),
+  messagingAngles: z.array(messagingAngleSchema).min(1),
+  planningContext: planningContextSchema,
+  criticalSuccessFactors: nonEmptyStringArraySchema,
   nextSteps: nonEmptyStringArraySchema,
-  criticalSuccessFactors: nonEmptyStringArraySchema.optional(),
-  messagingFramework: z.object({
-    coreMessage: nonEmptyStringSchema,
-    supportingMessages: nonEmptyStringArraySchema.optional(),
-    proofPoints: nonEmptyStringArraySchema.optional(),
-    tonalGuidelines: nonEmptyStringArraySchema.optional(),
-
-    // V1 restores
-    adHooks: z.array(adHookSchema).optional(),
-    angles: z.array(messagingAngleSchema).optional(),
-    proofPointsDetailed: z.array(proofPointDetailedSchema).optional(),
-    objectionHandlers: z.array(objectionHandlerSchema).optional(),
-  }),
-
-  // V3 addition
-  budgetAllocationRecommendation: z.array(budgetAllocationSchema).optional(),
+  strategicNarrative: nonEmptyStringSchema,
+  charts: z.array(synthesisChartSchema).optional(),
 });
 
 export type StrategicSynthesisData = z.infer<
   typeof strategicSynthesisDataSchema
 >;
+export type StrategicInsight = z.infer<typeof strategicInsightSchema>;
+export type PositioningStrategy = z.infer<typeof positioningStrategySchema>;
+export type PlatformRecommendation = z.infer<typeof platformRecommendationSchema>;
+export type MessagingAngle = z.infer<typeof messagingAngleSchema>;
+export type PlanningContext = z.infer<typeof planningContextSchema>;

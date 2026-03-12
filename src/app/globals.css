@@ -10,7 +10,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* AI-GOS v2 Font Stack */
+  /* AIGOS v2 Font Stack */
   --font-sans: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading: var(--font-instrument-sans), "Instrument Sans", sans-serif;
   --font-display: var(--font-instrument-sans), "Cabinet Grotesk", sans-serif;
@@ -1215,6 +1215,16 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.paper-surface {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(17, 16, 13, 0.08);
+  box-shadow:
+    0 16px 40px rgba(17, 16, 13, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 /* Custom scrollbar for V2 panels */

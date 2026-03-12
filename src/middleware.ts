@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/shared/(.*)",
   "/test/(.*)", // Test pages for development
   "/blueprint-preview(.*)", // Design preview page
+  "/api/journey/(.*)", // Route handlers do their own auth; avoid Clerk HTML rewrites on stream/prefill failures
   "/api/blueprints/(.*)",
   "/api/webhooks/(.*)", // Clerk webhooks - verified via svix signature
 

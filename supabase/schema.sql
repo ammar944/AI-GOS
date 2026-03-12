@@ -1,4 +1,4 @@
--- AI-GOS Database Schema
+-- AIGOS Database Schema
 -- Run this in your Supabase SQL Editor
 -- Note: Authentication is handled by Clerk, not Supabase Auth
 

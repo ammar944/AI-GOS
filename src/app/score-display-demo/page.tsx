@@ -272,7 +272,7 @@ export default function ScoreDisplayDemo() {
       <div className="mt-16 py-8 border-t border-[var(--border-default)]">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-[var(--text-tertiary)]">
-            Score visualization component for AI-GOS. Built with Framer Motion and SVG.
+            Score visualization component for AIGOS. Built with Framer Motion and SVG.
           </p>
         </div>
       </div>

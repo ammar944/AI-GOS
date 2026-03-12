@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
+import { normalizeStoredResearchResults } from '@/lib/journey/research-result-contract';
 
 export interface JobStatusRow {
   status: 'running' | 'complete' | 'error';
@@ -23,8 +24,16 @@ export async function readResearchResult(
 
   if (error || !data) return null;
 
-  const results = data.research_results as Record<string, unknown> | null;
-  return results?.[section] ?? null;
+  const results = normalizeStoredResearchResults(
+    data.research_results as Record<string, unknown> | null,
+    'boundary',
+  );
+  const result = results?.[section] ?? null;
+  if (result && typeof result === 'object' && 'data' in result) {
+    return (result as { data?: unknown }).data ?? result;
+  }
+
+  return result;
 }
 
 export async function readJobStatus(

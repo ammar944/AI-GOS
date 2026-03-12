@@ -116,9 +116,9 @@ describe('computeAdDistribution', () => {
 describe('getHookQuotas', () => {
   const tiers: AdDistributionTier[] = ['zero', 'sparse', 'standard'];
 
-  it.each(tiers)('returns quotas totaling 12 for tier "%s"', (tier) => {
+  it.each(tiers)('returns quotas totaling 8 for tier "%s"', (tier) => {
     const quotas = getHookQuotas(tier);
-    expect(quotas.extracted + quotas.inspired + quotas.original).toBe(12);
+    expect(quotas.extracted + quotas.inspired + quotas.original).toBe(8);
   });
 
   it.each(tiers)('always has maxPerCompetitor = 2 for tier "%s"', (tier) => {
@@ -128,22 +128,22 @@ describe('getHookQuotas', () => {
   it('returns zero extracted for "zero" tier', () => {
     const quotas = getHookQuotas('zero');
     expect(quotas.extracted).toBe(0);
-    expect(quotas.inspired).toBe(6);
-    expect(quotas.original).toBe(6);
+    expect(quotas.inspired).toBe(4);
+    expect(quotas.original).toBe(4);
   });
 
   it('caps extracted at 2 for "sparse" tier', () => {
     const quotas = getHookQuotas('sparse');
     expect(quotas.extracted).toBe(2);
-    expect(quotas.inspired).toBe(4);
-    expect(quotas.original).toBe(6);
+    expect(quotas.inspired).toBe(3);
+    expect(quotas.original).toBe(3);
   });
 
-  it('allows 4 extracted for "standard" tier', () => {
+  it('allows 3 extracted for "standard" tier', () => {
     const quotas = getHookQuotas('standard');
-    expect(quotas.extracted).toBe(4);
-    expect(quotas.inspired).toBe(4);
-    expect(quotas.original).toBe(4);
+    expect(quotas.extracted).toBe(3);
+    expect(quotas.inspired).toBe(3);
+    expect(quotas.original).toBe(2);
   });
 });
 
@@ -310,7 +310,7 @@ describe('remediateHooks', () => {
       h.source?.competitors?.some(c => c.toLowerCase().includes('loman'))
     ).length;
     expect(lomanCount).toBeLessThanOrEqual(2);
-    expect(result.length).toBeLessThanOrEqual(12);
+    expect(result.length).toBeLessThanOrEqual(8);
   });
 
   it('fills with synthesis pool hooks when removing excess', () => {
@@ -324,7 +324,7 @@ describe('remediateHooks', () => {
     const synthesisPool = [makeGeneratedHook('Replacement hook')];
 
     const result = remediateHooks(hooks, violations, synthesisPool, 2);
-    expect(result.length).toBeLessThanOrEqual(12);
+    expect(result.length).toBeLessThanOrEqual(8);
     // Should contain the replacement hook
     const hasReplacement = result.some(h => h.hook === 'Replacement hook');
     expect(hasReplacement).toBe(true);
@@ -408,7 +408,7 @@ describe('scenario: AgentSupply (sparse ad data)', () => {
       h.source?.competitors?.some(c => c.toLowerCase().includes('loman'))
     ).length;
     expect(lomanCount).toBeLessThanOrEqual(2);
-    expect(remediated.length).toBeLessThanOrEqual(12);
+    expect(remediated.length).toBeLessThanOrEqual(8);
   });
 });
 
@@ -424,7 +424,7 @@ describe('scenario: zero ad data', () => {
 
     const quotas = getHookQuotas(distribution);
     expect(quotas.extracted).toBe(0);
-    expect(quotas.inspired + quotas.original).toBe(12);
+    expect(quotas.inspired + quotas.original).toBe(8);
   });
 });
 
@@ -441,9 +441,9 @@ describe('scenario: rich ad data (4 competitors)', () => {
     expect(distribution).toBe('standard');
 
     const quotas = getHookQuotas(distribution);
-    expect(quotas.extracted).toBe(4);
-    expect(quotas.inspired).toBe(4);
-    expect(quotas.original).toBe(4);
+    expect(quotas.extracted).toBe(3);
+    expect(quotas.inspired).toBe(3);
+    expect(quotas.original).toBe(2);
   });
 
   it('hooks distributed across competitors pass validation', () => {

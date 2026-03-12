@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { GenerateHeader, type GenerateStage } from "../generate-header";
 
+// Mock next/navigation — component uses router.push, not window.location
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 // Mock Clerk's UserButton
 vi.mock("@clerk/nextjs", () => ({
   UserButton: () => <div data-testid="user-button">UserButton</div>,
@@ -21,6 +27,12 @@ vi.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+// Mock Logo — uses next/image which throws "Invalid URL" in jsdom
+vi.mock("@/components/ui/logo", () => ({
+  Logo: () => <div data-testid="logo">Logo</div>,
+  LogoMark: () => <div data-testid="logo-mark">LogoMark</div>,
 }));
 
 // Mock Framer Motion to avoid animation issues in tests
@@ -46,9 +58,7 @@ describe("GenerateHeader", () => {
 
   beforeEach(() => {
     mockOnExit.mockClear();
-    // Mock window.location.href
-    delete (window as any).location;
-    window.location = { href: "" } as Location;
+    mockPush.mockClear();
   });
 
   describe("Rendering", () => {
@@ -70,7 +80,7 @@ describe("GenerateHeader", () => {
     it("renders all stage indicators", () => {
       render(<GenerateHeader currentStage="onboarding" />);
 
-      // Check for stage labels
+      // Check for stage labels (both desktop and mobile versions are rendered)
       expect(screen.getAllByText(/Setup/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Generate/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Review/i).length).toBeGreaterThan(0);
@@ -82,8 +92,7 @@ describe("GenerateHeader", () => {
     it("highlights the current stage", () => {
       const { rerender } = render(<GenerateHeader currentStage="onboarding" />);
 
-      // First stage should be active
-      // We can't easily check CSS classes in this test, but we can verify it re-renders
+      // Verify re-renders for each stage don't crash
       rerender(<GenerateHeader currentStage="generate" />);
       rerender(<GenerateHeader currentStage="review" />);
       rerender(<GenerateHeader currentStage="complete" />);
@@ -92,8 +101,7 @@ describe("GenerateHeader", () => {
     it("shows completed stages with checkmark icon", () => {
       render(<GenerateHeader currentStage="review" />);
 
-      // When on review stage, onboarding and generate should be complete
-      // CheckCircle2 icons should be present (though we can't easily verify the exact count)
+      // When on review stage, the header banner should render
       expect(screen.getByRole("banner")).toBeInTheDocument();
     });
   });
@@ -114,7 +122,7 @@ describe("GenerateHeader", () => {
 
       await waitFor(() => {
         expect(mockOnExit).toHaveBeenCalledTimes(1);
-        expect(window.location.href).toBe("/dashboard");
+        expect(mockPush).toHaveBeenCalledWith("/dashboard");
       });
     });
 
@@ -187,7 +195,7 @@ describe("GenerateHeader", () => {
 
       await waitFor(() => {
         expect(mockOnExit).toHaveBeenCalledTimes(1);
-        expect(window.location.href).toBe("/dashboard");
+        expect(mockPush).toHaveBeenCalledWith("/dashboard");
       });
     });
 
@@ -246,7 +254,7 @@ describe("GenerateHeader", () => {
         name: /collapse header/i,
       });
 
-      // Initially expanded
+      // Initially expanded — click to collapse
       fireEvent.click(collapseButton);
 
       // After click, should be collapsed (button label changes to "expand")
@@ -286,7 +294,7 @@ describe("GenerateHeader", () => {
       fireEvent.click(exitButton);
 
       await waitFor(() => {
-        expect(window.location.href).toBe("/custom-path");
+        expect(mockPush).toHaveBeenCalledWith("/custom-path");
       });
     });
   });

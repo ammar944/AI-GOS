@@ -8,6 +8,7 @@ import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 interface ArtifactTriggerCardProps {
   section: string;
   status: 'loading' | 'complete' | 'error';
+  approved?: boolean;
   onClick: () => void;
   className?: string;
 }
@@ -15,11 +16,12 @@ interface ArtifactTriggerCardProps {
 export function ArtifactTriggerCard({
   section,
   status,
+  approved = false,
   onClick,
   className,
 }: ArtifactTriggerCardProps) {
   const meta = SECTION_META[section] ?? DEFAULT_SECTION_META;
-  const isComplete = status === 'complete';
+  const isComplete = approved || status === 'complete';
   const isError = status === 'error';
 
   return (
@@ -63,7 +65,7 @@ export function ArtifactTriggerCard({
       {/* Arrow */}
       <div className="flex items-center gap-2 text-text-tertiary group-hover:text-text-secondary transition-colors">
         <span className="text-xs">
-          {isError ? 'View details' : isComplete ? 'View artifact' : 'View progress'}
+          {isError ? 'View details' : approved ? 'Approved' : isComplete ? 'View artifact' : 'View progress'}
         </span>
         <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
       </div>

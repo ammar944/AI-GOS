@@ -11,15 +11,16 @@ import type { OnboardingFormData, CompanySize } from '@/lib/onboarding/types';
 // ---------------------------------------------------------------------------
 
 const RESEARCH_FIELD_KEYS = [
-  'companyName', 'industry', 'targetCustomers', 'targetJobTitles',
-  'companySize', 'headquartersLocation', 'productDescription', 'coreFeatures',
-  'valueProposition', 'pricing', 'competitors', 'uniqueDifferentiator',
-  'marketProblem', 'customerTransformation', 'commonObjections',
+  'companyName', 'businessModel', 'industryVertical', 'primaryIcpDescription',
+  'jobTitles', 'companySize', 'geography', 'headquartersLocation',
+  'productDescription', 'coreDeliverables', 'pricingTiers', 'valueProp',
+  'guarantees', 'topCompetitors', 'uniqueEdge', 'marketProblem',
+  'situationBeforeBuying', 'desiredTransformation', 'commonObjections',
   'brandPositioning', 'testimonialQuote', 'caseStudiesUrl',
   'testimonialsUrl', 'pricingUrl', 'demoUrl',
 ] as const;
 
-const TOTAL_FIELDS = RESEARCH_FIELD_KEYS.length; // 21
+const TOTAL_FIELDS = RESEARCH_FIELD_KEYS.length; // 25
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,15 +123,15 @@ export function useCompanyResearch(): UseCompanyResearchReturn {
     };
 
     // ICP
-    const icpPrimary = v('targetCustomers');
-    const icpIndustry = v('industry');
+    const icpPrimary = v('primaryIcpDescription');
+    const icpIndustry = v('industryVertical');
     if (icpPrimary || icpIndustry) {
       prefilled.icp = {
         primaryIcpDescription: icpPrimary,
         industryVertical: icpIndustry,
-        jobTitles: v('targetJobTitles'),
+        jobTitles: v('jobTitles'),
         companySize: (() => { const p = parseCompanySize(v('companySize')); return p ? [p] : []; })(),
-        geography: v('headquartersLocation'),
+        geography: v('geography'),
         easiestToClose: '',
         buyingTriggers: '',
         bestClientSources: [],
@@ -139,21 +140,21 @@ export function useCompanyResearch(): UseCompanyResearchReturn {
 
     // Product & Offer
     const productDesc = v('productDescription');
-    const valueProp = v('valueProposition');
-    if (productDesc || valueProp) {
+    const valProp = v('valueProp');
+    if (productDesc || valProp) {
       prefilled.productOffer = {
         productDescription: productDesc,
-        coreDeliverables: v('coreFeatures'),
+        coreDeliverables: v('coreDeliverables'),
         offerPrice: 0,
         pricingModel: [],
-        valueProp: valueProp,
+        valueProp: valProp,
         currentFunnelType: [],
       };
     }
 
     // Market & Competition
-    const competitors = v('competitors');
-    const uniqueEdge = v('uniqueDifferentiator');
+    const competitors = v('topCompetitors');
+    const uniqueEdge = v('uniqueEdge');
     if (competitors || uniqueEdge) {
       prefilled.marketCompetition = {
         topCompetitors: competitors,
@@ -163,7 +164,7 @@ export function useCompanyResearch(): UseCompanyResearchReturn {
     }
 
     // Customer Journey
-    const transformation = v('customerTransformation');
+    const transformation = v('desiredTransformation');
     const objections = v('commonObjections');
     if (transformation || objections) {
       prefilled.customerJourney = {

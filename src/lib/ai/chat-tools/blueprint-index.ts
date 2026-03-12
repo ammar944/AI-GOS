@@ -29,7 +29,7 @@ function countLeafFields(obj: unknown): number {
     return obj.reduce((sum, item) => sum + countLeafFields(item), 0);
   }
   if (typeof obj === 'object') {
-    return Object.values(obj as Record<string, unknown>).reduce(
+    return Object.values(obj as Record<string, unknown>).reduce<number>(
       (sum, val) => sum + countLeafFields(val),
       0
     );

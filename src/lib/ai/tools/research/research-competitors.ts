@@ -3,12 +3,15 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import {
+  dispatchResearch,
+  getActiveRunIdFromToolExecutionOptions,
+} from './dispatch';
 
 export const researchCompetitors = tool({
   description:
     'Research competitors for the client\'s business using live web data, ad library analysis, ' +
-    'SpyFu keyword intelligence, and PageSpeed benchmarks. ' +
+    'and SpyFu keyword intelligence. ' +
     'Call this after researchIndustry results have arrived AND productDescription + topCompetitors are collected from the user. ' +
     'Returns immediately with status "queued" — results stream to the UI via Realtime.',
   inputSchema: z.object({
@@ -18,7 +21,9 @@ export const researchCompetitors = tool({
         'Assembled onboarding context — all fields collected so far as a readable string',
       ),
   }),
-  execute: async ({ context }) => {
-    return dispatchResearch('researchCompetitors', 'competitors', context);
+  execute: async ({ context }, options) => {
+    return dispatchResearch('researchCompetitors', 'competitors', context, {
+      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    });
   },
 });

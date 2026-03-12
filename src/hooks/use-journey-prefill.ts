@@ -4,6 +4,7 @@ import { experimental_useObject as useObject } from '@ai-sdk/react';
 import { useCallback, useMemo } from 'react';
 import type { DeepPartial } from 'ai';
 import { companyResearchSchema, type CompanyResearchOutput } from '@/lib/company-intel/schemas';
+import { createJourneyGuardedFetch } from '@/lib/journey/http';
 
 // Aligned with companyResearchSchema field names (matches lead agent FIELD_LABELS)
 const RESEARCH_FIELD_KEYS = [
@@ -58,9 +59,15 @@ function normalizeOptionalUrl(value?: string): string | undefined {
 }
 
 export function useJourneyPrefill(): UseJourneyPrefillReturn {
+  const guardedFetch = useMemo(
+    () => createJourneyGuardedFetch('Website analysis'),
+    [],
+  );
+
   const { object, submit: submitObject, isLoading, error, stop } = useObject({
     api: '/api/journey/prefill',
     schema: companyResearchSchema,
+    fetch: guardedFetch,
   });
 
   const fieldsFound = useMemo(() => {

@@ -1,6 +1,7 @@
 import type { DeepPartial } from 'ai';
 import type { CompanyResearchOutput, ResearchedField } from '@/lib/company-intel/schemas';
 import type { OnboardingState } from '@/lib/journey/session-state';
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 
 // All 32 onboarding field names from the lead agent's FIELD_LABELS
 type JourneyFieldName =
@@ -35,30 +36,6 @@ export interface JourneyPrefillReviewDecision {
   action: JourneyPrefillReviewAction;
   value?: string;
 }
-
-const FIELD_LABELS: Partial<Record<JourneyFieldName, string>> = {
-  companyName: 'Company Name',
-  businessModel: 'Business Model',
-  industryVertical: 'Industry Vertical',
-  primaryIcpDescription: 'Ideal Customer Profile',
-  jobTitles: 'Target Job Titles',
-  companySize: 'Company Size',
-  geography: 'Geographic Focus',
-  headquartersLocation: 'Headquarters',
-  productDescription: 'Product Description',
-  coreDeliverables: 'Core Deliverables',
-  valueProp: 'Value Proposition',
-  pricingTiers: 'Pricing Tiers',
-  guarantees: 'Guarantees',
-  topCompetitors: 'Top Competitors',
-  uniqueEdge: 'Unique Edge',
-  marketProblem: 'Market Problem',
-  situationBeforeBuying: 'Before State',
-  desiredTransformation: 'Desired Transformation',
-  commonObjections: 'Common Objections',
-  brandPositioning: 'Brand Positioning',
-  testimonialQuote: 'Testimonial Quote',
-};
 
 // Schema field names now match journey field names 1:1 — no mapping needed
 const RESEARCH_TO_JOURNEY_MAP: Array<{
@@ -105,7 +82,7 @@ export function buildJourneyPrefillProposals(
     if (!field?.value || !field.sourceUrl) continue;
     proposals.push({
       fieldName: mapping.journeyField,
-      label: FIELD_LABELS[mapping.journeyField] ?? mapping.journeyField,
+      label: JOURNEY_FIELD_LABELS[mapping.journeyField] ?? mapping.journeyField,
       value: field.value,
       confidence: field.confidence,
       sourceUrl: field.sourceUrl,
@@ -130,7 +107,7 @@ export function buildJourneyPrefillProposalsFromState(
 
     proposals.push({
       fieldName: mapping.journeyField,
-      label: FIELD_LABELS[mapping.journeyField] ?? mapping.journeyField,
+      label: JOURNEY_FIELD_LABELS[mapping.journeyField] ?? mapping.journeyField,
       value,
       confidence: 70,
       sourceUrl: null,

@@ -76,4 +76,36 @@ describe('buildSubsectionCards', () => {
     expect(cards[1].props.allocations[0].percentage).toBe(55);
     expect(cards[1].props.allocations[0].amount).toBe('$8,250');
   });
+
+  it('builds summary cards for media plan output', () => {
+    const data = {
+      dataSourced: { note: 'Benchmarks used because live connectors were unavailable.' },
+      channelPlan: [
+        { platform: 'Google', monthlyBudget: 6000, budgetPercentage: 60 },
+        { platform: 'LinkedIn', monthlyBudget: 4000, budgetPercentage: 40 },
+      ],
+      launchSequence: [
+        { week: 1, actions: ['Launch brand + competitor search'], milestone: 'Initial launch' },
+      ],
+      kpiFramework: {
+        northStar: 'Qualified pipeline per month',
+        weeklyReview: ['Check CPL by platform', 'Review search term waste'],
+      },
+      budgetSummary: {
+        totalMonthly: 10000,
+        byPlatform: [
+          { platform: 'Google', amount: 6000, percentage: 60 },
+          { platform: 'LinkedIn', amount: 4000, percentage: 40 },
+        ],
+      },
+    };
+    const cards = buildSubsectionCards('mediaPlan', data);
+    expect(cards[0].type).toBe('verdict');
+    expect(cards[0].props.summary).toContain('Benchmarks used');
+    expect(cards[1].type).toBe('budgetBar');
+    expect(cards[1].props.totalBudget).toBe('$10,000');
+    expect(cards[2].type).toBe('quote');
+    expect(cards[3].type).toBe('list');
+    expect(cards[3].props.title).toBe('Launch Sequence');
+  });
 });

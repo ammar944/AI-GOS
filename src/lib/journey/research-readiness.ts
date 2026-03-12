@@ -3,6 +3,7 @@
 // Server-only — imports createAdminClient from @/lib/supabase/server.
 
 import { createAdminClient } from '@/lib/supabase/server';
+import { normalizeStoredResearchResults } from '@/lib/journey/research-result-contract';
 
 export const SYNTHESIS_PREREQUISITES = [
   'industryMarket',
@@ -79,7 +80,10 @@ async function checkReadiness(userId: string): Promise<ReadinessResult> {
     };
   }
 
-  const results = (session.research_results as Record<string, { status: string }>) ?? {};
+  const results = normalizeStoredResearchResults(
+    session.research_results as Record<string, unknown> | null,
+    'boundary',
+  );
 
   const completedSections = SYNTHESIS_PREREQUISITES.filter(
     (section) => results[section]?.status === 'complete',

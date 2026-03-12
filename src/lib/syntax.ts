@@ -1,5 +1,5 @@
 // Syntax highlighting utility for blueprint content
-// Based on AI-GOS Design System v1.0 specifications
+// Based on AIGOS Design System v1.0 specifications
 
 import type { CSSProperties } from "react";
 

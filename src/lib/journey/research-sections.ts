@@ -22,6 +22,31 @@ export const CANONICAL_RESEARCH_SECTION_ORDER = [
 export type CanonicalResearchSectionId =
   (typeof CANONICAL_RESEARCH_SECTION_ORDER)[number];
 
+export const CANONICAL_TO_BOUNDARY_SECTION_MAP: Record<
+  CanonicalResearchSectionId,
+  string
+> = {
+  industryResearch: 'industryMarket',
+  competitorIntel: 'competitors',
+  icpValidation: 'icpValidation',
+  offerAnalysis: 'offerAnalysis',
+  strategicSynthesis: 'crossAnalysis',
+  keywordIntel: 'keywordIntel',
+  mediaPlan: 'mediaPlan',
+};
+
+export const RESEARCH_TOOL_TO_SECTION_MAP = {
+  researchIndustry: 'industryResearch',
+  researchCompetitors: 'competitorIntel',
+  researchICP: 'icpValidation',
+  researchOffer: 'offerAnalysis',
+  synthesizeResearch: 'strategicSynthesis',
+  researchKeywords: 'keywordIntel',
+  researchMediaPlan: 'mediaPlan',
+} as const;
+
+export type ResearchToolName = keyof typeof RESEARCH_TOOL_TO_SECTION_MAP;
+
 export const RESEARCH_CHECKPOINT_SECTION_IDS = [
   'industryResearch',
   'competitorIntel',
@@ -80,6 +105,17 @@ export function normalizeResearchSectionId(
     return canonical as CanonicalResearchSectionId;
   }
   return null;
+}
+
+export function getBoundaryResearchSectionId(
+  sectionId: unknown,
+): string | null {
+  const canonicalSectionId = normalizeResearchSectionId(sectionId);
+  if (!canonicalSectionId) {
+    return null;
+  }
+
+  return CANONICAL_TO_BOUNDARY_SECTION_MAP[canonicalSectionId];
 }
 
 export function isResearchCheckpointSection(sectionId: unknown): boolean {

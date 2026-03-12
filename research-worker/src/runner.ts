@@ -1,21 +1,300 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type {
+  BetaContentBlock,
+  BetaMCPToolUseBlock,
+  BetaServerToolUseBlock,
+  BetaToolUseBlock,
+  BetaWebSearchToolResultBlock,
+} from '@anthropic-ai/sdk/resources/beta/messages/messages';
+
+export {
+  buildRunnerTelemetry,
+  type RunnerChartTelemetry,
+  type RunnerTelemetry,
+  type RunnerUsageTelemetry,
+} from './telemetry';
 
 export function createClient() {
   return new Anthropic({ maxRetries: 0 });
 }
 
-export async function runWithBackoff(
-  runFn: () => Promise<Anthropic.Beta.BetaMessage>,
-  label: string,
+export interface RunnerProgressUpdate {
+  at?: string;
+  id?: string;
+  message: string;
+  phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+}
+
+export type RunnerProgressReporter = (
+  update: RunnerProgressUpdate,
+) => Promise<void> | void;
+
+interface ToolRunnerStream {
+  finalMessage(): Promise<Anthropic.Beta.BetaMessage>;
+  on(event: 'contentBlock', listener: (content: BetaContentBlock) => void): unknown;
+  on(event: 'text', listener: (textDelta: string, textSnapshot: string) => void): unknown;
+}
+
+function createProgressUpdate(
+  phase: RunnerProgressUpdate['phase'],
+  message: string,
+): RunnerProgressUpdate {
+  return {
+    at: new Date().toISOString(),
+    id: crypto.randomUUID(),
+    message,
+    phase,
+  };
+}
+
+export async function emitRunnerProgress(
+  onProgress: RunnerProgressReporter | undefined,
+  phase: RunnerProgressUpdate['phase'],
+  message: string,
+): Promise<void> {
+  if (!onProgress) {
+    return;
+  }
+
+  await onProgress(createProgressUpdate(phase, message));
+}
+
+type ToolUseBlock = BetaServerToolUseBlock | BetaToolUseBlock | BetaMCPToolUseBlock;
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function formatUrlHost(rawUrl: string): string {
+  try {
+    const host = new URL(rawUrl).hostname.replace(/^www\./, '');
+    return host.length > 0 ? host : rawUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
+function extractToolQuery(input: unknown): string | null {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+
+  const record = input as Record<string, unknown>;
+  const query =
+    typeof record.query === 'string'
+      ? record.query
+      : typeof record.search_query === 'string'
+        ? record.search_query
+        : null;
+
+  if (query) {
+    const normalized = normalizeWhitespace(query);
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  const url =
+    typeof record.url === 'string'
+      ? record.url
+      : Array.isArray(record.urls) && typeof record.urls[0] === 'string'
+        ? record.urls[0]
+        : null;
+
+  if (url) {
+    const normalized = normalizeWhitespace(url);
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  return null;
+}
+
+export function describeToolUseBlock(block: ToolUseBlock): string {
+  const label = block.name.replaceAll('_', ' ');
+  const detail = extractToolQuery(block.input);
+
+  if (detail) {
+    if (block.name === 'web_search') {
+      return `searching: "${truncate(detail, 120)}"`;
+    }
+
+    if (block.name === 'web_fetch') {
+      return `fetching: ${truncate(detail, 120)}`;
+    }
+
+    return `${label}: ${truncate(detail, 120)}`;
+  }
+
+  return `${label} started`;
+}
+
+export function describeWebSearchResultBlock(
+  block: BetaWebSearchToolResultBlock,
+): string[] {
+  if (!Array.isArray(block.content)) {
+    return ['web search returned an error'];
+  }
+
+  const results = block.content;
+  const messages = [
+    `web search returned ${results.length} result${results.length === 1 ? '' : 's'}`,
+  ];
+
+  for (const result of results.slice(0, 3)) {
+    messages.push(
+      `source: ${truncate(
+        normalizeWhitespace(result.title),
+        110,
+      )} (${formatUrlHost(result.url)})`,
+    );
+  }
+
+  return messages;
+}
+
+function unescapeQuotedJsonValue(value: string): string {
+  return value
+    .replace(/\\"/g, '"')
+    .replace(/\\n/g, ' ')
+    .replace(/\\t/g, ' ')
+    .replace(/\\\\/g, '\\');
+}
+
+const DRAFT_FACT_KEYS = new Map<string, string>([
+  ['category', 'category'],
+  ['marketSize', 'market size'],
+  ['marketMaturity', 'maturity'],
+  ['awarenessLevel', 'awareness'],
+  ['averageSalesCycle', 'sales cycle'],
+  ['buyingBehavior', 'buying behavior'],
+  ['trend', 'trend'],
+  ['evidence', 'evidence'],
+]);
+
+export function extractDraftFactMessages(snapshot: string): string[] {
+  const matches = snapshot.matchAll(
+    /"(?<key>category|marketSize|marketMaturity|awarenessLevel|averageSalesCycle|buyingBehavior|trend|evidence)"\s*:\s*"(?<value>(?:[^"\\]|\\.)*)"/g,
+  );
+  const messages: string[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const match of matches) {
+    const key = match.groups?.key;
+    const rawValue = match.groups?.value;
+    if (!key || !rawValue || seenKeys.has(key)) {
+      continue;
+    }
+
+    const label = DRAFT_FACT_KEYS.get(key);
+    const value = truncate(normalizeWhitespace(unescapeQuotedJsonValue(rawValue)), 140);
+    if (!label || value.length === 0) {
+      continue;
+    }
+
+    messages.push(`${label}: ${value}`);
+    seenKeys.add(key);
+  }
+
+  return messages;
+}
+
+export async function runStreamedToolRunner(
+  runner: AsyncIterable<ToolRunnerStream>,
+  options: {
+    onProgress?: RunnerProgressReporter;
+    synthesisMessage?: string;
+  },
 ): Promise<Anthropic.Beta.BetaMessage> {
+  let finalMessage: Anthropic.Beta.BetaMessage | null = null;
+  let sawAnalysisText = false;
+  const seenToolUseIds = new Set<string>();
+  const seenWebSearchResultIds = new Set<string>();
+  const seenDraftFacts = new Set<string>();
+
+  for await (const stream of runner) {
+    stream.on('contentBlock', (block) => {
+      if (
+        block.type === 'server_tool_use' ||
+        block.type === 'tool_use' ||
+        block.type === 'mcp_tool_use'
+      ) {
+        if (seenToolUseIds.has(block.id)) {
+          return;
+        }
+
+        seenToolUseIds.add(block.id);
+        void emitRunnerProgress(options.onProgress, 'tool', describeToolUseBlock(block));
+        return;
+      }
+
+      if (block.type === 'web_search_tool_result') {
+        const resultBlock = block as BetaWebSearchToolResultBlock;
+        const signature = `${resultBlock.tool_use_id}:${Array.isArray(resultBlock.content) ? resultBlock.content.map((result) => `${result.title}|${result.url}`).join('|') : 'error'}`;
+        if (seenWebSearchResultIds.has(signature)) {
+          return;
+        }
+
+        seenWebSearchResultIds.add(signature);
+        for (const message of describeWebSearchResultBlock(resultBlock)) {
+          void emitRunnerProgress(options.onProgress, 'tool', message);
+        }
+      }
+    });
+
+    stream.on('text', (_delta, snapshot) => {
+      if (snapshot.trim().length === 0) {
+        return;
+      }
+
+      if (!sawAnalysisText) {
+        sawAnalysisText = true;
+        void emitRunnerProgress(
+          options.onProgress,
+          'analysis',
+          options.synthesisMessage ?? 'synthesizing findings into artifact blocks',
+        );
+      }
+
+      for (const fact of extractDraftFactMessages(snapshot)) {
+        if (seenDraftFacts.has(fact)) {
+          continue;
+        }
+
+        seenDraftFacts.add(fact);
+        void emitRunnerProgress(options.onProgress, 'analysis', `draft ${fact}`);
+      }
+    });
+
+    finalMessage = await stream.finalMessage();
+  }
+
+  if (!finalMessage) {
+    throw new Error('Tool runner finished without a final message');
+  }
+
+  return finalMessage;
+}
+
+export async function runWithBackoff<T>(
+  runFn: () => Promise<T>,
+  label: string,
+): Promise<T> {
+  const retryDelayMs = 10_000;
+
   try {
     return await runFn();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const isRateLimit = msg.includes('rate limit') || msg.includes('rate_limit') || (err as { status?: number }).status === 429;
     if (isRateLimit) {
-      console.warn(`[${label}] Rate limited — waiting 65s before retry`);
-      await new Promise((resolve) => setTimeout(resolve, 65_000));
+      console.warn(`[${label}] Rate limited — waiting ${retryDelayMs / 1000}s before retry`);
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       return await runFn();
     }
     throw err;

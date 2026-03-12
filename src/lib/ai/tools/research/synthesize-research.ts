@@ -3,7 +3,10 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import {
+  dispatchResearch,
+  getActiveRunIdFromToolExecutionOptions,
+} from './dispatch';
 
 export const synthesizeResearch = tool({
   description:
@@ -20,7 +23,9 @@ export const synthesizeResearch = tool({
         'Assembled context including onboarding fields AND summaries of all 4 completed research sections',
       ),
   }),
-  execute: async ({ context }) => {
-    return dispatchResearch('synthesizeResearch', 'crossAnalysis', context);
+  execute: async ({ context }, options) => {
+    return dispatchResearch('synthesizeResearch', 'crossAnalysis', context, {
+      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    });
   },
 });

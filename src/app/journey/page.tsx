@@ -18,7 +18,7 @@ import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useJourneyPrefill } from '@/hooks/use-journey-prefill';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
-import { getJourneyApprovalState } from '@/lib/ai/journey-review-gates';
+import { getJourneyApprovalState, type JourneyReviewSection } from '@/lib/ai/journey-review-gates';
 import { shouldAutoSendJourneyMessages } from '@/lib/journey/chat-auto-send';
 import { filterJourneyMessageParts } from '@/lib/journey/filter-chat-parts';
 import { extractResearchDispatchState } from '@/lib/journey/research-dispatch-state';
@@ -406,16 +406,18 @@ function JourneyPageContent() {
   );
   const [activeRunId, setActiveRunId] = useState<string | null>(() => getStoredJourneyRunId());
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
-  const transportBody = useMemo(() => {
-    if (!activeRunId && !resumeTransportState) {
-      return undefined;
-    }
+  const activeRunIdRef = useRef<string | null>(activeRunId);
+  const resumeTransportStateRef = useRef<Record<string, unknown> | undefined>(
+    resumeTransportState,
+  );
 
-    return {
-      ...(activeRunId ? { activeRunId } : {}),
-      ...(resumeTransportState ? { resumeState: resumeTransportState } : {}),
-    };
-  }, [activeRunId, resumeTransportState]);
+  useEffect(() => {
+    activeRunIdRef.current = activeRunId;
+  }, [activeRunId]);
+
+  useEffect(() => {
+    resumeTransportStateRef.current = resumeTransportState;
+  }, [resumeTransportState]);
 
   const [, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
@@ -538,13 +540,35 @@ function JourneyPageContent() {
     () =>
       new DefaultChatTransport({
         api: '/api/journey/stream',
-        body: transportBody,
+        body: () => {
+          const nextActiveRunId = activeRunIdRef.current;
+          const nextResumeTransportState = resumeTransportStateRef.current;
+
+          if (!nextActiveRunId && !nextResumeTransportState) {
+            return undefined;
+          }
+
+          return {
+            ...(nextActiveRunId ? { activeRunId: nextActiveRunId } : {}),
+            ...(nextResumeTransportState
+              ? { resumeState: nextResumeTransportState }
+              : {}),
+          };
+        },
         fetch: createJourneyGuardedFetch('Journey'),
       }),
-    [transportBody]
+    []
   );
 
-  const { messages, sendMessage, addToolOutput, addToolApprovalResponse, status, error, setMessages } = useChat({
+  const {
+    messages,
+    sendMessage,
+    addToolOutput,
+    addToolApprovalResponse,
+    status,
+    error,
+    setMessages,
+  } = useChat({
     transport,
     sendAutomaticallyWhen: ({ messages }) => shouldAutoSendJourneyMessages(messages),
     onError: (err) => {
@@ -676,7 +700,7 @@ function JourneyPageContent() {
       if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
         if (
           hasPreviousResult ||
-          approvedArtifactSections.has(section) ||
+          approvedArtifactSections.has(section as JourneyReviewSection) ||
           artifactFeedbackSection === section ||
           recentlyApprovedArtifactSection === section
         ) {
@@ -940,7 +964,7 @@ function JourneyPageContent() {
       }
 
       if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
-        if (approvedArtifactSections.has(section)) {
+        if (approvedArtifactSections.has(section as JourneyReviewSection)) {
           return;
         }
 
@@ -1019,7 +1043,7 @@ function JourneyPageContent() {
       if (!result || result.status !== 'complete') continue;
 
       if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
-        if (approvedArtifactSections.has(section)) {
+        if (approvedArtifactSections.has(section as JourneyReviewSection)) {
           continue;
         }
 
@@ -1343,6 +1367,8 @@ function JourneyPageContent() {
           displayText: `Company profile accepted for ${displayName}`,
           activeRunId: nextRunId,
         },
+      }, {
+        body: { activeRunId: nextRunId },
       });
 
       setJourneyPhase('chat');
@@ -1365,6 +1391,8 @@ function JourneyPageContent() {
     sendMessage({
       text: 'Start without website analysis',
       metadata: { activeRunId: nextRunId },
+    }, {
+      body: { activeRunId: nextRunId },
     });
   }, [addLog, beginFreshJourneyRun, sendMessage, stopPrefill]);
 
@@ -1446,7 +1474,7 @@ function JourneyPageContent() {
 
   const artifactData = (researchResults[artifactSection]?.data ?? undefined) as Record<string, unknown> | undefined;
   const artifactActivity = researchJobActivity[artifactSection];
-  const artifactApproved = approvedArtifactSections.has(artifactSection);
+  const artifactApproved = approvedArtifactSections.has(artifactSection as JourneyReviewSection);
   const approvedSectionLabel =
     recentlyApprovedArtifactSection
       ? SECTION_META[recentlyApprovedArtifactSection] ?? recentlyApprovedArtifactSection
@@ -1511,7 +1539,7 @@ function JourneyPageContent() {
     savedSession,
   );
 
-  const renderStudioStateFrame = (content: JSX.Element): JSX.Element => (
+  const renderStudioStateFrame = (content: React.ReactNode): React.ReactNode => (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.08),transparent_34%),linear-gradient(180deg,rgba(17,16,13,0.92),rgba(9,9,8,0.96))]">
       <JourneyStepper
         currentPhase={currentPhase}
@@ -1747,7 +1775,7 @@ function JourneyPageContent() {
                     ? 'Pick an option or type your own answer...'
                     : isResuming
                       ? "Let's pick up where we left off..."
-                      : 'Ask AI-GOS to refine the strategy...'
+                      : 'Ask AIGOS to refine the strategy...'
               }
               variant={showStudioPreview ? 'studio' : 'default'}
             />
@@ -1875,7 +1903,7 @@ function JourneyPageContent() {
         )}>
           {showStudioPreview ? (
             <JourneyStudioPreviewShell
-              eyebrow="AI-GOS Journey"
+              eyebrow="AIGOS Journey"
               title={studioTitle}
               description={studioDescription}
               statusLabel={studioStatusLabel}
@@ -2414,7 +2442,7 @@ function WelcomeForm({
     <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
       <div className="max-w-3xl mx-auto flex flex-col items-center pt-12 space-y-10">
         <span className="inline-block text-xs font-medium tracking-wide text-white/60 border border-white/10 rounded-full px-4 py-1.5">
-          AI-GOS
+          AIGOS
         </span>
 
         <div className="text-center space-y-4">
@@ -2422,7 +2450,7 @@ function WelcomeForm({
             Build your paid media <span className="text-brand-accent">strategy.</span>
           </h1>
           <p className="text-white/40 text-sm max-w-lg mx-auto">
-            Drop your website URL and EGOS handles the rest — market research,
+            Drop your website URL and AIGOS handles the rest — market research,
             competitive intel, ICP validation, and a full media plan.
           </p>
           <p className="text-white/25 text-xs">~10 min to complete strategy</p>
@@ -2434,7 +2462,7 @@ function WelcomeForm({
               num: 1,
               color: 'bg-brand-accent',
               title: 'Seed context',
-              desc: 'Give EGOS your homepage to pull business context automatically.',
+              desc: 'Give AIGOS your homepage to pull business context automatically.',
             },
             {
               num: 2,

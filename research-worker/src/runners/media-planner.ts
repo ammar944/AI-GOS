@@ -4,7 +4,16 @@
 // real account data where available, benchmarks where not.
 
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { createClient, runWithBackoff, extractJson } from '../runner';
+import {
+  buildRunnerTelemetry,
+  createClient,
+  emitRunnerProgress,
+  extractJson,
+  runStreamedToolRunner,
+  runWithBackoff,
+  type RunnerProgressReporter,
+} from '../runner';
+import { finalizeRunnerResult } from '../contracts';
 import { googleAdsTool, metaAdsTool, ga4Tool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
@@ -119,19 +128,30 @@ Respond with JSON only. No preamble. Start with {.
     "byPlatform": [{ "platform": "string", "amount": number, "percentage": number }],
     "contingency": number,
     "note": "string"
-  }
+  },
+  "citations": [
+    {
+      "url": "https://example.com/source",
+      "title": "Source title"
+    }
+  ]
 }`;
 
-export async function runMediaPlanner(context: string): Promise<ResearchResult> {
+export async function runMediaPlanner(
+  context: string,
+  onProgress?: RunnerProgressReporter,
+): Promise<ResearchResult> {
   const client = createClient();
   const startTime = Date.now();
 
   try {
+    await emitRunnerProgress(onProgress, 'runner', 'preparing media plan brief');
     const finalMsg = await runWithBackoff(
       () => {
         const runner = client.beta.messages.toolRunner({
           model: 'claude-sonnet-4-6',
           max_tokens: 10000,
+          stream: true,
           tools: [googleAdsTool, metaAdsTool, ga4Tool],
           system: MEDIA_PLANNER_SYSTEM_PROMPT,
           messages: [{
@@ -140,7 +160,10 @@ export async function runMediaPlanner(context: string): Promise<ResearchResult> 
           }],
         });
         return Promise.race([
-          runner.runUntilDone(),
+          runStreamedToolRunner(runner, {
+            onProgress,
+            synthesisMessage: 'synthesizing media plan',
+          }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Media planner timed out after 180s')), 180_000),
           ),
@@ -154,20 +177,23 @@ export async function runMediaPlanner(context: string): Promise<ResearchResult> 
     );
     const resultText = textBlock && 'text' in textBlock ? textBlock.text : '';
 
-    let data: unknown;
+    let parsed: unknown;
+    let parseError: unknown;
     try {
-      data = extractJson(resultText);
-    } catch {
+      parsed = extractJson(resultText);
+    } catch (error) {
       console.error('[mediaPlanner] JSON extraction failed:', resultText.slice(0, 300));
-      data = { summary: resultText };
+      parseError = error;
     }
 
-    return {
-      status: 'complete',
+    return finalizeRunnerResult({
       section: 'mediaPlan',
-      data,
       durationMs: Date.now() - startTime,
-    };
+      parsed,
+      rawText: resultText,
+      parseError,
+      telemetry: buildRunnerTelemetry(finalMsg),
+    });
   } catch (error) {
     return {
       status: 'error',

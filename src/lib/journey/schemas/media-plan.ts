@@ -2,7 +2,107 @@ import { z } from 'zod';
 import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const mediaPlanDataSchema = z.object({
-  // ── Streaming base (required) ────────────────────────────────────
+  // ── Current worker output (required) ─────────────────────────────
+  dataSourced: z
+    .object({
+      googleAdsConnected: z.boolean().optional(),
+      metaAdsConnected: z.boolean().optional(),
+      ga4Connected: z.boolean().optional(),
+      note: nonEmptyStringSchema,
+    })
+    .optional(),
+  channelPlan: z
+    .array(
+      z.object({
+        platform: nonEmptyStringSchema,
+        role: nonEmptyStringSchema.optional(),
+        monthlyBudget: z.number().optional(),
+        budgetPercentage: z.number().min(0).max(100).optional(),
+        campaignStructure: z
+          .object({
+            campaigns: z
+              .array(
+                z.object({
+                  name: nonEmptyStringSchema,
+                  type: nonEmptyStringSchema,
+                  dailyBudget: z.number(),
+                  targeting: nonEmptyStringSchema,
+                  bidStrategy: nonEmptyStringSchema,
+                }),
+              )
+              .optional(),
+            totalCampaigns: z.number().optional(),
+          })
+          .optional(),
+        audienceStrategy: z
+          .object({
+            coldAudiences: z.array(z.string()).optional(),
+            warmAudiences: z.array(z.string()).optional(),
+            lookalikes: z.array(z.string()).optional(),
+          })
+          .optional(),
+        creativeRequirements: z
+          .object({
+            formats: z.array(z.string()).optional(),
+            quantity: z.number().optional(),
+            keyMessage: nonEmptyStringSchema.optional(),
+            cta: nonEmptyStringSchema.optional(),
+          })
+          .optional(),
+        expectedPerformance: z
+          .object({
+            ctr: nonEmptyStringSchema.optional(),
+            cpc: nonEmptyStringSchema.optional(),
+            cpl: nonEmptyStringSchema.optional(),
+            roas: nonEmptyStringSchema.optional(),
+            dataSource: nonEmptyStringSchema.optional(),
+          })
+          .optional(),
+        launchWeek: z.number().optional(),
+        optimizationCadence: nonEmptyStringSchema.optional(),
+      }),
+    )
+    .min(1),
+  launchSequence: z
+    .array(
+      z.object({
+        week: z.number(),
+        actions: nonEmptyStringArraySchema,
+        budget: z.number().optional(),
+        milestone: nonEmptyStringSchema,
+      }),
+    )
+    .min(1),
+  creativeCalendar: z
+    .object({
+      week1to2: nonEmptyStringArraySchema.optional(),
+      week3to4: nonEmptyStringArraySchema.optional(),
+      month2: nonEmptyStringArraySchema.optional(),
+    })
+    .optional(),
+  kpiFramework: z
+    .object({
+      northStar: nonEmptyStringSchema,
+      leadingIndicators: z.array(z.string()).optional(),
+      weeklyReview: nonEmptyStringArraySchema,
+      monthlyReview: z.array(z.string()).optional(),
+      goNoGoCriteria: nonEmptyStringSchema.optional(),
+    })
+    .optional(),
+  budgetSummary: z.object({
+    totalMonthly: z.number(),
+    byPlatform: z.array(
+      z.object({
+        platform: nonEmptyStringSchema,
+        amount: z.number(),
+        percentage: z.number(),
+      }),
+    ),
+    contingency: z.number().optional(),
+    note: nonEmptyStringSchema.optional(),
+  }),
+
+  // ── Legacy/alternate fields (optional) ───────────────────────────
   allocations: z
     .array(
       z.object({
@@ -12,9 +112,9 @@ export const mediaPlanDataSchema = z.object({
         rationale: nonEmptyStringSchema.optional(),
       }),
     )
-    .min(1),
-  totalBudget: nonEmptyStringSchema,
-  timeline: nonEmptyStringArraySchema,
+    .optional(),
+  totalBudget: nonEmptyStringSchema.optional(),
+  timeline: nonEmptyStringArraySchema.optional(),
   kpis: z
     .array(
       z.object({
@@ -24,8 +124,8 @@ export const mediaPlanDataSchema = z.object({
         value: nonEmptyStringSchema.optional(),
       }),
     )
-    .min(1),
-  testingPlan: nonEmptyStringArraySchema,
+    .optional(),
+  testingPlan: nonEmptyStringArraySchema.optional(),
 
   // ── V3 structured fields (all optional) ──────────────────────────
 

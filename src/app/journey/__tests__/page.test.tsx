@@ -11,10 +11,12 @@ const {
   addToolOutputMock,
   chatControls,
   guardedFetchMock,
+  prefillControls,
   researchJobActivityValue,
   realtimeControls,
   sendMessageMock,
   setJourneySessionMock,
+  transportBodyCalls,
 } = vi.hoisted(() => {
   const messageListeners = new Set<(messages: UIMessage[]) => void>();
   const statusListeners = new Set<(status: MockChatStatus) => void>();
@@ -49,6 +51,26 @@ const {
     addToolOutputMock: vi.fn(),
     addToolApprovalResponseMock: vi.fn(),
     setJourneySessionMock: vi.fn(),
+    transportBodyCalls: {
+      values: [] as Array<Record<string, unknown> | undefined>,
+      reset(): void {
+        this.values = [];
+      },
+    },
+    prefillControls: {
+      state: {
+        partialResult: undefined as Record<string, unknown> | undefined,
+        isLoading: false,
+        error: undefined as Error | undefined,
+        fieldsFound: 0,
+      },
+      reset(): void {
+        this.state.partialResult = undefined;
+        this.state.isLoading = false;
+        this.state.error = undefined;
+        this.state.fieldsFound = 0;
+      },
+    },
     researchJobActivityValue: {
       current: {} as Record<
         string,
@@ -128,7 +150,13 @@ const {
 });
 
 vi.mock('ai', () => ({
-  DefaultChatTransport: class DefaultChatTransport {},
+  DefaultChatTransport: class DefaultChatTransport {
+    body?: object | (() => object | undefined);
+
+    constructor(options?: { body?: object | (() => object | undefined) }) {
+      this.body = options?.body;
+    }
+  },
 }));
 
 vi.mock('next/navigation', () => ({
@@ -141,13 +169,29 @@ vi.mock('@ai-sdk/react', async () => {
   const React = await import('react');
 
   return {
-    useChat: () => {
+    useChat: (options?: { transport?: { body?: object | (() => object | undefined) } }) => {
       const [messages, setMessagesState] = React.useState<UIMessage[]>(
         chatControls.getMessages(),
       );
       const [status, setStatusState] = React.useState<MockChatStatus>(
         chatControls.getStatus(),
       );
+
+      const sendMessage = async (
+        message: { text: string; metadata?: Record<string, unknown> },
+        requestOptions?: { body?: object },
+      ) => {
+        const transportBody =
+          typeof options?.transport?.body === 'function'
+            ? options.transport.body()
+            : options?.transport?.body;
+        transportBodyCalls.values.push(
+          transportBody && typeof transportBody === 'object'
+            ? (transportBody as Record<string, unknown>)
+            : undefined,
+        );
+        return sendMessageMock(message, requestOptions);
+      };
 
       React.useEffect(() => chatControls.addMessageListener(setMessagesState), []);
       React.useEffect(() => chatControls.addStatusListener(setStatusState), []);
@@ -156,7 +200,7 @@ vi.mock('@ai-sdk/react', async () => {
         messages,
         status,
         error: undefined,
-        sendMessage: sendMessageMock,
+        sendMessage,
         addToolOutput: addToolOutputMock,
         addToolApprovalResponse: addToolApprovalResponseMock,
         setMessages: (
@@ -224,12 +268,12 @@ vi.mock('@/components/journey/resume-prompt', () => ({
 
 vi.mock('@/hooks/use-journey-prefill', () => ({
   useJourneyPrefill: () => ({
-    partialResult: undefined,
+    partialResult: prefillControls.state.partialResult,
     submit: vi.fn(),
-    isLoading: false,
-    error: undefined,
+    isLoading: prefillControls.state.isLoading,
+    error: prefillControls.state.error,
     stop: vi.fn(),
-    fieldsFound: 0,
+    fieldsFound: prefillControls.state.fieldsFound,
   }),
 }));
 
@@ -431,6 +475,8 @@ describe('JourneyPage artifact orchestration', () => {
     vi.spyOn(console, 'debug').mockImplementation(() => undefined);
     window.sessionStorage.clear();
     chatControls.reset();
+    transportBodyCalls.reset();
+    prefillControls.reset();
     realtimeControls.reset();
     researchJobActivityValue.current = {};
     guardedFetchMock.mockResolvedValue({
@@ -475,6 +521,110 @@ describe('JourneyPage artifact orchestration', () => {
     expect(typeof payload.activeRunId).toBe('string');
     expect(String(payload.activeRunId)).not.toHaveLength(0);
     expect(realtimeControls.getActiveRunId()).toBe(String(payload.activeRunId));
+    expect(transportBodyCalls.values.at(-1)).toEqual(
+      expect.objectContaining({
+        activeRunId: String(payload.activeRunId),
+      }),
+    );
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      {
+        text: 'Start without website analysis',
+        metadata: { activeRunId: String(payload.activeRunId) },
+      },
+      {
+        body: {
+          activeRunId: String(payload.activeRunId),
+        },
+      },
+    );
+  });
+
+  it('sends accepted prefill kickoff with the newly created run id in the request body', async () => {
+    prefillControls.state.partialResult = {
+      companyName: { value: 'SaaSLaunch', confidence: 0.9 },
+      businessModel: { value: 'B2B SaaS growth agency', confidence: 0.9 },
+      productDescription: {
+        value: 'We build and run pipeline systems for B2B SaaS teams.',
+        confidence: 0.9,
+      },
+      topCompetitors: {
+        value: 'Hey Digital, Sales Captain, Growth Marketing Pro',
+        confidence: 0.9,
+      },
+      primaryIcpDescription: {
+        value: 'Seed to Series B B2B SaaS teams that need predictable pipeline growth.',
+        confidence: 0.9,
+      },
+      pricingTiers: {
+        value: 'Retainer-based. Starter $4k/mo, Growth $8k/mo.',
+        confidence: 0.9,
+      },
+      goals: {
+        value: 'Generate more qualified demos and reduce CAC.',
+        confidence: 0.9,
+      },
+      uniqueEdge: {
+        value: 'We tie campaigns directly to pipeline attribution.',
+        confidence: 0.9,
+      },
+    };
+    prefillControls.state.fieldsFound = 8;
+
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
+        target: { value: 'https://saaslaunch.net' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Analyze website first' }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('prefill-review')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Market Overview' }));
+    });
+
+    await waitFor(() => {
+      expect(guardedFetchMock).toHaveBeenCalledWith(
+        '/api/journey/session',
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+
+    const [, requestInit] = guardedFetchMock.mock.calls[0] as [
+      string,
+      { body?: string },
+    ];
+    const payload = JSON.parse(requestInit.body ?? '{}') as {
+      activeRunId?: unknown;
+      clearResearch?: unknown;
+    };
+
+    expect(payload.clearResearch).toBe(true);
+    expect(typeof payload.activeRunId).toBe('string');
+    expect(transportBodyCalls.values.at(-1)).toEqual(
+      expect.objectContaining({
+        activeRunId: String(payload.activeRunId),
+      }),
+    );
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          activeRunId: String(payload.activeRunId),
+        }),
+      }),
+      {
+        body: {
+          activeRunId: String(payload.activeRunId),
+        },
+      },
+    );
   });
 
   it('opens a newly completed review artifact when it first becomes ready', async () => {
@@ -516,7 +666,7 @@ describe('JourneyPage artifact orchestration', () => {
     });
 
     expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    expect(sendMessageMock).toHaveBeenCalledWith(
+    expect(sendMessageMock.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         metadata: { hidden: true },
       }),
@@ -608,7 +758,7 @@ describe('JourneyPage artifact orchestration', () => {
       expect(sendMessageMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(sendMessageMock).toHaveBeenCalledWith(
+    expect(sendMessageMock.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         metadata: { hidden: true },
       }),
@@ -625,6 +775,44 @@ describe('JourneyPage artifact orchestration', () => {
       expect.objectContaining({
         event: 'hidden-wake-up-suppressed',
         section: 'keywordIntel',
+      }),
+    );
+  });
+
+  it('uses the latest active run id for implicit follow-up sends after onboarding starts', async () => {
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start without website analysis' }));
+    });
+
+    await waitFor(() => {
+      expect(guardedFetchMock).toHaveBeenCalled();
+    });
+
+    const [, requestInit] = guardedFetchMock.mock.calls[0] as [
+      string,
+      { body?: string },
+    ];
+    const payload = JSON.parse(requestInit.body ?? '{}') as {
+      activeRunId?: unknown;
+    };
+    const nextRunId = String(payload.activeRunId);
+
+    sendMessageMock.mockClear();
+    transportBodyCalls.reset();
+
+    await emitResearchResult('keywordIntel', {
+      campaignGroups: [{ name: 'Competitor Alternatives' }],
+    });
+
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(transportBodyCalls.values.at(-1)).toEqual(
+      expect.objectContaining({
+        activeRunId: nextRunId,
       }),
     );
   });

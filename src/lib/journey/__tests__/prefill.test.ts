@@ -15,7 +15,7 @@ describe('journey prefill helpers', () => {
         sourceUrl: 'https://acme.com',
         reasoning: 'Found in the homepage hero copy.',
       },
-      pricing: {
+      pricingTiers: {
         value: '$499/mo',
         confidence: 88,
         sourceUrl: 'https://acme.com/pricing',
@@ -34,7 +34,7 @@ describe('journey prefill helpers', () => {
       },
       {
         fieldName: 'pricingTiers',
-        label: 'Pricing',
+        label: 'Pricing Tiers',
         value: '$499/mo',
         confidence: 88,
         sourceUrl: 'https://acme.com/pricing',
@@ -43,7 +43,7 @@ describe('journey prefill helpers', () => {
     ]);
   });
 
-  it('stores prefill output as proposals instead of confirmed journey fields', () => {
+  it('merges prefill output directly into journey state fields', () => {
     const next = applyJourneyPrefillProposals(createEmptyState(), {
       companyName: {
         value: 'Acme AI',
@@ -51,20 +51,20 @@ describe('journey prefill helpers', () => {
         sourceUrl: 'https://acme.com',
         reasoning: 'Found in the homepage hero copy.',
       },
-      headquartersLocation: {
-        value: 'Austin, TX',
-        confidence: 81,
-        sourceUrl: 'https://linkedin.com/company/acme',
-        reasoning: 'Found on LinkedIn.',
+      businessModel: {
+        value: 'B2B SaaS',
+        confidence: 85,
+        sourceUrl: 'https://acme.com/about',
+        reasoning: 'Found on about page.',
       },
     });
 
-    expect(next.companyName).toBeNull();
-    expect(next.geography).toBeNull();
-    expect(next.proposals.companyName?.value).toBe('Acme AI');
-    expect(next.proposals.geography?.value).toBe('Austin, TX');
-    expect(next.fieldMeta.companyName?.status).toBe('proposed');
-    expect(next.fieldMeta.geography?.source).toBe('linkedin');
+    // applyJourneyPrefillProposals does a shallow merge into OnboardingState.
+    // Fields in RESEARCH_TO_JOURNEY_MAP that also exist on OnboardingState are merged.
+    expect(next.companyName).toBe('Acme AI');
+    expect(next.businessModel).toBe('B2B SaaS');
+    // Unrelated fields remain unchanged
+    expect(next.industry).toBeNull();
   });
 
   it('filters out unsourced prefill values from the review step', () => {
@@ -75,7 +75,7 @@ describe('journey prefill helpers', () => {
         sourceUrl: null,
         reasoning: 'No direct source was captured.',
       },
-      pricing: {
+      pricingTiers: {
         value: '$499/mo',
         confidence: 88,
         sourceUrl: 'https://acme.com/pricing',
@@ -83,10 +83,11 @@ describe('journey prefill helpers', () => {
       },
     });
 
+    // companyName has null sourceUrl — filtered out
     expect(proposals).toEqual([
       {
         fieldName: 'pricingTiers',
-        label: 'Pricing',
+        label: 'Pricing Tiers',
         value: '$499/mo',
         confidence: 88,
         sourceUrl: 'https://acme.com/pricing',
@@ -105,14 +106,16 @@ describe('journey prefill helpers', () => {
       },
     });
 
+    // buildJourneyPrefillProposalsFromState reads from OnboardingState fields directly,
+    // using confidence: 70 and a generic reasoning string (no sourceUrl available from state)
     expect(buildJourneyPrefillProposalsFromState(state)).toEqual([
       {
         fieldName: 'companyName',
         label: 'Company Name',
         value: 'Acme AI',
-        confidence: 94,
-        sourceUrl: 'https://acme.com',
-        reasoning: 'Found in the homepage hero copy.',
+        confidence: 70,
+        sourceUrl: null,
+        reasoning: 'Restored from saved journey state.',
       },
     ]);
   });

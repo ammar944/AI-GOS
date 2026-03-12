@@ -3,7 +3,10 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import {
+  dispatchResearch,
+  getActiveRunIdFromToolExecutionOptions,
+} from './dispatch';
 
 export const researchMediaPlan = tool({
   description:
@@ -19,7 +22,9 @@ export const researchMediaPlan = tool({
         'Full context including onboarding fields, synthesis findings, keyword intel, and any platform credentials context',
       ),
   }),
-  execute: async ({ context }) => {
-    return dispatchResearch('researchMediaPlan', 'mediaPlan', context);
+  execute: async ({ context }, options) => {
+    return dispatchResearch('researchMediaPlan', 'mediaPlan', context, {
+      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    });
   },
 });

@@ -1,4 +1,8 @@
 import type { UIMessage } from 'ai';
+import {
+  RESEARCH_TOOL_TO_SECTION_MAP,
+  getBoundaryResearchSectionId,
+} from '@/lib/journey/research-sections';
 
 // ── OnboardingState Interface ──────────────────────────────────────────────
 
@@ -30,6 +34,7 @@ export interface OnboardingState {
   seasonalityPattern: string | null;
 
   // Meta
+  activeJourneyRunId?: string | null;
   phase: 'onboarding' | 'confirming' | 'complete';
   requiredFieldsCompleted: number; // 0-8
   completionPercent: number; // 0-100
@@ -149,13 +154,28 @@ export function extractAskUserResults(
 
 // ── Extract Research Outputs from Messages ──────────────────────────────
 // Maps tool part types to section keys (mirrors use-research-data.ts but server-safe)
-const TOOL_SECTION_MAP: Record<string, string> = {
-  'tool-researchIndustry':    'industryMarket',
-  'tool-researchCompetitors': 'competitors',
-  'tool-researchICP':         'icpValidation',
-  'tool-researchOffer':       'offerAnalysis',
-  'tool-synthesizeResearch':  'crossAnalysis',
-};
+const TOOL_SECTION_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(RESEARCH_TOOL_TO_SECTION_MAP).map(([toolName, sectionId]) => [
+    `tool-${toolName}`,
+    getBoundaryResearchSectionId(sectionId) ?? sectionId,
+  ]),
+);
+
+function parseResearchToolOutput(output: unknown): Record<string, unknown> | null {
+  if (typeof output === 'string') {
+    try {
+      return JSON.parse(output) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  if (output && typeof output === 'object') {
+    return output as Record<string, unknown>;
+  }
+
+  return null;
+}
 
 /** Extracts completed research outputs from messages, keyed by section name. */
 export function extractResearchOutputs(
@@ -171,8 +191,16 @@ export function extractResearchOutputs(
       const sectionKey = TOOL_SECTION_MAP[p.type];
       if (!sectionKey) continue;
       if (p.state !== 'output-available') continue;
-      const output = p.output as Record<string, unknown> | undefined;
-      if (output?.data) research[sectionKey] = output.data;
+      const output = parseResearchToolOutput(p.output);
+      const outputStatus = typeof output?.status === 'string' ? output.status : null;
+      if (
+        outputStatus !== 'complete' &&
+        outputStatus !== 'partial' &&
+        outputStatus !== 'error'
+      ) {
+        continue;
+      }
+      research[sectionKey] = output;
     }
   }
   return research;
@@ -209,6 +237,7 @@ export function createEmptyState(): OnboardingState {
     seasonalityPattern: null,
 
     // Meta
+    activeJourneyRunId: null,
     phase: 'onboarding',
     requiredFieldsCompleted: 0,
     completionPercent: 0,

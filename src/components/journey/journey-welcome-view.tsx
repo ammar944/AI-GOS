@@ -125,7 +125,7 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
         <JourneyChatInput
           onSubmit={onSubmit}
           isLoading={isLoading}
-          placeholder="Ask AI-GOS to refine the strategy..."
+          placeholder="Ask AIGOS to refine the strategy..."
         />
       </div>
     </>

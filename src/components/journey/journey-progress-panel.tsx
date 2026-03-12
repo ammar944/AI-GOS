@@ -13,6 +13,7 @@ interface JourneyProgressPanelProps {
   items?: ProgressItem[];
   computeStatus?: string;
   computePercent?: number;
+  variant?: 'default' | 'studio';
   className?: string;
 }
 
@@ -20,12 +21,32 @@ export function JourneyProgressPanel({
   items = [],
   computeStatus = 'stable',
   computePercent = 85,
+  variant = 'default',
   className,
-}: JourneyProgressPanelProps) {
+}: JourneyProgressPanelProps): React.JSX.Element {
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div
+      data-testid="journey-progress-panel"
+      data-variant={variant}
+      className={cn(
+        'flex h-full flex-col',
+        variant === 'studio' && [
+          'journey-studio-progress-panel rounded-[26px] border border-white/[0.08]',
+          'bg-[linear-gradient(180deg,rgba(18,17,14,0.78),rgba(10,10,8,0.7))] px-5 py-5',
+          'shadow-[0_20px_50px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.04)]',
+        ],
+        className,
+      )}
+    >
       {/* Header */}
-      <h3 className="text-xs font-mono text-white/30 uppercase tracking-widest mb-10">
+      <h3
+        className={cn(
+          'text-xs font-mono uppercase tracking-widest',
+          variant === 'studio'
+            ? 'mb-8 text-white/42'
+            : 'mb-10 text-white/30',
+        )}
+      >
         Journey Progress
       </h3>
 
@@ -34,7 +55,7 @@ export function JourneyProgressPanel({
         {/* Vertical Timeline Line */}
         <div className="absolute left-[7px] top-2 bottom-2 w-[1px] bg-white/10" />
 
-        <div className="space-y-12 relative">
+        <div className={cn('relative', variant === 'studio' ? 'space-y-8' : 'space-y-12')}>
           {items.map((item) => (
             <div
               key={item.id}
@@ -82,7 +103,14 @@ export function JourneyProgressPanel({
       </div>
 
       {/* System Status Footer */}
-      <div className="mt-auto glass-surface rounded-xl p-4 border border-white/5">
+      <div
+        className={cn(
+          'mt-auto rounded-xl border p-4',
+          variant === 'studio'
+            ? 'border-white/[0.08] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
+            : 'glass-surface border-white/5',
+        )}
+      >
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] text-white/40">Compute Node</span>
           <span

@@ -128,10 +128,13 @@ describe('preFilterKeywords', () => {
   // Mojibake detection
   // =========================================================================
 
-  it('FAIL: mojibake keyword "franÃ§ais restaurant" — mojibake artifacts', () => {
+  it('PASS: "franÃ§ais restaurant" — double-encoded UTF-8 is repaired, not filtered', () => {
+    // hasDoubleEncodedMarkers detects 'Ã§', but repairDoubleEncodedUTF8 successfully
+    // decodes it to 'français'. hasMojibake only removes if repair returns the original
+    // string unchanged, so this keyword survives the pre-filter.
     const result = preFilterKeywords([kw('franÃ§ais restaurant')], nonFoodConfig);
-    expect(result.kept).toHaveLength(0);
-    expect(result.removed[0].reason).toBe('mojibake_artifacts');
+    expect(result.kept).toHaveLength(1);
+    expect(result.removed).toHaveLength(0);
   });
 
   // =========================================================================

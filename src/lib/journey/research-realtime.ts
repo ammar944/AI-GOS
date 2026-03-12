@@ -151,18 +151,42 @@ export function useResearchRealtime({
         const snapshotRunId =
           data.runId ?? getJourneyRunIdFromMetadata(data.metadata);
         if (
-          (snapshotRunId !== null &&
-            !doesJourneyRunMatchActiveRun(activeRunId, snapshotRunId)) ||
-          !data.researchResults ||
-          !isJourneySessionRowFresh(data.updatedAt, ignoreUpdatedBefore)
+          snapshotRunId !== null &&
+          !doesJourneyRunMatchActiveRun(activeRunId, snapshotRunId)
         ) {
+          if (!cancelled && process.env.NODE_ENV !== 'production') {
+            console.info(
+              '[journey] Ignoring stale research snapshot with mismatched run id:',
+              {
+                activeRunId,
+                snapshotRunId,
+              },
+            );
+          }
+          return;
+        }
+
+        if (!data.researchResults) {
+          return;
+        }
+
+        if (!isJourneySessionRowFresh(data.updatedAt, ignoreUpdatedBefore)) {
+          if (!cancelled && process.env.NODE_ENV !== 'production') {
+            console.info(
+              '[journey] Ignoring stale research snapshot before reset boundary:',
+              {
+                ignoreUpdatedBefore,
+                updatedAt: data.updatedAt,
+              },
+            );
+          }
           return;
         }
 
         const filtered = applyJourneySandboxSectionResets({
           metadata: data.metadata,
           researchResults: data.researchResults,
-          jobStatus: data.jobStatus,
+          jobStatus: data.jobStatus as Record<string, import('@/lib/journey/research-sandbox').PersistedResearchJobStatusRow> | null,
         });
         const results = normalizeStoredResearchResults(
           filtered.researchResults,

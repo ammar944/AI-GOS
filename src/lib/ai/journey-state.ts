@@ -7,30 +7,68 @@
 
 import type { UIMessage } from 'ai';
 import { extractAskUserResults } from '@/lib/journey/session-state';
+import { getDownstreamResearchPlan } from '@/lib/ai/journey-downstream-research';
 
-// The required onboarding fields — minimum needed to build a strategy
-const REQUIRED_FIELDS = [
-  'websiteUrl',
-  'businessModel',
-  'primaryIcpDescription',
-  'productDescription',
-  'topCompetitors',
-  'monthlyAdBudget',
-  'goals',
+// The required Journey blockers — aligned to the field catalog and pricing context rule.
+const REQUIRED_FIELD_REQUIREMENTS = [
+  ['businessModel'],
+  ['primaryIcpDescription'],
+  ['productDescription'],
+  ['topCompetitors'],
+  ['pricingTiers', 'monthlyAdBudget'],
+  ['goals'],
+  ['uniqueEdge'],
 ] as const;
-
-type RequiredField = (typeof REQUIRED_FIELDS)[number];
 
 export interface JourneyStateSnapshot {
   /** All collected fields (required + optional), raw values from askUser outputs */
   collectedFields: Record<string, unknown>;
   /** True when synthesizeResearch has a completed output-available part in messages */
   synthComplete: boolean;
-  /** Count of the 7 required fields that have non-empty values (0-7) */
+  /** True when researchKeywords has completed successfully */
+  keywordResearchComplete: boolean;
+  /** True when researchMediaPlan has completed successfully */
+  mediaPlanComplete: boolean;
+  /** True when synthesis + keyword intel are complete and Strategist Mode can begin */
+  strategistModeReady: boolean;
+  /** Count of the 7 required Journey blocker requirements that have non-empty values (0-7) */
   requiredFieldCount: number;
   /** Domains for which competitorFastHits has already been called (or is in-flight). */
   competitorFastHitsCalledFor: Set<string>;
 }
+
+const PREFILL_PREFIX = "Here's what I found about the company:";
+
+const PREFILL_LABEL_TO_FIELD: Record<string, string> = {
+  'Company Name': 'companyName',
+  'Website': 'websiteUrl',
+  'Business Model': 'businessModel',
+  'Industry Vertical': 'industryVertical',
+  'Ideal Customer Profile': 'primaryIcpDescription',
+  'Target Job Titles': 'jobTitles',
+  'Company Size': 'companySize',
+  'Geographic Focus': 'geography',
+  Headquarters: 'headquartersLocation',
+  'Product Description': 'productDescription',
+  'Core Deliverables': 'coreDeliverables',
+  'Pricing Tiers': 'pricingTiers',
+  'Monthly Ad Budget': 'monthlyAdBudget',
+  'Value Proposition': 'valueProp',
+  Guarantees: 'guarantees',
+  'Top Competitors': 'topCompetitors',
+  'Unique Edge': 'uniqueEdge',
+  Goals: 'goals',
+  'Market Problem': 'marketProblem',
+  'Before State': 'situationBeforeBuying',
+  'Desired Transformation': 'desiredTransformation',
+  'Common Objections': 'commonObjections',
+  'Brand Positioning': 'brandPositioning',
+  'Testimonial Quote': 'testimonialQuote',
+  'Pricing URL': 'pricingUrl',
+  'Case Studies URL': 'caseStudiesUrl',
+  'Testimonials URL': 'testimonialsUrl',
+  'Demo URL': 'demoUrl',
+};
 
 /** Returns true if a value counts as "collected" (non-null, non-empty). */
 function isCollected(value: unknown): boolean {
@@ -40,23 +78,46 @@ function isCollected(value: unknown): boolean {
   return true;
 }
 
+function parseToolOutput(output: unknown): Record<string, unknown> | null {
+  if (typeof output === 'string') {
+    try {
+      const parsed = JSON.parse(output) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return output && typeof output === 'object' && !Array.isArray(output)
+    ? output as Record<string, unknown>
+    : null;
+}
+
 /**
  * Scan messages for a completed synthesizeResearch tool output.
  * Mirrors the pattern in extractResearchOutputs() in session-state.ts:
  * look for assistant parts with type 'tool-synthesizeResearch' and
  * state 'output-available'.
  */
-function detectSynthComplete(messages: UIMessage[]): boolean {
+function hasCompletedToolOutput(
+  messages: UIMessage[],
+  toolName: string,
+): boolean {
   for (const msg of messages) {
     if (msg.role !== 'assistant') continue;
     for (const part of msg.parts) {
       if (typeof part !== 'object' || !part) continue;
       const p = part as Record<string, unknown>;
       if (
-        p.type === 'tool-synthesizeResearch' &&
+        p.type === `tool-${toolName}` &&
         p.state === 'output-available'
       ) {
-        return true;
+        const output = parseToolOutput(p.output);
+        if (!output || output.status === 'complete') {
+          return true;
+        }
       }
     }
   }
@@ -83,6 +144,46 @@ function detectCompetitorFastHitsCalled(messages: UIMessage[]): Set<string> {
   return called;
 }
 
+function extractAcceptedPrefillFields(messages: UIMessage[]): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+
+  for (const msg of messages) {
+    if (msg.role !== 'user') continue;
+
+    const text = msg.parts
+      .filter(
+        (part): part is { type: 'text'; text: string } =>
+          typeof part === 'object' && part !== null && (part as { type?: string }).type === 'text',
+      )
+      .map((part) => part.text)
+      .join('\n')
+      .trim();
+
+    if (!text.startsWith(PREFILL_PREFIX)) {
+      continue;
+    }
+
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === PREFILL_PREFIX || !trimmed.includes(':')) {
+        continue;
+      }
+
+      const separatorIndex = trimmed.indexOf(':');
+      const label = trimmed.slice(0, separatorIndex).trim();
+      const value = trimmed.slice(separatorIndex + 1).trim();
+      const fieldName = PREFILL_LABEL_TO_FIELD[label];
+      if (!fieldName || value.length === 0) {
+        continue;
+      }
+
+      fields[fieldName] = value;
+    }
+  }
+
+  return fields;
+}
+
 /**
  * Derive a typed snapshot of onboarding progress from the full message history.
  *
@@ -90,18 +191,40 @@ function detectCompetitorFastHitsCalled(messages: UIMessage[]): Set<string> {
  * Call once per POST in route.ts, before streamText.
  */
 export function parseCollectedFields(messages: UIMessage[]): JourneyStateSnapshot {
-  const collectedFields = extractAskUserResults(messages);
+  const collectedFields = {
+    ...extractAcceptedPrefillFields(messages),
+    ...extractAskUserResults(messages),
+  };
 
-  const requiredFieldCount = REQUIRED_FIELDS.filter((f: RequiredField) =>
-    isCollected(collectedFields[f])
+  const requiredFieldCount = REQUIRED_FIELD_REQUIREMENTS.filter((requirement) =>
+    requirement.some((fieldKey) => isCollected(collectedFields[fieldKey])),
   ).length;
 
-  const synthComplete = detectSynthComplete(messages);
+  const synthComplete = hasCompletedToolOutput(messages, 'synthesizeResearch');
+  const keywordResearchComplete = hasCompletedToolOutput(
+    messages,
+    'researchKeywords',
+  );
+  const mediaPlanComplete = hasCompletedToolOutput(
+    messages,
+    'researchMediaPlan',
+  );
   const competitorFastHitsCalledFor = detectCompetitorFastHitsCalled(messages);
+  const strategistModeReady = getDownstreamResearchPlan({
+    synthesisStarted: synthComplete,
+    synthesisComplete: synthComplete,
+    keywordResearchStarted: keywordResearchComplete,
+    keywordResearchComplete,
+    mediaPlanStarted: mediaPlanComplete,
+    mediaPlanComplete,
+  }).strategistModeReady;
 
   return {
     collectedFields,
     synthComplete,
+    keywordResearchComplete,
+    mediaPlanComplete,
+    strategistModeReady,
     requiredFieldCount,
     competitorFastHitsCalledFor,
   };
@@ -205,7 +328,7 @@ export interface OnboardingProgress {
   nextFields: string[];
   /** True when Phase 1 is complete (businessModel + industryVertical/primaryIcpDescription) */
   readyForResearch: boolean;
-  /** True when all 7 REQUIRED_FIELDS are collected */
+  /** True when all required Journey blocker requirements are collected */
   readyForCompletion: boolean;
 }
 
@@ -267,9 +390,9 @@ export function getOnboardingProgress(
     (isCollected(fields['industryVertical']) ||
       isCollected(fields['primaryIcpDescription']));
 
-  // readyForCompletion: all 7 REQUIRED_FIELDS collected
-  const readyForCompletion = REQUIRED_FIELDS.every((f) =>
-    isCollected(fields[f]),
+  // readyForCompletion: all required Journey blockers collected
+  const readyForCompletion = REQUIRED_FIELD_REQUIREMENTS.every((requirement) =>
+    requirement.some((fieldKey) => isCollected(fields[fieldKey])),
   );
 
   return {

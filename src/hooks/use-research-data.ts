@@ -11,7 +11,9 @@ export type ResearchSectionKey =
   | 'competitors'
   | 'icpValidation'
   | 'offerAnalysis'
-  | 'crossAnalysis';
+  | 'crossAnalysis'
+  | 'keywordIntel'
+  | 'mediaPlan';
 
 export type ResearchStatus = 'pending' | 'running' | 'complete' | 'error';
 
@@ -30,6 +32,8 @@ const TOOL_TYPE_BY_SECTION: Record<ResearchSectionKey, string> = {
   icpValidation:  'tool-researchICP',
   offerAnalysis:  'tool-researchOffer',
   crossAnalysis:  'tool-synthesizeResearch',
+  keywordIntel:   'tool-researchKeywords',
+  mediaPlan:      'tool-researchMediaPlan',
 };
 
 const SECTION_KEYS: ResearchSectionKey[] = [
@@ -38,6 +42,8 @@ const SECTION_KEYS: ResearchSectionKey[] = [
   'icpValidation',
   'offerAnalysis',
   'crossAnalysis',
+  'keywordIntel',
+  'mediaPlan',
 ];
 
 function deriveSection(key: ResearchSectionKey, messages: UIMessage[]): ResearchSection {
@@ -56,6 +62,19 @@ function deriveSection(key: ResearchSectionKey, messages: UIMessage[]): Research
       if (state === 'output-available') {
         // Tool completed — extract data from output
         const toolOutput = output ?? {};
+        const outputStatus = typeof toolOutput.status === 'string' ? toolOutput.status : 'complete';
+        if (outputStatus === 'error' || outputStatus === 'partial') {
+          return {
+            key,
+            status: 'error',
+            data: (toolOutput.data ?? undefined) as Record<string, unknown> | undefined,
+            error:
+              (toolOutput.error as string | undefined) ??
+              (outputStatus === 'partial'
+                ? 'Research artifact failed validation.'
+                : 'Research failed'),
+          };
+        }
         const data = (toolOutput.data ?? toolOutput) as Record<string, unknown>;
         return {
           key,

@@ -4,13 +4,6 @@ import { normalizeSectionData } from '../normalize-section-data';
 describe('normalizeSectionData', () => {
   it('returns typed data for a valid offer analysis payload', () => {
     const result = normalizeSectionData('offerAnalysis', {
-      offerClarity: {
-        clearlyArticulated: true,
-        solvesRealPain: true,
-        benefitsEasyToUnderstand: true,
-        transformationMeasurable: true,
-        valuePropositionObvious: true,
-      },
       offerStrength: {
         painRelevance: 8,
         urgency: 7,
@@ -20,25 +13,36 @@ describe('normalizeSectionData', () => {
         pricingLogic: 7,
         overallScore: 7,
       },
-      marketOfferFit: {
-        marketWantsNow: true,
-        competitorsOfferSimilar: true,
-        priceMatchesExpectations: true,
-        proofStrongForColdTraffic: false,
-        transformationBelievable: true,
-      },
-      redFlags: ['weak_or_no_proof'],
+      redFlags: [
+        {
+          issue: 'Proof is thin for cold traffic',
+          severity: 'medium',
+          priority: 1,
+          recommendedAction: 'Add quantified proof to the landing page.',
+          launchBlocker: false,
+        },
+      ],
       recommendation: {
-        status: 'adjust_messaging',
-        reasoning: 'The offer is credible but needs clearer proof.',
-        actionItems: ['Rewrite the proof section on the landing page'],
+        status: 'adjust-messaging',
+        summary: 'The offer is credible but needs clearer proof.',
+        topStrengths: ['Clear transformation promise'],
+        priorityFixes: ['Rewrite the proof section on the landing page'],
+        recommendedActionPlan: ['Refresh case studies'],
       },
+      pricingAnalysis: {
+        currentPricing: '$999/mo',
+        marketBenchmark: '$1,200/mo',
+        pricingPosition: 'mid-market',
+        coldTrafficViability: 'Viable with stronger proof.',
+      },
+      marketFitAssessment: 'Good fit for paid acquisition with better credibility.',
+      messagingRecommendations: ['Lead with attributable revenue outcomes'],
     });
 
     expect(result).toEqual(
       expect.objectContaining({
         recommendation: expect.objectContaining({
-          status: 'adjust_messaging',
+          status: 'adjust-messaging',
         }),
       }),
     );
@@ -49,35 +53,50 @@ describe('normalizeSectionData', () => {
       keyInsights: [
         {
           insight: 'The category is crowded on generic ROI language.',
+          source: 'competitorIntel',
           implication: 'Differentiate on speed to insight.',
           priority: 'high',
         },
       ],
-      recommendedPositioning:
-        'Position the offer as the fastest route to trusted pipeline visibility.',
       positioningStrategy: {
-        primary: 'Own fast, operator-friendly attribution.',
-        alternatives: ['Lead with onboarding support'],
-        differentiators: ['Fast implementation'],
-        avoidPositions: ['Generic all-in-one analytics'],
+        recommendedAngle:
+          'Position the offer as the fastest route to trusted pipeline visibility.',
+        alternativeAngles: ['Lead with onboarding support'],
+        leadRecommendation: 'Anchor the launch story in speed and confidence.',
+        keyDifferentiator: 'Fast implementation',
       },
-      recommendedPlatforms: [
+      platformRecommendations: [
         {
           platform: 'LinkedIn',
-          reasoning: 'The target buyer is highly concentrated there.',
-          priority: 'primary',
+          role: 'primary',
+          budgetAllocation: '60% ($3,000)',
+          rationale: 'The target buyer is highly concentrated there.',
+          priority: 1,
         },
       ],
-      potentialBlockers: ['Weak proof for colder audiences'],
-      nextSteps: ['Package stronger customer proof before campaign launch'],
-      messagingFramework: {
-        coreMessage: 'Get trusted pipeline visibility faster than any other tool.',
+      messagingAngles: [
+        {
+          angle: 'Speed to trusted attribution',
+          targetEmotion: 'Confidence',
+          exampleHook: 'Get revenue visibility before the quarter closes.',
+          evidence: 'Category messaging is generic on ROI claims.',
+        },
+      ],
+      planningContext: {
+        monthlyBudget: '$5,000/month',
+        downstreamSequence: ['keywordIntel', 'mediaPlan'],
       },
+      criticalSuccessFactors: ['Tight CRM attribution'],
+      nextSteps: ['Package stronger customer proof before campaign launch'],
+      strategicNarrative:
+        'Position the offer as the fastest route to trusted pipeline visibility.',
     });
 
     expect(result).toEqual(
       expect.objectContaining({
-        recommendedPositioning: expect.stringContaining('fastest route'),
+        positioningStrategy: expect.objectContaining({
+          recommendedAngle: expect.stringContaining('fastest route'),
+        }),
       }),
     );
   });
@@ -102,13 +121,6 @@ describe('normalizeSectionData', () => {
 
   it('is section-aware by section id', () => {
     const offerPayload = {
-      offerClarity: {
-        clearlyArticulated: true,
-        solvesRealPain: true,
-        benefitsEasyToUnderstand: true,
-        transformationMeasurable: true,
-        valuePropositionObvious: true,
-      },
       offerStrength: {
         painRelevance: 8,
         urgency: 7,
@@ -118,19 +130,30 @@ describe('normalizeSectionData', () => {
         pricingLogic: 7,
         overallScore: 7,
       },
-      marketOfferFit: {
-        marketWantsNow: true,
-        competitorsOfferSimilar: true,
-        priceMatchesExpectations: true,
-        proofStrongForColdTraffic: false,
-        transformationBelievable: true,
-      },
-      redFlags: ['weak_or_no_proof'],
+      redFlags: [
+        {
+          issue: 'Proof is thin for cold traffic',
+          severity: 'medium',
+          priority: 1,
+          recommendedAction: 'Add quantified proof to the landing page.',
+          launchBlocker: false,
+        },
+      ],
       recommendation: {
-        status: 'adjust_messaging',
-        reasoning: 'The offer is credible but needs clearer proof.',
-        actionItems: ['Rewrite the proof section on the landing page'],
+        status: 'adjust-messaging',
+        summary: 'The offer is credible but needs clearer proof.',
+        topStrengths: ['Clear transformation promise'],
+        priorityFixes: ['Rewrite the proof section on the landing page'],
+        recommendedActionPlan: ['Refresh case studies'],
       },
+      pricingAnalysis: {
+        currentPricing: '$999/mo',
+        marketBenchmark: '$1,200/mo',
+        pricingPosition: 'mid-market',
+        coldTrafficViability: 'Viable with stronger proof.',
+      },
+      marketFitAssessment: 'Good fit for paid acquisition with better credibility.',
+      messagingRecommendations: ['Lead with attributable revenue outcomes'],
     };
 
     expect(normalizeSectionData('offerAnalysis', offerPayload)).toBeDefined();

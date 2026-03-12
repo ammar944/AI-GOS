@@ -66,6 +66,18 @@ const str = (v: unknown): string => {
   );
 };
 
+function formatCurrency(value: number | undefined): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '';
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export function buildSubsectionCards(
   sectionKey: string,
   data: Record<string, unknown>
@@ -77,6 +89,7 @@ export function buildSubsectionCards(
     if (sectionKey === 'offerAnalysis')  return buildOffer(sectionKey, data);
     if (sectionKey === 'crossAnalysis')  return buildSynthesis(sectionKey, data);
     if (sectionKey === 'keywordIntel')   return buildKeywords(sectionKey, data);
+    if (sectionKey === 'mediaPlan')      return buildMediaPlan(sectionKey, data);
   } catch {
     // research data shapes vary — never crash the UI
   }
@@ -318,6 +331,106 @@ function buildKeywords(sectionKey: string, data: Record<string, unknown>): Subse
       : null,
     gapItems.length > 0
       ? { id: `${sectionKey}-gaps`, type: 'list' as const, props: { sectionKey, title: 'Competitor Gaps', items: gapItems } }
+      : null,
+  ]);
+}
+
+function buildMediaPlan(sectionKey: string, data: Record<string, unknown>): SubsectionCard[] {
+  const dataSourced = get<Record<string, unknown>>(data, 'dataSourced');
+  const channelPlan = arr(data.channelPlan);
+  const launchSequence = arr(data.launchSequence);
+  const budgetSummary = get<Record<string, unknown>>(data, 'budgetSummary');
+  const kpiFramework = get<Record<string, unknown>>(data, 'kpiFramework');
+
+  const totalMonthly = get<number>(budgetSummary, 'totalMonthly');
+  const byPlatform = arr(get(budgetSummary, 'byPlatform'));
+
+  const budgetAllocations: BudgetAllocation[] = (
+    byPlatform.length > 0 ? byPlatform : channelPlan
+  )
+    .map((entry) => {
+      const item = entry as Record<string, unknown>;
+      const amount =
+        get<number>(item, 'amount') ?? get<number>(item, 'monthlyBudget');
+      const percentage =
+        get<number>(item, 'percentage') ?? get<number>(item, 'budgetPercentage') ?? 0;
+
+      return {
+        platform: get<string>(item, 'platform') ?? '',
+        percentage,
+        amount: formatCurrency(amount),
+      };
+    })
+    .filter((allocation) => allocation.platform && allocation.percentage > 0);
+
+  const launchItems = launchSequence
+    .slice(0, 4)
+    .map((entry) => {
+      const item = entry as Record<string, unknown>;
+      const week = get<number>(item, 'week');
+      const milestone = get<string>(item, 'milestone') ?? '';
+      const actions = arr(get(item, 'actions')).map(str).filter(Boolean);
+      const summary = actions[0] ?? milestone;
+      if (!summary) {
+        return '';
+      }
+
+      return `Week ${week ?? '?'} — ${summary}`;
+    })
+    .filter(Boolean);
+
+  const cadenceItems = arr(get(kpiFramework, 'weeklyReview'))
+    .slice(0, 4)
+    .map(str)
+    .filter(Boolean);
+
+  const northStar = get<string>(kpiFramework, 'northStar') ?? '';
+  const sourceNote = get<string>(dataSourced, 'note') ?? '';
+
+  return compact([
+    {
+      id: `${sectionKey}-summary`,
+      type: 'verdict',
+      props: {
+        sectionKey,
+        label: 'Media Plan',
+        status: channelPlan.length
+          ? `${channelPlan.length} channel${channelPlan.length === 1 ? '' : 's'} planned`
+          : 'Plan generated',
+        summary: sourceNote || undefined,
+      },
+    },
+    budgetAllocations.length > 0
+      ? {
+          id: `${sectionKey}-budget`,
+          type: 'budgetBar' as const,
+          props: {
+            sectionKey,
+            totalBudget: formatCurrency(totalMonthly) || undefined,
+            allocations: budgetAllocations,
+          },
+        }
+      : null,
+    northStar
+      ? {
+          id: `${sectionKey}-north-star`,
+          type: 'quote' as const,
+          props: { sectionKey, quote: northStar },
+        }
+      : null,
+    launchItems.length > 0
+      ? {
+          id: `${sectionKey}-launch`,
+          type: 'list' as const,
+          props: { sectionKey, title: 'Launch Sequence', items: launchItems },
+        }
+      : null,
+    cadenceItems.length > 0
+      ? {
+          id: `${sectionKey}-cadence`,
+          type: 'list' as const,
+          props: { sectionKey, title: 'Weekly Review', items: cadenceItems },
+        }
       : null,
   ]);
 }

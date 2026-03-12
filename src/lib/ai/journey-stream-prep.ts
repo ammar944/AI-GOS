@@ -29,26 +29,60 @@ function compactResearchOutput(
   };
 }
 
-export function sanitizeJourneyMessages(messages: UIMessage[]): UIMessage[] {
-  return messages.map((msg) => ({
-    ...msg,
-    parts: msg.parts.filter((part) => {
-      if (
-        typeof part === 'object' &&
-        part !== null &&
-        'type' in part &&
-        typeof part.type === 'string' &&
-        part.type.startsWith('tool-') &&
-        part.type !== 'tool-invocation'
-      ) {
-        const state = (part as Record<string, unknown>).state as string | undefined;
-        if (state && INCOMPLETE_TOOL_STATES.has(state)) {
-          return false;
-        }
-      }
+function isIncompleteToolPart(part: UIMessage['parts'][number]): boolean {
+  if (
+    typeof part !== 'object' ||
+    part === null ||
+    !('type' in part) ||
+    typeof part.type !== 'string' ||
+    !part.type.startsWith('tool-') ||
+    part.type === 'tool-invocation'
+  ) {
+    return false;
+  }
 
-      return true;
-    }),
+  const state = 'state' in part && typeof part.state === 'string'
+    ? part.state
+    : undefined;
+
+  return state !== undefined && INCOMPLETE_TOOL_STATES.has(state);
+}
+
+function hasReasoningPart(message: UIMessage): boolean {
+  return message.parts.some(
+    (part) =>
+      typeof part === 'object' &&
+      part !== null &&
+      'type' in part &&
+      part.type === 'reasoning',
+  );
+}
+
+function isUnsupportedThinkingPart(part: UIMessage['parts'][number]): boolean {
+  if (typeof part !== 'object' || part === null || !('type' in part)) {
+    return false;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- guard against runtime parts not in SDK types
+  const t = (part as any).type;
+  return t === 'thinking' || t === 'redacted_thinking';
+}
+
+export function sanitizeJourneyMessages(messages: UIMessage[]): UIMessage[] {
+  const latestAssistantMessageIndex = messages.findLastIndex(
+    (message) => message.role === 'assistant',
+  );
+
+  return messages.map((msg, index) => ({
+    ...msg,
+    parts:
+      msg.role === 'assistant' &&
+      (hasReasoningPart(msg) || index === latestAssistantMessageIndex)
+        ? msg.parts.filter((part) => !isUnsupportedThinkingPart(part))
+        : msg.parts.filter(
+            (part) =>
+              !isIncompleteToolPart(part) && !isUnsupportedThinkingPart(part),
+          ),
   })) as UIMessage[];
 }
 

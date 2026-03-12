@@ -33,10 +33,10 @@ export function JourneyHeader({
       {/* Left: Logo badge + title */}
       <div className="flex items-center gap-4">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-accent to-brand-success flex items-center justify-center font-bold text-black text-xs">
-          EG
+          AI
         </div>
         <span className="text-sm font-medium tracking-tight">
-          AI-GOS <span className="text-white/40">V2.0</span>
+          AIGOS <span className="text-white/40">V2.0</span>
         </span>
       </div>
 

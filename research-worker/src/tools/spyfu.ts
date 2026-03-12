@@ -2,11 +2,15 @@ import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 
 const SPYFU_BASE_URL = 'https://api.spyfu.com/apis';
+const SPYFU_TIMEOUT_MS = 10_000;
+const SPYFU_KEYWORD_PAGE_SIZE = 12;
 
 async function spyfuGet(path: string): Promise<unknown> {
   const apiKey = process.env.SPYFU_API_KEY;
   if (!apiKey) throw new Error('SPYFU_API_KEY not configured');
-  const res = await fetch(`${SPYFU_BASE_URL}${path}&api_key=${apiKey}`);
+  const res = await fetch(`${SPYFU_BASE_URL}${path}&api_key=${apiKey}`, {
+    signal: AbortSignal.timeout(SPYFU_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`SpyFu API error: ${res.status}`);
   return res.json();
 }
@@ -21,7 +25,9 @@ export const spyfuTool = betaZodTool({
     try {
       const [domainStats, keywords] = await Promise.all([
         spyfuGet(`/domain_stats/v2/getDomainStatsForQuery?query=${domain}&countryCode=US&_p=1&_pageSize=1`),
-        spyfuGet(`/keyword_snake/v2/getMostValuableKeywordsForQuery?query=${domain}&countryCode=US&_p=1&_pageSize=20&excludeTerms=jobs,career,salary`),
+        spyfuGet(
+          `/keyword_snake/v2/getMostValuableKeywordsForQuery?query=${domain}&countryCode=US&_p=1&_pageSize=${SPYFU_KEYWORD_PAGE_SIZE}&excludeTerms=jobs,career,salary`,
+        ),
       ]);
       return JSON.stringify({ keywords, domainStats });
     } catch (error) {

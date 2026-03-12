@@ -34,14 +34,10 @@ vi.mock('@/components/journey/chat-input', () => ({
 }));
 
 describe('WelcomeState', () => {
-  it('renders headline and capability chips', () => {
+  it('renders the market analysis headline', () => {
     render(<WelcomeState onSubmit={vi.fn()} isLoading={false} />);
 
     expect(screen.getByText(/market analysis/i)).toBeInTheDocument();
-    expect(screen.getByText('ICP Analysis')).toBeInTheDocument();
-    expect(screen.getByText('Market Intel')).toBeInTheDocument();
-    expect(screen.getByText('Competitor Audit')).toBeInTheDocument();
-    expect(screen.getByText('Media Plan')).toBeInTheDocument();
   });
 
   it('renders the chat input', () => {

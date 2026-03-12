@@ -3,7 +3,10 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import {
+  dispatchResearch,
+  getActiveRunIdFromToolExecutionOptions,
+} from './dispatch';
 
 export const researchICP = tool({
   description:
@@ -19,7 +22,9 @@ export const researchICP = tool({
         'Assembled onboarding context — all fields collected so far as a readable string',
       ),
   }),
-  execute: async ({ context }) => {
-    return dispatchResearch('researchICP', 'icpValidation', context);
+  execute: async ({ context }, options) => {
+    return dispatchResearch('researchICP', 'icpValidation', context, {
+      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    });
   },
 });

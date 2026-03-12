@@ -40,6 +40,7 @@ describe('getResearchResultSignature', () => {
 describe('useResearchRealtime', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     mockFetch.mockReset();
   });
 
@@ -104,6 +105,62 @@ describe('useResearchRealtime', () => {
     });
 
     expect(onSectionComplete).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      '[journey] Ignoring stale research snapshot with mismatched run id:',
+      {
+        activeRunId: 'run-new',
+        snapshotRunId: 'run-old',
+      },
+    );
+  });
+
+  it('logs when a snapshot predates the current reset boundary', async () => {
+    const onSectionComplete = vi.fn();
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        metadata: {
+          activeJourneyRunId: 'run-123',
+        },
+        researchResults: {
+          industryMarket: {
+            ...makeResult({
+              section: 'industryMarket',
+              data: { summary: 'stale market overview' },
+            }),
+            runId: 'run-123',
+          },
+        },
+        jobStatus: null,
+        updatedAt: '2026-03-12T08:59:59.000Z',
+      }),
+    });
+
+    renderHook(() =>
+      useResearchRealtime({
+        userId: 'user-123',
+        activeRunId: 'run-123',
+        ignoreUpdatedBefore: '2026-03-12T09:00:00.000Z',
+        onSectionComplete,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/journey/session?runId=run-123', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+    });
+
+    expect(onSectionComplete).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      '[journey] Ignoring stale research snapshot before reset boundary:',
+      {
+        ignoreUpdatedBefore: '2026-03-12T09:00:00.000Z',
+        updatedAt: '2026-03-12T08:59:59.000Z',
+      },
+    );
   });
 });
 

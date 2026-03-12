@@ -4,7 +4,10 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { dispatchResearch } from './dispatch';
+import {
+  dispatchResearch,
+  getActiveRunIdFromToolExecutionOptions,
+} from './dispatch';
 
 export const researchIndustry = tool({
   description:
@@ -20,7 +23,9 @@ export const researchIndustry = tool({
         'Assembled onboarding context — all fields collected so far as a readable string',
       ),
   }),
-  execute: async ({ context }) => {
-    return dispatchResearch('researchIndustry', 'industryMarket', context);
+  execute: async ({ context }, options) => {
+    return dispatchResearch('researchIndustry', 'industryMarket', context, {
+      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    });
   },
 });

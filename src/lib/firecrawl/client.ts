@@ -1,5 +1,5 @@
 // Firecrawl Client
-// Wraps @mendable/firecrawl-js SDK with AI-GOS error handling patterns
+// Wraps @mendable/firecrawl-js SDK with AIGOS error handling patterns
 
 import Firecrawl from '@mendable/firecrawl-js';
 import { getEnv } from '@/lib/env';

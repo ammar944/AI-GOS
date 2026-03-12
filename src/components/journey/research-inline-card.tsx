@@ -4,11 +4,16 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  collapseResearchJobUpdates,
+  type ResearchJobActivity,
+} from '@/lib/journey/research-job-activity';
 
 export interface ResearchInlineCardProps {
   section: string;
   status: 'loading' | 'complete' | 'error';
   data?: Record<string, unknown>;
+  activity?: ResearchJobActivity;
   error?: string;
   durationMs?: number;
   sourceCount?: number;
@@ -27,41 +32,10 @@ const SECTION_META: Record<string, SectionMeta> = {
   icpValidation:  { label: 'ICP Validation', moduleNumber: '03' },
   offerAnalysis:  { label: 'Offer Analysis', moduleNumber: '04' },
   crossAnalysis:  { label: 'Strategic Synthesis', moduleNumber: '05' },
+  keywordIntel:   { label: 'Keywords', moduleNumber: '06' },
+  mediaPlan:      { label: 'Media Plan', moduleNumber: '07' },
 };
 const DEFAULT_META: SectionMeta = { label: 'Research', moduleNumber: '00' };
-
-// Scanning phrases for loading state
-const SCANNING_PHRASES: Record<string, string[]> = {
-  industryMarket: [
-    'Scanning market landscape...',
-    'Pulling industry benchmarks...',
-    'Analyzing pain points from G2 & Reddit...',
-    'Mapping buying behaviors...',
-    'Identifying demand drivers...',
-  ],
-  competitors: [
-    'Scraping G2 reviews and pricing pages for direct competitors...',
-    'Analyzing ad creative strategies...',
-    'Running keyword intelligence...',
-    'Scanning white-space gaps...',
-  ],
-  icpValidation: [
-    'Validating audience targeting feasibility...',
-    'Checking audience size estimates...',
-    'Analyzing trigger events...',
-  ],
-  offerAnalysis: [
-    'Benchmarking pricing models...',
-    'Scanning offer clarity signals...',
-    'Checking red flags...',
-  ],
-  crossAnalysis: [
-    'Synthesizing research findings...',
-    'Identifying positioning gaps...',
-    'Drafting strategic recommendations...',
-  ],
-};
-const DEFAULT_PHRASES = ['Analyzing...', 'Researching...', 'Processing...'];
 
 function extractTopMetrics(section: string, data?: Record<string, unknown>): { key: string; value: string }[] {
   if (!data) return [];
@@ -88,6 +62,32 @@ function extractTopMetrics(section: string, data?: Record<string, unknown>): { k
       const score = (data.offerStrength as Record<string, unknown>)?.overallScore ?? data.overallScore;
       return score !== undefined ? [{ key: 'Score', value: String(score) }] : [];
     }
+    if (section === 'crossAnalysis') {
+      const platforms = Array.isArray(data.platformRecommendations) ? data.platformRecommendations : [];
+      const insights = Array.isArray(data.keyInsights) ? data.keyInsights : [];
+      return [
+        insights.length > 0 ? { key: 'Insights', value: `${insights.length}` } : null,
+        platforms.length > 0 ? { key: 'Platforms', value: `${platforms.length}` } : null,
+      ].filter(Boolean) as { key: string; value: string }[];
+    }
+    if (section === 'keywordIntel') {
+      const total = typeof data.totalKeywordsFound === 'number' ? data.totalKeywordsFound : null;
+      const gaps = typeof data.competitorGapCount === 'number' ? data.competitorGapCount : null;
+      return [
+        total !== null ? { key: 'Keywords', value: `${total}` } : null,
+        gaps !== null ? { key: 'Gaps', value: `${gaps}` } : null,
+      ].filter(Boolean) as { key: string; value: string }[];
+    }
+    if (section === 'mediaPlan') {
+      const channels = Array.isArray(data.channelPlan) ? data.channelPlan : [];
+      const budgetSummary = data.budgetSummary as Record<string, unknown> | undefined;
+      return [
+        channels.length > 0 ? { key: 'Channels', value: `${channels.length}` } : null,
+        budgetSummary?.totalMonthly !== undefined
+          ? { key: 'Budget', value: String(budgetSummary.totalMonthly) }
+          : null,
+      ].filter(Boolean) as { key: string; value: string }[];
+    }
   } catch { /* data shapes vary */ }
   return [];
 }
@@ -108,26 +108,91 @@ function extractDescription(section: string, data?: Record<string, unknown>): st
         ? `${comps.length} competitor${comps.length !== 1 ? 's' : ''} analyzed across ad creatives, pricing, and positioning.`
         : null;
     }
+    if (section === 'crossAnalysis') {
+      if (typeof data.strategicNarrative === 'string' && data.strategicNarrative.trim().length > 0) {
+        return data.strategicNarrative.trim();
+      }
+      const positioningStrategy = data.positioningStrategy as Record<string, unknown> | undefined;
+      const angle = typeof positioningStrategy?.recommendedAngle === 'string'
+        ? positioningStrategy.recommendedAngle
+        : null;
+      return angle ? `Strategic synthesis complete. Recommended angle: ${angle}.` : null;
+    }
+    if (section === 'keywordIntel') {
+      const total = typeof data.totalKeywordsFound === 'number' ? data.totalKeywordsFound : null;
+      return total !== null
+        ? `${total} keyword opportunities analyzed for paid-search and competitor-gap coverage.`
+        : null;
+    }
+    if (section === 'mediaPlan') {
+      const budgetSummary = data.budgetSummary as Record<string, unknown> | undefined;
+      const channels = Array.isArray(data.channelPlan) ? data.channelPlan : [];
+      if (budgetSummary?.totalMonthly !== undefined) {
+        return `Execution-ready media plan built across ${channels.length} channel${channels.length === 1 ? '' : 's'} with ${budgetSummary.totalMonthly} monthly budget.`;
+      }
+      return channels.length > 0
+        ? `Execution-ready media plan built across ${channels.length} channel${channels.length === 1 ? '' : 's'}.`
+        : null;
+    }
   } catch { /* safe */ }
   return null;
 }
 
-function useAnimatedPhrase(phrases: string[]) {
-  const [idx, setIdx] = useState(0);
+function useTicker(enabled: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIdx((i) => (i + 1) % phrases.length);
-    }, 3000);
+    if (!enabled) return;
+
+    const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [phrases]);
-  return phrases[idx];
+  }, [enabled]);
+
+  return now;
+}
+
+function formatElapsed(iso: string | undefined, now: number): string | null {
+  if (!iso) return null;
+
+  const deltaSeconds = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
+  if (deltaSeconds < 60) return `${deltaSeconds}s`;
+
+  const deltaMinutes = Math.floor(deltaSeconds / 60);
+  if (deltaMinutes < 60) return `${deltaMinutes}m`;
+
+  const deltaHours = Math.floor(deltaMinutes / 60);
+  return `${deltaHours}h`;
+}
+
+function getLoadingExpectation(section: string): string {
+  if (section === 'competitors' || section === 'icpValidation') {
+    return '[NOTE] Usually 2-3 minutes end-to-end. The card is showing live worker activity while the final artifact is still being assembled.';
+  }
+
+  if (section === 'offerAnalysis') {
+    return '[NOTE] Usually 1-2 minutes end-to-end. Final analysis appears after the worker finishes its write.';
+  }
+
+  return '[NOTE] Live worker activity is streaming. Final analysis appears when the completed result is written.';
 }
 
 // ─── Loading Card (Active research in progress) ─────────────────────────────
 
-function LoadingCard({ meta, section }: { meta: SectionMeta; section: string }) {
-  const phrases = SCANNING_PHRASES[section] ?? DEFAULT_PHRASES;
-  const phrase = useAnimatedPhrase(phrases);
+function LoadingCard({
+  activity,
+  meta,
+  section,
+}: {
+  activity?: ResearchJobActivity;
+  meta: SectionMeta;
+  section: string;
+}) {
+  const now = useTicker(Boolean(activity?.startedAt || activity?.lastHeartbeat));
+  const startedAgo = formatElapsed(activity?.startedAt, now);
+  const heartbeatAgo = formatElapsed(activity?.lastHeartbeat, now);
+  const statusLabel = activity?.startedAt ? 'Worker Running' : 'Queued';
+  const latestUpdate = collapseResearchJobUpdates(activity?.updates).at(-1);
+  const latestUpdateAge = formatElapsed(latestUpdate?.at, now);
 
   return (
     <div className="glass-surface p-6 rounded-[24px] border-brand-accent/30 bg-brand-accent/[0.01]">
@@ -143,15 +208,18 @@ function LoadingCard({ meta, section }: { meta: SectionMeta; section: string }) 
         </div>
       </div>
       <h3 className="text-lg font-medium mb-2 text-brand-accent">{meta.label}</h3>
-      <p className="text-sm text-white/70 leading-relaxed">{phrase}</p>
-      {/* Progress bar */}
-      <div className="mt-4 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-        <motion.div
-          className="bg-brand-accent h-full"
-          initial={{ width: '5%' }}
-          animate={{ width: '65%' }}
-          transition={{ duration: 30, ease: 'linear' }}
-        />
+      <div className="space-y-2 text-xs font-mono text-white/55 leading-relaxed">
+        <p>[LIVE] Research dispatched from Journey.</p>
+        <p>{activity?.startedAt ? `[RUN] Started ${startedAgo ?? 'just now'} ago.` : '[WAIT] Waiting for worker pickup.'}</p>
+        {latestUpdate && (
+          <p>[{latestUpdate.phase.toUpperCase()}] {latestUpdate.message}{latestUpdate.count > 1 ? ` x${latestUpdate.count}` : ''}{latestUpdateAge ? ` · ${latestUpdateAge} ago` : ''}</p>
+        )}
+        {heartbeatAgo && <p>[PING] Last heartbeat {heartbeatAgo} ago.</p>}
+        <p>{getLoadingExpectation(section)}</p>
+      </div>
+      <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-accent/10 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-brand-accent">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />
+        {statusLabel}
       </div>
     </div>
   );
@@ -256,6 +324,7 @@ function ErrorCard({ meta, error }: { meta: SectionMeta; error?: string }) {
 // ─── Main Export ─────────────────────────────────────────────────────────────
 
 export function ResearchInlineCard({
+  activity,
   section,
   status,
   data,
@@ -275,7 +344,7 @@ export function ResearchInlineCard({
       transition={{ duration: 0.25 }}
       className={cn('w-full', className)}
     >
-      {status === 'loading'  && <LoadingCard meta={meta} section={section} />}
+      {status === 'loading'  && <LoadingCard activity={activity} meta={meta} section={section} />}
       {status === 'complete' && <CompleteCard meta={meta} data={data} section={section} onViewFull={onViewFull} />}
       {status === 'error'    && <ErrorCard meta={meta} error={error} />}
     </motion.div>

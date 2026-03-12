@@ -1,5 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const validIndustryResearchData = {
+  categorySnapshot: {
+    category: 'AI attribution software',
+    marketSize: '$4.2B',
+    marketMaturity: 'growing',
+    awarenessLevel: 'high',
+    buyingBehavior: 'committee_driven',
+    averageSalesCycle: '45-90 days',
+  },
+  marketDynamics: {
+    demandDrivers: ['Pressure to prove ROI'],
+    buyingTriggers: ['New revenue leader hired'],
+    barriersToPurchase: ['Tool fatigue'],
+  },
+  painPoints: {
+    primary: ['Revenue teams lack trustworthy attribution'],
+    secondary: ['Channel data is fragmented'],
+  },
+  messagingOpportunities: {
+    summaryRecommendations: ['Lead with revenue visibility'],
+  },
+  trendSignals: [
+    {
+      trend: 'AI-assisted reporting',
+      direction: 'rising',
+      evidence: 'Search demand keeps climbing.',
+    },
+  ],
+} as const;
+
 const mockSingle = vi.fn();
 const mockLimit = vi.fn(() => ({ single: mockSingle }));
 const mockOrder = vi.fn(() => ({ limit: mockLimit }));
@@ -26,13 +56,20 @@ describe('readResearchResult', () => {
   it('returns section data when research_results contains the section', async () => {
     mockSingle.mockResolvedValueOnce({
       data: {
-        research_results: { industryMarket: { trends: ['AI growth'] } },
+        research_results: {
+          industryMarket: {
+            status: 'complete',
+            section: 'industryMarket',
+            durationMs: 10,
+            data: validIndustryResearchData,
+          },
+        },
       },
       error: null,
     });
     const { readResearchResult } = await import('../read-research-result');
     const result = await readResearchResult('user-123', 'industryMarket');
-    expect(result).toEqual({ trends: ['AI growth'] });
+    expect(result).toEqual(validIndustryResearchData);
   });
 
   it('returns null when section not in research_results', async () => {

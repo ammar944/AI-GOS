@@ -59,7 +59,7 @@ RAILWAY_API_KEY=      # Bearer token for worker auth (set same value in worker e
 
 ## Architecture
 
-**AI-GOS** is a strategic marketing blueprint generator. Users complete an onboarding wizard, then the system runs a multi-phase AI pipeline to produce a comprehensive paid media strategy document.
+**AIGOS** is a strategic marketing blueprint generator. Users complete an onboarding wizard, then the system runs a multi-phase AI pipeline to produce a comprehensive paid media strategy document.
 
 ### Core Pipeline (Strategic Blueprint Generation)
 

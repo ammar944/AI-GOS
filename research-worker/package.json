@@ -1,7 +1,7 @@
 {
   "name": "aigos-research-worker",
   "version": "1.0.0",
-  "description": "Background research worker for AI-GOS — runs Anthropic sub-agents async",
+  "description": "Background research worker for AIGOS — runs Anthropic sub-agents async",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

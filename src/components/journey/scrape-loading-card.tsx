@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 interface ScrapeLoadingCardProps {
   websiteUrl?: string;
+  mode?: 'prefill' | 'competitor';
   className?: string;
 }
 
@@ -22,23 +23,44 @@ function extractDomain(url?: string): string {
   }
 }
 
-const STEPS = [
-  { icon: Globe, label: 'Reading homepage', delay: 0 },
-  { icon: DollarSign, label: 'Checking pricing page', delay: 8000 },
-  { icon: FileText, label: 'Extracting business data', delay: 16000 },
-  { icon: Database, label: 'Structuring insights', delay: 22000 },
-];
+const CARD_COPY = {
+  prefill: {
+    heading: 'Analyzing',
+    subheading: 'Scraping site to pre-fill your profile',
+    steps: [
+      { icon: Globe, label: 'Reading homepage', delay: 0 },
+      { icon: DollarSign, label: 'Checking pricing page', delay: 8000 },
+      { icon: FileText, label: 'Extracting business data', delay: 16000 },
+      { icon: Database, label: 'Structuring insights', delay: 22000 },
+    ],
+  },
+  competitor: {
+    heading: 'Profiling',
+    subheading: 'Pulling live competitor positioning and offer signals',
+    steps: [
+      { icon: Globe, label: 'Reading homepage', delay: 0 },
+      { icon: DollarSign, label: 'Checking offer and pricing pages', delay: 6000 },
+      { icon: FileText, label: 'Extracting positioning and proof', delay: 12000 },
+      { icon: Database, label: 'Structuring competitive intel', delay: 18000 },
+    ],
+  },
+} as const;
 
-export function ScrapeLoadingCard({ websiteUrl, className }: ScrapeLoadingCardProps) {
+export function ScrapeLoadingCard({
+  websiteUrl,
+  mode = 'prefill',
+  className,
+}: ScrapeLoadingCardProps) {
   const domain = extractDomain(websiteUrl);
+  const copy = CARD_COPY[mode];
   const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
-    const timers = STEPS.slice(1).map((step, i) =>
+    const timers = copy.steps.slice(1).map((step, i) =>
       setTimeout(() => setActiveStep(i + 1), step.delay),
     );
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [copy.steps]);
 
   return (
     <motion.div
@@ -70,14 +92,14 @@ export function ScrapeLoadingCard({ websiteUrl, className }: ScrapeLoadingCardPr
             className="font-medium leading-tight truncate"
             style={{ fontSize: '12.5px', color: 'var(--text-primary)' }}
           >
-            Analyzing{' '}
+            {copy.heading}{' '}
             <span style={{ color: 'var(--accent-blue)' }}>{domain}</span>
           </p>
           <p
             className="truncate mt-0.5"
             style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}
           >
-            Scraping site to pre-fill your profile
+            {copy.subheading}
           </p>
         </div>
 
@@ -103,10 +125,10 @@ export function ScrapeLoadingCard({ websiteUrl, className }: ScrapeLoadingCardPr
         </div>
       </div>
 
-      {/* Step indicators */}
+        {/* Step indicators */}
       <div className="flex flex-col gap-1.5">
         <AnimatePresence mode="popLayout">
-          {STEPS.map((step, i) => {
+          {copy.steps.map((step, i) => {
             const StepIcon = step.icon;
             const isActive = i === activeStep;
             const isDone = i < activeStep;
