@@ -1,48 +1,91 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { UIMessage } from 'ai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import JourneyPage from '../page';
 
+type MockChatStatus = 'ready' | 'streaming' | 'submitted';
+
 const {
+  addToolApprovalResponseMock,
+  addToolOutputMock,
+  chatControls,
+  realtimeControls,
+  sendMessageMock,
   setJourneySessionMock,
-  setJourneySessionIdMock,
-  clearJourneySessionMock,
-  clearJourneySessionIdMock,
-  submitJourneyPrefillMock,
-  stopJourneyPrefillMock,
-  initialMessagesRef,
-} = vi.hoisted(() => ({
-  setJourneySessionMock: vi.fn(),
-  setJourneySessionIdMock: vi.fn(),
-  clearJourneySessionMock: vi.fn(),
-  clearJourneySessionIdMock: vi.fn(),
-  submitJourneyPrefillMock: vi.fn(),
-  stopJourneyPrefillMock: vi.fn(),
-  initialMessagesRef: {
-    current: [] as Array<Record<string, unknown>>,
-  },
-}));
+} = vi.hoisted(() => {
+  const messageListeners = new Set<(messages: UIMessage[]) => void>();
+  const statusListeners = new Set<(status: MockChatStatus) => void>();
+  let messages: UIMessage[] = [];
+  let status: MockChatStatus = 'ready';
+  let onSectionComplete:
+    | ((section: string, result: ResearchSectionResult) => void)
+    | null = null;
 
-const fromMock = vi.fn();
-const maybeSingleMock = vi.fn();
-const sendMessageMock = vi.fn();
-const addToolOutputMock = vi.fn();
-const addToolApprovalResponseMock = vi.fn();
-
-let mockStoredSession: unknown = null;
-let mockStoredSessionId: string | null = null;
-let mockPrefillState = {
-  partialResult: undefined,
-  submit: submitJourneyPrefillMock,
-  isLoading: false,
-  error: undefined,
-  stop: stopJourneyPrefillMock,
-  fieldsFound: 0,
-};
+  return {
+    sendMessageMock: vi.fn(),
+    addToolOutputMock: vi.fn(),
+    addToolApprovalResponseMock: vi.fn(),
+    setJourneySessionMock: vi.fn(),
+    chatControls: {
+      addMessageListener(listener: (nextMessages: UIMessage[]) => void): () => void {
+        messageListeners.add(listener);
+        return () => {
+          messageListeners.delete(listener);
+        };
+      },
+      addStatusListener(listener: (nextStatus: MockChatStatus) => void): () => void {
+        statusListeners.add(listener);
+        return () => {
+          statusListeners.delete(listener);
+        };
+      },
+      getMessages(): UIMessage[] {
+        return messages;
+      },
+      getStatus(): MockChatStatus {
+        return status;
+      },
+      setMessages(
+        nextMessages: UIMessage[] | ((currentMessages: UIMessage[]) => UIMessage[]),
+      ): void {
+        messages =
+          typeof nextMessages === 'function' ? nextMessages(messages) : nextMessages;
+        messageListeners.forEach((listener) => listener(messages));
+      },
+      setStatus(nextStatus: MockChatStatus): void {
+        status = nextStatus;
+        statusListeners.forEach((listener) => listener(status));
+      },
+      reset(): void {
+        messages = [];
+        status = 'ready';
+      },
+    },
+    realtimeControls: {
+      setHandler(
+        nextHandler: ((section: string, result: ResearchSectionResult) => void) | null,
+      ): void {
+        onSectionComplete = nextHandler;
+      },
+      emit(section: string, result: ResearchSectionResult): void {
+        onSectionComplete?.(section, result);
+      },
+      reset(): void {
+        onSectionComplete = null;
+      },
+    },
+  };
+});
 
 vi.mock('ai', () => ({
   DefaultChatTransport: class DefaultChatTransport {},
-  lastAssistantMessageIsCompleteWithToolCalls: () => false,
-  lastAssistantMessageIsCompleteWithApprovalResponses: () => false,
+}));
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => ({
+    get: () => null,
+  }),
 }));
 
 vi.mock('@ai-sdk/react', async () => {
@@ -50,16 +93,30 @@ vi.mock('@ai-sdk/react', async () => {
 
   return {
     useChat: () => {
-      const [messages, setMessages] = React.useState<unknown[]>(initialMessagesRef.current);
+      const [messages, setMessagesState] = React.useState<UIMessage[]>(
+        chatControls.getMessages(),
+      );
+      const [status, setStatusState] = React.useState<MockChatStatus>(
+        chatControls.getStatus(),
+      );
+
+      React.useEffect(() => chatControls.addMessageListener(setMessagesState), []);
+      React.useEffect(() => chatControls.addStatusListener(setStatusState), []);
 
       return {
         messages,
+        status,
+        error: undefined,
         sendMessage: sendMessageMock,
         addToolOutput: addToolOutputMock,
         addToolApprovalResponse: addToolApprovalResponseMock,
-        status: 'ready',
-        error: undefined,
-        setMessages,
+        setMessages: (
+          nextMessages:
+            | UIMessage[]
+            | ((currentMessages: UIMessage[]) => UIMessage[]),
+        ) => {
+          chatControls.setMessages(nextMessages);
+        },
       };
     },
   };
@@ -73,21 +130,9 @@ vi.mock('@clerk/nextjs', () => ({
 
 vi.mock('@/components/shell', () => ({
   ShellProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  AppShell: ({
-    children,
-    rightPanel,
-    sidebar,
-  }: {
-    children: React.ReactNode;
-    rightPanel?: React.ReactNode;
-    sidebar?: React.ReactNode;
-  }) => (
-    <div>
-      <div data-testid="sidebar">{sidebar}</div>
-      <div>{children}</div>
-      {rightPanel ? <div data-testid="right-panel">{rightPanel}</div> : null}
-    </div>
-  ),
+}));
+
+vi.mock('@/components/shell/app-sidebar', () => ({
   AppSidebar: () => <div data-testid="app-sidebar" />,
 }));
 
@@ -95,54 +140,25 @@ vi.mock('@/components/journey/chat-message', () => ({
   ChatMessage: ({
     content,
     parts,
-    onResearchReview,
-    sectionReviewStates,
   }: {
     content?: string;
     parts?: Array<Record<string, unknown>>;
-    onResearchReview?: (
-      sectionId: string,
-      decision: 'approved' | 'needs-revision',
-      note?: string,
-    ) => void;
-    sectionReviewStates?: Record<string, string>;
-  }) => {
-    const sectionId = parts?.find((part) => part.type === 'tool-generateResearch')?.input?.sectionId;
+  }) => (
+    <div data-testid="chat-message">
+      {content ? <span>{content}</span> : null}
+      {parts?.map((part, index) => {
+        if (part.type === 'text' && typeof part.text === 'string') {
+          return <span key={`${part.text}-${index}`}>{part.text}</span>;
+        }
 
-    return (
-      <div data-testid="chat-message">
-        {content ? <span>{content}</span> : null}
-        {sectionId ? <span>{String(sectionId)}</span> : null}
-        {sectionReviewStates?.[String(sectionId)] ? (
-          <span data-testid={`review-state-${String(sectionId)}`}>
-            {sectionReviewStates[String(sectionId)]}
-          </span>
-        ) : null}
-        {sectionId && onResearchReview ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onResearchReview(String(sectionId), 'approved')}
-            >
-              approve {String(sectionId)}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onResearchReview(
-                  String(sectionId),
-                  'needs-revision',
-                  'Tighten the segment and update downstream recommendations.',
-                )
-              }
-            >
-              revise {String(sectionId)}
-            </button>
-          </>
-        ) : null}
-      </div>
-    );
-  },
+        if (typeof part.type === 'string') {
+          return <span key={`${part.type}-${index}`}>{part.type}</span>;
+        }
+
+        return null;
+      })}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/journey/chat-input', () => ({
@@ -154,129 +170,18 @@ vi.mock('@/components/journey/typing-indicator', () => ({
 }));
 
 vi.mock('@/components/journey/resume-prompt', () => ({
-  ResumePrompt: ({
-    onContinue,
-    onStartFresh,
-  }: {
-    onContinue: () => void;
-    onStartFresh: () => void;
-  }) => (
-    <div data-testid="resume-prompt">
-      <button type="button" onClick={onContinue}>
-        continue resume
-      </button>
-      <button type="button" onClick={onStartFresh}>
-        start fresh
-      </button>
-    </div>
-  ),
+  ResumePrompt: () => <div data-testid="resume-prompt" />,
 }));
 
-vi.mock('@/components/journey/welcome-state', () => ({
-  WelcomeState: ({
-    onSubmit,
-  }: {
-    onSubmit: (payload: { websiteUrl: string; linkedinUrl?: string; manualStart?: boolean }) => void;
-  }) => (
-    <div data-testid="welcome-state">
-      <button
-        type="button"
-        onClick={() =>
-          void onSubmit({
-            websiteUrl: 'https://acme.com',
-            linkedinUrl: 'https://linkedin.com/company/acme',
-          })
-        }
-      >
-        submit welcome
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          void onSubmit({
-            websiteUrl: '',
-            manualStart: true,
-          })
-        }
-      >
-        manual start
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock('@/components/journey/profile-card', () => ({
-  ProfileCard: () => null,
-}));
-
-vi.mock('@/components/journey/research-progress', () => ({
-  ResearchProgress: () => <div data-testid="research-progress" />,
-}));
-
-vi.mock('@/components/journey/journey-header', () => ({
-  JourneyHeader: ({
-    onNewJourney,
-    statusLabel,
-    statusDetail,
-  }: {
-    onNewJourney: () => void;
-    statusLabel?: string;
-    statusDetail?: string;
-  }) => (
-    <div data-testid="journey-header">
-      <span>{statusLabel}</span>
-      <span>{statusDetail}</span>
-      <button type="button" onClick={() => void onNewJourney()}>
-        new journey
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock('@/components/journey/journey-prefill-review', () => ({
-  JourneyPrefillReview: ({
-    onApplyReview,
-    onSkipForNow,
-  }: {
-    onApplyReview: (
-      decisions: Array<{ fieldName: string; action: 'accept' | 'edit' | 'reject'; value?: string }>,
-    ) => void;
-    onSkipForNow: () => void;
-  }) => (
-    <div data-testid="prefill-review">
-      <button
-        type="button"
-        onClick={() =>
-          onApplyReview([{ fieldName: 'companyName', action: 'accept', value: 'Accepted Company' }])
-        }
-      >
-        accept prefill
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          onApplyReview([
-            { fieldName: 'companyName', action: 'edit', value: 'Edited Company' },
-            { fieldName: 'pricingTiers', action: 'reject' },
-          ])
-        }
-      >
-        review prefill
-      </button>
-      <button type="button" onClick={onSkipForNow}>
-        skip prefill
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock('@/lib/storage/local-storage', () => ({
-  getJourneySession: () => mockStoredSession,
-  getJourneySessionId: () => mockStoredSessionId,
-  setJourneySession: setJourneySessionMock,
-  setJourneySessionId: setJourneySessionIdMock,
-  clearJourneySession: clearJourneySessionMock,
-  clearJourneySessionId: clearJourneySessionIdMock,
+vi.mock('@/hooks/use-journey-prefill', () => ({
+  useJourneyPrefill: () => ({
+    partialResult: undefined,
+    submit: vi.fn(),
+    isLoading: false,
+    error: undefined,
+    stop: vi.fn(),
+    fieldsFound: 0,
+  }),
 }));
 
 vi.mock('@/lib/journey/research-realtime', async () => {
@@ -284,534 +189,281 @@ vi.mock('@/lib/journey/research-realtime', async () => {
 
   return {
     useResearchRealtime: ({
-      sessionId,
       onSectionComplete,
     }: {
-      sessionId?: string | null;
-      onSectionComplete: (section: string, result: unknown) => void;
+      onSectionComplete: (section: string, result: ResearchSectionResult) => void;
     }) => {
       React.useEffect(() => {
-        if (!sessionId) return;
-
-        onSectionComplete('industryMarket', {
-          status: 'complete',
-          section: 'industryMarket',
-          data: { summary: 'stale result' },
-          durationMs: 1200,
-        });
-      }, [sessionId, onSectionComplete]);
+        realtimeControls.setHandler(onSectionComplete);
+        return () => {
+          realtimeControls.setHandler(null);
+        };
+      }, [onSectionComplete]);
     },
   };
 });
 
-vi.mock('@/hooks/use-journey-prefill', () => ({
-  useJourneyPrefill: () => mockPrefillState,
+vi.mock('@/lib/journey/research-job-activity', () => ({
+  useResearchJobActivity: () => ({}),
 }));
 
-vi.mock('@/lib/supabase/client', () => ({
-  getBrowserClient: () => ({
-    from: fromMock,
-  }),
+vi.mock('@/components/journey/journey-stepper', () => ({
+  JourneyStepper: () => <div data-testid="journey-stepper" />,
 }));
 
-describe('JourneyPage', () => {
+vi.mock('@/components/journey/terminal-stream', () => ({
+  TerminalStream: () => <div data-testid="terminal-stream" />,
+}));
+
+vi.mock('@/components/journey/journey-progress-panel', () => ({
+  JourneyProgressPanel: () => <div data-testid="journey-progress-panel" />,
+}));
+
+vi.mock('@/components/journey/research-inline-card', () => ({
+  ResearchInlineCard: ({ section }: { section: string }) => (
+    <div data-testid={`research-inline-${section}`}>{section}</div>
+  ),
+}));
+
+vi.mock('@/components/journey/artifact-trigger-card', () => ({
+  ArtifactTriggerCard: ({
+    onClick,
+    section,
+  }: {
+    onClick: () => void;
+    section: string;
+  }) => (
+    <button type="button" data-testid={`artifact-trigger-${section}`} onClick={onClick}>
+      reopen {section}
+    </button>
+  ),
+}));
+
+vi.mock('@/components/journey/artifact-panel', () => ({
+  ArtifactPanel: ({
+    section,
+    onApprove,
+    onClose,
+  }: {
+    section: string;
+    onApprove: () => void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="artifact-panel">
+      <span>{section}</span>
+      <button type="button" onClick={onApprove}>
+        approve artifact
+      </button>
+      <button type="button" onClick={onClose}>
+        close artifact
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/journey/studio-preview-dock', () => ({
+  JourneyStudioPreviewDock: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="studio-preview-dock">{children}</div>
+  ),
+}));
+
+vi.mock('@/components/journey/studio-preview-shell', () => ({
+  JourneyStudioPreviewShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="studio-preview-shell">{children}</div>
+  ),
+}));
+
+vi.mock('@/lib/storage/local-storage', () => ({
+  getJourneySession: () => null,
+  setJourneySession: setJourneySessionMock,
+  clearJourneySession: vi.fn(),
+}));
+
+vi.mock('framer-motion', () => ({
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  motion: {
+    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+      <div {...props}>{children}</div>
+    ),
+  },
+}));
+
+function makeResearchResult(
+  section: string,
+  data: Record<string, unknown>,
+): ResearchSectionResult {
+  return {
+    status: 'complete',
+    section,
+    data,
+    durationMs: 1200,
+  };
+}
+
+async function renderJourneyChat(): Promise<void> {
+  render(<JourneyPage />);
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Start without website analysis' }));
+  });
+
+  await waitFor(() => {
+    expect(screen.getByTestId('chat-input')).toBeInTheDocument();
+  });
+
+  sendMessageMock.mockClear();
+}
+
+async function emitResearchResult(
+  section: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  await act(async () => {
+    realtimeControls.emit(section, makeResearchResult(section, data));
+  });
+}
+
+async function emitQueuedResearchDispatch(
+  toolName: 'researchIndustry' | 'researchCompetitors' | 'researchKeywords',
+): Promise<void> {
+  const message: UIMessage = {
+    id: `queued-${toolName}`,
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-invocation',
+        toolName,
+      } as unknown as UIMessage['parts'][number],
+    ],
+  };
+
+  await act(async () => {
+    chatControls.setMessages((currentMessages) => [...currentMessages, message]);
+  });
+}
+
+describe('JourneyPage artifact orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    initialMessagesRef.current = [];
-    mockStoredSession = null;
-    mockStoredSessionId = null;
-    mockPrefillState = {
-      partialResult: undefined,
-      submit: submitJourneyPrefillMock,
-      isLoading: false,
-      error: undefined,
-      stop: stopJourneyPrefillMock,
-      fieldsFound: 0,
-    };
+    chatControls.reset();
+    realtimeControls.reset();
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: vi.fn(),
     });
-
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true,
-      json: async () => ({}),
-    }) as Response));
-
-    maybeSingleMock.mockReset();
-    maybeSingleMock.mockResolvedValue({ data: { id: 'stale-session-id' } });
-
-    fromMock.mockReset();
-    fromMock.mockReturnValue({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: maybeSingleMock,
-        }),
-      }),
-    });
   });
 
-  it('stays on the welcome state when there is no saved local journey session', async () => {
-    render(<JourneyPage />);
+  it('opens a newly completed review artifact when it first becomes ready', async () => {
+    await renderJourneyChat();
 
-    expect(screen.getByTestId('welcome-state')).toBeInTheDocument();
-    expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
+    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
+    await waitFor(() => {
+      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
     });
 
-    expect(fromMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId('welcome-state')).toBeInTheDocument();
-    expect(screen.queryByTestId('chat-message')).not.toBeInTheDocument();
+    expect(sendMessageMock).not.toHaveBeenCalled();
   });
 
-  it('forces a fresh scoped session when starting a new journey with an orphaned stored session id', async () => {
-    mockStoredSessionId = 'orphaned-session-id';
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ sessionId: 'session-manual' }),
-    } as Response);
+  it('keeps an approved artifact closed when unrelated research results update later', async () => {
+    await renderJourneyChat();
+    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
 
-    render(<JourneyPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
+    });
 
     await act(async () => {
-      screen.getByRole('button', { name: 'manual start' }).click();
+      fireEvent.click(screen.getByRole('button', { name: 'approve artifact' }));
     });
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/journey/new-session', { method: 'POST' });
-      expect(setJourneySessionIdMock).toHaveBeenCalledWith('session-manual');
+      expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
     });
-  });
 
-  it('does not send a chat message when session creation fails', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ error: 'session create failed' }),
-    } as Response);
+    sendMessageMock.mockClear();
 
-    render(<JourneyPage />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'submit welcome' }).click();
+    await emitResearchResult('keywordIntel', {
+      campaignGroups: [{ name: 'Competitor Alternatives' }],
     });
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/journey/new-session', { method: 'POST' });
-      expect(sendMessageMock).not.toHaveBeenCalled();
-      expect(submitJourneyPrefillMock).not.toHaveBeenCalled();
-    });
-  });
-
-  it('enters manual chat mode without forcing prefill', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ sessionId: 'session-manual' }),
-    } as Response);
-
-    render(<JourneyPage />);
-
-    screen.getByRole('button', { name: 'manual start' }).click();
-
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/journey/new-session', { method: 'POST' });
-      expect(submitJourneyPrefillMock).not.toHaveBeenCalled();
-      expect(screen.queryByTestId('welcome-state')).not.toBeInTheDocument();
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
-    });
-  });
-
-  it('restores saved prefill proposals into the review step', async () => {
-    const { createEmptyState, setProposedField } = await import('@/lib/journey/session-state');
-    mockStoredSession = setProposedField(createEmptyState(), 'companyName', 'Acme AI', {
-      source: 'prefill',
-      confidence: 92,
-      sourceUrl: 'https://acme.com',
-      reasoning: 'Found on the homepage hero section.',
+      expect(sendMessageMock).toHaveBeenCalledTimes(1);
     });
 
-    render(<JourneyPage />);
-
-    expect(screen.queryByTestId('welcome-state')).not.toBeInTheDocument();
-    expect(screen.getByTestId('prefill-review')).toBeInTheDocument();
-  });
-
-  it('accepts prefill proposals and moves into chat mode', async () => {
-    const { createEmptyState, setProposedField } = await import('@/lib/journey/session-state');
-    mockStoredSession = setProposedField(createEmptyState(), 'companyName', 'Acme AI', {
-      source: 'prefill',
-      confidence: 92,
-      sourceUrl: 'https://acme.com',
-      reasoning: 'Found on the homepage hero section.',
-    });
-
-    render(<JourneyPage />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'accept prefill' }).click();
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('prefill-review')).not.toBeInTheDocument();
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
-      expect(setJourneySessionMock).toHaveBeenCalled();
-    });
-
-    expect(
-      screen.getByText(/i saved 1 confirmed detail from your website and review/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Website context saved')).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/next, answer the guided questions so i can sharpen the research/i),
-    ).toHaveLength(2);
-    expect(screen.queryByTestId('right-panel')).not.toBeInTheDocument();
-  });
-
-  it('applies edited and rejected prefill decisions before entering chat', async () => {
-    const { createEmptyState, setProposedField } = await import('@/lib/journey/session-state');
-    mockStoredSessionId = 'session-reviewed';
-    mockStoredSession = setProposedField(createEmptyState(), 'companyName', 'Acme AI', {
-      source: 'prefill',
-      confidence: 92,
-      sourceUrl: 'https://acme.com',
-      reasoning: 'Found on the homepage hero section.',
-    });
-    mockStoredSession = setProposedField(mockStoredSession, 'pricingTiers', '$499/mo', {
-      source: 'prefill',
-      confidence: 81,
-      sourceUrl: 'https://acme.com/pricing',
-      reasoning: 'Found on the pricing page.',
-    });
-
-    render(<JourneyPage />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'review prefill' }).click();
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('prefill-review')).not.toBeInTheDocument();
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
-    });
-
-    const reviewedState = setJourneySessionMock.mock.calls.at(-1)?.[0];
-    expect(reviewedState.companyName).toBe('Edited Company');
-    expect(reviewedState.fieldMeta.companyName?.verifiedBy).toBe('manual-edit');
-    expect(reviewedState.proposals.pricingTiers).toBeUndefined();
-    expect(reviewedState.fieldMeta.pricingTiers?.status).toBe('rejected');
-    expect(fetch).toHaveBeenCalledWith(
-      '/api/journey/session',
+    expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
+    expect(sendMessageMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        metadata: { hidden: true },
       }),
     );
   });
 
-  it('skips prefill review and moves into chat mode', async () => {
-    const { createEmptyState, setProposedField } = await import('@/lib/journey/session-state');
-    mockStoredSession = setProposedField(createEmptyState(), 'companyName', 'Acme AI', {
-      source: 'prefill',
-      confidence: 92,
-      sourceUrl: 'https://acme.com',
-      reasoning: 'Found on the homepage hero section.',
-    });
+  it('does not resurface the same approved review section without a new invalidation cycle', async () => {
+    await renderJourneyChat();
+    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
 
-    render(<JourneyPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
+    });
 
     await act(async () => {
-      screen.getByRole('button', { name: 'skip prefill' }).click();
+      fireEvent.click(screen.getByRole('button', { name: 'approve artifact' }));
     });
 
     await waitFor(() => {
-      expect(screen.queryByTestId('prefill-review')).not.toBeInTheDocument();
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
+      expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
     });
+
+    sendMessageMock.mockClear();
+
+    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
+
+    expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
+    expect(sendMessageMock).not.toHaveBeenCalled();
   });
 
-  it('continues directly into chat when prefill finishes without any provenance-backed proposals', async () => {
-    mockPrefillState = {
-      partialResult: {
-        confidenceNotes: 'The site did not expose structured business details.',
-      },
-      submit: submitJourneyPrefillMock,
-      isLoading: false,
-      error: undefined,
-      stop: stopJourneyPrefillMock,
-      fieldsFound: 0,
-    };
-
-    render(<JourneyPage />);
+  it('reopens an approved review section when a real rerun is queued', async () => {
+    await renderJourneyChat();
+    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
 
     await waitFor(() => {
-      expect(screen.queryByTestId('prefill-review')).not.toBeInTheDocument();
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
+      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
     });
-  });
-
-  it('returns to the seed-card flow after starting a new journey', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ sessionId: 'session-manual' }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ ok: true }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ sessionId: 'session-fresh' }),
-      } as Response);
-
-    render(<JourneyPage />);
-
-    screen.getByRole('button', { name: 'manual start' }).click();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
-    });
-
-    screen.getByRole('button', { name: 'new journey' }).click();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('welcome-state')).toBeInTheDocument();
-      expect(screen.queryByTestId('prefill-review')).not.toBeInTheDocument();
-    });
-  });
-
-  it('enters chat when resuming a saved journey session', async () => {
-    const { createEmptyState, setConfirmedField } = await import('@/lib/journey/session-state');
-    mockStoredSessionId = 'session-resume';
-    mockStoredSession = setConfirmedField(createEmptyState(), 'businessModel', 'B2B SaaS', {
-      source: 'manual',
-      verifiedBy: 'manual-edit',
-    });
-
-    render(<JourneyPage />);
-
-    expect(screen.getByTestId('resume-prompt')).toBeInTheDocument();
 
     await act(async () => {
-      screen.getByRole('button', { name: 'continue resume' }).click();
+      fireEvent.click(screen.getByRole('button', { name: 'approve artifact' }));
     });
 
     await waitFor(() => {
-      expect(screen.queryByTestId('welcome-state')).not.toBeInTheDocument();
-      expect(screen.getByTestId('chat-message')).toBeInTheDocument();
+      expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
+    });
+
+    await emitQueuedResearchDispatch('researchIndustry');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
     });
   });
 
-  it('does not leak stale prefill results into a fresh journey', async () => {
-    mockPrefillState = {
-      partialResult: {
-        companyName: {
-          value: 'Stale Company',
-          confidence: 91,
-          sourceUrl: 'https://stale.example',
-          reasoning: 'Stale prefill result',
-        },
-      },
-      submit: submitJourneyPrefillMock,
-      isLoading: false,
-      error: undefined,
-      stop: stopJourneyPrefillMock,
-      fieldsFound: 1,
-    };
+  it('sends one hidden wake-up when the same non-review section completes more than once', async () => {
+    await renderJourneyChat();
 
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ sessionId: 'session-fresh' }),
-    } as Response);
-
-    render(<JourneyPage />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('prefill-review')).toBeInTheDocument();
+    await emitResearchResult('keywordIntel', {
+      campaignGroups: [{ name: 'Competitor Alternatives' }],
     });
-
-    screen.getByRole('button', { name: 'new journey' }).click();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('welcome-state')).toBeInTheDocument();
-      expect(screen.queryByTestId('prefill-review')).not.toBeInTheDocument();
-    });
-  });
-
-  it('syncs explicit conversational confirmations from tool output into journey state', async () => {
-    mockStoredSessionId = 'session-confirm';
-    const { createEmptyState, setProposedField } = await import('@/lib/journey/session-state');
-    mockStoredSession = setProposedField(createEmptyState(), 'businessModel', 'B2B SaaS', {
-      source: 'prefill',
-      confidence: 90,
-      sourceUrl: 'https://acme.com',
-      reasoning: 'Found in the homepage hero copy.',
-    });
-
-    initialMessagesRef.current = [
-      {
-        id: 'assistant-confirm',
-        role: 'assistant',
-        parts: [
-          {
-            type: 'tool-confirmJourneyFields',
-            state: 'output-available',
-            toolCallId: 'confirm-call',
-            output: {
-              status: 'confirmed',
-              fields: [
-                {
-                  fieldName: 'businessModel',
-                  value: 'B2B SaaS',
-                },
-              ],
-            },
-          },
-        ],
-      },
-    ];
-
-    render(<JourneyPage />);
-
-    await waitFor(() => {
-      const persistedState = setJourneySessionMock.mock.calls.at(-1)?.[0];
-      expect(persistedState.businessModel).toBe('B2B SaaS');
-      expect(persistedState.fieldMeta.businessModel?.verifiedBy).toBe('chat-confirmation');
-    });
-  });
-
-  it('marks approved research checkpoints without triggering a rerun', async () => {
-    mockStoredSessionId = 'session-approved';
-    initialMessagesRef.current = [
-      {
-        id: 'assistant-approved',
-        role: 'assistant',
-        parts: [
-          {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-approved',
-            input: { sectionId: 'industryResearch' },
-            output: {
-              status: 'complete',
-              sectionId: 'industryResearch',
-              content: 'Industry research',
-              fileIds: [],
-            },
-          },
-        ],
-      },
-    ];
-
-    render(<JourneyPage />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'approve industryResearch' }).click();
+    await emitResearchResult('keywordIntel', {
+      campaignGroups: [{ name: 'Competitor Alternatives' }],
     });
 
     await waitFor(() => {
-      const persistedState = setJourneySessionMock.mock.calls.at(-1)?.[0];
-      expect(persistedState.sectionReviewStates.industryResearch).toBe('approved');
-      expect(sendMessageMock).not.toHaveBeenCalled();
-    });
-  });
-
-  it('re-runs only the affected downstream sections after a revision request', async () => {
-    mockStoredSessionId = 'session-revise';
-    initialMessagesRef.current = [
-      {
-        id: 'assistant-revise',
-        role: 'assistant',
-        parts: [
-          {
-            type: 'tool-generateResearch',
-            state: 'output-available',
-            toolCallId: 'research-revise',
-            input: { sectionId: 'icpValidation' },
-            output: {
-              status: 'complete',
-              sectionId: 'icpValidation',
-              content: 'ICP research',
-              fileIds: [],
-            },
-          },
-        ],
-      },
-    ];
-
-    render(<JourneyPage />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'revise icpValidation' }).click();
+      expect(sendMessageMock).toHaveBeenCalledTimes(1);
     });
 
-    await waitFor(() => {
-      const persistedState = setJourneySessionMock.mock.calls.at(-1)?.[0];
-      expect(persistedState.sectionReviewStates.icpValidation).toBe('needs-revision');
-      expect(persistedState.invalidatedResearchSections).toEqual([
-        'icpValidation',
-        'strategicSynthesis',
-        'keywordIntel',
-        'mediaPlan',
-      ]);
-      expect(sendMessageMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          text: expect.stringContaining('Revise the ICP Validation section'),
-        }),
-      );
-      expect(sendMessageMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          text: expect.stringContaining(
-            'Only re-run these affected sections: icpValidation, strategicSynthesis, keywordIntel, mediaPlan.',
-          ),
-        }),
-      );
-    });
-  });
-
-  it('recovers by creating a fresh scoped session when persisted local session id is stale', async () => {
-    const { createEmptyState, setProposedField } = await import('@/lib/journey/session-state');
-    mockStoredSessionId = 'stale-session-id';
-    mockStoredSession = setProposedField(createEmptyState(), 'companyName', 'Acme AI', {
-      source: 'prefill',
-      confidence: 92,
-      sourceUrl: 'https://acme.com',
-      reasoning: 'Found on the homepage hero section.',
-    });
-
-    vi.mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ error: 'No journey session found for stale-session-id' }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ sessionId: 'session-recovered' }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ ok: true }),
-      } as Response);
-
-    render(<JourneyPage />);
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'accept prefill' }).click();
-    });
-
-    await waitFor(() => {
-      expect(clearJourneySessionIdMock).toHaveBeenCalled();
-      expect(fetch).toHaveBeenCalledWith('/api/journey/new-session', { method: 'POST' });
-      expect(setJourneySessionIdMock).toHaveBeenCalledWith('session-recovered');
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/journey/session',
-        expect.objectContaining({
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: expect.stringContaining('"sessionId":"session-recovered"'),
-        }),
-      );
-    });
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { hidden: true },
+      }),
+    );
   });
 });

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
-  lastAssistantMessageIsCompleteWithToolCalls,
-  lastAssistantMessageIsCompleteWithApprovalResponses,
+  type UIMessage,
 } from 'ai';
 import { useUser } from '@clerk/nextjs';
 import { ShellProvider } from '@/components/shell';
@@ -17,7 +17,11 @@ import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useJourneyPrefill } from '@/hooks/use-journey-prefill';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
-import { createClient as createSupabaseClient } from '@/lib/supabase/client';
+import { shouldAutoSendJourneyMessages } from '@/lib/journey/chat-auto-send';
+import { filterJourneyMessageParts } from '@/lib/journey/filter-chat-parts';
+import { extractResearchDispatchState } from '@/lib/journey/research-dispatch-state';
+import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
+import { shouldIgnoreDispatchError } from '@/lib/journey/research-recovery';
 import {
   LEAD_AGENT_WELCOME_MESSAGE,
   LEAD_AGENT_RESUME_WELCOME,
@@ -38,57 +42,161 @@ import type { AskUserResult } from '@/components/journey/ask-user-card';
 import { JourneyStepper, type StepperPhase } from '@/components/journey/journey-stepper';
 import { TerminalStream, type TerminalLogEntry } from '@/components/journey/terminal-stream';
 import { JourneyProgressPanel, type ProgressItem } from '@/components/journey/journey-progress-panel';
+import { JourneyStudioPreviewDock } from '@/components/journey/studio-preview-dock';
+import { JourneyStudioPreviewShell } from '@/components/journey/studio-preview-shell';
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 import { ArtifactTriggerCard } from '@/components/journey/artifact-trigger-card';
 import { ArtifactPanel } from '@/components/journey/artifact-panel';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import {
+  createJourneyGuardedFetch,
+  formatJourneyErrorMessage,
+} from '@/lib/journey/http';
+import {
+  drainPendingSectionWakeUps,
+  enqueuePendingSectionWakeUp,
+  getAutoOpenSectionDecision,
+  getWakeUpDispatchDecision,
+  resetTrackedSection,
+} from '@/lib/journey/journey-section-orchestration';
+import {
+  JOURNEY_FIELD_LABELS,
+  JOURNEY_MANUAL_BLOCKER_FIELDS,
+  JOURNEY_PREFILL_REVIEW_FIELDS,
+} from '@/lib/journey/field-catalog';
+import { getManualPrefillPreset } from '@/lib/journey/manual-prefill-presets';
+import { isJourneyStudioPreview } from '@/lib/journey/journey-preview';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
-  { id: 'marketResearch', label: 'Market Research', status: 'complete', detail: 'Completed 12m ago' },
-  { id: 'icpValidation', label: 'ICP Validation', status: 'active', detail: 'Processing data...' },
-  { id: 'adAngleCreation', label: 'Ad Angle Creation', status: 'queued', detail: 'Queued' },
-  { id: 'creativeGen', label: 'Creative Gen', status: 'queued', detail: 'Queued' },
+  { id: 'industryMarket', label: 'Market Overview', status: 'complete', detail: 'Completed 12m ago' },
+  { id: 'competitors', label: 'Competitor Intel', status: 'active', detail: 'Processing data...' },
+  { id: 'icpValidation', label: 'ICP Validation', status: 'queued', detail: 'Queued' },
+  { id: 'offerAnalysis', label: 'Offer Analysis', status: 'queued', detail: 'Queued' },
 ];
 
-// Prefill field labels for streaming display & review
-// Aligned 1:1 with companyResearchSchema field names (which match lead agent FIELD_LABELS)
-const PREFILL_FIELD_LABELS: Record<string, string> = {
-  // Business Basics
-  companyName: 'Company Name',
-  businessModel: 'Business Model',
-  industryVertical: 'Industry Vertical',
-  // ICP
-  primaryIcpDescription: 'Ideal Customer Profile',
-  jobTitles: 'Target Job Titles',
-  companySize: 'Company Size',
-  geography: 'Geographic Focus',
-  headquartersLocation: 'Headquarters',
-  // Product & Offer
-  productDescription: 'Product Description',
-  coreDeliverables: 'Core Deliverables',
-  pricingTiers: 'Pricing Tiers',
-  valueProp: 'Value Proposition',
-  guarantees: 'Guarantees',
-  // Market & Competition
-  topCompetitors: 'Top Competitors',
-  uniqueEdge: 'Unique Edge',
-  marketProblem: 'Market Problem',
-  // Customer Journey
-  situationBeforeBuying: 'Before State',
-  desiredTransformation: 'Desired Transformation',
-  commonObjections: 'Common Objections',
-  // Brand
-  brandPositioning: 'Brand Positioning',
-  testimonialQuote: 'Testimonial Quote',
-  // Asset URLs
-  caseStudiesUrl: 'Case Studies URL',
-  testimonialsUrl: 'Testimonials URL',
-  pricingUrl: 'Pricing URL',
-  demoUrl: 'Demo URL',
-};
-const TOTAL_PREFILL_FIELDS = Object.keys(PREFILL_FIELD_LABELS).length; // 25
+const TOTAL_PREFILL_FIELDS = JOURNEY_PREFILL_REVIEW_FIELDS.length;
+
+const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
+  'industryMarket',
+  'competitors',
+  'icpValidation',
+  'offerAnalysis',
+]);
+
+type JourneyPhaseView = 'welcome' | 'prefilling' | 'review' | 'resume' | 'chat';
+
+interface PrefillAcceptPayload {
+  editedFields?: Record<string, string>;
+  manualFields?: Record<string, string>;
+}
+
+function readPrefillFieldValue(
+  partialResult: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const field = partialResult?.[key];
+  if (!field || typeof field !== 'object' || !('value' in field)) {
+    return null;
+  }
+
+  const value = (field as { value?: string | null }).value;
+  return typeof value === 'string' ? value : null;
+}
+
+function getJourneyStudioTitle(
+  journeyPhase: JourneyPhaseView,
+  artifactOpen: boolean,
+): string {
+  if (journeyPhase === 'welcome') {
+    return 'Stage the strategic brief';
+  }
+  if (journeyPhase === 'prefilling') {
+    return 'Pulling market context from your footprint';
+  }
+  if (journeyPhase === 'review') {
+    return 'Review the extracted operating context';
+  }
+  if (journeyPhase === 'resume') {
+    return 'Resume the operating session';
+  }
+  if (artifactOpen) {
+    return 'Review the live research proof';
+  }
+  return 'Operate the strategy session';
+}
+
+function getJourneyStudioDescription(
+  journeyPhase: JourneyPhaseView,
+  activeResearchCount: number,
+  artifactOpen: boolean,
+): string {
+  if (journeyPhase === 'welcome') {
+    return 'Seed the company context, then let Journey sequence the research, approvals, and strategy build-out.';
+  }
+  if (journeyPhase === 'prefilling') {
+    return 'Journey is extracting company and positioning signals from the URLs you provided before the session begins.';
+  }
+  if (journeyPhase === 'review') {
+    return 'Accept the fields that look right, skip the ones that need manual handling, then hand control back to the lead agent.';
+  }
+  if (journeyPhase === 'resume') {
+    return 'A saved session exists locally. Continue from the current answers or start over with a clean run.';
+  }
+  if (artifactOpen) {
+    return 'The right dock is pinned to artifact review so you can approve or redirect the section without losing the conversation thread.';
+  }
+  if (activeResearchCount > 0) {
+    return 'Conversation, live research, and proof stay in one operating surface while workers continue in the background.';
+  }
+  return 'Use the strategist lane to refine answers, approve sections, and keep the research program moving.';
+}
+
+function getJourneyStudioStatusLabel(
+  journeyPhase: JourneyPhaseView,
+  activeResearchCount: number,
+  artifactOpen: boolean,
+  savedSession: OnboardingState | null,
+): string {
+  if (artifactOpen) {
+    return 'Artifact review live';
+  }
+  if (activeResearchCount > 0) {
+    return 'Live research active';
+  }
+  if (journeyPhase === 'prefilling') {
+    return 'Context extraction';
+  }
+  if (journeyPhase === 'review') {
+    return 'Review checkpoint';
+  }
+  if (journeyPhase === 'resume' && savedSession) {
+    return 'Session ready';
+  }
+  return 'Studio ready';
+}
+
+function getJourneyStudioStatusDetail(
+  activeResearchCount: number,
+  artifactOpen: boolean,
+  artifactSection: string,
+  progressItems: ProgressItem[],
+  savedSession: OnboardingState | null,
+): string {
+  if (artifactOpen) {
+    return `${SECTION_META[artifactSection] ?? artifactSection} in focus`;
+  }
+  if (activeResearchCount > 0) {
+    return `${activeResearchCount} live research ${activeResearchCount === 1 ? 'task' : 'tasks'} running`;
+  }
+  if (typeof savedSession?.completionPercent === 'number') {
+    return `${savedSession.completionPercent}% of required context saved`;
+  }
+
+  const completedResearchCount = progressItems.filter((item) => item.status === 'complete').length;
+  return `${completedResearchCount} research ${completedResearchCount === 1 ? 'module' : 'modules'} completed`;
+}
 
 export default function JourneyPage() {
   return (
@@ -106,31 +214,49 @@ function sectionToToolName(section: string): string {
     offerAnalysis: 'researchOffer',
     crossAnalysis: 'synthesizeResearch',
     keywordIntel: 'researchKeywords',
+    mediaPlan: 'researchMediaPlan',
   };
   return map[section] ?? section;
 }
 
-// Reverse: tool name → section key (for tracking active research from tool calls)
-const TOOL_TO_SECTION: Record<string, string> = {
-  researchIndustry: 'industryMarket',
-  researchCompetitors: 'competitors',
-  researchICP: 'icpValidation',
-  researchOffer: 'offerAnalysis',
-  synthesizeResearch: 'crossAnalysis',
-  researchKeywords: 'keywordIntel',
-  researchMediaPlan: 'mediaPlan',
-};
+function isCompleteResearchResult(
+  result: ResearchSectionResult | null | undefined,
+): boolean {
+  return result?.status === 'complete';
+}
+
+function createRealtimeResearchMessage(
+  section: string,
+  result: ResearchSectionResult,
+): UIMessage {
+  const toolName = sectionToToolName(section);
+
+  return {
+    id: `realtime-${section}-${Date.now()}`,
+    role: 'assistant',
+    parts: [
+      {
+        type: `tool-${toolName}`,
+        toolName,
+        toolCallId: `realtime-${section}`,
+        state: 'output-available',
+        input: {},
+        output: JSON.stringify(result),
+      } as UIMessage['parts'][number],
+    ],
+  };
+}
 
 // Derive stepper phase from research state
 function deriveStepperPhase(researchResults: Record<string, ResearchSectionResult | null>): {
   currentPhase: StepperPhase;
   completedPhases: StepperPhase[];
 } {
-  const hasMarket = !!researchResults.industryMarket;
-  const hasCompetitors = !!researchResults.competitors;
-  const hasICP = !!researchResults.icpValidation;
-  const hasOffer = !!researchResults.offerAnalysis;
-  const hasSynthesis = !!researchResults.crossAnalysis;
+  const hasMarket = isCompleteResearchResult(researchResults.industryMarket);
+  const hasCompetitors = isCompleteResearchResult(researchResults.competitors);
+  const hasICP = isCompleteResearchResult(researchResults.icpValidation);
+  const hasOffer = isCompleteResearchResult(researchResults.offerAnalysis);
+  const hasSynthesis = isCompleteResearchResult(researchResults.crossAnalysis);
 
   const completedPhases: StepperPhase[] = [];
   let currentPhase: StepperPhase = 'discovery';
@@ -157,9 +283,9 @@ function deriveProgressItems(
   activeResearch: Set<string>
 ): ProgressItem[] {
   const sections = [
-    { id: 'industryMarket', label: 'Market Research' },
-    { id: 'icpValidation', label: 'ICP Validation' },
+    { id: 'industryMarket', label: 'Market Overview' },
     { id: 'competitors', label: 'Competitor Intel' },
+    { id: 'icpValidation', label: 'ICP Validation' },
     { id: 'offerAnalysis', label: 'Offer Analysis' },
     { id: 'crossAnalysis', label: 'Strategic Synthesis' },
     { id: 'keywordIntel', label: 'Keyword Intel' },
@@ -172,9 +298,12 @@ function deriveProgressItems(
     let status: ProgressItem['status'] = 'queued';
     let detail = 'Queued';
 
-    if (result) {
+    if (result?.status === 'complete') {
       status = 'complete';
       detail = 'Completed';
+    } else if (result?.status === 'error' || result?.status === 'partial') {
+      status = 'queued';
+      detail = 'Needs review';
     } else if (isActive) {
       status = 'active';
       detail = 'Processing data...';
@@ -185,12 +314,17 @@ function deriveProgressItems(
 }
 
 function JourneyPageContent() {
+  const searchParams = useSearchParams();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const statusRef = useRef<string>('ready');
   const journeyPhaseRef = useRef<'welcome' | 'prefilling' | 'review' | 'resume' | 'chat'>('welcome');
-  // Sections that completed before the user reached 'chat' phase — wake-ups queued
-  const pendingWakeUpsRef = useRef<string[]>([]);
+  // Sections with completed research that still need UI or agent follow-up.
+  const pendingWakeUpsRef = useRef<Set<string>>(new Set());
+  const wokenSectionsRef = useRef<Set<string>>(new Set());
+  const loggedResearchStartsRef = useRef<Set<string>>(new Set());
+  const loggedResearchErrorsRef = useRef<Set<string>>(new Set());
+  const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
 
   // Journey phase: controls which view renders
   const [journeyPhase, setJourneyPhase] = useState<'welcome' | 'prefilling' | 'review' | 'resume' | 'chat'>('welcome');
@@ -207,9 +341,20 @@ function JourneyPageContent() {
     error: prefillError,
     stop: stopPrefill,
   } = useJourneyPrefill();
+  const prefillReviewPreset = useMemo(
+    () =>
+      getManualPrefillPreset({
+        websiteUrl: prefillWebsiteUrl,
+        companyName: readPrefillFieldValue(
+          partialResult as Record<string, unknown> | null | undefined,
+          'companyName',
+        ),
+      }),
+    [partialResult, prefillWebsiteUrl],
+  );
   const [transportBody, setTransportBody] = useState<Record<string, unknown> | undefined>(undefined);
 
-  const [onboardingState, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
+  const [, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
   // Research state tracking
   const [researchResults, setResearchResults] = useState<Record<string, ResearchSectionResult | null>>({});
@@ -219,36 +364,106 @@ function JourneyPageContent() {
   // Artifact panel state
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactSection, setArtifactSection] = useState<string>('industryMarket');
-  const [artifactApproved, setArtifactApproved] = useState(false);
-  const artifactAutoOpenedRef = useRef(false);
+  const [approvedArtifactSections, setApprovedArtifactSections] = useState<Record<string, true>>({});
+  const [artifactFeedbackSection, setArtifactFeedbackSection] = useState<string | null>(null);
+  const [recentlyApprovedArtifactSection, setRecentlyApprovedArtifactSection] = useState<string | null>(null);
+  const artifactAutoOpenedSectionsRef = useRef<Set<string>>(new Set());
 
   // Session reset signal — increment to clear stale research data from Realtime hook
   const [realtimeResetSignal, setRealtimeResetSignal] = useState(0);
+  const [researchResetAt, setResearchResetAt] = useState<string | null>(null);
 
   // Clear stale research data from Supabase and reset local state.
   // Called when starting a NEW session (accept prefill / skip / start fresh).
   const resetResearchState = useCallback((userId: string) => {
+    const resetAt = new Date().toISOString();
+
     // 1. Clear local React state
     setResearchResults({});
     setActiveResearch(new Set());
     setTerminalLogs([]);
     setArtifactOpen(false);
-    setArtifactApproved(false);
-    artifactAutoOpenedRef.current = false;
-    pendingWakeUpsRef.current = [];
+    setApprovedArtifactSections({});
+    setArtifactFeedbackSection(null);
+    setRecentlyApprovedArtifactSection(null);
+    artifactAutoOpenedSectionsRef.current = new Set();
+    pendingWakeUpsRef.current = new Set();
+    wokenSectionsRef.current = new Set();
+    loggedResearchStartsRef.current = new Set();
+    loggedResearchErrorsRef.current = new Set();
+    loggedResearchTimeoutFallbacksRef.current = new Set();
 
     // 2. Reset the Realtime hook's internal seen-sections tracking
+    setResearchResetAt(resetAt);
     setRealtimeResetSignal((n) => n + 1);
 
-    // 3. Clear stale Supabase data so Realtime initial fetch doesn't find old results
-    const supabase = createSupabaseClient();
-    supabase
-      .from('journey_sessions')
-      .update({ research_results: null, job_status: null })
-      .eq('user_id', userId)
-      .then(({ error }) => {
-        if (error) console.error('[journey] Failed to clear stale research data:', error);
-      });
+    // 3. Clear stale server-side research data so the next Journey run cannot re-hydrate old artifacts
+    void createJourneyGuardedFetch('Journey')('/api/journey/session', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clearResearch: true }),
+    }).catch((error) => {
+      console.error('[journey] Failed to clear stale research data:', error);
+    });
+  }, []);
+
+  const resetSectionWakeUpTracking = useCallback((section: string) => {
+    pendingWakeUpsRef.current = resetTrackedSection(pendingWakeUpsRef.current, section);
+    wokenSectionsRef.current = resetTrackedSection(wokenSectionsRef.current, section);
+  }, []);
+
+  const resetArtifactSectionTracking = useCallback((section: string) => {
+    resetSectionWakeUpTracking(section);
+    setApprovedArtifactSections((prev) => {
+      if (!prev[section]) return prev;
+      const next = { ...prev };
+      delete next[section];
+      return next;
+    });
+    setArtifactFeedbackSection((prev) => (prev === section ? null : prev));
+    setRecentlyApprovedArtifactSection((prev) => (prev === section ? null : prev));
+    artifactAutoOpenedSectionsRef.current = resetTrackedSection(
+      artifactAutoOpenedSectionsRef.current,
+      section,
+    );
+  }, [resetSectionWakeUpTracking]);
+
+  const showArtifactSection = useCallback(
+    (
+      section: string,
+      options?: {
+        automatic?: boolean;
+      },
+    ) => {
+      setArtifactSection(section);
+
+      if (options?.automatic) {
+        const decision = getAutoOpenSectionDecision(
+          artifactAutoOpenedSectionsRef.current,
+          section,
+        );
+        artifactAutoOpenedSectionsRef.current = decision.nextAutoOpenedSections;
+        if (!decision.shouldOpen) {
+          return;
+        }
+      }
+
+      setArtifactOpen(true);
+    },
+    [],
+  );
+
+  const queuePendingWakeUp = useCallback((section: string) => {
+    pendingWakeUpsRef.current = enqueuePendingSectionWakeUp(
+      pendingWakeUpsRef.current,
+      section,
+    );
+  }, []);
+
+  const shouldWakeAgentForSection = useCallback((section: string): boolean => {
+    const decision = getWakeUpDispatchDecision(wokenSectionsRef.current, section);
+    wokenSectionsRef.current = decision.nextWokenSections;
+    return decision.shouldWake;
   }, []);
 
   useEffect(() => {
@@ -267,15 +482,14 @@ function JourneyPageContent() {
       new DefaultChatTransport({
         api: '/api/journey/stream',
         body: transportBody,
+        fetch: createJourneyGuardedFetch('Journey'),
       }),
     [transportBody]
   );
 
   const { messages, sendMessage, addToolOutput, addToolApprovalResponse, status, error, setMessages } = useChat({
     transport,
-    sendAutomaticallyWhen: ({ messages }) =>
-      lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
-      lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
+    sendAutomaticallyWhen: ({ messages }) => shouldAutoSendJourneyMessages(messages),
     onError: (err) => {
       console.error('Journey chat error:', err);
       if (err?.message?.includes('Tool result is missing')) {
@@ -293,41 +507,13 @@ function JourneyPageContent() {
     },
   });
 
-  // Track research tool calls from the agent stream → mark sections as active (loading)
-  useEffect(() => {
-    for (const msg of messages) {
-      if (msg.role !== 'assistant') continue;
-      for (const part of msg.parts) {
-        if (typeof part !== 'object' || !part || !('type' in part)) continue;
-        const p = part as Record<string, unknown>;
-        // Match tool invocation parts for research tools
-        if (p.type !== 'tool-invocation') continue;
-        const toolName = p.toolName as string | undefined;
-        if (!toolName || !TOOL_TO_SECTION[toolName]) continue;
-        const section = TOOL_TO_SECTION[toolName];
-        // Only mark as active if not already complete
-        setActiveResearch((prev) => {
-          if (researchResults[section]) return prev; // already complete
-          if (prev.has(section)) return prev; // already tracking
-          const next = new Set(prev);
-          next.add(section);
-          return next;
-        });
-        // Auto-open artifact panel when industryMarket research starts (once)
-        if (section === 'industryMarket' && !artifactAutoOpenedRef.current) {
-          artifactAutoOpenedRef.current = true;
-          setArtifactOpen(true);
-        }
-        // Add terminal log for research kickoff (deduplicated by section)
-        const sectionLabel = SECTION_META[section] ?? section;
-        addLog('run', `Researching ${sectionLabel}...`);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
-
   // Supabase Realtime — receive async research results
   const { user } = useUser();
+  const researchJobActivity = useResearchJobActivity({
+    userId: user?.id,
+    resetSignal: realtimeResetSignal,
+    ignoreUpdatedBefore: researchResetAt,
+  });
   const [researchTimedOut, setResearchTimedOut] = useState(false);
 
   // Add terminal log helper
@@ -335,9 +521,204 @@ function JourneyPageContent() {
     setTerminalLogs((prev) => [...prev.slice(-50), { level, message, timestamp: Date.now() }]);
   }, []);
 
+  const persistAcceptedJourneyFields = useCallback(
+    (fields: Record<string, string>) => {
+      const acceptedFields = Object.fromEntries(
+        Object.entries(fields).filter(([, value]) => value.trim().length > 0),
+      );
+
+      if (Object.keys(acceptedFields).length === 0) {
+        return;
+      }
+
+      const guardedFetch = createJourneyGuardedFetch('Journey');
+      void guardedFetch('/api/journey/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: acceptedFields }),
+      }).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[journey] failed to persist accepted prefill fields:', message);
+        addLog('warn', 'Accepted onboarding fields were not persisted to session metadata');
+      });
+    },
+    [addLog],
+  );
+
+  const markResearchQueued = useCallback(
+    (section: string) => {
+      const hasPreviousResult = Boolean(researchResults[section]);
+      const isAlreadyQueued = activeResearch.has(section) && !hasPreviousResult;
+
+      if (isAlreadyQueued) {
+        return;
+      }
+
+      if (hasPreviousResult) {
+        setResearchResults((prev) => {
+          if (!prev[section]) {
+            return prev;
+          }
+
+          const next = { ...prev };
+          delete next[section];
+          return next;
+        });
+      }
+
+      resetSectionWakeUpTracking(section);
+
+      setActiveResearch((prev) => {
+        if (prev.has(section)) return prev;
+        const next = new Set(prev);
+        next.add(section);
+        return next;
+      });
+
+      if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
+        if (
+          hasPreviousResult ||
+          approvedArtifactSections[section] ||
+          artifactFeedbackSection === section ||
+          recentlyApprovedArtifactSection === section
+        ) {
+          resetArtifactSectionTracking(section);
+        }
+
+        showArtifactSection(section, { automatic: true });
+      }
+
+      if (!loggedResearchStartsRef.current.has(section)) {
+        loggedResearchStartsRef.current.add(section);
+        const sectionLabel = SECTION_META[section] ?? section;
+        addLog('run', `Researching ${sectionLabel}...`);
+      }
+    },
+    [
+      activeResearch,
+      addLog,
+      approvedArtifactSections,
+      artifactFeedbackSection,
+      recentlyApprovedArtifactSection,
+      researchResults,
+      resetArtifactSectionTracking,
+      resetSectionWakeUpTracking,
+      showArtifactSection,
+    ],
+  );
+
+  const markResearchDispatchError = useCallback(
+    (section: string, errorMessage: string) => {
+      const activity = researchJobActivity[section];
+      const shouldIgnore = shouldIgnoreDispatchError({
+        errorMessage,
+        active: activeResearch.has(section),
+        activity,
+      });
+
+      if (shouldIgnore) {
+        markResearchQueued(section);
+        if (!loggedResearchTimeoutFallbacksRef.current.has(section)) {
+          loggedResearchTimeoutFallbacksRef.current.add(section);
+          const sectionLabel = SECTION_META[section] ?? section;
+          addLog(
+            'warn',
+            `${sectionLabel} chat request timed out. Waiting for the worker result from Supabase.`,
+          );
+        }
+        return;
+      }
+
+      setActiveResearch((prev) => {
+        if (!prev.has(section)) return prev;
+        const next = new Set(prev);
+        next.delete(section);
+        return next;
+      });
+
+      setResearchResults((prev) => {
+        const existing = prev[section];
+        if (existing?.status === 'error' && existing.error === errorMessage) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [section]: {
+            status: 'error',
+            section,
+            error: errorMessage,
+            durationMs: 0,
+          },
+        };
+      });
+
+      if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
+        resetArtifactSectionTracking(section);
+        showArtifactSection(section, { automatic: true });
+      }
+
+      if (!loggedResearchErrorsRef.current.has(section)) {
+        loggedResearchErrorsRef.current.add(section);
+        const sectionLabel = SECTION_META[section] ?? section;
+        addLog('err', `${sectionLabel} research failed: ${errorMessage}`);
+      }
+    },
+    [
+      activeResearch,
+      addLog,
+      markResearchQueued,
+      researchJobActivity,
+      resetArtifactSectionTracking,
+      showArtifactSection,
+    ],
+  );
+
+  // Track research tool dispatch from the agent stream → mark sections as active/loading
+  useEffect(() => {
+    const dispatchStates = extractResearchDispatchState(messages);
+
+    for (const [section, dispatchState] of Object.entries(dispatchStates)) {
+      if (dispatchState.status === 'queued') {
+        markResearchQueued(section);
+        continue;
+      }
+
+      markResearchDispatchError(
+        section,
+        dispatchState.error ?? 'Research dispatch failed',
+      );
+    }
+  }, [markResearchDispatchError, markResearchQueued, messages]);
+
+  useEffect(() => {
+    statusRef.current = status;
+    journeyPhaseRef.current = journeyPhase;
+  }, [journeyPhase, status]);
+
+  const appendRealtimeResearchMessage = useCallback(
+    (section: string, result: ResearchSectionResult) => {
+      const syntheticMessage = createRealtimeResearchMessage(section, result);
+
+      setMessages((prev) => {
+        const alreadyInjected = prev.some((msg) =>
+          msg.parts.some((part) => {
+            if (typeof part !== 'object' || !part || !('toolCallId' in part)) {
+              return false;
+            }
+            return (part as { toolCallId?: string }).toolCallId === `realtime-${section}`;
+          }),
+        );
+
+        return alreadyInjected ? prev : [...prev, syntheticMessage];
+      });
+    },
+    [setMessages],
+  );
+
   useResearchRealtime({
     userId: user?.id,
     resetSignal: realtimeResetSignal,
+    ignoreUpdatedBefore: researchResetAt,
     onSectionComplete: (section: string, result: ResearchSectionResult) => {
       // Track research completion (always update state regardless of phase)
       setResearchResults((prev) => ({ ...prev, [section]: result }));
@@ -349,127 +730,122 @@ function JourneyPageContent() {
 
       // Add terminal log
       const sectionLabel = SECTION_META[section] ?? section;
-      addLog('ok', `${sectionLabel} research complete`);
-
-      // Auto-open artifact panel when industryMarket research lands
-      if (section === 'industryMarket' && journeyPhaseRef.current === 'chat') {
-        setArtifactOpen(true);
+      if (result.status === 'error') {
+        addLog(
+          'err',
+          `${sectionLabel} research failed: ${result.error ?? 'Unknown error'}`,
+        );
+      } else if (result.status === 'partial') {
+        addLog(
+          'warn',
+          `${sectionLabel} research failed validation: ${result.error ?? 'Artifact requires review'}`,
+        );
+      } else {
+        addLog('ok', `${sectionLabel} research complete`);
       }
 
-      // Only inject synthetic messages and wake the agent when in 'chat' phase.
-      // During prefilling/review, the user hasn't accepted context yet — queue the wake-up.
-      if (journeyPhaseRef.current !== 'chat') {
-        pendingWakeUpsRef.current.push(section);
+      if (result.status !== 'complete') {
         return;
       }
 
-      const toolName = sectionToToolName(section);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const syntheticMessage: any = {
-        id: `realtime-${section}-${Date.now()}`,
-        role: 'assistant' as const,
-        content: '',
-        parts: [
-          {
-            type: `tool-${toolName}`,
-            toolName,
-            toolCallId: `realtime-${section}`,
-            state: 'output-available' as const,
-            input: {},
-            output: JSON.stringify(result),
-          },
-        ],
-        createdAt: new Date(),
-      };
-      setMessages((prev) => [...prev, syntheticMessage]);
+      // During prefilling/review, the user hasn't accepted context yet — queue follow-up work.
+      if (journeyPhaseRef.current !== 'chat') {
+        queuePendingWakeUp(section);
+        return;
+      }
 
-      // Wake the agent — differentiate industryMarket (artifact review) from other sections
-      if (statusRef.current !== 'streaming' && statusRef.current !== 'submitted') {
-        if (section === 'industryMarket') {
-          sendMessage({
-            text: `[Research complete: ${sectionLabel}] The market overview is ready in the artifact panel. Prompt the user to review it: "Your market overview is ready — take a look in the panel. If everything looks good, hit 'Looks Good'. Otherwise tell me what you'd like changed."`,
-            metadata: { hidden: true },
-          });
-        } else {
-          sendMessage({
-            text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
-            metadata: { hidden: true },
-          });
-        }
+      appendRealtimeResearchMessage(section, result);
+
+      if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
+        showArtifactSection(section, { automatic: true });
+        return;
       }
-    },
-    onAllSectionsComplete: () => {
-      addLog('ok', 'All research sections complete');
-      // Only send the visible "research is in" message when in chat phase
-      if (journeyPhaseRef.current === 'chat') {
-        sendMessage({
-          text: "Okay — looks like the research is all in. What's your read on everything you found?",
-        });
+
+      if (statusRef.current === 'streaming' || statusRef.current === 'submitted') {
+        queuePendingWakeUp(section);
+        return;
       }
-    },
-    onTimeout: (pendingSections) => {
-      console.warn('[journey] Research timed out, pending:', pendingSections);
-      addLog('warn', `Research timed out for: ${pendingSections.join(', ')}`);
-      setResearchTimedOut(true);
+
+      if (!shouldWakeAgentForSection(section)) {
+        return;
+      }
+
+      sendMessage({
+        text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
+        metadata: { hidden: true },
+      });
     },
   });
 
   // Derived state
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
-  statusRef.current = status;
-  journeyPhaseRef.current = journeyPhase;
 
-  // Flush queued research wake-ups when entering chat phase
+  // Only show timeout warnings for sections that are actually running.
   useEffect(() => {
-    if (journeyPhase !== 'chat') return;
-    const queued = pendingWakeUpsRef.current;
-    if (queued.length === 0) return;
-    pendingWakeUpsRef.current = [];
-
-    // Inject synthetic tool messages for each completed section
-    for (const section of queued) {
-      const toolName = sectionToToolName(section);
-      const result = researchResults[section];
-      if (!result) continue;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const syntheticMessage: any = {
-        id: `realtime-${section}-${Date.now()}`,
-        role: 'assistant' as const,
-        content: '',
-        parts: [
-          {
-            type: `tool-${toolName}`,
-            toolName,
-            toolCallId: `realtime-${section}`,
-            state: 'output-available' as const,
-            input: {},
-            output: JSON.stringify(result),
-          },
-        ],
-        createdAt: new Date(),
-      };
-      setMessages((prev) => [...prev, syntheticMessage]);
+    if (activeResearch.size === 0) {
+      setResearchTimedOut(false);
+      return;
     }
 
-    // Don't send a separate wake-up — the prefill acceptance message
-    // (sent by handleAcceptPrefill / handleSkipPrefill) already wakes the agent.
-    // The agent will see the synthetic tool results in context.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journeyPhase]);
+    const timer = setTimeout(() => {
+      const pendingSections = [...activeResearch];
+      console.warn('[journey] Research timed out, pending:', pendingSections);
+      addLog('warn', `Research timed out for: ${pendingSections.join(', ')}`);
+      setResearchTimedOut(true);
+    }, 5 * 60 * 1000);
+
+    return () => clearTimeout(timer);
+  }, [activeResearch, addLog]);
+
+  // Flush queued research wake-ups when chat is ready to continue.
+  useEffect(() => {
+    if (journeyPhase !== 'chat') return;
+    if (status === 'streaming' || status === 'submitted') return;
+
+    const { queuedSections, nextPendingSections } = drainPendingSectionWakeUps(
+      pendingWakeUpsRef.current,
+    );
+    if (queuedSections.length === 0) return;
+    pendingWakeUpsRef.current = nextPendingSections;
+
+    let shouldWakeAgent = false;
+
+    for (const section of queuedSections) {
+      const result = researchResults[section];
+      if (!result || result.status !== 'complete') continue;
+
+      appendRealtimeResearchMessage(section, result);
+
+      if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
+        showArtifactSection(section, { automatic: true });
+        continue;
+      }
+
+      shouldWakeAgent = shouldWakeAgentForSection(section) || shouldWakeAgent;
+    }
+
+    if (shouldWakeAgent) {
+      sendMessage({
+        text: '[Research complete] New research results have been received. Continue the onboarding conversation — ask the next question based on what phase we\'re in.',
+        metadata: { hidden: true },
+      });
+    }
+  }, [
+    journeyPhase,
+    status,
+    researchResults,
+    appendRealtimeResearchMessage,
+    sendMessage,
+    shouldWakeAgentForSection,
+    showArtifactSection,
+  ]);
 
   // Stepper state
   const { currentPhase, completedPhases } = deriveStepperPhase(researchResults);
 
   // Progress panel items
   const progressItems = deriveProgressItems(researchResults, activeResearch);
-
-  // Completion percentage
-  const completionPercentage = useMemo(() => {
-    const totalSections = 6;
-    const completedCount = Object.values(researchResults).filter(Boolean).length;
-    return Math.round((completedCount / totalSections) * 100);
-  }, [researchResults]);
 
   // Find pending tool interactions
   const pendingAskUser = useMemo(() => {
@@ -512,8 +888,10 @@ function JourneyPageContent() {
   );
 
   const isLoading = isStreaming || isSubmitted || hasPendingApproval;
-  const hasMessages = messages.length > 0;
-
+  const renderedChatError = useMemo(
+    () => formatJourneyErrorMessage(error),
+    [error],
+  );
   // Prevent document-level scroll
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
@@ -543,14 +921,14 @@ function JourneyPageContent() {
   // Auto-transition from prefilling → review/chat when stream completes
   useEffect(() => {
     if (journeyPhase !== 'prefilling' || !prefillStarted || isPrefilling) return;
-    // Stream finished — transition based on result
-    if (fieldsFound > 0) {
+    // Stream finished — transition based on extracted fields or preset-backed blocker defaults
+    if (fieldsFound > 0 || prefillReviewPreset) {
       const timer = setTimeout(() => setJourneyPhase('review'), 800);
       return () => clearTimeout(timer);
     }
     // 0 fields found (error or empty result) — don't auto-transition,
     // let the user see the state and click "skip" in PrefillStreamView
-  }, [journeyPhase, prefillStarted, isPrefilling, fieldsFound]);
+  }, [journeyPhase, prefillStarted, isPrefilling, fieldsFound, prefillReviewPreset]);
 
   // Handle askUser chip tap
   const handleAskUserResponse = useCallback(
@@ -598,21 +976,45 @@ function JourneyPageContent() {
   // Submit handler
   const handleSubmit = useCallback(
     (content: string) => {
-      if (!content.trim() || isLoading) return;
+      const trimmed = content.trim();
+      if (!trimmed || isLoading) return;
 
       if (pendingAskUser) {
         handleAskUserResponse(pendingAskUser.toolCallId, {
           fieldName: pendingAskUser.fieldName,
-          otherText: content.trim(),
+          otherText: trimmed,
+        });
+        return;
+      }
+
+      if (artifactFeedbackSection) {
+        const sectionLabel = SECTION_META[artifactFeedbackSection] ?? artifactFeedbackSection;
+        setArtifactFeedbackSection(null);
+        setRecentlyApprovedArtifactSection(null);
+        addLog(
+          'run',
+          `Requested changes for ${sectionLabel}: "${trimmed.slice(0, 60)}${trimmed.length > 60 ? '...' : ''}"`,
+        );
+        sendMessage({
+          text: `[SECTION_FEEDBACK:${artifactFeedbackSection}] ${trimmed}`,
+          metadata: { hidden: false, displayText: trimmed },
         });
         return;
       }
 
       // Add terminal log for user messages
-      addLog('run', `Processing: "${content.trim().slice(0, 60)}${content.trim().length > 60 ? '...' : ''}"`);
-      sendMessage({ text: content.trim() });
+      setRecentlyApprovedArtifactSection(null);
+      addLog('run', `Processing: "${trimmed.slice(0, 60)}${trimmed.length > 60 ? '...' : ''}"`);
+      sendMessage({ text: trimmed });
     },
-    [isLoading, sendMessage, pendingAskUser, handleAskUserResponse, addLog]
+    [
+      artifactFeedbackSection,
+      isLoading,
+      sendMessage,
+      pendingAskUser,
+      handleAskUserResponse,
+      addLog,
+    ]
   );
 
   // Resume handlers
@@ -636,38 +1038,58 @@ function JourneyPageContent() {
     addLog('inf', 'Starting fresh journey');
   }, [addLog, user?.id, resetResearchState]);
 
-  // Prefill accept — build context message from extracted fields and send to lead agent
+  // Prefill accept — build context message from extracted fields + blocker inputs and send to lead agent
   const handleAcceptPrefill = useCallback(
-    (editedFields?: Record<string, string>) => {
-      if (!partialResult) return;
-
+    ({ editedFields, manualFields }: PrefillAcceptPayload = {}) => {
       // Clear stale research data from previous sessions BEFORE entering chat
       if (user?.id) resetResearchState(user.id);
 
-      // Derive company name for the visible message
-      const nameField = editedFields?.companyName
-        ?? (partialResult.companyName && typeof partialResult.companyName === 'object' && 'value' in partialResult.companyName
-          ? (partialResult.companyName as { value?: string | null }).value
-          : null);
-      const displayName = nameField || 'this company';
+      const partialResultRecord = partialResult as Record<string, unknown> | null | undefined;
+      const acceptedJourneyFields: Record<string, string> = {};
 
-      // Build full context for the agent
-      const lines: string[] = ["Here's what I found about the company:"];
-      for (const [key, label] of Object.entries(PREFILL_FIELD_LABELS)) {
-        if (editedFields?.[key]) {
-          lines.push(`${label}: ${editedFields[key]}`);
+      for (const { key } of JOURNEY_PREFILL_REVIEW_FIELDS) {
+        const hasEditedValue = Boolean(
+          editedFields && Object.prototype.hasOwnProperty.call(editedFields, key),
+        );
+
+        if (hasEditedValue) {
+          const editedValue = editedFields?.[key]?.trim() ?? '';
+          if (editedValue) {
+            acceptedJourneyFields[key] = editedValue;
+          }
           continue;
         }
-        const field = partialResult[key as keyof typeof partialResult];
-        const value =
-          field && typeof field === 'object' && 'value' in field
-            ? (field as { value?: string | null }).value
-            : null;
-        if (value) lines.push(`${label}: ${value}`);
+
+        const value = readPrefillFieldValue(partialResultRecord, key);
+        if (value) {
+          acceptedJourneyFields[key] = value;
+        }
+      }
+
+      for (const [key, rawValue] of Object.entries(manualFields ?? {})) {
+        const value = rawValue.trim();
+        if (!value) continue;
+        acceptedJourneyFields[key] = value;
+      }
+
+      const displayName = acceptedJourneyFields.companyName || 'this company';
+      const orderedFieldKeys = Array.from(
+        new Set([
+          ...JOURNEY_PREFILL_REVIEW_FIELDS.map(({ key }) => key),
+          ...JOURNEY_MANUAL_BLOCKER_FIELDS.map(({ key }) => key),
+        ]),
+      );
+
+      const lines: string[] = ["Here's what I found about the company:"];
+      for (const key of orderedFieldKeys) {
+        const value = acceptedJourneyFields[key]?.trim();
+        if (!value) continue;
+        lines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
       }
       lines.push('', 'Please use this context and begin the research journey.');
 
-      addLog('ok', `Accepted ${fieldsFound} prefill fields`);
+      persistAcceptedJourneyFields(acceptedJourneyFields);
+      addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
       // Single message: agent sees full context, UI shows compact text
       sendMessage({
@@ -677,23 +1099,43 @@ function JourneyPageContent() {
 
       setJourneyPhase('chat');
     },
-    [partialResult, fieldsFound, sendMessage, addLog, user?.id, resetResearchState],
+    [
+      addLog,
+      partialResult,
+      persistAcceptedJourneyFields,
+      resetResearchState,
+      sendMessage,
+      user?.id,
+    ],
   );
 
   const handleSkipPrefill = useCallback(() => {
     stopPrefill();
-    if (user?.id) resetResearchState(user.id);
-    addLog('inf', 'Skipped prefill — starting without website analysis');
-    sendMessage({ text: 'Start without website analysis' });
+    setPrefillStarted(false);
+    addLog('inf', 'Skipping website analysis — moving to manual onboarding');
     setJourneyPhase('chat');
-  }, [stopPrefill, addLog, sendMessage, user?.id, resetResearchState]);
+    sendMessage({ text: 'Start without website analysis' });
+  }, [stopPrefill, addLog, sendMessage]);
 
   const handleArtifactApprove = useCallback(() => {
-    setArtifactApproved(true);
+    setApprovedArtifactSections((prev) => ({ ...prev, [artifactSection]: true }));
+    setArtifactFeedbackSection(null);
+    setRecentlyApprovedArtifactSection(artifactSection);
+    setArtifactOpen(false);
+    const result = researchResults[artifactSection];
+    if (result) {
+      appendRealtimeResearchMessage(artifactSection, result);
+    }
     sendMessage({
-      text: '[SECTION_APPROVED] Looks good — approve Market Overview',
+      text: `[SECTION_APPROVED:${artifactSection}] Looks good`,
     });
-  }, [sendMessage]);
+  }, [appendRealtimeResearchMessage, artifactSection, researchResults, sendMessage]);
+
+  const handleArtifactRequestChanges = useCallback(() => {
+    setArtifactFeedbackSection(artifactSection);
+    setRecentlyApprovedArtifactSection(null);
+    showArtifactSection(artifactSection);
+  }, [artifactSection, showArtifactSection]);
 
   const welcomeMessage = isResuming
     ? LEAD_AGENT_RESUME_WELCOME
@@ -704,284 +1146,488 @@ function JourneyPageContent() {
 
   // Extract research card data from messages for the 2-column grid
   const researchCards = useMemo(() => {
-    const cards: Array<{
+    const cards = new Map<string, {
       section: string;
       status: 'loading' | 'complete' | 'error';
       data?: Record<string, unknown>;
-    }> = [];
+      activity?: ReturnType<typeof useResearchJobActivity>[string];
+      error?: string;
+    }>();
 
     // From active research
     for (const section of activeResearch) {
-      cards.push({ section, status: 'loading' });
+      cards.set(section, {
+        section,
+        status: 'loading',
+        activity: researchJobActivity[section],
+      });
     }
 
     // From completed research
     for (const [section, result] of Object.entries(researchResults)) {
       if (result) {
-        cards.push({
+        cards.set(section, {
           section,
-          status: 'complete',
+          status: result.status === 'complete' ? 'complete' : 'error',
           data: (result.data ?? undefined) as Record<string, unknown> | undefined,
+          activity: researchJobActivity[section],
+          error: result.error,
         });
       }
     }
 
-    return cards;
-  }, [activeResearch, researchResults]);
+    return [...cards.values()];
+  }, [activeResearch, researchJobActivity, researchResults]);
 
   // Artifact panel status — derived from existing research state
   const artifactStatus: 'loading' | 'complete' | 'error' = useMemo(() => {
     if (researchResults[artifactSection]) {
       const result = researchResults[artifactSection];
-      return result?.status === 'error' ? 'error' : 'complete';
+      return result?.status === 'complete' ? 'complete' : 'error';
     }
     if (activeResearch.has(artifactSection)) return 'loading';
     return 'loading';
   }, [researchResults, activeResearch, artifactSection]);
 
   const artifactData = (researchResults[artifactSection]?.data ?? undefined) as Record<string, unknown> | undefined;
+  const artifactActivity = researchJobActivity[artifactSection];
+  const artifactApproved = Boolean(approvedArtifactSections[artifactSection]);
+  const approvedSectionLabel =
+    recentlyApprovedArtifactSection
+      ? SECTION_META[recentlyApprovedArtifactSection] ?? recentlyApprovedArtifactSection
+      : null;
+  const approvedSectionNextStep =
+    recentlyApprovedArtifactSection === 'industryMarket'
+      ? 'Next, Journey moves into Competitor Intel.'
+      : recentlyApprovedArtifactSection === 'competitors'
+        ? 'Next, Journey validates the ICP against paid reachability and buying intent.'
+        : recentlyApprovedArtifactSection === 'icpValidation'
+          ? 'Next, Journey pressure-tests the offer and pricing.'
+          : recentlyApprovedArtifactSection === 'offerAnalysis'
+            ? 'Next, Journey synthesizes the approved sections into the strategy layer.'
+            : null;
+  const feedbackSectionLabel =
+    artifactFeedbackSection
+      ? SECTION_META[artifactFeedbackSection] ?? artifactFeedbackSection
+      : null;
 
   // Whether to show artifact trigger in chat (research dispatched or complete for this section)
-  const showArtifactTrigger = activeResearch.has(artifactSection) || !!researchResults[artifactSection];
+  const showArtifactTrigger =
+    REVIEW_ARTIFACT_SECTIONS.has(artifactSection) &&
+    (activeResearch.has(artifactSection) ||
+      researchResults[artifactSection]?.status === 'complete');
 
   const showChatView = journeyPhase === 'chat';
   const showResumeView = journeyPhase === 'resume';
+  const showStudioPreview = isJourneyStudioPreview(searchParams);
+  const studioDockItems = showChatView ? progressItems : DEMO_PROGRESS_ITEMS;
+  const conversationWidthClass = showStudioPreview
+    ? 'mx-auto max-w-[56rem]'
+    : artifactOpen
+      ? ''
+      : 'mx-auto max-w-3xl';
+  const wideContentWidthClass = showStudioPreview
+    ? 'mx-auto max-w-[68rem]'
+    : artifactOpen
+      ? ''
+      : 'mx-auto max-w-5xl';
+  const researchGridClassName = showStudioPreview
+    ? 'grid-cols-1 max-w-[68rem] 2xl:grid-cols-2'
+    : artifactOpen
+      ? 'grid-cols-1 max-w-full'
+      : 'grid-cols-2 max-w-5xl';
+  const studioTitle = getJourneyStudioTitle(journeyPhase, artifactOpen);
+  const studioDescription = getJourneyStudioDescription(
+    journeyPhase,
+    activeResearch.size,
+    artifactOpen,
+  );
+  const studioStatusLabel = getJourneyStudioStatusLabel(
+    journeyPhase,
+    activeResearch.size,
+    artifactOpen,
+    savedSession,
+  );
+  const studioStatusDetail = getJourneyStudioStatusDetail(
+    activeResearch.size,
+    artifactOpen,
+    artifactSection,
+    studioDockItems,
+    savedSession,
+  );
 
-  return (
-    <div
-      className="h-screen flex flex-col font-sans"
-      style={{ background: '#050505', color: '#E5E5E5', overflow: 'hidden' }}
-    >
-      {/* Body — sidebar + main + right panel */}
+  const renderStudioStateFrame = (content: JSX.Element): JSX.Element => (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.08),transparent_34%),linear-gradient(180deg,rgba(17,16,13,0.92),rgba(9,9,8,0.96))]">
+      <JourneyStepper
+        currentPhase={currentPhase}
+        completedPhases={completedPhases}
+        className="justify-start gap-8 border-b border-white/[0.06] px-6 py-5 sm:px-8"
+      />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {content}
+      </div>
+    </div>
+  );
+
+  const artifactPanel = (
+    <ArtifactPanel
+      activity={artifactActivity}
+      section={artifactSection}
+      status={artifactStatus}
+      data={artifactData}
+      approved={artifactApproved}
+      onApprove={handleArtifactApprove}
+      feedbackMode={artifactFeedbackSection === artifactSection}
+      onRequestChanges={handleArtifactRequestChanges}
+      onClose={() => setArtifactOpen(false)}
+    />
+  );
+
+  const progressPanel = (
+    <JourneyProgressPanel
+      items={studioDockItems}
+      computeStatus="stable"
+      computePercent={85}
+      variant={showStudioPreview ? 'studio' : 'default'}
+      className={showStudioPreview ? 'h-full' : undefined}
+    />
+  );
+
+  const chatWorkspace = (
+    <>
+      <JourneyStepper
+        currentPhase={currentPhase}
+        completedPhases={completedPhases}
+        className={
+          showStudioPreview
+            ? 'justify-start gap-8 border-b border-white/[0.06] px-6 py-5 sm:px-8'
+            : undefined
+        }
+      />
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        <AppSidebar />
-
-        {/* Main Workspace */}
-        <main className="flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-transparent to-white/[0.01]">
-          {showChatView ? (
-            <>
-              {/* Stepper */}
-              <JourneyStepper
-                currentPhase={currentPhase}
-                completedPhases={completedPhases}
-              />
-
-              <div className="flex flex-1 overflow-hidden">
-                {/* Chat column */}
-                <div className={cn(
-                  'flex flex-col relative overflow-hidden transition-all duration-300',
-                  artifactOpen ? 'w-[40%]' : 'w-full',
-                )}>
-                  <section
-                    ref={scrollAreaRef}
-                    className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-32 space-y-8"
-                  >
-                    {/* Welcome message — hide once conversation messages exist */}
-                    {messages.length === 0 && (
-                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                        <ChatMessage
-                          role="assistant"
-                          content={welcomeMessage}
-                          isStreaming={false}
-                        />
-                      </div>
-                    )}
-
-                    {/* Research module cards grid — skip industryMarket when artifact handles it */}
-                    {researchCards.filter(c => !(c.section === 'industryMarket' && showArtifactTrigger)).length > 0 && (
-                      <div className={cn('grid gap-4 mx-auto', artifactOpen ? 'grid-cols-1 max-w-full' : 'grid-cols-2 max-w-5xl')}>
-                        {researchCards
-                          .filter(c => !(c.section === 'industryMarket' && showArtifactTrigger))
-                          .map((card) => (
-                            <ResearchInlineCard key={card.section} section={card.section} status={card.status} data={card.data} />
-                          ))}
-                      </div>
-                    )}
-
-                    {/* Terminal logs */}
-                    {terminalLogs.length > 0 && (
-                      <div className={artifactOpen ? '' : 'max-w-5xl mx-auto'}>
-                        <TerminalStream logs={terminalLogs} />
-                      </div>
-                    )}
-
-                    {/* Conversation messages */}
-                    {messages
-                      .filter((m) => {
-                        // Hide section approval messages
-                        if (m.role === 'user' && m.parts?.some(p => 'type' in p && p.type === 'text' && 'text' in p && typeof p.text === 'string' && p.text.startsWith('[SECTION_APPROVED]'))) return false;
-                        // Hide messages with hidden metadata
-                        if ((m.metadata as Record<string, unknown>)?.hidden) return false;
-                        // Synthetic research messages already shown in researchCards grid
-                        if (m.id.startsWith('realtime-')) return false;
-                        return true;
-                      })
-                      .map((message) => {
-                        const isThisMessageStreaming =
-                          message.role === 'assistant' &&
-                          message.id === messages[messages.length - 1]?.id &&
-                          isLastMessageStreaming;
-
-                        // If displayText metadata exists, override parts so the UI
-                        // shows the compact text instead of the full agent context
-                        const metadata = message.metadata as Record<string, unknown> | undefined;
-                        const displayText = metadata?.displayText as string | undefined;
-                        const effectiveParts = displayText
-                          ? [{ type: 'text' as const, text: displayText }]
-                          : message.parts;
-
-                        return (
-                          <div key={message.id} className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                            <ChatMessage
-                              messageId={message.id}
-                              role={message.role as 'user' | 'assistant'}
-                              parts={effectiveParts}
-                              isStreaming={isThisMessageStreaming}
-                              onToolApproval={(approvalId, approved) =>
-                                addToolApprovalResponse({ id: approvalId, approved })
-                              }
-                              onToolOutput={handleAskUserResponse}
-                            />
-                          </div>
-                        );
-                      })}
-
-                    {/* Artifact trigger card — appears inline when research fires */}
-                    {showArtifactTrigger && (
-                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                        <ArtifactTriggerCard
-                          section={artifactSection}
-                          status={artifactStatus}
-                          onClick={() => setArtifactOpen(true)}
-                        />
-                      </div>
-                    )}
-
-                    {/* Typing indicator */}
-                    {isSubmitted && (
-                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                        <TypingIndicator className="ml-9" />
-                      </div>
-                    )}
-
-                    {/* Error display */}
-                    {error && (
-                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                        <div
-                          className="px-3 py-2 rounded-lg text-xs"
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                            color: '#ef4444',
-                          }}
-                        >
-                          {error.message || 'Something went wrong. Please try again.'}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Research timeout */}
-                    {researchTimedOut && (
-                      <div className={artifactOpen ? '' : 'max-w-3xl mx-auto'}>
-                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                          Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
-                        </div>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Floating Input Bar */}
-                  <div className="absolute bottom-8 left-0 right-0 flex justify-center px-6 pointer-events-none">
-                    <JourneyChatInput
-                      onSubmit={handleSubmit}
-                      isLoading={isLoading && !pendingAskUser}
-                      placeholder={
-                        pendingAskUser
-                          ? 'Pick an option or type your own answer...'
-                          : isResuming
-                            ? "Let's pick up where we left off..."
-                            : 'Ask AI-GOS to refine the strategy...'
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Artifact Panel — right side */}
-                <AnimatePresence>
-                  {artifactOpen && (
-                    <motion.div
-                      initial={{ width: 0, opacity: 0 }}
-                      animate={{ width: '60%', opacity: 1 }}
-                      exit={{ width: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
-                      className="overflow-hidden"
-                    >
-                      <ArtifactPanel
-                        section={artifactSection}
-                        status={artifactStatus}
-                        data={artifactData}
-                        approved={artifactApproved}
-                        onApprove={handleArtifactApprove}
-                        onClose={() => setArtifactOpen(false)}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </>
-          ) : showResumeView ? (
-            <div className="flex-1 flex items-center justify-center px-12">
-              <div className="max-w-3xl w-full">
-                <ResumePrompt
-                  session={savedSession!}
-                  onContinue={handleResumeContinue}
-                  onStartFresh={handleResumeStartFresh}
+        <div
+          className={cn(
+            'relative flex flex-col overflow-hidden transition-all duration-300',
+            showStudioPreview
+              ? 'min-h-0 flex-1 bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.08),transparent_34%),linear-gradient(180deg,rgba(17,16,13,0.92),rgba(9,9,8,0.96))]'
+              : artifactOpen
+                ? 'w-[40%]'
+                : 'w-full',
+          )}
+        >
+          <section
+            ref={scrollAreaRef}
+            className={cn(
+              'flex-1 overflow-y-auto custom-scrollbar',
+              showStudioPreview
+                ? 'space-y-6 px-6 pb-44 pt-6 sm:px-8'
+                : 'space-y-8 px-6 pb-32',
+            )}
+          >
+            {messages.length === 0 && (
+              <div className={conversationWidthClass}>
+                <ChatMessage
+                  role="assistant"
+                  content={welcomeMessage}
+                  isStreaming={false}
                 />
               </div>
-            </div>
-          ) : journeyPhase === 'prefilling' ? (
-            <PrefillStreamView
-              partialResult={partialResult}
-              fieldsFound={fieldsFound}
-              isPrefilling={isPrefilling}
-              error={prefillError}
-              websiteUrl={prefillWebsiteUrl}
-              onSkip={handleSkipPrefill}
+            )}
+
+            {researchCards.filter((card) => !REVIEW_ARTIFACT_SECTIONS.has(card.section)).length > 0 && (
+              <div className={cn('grid gap-4', researchGridClassName)}>
+                {researchCards
+                  .filter((card) => !REVIEW_ARTIFACT_SECTIONS.has(card.section))
+                  .map((card) => (
+                    <ResearchInlineCard
+                      key={card.section}
+                      activity={card.activity}
+                      section={card.section}
+                      status={card.status}
+                      data={card.data}
+                      error={card.error}
+                    />
+                  ))}
+              </div>
+            )}
+
+            {terminalLogs.length > 0 && (
+              <div className={wideContentWidthClass}>
+                <TerminalStream logs={terminalLogs} />
+              </div>
+            )}
+
+            {messages
+              .filter((m) => {
+                if (m.role === 'user' && m.parts?.some(p => 'type' in p && p.type === 'text' && 'text' in p && typeof p.text === 'string' && p.text.startsWith('[SECTION_APPROVED'))) return false;
+                if ((m.metadata as Record<string, unknown>)?.hidden) return false;
+                if (m.id.startsWith('realtime-')) return false;
+                return true;
+              })
+              .map((message, index) => {
+                const isThisMessageStreaming =
+                  message.role === 'assistant' &&
+                  message.id === messages[messages.length - 1]?.id &&
+                  isLastMessageStreaming;
+
+                const metadata = message.metadata as Record<string, unknown> | undefined;
+                const displayText = metadata?.displayText as string | undefined;
+                const effectiveParts = displayText
+                  ? [{ type: 'text' as const, text: displayText }]
+                  : filterJourneyMessageParts(message.parts);
+
+                return (
+                  <div key={`${message.id}-${index}`} className={conversationWidthClass}>
+                    <ChatMessage
+                      messageId={message.id}
+                      role={message.role as 'user' | 'assistant'}
+                      parts={effectiveParts}
+                      isStreaming={isThisMessageStreaming}
+                      onToolApproval={(approvalId, approved) =>
+                        addToolApprovalResponse({ id: approvalId, approved })
+                      }
+                      onToolOutput={handleAskUserResponse}
+                    />
+                  </div>
+                );
+              })}
+
+            {showArtifactTrigger && (
+              <div className={conversationWidthClass}>
+                <ArtifactTriggerCard
+                  approved={artifactApproved}
+                  section={artifactSection}
+                  status={artifactStatus}
+                  onClick={() => showArtifactSection(artifactSection)}
+                />
+              </div>
+            )}
+
+            {recentlyApprovedArtifactSection && approvedSectionLabel && !artifactFeedbackSection && (
+              <div className={conversationWidthClass}>
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-4">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-emerald-300/80">
+                    {approvedSectionLabel} Approved
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-white/78">
+                    {approvedSectionNextStep}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {artifactFeedbackSection && feedbackSectionLabel && (
+              <div className={conversationWidthClass}>
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-4">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-amber-300/80">
+                    Refine {feedbackSectionLabel}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-white/78">
+                    Tell me what should change in this artifact. I&apos;ll keep the Journey
+                    anchored here until the section is clarified and approved.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isSubmitted && (
+              <div className={conversationWidthClass}>
+                <TypingIndicator className="ml-9" />
+              </div>
+            )}
+
+            {error && (
+              <div className={conversationWidthClass}>
+                <div
+                  className="rounded-lg px-3 py-2 text-xs"
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    color: '#ef4444',
+                  }}
+                >
+                  {renderedChatError}
+                </div>
+              </div>
+            )}
+
+            {researchTimedOut && (
+              <div className={conversationWidthClass}>
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                  Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
+                </div>
+              </div>
+            )}
+          </section>
+
+          <div
+            className={cn(
+              'pointer-events-none flex justify-center',
+              showStudioPreview
+                ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0c0b09] via-[#0c0b09]/96 to-transparent px-5 pb-6 pt-20'
+                : 'absolute bottom-8 left-0 right-0 px-6',
+            )}
+          >
+            <JourneyChatInput
+              onSubmit={handleSubmit}
+              isLoading={isLoading && !pendingAskUser}
+              placeholder={
+                artifactFeedbackSection && feedbackSectionLabel
+                  ? `Tell me what to change in ${feedbackSectionLabel}...`
+                  : pendingAskUser
+                    ? 'Pick an option or type your own answer...'
+                    : isResuming
+                      ? "Let's pick up where we left off..."
+                      : 'Ask AI-GOS to refine the strategy...'
+              }
+              variant={showStudioPreview ? 'studio' : 'default'}
             />
-          ) : journeyPhase === 'review' ? (
-            <PrefillReviewView
-              partialResult={partialResult}
-              fieldsFound={fieldsFound}
-              onAccept={handleAcceptPrefill}
-              onSkip={handleSkipPrefill}
-            />
+          </div>
+        </div>
+
+        {!showStudioPreview && (
+          <AnimatePresence>
+            {artifactOpen && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: '60%', opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                {artifactPanel}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
+      </div>
+    </>
+  );
+
+  const resumeWorkspace = (
+    <div className="flex flex-1 items-center justify-center px-12">
+      <div className="w-full max-w-3xl">
+        <ResumePrompt
+          session={savedSession!}
+          onContinue={handleResumeContinue}
+          onStartFresh={handleResumeStartFresh}
+        />
+      </div>
+    </div>
+  );
+
+  const prefillWorkspace = (
+    <PrefillStreamView
+      partialResult={partialResult}
+      fieldsFound={fieldsFound}
+      isPrefilling={isPrefilling}
+      error={prefillError}
+      websiteUrl={prefillWebsiteUrl}
+      onRetry={() => {
+        stopPrefill();
+        setPrefillStarted(false);
+        setPrefillWebsiteUrl('');
+        setJourneyPhase('welcome');
+      }}
+      onSkip={handleSkipPrefill}
+    />
+  );
+
+  const reviewWorkspace = (
+    <PrefillReviewView
+      partialResult={partialResult}
+      fieldsFound={fieldsFound}
+      websiteUrl={prefillWebsiteUrl}
+      onAccept={handleAcceptPrefill}
+      onSkip={handleSkipPrefill}
+    />
+  );
+
+  const welcomeWorkspace = (
+    <WelcomeForm
+      onAnalyze={(websiteUrl, linkedinUrl) => {
+        setPrefillWebsiteUrl(websiteUrl);
+        setPrefillStarted(true);
+        submitPrefill({ websiteUrl, linkedinUrl });
+        setJourneyPhase('prefilling');
+        addLog('run', `Analyzing ${websiteUrl}`);
+      }}
+      onSkip={() => {
+        addLog('inf', 'Starting without website analysis');
+        setJourneyPhase('chat');
+        sendMessage({ text: 'Start without website analysis' });
+      }}
+    />
+  );
+
+  const standardWorkspace = showChatView
+    ? chatWorkspace
+    : showResumeView
+      ? resumeWorkspace
+      : journeyPhase === 'prefilling'
+        ? prefillWorkspace
+        : journeyPhase === 'review'
+          ? reviewWorkspace
+          : welcomeWorkspace;
+
+  const previewWorkspace = showChatView
+    ? chatWorkspace
+    : renderStudioStateFrame(standardWorkspace);
+
+  const previewDock = artifactOpen ? (
+    <JourneyStudioPreviewDock
+      eyebrow="Artifact Review"
+      title={SECTION_META[artifactSection] ?? artifactSection}
+    >
+      {artifactPanel}
+    </JourneyStudioPreviewDock>
+  ) : (
+    <JourneyStudioPreviewDock
+      eyebrow="Proof Dock"
+      title={showChatView ? 'Progress and evidence' : 'Journey readiness'}
+      className="hidden xl:flex"
+    >
+      {progressPanel}
+    </JourneyStudioPreviewDock>
+  );
+  return (
+    <div
+      className="flex h-screen flex-col font-sans"
+      style={{
+        background: showStudioPreview ? '#040403' : '#050505',
+        color: '#E5E5E5',
+        overflow: 'hidden',
+      }}
+    >
+      <div className="flex flex-1 overflow-hidden">
+        <AppSidebar />
+
+        <main className={cn(
+          'relative flex flex-1 flex-col overflow-hidden',
+          showStudioPreview
+            ? 'bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.04),transparent_32%),linear-gradient(180deg,rgba(8,8,7,0.98),rgba(4,4,3,1))]'
+            : 'bg-gradient-to-b from-transparent to-white/[0.01]',
+        )}>
+          {showStudioPreview ? (
+            <JourneyStudioPreviewShell
+              eyebrow="AI-GOS Journey"
+              title={studioTitle}
+              description={studioDescription}
+              statusLabel={studioStatusLabel}
+              statusDetail={studioStatusDetail}
+              dock={previewDock}
+            >
+              {previewWorkspace}
+            </JourneyStudioPreviewShell>
           ) : (
-            <WelcomeForm
-              onAnalyze={(websiteUrl, linkedinUrl) => {
-                setPrefillWebsiteUrl(websiteUrl);
-                setPrefillStarted(true);
-                submitPrefill({ websiteUrl, linkedinUrl });
-                setJourneyPhase('prefilling');
-                addLog('run', `Analyzing ${websiteUrl}`);
-              }}
-              onSkip={() => {
-                addLog('inf', 'Starting without website analysis');
-                setJourneyPhase('chat');
-                sendMessage({ text: 'Start without website analysis' });
-              }}
-            />
+            standardWorkspace
           )}
         </main>
 
-        {/* Right Panel — Journey Progress (hidden when artifact panel is open) */}
-        {!artifactOpen && (
+        {!showStudioPreview && !artifactOpen && (
           <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
-            <JourneyProgressPanel
-              items={showChatView ? progressItems : DEMO_PROGRESS_ITEMS}
-              computeStatus="stable"
-              computePercent={85}
-            />
+            {progressPanel}
           </aside>
         )}
       </div>
@@ -998,6 +1644,7 @@ function PrefillStreamView({
   isPrefilling,
   error,
   websiteUrl,
+  onRetry,
   onSkip,
 }: {
   partialResult: ReturnType<typeof useJourneyPrefill>['partialResult'];
@@ -1005,12 +1652,21 @@ function PrefillStreamView({
   isPrefilling: boolean;
   error: Error | undefined;
   websiteUrl: string;
+  onRetry: () => void;
   onSkip: () => void;
 }) {
+  const confidenceNotes =
+    partialResult && typeof partialResult.confidenceNotes === 'string'
+      ? partialResult.confidenceNotes
+      : null;
+  const renderedError = useMemo(
+    () => formatJourneyErrorMessage(error),
+    [error],
+  );
+
   return (
     <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
       <div className="max-w-2xl mx-auto flex flex-col items-center pt-16 space-y-8">
-        {/* Header */}
         <div className="text-center space-y-3">
           <div
             className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center"
@@ -1036,7 +1692,6 @@ function PrefillStreamView({
           </p>
         </div>
 
-        {/* Progress bar */}
         <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
           <div
             className="h-full rounded-full transition-all duration-500 ease-out"
@@ -1047,10 +1702,9 @@ function PrefillStreamView({
           />
         </div>
 
-        {/* Error */}
         {error && (
           <div className="w-full glass-surface rounded-xl p-4" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-            <p className="text-sm" style={{ color: '#ef4444' }}>{error.message}</p>
+            <p className="text-sm" style={{ color: '#ef4444' }}>{renderedError}</p>
             <button
               onClick={onSkip}
               className="mt-3 text-xs text-white/50 hover:text-white/80 underline transition-colors"
@@ -1060,24 +1714,34 @@ function PrefillStreamView({
           </div>
         )}
 
-        {/* Stream finished with 0 fields and no captured error — let user continue */}
         {!isPrefilling && fieldsFound === 0 && !error && (
           <div className="w-full glass-surface rounded-xl p-4 text-center" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
             <p className="text-sm text-white/60">
-              Could not extract fields from this website. You can still continue — the agent will ask for details directly.
+              We couldn&apos;t find usable public details for <span className="text-white/80">{websiteUrl}</span>.
+              Double-check the URL and TLD, then try again. You can also continue without prefill and answer manually.
             </p>
-            <button
-              onClick={onSkip}
-              className="mt-3 text-xs text-white/50 hover:text-white/80 underline transition-colors"
-            >
-              Continue without prefill
-            </button>
+            {confidenceNotes && (
+              <p className="mt-3 text-xs text-white/40">{confidenceNotes}</p>
+            )}
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <button
+                onClick={onRetry}
+                className="text-xs text-white/70 hover:text-white underline transition-colors"
+              >
+                Try another URL
+              </button>
+              <button
+                onClick={onSkip}
+                className="text-xs text-white/50 hover:text-white/80 underline transition-colors"
+              >
+                Continue without prefill
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Fields streaming in */}
         <div className="w-full space-y-3">
-          {Object.entries(PREFILL_FIELD_LABELS).map(([key, label]) => {
+          {JOURNEY_PREFILL_REVIEW_FIELDS.map(({ key, label }) => {
             const field = partialResult?.[key as keyof typeof partialResult];
             const value =
               field && typeof field === 'object' && 'value' in field
@@ -1107,7 +1771,6 @@ function PrefillStreamView({
           })}
         </div>
 
-        {/* Skip button */}
         {isPrefilling && (
           <button
             onClick={onSkip}
@@ -1127,39 +1790,119 @@ function PrefillStreamView({
 function PrefillReviewView({
   partialResult,
   fieldsFound,
+  websiteUrl,
   onAccept,
   onSkip,
 }: {
   partialResult: ReturnType<typeof useJourneyPrefill>['partialResult'];
   fieldsFound: number;
-  onAccept: (editedFields?: Record<string, string>) => void;
+  websiteUrl: string;
+  onAccept: (payload?: PrefillAcceptPayload) => void;
   onSkip: () => void;
 }) {
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [manualFields, setManualFields] = useState<Record<string, string>>({});
 
-  // Build the list of found fields
   const foundFields = useMemo(() => {
     const fields: Array<{ key: string; label: string; value: string; confidence: number }> = [];
-    for (const [key, label] of Object.entries(PREFILL_FIELD_LABELS)) {
+    for (const { key, label } of JOURNEY_PREFILL_REVIEW_FIELDS) {
+      const value = readPrefillFieldValue(
+        partialResult as Record<string, unknown>,
+        key,
+      );
+      if (!value) continue;
+
       const field = partialResult?.[key as keyof typeof partialResult];
-      if (!field || typeof field !== 'object' || !('value' in field)) continue;
-      const f = field as { value?: string | null; confidence?: number };
-      if (!f.value) continue;
       fields.push({
         key,
         label,
-        value: f.value,
-        confidence: f.confidence ?? 0,
+        value,
+        confidence:
+          field && typeof field === 'object' && 'confidence' in field
+            ? (field as { confidence?: number }).confidence ?? 0
+            : 0,
       });
     }
     return fields;
   }, [partialResult]);
 
+  const preset = useMemo(
+    () =>
+      getManualPrefillPreset({
+        websiteUrl,
+        companyName:
+          editedFields.companyName?.trim() ||
+          readPrefillFieldValue(partialResult as Record<string, unknown>, 'companyName'),
+      }),
+    [editedFields.companyName, partialResult, websiteUrl],
+  );
+
+  const resolvedManualFieldValues = useMemo(() => {
+    const values: Record<string, string> = {};
+
+    for (const field of JOURNEY_MANUAL_BLOCKER_FIELDS) {
+      const manualValue = manualFields[field.key];
+      if (typeof manualValue === 'string') {
+        values[field.key] = manualValue;
+        continue;
+      }
+
+      const editedValue = editedFields[field.key];
+      if (typeof editedValue === 'string') {
+        values[field.key] = editedValue;
+        continue;
+      }
+
+      const extractedValue = readPrefillFieldValue(
+        partialResult as Record<string, unknown>,
+        field.key,
+      );
+      if (extractedValue) {
+        values[field.key] = extractedValue;
+        continue;
+      }
+
+      values[field.key] = preset?.values[field.key] ?? '';
+    }
+
+    return values;
+  }, [editedFields, manualFields, partialResult, preset]);
+
+  const pricingContextReady = Boolean(
+    resolvedManualFieldValues.pricingTiers?.trim() ||
+      resolvedManualFieldValues.monthlyAdBudget?.trim(),
+  );
+
+  const missingManualBlockers = useMemo(() => {
+    const missing: string[] = [];
+    let pricingMissingAdded = false;
+
+    for (const field of JOURNEY_MANUAL_BLOCKER_FIELDS) {
+      if (field.requiredGroup === 'pricingContext') {
+        if (!pricingContextReady && !pricingMissingAdded) {
+          missing.push('Pricing or Budget');
+          pricingMissingAdded = true;
+        }
+        continue;
+      }
+
+      if (field.required && !resolvedManualFieldValues[field.key]?.trim()) {
+        missing.push(field.label);
+      }
+    }
+
+    return missing;
+  }, [pricingContextReady, resolvedManualFieldValues]);
+
+  const canStartResearch = missingManualBlockers.length === 0;
+
   return (
-    <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
+    <section
+      data-testid="prefill-review"
+      className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12"
+    >
       <div className="max-w-2xl mx-auto flex flex-col items-center pt-12 space-y-8">
-        {/* Header */}
         <div className="text-center space-y-3">
           <div
             className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center"
@@ -1177,10 +1920,13 @@ function PrefillReviewView({
           </p>
         </div>
 
-        {/* Field cards */}
         <div className="w-full space-y-2">
           {foundFields.map(({ key, label, value }) => {
-            const displayValue = editedFields[key] ?? value;
+            const hasEditedValue = Object.prototype.hasOwnProperty.call(
+              editedFields,
+              key,
+            );
+            const displayValue = hasEditedValue ? editedFields[key] : value;
             const isEditing = editingKey === key;
 
             return (
@@ -1215,7 +1961,7 @@ function PrefillReviewView({
                     <p
                       className="text-sm text-white/80 mt-0.5 break-words leading-relaxed cursor-pointer hover:text-white transition-colors"
                       onClick={() => {
-                        if (!editedFields[key]) {
+                        if (!hasEditedValue) {
                           setEditedFields((prev) => ({ ...prev, [key]: value }));
                         }
                         setEditingKey(key);
@@ -1228,7 +1974,7 @@ function PrefillReviewView({
                 {!isEditing && (
                   <button
                     onClick={() => {
-                      if (!editedFields[key]) {
+                      if (!hasEditedValue) {
                         setEditedFields((prev) => ({ ...prev, [key]: value }));
                       }
                       setEditingKey(key);
@@ -1245,23 +1991,141 @@ function PrefillReviewView({
           })}
         </div>
 
-        {/* Action buttons */}
+        <div className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-xl space-y-2">
+              <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-white/35">
+                Human Context
+              </p>
+              <h3 className="text-lg font-medium text-white/90">
+                Fill what the web cannot know reliably
+              </h3>
+              <p className="text-sm leading-relaxed text-white/45">
+                Lock the blocker inputs now so Journey can ask fewer questions after Market Overview starts.
+              </p>
+            </div>
+            {preset ? (
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+                Auto-prefill: {preset.label}
+              </span>
+            ) : null}
+          </div>
+
+          <div
+            className="rounded-xl border px-4 py-3"
+            style={{
+              borderColor: canStartResearch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(217, 153, 82, 0.24)',
+              background: canStartResearch ? 'rgba(16, 185, 129, 0.08)' : 'rgba(217, 153, 82, 0.08)',
+            }}
+          >
+            <p className="text-sm" style={{ color: canStartResearch ? '#8fe3b4' : '#f5c98d' }}>
+              {canStartResearch
+                ? 'Ready to start research. The missing human context is filled in.'
+                : 'Complete the required blocker fields before Market Overview begins.'}
+            </p>
+            {!canStartResearch ? (
+              <p className="mt-1 text-xs text-white/45">
+                Missing: {missingManualBlockers.join(', ')}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-4">
+            {JOURNEY_MANUAL_BLOCKER_FIELDS.map((field) => {
+              const value = resolvedManualFieldValues[field.key] ?? '';
+              const isMissing = field.requiredGroup === 'pricingContext'
+                ? !pricingContextReady
+                : Boolean(field.required && !value.trim());
+              const presetValue = preset?.values[field.key];
+              const extractedValue = readPrefillFieldValue(
+                partialResult as Record<string, unknown>,
+                field.key,
+              );
+              const usedPreset = Boolean(
+                presetValue &&
+                  !extractedValue &&
+                  !Object.prototype.hasOwnProperty.call(manualFields, field.key),
+              );
+
+              return (
+                <div
+                  key={field.key}
+                  className="rounded-xl border border-white/10 bg-black/15 p-4"
+                  data-testid={`manual-blocker-${field.key}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-white/40">
+                      {field.label}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {field.required || field.requiredGroup ? (
+                        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200">
+                          {field.requiredGroup === 'pricingContext' ? 'Required: pricing or budget' : 'Required'}
+                        </span>
+                      ) : null}
+                      {usedPreset ? (
+                        <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200">
+                          Auto-filled from {preset?.label}
+                        </span>
+                      ) : null}
+                      {isMissing ? (
+                        <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[10px] text-red-200">
+                          Missing
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {field.rows > 1 ? (
+                    <textarea
+                      rows={field.rows}
+                      value={value}
+                      onChange={(event) =>
+                        setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
+                      }
+                      className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50"
+                      placeholder={field.placeholder}
+                    />
+                  ) : (
+                    <input
+                      value={value}
+                      onChange={(event) =>
+                        setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
+                      }
+                      className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50"
+                      placeholder={field.placeholder}
+                    />
+                  )}
+
+                  <p className="mt-2 text-xs leading-6 text-white/40">{field.helper}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex gap-3 w-full">
           <button
-            onClick={() => onAccept(Object.keys(editedFields).length > 0 ? editedFields : undefined)}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all hover:brightness-110"
+            disabled={!canStartResearch}
+            onClick={() =>
+              onAccept({
+                editedFields: Object.keys(editedFields).length > 0 ? editedFields : undefined,
+                manualFields: resolvedManualFieldValues,
+              })
+            }
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 hover:brightness-110"
             style={{ background: '#3c83f6' }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M5 13l4 4L19 7" />
             </svg>
-            Accept All & Start Research
+            Start Market Overview
           </button>
           <button
             onClick={onSkip}
             className="flex-1 px-6 py-3 rounded-xl text-sm font-medium text-white/60 border border-white/10 hover:bg-white/5 hover:text-white/80 transition-all"
           >
-            Skip — I'll answer in chat
+            Skip — I&apos;ll answer in chat
           </button>
         </div>
       </div>
@@ -1285,24 +2149,21 @@ function WelcomeForm({
   return (
     <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
       <div className="max-w-3xl mx-auto flex flex-col items-center pt-12 space-y-10">
-        {/* Badge */}
         <span className="inline-block text-xs font-medium tracking-wide text-white/60 border border-white/10 rounded-full px-4 py-1.5">
           AI-GOS
         </span>
 
-        {/* Hero */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl md:text-5xl font-light text-white/95 leading-tight">
-            Build your paid media{' '}
-            <span className="text-brand-accent">strategy.</span>
+            Build your paid media <span className="text-brand-accent">strategy.</span>
           </h1>
           <p className="text-white/40 text-sm max-w-lg mx-auto">
-            Drop your website URL and EGOS handles the rest — market research, competitive intel, ICP validation, and a full media plan.
+            Drop your website URL and EGOS handles the rest — market research,
+            competitive intel, ICP validation, and a full media plan.
           </p>
           <p className="text-white/25 text-xs">~10 min to complete strategy</p>
         </div>
 
-        {/* Step cards */}
         <div className="grid grid-cols-3 gap-4 w-full">
           {[
             {
@@ -1337,9 +2198,7 @@ function WelcomeForm({
           ))}
         </div>
 
-        {/* URL inputs */}
         <div className="w-full glass-surface rounded-2xl p-6 space-y-5">
-          {/* Website URL */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white/60">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1357,7 +2216,6 @@ function WelcomeForm({
             />
           </div>
 
-          {/* LinkedIn URL */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-white/60">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -1375,7 +2233,6 @@ function WelcomeForm({
           </div>
         </div>
 
-        {/* Action buttons */}
         <div className="flex gap-3 w-full">
           <button
             onClick={() => {
