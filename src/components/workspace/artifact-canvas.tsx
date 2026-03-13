@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
+import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 import { SectionHeader } from './section-header';
 import { ArtifactFooter } from './artifact-footer';
 import { CardGrid } from './card-grid';
@@ -25,18 +27,51 @@ import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
 } from '@/components/journey/journey-keyword-intel-detail';
+import { useCardEditing } from '@/lib/workspace/card-editing-context';
 import type { CardState } from '@/lib/workspace/types';
 
 function CardContent({ card }: { card: CardState }) {
+  const { isEditing, draftContent, updateDraft } = useCardEditing();
+  const content = isEditing ? draftContent : card.content;
+
   switch (card.cardType) {
     case 'stat-grid':
-      return <StatGrid stats={card.content.stats as { label: string; value: string; badge?: string; badgeColor?: string }[]} />;
+      return (
+        <StatGrid
+          stats={content.stats as { label: string; value: string; badge?: string; badgeColor?: string }[]}
+          isEditing={isEditing}
+          onStatsChange={(stats) => updateDraft({ stats })}
+        />
+      );
     case 'bullet-list':
-      return <BulletList title={card.label} items={card.content.items as string[]} accent={card.content.accent as string | undefined} />;
+      return (
+        <BulletList
+          title={card.label}
+          items={content.items as string[]}
+          accent={content.accent as string | undefined}
+          isEditing={isEditing}
+          onItemsChange={(items) => updateDraft({ items })}
+        />
+      );
     case 'check-list':
-      return <CheckList title={card.label} items={card.content.items as string[]} accent={card.content.accent as string | undefined} />;
+      return (
+        <CheckList
+          title={card.label}
+          items={content.items as string[]}
+          accent={content.accent as string | undefined}
+          isEditing={isEditing}
+          onItemsChange={(items) => updateDraft({ items })}
+        />
+      );
     case 'prose-card':
-      return <ProseCard title={card.label} text={card.content.text as string} />;
+      return (
+        <ProseCard
+          title={card.label}
+          text={content.text as string}
+          isEditing={isEditing}
+          onTextChange={(text) => updateDraft({ text })}
+        />
+      );
     case 'trend-card':
       return <TrendCard trend={card.content.trend as string} direction={card.content.direction as string} evidence={card.content.evidence as string} />;
     case 'competitor-card': {
@@ -144,61 +179,130 @@ function CardContent({ card }: { card: CardState }) {
   }
 }
 
+// Stagger timing constants (spec Section 14)
+const CARD_STAGGER = 0.05; // seconds between each card
+const CARD_DURATION = 0.2; // seconds per card animation
+const SECTION_PAUSE = 0.1; // seconds pause between exit and enter
+
 export function ArtifactCanvas() {
-  const { state, approveSection } = useWorkspace();
+  const { state, approveSection, setSectionPhase } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
   const isLoading = phase === 'researching' || phase === 'streaming';
+  const [isExiting, setIsExiting] = useState(false);
+
+  const allApproved = useMemo(
+    () => SECTION_PIPELINE.every((key) => state.sectionStates[key] === 'approved'),
+    [state.sectionStates],
+  );
 
   const sectionCards = useMemo(() => {
     return Object.values(state.cards)
       .filter((card) => card.sectionKey === state.currentSection);
   }, [state.cards, state.currentSection]);
 
+  const handleRetry = useCallback(() => {
+    setSectionPhase(state.currentSection, 'researching');
+  }, [setSectionPhase, state.currentSection]);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto px-6 pt-6 custom-scrollbar">
-        <SectionHeader section={state.currentSection} />
+        <AnimatePresence
+          mode="wait"
+          onExitComplete={() => {
+            // Insert 100ms pause between section exit and enter
+            setIsExiting(true);
+            setTimeout(() => setIsExiting(false), SECTION_PAUSE * 1000);
+          }}
+        >
+          {!isExiting && (
+            <motion.div
+              key={state.currentSection}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <SectionHeader section={state.currentSection} />
 
-        {isLoading && (
-          <div className="flex flex-1 items-center justify-center min-h-[400px]">
-            <p className="text-sm text-[var(--text-tertiary)] font-mono">
-              Researching...
-            </p>
-          </div>
-        )}
+              {/* All sections reviewed — completion state */}
+              {allApproved && (
+                <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                  <div className="text-center">
+                    <p className="text-lg font-medium text-[var(--text-primary)]">
+                      All sections reviewed
+                    </p>
+                    <p className="mt-2 text-sm text-[var(--text-tertiary)]">
+                      Your research workspace is complete.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-        {phase === 'error' && (
-          <div className="flex flex-1 items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <p className="text-sm text-[var(--accent-red)]">Research failed</p>
-              <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                {state.sectionErrors[state.currentSection] ?? 'Unknown error'}
-              </p>
-            </div>
-          </div>
-        )}
+              {/* Loading state */}
+              {!allApproved && isLoading && (
+                <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                  <p className="text-sm text-[var(--text-tertiary)] font-mono">
+                    Researching...
+                  </p>
+                </div>
+              )}
 
-        {isReviewable && sectionCards.length > 0 && (
-          <CardGrid>
-            {sectionCards.map((card, i) => (
-              <ArtifactCard key={card.id} card={card} index={i}>
-                <CardContent card={card} />
-              </ArtifactCard>
-            ))}
-          </CardGrid>
-        )}
+              {/* Error state with retry */}
+              {!allApproved && phase === 'error' && (
+                <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                  <div className="text-center">
+                    <p className="text-sm text-[var(--accent-red)]">Research failed</p>
+                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                      {state.sectionErrors[state.currentSection] ?? 'Unknown error'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="mt-4 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-raised)]"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              )}
 
-        {isReviewable && sectionCards.length === 0 && (
-          <div className="flex flex-1 items-center justify-center min-h-[400px]">
-            <p className="text-sm text-[var(--text-tertiary)] font-mono">
-              No cards for this section yet
-            </p>
-          </div>
-        )}
+              {/* Cards with staggered animation */}
+              {!allApproved && isReviewable && sectionCards.length > 0 && (
+                <CardGrid>
+                  {sectionCards.map((card, i) => (
+                    <motion.div
+                      key={card.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{
+                        duration: CARD_DURATION,
+                        delay: i * CARD_STAGGER,
+                      }}
+                    >
+                      <ArtifactCard card={card} index={i}>
+                        <CardContent card={card} />
+                      </ArtifactCard>
+                    </motion.div>
+                  ))}
+                </CardGrid>
+              )}
+
+              {!allApproved && isReviewable && sectionCards.length === 0 && (
+                <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                  <p className="text-sm text-[var(--text-tertiary)] font-mono">
+                    No cards for this section yet
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {isReviewable && <ArtifactFooter onApprove={approveSection} />}
+      {!allApproved && isReviewable && <ArtifactFooter onApprove={approveSection} />}
     </div>
   );
 }
