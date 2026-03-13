@@ -14,29 +14,35 @@ export interface WorkspaceActions {
   approveCard: (cardId: string) => void;
   approveSection: () => SectionKey | null;
   restoreCardVersion: (cardId: string, versionIndex: number) => void;
+  navigateToSection: (section: SectionKey) => void;
 }
 
 export const WorkspaceContext = createContext<WorkspaceActions | null>(null);
 
 interface WorkspaceProviderProps {
   sessionId: string;
+  startInWorkspace?: boolean;
   children: React.ReactNode;
 }
 
-function createFreshState(sessionId: string): WorkspaceState {
+function createFreshState(sessionId: string, startInWorkspace = false): WorkspaceState {
+  const sectionStates = createInitialSectionStates();
+  if (startInWorkspace) {
+    sectionStates[SECTION_PIPELINE[0]] = 'researching';
+  }
   return {
     sessionId,
-    phase: 'onboarding',
+    phase: startInWorkspace ? 'workspace' : 'onboarding',
     currentSection: SECTION_PIPELINE[0],
-    sectionStates: createInitialSectionStates(),
+    sectionStates,
     sectionErrors: {},
     cards: {},
   };
 }
 
-export function WorkspaceProvider({ sessionId, children }: WorkspaceProviderProps) {
+export function WorkspaceProvider({ sessionId, startInWorkspace = false, children }: WorkspaceProviderProps) {
   const [state, setState] = useState<WorkspaceState>(() => {
-    return loadWorkspaceState(sessionId) ?? createFreshState(sessionId);
+    return loadWorkspaceState(sessionId) ?? createFreshState(sessionId, startInWorkspace);
   });
 
   const stateRef = useRef(state);
@@ -160,6 +166,15 @@ export function WorkspaceProvider({ sessionId, children }: WorkspaceProviderProp
     });
   }, []);
 
+  const navigateToSection = useCallback((section: SectionKey) => {
+    const currentStates = stateRef.current.sectionStates;
+    if (currentStates[section] === 'queued') return; // guard: can't navigate to queued sections
+    setState((prev) => ({
+      ...prev,
+      currentSection: section,
+    }));
+  }, []);
+
   const actions: WorkspaceActions = {
     state,
     enterWorkspace,
@@ -169,6 +184,7 @@ export function WorkspaceProvider({ sessionId, children }: WorkspaceProviderProp
     approveCard,
     approveSection,
     restoreCardVersion,
+    navigateToSection,
   };
 
   return (
