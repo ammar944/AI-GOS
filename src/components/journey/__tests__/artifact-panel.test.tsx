@@ -322,6 +322,58 @@ describe('ArtifactPanel', () => {
     expect(screen.getByText('Hey Digital')).toBeInTheDocument();
   });
 
+  it('renders enriched competitor ad evidence with creatives and library links', () => {
+    const enrichedCompetitorData = {
+      ...competitorData,
+      competitors: [
+        {
+          ...competitorData.competitors[0],
+          adCreatives: [
+            {
+              platform: 'linkedin',
+              id: 'li-1',
+              advertiser: 'Hey Digital',
+              headline: 'Pipeline growth for B2B SaaS',
+              format: 'image',
+              isActive: true,
+              detailsUrl: 'https://www.linkedin.com/ad-library/detail/1',
+            },
+          ],
+          libraryLinks: {
+            metaLibraryUrl: 'https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=Hey%20Digital',
+            linkedInLibraryUrl: 'https://www.linkedin.com/ad-library/search?keyword=Hey%20Digital',
+            googleAdvertiserUrl: 'https://adstransparency.google.com/advertiser/AR123?region=US',
+          },
+        },
+        competitorData.competitors[1],
+      ],
+    };
+
+    render(
+      <ArtifactPanel
+        section="competitors"
+        status="complete"
+        data={enrichedCompetitorData}
+        approved={false}
+        onApprove={vi.fn()}
+        onRequestChanges={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    // Existing summary still renders
+    expect(screen.getByText('Hey Digital')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Our Advantage vs /).length).toBeGreaterThan(0);
+
+    // Creative headline renders
+    expect(screen.getByText('Pipeline growth for B2B SaaS')).toBeInTheDocument();
+
+    // Platform library links render
+    expect(screen.getByTestId('library-link-meta-library')).toBeInTheDocument();
+    expect(screen.getByTestId('library-link-linkedin-ads')).toBeInTheDocument();
+    expect(screen.getByTestId('library-link-google-ads')).toBeInTheDocument();
+  });
+
   it('uses limited-coverage wording for weak competitor ad evidence', () => {
     render(
       <ArtifactPanel

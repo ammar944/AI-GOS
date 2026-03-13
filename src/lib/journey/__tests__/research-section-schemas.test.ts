@@ -75,6 +75,23 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
               counterPositioning:
                 'Position against their slow onboarding and enterprise-heavy setup.',
             },
+            adCreatives: [
+              {
+                platform: 'meta',
+                id: 'meta-1',
+                advertiser: 'PipelinePro',
+                headline: 'Fix attribution before the board meeting',
+                format: 'image',
+                isActive: true,
+                imageUrl: 'https://cdn.test/meta-1.jpg',
+                detailsUrl: 'https://www.facebook.com/ads/library/?id=123',
+              },
+            ],
+            libraryLinks: {
+              metaLibraryUrl: 'https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=PipelinePro',
+              linkedInLibraryUrl: 'https://www.linkedin.com/ad-library/search?keyword=PipelinePro',
+              googleAdvertiserUrl: 'https://adstransparency.google.com/advertiser/AR123?region=US',
+            },
           },
         ],
         marketPatterns: ['Most vendors default to platform-first messaging'],

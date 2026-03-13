@@ -9,6 +9,7 @@ import {
   getJourneyKeywordIntelDetailData,
 } from '@/components/journey/journey-keyword-intel-detail';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
+import { CompetitorAdEvidence } from '@/components/journey/competitor-ad-evidence';
 import {
   collapseResearchJobUpdates,
   type ResearchJobActivity,
@@ -528,6 +529,45 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
                 )}
               </div>
             )}
+
+            <CompetitorAdEvidence
+              adActivity={adActivity ? {
+                activeAdCount: asNumber(adActivity.activeAdCount) ?? 0,
+                platforms: asStringArray(adActivity.platforms),
+                themes: asStringArray(adActivity.themes),
+                evidence: asString(adActivity.evidence) ?? '',
+                sourceConfidence: (asString(adActivity.sourceConfidence) as 'high' | 'medium' | 'low') ?? 'low',
+              } : undefined}
+              adCreatives={
+                Array.isArray(competitor.adCreatives)
+                  ? (competitor.adCreatives as Array<Record<string, unknown>>)
+                      .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+                      .map((c) => ({
+                        platform: (asString(c.platform) ?? 'meta') as 'linkedin' | 'meta' | 'google',
+                        id: asString(c.id) ?? '',
+                        advertiser: asString(c.advertiser) ?? '',
+                        headline: asString(c.headline),
+                        body: asString(c.body),
+                        imageUrl: asString(c.imageUrl),
+                        videoUrl: asString(c.videoUrl),
+                        format: (asString(c.format) ?? 'unknown') as 'video' | 'image' | 'carousel' | 'text' | 'message' | 'unknown',
+                        isActive: c.isActive === true,
+                        detailsUrl: asString(c.detailsUrl),
+                        firstSeen: asString(c.firstSeen),
+                        lastSeen: asString(c.lastSeen),
+                      }))
+                  : undefined
+              }
+              libraryLinks={
+                asRecord(competitor.libraryLinks)
+                  ? {
+                      metaLibraryUrl: asString(asRecord(competitor.libraryLinks)?.metaLibraryUrl),
+                      linkedInLibraryUrl: asString(asRecord(competitor.libraryLinks)?.linkedInLibraryUrl),
+                      googleAdvertiserUrl: asString(asRecord(competitor.libraryLinks)?.googleAdvertiserUrl),
+                    }
+                  : undefined
+              }
+            />
 
             {counterPositioning && (
               <div>

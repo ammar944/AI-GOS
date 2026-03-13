@@ -84,6 +84,22 @@ After completing your research, respond with a JSON object. Structure:
         "evidence": "string — how you know this",
         "sourceConfidence": "high | medium | low"
       },
+      "adCreatives": [
+        {
+          "platform": "linkedin | meta | google",
+          "id": "string",
+          "advertiser": "string",
+          "headline": "string",
+          "format": "image | video | carousel | text | message | unknown",
+          "isActive": true,
+          "detailsUrl": "string — link to the ad in the public library"
+        }
+      ],
+      "libraryLinks": {
+        "metaLibraryUrl": "string — Meta Ad Library search URL for this competitor",
+        "linkedInLibraryUrl": "string — LinkedIn Ad Library search URL for this competitor",
+        "googleAdvertiserUrl": "string — Google Ads Transparency URL for this competitor"
+      },
       "threatAssessment": {
         "threatFactors": {
           "marketShareRecognition": 1-10,
@@ -132,8 +148,9 @@ CRITICAL — COMPETITOR DISAMBIGUATION:
 
 TOOL USAGE PLAN:
 1. Use web_search first to lock the 5 strongest direct competitors, their positioning, and their review-backed weaknesses
-2. Use adLibraryTool for at most 2 finalist competitor domains where ad evidence could materially change positioning or threat ranking
-3. Use spyfuTool for at most 1 competitor domain, only if it materially changes spend/threat interpretation after the web and ad evidence
+2. Use adLibraryTool for the top 3 competitors by threat relevance — retain the raw adCreatives and libraryLinks from the tool response
+3. For the remaining 2 competitors, generate libraryLinks from their name and domain but leave adCreatives empty
+4. Use spyfuTool for at most 1 competitor domain, only if it materially changes spend/threat interpretation after the web and ad evidence
 
 SPEED RULES:
 - Optimize for a fast first pass instead of exhaustive coverage

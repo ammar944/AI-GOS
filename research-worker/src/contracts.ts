@@ -76,6 +76,28 @@ const threatAssessmentSchema = z.object({
   counterPositioning: nonEmptyStringSchema.optional(),
 });
 
+const competitorAdCreativeSchema = z.object({
+  platform: z.enum(['linkedin', 'meta', 'google']),
+  id: nonEmptyStringSchema,
+  advertiser: nonEmptyStringSchema,
+  headline: nonEmptyStringSchema.optional(),
+  body: nonEmptyStringSchema.optional(),
+  imageUrl: nonEmptyStringSchema.optional(),
+  videoUrl: nonEmptyStringSchema.optional(),
+  format: z.enum(['video', 'image', 'carousel', 'text', 'message', 'unknown']),
+  isActive: z.boolean(),
+  firstSeen: nonEmptyStringSchema.optional(),
+  lastSeen: nonEmptyStringSchema.optional(),
+  platforms: z.array(z.string()).optional(),
+  detailsUrl: nonEmptyStringSchema.optional(),
+});
+
+const competitorLibraryLinksSchema = z.object({
+  metaLibraryUrl: nonEmptyStringSchema.optional(),
+  linkedInLibraryUrl: nonEmptyStringSchema.optional(),
+  googleAdvertiserUrl: nonEmptyStringSchema.optional(),
+});
+
 const competitorIntelDataSchema = z.object({
   competitors: z
     .array(
@@ -97,6 +119,8 @@ const competitorIntelDataSchema = z.object({
           sourceConfidence: z.enum(['high', 'medium', 'low']),
         }),
         threatAssessment: threatAssessmentSchema.optional(),
+        adCreatives: z.array(competitorAdCreativeSchema).default([]),
+        libraryLinks: competitorLibraryLinksSchema.optional(),
       }),
     )
     .min(1),

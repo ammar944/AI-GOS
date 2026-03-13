@@ -167,6 +167,168 @@ describe('runResearchCompetitorsWithDeps', () => {
     });
   });
 
+  it('preserves enriched ad evidence with adCreatives and libraryLinks', async () => {
+    const result = await runResearchCompetitorsWithDeps(
+      'Context about the business',
+      undefined,
+      {
+        now: createNow([9_000, 9_350]),
+        parseJson: JSON.parse,
+        runAttempt: async (_context, config) => {
+          expect(config.mode).toBe('primary');
+
+          return {
+            resultText: JSON.stringify({
+              competitors: [
+                {
+                  name: 'Hey Digital',
+                  website: 'https://heydigital.com',
+                  positioning: 'B2B SaaS PPC agency',
+                  strengths: ['Strong case studies'],
+                  weaknesses: ['Limited platform coverage'],
+                  opportunities: ['Win on multi-channel'],
+                  ourAdvantage: 'Broader platform strategy.',
+                  adActivity: {
+                    activeAdCount: 8,
+                    platforms: ['LinkedIn', 'Google'],
+                    themes: ['Pipeline growth'],
+                    evidence: 'Observed 8 current ad-library records.',
+                    sourceConfidence: 'medium',
+                  },
+                  adCreatives: [
+                    {
+                      platform: 'linkedin',
+                      id: 'li-1',
+                      advertiser: 'Hey Digital',
+                      headline: 'Pipeline growth for B2B SaaS',
+                      format: 'image',
+                      isActive: true,
+                      detailsUrl: 'https://www.linkedin.com/ad-library/detail/1',
+                    },
+                  ],
+                  libraryLinks: {
+                    metaLibraryUrl: 'https://www.facebook.com/ads/library/?q=Hey%20Digital',
+                    linkedInLibraryUrl: 'https://www.linkedin.com/ad-library/search?keyword=Hey%20Digital',
+                    googleAdvertiserUrl: 'https://adstransparency.google.com/?q=heydigital.com',
+                  },
+                },
+              ],
+              marketPatterns: ['Competitors lean on channel execution'],
+              whiteSpaceGaps: [
+                {
+                  gap: 'Multi-channel accountability',
+                  type: 'channel',
+                  evidence: 'Competitors focus on single platforms.',
+                  exploitability: 8,
+                  impact: 7,
+                  recommendedAction: 'Lead with cross-platform proof.',
+                },
+              ],
+            }),
+            telemetry: {
+              model: config.model,
+              stopReason: 'end_turn',
+              usage: { inputTokens: 100, outputTokens: 350, totalTokens: 450 },
+              estimatedCostUsd: 0.002,
+            },
+          };
+        },
+      },
+    );
+
+    expect(result.status).toBe('complete');
+    if (result.status !== 'complete') throw new Error('Expected complete');
+
+    expect(result.data).toMatchObject({
+      competitors: [
+        {
+          name: 'Hey Digital',
+          adCreatives: [
+            {
+              platform: 'linkedin',
+              id: 'li-1',
+              headline: 'Pipeline growth for B2B SaaS',
+              detailsUrl: 'https://www.linkedin.com/ad-library/detail/1',
+            },
+          ],
+          libraryLinks: {
+            metaLibraryUrl: expect.stringContaining('facebook.com/ads/library'),
+            linkedInLibraryUrl: expect.stringContaining('linkedin.com/ad-library'),
+          },
+        },
+      ],
+    });
+  });
+
+  it('preserves libraryLinks with empty adCreatives for low-confidence competitors', async () => {
+    const result = await runResearchCompetitorsWithDeps(
+      'Context about the business',
+      undefined,
+      {
+        now: createNow([9_000, 9_350]),
+        parseJson: JSON.parse,
+        runAttempt: async (_context, config) => ({
+          resultText: JSON.stringify({
+            competitors: [
+              {
+                name: 'Unknown Corp',
+                website: 'https://unknowncorp.test',
+                positioning: 'Unknown positioning',
+                strengths: ['Brand awareness'],
+                weaknesses: ['No verified ad data'],
+                opportunities: ['Win on proof'],
+                ourAdvantage: 'Verified current ad presence.',
+                adActivity: {
+                  activeAdCount: 0,
+                  platforms: ['Not verified'],
+                  themes: ['Unknown'],
+                  evidence: 'Limited coverage: no ad-library sources returned results.',
+                  sourceConfidence: 'low',
+                },
+                adCreatives: [],
+                libraryLinks: {
+                  metaLibraryUrl: 'https://www.facebook.com/ads/library/?q=Unknown%20Corp',
+                  linkedInLibraryUrl: 'https://www.linkedin.com/ad-library/search?keyword=Unknown%20Corp',
+                  googleAdvertiserUrl: 'https://adstransparency.google.com/?q=unknowncorp.test',
+                },
+              },
+            ],
+            marketPatterns: ['Sparse ad coverage'],
+            whiteSpaceGaps: [
+              {
+                gap: 'Ad presence',
+                type: 'channel',
+                evidence: 'Competitors have weak ad presence.',
+                exploitability: 7,
+                impact: 6,
+                recommendedAction: 'Run visible ads to own the space.',
+              },
+            ],
+          }),
+          telemetry: {
+            model: config.model,
+            stopReason: 'end_turn',
+            usage: { inputTokens: 80, outputTokens: 250, totalTokens: 330 },
+            estimatedCostUsd: 0.001,
+          },
+        }),
+      },
+    );
+
+    expect(result.status).toBe('complete');
+    if (result.status !== 'complete') throw new Error('Expected complete');
+
+    const competitor = (result.data as { competitors: Array<Record<string, unknown>> }).competitors[0]!;
+    expect(competitor.adCreatives).toEqual([]);
+    expect(competitor.libraryLinks).toMatchObject({
+      metaLibraryUrl: expect.stringContaining('facebook.com/ads/library'),
+    });
+    expect(competitor.adActivity).toMatchObject({
+      platforms: ['Not verified'],
+      evidence: expect.stringContaining('Limited coverage'),
+    });
+  });
+
   it('routes timeout recovery through a no-tool repair pass without restarting research', async () => {
     const toolAttempts: string[] = [];
     const messageAttempts: string[] = [];

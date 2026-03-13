@@ -9,12 +9,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { firecrawlTool } from '@/lib/ai/tools/mcp/firecrawl-tool';
 import { adLibraryTool } from '@/lib/ai/tools/mcp/ad-library-tool';
 
-const FAST_HIT_PROMPT = `You are a fast competitive intelligence researcher.
+export const FAST_HIT_PROMPT = `You are a fast competitive intelligence researcher.
 Get a quick snapshot of this competitor for a paid media strategist.
 
 TOOLS:
 1. Use firecrawl to scrape the competitor's homepage — extract their value prop, key benefits, and any pricing signals
-2. Use adLibrary to check their current ad activity on Meta
+2. Use adLibrary to check their public ad-library coverage across platforms
 
 SPEED RULES:
 - Make at most 2 tool calls total (1 firecrawl + 1 adLibrary)

@@ -1,4 +1,4 @@
-# AI-GOS Research Pipeline Audit
+# AIGOS Research Pipeline Audit
 ## Complete Section Mapping: Schemas, Tools, MCPs & Output Structures
 
 **Date**: 2026-03-08 | **Branch**: aigos-v2
@@ -121,7 +121,7 @@ Phase 4 (sequential):
 
 | Tool | Provider | Input | Output |
 |------|----------|-------|--------|
-| `adLibrary` | SearchAPI.io (`google_ads_transparency`) | `companyName`, `domain?` | Competitor ad creatives, spend estimates |
+| `adLibrary` | SearchAPI.io (Google Ads Transparency, LinkedIn Ad Library, Meta Ad Library) | `companyName`, `domain?` | `WorkerAdInsight`: summary, adCreatives[], libraryLinks, sourcesUsed[] |
 | `spyfu` | SpyFu API | `domain` | Keyword intel, domain organic/paid stats |
 | `pagespeed` | Google PageSpeed Insights (public) | `url` (URL) | Performance score, Core Web Vitals |
 
@@ -137,6 +137,22 @@ Phase 4 (sequential):
     strengths: string[]
     weaknesses: string[]
     opportunities: string[]
+    adCreatives: Array<{          // NEW — from adLibrary tool
+      platform: 'google' | 'meta' | 'linkedin' | 'tiktok' | 'other'
+      id: string
+      advertiser: string
+      headline?: string
+      body?: string
+      format?: string
+      isActive?: boolean
+      imageUrl?: string
+      detailsUrl?: string
+    }>
+    libraryLinks?: {              // NEW — generated per competitor
+      metaLibraryUrl?: string
+      linkedInLibraryUrl?: string
+      googleAdvertiserUrl?: string
+    }
   }>
   marketStrengths: string[]
   marketWeaknesses: string[]
@@ -149,11 +165,15 @@ Phase 4 (sequential):
 
 ### Audit Notes
 - Richest tool set of all sections — 3 external enrichments
-- `adLibrary` depends on `SEARCHAPI_KEY` env var
+- `adLibrary` depends on `SEARCHAPI_KEY` env var — fetches Google Ads Transparency, LinkedIn Ad Library, and Meta Ad Library in parallel, falls back to Foreplay when SearchAPI results < 3
+- `adLibrary` returns `WorkerAdInsight` with `adCreatives[]`, `libraryLinks`, `summary`, and `sourcesUsed[]` (see `research-worker/src/tools/adlibrary-types.ts`)
+- `adCreatives` flow: worker adLibrary → competitor runner → contracts finalization → Supabase → app-side normalization → `CompetitorAdEvidence` component in artifact panel
+- `libraryLinks` generated for all competitors (top 3 get tool-enriched creatives, remaining get links-only)
 - `spyfu` depends on `SPYFU_API_KEY` env var
 - `pagespeed` uses public API (no key needed)
 - `adCount` field could be null if ad library returns no data
 - `keywordOverlap` (0-100) is a useful but potentially unreliable metric
+- False-positive advertiser matching uses `startsWith` logic to prevent domain-prefix mismatches (e.g., "AR Funnel.io" vs "Funnel.io")
 
 ---
 
@@ -469,7 +489,7 @@ Chart types: `bar`, `pie`, `radar`, `funnel`, `word_cloud`, `dual_axes`, `line`,
 | Tool | Location (Lead) | Location (Worker) | Used By Sections |
 |------|------|------|------|
 | `firecrawl` | `src/lib/ai/tools/mcp/firecrawl-tool.ts` | `research-worker/src/tools/firecrawl.ts` | offerAnalysis |
-| `adLibrary` | `src/lib/ai/tools/mcp/ad-library-tool.ts` | `research-worker/src/tools/adlibrary.ts` | competitorIntel |
+| `adLibrary` | `src/lib/ai/tools/mcp/ad-library-tool.ts` | `research-worker/src/tools/adlibrary.ts` | competitorIntel (returns `WorkerAdInsight` with creatives + library links from 3 platforms) |
 | `spyfu` | `src/lib/ai/tools/mcp/spyfu-tool.ts` | `research-worker/src/tools/spyfu.ts` | competitorIntel, keywordIntel |
 | `pagespeed` | `src/lib/ai/tools/mcp/pagespeed-tool.ts` | `research-worker/src/tools/pagespeed.ts` | competitorIntel |
 | `generateChart` | `src/lib/ai/tools/mcp/chart-tool.ts` | `research-worker/src/tools/chart.ts` | strategicSynthesis, mediaPlan |
@@ -1450,7 +1470,7 @@ Cost impact: ~$0.15-0.30 more per full research run (at Sonnet 4.6 pricing).
 
 **User sees:**
 1. Three-step visual guide:
-   - "1. Seed context" — give EGOS your homepage
+   - "1. Seed context" — give AIGOS your homepage
    - "2. Verify findings" — review what AI discovered
    - "3. Watch research stream" — six sections generate live
 

@@ -24,6 +24,28 @@ export const competitorAdActivitySchema = z.object({
   sourceConfidence: z.enum(['high', 'medium', 'low']),
 });
 
+export const competitorAdCreativeSchema = z.object({
+  platform: z.enum(['linkedin', 'meta', 'google']),
+  id: nonEmptyStringSchema,
+  advertiser: nonEmptyStringSchema,
+  headline: nonEmptyStringSchema.optional(),
+  body: nonEmptyStringSchema.optional(),
+  imageUrl: nonEmptyStringSchema.optional(),
+  videoUrl: nonEmptyStringSchema.optional(),
+  format: z.enum(['video', 'image', 'carousel', 'text', 'message', 'unknown']),
+  isActive: z.boolean(),
+  firstSeen: nonEmptyStringSchema.optional(),
+  lastSeen: nonEmptyStringSchema.optional(),
+  platforms: nonEmptyStringArraySchema.optional(),
+  detailsUrl: nonEmptyStringSchema.optional(),
+});
+
+export const competitorLibraryLinksSchema = z.object({
+  metaLibraryUrl: nonEmptyStringSchema.optional(),
+  linkedInLibraryUrl: nonEmptyStringSchema.optional(),
+  googleAdvertiserUrl: nonEmptyStringSchema.optional(),
+});
+
 export const competitorRecordSchema = z.object({
   name: nonEmptyStringSchema,
   website: nonEmptyStringSchema,
@@ -39,6 +61,8 @@ export const competitorRecordSchema = z.object({
   offer: nonEmptyStringSchema.optional(),
   funnels: nonEmptyStringSchema.optional(),
   threatAssessment: threatAssessmentSchema.optional(),
+  adCreatives: z.array(competitorAdCreativeSchema).default([]),
+  libraryLinks: competitorLibraryLinksSchema.optional(),
 });
 
 export const whiteSpaceGapSchema = z.object({
@@ -65,3 +89,5 @@ export type CompetitorAdActivity = z.infer<typeof competitorAdActivitySchema>;
 export type ThreatAssessment = z.infer<typeof threatAssessmentSchema>;
 export type ThreatFactors = z.infer<typeof threatFactorsSchema>;
 export type WhiteSpaceGap = z.infer<typeof whiteSpaceGapSchema>;
+export type CompetitorAdCreative = z.infer<typeof competitorAdCreativeSchema>;
+export type CompetitorLibraryLinks = z.infer<typeof competitorLibraryLinksSchema>;

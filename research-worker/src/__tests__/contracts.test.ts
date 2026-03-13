@@ -242,6 +242,87 @@ describe('finalizeRunnerResult', () => {
     });
   });
 
+  it('preserves enriched competitor ad evidence through worker finalization', () => {
+    const result = finalizeRunnerResult({
+      section: 'competitorIntel',
+      durationMs: 2100,
+      parsed: {
+        competitors: [
+          {
+            name: 'Hey Digital',
+            website: 'https://heydigital.com',
+            positioning: 'B2B SaaS PPC agency',
+            strengths: ['Strong case studies'],
+            weaknesses: ['Limited platform coverage'],
+            opportunities: ['Win on multi-channel'],
+            ourAdvantage: 'Broader platform strategy.',
+            adActivity: {
+              activeAdCount: 8,
+              platforms: ['LinkedIn', 'Google'],
+              themes: ['Pipeline growth'],
+              evidence: 'Observed 8 current ad-library records.',
+              sourceConfidence: 'medium',
+            },
+            adCreatives: [
+              {
+                platform: 'meta',
+                id: 'meta-1',
+                advertiser: 'Hey Digital',
+                headline: 'Pipeline growth without attribution guesswork',
+                format: 'image',
+                isActive: true,
+                imageUrl: 'https://cdn.test/meta-1.jpg',
+                detailsUrl: 'https://www.facebook.com/ads/library/?id=123',
+              },
+            ],
+            libraryLinks: {
+              metaLibraryUrl: 'https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=Hey%20Digital',
+              linkedInLibraryUrl: 'https://www.linkedin.com/ad-library/search?keyword=Hey%20Digital',
+              googleAdvertiserUrl: 'https://adstransparency.google.com/advertiser/AR123?region=US',
+            },
+          },
+        ],
+        whiteSpaceGaps: [
+          {
+            gap: 'Multi-channel strategy',
+            type: 'channel',
+            evidence: 'Competitors focus on single platforms.',
+            exploitability: 8,
+            impact: 7,
+            recommendedAction: 'Lead with cross-platform proof.',
+          },
+        ],
+      },
+      rawText: '{"competitors":[{"name":"Hey Digital"}]}',
+    });
+
+    expect(result).toMatchObject({
+      status: 'complete',
+      section: 'competitorIntel',
+      data: {
+        competitors: [
+          {
+            name: 'Hey Digital',
+            adCreatives: [
+              {
+                platform: 'meta',
+                id: 'meta-1',
+                advertiser: 'Hey Digital',
+                headline: 'Pipeline growth without attribution guesswork',
+                detailsUrl: 'https://www.facebook.com/ads/library/?id=123',
+              },
+            ],
+            libraryLinks: {
+              metaLibraryUrl: expect.stringContaining('facebook.com/ads/library'),
+              linkedInLibraryUrl: expect.stringContaining('linkedin.com/ad-library'),
+              googleAdvertiserUrl: expect.stringContaining('adstransparency.google.com'),
+            },
+          },
+        ],
+      },
+    });
+  });
+
   it('preserves telemetry metadata on valid runner output', () => {
     const result = finalizeRunnerResult({
       section: 'crossAnalysis',
