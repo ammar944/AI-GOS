@@ -546,24 +546,24 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
                         platform: (asString(c.platform) ?? 'meta') as 'linkedin' | 'meta' | 'google',
                         id: asString(c.id) ?? '',
                         advertiser: asString(c.advertiser) ?? '',
-                        headline: asString(c.headline),
-                        body: asString(c.body),
-                        imageUrl: asString(c.imageUrl),
-                        videoUrl: asString(c.videoUrl),
+                        headline: asString(c.headline) ?? undefined,
+                        body: asString(c.body) ?? undefined,
+                        imageUrl: asString(c.imageUrl) ?? undefined,
+                        videoUrl: asString(c.videoUrl) ?? undefined,
                         format: (asString(c.format) ?? 'unknown') as 'video' | 'image' | 'carousel' | 'text' | 'message' | 'unknown',
                         isActive: c.isActive === true,
-                        detailsUrl: asString(c.detailsUrl),
-                        firstSeen: asString(c.firstSeen),
-                        lastSeen: asString(c.lastSeen),
+                        detailsUrl: asString(c.detailsUrl) ?? undefined,
+                        firstSeen: asString(c.firstSeen) ?? undefined,
+                        lastSeen: asString(c.lastSeen) ?? undefined,
                       }))
                   : undefined
               }
               libraryLinks={
                 asRecord(competitor.libraryLinks)
                   ? {
-                      metaLibraryUrl: asString(asRecord(competitor.libraryLinks)?.metaLibraryUrl),
-                      linkedInLibraryUrl: asString(asRecord(competitor.libraryLinks)?.linkedInLibraryUrl),
-                      googleAdvertiserUrl: asString(asRecord(competitor.libraryLinks)?.googleAdvertiserUrl),
+                      metaLibraryUrl: asString(asRecord(competitor.libraryLinks)?.metaLibraryUrl) ?? undefined,
+                      linkedInLibraryUrl: asString(asRecord(competitor.libraryLinks)?.linkedInLibraryUrl) ?? undefined,
+                      googleAdvertiserUrl: asString(asRecord(competitor.libraryLinks)?.googleAdvertiserUrl) ?? undefined,
                     }
                   : undefined
               }
