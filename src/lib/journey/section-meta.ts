@@ -8,8 +8,8 @@ export const SECTION_META: Record<string, SectionMeta> = {
   competitors: { label: 'Competitor Intel', moduleNumber: '02' },
   icpValidation: { label: 'ICP Validation', moduleNumber: '03' },
   offerAnalysis: { label: 'Offer Analysis', moduleNumber: '04' },
-  crossAnalysis: { label: 'Strategic Synthesis', moduleNumber: '05' },
-  keywordIntel: { label: 'Keywords', moduleNumber: '06' },
+  keywordIntel: { label: 'Keywords', moduleNumber: '05' },
+  crossAnalysis: { label: 'Strategic Synthesis', moduleNumber: '06' },
   mediaPlan: { label: 'Media Plan', moduleNumber: '07' },
 };
 

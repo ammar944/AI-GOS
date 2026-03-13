@@ -17,6 +17,7 @@ export const STORAGE_KEYS = {
   JOURNEY_SESSION: "aigog_journey_session",
   SHELL_STATE: "aigog_shell_state",
   SESSION_HISTORY: "aigog_session_history",
+  WORKSPACE_STATE: "aigog_workspace_state",
 } as const;
 
 // Generation state to track progress

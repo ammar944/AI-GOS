@@ -51,6 +51,8 @@ import { JourneyStudioPreviewShell } from '@/components/journey/studio-preview-s
 import { ResearchInlineCard } from '@/components/journey/research-inline-card';
 import { ArtifactTriggerCard } from '@/components/journey/artifact-trigger-card';
 import { ArtifactPanel } from '@/components/journey/artifact-panel';
+import { WorkspaceProvider } from '@/components/workspace/workspace-provider';
+import { WorkspacePage } from '@/components/workspace/workspace-page';
 import { JourneyWorkerStatusBanner } from '@/components/journey/journey-worker-status-banner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -74,10 +76,15 @@ import {
   JOURNEY_FIELD_LABELS,
   JOURNEY_MANUAL_BLOCKER_FIELDS,
   JOURNEY_PREFILL_REVIEW_FIELDS,
+  JOURNEY_REQUIRED_FIELD_KEYS,
+  JOURNEY_PRICING_GROUP_KEYS,
 } from '@/lib/journey/field-catalog';
 import { getManualPrefillPreset } from '@/lib/journey/manual-prefill-presets';
 import { isJourneyStudioPreview } from '@/lib/journey/journey-preview';
+import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
+import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-status';
+import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
@@ -87,8 +94,6 @@ const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
   { id: 'offerAnalysis', label: 'Offer Analysis', status: 'queued', detail: 'Queued' },
 ];
 
-const TOTAL_PREFILL_FIELDS = JOURNEY_PREFILL_REVIEW_FIELDS.length;
-
 const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'industryMarket',
   'competitors',
@@ -96,24 +101,11 @@ const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'offerAnalysis',
 ]);
 
-type JourneyPhaseView = 'welcome' | 'prefilling' | 'review' | 'resume' | 'chat';
+type JourneyPhaseView = 'welcome' | 'prefilling' | 'review' | 'resume' | 'chat' | 'workspace';
 
 interface PrefillAcceptPayload {
   editedFields?: Record<string, string>;
   manualFields?: Record<string, string>;
-}
-
-function readPrefillFieldValue(
-  partialResult: Record<string, unknown> | null | undefined,
-  key: string,
-): string | null {
-  const field = partialResult?.[key];
-  if (!field || typeof field !== 'object' || !('value' in field)) {
-    return null;
-  }
-
-  const value = (field as { value?: string | null }).value;
-  return typeof value === 'string' ? value : null;
 }
 
 function getJourneyStudioTitle(
@@ -370,7 +362,7 @@ function JourneyPageContent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const statusRef = useRef<string>('ready');
-  const journeyPhaseRef = useRef<'welcome' | 'prefilling' | 'review' | 'resume' | 'chat'>('welcome');
+  const journeyPhaseRef = useRef<JourneyPhaseView>('welcome');
   // Sections with completed research that still need UI or agent follow-up.
   const pendingWakeUpsRef = useRef<Set<string>>(new Set());
   const wokenSectionsRef = useRef<Set<string>>(new Set());
@@ -379,10 +371,9 @@ function JourneyPageContent() {
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
 
   // Journey phase: controls which view renders
-  const [journeyPhase, setJourneyPhase] = useState<'welcome' | 'prefilling' | 'review' | 'resume' | 'chat'>('welcome');
+  const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>('welcome');
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [isResuming, setIsResuming] = useState(false);
-  const [prefillStarted, setPrefillStarted] = useState(false);
   const [prefillWebsiteUrl, setPrefillWebsiteUrl] = useState('');
 
   const {
@@ -397,13 +388,28 @@ function JourneyPageContent() {
     () =>
       getManualPrefillPreset({
         websiteUrl: prefillWebsiteUrl,
-        companyName: readPrefillFieldValue(
+        companyName: readJourneyPrefillFieldValue(
           partialResult as Record<string, unknown> | null | undefined,
           'companyName',
         ),
       }),
     [partialResult, prefillWebsiteUrl],
   );
+
+  // Flatten partialResult { key: { value } } into Record<string, string> for UnifiedFieldReview
+  const extractedFieldsFlat = useMemo(() => {
+    const flat: Record<string, string> = {};
+    // Include the website URL the user entered — it's stored separately from extraction results
+    if (prefillWebsiteUrl) flat.websiteUrl = prefillWebsiteUrl;
+    const record = partialResult as Record<string, unknown> | null | undefined;
+    if (!record) return flat;
+    for (const key of Object.keys(record)) {
+      const value = readJourneyPrefillFieldValue(record, key);
+      if (value) flat[key] = value;
+    }
+    return flat;
+  }, [partialResult, prefillWebsiteUrl]);
+
   const [activeRunId, setActiveRunId] = useState<string | null>(() => getStoredJourneyRunId());
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
   const activeRunIdRef = useRef<string | null>(activeRunId);
@@ -1176,17 +1182,8 @@ function JourneyPageContent() {
     }
   }, [messages]);
 
-  // Auto-transition from prefilling → review/chat when stream completes
-  useEffect(() => {
-    if (journeyPhase !== 'prefilling' || !prefillStarted || isPrefilling) return;
-    // Stream finished — transition based on extracted fields or preset-backed blocker defaults
-    if (fieldsFound > 0 || prefillReviewPreset) {
-      const timer = setTimeout(() => setJourneyPhase('review'), 800);
-      return () => clearTimeout(timer);
-    }
-    // 0 fields found (error or empty result) — don't auto-transition,
-    // let the user see the state and click "skip" in PrefillStreamView
-  }, [journeyPhase, prefillStarted, isPrefilling, fieldsFound, prefillReviewPreset]);
+  // Auto-transition removed — PrefillStreamView now shows a completion state
+  // with a manual "Continue to Review" button so users can see what was extracted
 
   // Handle askUser chip tap
   const handleAskUserResponse = useCallback(
@@ -1328,7 +1325,7 @@ function JourneyPageContent() {
           continue;
         }
 
-        const value = readPrefillFieldValue(partialResultRecord, key);
+        const value = readJourneyPrefillFieldValue(partialResultRecord, key);
         if (value) {
           acceptedJourneyFields[key] = value;
         }
@@ -1382,19 +1379,64 @@ function JourneyPageContent() {
     ],
   );
 
-  const handleSkipPrefill = useCallback(() => {
-    const nextRunId = beginFreshJourneyRun();
-    stopPrefill();
-    setPrefillStarted(false);
-    addLog('inf', 'Skipping website analysis — moving to manual onboarding');
-    setJourneyPhase('chat');
-    sendMessage({
-      text: 'Start without website analysis',
-      metadata: { activeRunId: nextRunId },
-    }, {
-      body: { activeRunId: nextRunId },
-    });
-  }, [addLog, beginFreshJourneyRun, sendMessage, stopPrefill]);
+  // Handler for UnifiedFieldReview — takes a flat Record<string, string>
+  const handleStartFromUnifiedReview = useCallback(
+    (onboardingData: Record<string, string>) => {
+      // Gate: verify all required fields are filled before proceeding
+      const missingRequired: string[] = [];
+      for (const key of JOURNEY_REQUIRED_FIELD_KEYS) {
+        if (!onboardingData[key]?.trim()) {
+          missingRequired.push(JOURNEY_FIELD_LABELS[key] ?? key);
+        }
+      }
+      const hasPricing = Array.from(JOURNEY_PRICING_GROUP_KEYS).some(
+        (key) => onboardingData[key]?.trim(),
+      );
+      if (!hasPricing) {
+        missingRequired.push('Pricing or Budget');
+      }
+      if (missingRequired.length > 0) {
+        addLog('err', `Cannot proceed — missing required fields: ${missingRequired.join(', ')}`);
+        return;
+      }
+
+      const nextRunId = beginFreshJourneyRun();
+      const acceptedJourneyFields: Record<string, string> = {};
+
+      for (const [key, rawValue] of Object.entries(onboardingData)) {
+        const value = rawValue?.trim();
+        if (value) acceptedJourneyFields[key] = value;
+      }
+
+      const displayName = acceptedJourneyFields.companyName || 'this company';
+      const orderedFieldKeys = Object.keys(acceptedJourneyFields);
+
+      const lines: string[] = ["Here's what I found about the company:"];
+      for (const key of orderedFieldKeys) {
+        const value = acceptedJourneyFields[key];
+        if (!value) continue;
+        lines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+      }
+      lines.push('', 'Please use this context and begin the research journey.');
+
+      persistAcceptedJourneyFields(acceptedJourneyFields, nextRunId);
+      addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
+
+      sendMessage({
+        text: lines.join('\n'),
+        metadata: {
+          hidden: false,
+          displayText: `Company profile accepted for ${displayName}`,
+          activeRunId: nextRunId,
+        },
+      }, {
+        body: { activeRunId: nextRunId },
+      });
+
+      setJourneyPhase('chat');
+    },
+    [addLog, beginFreshJourneyRun, persistAcceptedJourneyFields, sendMessage],
+  );
 
   const handleArtifactApprove = useCallback(() => {
     setArtifactFeedbackSection(null);
@@ -1822,21 +1864,19 @@ function JourneyPageContent() {
       websiteUrl={prefillWebsiteUrl}
       onRetry={() => {
         stopPrefill();
-        setPrefillStarted(false);
+
         setPrefillWebsiteUrl('');
         setJourneyPhase('welcome');
       }}
-      onSkip={handleSkipPrefill}
+      onComplete={() => setJourneyPhase('review')}
     />
   );
 
   const reviewWorkspace = (
-    <PrefillReviewView
-      partialResult={partialResult}
-      fieldsFound={fieldsFound}
-      websiteUrl={prefillWebsiteUrl}
-      onAccept={handleAcceptPrefill}
-      onSkip={handleSkipPrefill}
+    <UnifiedFieldReview
+      extractedFields={extractedFieldsFlat}
+      presetFields={prefillReviewPreset?.values}
+      onStart={handleStartFromUnifiedReview}
     />
   );
 
@@ -1844,12 +1884,11 @@ function JourneyPageContent() {
     <WelcomeForm
       onAnalyze={(websiteUrl, linkedinUrl) => {
         setPrefillWebsiteUrl(websiteUrl);
-        setPrefillStarted(true);
+
         submitPrefill({ websiteUrl, linkedinUrl });
         setJourneyPhase('prefilling');
         addLog('run', `Analyzing ${websiteUrl}`);
       }}
-      onSkip={handleSkipPrefill}
     />
   );
 
@@ -1866,6 +1905,15 @@ function JourneyPageContent() {
   const previewWorkspace = showChatView
     ? chatWorkspace
     : renderStudioStateFrame(standardWorkspace);
+
+  // Workspace phase — replaces entire chat layout with artifact-first workspace
+  if (journeyPhase === 'workspace') {
+    return (
+      <WorkspaceProvider sessionId={activeRunId ?? 'default'}>
+        <WorkspacePage />
+      </WorkspaceProvider>
+    );
+  }
 
   const previewDock = artifactOpen ? (
     <JourneyStudioPreviewDock
@@ -1913,7 +1961,18 @@ function JourneyPageContent() {
               {previewWorkspace}
             </JourneyStudioPreviewShell>
           ) : (
-            standardWorkspace
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={journeyPhase}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="flex flex-1 flex-col overflow-hidden"
+              >
+                {standardWorkspace}
+              </motion.div>
+            </AnimatePresence>
           )}
         </main>
 
@@ -1928,155 +1987,6 @@ function JourneyPageContent() {
 }
 
 // ---------------------------------------------------------------------------
-// Prefill Stream View — shows fields appearing in real-time during extraction
-// ---------------------------------------------------------------------------
-function PrefillStreamView({
-  partialResult,
-  fieldsFound,
-  isPrefilling,
-  error,
-  websiteUrl,
-  onRetry,
-  onSkip,
-}: {
-  partialResult: ReturnType<typeof useJourneyPrefill>['partialResult'];
-  fieldsFound: number;
-  isPrefilling: boolean;
-  error: Error | undefined;
-  websiteUrl: string;
-  onRetry: () => void;
-  onSkip: () => void;
-}) {
-  const confidenceNotes =
-    partialResult && typeof partialResult.confidenceNotes === 'string'
-      ? partialResult.confidenceNotes
-      : null;
-  const renderedError = useMemo(
-    () => formatJourneyErrorMessage(error),
-    [error],
-  );
-
-  return (
-    <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
-      <div className="max-w-2xl mx-auto flex flex-col items-center pt-16 space-y-8">
-        <div className="text-center space-y-3">
-          <div
-            className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center"
-            style={{
-              background: 'rgba(60, 131, 246, 0.15)',
-              animation: isPrefilling ? 'pulse 2s ease-in-out infinite' : 'none',
-            }}
-          >
-            <svg className="w-6 h-6" style={{ color: '#3c83f6' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-light text-white/90">
-            {isPrefilling ? 'Analyzing your website...' : 'Analysis complete'}
-          </h2>
-          <p className="text-xs text-white/40 font-mono">{websiteUrl}</p>
-          <p className="text-sm text-white/50">
-            Found{' '}
-            <span className="font-medium" style={{ color: '#3c83f6' }}>
-              {fieldsFound}
-            </span>
-            /{TOTAL_PREFILL_FIELDS} fields
-          </p>
-        </div>
-
-        <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${(fieldsFound / TOTAL_PREFILL_FIELDS) * 100}%`,
-              background: isPrefilling ? '#3c83f6' : '#10B981',
-            }}
-          />
-        </div>
-
-        {error && (
-          <div className="w-full glass-surface rounded-xl p-4" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-            <p className="text-sm" style={{ color: '#ef4444' }}>{renderedError}</p>
-            <button
-              onClick={onSkip}
-              className="mt-3 text-xs text-white/50 hover:text-white/80 underline transition-colors"
-            >
-              Skip and start without analysis
-            </button>
-          </div>
-        )}
-
-        {!isPrefilling && fieldsFound === 0 && !error && (
-          <div className="w-full glass-surface rounded-xl p-4 text-center" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-            <p className="text-sm text-white/60">
-              We couldn&apos;t find usable public details for <span className="text-white/80">{websiteUrl}</span>.
-              Double-check the URL and TLD, then try again. You can also continue without prefill and answer manually.
-            </p>
-            {confidenceNotes && (
-              <p className="mt-3 text-xs text-white/40">{confidenceNotes}</p>
-            )}
-            <div className="mt-4 flex items-center justify-center gap-4">
-              <button
-                onClick={onRetry}
-                className="text-xs text-white/70 hover:text-white underline transition-colors"
-              >
-                Try another URL
-              </button>
-              <button
-                onClick={onSkip}
-                className="text-xs text-white/50 hover:text-white/80 underline transition-colors"
-              >
-                Continue without prefill
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="w-full space-y-3">
-          {JOURNEY_PREFILL_REVIEW_FIELDS.map(({ key, label }) => {
-            const field = partialResult?.[key as keyof typeof partialResult];
-            const value =
-              field && typeof field === 'object' && 'value' in field
-                ? (field as { value?: string | null }).value
-                : null;
-            if (!value) return null;
-
-            return (
-              <div
-                key={key}
-                className="glass-surface rounded-xl p-4 flex items-start gap-3 prefill-field-enter"
-              >
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: 'rgba(16, 185, 129, 0.15)' }}
-                >
-                  <svg className="w-3 h-3" style={{ color: '#10B981' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-mono text-white/40 uppercase tracking-wider">{label}</span>
-                  <p className="text-sm text-white/80 mt-0.5 break-words leading-relaxed">{value}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {isPrefilling && (
-          <button
-            onClick={onSkip}
-            className="text-xs text-white/30 hover:text-white/60 transition-colors"
-          >
-            Skip and start without analysis
-          </button>
-        )}
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Prefill Review View — shows extracted fields for acceptance/editing
 // ---------------------------------------------------------------------------
 function PrefillReviewView({
@@ -2084,13 +1994,11 @@ function PrefillReviewView({
   fieldsFound,
   websiteUrl,
   onAccept,
-  onSkip,
 }: {
   partialResult: ReturnType<typeof useJourneyPrefill>['partialResult'];
   fieldsFound: number;
   websiteUrl: string;
   onAccept: (payload?: PrefillAcceptPayload) => void;
-  onSkip: () => void;
 }) {
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -2099,7 +2007,7 @@ function PrefillReviewView({
   const foundFields = useMemo(() => {
     const fields: Array<{ key: string; label: string; value: string; confidence: number }> = [];
     for (const { key, label } of JOURNEY_PREFILL_REVIEW_FIELDS) {
-      const value = readPrefillFieldValue(
+      const value = readJourneyPrefillFieldValue(
         partialResult as Record<string, unknown>,
         key,
       );
@@ -2125,7 +2033,10 @@ function PrefillReviewView({
         websiteUrl,
         companyName:
           editedFields.companyName?.trim() ||
-          readPrefillFieldValue(partialResult as Record<string, unknown>, 'companyName'),
+          readJourneyPrefillFieldValue(
+            partialResult as Record<string, unknown>,
+            'companyName',
+          ),
       }),
     [editedFields.companyName, partialResult, websiteUrl],
   );
@@ -2146,7 +2057,7 @@ function PrefillReviewView({
         continue;
       }
 
-      const extractedValue = readPrefillFieldValue(
+      const extractedValue = readJourneyPrefillFieldValue(
         partialResult as Record<string, unknown>,
         field.key,
       );
@@ -2329,7 +2240,7 @@ function PrefillReviewView({
                 ? !pricingContextReady
                 : Boolean(field.required && !value.trim());
               const presetValue = preset?.values[field.key];
-              const extractedValue = readPrefillFieldValue(
+              const extractedValue = readJourneyPrefillFieldValue(
                 partialResult as Record<string, unknown>,
                 field.key,
               );
@@ -2396,7 +2307,7 @@ function PrefillReviewView({
           </div>
         </div>
 
-        <div className="flex gap-3 w-full">
+        <div className="w-full">
           <button
             disabled={!canStartResearch}
             onClick={() =>
@@ -2405,19 +2316,13 @@ function PrefillReviewView({
                 manualFields: resolvedManualFieldValues,
               })
             }
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 hover:brightness-110"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 hover:brightness-110"
             style={{ background: '#3c83f6' }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M5 13l4 4L19 7" />
             </svg>
             Start Market Overview
-          </button>
-          <button
-            onClick={onSkip}
-            className="flex-1 px-6 py-3 rounded-xl text-sm font-medium text-white/60 border border-white/10 hover:bg-white/5 hover:text-white/80 transition-all"
-          >
-            Skip — I&apos;ll answer in chat
           </button>
         </div>
       </div>
@@ -2430,121 +2335,277 @@ function PrefillReviewView({
 // ---------------------------------------------------------------------------
 function WelcomeForm({
   onAnalyze,
-  onSkip,
 }: {
   onAnalyze: (websiteUrl: string, linkedinUrl: string) => void;
-  onSkip: () => void;
 }) {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [urlFocused, setUrlFocused] = useState(false);
+  const [linkedinFocused, setLinkedinFocused] = useState(false);
+
+  // Shared motion config — mirrors fadeUp + springs.gentle
+  const fadeUpVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+  };
+  const gentleTransition = { type: 'spring' as const, stiffness: 300, damping: 35 };
+
+  const processSteps = [
+    { label: 'Seed context' },
+    { label: 'Verify findings' },
+    { label: 'Research streams' },
+  ];
 
   return (
-    <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12">
-      <div className="max-w-3xl mx-auto flex flex-col items-center pt-12 space-y-10">
-        <span className="inline-block text-xs font-medium tracking-wide text-white/60 border border-white/10 rounded-full px-4 py-1.5">
-          AIGOS
-        </span>
+    <section
+      className="flex-1 overflow-y-auto custom-scrollbar pb-16"
+      style={{
+        background: 'radial-gradient(ellipse 60% 50% at 50% 30%, rgba(54, 94, 255, 0.06), transparent 70%)',
+      }}
+    >
+      <div className="max-w-lg mx-auto flex flex-col items-center pt-16 px-6 space-y-8">
 
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl md:text-5xl font-light text-white/95 leading-tight">
-            Build your paid media <span className="text-brand-accent">strategy.</span>
-          </h1>
-          <p className="text-white/40 text-sm max-w-lg mx-auto">
-            Drop your website URL and AIGOS handles the rest — market research,
-            competitive intel, ICP validation, and a full media plan.
-          </p>
-          <p className="text-white/25 text-xs">~10 min to complete strategy</p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 w-full">
-          {[
-            {
-              num: 1,
-              color: 'bg-brand-accent',
-              title: 'Seed context',
-              desc: 'Give AIGOS your homepage to pull business context automatically.',
-            },
-            {
-              num: 2,
-              color: 'bg-brand-success',
-              title: 'Verify findings',
-              desc: 'Review and approve what AI discovered before research begins.',
-            },
-            {
-              num: 3,
-              color: 'bg-brand-success',
-              title: 'Watch research stream',
-              desc: 'Six research sections generate live with evidence and citations.',
-            },
-          ].map((step) => (
-            <div
-              key={step.num}
-              className="glass-surface rounded-2xl p-5 space-y-3"
+        {/* Eyebrow badge */}
+        <motion.div
+          variants={fadeUpVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ ...gentleTransition, delay: 0 }}
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1"
+            style={{
+              borderColor: 'rgba(54, 94, 255, 0.2)',
+              backgroundColor: 'rgba(54, 94, 255, 0.1)',
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: 'var(--accent-blue)' }}
+            />
+            <span
+              className="font-mono text-[10px] tracking-widest uppercase"
+              style={{ color: 'var(--accent-blue)' }}
             >
-              <div className={`w-7 h-7 rounded-lg ${step.color} flex items-center justify-center text-xs font-bold text-black`}>
-                {step.num}
+              AIGOS JOURNEY
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Heading + subtitle */}
+        <motion.div
+          className="text-center space-y-3"
+          variants={fadeUpVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ ...gentleTransition, delay: 0.1 }}
+        >
+          <h1
+            className="text-4xl md:text-5xl font-light leading-tight tracking-tight"
+            style={{ fontFamily: 'var(--font-heading)', color: 'rgba(255, 255, 255, 0.95)' }}
+          >
+            Seed your strategy.
+          </h1>
+          <p
+            className="text-sm max-w-sm mx-auto leading-relaxed"
+            style={{ color: 'rgba(255, 255, 255, 0.45)' }}
+          >
+            Drop your website URL. AIGOS pulls your context, runs market research, and builds a full paid media blueprint.
+          </p>
+        </motion.div>
+
+        {/* Minimal process indicator — 3 dots + connector line */}
+        <motion.div
+          className="flex items-start gap-0 w-full max-w-xs mx-auto"
+          variants={fadeUpVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ ...gentleTransition, delay: 0.2 }}
+        >
+          {processSteps.map((step, i) => (
+            <div key={step.label} className="flex-1 flex flex-col items-center gap-2">
+              <div className="flex items-center w-full">
+                {/* Left connector */}
+                {i > 0 && (
+                  <div
+                    className="flex-1 h-px"
+                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+                  />
+                )}
+                {/* Dot */}
+                <div
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: i === 0 ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.15)',
+                  }}
+                />
+                {/* Right connector */}
+                {i < processSteps.length - 1 && (
+                  <div
+                    className="flex-1 h-px"
+                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+                  />
+                )}
               </div>
-              <h3 className="text-sm font-medium text-white/90">{step.title}</h3>
-              <p className="text-xs text-white/40 leading-relaxed">{step.desc}</p>
+              <span
+                className="font-mono text-[9px] tracking-wider uppercase text-center leading-none"
+                style={{ color: 'rgba(255, 255, 255, 0.4)' }}
+              >
+                {step.label}
+              </span>
             </div>
           ))}
-        </div>
+        </motion.div>
 
-        <div className="w-full glass-surface rounded-2xl p-6 space-y-5">
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white/60">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <circle cx="12" cy="12" r="10" />
-                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              Company website
+        {/* URL input card — hero element */}
+        <motion.div
+          className="w-full rounded-2xl border overflow-hidden"
+          variants={fadeUpVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ ...gentleTransition, delay: 0.3 }}
+          style={{
+            backgroundColor: 'rgb(16, 18, 24)',
+            borderColor: urlFocused || linkedinFocused
+              ? 'rgba(54, 94, 255, 0.4)'
+              : 'rgba(255, 255, 255, 0.15)',
+            boxShadow: urlFocused || linkedinFocused
+              ? 'var(--shadow-glow-blue)'
+              : '0 2px 12px rgba(0, 0, 0, 0.3)',
+            transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+          }}
+        >
+          {/* Website URL field */}
+          <div className="px-5 pt-5 pb-4">
+            <label
+              className="block font-mono text-[10px] tracking-widest uppercase mb-3"
+              style={{ color: urlFocused ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.45)' }}
+            >
+              Company Website
             </label>
-            <input
-              type="url"
-              value={websiteUrl}
-              onChange={(e) => setWebsiteUrl(e.target.value)}
-              placeholder="https://example.com"
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
-            />
+            <div className="relative">
+              <input
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                onFocus={() => setUrlFocused(true)}
+                onBlur={() => setUrlFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && websiteUrl.trim()) {
+                    onAnalyze(websiteUrl.trim(), linkedinUrl.trim());
+                  }
+                }}
+                placeholder="https://yourcompany.com"
+                className={cn(
+                  'w-full rounded-xl px-4 py-3 text-base outline-none transition-all duration-200',
+                  'placeholder:font-mono',
+                )}
+                style={{
+                  backgroundColor: 'rgb(12, 14, 20)',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  border: '1px solid transparent',
+                  borderColor: urlFocused ? 'rgba(54, 94, 255, 0.4)' : 'rgba(255, 255, 255, 0.12)',
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ['--tw-placeholder-color' as any]: 'rgba(255, 255, 255, 0.3)',
+                }}
+              />
+              {/* Gradient focus line */}
+              <motion.div
+                className="absolute bottom-0 left-3 right-3 h-px rounded-full"
+                style={{
+                  background: 'linear-gradient(90deg, var(--accent-blue) 0%, rgb(0, 111, 255) 50%, rgb(120, 80, 255) 100%)',
+                  originX: 0.5,
+                }}
+                animate={{ scaleX: urlFocused ? 1 : 0, opacity: urlFocused ? 1 : 0 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-white/60">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-              </svg>
-              LinkedIn company page
-            </label>
-            <input
-              type="url"
-              value={linkedinUrl}
-              onChange={(e) => setLinkedinUrl(e.target.value)}
-              placeholder="https://linkedin.com/company/your-company"
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-colors"
-            />
-          </div>
-        </div>
+          {/* Divider */}
+          <div
+            className="mx-5 h-px"
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+          />
 
-        <div className="flex gap-3 w-full">
-          <button
+          {/* LinkedIn field */}
+          <div className="px-5 pt-4 pb-5">
+            <label
+              className="block font-mono text-[10px] tracking-widest uppercase mb-3"
+              style={{ color: linkedinFocused ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.45)' }}
+            >
+              LinkedIn Company Page
+              <span
+                className="ml-2 font-mono text-[9px] tracking-wider normal-case"
+                style={{ color: 'rgba(255, 255, 255, 0.3)' }}
+              >
+                optional
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                type="url"
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                onFocus={() => setLinkedinFocused(true)}
+                onBlur={() => setLinkedinFocused(false)}
+                placeholder="https://linkedin.com/company/your-company"
+                className={cn(
+                  'w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-all duration-200',
+                  'placeholder:font-mono',
+                )}
+                style={{
+                  backgroundColor: 'rgb(12, 14, 20)',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  border: '1px solid transparent',
+                  borderColor: linkedinFocused ? 'rgba(54, 94, 255, 0.4)' : 'rgba(255, 255, 255, 0.12)',
+                }}
+              />
+              <motion.div
+                className="absolute bottom-0 left-3 right-3 h-px rounded-full"
+                style={{
+                  background: 'linear-gradient(90deg, var(--accent-blue) 0%, rgb(0, 111, 255) 50%, rgb(120, 80, 255) 100%)',
+                  originX: 0.5,
+                }}
+                animate={{ scaleX: linkedinFocused ? 1 : 0, opacity: linkedinFocused ? 1 : 0 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Action buttons */}
+        <motion.div
+          className="flex flex-col gap-3 w-full"
+          variants={fadeUpVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ ...gentleTransition, delay: 0.4 }}
+        >
+          <motion.button
             onClick={() => {
               if (websiteUrl.trim()) onAnalyze(websiteUrl.trim(), linkedinUrl.trim());
             }}
             disabled={!websiteUrl.trim()}
-            className="flex-1 flex items-center justify-center gap-2 bg-brand-accent hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed px-6 py-3 rounded-xl text-sm font-medium text-white transition-all"
+            className={cn(
+              'w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-medium text-white transition-all duration-200',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+            )}
+            style={{
+              background: 'var(--gradient-primary)',
+              boxShadow: websiteUrl.trim() ? 'var(--shadow-glow-blue)' : 'none',
+            }}
+            whileHover={websiteUrl.trim() ? { scale: 1.01, boxShadow: '0 0 28px rgba(54, 94, 255, 0.45)' } : {}}
+            whileTap={websiteUrl.trim() ? { scale: 0.98 } : {}}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg className="w-4 h-4 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
-            Analyze website first
-          </button>
-          <button
-            onClick={onSkip}
-            className="flex-1 px-6 py-3 rounded-xl text-sm font-medium text-white/60 border border-white/10 hover:bg-white/5 hover:text-white/80 transition-all"
-          >
-            Start without website analysis
-          </button>
-        </div>
+            Begin Analysis
+          </motion.button>
+
+        </motion.div>
+
       </div>
     </section>
   );
