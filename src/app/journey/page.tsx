@@ -1910,7 +1910,7 @@ function JourneyPageContent() {
   if (journeyPhase === 'workspace') {
     return (
       <WorkspaceProvider sessionId={activeRunId ?? 'default'}>
-        <WorkspacePage />
+        <WorkspacePage userId={user?.id} activeRunId={activeRunId} />
       </WorkspaceProvider>
     );
   }
