@@ -116,12 +116,24 @@ export function WorkspaceProvider({ sessionId, children }: WorkspaceProviderProp
         }
       }
 
+      // If next section already has cards (pre-fetched while user was reviewing),
+      // skip straight to 'review' instead of 'researching'
+      let nextPhase: SectionPhase = 'researching';
+      if (next) {
+        const hasCards = Object.values(updatedCards).some(
+          (card) => card.sectionKey === next,
+        );
+        if (hasCards) {
+          nextPhase = 'review';
+        }
+      }
+
       return {
         ...prev,
         sectionStates: {
           ...prev.sectionStates,
           [current]: 'approved',
-          ...(next ? { [next]: 'researching' } : {}),
+          ...(next ? { [next]: nextPhase } : {}),
         },
         currentSection: next ?? current,
         cards: updatedCards,

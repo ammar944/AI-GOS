@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { SECTION_PIPELINE, getSectionIndex } from '@/lib/workspace/pipeline';
@@ -34,9 +34,18 @@ export function StatusStrip() {
                 : 'var(--text-tertiary)',
           }}
         />
-        <span className="text-sm font-medium text-[var(--text-primary)]">
-          {meta.label}
-        </span>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={state.currentSection}
+            className="text-sm font-medium text-[var(--text-primary)]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {meta.label}
+          </motion.span>
+        </AnimatePresence>
       </div>
 
       {/* Progress bar */}
