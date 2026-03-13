@@ -240,6 +240,15 @@ export function ArtifactCanvas() {
                 </div>
               )}
 
+              {/* Queued state — section not yet started */}
+              {!allApproved && phase === 'queued' && (
+                <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                  <p className="text-sm text-[var(--text-tertiary)] font-mono">
+                    Waiting for previous sections...
+                  </p>
+                </div>
+              )}
+
               {/* Loading state */}
               {!allApproved && isLoading && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">

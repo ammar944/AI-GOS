@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { StatusStrip } from './status-strip';
 import { ArtifactCanvas } from './artifact-canvas';
 import { RightRail } from './right-rail';
+import { BottomSheet } from './bottom-sheet';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
@@ -59,6 +60,10 @@ export function WorkspacePage({ userId, activeRunId }: WorkspacePageProps) {
         <div className="hidden md:flex">
           <RightRail />
         </div>
+      </div>
+      {/* Mobile bottom sheet — hidden on md+ */}
+      <div className="md:hidden">
+        <BottomSheet />
       </div>
     </div>
   );

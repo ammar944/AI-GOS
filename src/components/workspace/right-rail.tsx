@@ -21,7 +21,11 @@ function getMessageText(parts: Array<{ type: string; text?: string; [k: string]:
     .join('');
 }
 
-export function RightRail() {
+interface RightRailProps {
+  className?: string;
+}
+
+export function RightRail({ className }: RightRailProps) {
   const { state, approveSection } = useWorkspace();
   const meta = SECTION_META[state.currentSection] ?? DEFAULT_SECTION_META;
   const isReviewable = state.sectionStates[state.currentSection] === 'review';
@@ -109,7 +113,7 @@ export function RightRail() {
   const isStreaming = status === 'streaming';
 
   return (
-    <div className="flex w-[40%] flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-chat)]">
+    <div className={cn("flex flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-chat)]", className ?? "w-[40%]")}>
       {/* Rail header */}
       <div className="border-b border-[var(--border-subtle)] px-4 py-3">
         <span className="text-xs font-mono text-[var(--text-tertiary)]">
