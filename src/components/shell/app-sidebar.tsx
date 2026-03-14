@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Home, Compass, FileText, Settings } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { LogoMark } from '@/components/ui/logo';
@@ -16,19 +16,15 @@ interface NavEntry {
 const NAV_ITEMS: NavEntry[] = [
   { icon: Home, label: 'Home', href: '/dashboard' },
   { icon: Compass, label: 'Journey', href: '/journey' },
-  { icon: FileText, label: 'Research', href: '/dashboard?tab=research' },
+  { icon: FileText, label: 'Research', href: '/research' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 
 function SidebarLink({ item }: { item: NavEntry }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
-
-  const isActive = item.href.includes('?')
-    ? currentUrl === item.href || currentUrl.startsWith(item.href + '&')
-    : item.href === '/dashboard'
-      ? pathname === '/dashboard' && !searchParams.get('tab')
+  const isActive =
+    item.href === '/dashboard'
+      ? pathname === '/dashboard'
       : pathname === item.href || pathname.startsWith(item.href + '/');
 
   const Icon = item.icon;
