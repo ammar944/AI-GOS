@@ -3,14 +3,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
-import { SECTION_PIPELINE, getSectionIndex } from '@/lib/workspace/pipeline';
+import { RESEARCH_SECTIONS, getSectionIndex } from '@/lib/workspace/pipeline';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 import { springs } from '@/lib/motion';
 
 export function StatusStrip() {
   const { state } = useWorkspace();
   const currentIndex = getSectionIndex(state.currentSection);
-  const approvedCount = SECTION_PIPELINE.filter(
+  const approvedCount = RESEARCH_SECTIONS.filter(
     (key) => state.sectionStates[key] === 'approved',
   ).length;
   const meta = SECTION_META[state.currentSection] ?? DEFAULT_SECTION_META;
@@ -54,7 +54,7 @@ export function StatusStrip() {
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--brand-sky)]"
             initial={false}
-            animate={{ width: `${((approvedCount + (state.sectionStates[state.currentSection] === 'review' ? 0.5 : 0)) / SECTION_PIPELINE.length) * 100}%` }}
+            animate={{ width: `${((approvedCount + (state.sectionStates[state.currentSection] === 'review' ? 0.5 : 0)) / RESEARCH_SECTIONS.length) * 100}%` }}
             transition={springs.snappy}
           />
         </div>
@@ -62,7 +62,7 @@ export function StatusStrip() {
 
       {/* Section count */}
       <span className="text-xs font-mono text-[var(--text-tertiary)]">
-        {currentIndex + 1} of {SECTION_PIPELINE.length}
+        {currentIndex + 1} of {RESEARCH_SECTIONS.length}
       </span>
 
       {/* Worker status */}
