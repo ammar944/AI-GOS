@@ -9,6 +9,7 @@ import { SectionHeader } from './section-header';
 import { ArtifactFooter } from './artifact-footer';
 import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
+import { ResearchActivityLog } from './research-activity-log';
 
 // Stagger timing constants (spec Section 14)
 const CARD_STAGGER = 0.05; // seconds between each card
@@ -89,51 +90,13 @@ export function ArtifactCanvas() {
                 </div>
               )}
 
-              {/* Loading state — animated */}
+              {/* Loading state — activity log */}
               {!allApproved && isLoading && (
-                <div className="flex flex-1 items-center justify-center min-h-[400px]">
-                  <div className="flex flex-col items-center gap-6 max-w-sm">
-                    {/* Pulsing orb */}
-                    <div className="relative">
-                      <motion.div
-                        className="w-12 h-12 rounded-full bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20"
-                        animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      />
-                      <motion.div
-                        className="absolute inset-0 rounded-full bg-[var(--accent-blue)]/5"
-                        animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0, 0.4] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      />
-                    </div>
-
-                    <div className="text-center space-y-2">
-                      <p className="text-sm font-medium text-white/70">
-                        {phase === 'streaming' ? 'Processing results' : 'Running research'}
-                      </p>
-                      <p className="text-xs text-white/30 font-mono">
-                        {SECTION_LABELS[state.currentSection] ?? state.currentSection}
-                      </p>
-                    </div>
-
-                    {/* Skeleton cards preview */}
-                    <div className="w-full space-y-2 mt-2">
-                      {[1, 2, 3].map((i) => (
-                        <motion.div
-                          key={i}
-                          className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4"
-                          animate={{ opacity: [0.3, 0.6, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
-                        >
-                          <div className="space-y-2">
-                            <div className="h-2.5 w-20 rounded bg-white/[0.06]" />
-                            <div className="h-3 rounded bg-white/[0.04]" style={{ width: `${50 + i * 15}%` }} />
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <ResearchActivityLog
+                  section={state.currentSection}
+                  sectionLabel={SECTION_LABELS[state.currentSection] ?? state.currentSection}
+                  phase={phase as 'researching' | 'streaming'}
+                />
               )}
 
               {/* Error state with retry */}
