@@ -1278,3 +1278,40 @@
   height: 2px;
   transition: width 1s ease-in-out;
 }
+
+/* ============================================
+   Mesh Glow — Landing Page Background
+   ============================================ */
+.aurora-glow {
+  animation: glow-breathe 8s ease-in-out infinite alternate;
+}
+
+.aurora-glow-delayed {
+  animation: glow-breathe 10s ease-in-out infinite alternate;
+  animation-delay: 2s;
+}
+
+.aurora-glow-slow {
+  animation: glow-breathe 12s ease-in-out infinite alternate;
+  animation-delay: 4s;
+}
+
+@keyframes glow-breathe {
+  0% {
+    opacity: 0.6;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-glow,
+  .aurora-glow-delayed,
+  .aurora-glow-slow {
+    animation: none;
+    opacity: 0.8;
+  }
+}

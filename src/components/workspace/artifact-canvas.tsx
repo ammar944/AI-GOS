@@ -19,6 +19,7 @@ export function ArtifactCanvas() {
   const { state, approveSection, setSectionPhase } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
+  const isApproved = phase === 'approved';
   const isLoading = phase === 'researching' || phase === 'streaming';
   const [isExiting, setIsExiting] = useState(false);
 
@@ -26,6 +27,8 @@ export function ArtifactCanvas() {
     () => SECTION_PIPELINE.every((key) => state.sectionStates[key] === 'approved'),
     [state.sectionStates],
   );
+
+  const showCards = isReviewable || isApproved || allApproved;
 
   const sectionCards = useMemo(() => {
     return Object.values(state.cards)
@@ -37,12 +40,11 @@ export function ArtifactCanvas() {
   }, [setSectionPhase, state.currentSection]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-1 flex-col min-h-0 overflow-x-hidden">
       <div className="flex-1 overflow-y-auto px-6 pt-6 custom-scrollbar">
         <AnimatePresence
           mode="wait"
           onExitComplete={() => {
-            // Insert 100ms pause between section exit and enter
             setIsExiting(true);
             setTimeout(() => setIsExiting(false), SECTION_PAUSE * 1000);
           }}
@@ -56,20 +58,6 @@ export function ArtifactCanvas() {
               transition={{ duration: 0.15 }}
             >
               <SectionHeader section={state.currentSection} />
-
-              {/* All sections reviewed — completion state */}
-              {allApproved && (
-                <div className="flex flex-1 items-center justify-center min-h-[400px]">
-                  <div className="text-center">
-                    <p className="text-lg font-medium text-[var(--text-primary)]">
-                      All sections reviewed
-                    </p>
-                    <p className="mt-2 text-sm text-[var(--text-tertiary)]">
-                      Your research workspace is complete.
-                    </p>
-                  </div>
-                </div>
-              )}
 
               {/* Queued state — section not yet started */}
               {!allApproved && phase === 'queued' && (
@@ -108,8 +96,8 @@ export function ArtifactCanvas() {
                 </div>
               )}
 
-              {/* Cards with staggered animation */}
-              {!allApproved && isReviewable && sectionCards.length > 0 && (
+              {/* Cards — shown for review, approved (navigated back), or allApproved */}
+              {showCards && sectionCards.length > 0 && (
                 <CardGrid>
                   {sectionCards.map((card, i) => (
                     <motion.div
@@ -130,7 +118,7 @@ export function ArtifactCanvas() {
                 </CardGrid>
               )}
 
-              {!allApproved && isReviewable && sectionCards.length === 0 && (
+              {showCards && sectionCards.length === 0 && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
                   <p className="text-sm text-[var(--text-tertiary)] font-mono">
                     No cards for this section yet
@@ -142,7 +130,11 @@ export function ArtifactCanvas() {
         </AnimatePresence>
       </div>
 
-      {!allApproved && isReviewable && <ArtifactFooter onApprove={approveSection} />}
+      {/* Show "Looks good" only for sections in review phase, not approved or allApproved */}
+      {!allApproved && isReviewable && <ArtifactFooter variant="approve" onApprove={approveSection} />}
+
+      {/* Show completion footer when all sections approved */}
+      {allApproved && <ArtifactFooter variant="complete" />}
     </div>
   );
 }

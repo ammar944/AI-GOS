@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import { ErrorBoundary } from "@/components/error-boundary";
 import "./globals.css";
 
@@ -52,7 +53,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+        variables: {
+          colorPrimary: '#365EFF',
+          colorBackground: '#07090e',
+          colorInputBackground: '#0e1017',
+          colorInputText: '#fcfcfa',
+          colorText: '#fcfcfa',
+          colorTextSecondary: '#cdd0d5',
+          colorDanger: '#ef4444',
+          borderRadius: '0.75rem',
+        },
+      }}
+    >
       <html lang="en" className="dark">
         <body
           className={`${dmSans.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} font-sans antialiased`}

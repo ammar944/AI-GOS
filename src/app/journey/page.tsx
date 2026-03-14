@@ -85,6 +85,9 @@ import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
 import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-status';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
+import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
+import { getNextSection } from '@/lib/workspace/pipeline';
+import type { SectionKey } from '@/lib/workspace/types';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
@@ -900,6 +903,9 @@ function JourneyPageContent() {
     journeyPhaseRef.current = journeyPhase;
   }, [journeyPhase, status]);
 
+  // Guard ref to prevent double workspace transitions
+  const hasTransitionedToWorkspaceRef = useRef(false);
+
   const appendRealtimeResearchMessage = useCallback(
     (section: string, result: ResearchSectionResult) => {
       const syntheticMessage = createRealtimeResearchMessage(section, result);
@@ -1303,11 +1309,12 @@ function JourneyPageContent() {
     addLog('inf', 'Starting fresh journey');
   }, [addLog, beginFreshJourneyRun]);
 
-  // Prefill accept — build context message from extracted fields + blocker inputs and send to lead agent
+  // Prefill accept — build context, persist to session, dispatch first research section
   const handleAcceptPrefill = useCallback(
     ({ editedFields, manualFields }: PrefillAcceptPayload = {}) => {
-      // Clear stale research data from previous sessions BEFORE entering chat
-      const nextRunId = beginFreshJourneyRun();
+      // Always create a fresh run ID for a new session
+      const nextRunId = createJourneyRunId();
+      commitActiveRunId(nextRunId);
 
       const partialResultRecord = partialResult as Record<string, unknown> | null | undefined;
       const acceptedJourneyFields: Record<string, string> = {};
@@ -1353,29 +1360,44 @@ function JourneyPageContent() {
       }
       lines.push('', 'Please use this context and begin the research journey.');
 
-      persistAcceptedJourneyFields(acceptedJourneyFields, nextRunId);
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
-      // Single message: agent sees full context, UI shows compact text
-      sendMessage({
-        text: lines.join('\n'),
-        metadata: {
-          hidden: false,
-          displayText: `Company profile accepted for ${displayName}`,
-          activeRunId: nextRunId,
-        },
-      }, {
-        body: { activeRunId: nextRunId },
-      });
+      // Go straight to workspace — render immediately while session persists
+      hasTransitionedToWorkspaceRef.current = true;
+      setJourneyPhase('workspace');
 
-      setJourneyPhase('chat');
+      // Persist session fields THEN dispatch — must await so the worker's
+      // isActiveJourneyRun() guard sees the run ID when it tries to write results
+      const context = lines.join('\n');
+      const guardedFetch = createJourneyGuardedFetch('Journey');
+      // Clear old research results, set new fields + run ID, THEN dispatch
+      guardedFetch('/api/journey/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clearResearch: true,
+          fields: Object.fromEntries(
+            Object.entries(acceptedJourneyFields).filter(([, v]) => v.trim().length > 0),
+          ),
+          activeRunId: nextRunId,
+        }),
+      }).then(() => {
+        addLog('run', `Dispatching ${SECTION_META['industryMarket'] ?? 'Market Overview'}...`);
+        return dispatchResearchSection('industryMarket', nextRunId, context);
+      }).then((result) => {
+        if (result.status === 'error') {
+          addLog('err', `Market Overview dispatch failed: ${result.error ?? 'Unknown error'}`);
+        } else {
+          addLog('ok', `Market Overview dispatched (job: ${result.jobId ?? 'unknown'})`);
+        }
+      }).catch((err) => {
+        addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
     },
     [
       addLog,
-      beginFreshJourneyRun,
+      commitActiveRunId,
       partialResult,
-      persistAcceptedJourneyFields,
-      sendMessage,
     ],
   );
 
@@ -1400,7 +1422,8 @@ function JourneyPageContent() {
         return;
       }
 
-      const nextRunId = beginFreshJourneyRun();
+      const nextRunId = createJourneyRunId();
+      commitActiveRunId(nextRunId);
       const acceptedJourneyFields: Record<string, string> = {};
 
       for (const [key, rawValue] of Object.entries(onboardingData)) {
@@ -1419,23 +1442,39 @@ function JourneyPageContent() {
       }
       lines.push('', 'Please use this context and begin the research journey.');
 
-      persistAcceptedJourneyFields(acceptedJourneyFields, nextRunId);
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
-      sendMessage({
-        text: lines.join('\n'),
-        metadata: {
-          hidden: false,
-          displayText: `Company profile accepted for ${displayName}`,
-          activeRunId: nextRunId,
-        },
-      }, {
-        body: { activeRunId: nextRunId },
-      });
+      // Go straight to workspace — render immediately while session persists
+      hasTransitionedToWorkspaceRef.current = true;
+      setJourneyPhase('workspace');
 
-      setJourneyPhase('chat');
+      // Clear old results, set new fields + run ID, THEN dispatch
+      const context = lines.join('\n');
+      const guardedFetch = createJourneyGuardedFetch('Journey');
+      guardedFetch('/api/journey/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clearResearch: true,
+          fields: Object.fromEntries(
+            Object.entries(acceptedJourneyFields).filter(([, v]) => v.trim().length > 0),
+          ),
+          activeRunId: nextRunId,
+        }),
+      }).then(() => {
+        addLog('run', `Dispatching ${SECTION_META['industryMarket'] ?? 'Market Overview'}...`);
+        return dispatchResearchSection('industryMarket', nextRunId, context);
+      }).then((result) => {
+        if (result.status === 'error') {
+          addLog('err', `Market Overview dispatch failed: ${result.error ?? 'Unknown error'}`);
+        } else {
+          addLog('ok', `Market Overview dispatched (job: ${result.jobId ?? 'unknown'})`);
+        }
+      }).catch((err) => {
+        addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
     },
-    [addLog, beginFreshJourneyRun, persistAcceptedJourneyFields, sendMessage],
+    [addLog, commitActiveRunId],
   );
 
   const handleArtifactApprove = useCallback(() => {
@@ -1630,10 +1669,10 @@ function JourneyPageContent() {
         }
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         <div
           className={cn(
-            'relative flex flex-col overflow-hidden transition-all duration-300',
+            'relative flex flex-col min-h-0 transition-all duration-300',
             showStudioPreview
               ? 'min-h-0 flex-1 bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.08),transparent_34%),linear-gradient(180deg,rgba(17,16,13,0.92),rgba(9,9,8,0.96))]'
               : artifactOpen
@@ -1908,10 +1947,46 @@ function JourneyPageContent() {
 
   // Workspace phase — replaces entire chat layout with artifact-first workspace
   if (journeyPhase === 'workspace') {
+    const handleWorkspaceSectionApproved = (approvedSection: SectionKey) => {
+      const nextSection = getNextSection(approvedSection);
+      if (!nextSection || !activeRunId) return;
+
+      // Build context from persisted onboarding state
+      const session = getJourneySession();
+      const contextLines: string[] = [];
+      if (session) {
+        for (const [key, value] of Object.entries(session)) {
+          if (typeof value === 'string' && value.trim()) {
+            contextLines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+          }
+        }
+      }
+      const context = contextLines.length > 0
+        ? contextLines.join('\n')
+        : 'Research context from onboarding session';
+
+      addLog('run', `Dispatching ${SECTION_META[nextSection] ?? nextSection}...`);
+      void dispatchResearchSection(nextSection, activeRunId, context);
+    };
+
     return (
-      <WorkspaceProvider sessionId={activeRunId ?? 'default'}>
-        <WorkspacePage userId={user?.id} activeRunId={activeRunId} />
-      </WorkspaceProvider>
+      <div
+        className="flex h-screen flex-col font-sans"
+        style={{ background: 'var(--bg-base)', color: '#E5E5E5' }}
+      >
+        <div className="flex flex-1 min-h-0">
+          <AppSidebar />
+          <div className="flex flex-1 flex-col min-h-0 min-w-0">
+            <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace>
+              <WorkspacePage
+                userId={user?.id}
+                activeRunId={activeRunId}
+                onSectionApproved={handleWorkspaceSectionApproved}
+              />
+            </WorkspaceProvider>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1935,16 +2010,15 @@ function JourneyPageContent() {
     <div
       className="flex h-screen flex-col font-sans"
       style={{
-        background: showStudioPreview ? '#040403' : '#050505',
+        background: showStudioPreview ? '#040403' : 'var(--bg-base)',
         color: '#E5E5E5',
-        overflow: 'hidden',
       }}
     >
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         <AppSidebar />
 
         <main className={cn(
-          'relative flex flex-1 flex-col overflow-hidden',
+          'relative flex flex-1 flex-col min-h-0 min-w-0',
           showStudioPreview
             ? 'bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.04),transparent_32%),linear-gradient(180deg,rgba(8,8,7,0.98),rgba(4,4,3,1))]'
             : 'bg-gradient-to-b from-transparent to-white/[0.01]',
@@ -1968,19 +2042,13 @@ function JourneyPageContent() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                className="flex flex-1 flex-col overflow-hidden"
+                className="flex flex-1 flex-col min-h-0"
               >
                 {standardWorkspace}
               </motion.div>
             </AnimatePresence>
           )}
         </main>
-
-        {!showStudioPreview && !artifactOpen && (
-          <aside className="w-72 flex-none border-l border-brand-border p-8 hidden xl:flex flex-col">
-            {progressPanel}
-          </aside>
-        )}
       </div>
     </div>
   );
@@ -2103,137 +2171,106 @@ function PrefillReviewView({
   return (
     <section
       data-testid="prefill-review"
-      className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-12"
+      className="flex-1 overflow-y-auto custom-scrollbar px-6 sm:px-8 pb-16"
     >
-      <div className="max-w-2xl mx-auto flex flex-col items-center pt-12 space-y-8">
-        <div className="text-center space-y-3">
-          <div
-            className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(16, 185, 129, 0.15)' }}
-          >
-            <svg className="w-6 h-6" style={{ color: '#10B981' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-light text-white/90">
+      <div className="max-w-2xl mx-auto flex flex-col pt-10 sm:pt-14 gap-8">
+        {/* Header */}
+        <div className="space-y-3">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-white">
             Found {fieldsFound} details from your site
           </h2>
-          <p className="text-sm text-white/40">
+          <p className="text-sm text-white/40 leading-relaxed">
             Review the extracted info below. Click any value to edit before starting.
           </p>
         </div>
 
-        <div className="w-full space-y-2">
+        {/* Extracted fields */}
+        <div className="space-y-2">
           {foundFields.map(({ key, label, value }) => {
-            const hasEditedValue = Object.prototype.hasOwnProperty.call(
-              editedFields,
-              key,
-            );
+            const hasEditedValue = Object.prototype.hasOwnProperty.call(editedFields, key);
             const displayValue = hasEditedValue ? editedFields[key] : value;
             const isEditing = editingKey === key;
 
             return (
               <div
                 key={key}
-                className="glass-surface rounded-xl p-4 flex items-start gap-3 group"
+                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex items-start gap-3 group cursor-pointer transition-colors hover:border-white/[0.1]"
+                onClick={() => {
+                  if (!isEditing) {
+                    if (!hasEditedValue) setEditedFields((prev) => ({ ...prev, [key]: value }));
+                    setEditingKey(key);
+                  }
+                }}
               >
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: 'rgba(16, 185, 129, 0.15)' }}
-                >
-                  <svg className="w-3 h-3" style={{ color: '#10B981' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-emerald-500/15">
+                  <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-mono text-white/40 uppercase tracking-wider">{label}</span>
+                  <span className="text-[10px] font-mono text-white/30 uppercase tracking-[0.16em]">{label}</span>
                   {isEditing ? (
                     <input
                       autoFocus
-                      className="w-full mt-1 bg-white/[0.05] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50"
+                      className="w-full mt-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/20 outline-none focus:border-[var(--accent-blue)]/40"
                       value={displayValue}
-                      onChange={(e) =>
-                        setEditedFields((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
+                      onChange={(e) => setEditedFields((prev) => ({ ...prev, [key]: e.target.value }))}
                       onBlur={() => setEditingKey(null)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') setEditingKey(null);
-                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') setEditingKey(null); }}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    <p
-                      className="text-sm text-white/80 mt-0.5 break-words leading-relaxed cursor-pointer hover:text-white transition-colors"
-                      onClick={() => {
-                        if (!hasEditedValue) {
-                          setEditedFields((prev) => ({ ...prev, [key]: value }));
-                        }
-                        setEditingKey(key);
-                      }}
-                    >
+                    <p className="text-sm text-white/75 mt-0.5 break-words leading-relaxed">
                       {displayValue}
                     </p>
                   )}
                 </div>
-                {!isEditing && (
-                  <button
-                    onClick={() => {
-                      if (!hasEditedValue) {
-                        setEditedFields((prev) => ({ ...prev, [key]: value }));
-                      }
-                      setEditingKey(key);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-white/60 transition-all flex-shrink-0 mt-1"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                )}
               </div>
             );
           })}
         </div>
 
-        <div className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-5">
+        {/* Human Context — required fields */}
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="max-w-xl space-y-2">
-              <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-white/35">
-                Human Context
-              </p>
-              <h3 className="text-lg font-medium text-white/90">
-                Fill what the web cannot know reliably
+            <div className="space-y-1.5">
+              <h3 className="font-heading text-lg font-semibold text-white">
+                Fill what the web can&apos;t know
               </h3>
-              <p className="text-sm leading-relaxed text-white/45">
-                Lock the blocker inputs now so Journey can ask fewer questions after Market Overview starts.
+              <p className="text-sm text-white/35">
+                Complete these before research begins.
               </p>
             </div>
             {preset ? (
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-300">
                 Auto-prefill: {preset.label}
               </span>
             ) : null}
           </div>
 
+          {/* Status banner */}
           <div
-            className="rounded-xl border px-4 py-3"
-            style={{
-              borderColor: canStartResearch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(217, 153, 82, 0.24)',
-              background: canStartResearch ? 'rgba(16, 185, 129, 0.08)' : 'rgba(217, 153, 82, 0.08)',
-            }}
+            className={cn(
+              'rounded-xl border px-4 py-3',
+              canStartResearch
+                ? 'border-emerald-500/20 bg-emerald-500/[0.06]'
+                : 'border-amber-500/20 bg-amber-500/[0.06]',
+            )}
           >
-            <p className="text-sm" style={{ color: canStartResearch ? '#8fe3b4' : '#f5c98d' }}>
+            <p className={cn('text-sm font-medium', canStartResearch ? 'text-emerald-300' : 'text-amber-300')}>
               {canStartResearch
-                ? 'Ready to start research. The missing human context is filled in.'
-                : 'Complete the required blocker fields before Market Overview begins.'}
+                ? 'Ready to start research.'
+                : `${missingManualBlockers.length} required field${missingManualBlockers.length > 1 ? 's' : ''} missing`}
             </p>
-            {!canStartResearch ? (
-              <p className="mt-1 text-xs text-white/45">
-                Missing: {missingManualBlockers.join(', ')}
+            {!canStartResearch && (
+              <p className="mt-1 text-xs text-white/35">
+                {missingManualBlockers.join(' · ')}
               </p>
-            ) : null}
+            )}
           </div>
 
-          <div className="grid gap-4">
+          {/* Manual fields */}
+          <div className="grid gap-3">
             {JOURNEY_MANUAL_BLOCKER_FIELDS.map((field) => {
               const value = resolvedManualFieldValues[field.key] ?? '';
               const isMissing = field.requiredGroup === 'pricingContext'
@@ -2253,29 +2290,32 @@ function PrefillReviewView({
               return (
                 <div
                   key={field.key}
-                  className="rounded-xl border border-white/10 bg-black/15 p-4"
+                  className={cn(
+                    'rounded-xl border p-4 transition-colors',
+                    isMissing
+                      ? 'border-amber-500/20 bg-amber-500/[0.03]'
+                      : 'border-white/[0.06] bg-white/[0.02]',
+                  )}
                   data-testid={`manual-blocker-${field.key}`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-white/40">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-white/35">
                       {field.label}
+                      {(field.required || field.requiredGroup) && (
+                        <span className="ml-1.5 text-amber-400/80">*</span>
+                      )}
                     </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {field.required || field.requiredGroup ? (
-                        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-200">
-                          {field.requiredGroup === 'pricingContext' ? 'Required: pricing or budget' : 'Required'}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {usedPreset && (
+                        <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                          Auto-filled
                         </span>
-                      ) : null}
-                      {usedPreset ? (
-                        <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200">
-                          Auto-filled from {preset?.label}
+                      )}
+                      {isMissing && (
+                        <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">
+                          Required
                         </span>
-                      ) : null}
-                      {isMissing ? (
-                        <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[10px] text-red-200">
-                          Missing
-                        </span>
-                      ) : null}
+                      )}
                     </div>
                   </div>
 
@@ -2286,7 +2326,10 @@ function PrefillReviewView({
                       onChange={(event) =>
                         setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
                       }
-                      className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50"
+                      className={cn(
+                        'mt-3 w-full resize-none rounded-lg border bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder-white/15 outline-none transition-colors',
+                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-white/[0.06] focus:border-[var(--accent-blue)]/40',
+                      )}
                       placeholder={field.placeholder}
                     />
                   ) : (
@@ -2295,19 +2338,25 @@ function PrefillReviewView({
                       onChange={(event) =>
                         setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
                       }
-                      className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-accent/50"
+                      className={cn(
+                        'mt-3 w-full rounded-lg border bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder-white/15 outline-none transition-colors',
+                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-white/[0.06] focus:border-[var(--accent-blue)]/40',
+                      )}
                       placeholder={field.placeholder}
                     />
                   )}
 
-                  <p className="mt-2 text-xs leading-6 text-white/40">{field.helper}</p>
+                  {field.helper && (
+                    <p className="mt-2 text-[11px] leading-relaxed text-white/25">{field.helper}</p>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="w-full">
+        {/* Single CTA — sticky at bottom */}
+        <div className="sticky bottom-4 z-10">
           <button
             disabled={!canStartResearch}
             onClick={() =>
@@ -2316,13 +2365,14 @@ function PrefillReviewView({
                 manualFields: resolvedManualFieldValues,
               })
             }
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 hover:brightness-110"
-            style={{ background: '#3c83f6' }}
+            className={cn(
+              'w-full h-12 rounded-full font-semibold text-[15px] transition-all duration-200 cursor-pointer',
+              canStartResearch
+                ? 'bg-white text-black hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]'
+                : 'bg-white/10 text-white/30 cursor-not-allowed',
+            )}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path d="M5 13l4 4L19 7" />
-            </svg>
-            Start Market Overview
+            {canStartResearch ? 'Start Market Overview' : `Fill ${missingManualBlockers.length} required field${missingManualBlockers.length > 1 ? 's' : ''} to continue`}
           </button>
         </div>
       </div>
@@ -2357,129 +2407,45 @@ function WelcomeForm({
   ];
 
   return (
-    <section
-      className="flex-1 overflow-y-auto custom-scrollbar pb-16"
-      style={{
-        background: 'radial-gradient(ellipse 60% 50% at 50% 30%, rgba(54, 94, 255, 0.06), transparent 70%)',
-      }}
-    >
-      <div className="max-w-lg mx-auto flex flex-col items-center pt-16 px-6 space-y-8">
+    <section className="flex-1 flex items-center justify-center overflow-y-auto custom-scrollbar">
+      <div className="max-w-lg mx-auto flex flex-col items-center px-6 space-y-10">
 
-        {/* Eyebrow badge */}
+        {/* Heading */}
         <motion.div
+          className="text-center space-y-4"
           variants={fadeUpVariants}
           initial="initial"
           animate="animate"
           transition={{ ...gentleTransition, delay: 0 }}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1"
-            style={{
-              borderColor: 'rgba(54, 94, 255, 0.2)',
-              backgroundColor: 'rgba(54, 94, 255, 0.1)',
-            }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: 'var(--accent-blue)' }}
-            />
-            <span
-              className="font-mono text-[10px] tracking-widest uppercase"
-              style={{ color: 'var(--accent-blue)' }}
-            >
-              AIGOS JOURNEY
-            </span>
-          </div>
+          <h1 className="font-heading text-4xl md:text-5xl font-bold tracking-[-0.04em] text-white">
+            Seed your strategy.
+          </h1>
+          <p className="text-[16px] text-white/40 max-w-sm mx-auto leading-[1.7]">
+            Drop your website URL. AIGOS pulls context, runs research, and builds your media blueprint.
+          </p>
         </motion.div>
 
-        {/* Heading + subtitle */}
+        {/* URL input card */}
         <motion.div
-          className="text-center space-y-3"
+          className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm p-6 space-y-5"
           variants={fadeUpVariants}
           initial="initial"
           animate="animate"
           transition={{ ...gentleTransition, delay: 0.1 }}
-        >
-          <h1
-            className="text-4xl md:text-5xl font-light leading-tight tracking-tight"
-            style={{ fontFamily: 'var(--font-heading)', color: 'rgba(255, 255, 255, 0.95)' }}
-          >
-            Seed your strategy.
-          </h1>
-          <p
-            className="text-sm max-w-sm mx-auto leading-relaxed"
-            style={{ color: 'rgba(255, 255, 255, 0.45)' }}
-          >
-            Drop your website URL. AIGOS pulls your context, runs market research, and builds a full paid media blueprint.
-          </p>
-        </motion.div>
-
-        {/* Minimal process indicator — 3 dots + connector line */}
-        <motion.div
-          className="flex items-start gap-0 w-full max-w-xs mx-auto"
-          variants={fadeUpVariants}
-          initial="initial"
-          animate="animate"
-          transition={{ ...gentleTransition, delay: 0.2 }}
-        >
-          {processSteps.map((step, i) => (
-            <div key={step.label} className="flex-1 flex flex-col items-center gap-2">
-              <div className="flex items-center w-full">
-                {/* Left connector */}
-                {i > 0 && (
-                  <div
-                    className="flex-1 h-px"
-                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-                  />
-                )}
-                {/* Dot */}
-                <div
-                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{
-                    backgroundColor: i === 0 ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.15)',
-                  }}
-                />
-                {/* Right connector */}
-                {i < processSteps.length - 1 && (
-                  <div
-                    className="flex-1 h-px"
-                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-                  />
-                )}
-              </div>
-              <span
-                className="font-mono text-[9px] tracking-wider uppercase text-center leading-none"
-                style={{ color: 'rgba(255, 255, 255, 0.4)' }}
-              >
-                {step.label}
-              </span>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* URL input card — hero element */}
-        <motion.div
-          className="w-full rounded-2xl border overflow-hidden"
-          variants={fadeUpVariants}
-          initial="initial"
-          animate="animate"
-          transition={{ ...gentleTransition, delay: 0.3 }}
           style={{
-            backgroundColor: 'rgb(16, 18, 24)',
             borderColor: urlFocused || linkedinFocused
-              ? 'rgba(54, 94, 255, 0.4)'
-              : 'rgba(255, 255, 255, 0.15)',
+              ? 'rgba(54, 94, 255, 0.3)'
+              : undefined,
             boxShadow: urlFocused || linkedinFocused
-              ? 'var(--shadow-glow-blue)'
-              : '0 2px 12px rgba(0, 0, 0, 0.3)',
+              ? '0 0 30px rgba(54, 94, 255, 0.08)'
+              : undefined,
             transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
           }}
         >
-          {/* Website URL field */}
-          <div className="px-5 pt-5 pb-4">
-            <label
-              className="block font-mono text-[10px] tracking-widest uppercase mb-3"
-              style={{ color: urlFocused ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.45)' }}
-            >
+          {/* Website URL */}
+          <div>
+            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-white/30 mb-2.5">
               Company Website
             </label>
             <div className="relative">
@@ -2495,20 +2461,9 @@ function WelcomeForm({
                   }
                 }}
                 placeholder="https://yourcompany.com"
-                className={cn(
-                  'w-full rounded-xl px-4 py-3 text-base outline-none transition-all duration-200',
-                  'placeholder:font-mono',
-                )}
-                style={{
-                  backgroundColor: 'rgb(12, 14, 20)',
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  border: '1px solid transparent',
-                  borderColor: urlFocused ? 'rgba(54, 94, 255, 0.4)' : 'rgba(255, 255, 255, 0.12)',
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  ['--tw-placeholder-color' as any]: 'rgba(255, 255, 255, 0.3)',
-                }}
+                autoFocus
+                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 text-base text-white/90 placeholder:text-white/20 placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
               />
-              {/* Gradient focus line */}
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
                 style={{
@@ -2522,23 +2477,14 @@ function WelcomeForm({
           </div>
 
           {/* Divider */}
-          <div
-            className="mx-5 h-px"
-            style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-          />
+          <div className="h-px bg-white/[0.04]" />
 
-          {/* LinkedIn field */}
-          <div className="px-5 pt-4 pb-5">
-            <label
-              className="block font-mono text-[10px] tracking-widest uppercase mb-3"
-              style={{ color: linkedinFocused ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.45)' }}
-            >
+          {/* LinkedIn */}
+          <div>
+            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-white/30 mb-2.5">
               LinkedIn Company Page
-              <span
-                className="ml-2 font-mono text-[9px] tracking-wider normal-case"
-                style={{ color: 'rgba(255, 255, 255, 0.3)' }}
-              >
-                optional
+              <span className="ml-1.5 normal-case tracking-normal text-white/15">
+                (optional)
               </span>
             </label>
             <div className="relative">
@@ -2549,16 +2495,7 @@ function WelcomeForm({
                 onFocus={() => setLinkedinFocused(true)}
                 onBlur={() => setLinkedinFocused(false)}
                 placeholder="https://linkedin.com/company/your-company"
-                className={cn(
-                  'w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-all duration-200',
-                  'placeholder:font-mono',
-                )}
-                style={{
-                  backgroundColor: 'rgb(12, 14, 20)',
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  border: '1px solid transparent',
-                  borderColor: linkedinFocused ? 'rgba(54, 94, 255, 0.4)' : 'rgba(255, 255, 255, 0.12)',
-                }}
+                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-2.5 text-sm text-white/90 placeholder:text-white/15 placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
               />
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
@@ -2573,13 +2510,13 @@ function WelcomeForm({
           </div>
         </motion.div>
 
-        {/* Action buttons */}
+        {/* CTA + trust */}
         <motion.div
-          className="flex flex-col gap-3 w-full"
+          className="flex flex-col items-center gap-4 w-full"
           variants={fadeUpVariants}
           initial="initial"
           animate="animate"
-          transition={{ ...gentleTransition, delay: 0.4 }}
+          transition={{ ...gentleTransition, delay: 0.2 }}
         >
           <motion.button
             onClick={() => {
@@ -2587,23 +2524,19 @@ function WelcomeForm({
             }}
             disabled={!websiteUrl.trim()}
             className={cn(
-              'w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-medium text-white transition-all duration-200',
-              'disabled:opacity-40 disabled:cursor-not-allowed',
+              'cursor-pointer h-12 rounded-full bg-white text-black font-semibold text-[15px] px-8 transition-all duration-200',
+              'hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]',
+              'disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none',
             )}
-            style={{
-              background: 'var(--gradient-primary)',
-              boxShadow: websiteUrl.trim() ? 'var(--shadow-glow-blue)' : 'none',
-            }}
-            whileHover={websiteUrl.trim() ? { scale: 1.01, boxShadow: '0 0 28px rgba(54, 94, 255, 0.45)' } : {}}
+            whileHover={websiteUrl.trim() ? { scale: 1.01 } : {}}
             whileTap={websiteUrl.trim() ? { scale: 0.98 } : {}}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           >
-            <svg className="w-4 h-4 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
             Begin Analysis
           </motion.button>
-
+          <p className="text-[11px] text-white/15 tracking-wide">
+            Takes ~3 minutes. No credit card required.
+          </p>
         </motion.div>
 
       </div>

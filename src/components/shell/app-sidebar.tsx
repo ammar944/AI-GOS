@@ -2,60 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  Shield,
-  Download,
-  Settings,
-} from 'lucide-react';
+import { Home, Compass, Settings } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
+import { LogoMark } from '@/components/ui/logo';
 import { cn } from '@/lib/utils';
 
-type NavIconType = React.ComponentType<{ width?: number; height?: number; strokeWidth?: number }>;
-
 interface NavEntry {
-  icon: NavIconType;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
   label: string;
   href: string;
 }
 
-// Custom SVG icons matching the mockup exactly
-
-function JourneyIcon({ width = 18, height = 18, strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement> & { width?: number; height?: number; strokeWidth?: number }) {
-  return (
-    <svg fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth} viewBox="0 0 24 24" width={width} height={height} {...props}>
-      <path d="M12 2v20" />
-      <path d="m4.93 4.93 14.14 14.14" />
-      <path d="M2 12h20" />
-      <path d="m19.07 4.93-14.14 14.14" />
-    </svg>
-  );
-}
-
-function BlueprintsIcon({ width = 18, height = 18, strokeWidth = 2, ...props }: React.SVGProps<SVGSVGElement> & { width?: number; height?: number; strokeWidth?: number }) {
-  return (
-    <svg fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth} viewBox="0 0 24 24" width={width} height={height} {...props}>
-      <rect height="18" rx="2" width="18" x="3" y="3" />
-      <path d="M3 9h18" />
-      <path d="M9 21V9" />
-    </svg>
-  );
-}
-
 const NAV_ITEMS: NavEntry[] = [
-  { icon: Home,           label: 'Home',        href: '/' },
-  { icon: JourneyIcon,    label: 'Journey',     href: '/journey' },
-  { icon: BlueprintsIcon, label: 'Blueprints',  href: '/blueprints' },
-  { icon: Shield,         label: 'Ad Launcher', href: '/ads' },
-  { icon: Download,       label: 'Creatives',   href: '/creatives' },
+  { icon: Home, label: 'Home', href: '/dashboard' },
+  { icon: Compass, label: 'Journey', href: '/journey' },
+  { icon: Settings, label: 'Settings', href: '/settings' },
 ];
-
-const SETTINGS_ITEM: NavEntry = { icon: Settings, label: 'Settings', href: '/settings' };
 
 function SidebarLink({ item }: { item: NavEntry }) {
   const pathname = usePathname();
   const isActive =
-    item.href === '/'
-      ? pathname === '/'
+    item.href === '/dashboard'
+      ? pathname === '/dashboard'
       : pathname === item.href || pathname.startsWith(item.href + '/');
 
   const Icon = item.icon;
@@ -64,31 +32,50 @@ function SidebarLink({ item }: { item: NavEntry }) {
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 text-sm rounded-control transition-all',
+        'relative flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer transition-colors duration-150',
         isActive
-          ? 'text-brand-accent bg-white/5 font-medium'
-          : 'text-white/50 hover:text-white hover:bg-white/5',
+          ? 'text-white bg-white/[0.05]'
+          : 'text-white/35 hover:text-white/70 hover:bg-white/[0.03]',
       )}
     >
-      <Icon width={18} height={18} strokeWidth={2} />
-      {item.label}
+      {isActive && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-[var(--accent-blue)]" />
+      )}
+      <Icon size={18} className="shrink-0" />
+      <span className="text-[13px] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+        {item.label}
+      </span>
     </Link>
   );
 }
 
 export function AppSidebar() {
   return (
-    <aside className="w-64 flex-none border-r border-brand-border flex flex-col p-6 space-y-8">
+    <aside className="group flex flex-col h-full w-14 hover:w-48 transition-all duration-200 ease-out bg-[var(--bg-base)] border-r border-white/[0.06] py-4 shrink-0 overflow-hidden">
+      {/* Logo */}
+      <div className="flex items-center justify-center px-2 mb-6">
+        <Link href="/dashboard" className="transition-opacity hover:opacity-80">
+          <LogoMark size="md" className="shadow-none" />
+        </Link>
+      </div>
+
       {/* Navigation */}
-      <nav className="space-y-1">
+      <nav className="flex flex-col gap-1 px-2">
         {NAV_ITEMS.map((item) => (
           <SidebarLink key={item.href} item={item} />
         ))}
       </nav>
 
-      {/* Settings at bottom, separated */}
-      <div className="mt-auto border-t border-brand-border pt-6">
-        <SidebarLink item={SETTINGS_ITEM} />
+      {/* User — bottom */}
+      <div className="mt-auto flex items-center justify-center px-2">
+        <UserButton
+          afterSignOutUrl="/"
+          appearance={{
+            elements: {
+              avatarBox: 'w-8 h-8',
+            },
+          }}
+        />
       </div>
     </aside>
   );

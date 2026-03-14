@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
-import { StatusStrip } from './status-strip';
+import { useCallback, useEffect, useRef } from 'react';
+import { SectionTabs } from './section-tabs';
 import { ArtifactCanvas } from './artifact-canvas';
 import { RightRail } from './right-rail';
 import { BottomSheet } from './bottom-sheet';
@@ -15,10 +15,12 @@ import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 interface WorkspacePageProps {
   userId?: string | null;
   activeRunId?: string | null;
+  onSectionApproved?: (section: SectionKey) => void;
 }
 
 function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
   const { setSectionPhase, setCards } = useWorkspace();
+  const renderedMediaPlanBlocksRef = useRef<Set<string>>(new Set());
 
   const onSectionComplete = useCallback(
     (section: string, result: ResearchSectionResult) => {
@@ -33,6 +35,30 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
       if (result.status !== 'complete' && result.status !== 'partial') return;
 
       const data = (result.data ?? {}) as Record<string, unknown>;
+
+      if (key === 'mediaPlan' && Array.isArray(data.completedBlocks)) {
+        const completedBlocks = data.completedBlocks as string[];
+        const rendered = renderedMediaPlanBlocksRef.current;
+        const newBlocks = completedBlocks.filter((b) => !rendered.has(b));
+
+        if (newBlocks.length > 0) {
+          const newBlockData: Record<string, unknown> = {};
+          for (const block of newBlocks) {
+            if (data[block]) newBlockData[block] = data[block];
+            rendered.add(block);
+          }
+          if (result.status === 'complete' && data.validationWarnings) {
+            newBlockData.validationWarnings = data.validationWarnings;
+          }
+
+          const newCards = parseResearchToCards(key, newBlockData);
+          setCards(key, newCards);
+        }
+
+        setSectionPhase(key, result.status === 'complete' ? 'review' : 'streaming');
+        return;
+      }
+
       const cards = parseResearchToCards(key, data);
       setCards(key, cards);
       setSectionPhase(key, 'review');
@@ -44,24 +70,53 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
     userId,
     activeRunId,
     onSectionComplete,
+    skipRunIdCheck: true,
   });
 
   return null;
 }
 
-export function WorkspacePage({ userId, activeRunId }: WorkspacePageProps) {
+function WorkspaceApprovalBridge({ onSectionApproved }: { onSectionApproved?: (section: SectionKey) => void }) {
+  const { state } = useWorkspace();
+  const prevStatesRef = useRef(state.sectionStates);
+
+  useEffect(() => {
+    if (!onSectionApproved) return;
+    const prev = prevStatesRef.current;
+    for (const key of SECTION_PIPELINE) {
+      if (prev[key] !== 'approved' && state.sectionStates[key] === 'approved') {
+        onSectionApproved(key);
+      }
+    }
+    prevStatesRef.current = state.sectionStates;
+  }, [state.sectionStates, onSectionApproved]);
+
+  return null;
+}
+
+function WorkspaceNavBar() {
+  const { state, navigateToSection } = useWorkspace();
   return (
-    <div className="flex h-screen flex-col bg-[var(--bg-base)]">
+    <SectionTabs
+      sections={SECTION_PIPELINE}
+      currentSection={state.currentSection}
+      sectionStates={state.sectionStates}
+      onNavigate={navigateToSection}
+      mode="workspace"
+    />
+  );
+}
+
+export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
+  return (
+    <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
       <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
-      <StatusStrip />
-      <div className="flex flex-1 overflow-hidden">
+      <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
+      <WorkspaceNavBar />
+      <div className="flex flex-1 min-h-0">
         <ArtifactCanvas />
-        {/* Right rail hidden on mobile, shown on md+ */}
-        <div className="hidden md:flex">
-          <RightRail />
-        </div>
+        <RightRail className="hidden md:flex w-[380px] shrink-0" />
       </div>
-      {/* Mobile bottom sheet — hidden on md+ */}
       <div className="md:hidden">
         <BottomSheet />
       </div>
