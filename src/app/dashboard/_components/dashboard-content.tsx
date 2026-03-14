@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { getUserBlueprints, deleteBlueprint, type BlueprintRecord } from "@/lib/actions/blueprints";
 import { getUserMediaPlans, deleteMediaPlan, type MediaPlanRecord } from "@/lib/actions/media-plans";
+import { getCompletedJourneySessions, type JourneySessionRecord } from "@/lib/actions/journey-sessions";
 import { getOnboardingStatus } from "@/lib/actions/onboarding";
 import { getOnboardingData } from "@/lib/storage/local-storage";
 import { mapDbToFormData, getOnboardingProgress } from "@/lib/onboarding/utils";
@@ -83,9 +85,12 @@ function DashboardSkeleton() {
 }
 
 export function DashboardContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') as 'all' | 'blueprints' | 'media-plans' | 'research' | null;
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData | null>(null);
   const [blueprints, setBlueprints] = useState<BlueprintRecord[]>([]);
   const [mediaPlans, setMediaPlans] = useState<MediaPlanRecord[]>([]);
+  const [journeySessions, setJourneySessions] = useState<JourneySessionRecord[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [onboardingProgress, setOnboardingProgress] = useState<{
     currentStep: number;
@@ -99,10 +104,11 @@ export function DashboardContent() {
   useEffect(() => {
     async function loadData() {
       // Fetch all data in parallel instead of sequentially
-      const [onboardingResult, blueprintsResult, mediaPlansResult] = await Promise.all([
+      const [onboardingResult, blueprintsResult, mediaPlansResult, sessionsResult] = await Promise.all([
         getOnboardingStatus(),
         getUserBlueprints(),
         getUserMediaPlans(),
+        getCompletedJourneySessions(),
       ]);
 
       if (onboardingResult.data) {
@@ -120,6 +126,10 @@ export function DashboardContent() {
 
       if (mediaPlansResult.data) {
         setMediaPlans(mediaPlansResult.data);
+      }
+
+      if (sessionsResult.data) {
+        setJourneySessions(sessionsResult.data);
       }
 
       if (!onboardingResult.data?.onboardingData) {
@@ -184,10 +194,12 @@ export function DashboardContent() {
       <DocumentTabs
         blueprints={blueprints}
         mediaPlans={mediaPlans}
+        journeySessions={journeySessions}
         onDeleteBlueprint={handleDeleteBlueprint}
         onDeleteMediaPlan={handleDeleteMediaPlan}
         deletingBlueprintId={deletingBlueprintId}
         deletingMediaPlanId={deletingMediaPlanId}
+        initialTab={initialTab ?? undefined}
       />
     </div>
   );

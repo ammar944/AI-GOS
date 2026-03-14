@@ -15,17 +15,20 @@ import { staggerContainer, springs } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { BlueprintCard } from "./blueprint-card";
 import { MediaPlanCard } from "./media-plan-card";
+import { ResearchCard } from "./research-card";
 import { EmptyState } from "./empty-state";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import type { BlueprintRecord } from "@/lib/actions/blueprints";
 import type { MediaPlanRecord } from "@/lib/actions/media-plans";
+import type { JourneySessionRecord } from "@/lib/actions/journey-sessions";
 
-type TabValue = "all" | "blueprints" | "media-plans";
+type TabValue = "all" | "blueprints" | "media-plans" | "research";
 type SortValue = "newest" | "oldest" | "name-asc" | "name-desc";
 
 type DashboardItem =
   | { type: "blueprint"; data: BlueprintRecord }
-  | { type: "media-plan"; data: MediaPlanRecord };
+  | { type: "media-plan"; data: MediaPlanRecord }
+  | { type: "research"; data: JourneySessionRecord };
 
 interface DeleteTarget {
   id: string;
@@ -37,16 +40,19 @@ interface DeleteTarget {
 interface DocumentTabsProps {
   blueprints: BlueprintRecord[];
   mediaPlans: MediaPlanRecord[];
+  journeySessions: JourneySessionRecord[];
   onDeleteBlueprint: (id: string) => Promise<void>;
   onDeleteMediaPlan: (id: string) => Promise<void>;
   deletingBlueprintId: string | null;
   deletingMediaPlanId: string | null;
+  initialTab?: TabValue;
 }
 
 const tabs: { value: TabValue; label: string }[] = [
   { value: "all", label: "All" },
   { value: "blueprints", label: "Blueprints" },
   { value: "media-plans", label: "Media Plans" },
+  { value: "research", label: "Research" },
 ];
 
 const sortLabels: Record<SortValue, string> = {
@@ -72,18 +78,21 @@ function formatDate(dateString: string): string {
 function getResultLabel(count: number, tab: TabValue): string {
   if (tab === "blueprints") return count === 1 ? "1 blueprint" : `${count} blueprints`;
   if (tab === "media-plans") return count === 1 ? "1 media plan" : `${count} media plans`;
+  if (tab === "research") return count === 1 ? "1 research" : `${count} research sessions`;
   return count === 1 ? "1 document" : `${count} documents`;
 }
 
 export function DocumentTabs({
   blueprints,
   mediaPlans,
+  journeySessions,
   onDeleteBlueprint,
   onDeleteMediaPlan,
   deletingBlueprintId,
   deletingMediaPlanId,
+  initialTab,
 }: DocumentTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabValue>("all");
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab ?? "all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortValue, setSortValue] = useState<SortValue>("newest");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -161,10 +170,16 @@ export function DocumentTabs({
     [mediaPlans, filterBySearch, sortItems]
   );
 
+  const filteredSessions = useMemo(
+    () => sortItems(filterBySearch(journeySessions)),
+    [journeySessions, filterBySearch, sortItems]
+  );
+
   const allItems = useMemo(() => {
     const items: DashboardItem[] = [
       ...filteredBlueprints.map((bp) => ({ type: "blueprint" as const, data: bp })),
       ...filteredMediaPlans.map((mp) => ({ type: "media-plan" as const, data: mp })),
+      ...filteredSessions.map((s) => ({ type: "research" as const, data: s })),
     ];
     return items.sort((a, b) => {
       switch (sortValue) {
@@ -180,13 +195,14 @@ export function DocumentTabs({
           return 0;
       }
     });
-  }, [filteredBlueprints, filteredMediaPlans, sortValue]);
+  }, [filteredBlueprints, filteredMediaPlans, filteredSessions, sortValue]);
 
   // Tab counts
   const tabCounts: Record<TabValue, number> = {
-    all: blueprints.length + mediaPlans.length,
+    all: blueprints.length + mediaPlans.length + journeySessions.length,
     blueprints: blueprints.length,
     "media-plans": mediaPlans.length,
+    research: journeySessions.length,
   };
 
   // Delete handlers
@@ -237,10 +253,12 @@ export function DocumentTabs({
         return filteredBlueprints.map((bp) => ({ type: "blueprint" as const, data: bp }));
       case "media-plans":
         return filteredMediaPlans.map((mp) => ({ type: "media-plan" as const, data: mp }));
+      case "research":
+        return filteredSessions.map((s) => ({ type: "research" as const, data: s }));
       default:
         return allItems;
     }
-  }, [activeTab, allItems, filteredBlueprints, filteredMediaPlans]);
+  }, [activeTab, allItems, filteredBlueprints, filteredMediaPlans, filteredSessions]);
 
   return (
     <>
@@ -364,6 +382,16 @@ export function DocumentTabs({
                         showTypeBadge={activeTab === "all"}
                         isDeleting={deletingBlueprintId === item.data.id}
                         onDelete={(id) => handleRequestDelete(id, "blueprint")}
+                        formatDate={formatDate}
+                      />
+                    );
+                  }
+                  if (item.type === "research") {
+                    return (
+                      <ResearchCard
+                        key={`rs-${item.data.id}`}
+                        session={item.data}
+                        showTypeBadge={activeTab === "all"}
                         formatDate={formatDate}
                       />
                     );
