@@ -7,6 +7,17 @@ export const SECTION_PIPELINE: SectionKey[] = [
   'offerAnalysis',
   'keywordIntel',
   'crossAnalysis',
+  'mediaPlan',
+];
+
+/** Research sections shown in workspace tabs — excludes Media Plan */
+export const RESEARCH_SECTIONS: SectionKey[] = [
+  'industryMarket',
+  'competitors',
+  'icpValidation',
+  'offerAnalysis',
+  'keywordIntel',
+  'crossAnalysis',
 ];
 
 export function getNextSection(current: SectionKey): SectionKey | null {

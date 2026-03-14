@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
-import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import { CardContentSwitch } from '@/components/research/card-renderer';
 import { SectionHeader } from './section-header';
 import { ArtifactFooter } from './artifact-footer';
@@ -15,6 +15,15 @@ const CARD_STAGGER = 0.05; // seconds between each card
 const CARD_DURATION = 0.2; // seconds per card animation
 const SECTION_PAUSE = 0.1; // seconds pause between exit and enter
 
+const SECTION_LABELS: Record<string, string> = {
+  industryMarket: 'Market Overview',
+  competitors: 'Competitor Intel',
+  icpValidation: 'ICP Validation',
+  offerAnalysis: 'Offer Analysis',
+  keywordIntel: 'Keywords',
+  crossAnalysis: 'Strategic Synthesis',
+};
+
 export function ArtifactCanvas() {
   const { state, approveSection, setSectionPhase } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
@@ -24,7 +33,7 @@ export function ArtifactCanvas() {
   const [isExiting, setIsExiting] = useState(false);
 
   const allApproved = useMemo(
-    () => SECTION_PIPELINE.every((key) => state.sectionStates[key] === 'approved'),
+    () => RESEARCH_SECTIONS.every((key) => state.sectionStates[key] === 'approved'),
     [state.sectionStates],
   );
 
@@ -62,33 +71,90 @@ export function ArtifactCanvas() {
               {/* Queued state — section not yet started */}
               {!allApproved && phase === 'queued' && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
-                  <p className="text-sm text-[var(--text-tertiary)] font-mono">
-                    Waiting for previous sections...
-                  </p>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      {[0, 1, 2].map((i) => (
+                        <motion.div
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-white/20"
+                          animate={{ opacity: [0.2, 0.5, 0.2] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-white/25 font-mono">
+                      Waiting for previous sections
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {/* Loading state */}
+              {/* Loading state — animated */}
               {!allApproved && isLoading && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
-                  <p className="text-sm text-[var(--text-tertiary)] font-mono">
-                    Researching...
-                  </p>
+                  <div className="flex flex-col items-center gap-6 max-w-sm">
+                    {/* Pulsing orb */}
+                    <div className="relative">
+                      <motion.div
+                        className="w-12 h-12 rounded-full bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20"
+                        animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                      <motion.div
+                        className="absolute inset-0 rounded-full bg-[var(--accent-blue)]/5"
+                        animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0, 0.4] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                    </div>
+
+                    <div className="text-center space-y-2">
+                      <p className="text-sm font-medium text-white/70">
+                        {phase === 'streaming' ? 'Processing results' : 'Running research'}
+                      </p>
+                      <p className="text-xs text-white/30 font-mono">
+                        {SECTION_LABELS[state.currentSection] ?? state.currentSection}
+                      </p>
+                    </div>
+
+                    {/* Skeleton cards preview */}
+                    <div className="w-full space-y-2 mt-2">
+                      {[1, 2, 3].map((i) => (
+                        <motion.div
+                          key={i}
+                          className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4"
+                          animate={{ opacity: [0.3, 0.6, 0.3] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
+                        >
+                          <div className="space-y-2">
+                            <div className="h-2.5 w-20 rounded bg-white/[0.06]" />
+                            <div className="h-3 rounded bg-white/[0.04]" style={{ width: `${50 + i * 15}%` }} />
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Error state with retry */}
               {!allApproved && phase === 'error' && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
-                  <div className="text-center">
-                    <p className="text-sm text-[var(--accent-red)]">Research failed</p>
-                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                      {state.sectionErrors[state.currentSection] ?? 'Unknown error'}
-                    </p>
+                  <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-red-400">Research failed</p>
+                      <p className="mt-1 text-xs text-white/30">
+                        {state.sectionErrors[state.currentSection] ?? 'Unknown error'}
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={handleRetry}
-                      className="mt-4 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-raised)]"
+                      className="cursor-pointer rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90"
                     >
                       Retry
                     </button>
@@ -96,7 +162,7 @@ export function ArtifactCanvas() {
                 </div>
               )}
 
-              {/* Cards — shown for review, approved (navigated back), or allApproved */}
+              {/* Cards — shown for review, approved, or allApproved */}
               {showCards && sectionCards.length > 0 && (
                 <CardGrid>
                   {sectionCards.map((card, i) => (
@@ -118,11 +184,19 @@ export function ArtifactCanvas() {
                 </CardGrid>
               )}
 
+              {/* Empty state — no cards but should have them */}
               {showCards && sectionCards.length === 0 && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
-                  <p className="text-sm text-[var(--text-tertiary)] font-mono">
-                    No cards for this section yet
-                  </p>
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-white/30">
+                      No data received for this section
+                    </p>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -130,8 +204,8 @@ export function ArtifactCanvas() {
         </AnimatePresence>
       </div>
 
-      {/* Show "Looks good" only for sections in review phase, not approved or allApproved */}
-      {!allApproved && isReviewable && <ArtifactFooter variant="approve" onApprove={approveSection} />}
+      {/* Show "Looks good" only for sections in review phase with actual cards */}
+      {!allApproved && isReviewable && sectionCards.length > 0 && <ArtifactFooter variant="approve" onApprove={approveSection} />}
 
       {/* Show completion footer when all sections approved */}
       {allApproved && <ArtifactFooter variant="complete" />}

@@ -10,7 +10,7 @@ import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
 import type { SectionKey } from '@/lib/workspace/types';
-import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -98,7 +98,7 @@ function WorkspaceNavBar() {
   const { state, navigateToSection } = useWorkspace();
   return (
     <SectionTabs
-      sections={SECTION_PIPELINE}
+      sections={RESEARCH_SECTIONS}
       currentSection={state.currentSection}
       sectionStates={state.sectionStates}
       onNavigate={navigateToSection}
