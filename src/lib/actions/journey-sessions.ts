@@ -1,0 +1,93 @@
+'use server'
+
+import { auth } from '@clerk/nextjs/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { SECTION_PIPELINE } from '@/lib/workspace/pipeline'
+import type { SectionKey, CardState } from '@/lib/workspace/types'
+
+export interface JourneySessionRecord {
+  id: string
+  title: string
+  created_at: string
+  completedSections: SectionKey[]
+}
+
+/**
+ * Save compiled research document (all approved cards) to Supabase.
+ * Called when all 6 research sections are approved in the workspace.
+ */
+export async function saveResearchDocument(
+  sessionId: string,
+  cardsBySection: Record<string, CardState[]>,
+): Promise<{ success: boolean; error?: string }> {
+  const { userId } = await auth()
+  if (!userId) return { success: false, error: 'Unauthorized' }
+
+  const supabase = createAdminClient()
+
+  // Verify ownership
+  const { data: session, error: fetchError } = await supabase
+    .from('journey_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single()
+
+  if (fetchError || !session) {
+    return { success: false, error: 'Session not found' }
+  }
+
+  const { error } = await supabase
+    .from('journey_sessions')
+    .update({
+      research_document: cardsBySection,
+      document_saved_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function getCompletedJourneySessions(): Promise<{
+  data?: JourneySessionRecord[]
+  error?: string
+}> {
+  const { userId } = await auth()
+  if (!userId) return { error: 'Unauthorized' }
+
+  const supabase = createAdminClient()
+
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('id, created_at, collected_fields, research_results')
+    .eq('user_id', userId)
+    .not('research_results', 'is', null)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: error.message }
+  if (!data) return { data: [] }
+
+  const records: JourneySessionRecord[] = data.map((row) => {
+    const fields = row.collected_fields as Record<string, unknown> | null
+    const results = row.research_results as Record<string, { status?: string }> | null
+
+    const title =
+      (fields?.companyName as string) ??
+      (fields?.url as string) ??
+      'Untitled Research'
+
+    const completedSections = SECTION_PIPELINE.filter(
+      (key) => results?.[key]?.status === 'complete',
+    )
+
+    return {
+      id: row.id,
+      title,
+      created_at: row.created_at,
+      completedSections,
+    }
+  })
+
+  return { data: records }
+}

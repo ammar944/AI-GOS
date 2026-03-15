@@ -1,15 +1,17 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
+import { saveResearchDocument } from '@/lib/actions/journey-sessions';
 import { CardContentSwitch } from '@/components/research/card-renderer';
 import { SectionHeader } from './section-header';
 import { ArtifactFooter } from './artifact-footer';
 import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
+import type { CardState, SectionKey } from '@/lib/workspace/types';
 
 // Stagger timing constants (spec Section 14)
 const CARD_STAGGER = 0.05; // seconds between each card
@@ -37,6 +39,28 @@ export function ArtifactCanvas() {
     () => RESEARCH_SECTIONS.every((key) => state.sectionStates[key] === 'approved'),
     [state.sectionStates],
   );
+
+  const [docSaveStatus, setDocSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const hasSavedRef = useRef(false);
+
+  // Auto-save research document when all sections are approved
+  useEffect(() => {
+    if (!allApproved || hasSavedRef.current) return;
+    hasSavedRef.current = true;
+
+    // Group cards by section
+    const cardsBySection: Record<string, CardState[]> = {};
+    for (const key of RESEARCH_SECTIONS) {
+      cardsBySection[key] = Object.values(state.cards).filter(
+        (card) => card.sectionKey === key,
+      );
+    }
+
+    setDocSaveStatus('saving');
+    saveResearchDocument(state.sessionId, cardsBySection).then((result) => {
+      setDocSaveStatus(result.success ? 'saved' : 'error');
+    });
+  }, [allApproved, state.cards, state.sessionId]);
 
   const showCards = isReviewable || isApproved || allApproved;
 
@@ -171,7 +195,13 @@ export function ArtifactCanvas() {
       {!allApproved && isReviewable && sectionCards.length > 0 && <ArtifactFooter variant="approve" onApprove={approveSection} />}
 
       {/* Show completion footer when all sections approved */}
-      {allApproved && <ArtifactFooter variant="complete" />}
+      {allApproved && (
+        <ArtifactFooter
+          variant="complete"
+          docSaveStatus={docSaveStatus}
+          sessionId={state.sessionId}
+        />
+      )}
     </div>
   );
 }
