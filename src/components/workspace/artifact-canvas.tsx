@@ -12,6 +12,7 @@ import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
+import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
 // Stagger timing constants (spec Section 14)
 const CARD_STAGGER = 0.05; // seconds between each card
@@ -27,7 +28,11 @@ const SECTION_LABELS: Record<string, string> = {
   crossAnalysis: 'Strategic Synthesis',
 };
 
-export function ArtifactCanvas() {
+interface ArtifactCanvasProps {
+  jobActivity?: Record<string, ResearchJobActivity>;
+}
+
+export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
   const { state, approveSection, setSectionPhase } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
@@ -114,12 +119,13 @@ export function ArtifactCanvas() {
                 </div>
               )}
 
-              {/* Loading state — activity log */}
+              {/* Loading state — activity log (real worker updates when available) */}
               {!allApproved && isLoading && (
                 <ResearchActivityLog
                   section={state.currentSection}
                   sectionLabel={SECTION_LABELS[state.currentSection] ?? state.currentSection}
                   phase={phase as 'researching' | 'streaming'}
+                  activity={jobActivity?.[state.currentSection]}
                 />
               )}
 

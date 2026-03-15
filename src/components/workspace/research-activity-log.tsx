@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import type { ResearchJobActivity, CollapsedResearchJobUpdate } from '@/lib/journey/research-job-activity';
+import { collapseResearchJobUpdates } from '@/lib/journey/research-job-activity';
 
+// Fallback simulated messages (shown when worker hasn't reported yet)
 const SECTION_ACTIVITIES: Record<string, string[]> = {
   industryMarket: [
     'Querying market intelligence sources',
@@ -57,24 +60,53 @@ const DEFAULT_ACTIVITIES = [
   'Compiling results',
 ];
 
+// Phase icon mapping for visual distinction
+const PHASE_COLORS: Record<string, string> = {
+  runner: 'var(--accent-blue)',
+  tool: 'rgb(168, 85, 247)', // purple
+  analysis: 'rgb(234, 179, 8)', // amber
+  output: 'rgb(52, 211, 153)', // emerald
+  error: 'rgb(239, 68, 68)', // red
+};
+
 interface ResearchActivityLogProps {
   section: string;
   sectionLabel: string;
   phase: 'researching' | 'streaming';
+  activity?: ResearchJobActivity;
 }
 
-export function ResearchActivityLog({ section, sectionLabel, phase }: ResearchActivityLogProps) {
-  const activities = SECTION_ACTIVITIES[section] ?? DEFAULT_ACTIVITIES;
-  const [visibleCount, setVisibleCount] = useState(1);
+interface ActivityEntry {
+  id: string;
+  message: string;
+  phase: string;
+  isLive: boolean;
+}
+
+export function ResearchActivityLog({ section, sectionLabel, phase, activity }: ResearchActivityLogProps) {
+  const fallbackActivities = SECTION_ACTIVITIES[section] ?? DEFAULT_ACTIVITIES;
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Real updates from worker
+  const realUpdates = activity?.updates
+    ? collapseResearchJobUpdates(activity.updates)
+    : [];
+  const hasRealUpdates = realUpdates.length > 0;
+
+  // Simulated fallback when no real updates
+  const [simVisibleCount, setSimVisibleCount] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    setVisibleCount(1);
+    if (hasRealUpdates) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
 
+    setSimVisibleCount(1);
     intervalRef.current = setInterval(() => {
-      setVisibleCount((prev) => {
-        if (prev >= activities.length) {
+      setSimVisibleCount((prev) => {
+        if (prev >= fallbackActivities.length) {
           if (intervalRef.current) clearInterval(intervalRef.current);
           return prev;
         }
@@ -85,16 +117,29 @@ export function ResearchActivityLog({ section, sectionLabel, phase }: ResearchAc
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [section, activities.length]);
+  }, [section, fallbackActivities.length, hasRealUpdates]);
 
+  // Build unified entries list
+  const entries: ActivityEntry[] = hasRealUpdates
+    ? realUpdates.map((u, i) => ({
+        id: u.id,
+        message: u.message,
+        phase: u.phase,
+        isLive: i === realUpdates.length - 1 && activity?.status === 'running',
+      }))
+    : fallbackActivities.slice(0, simVisibleCount).map((msg, i) => ({
+        id: `sim-${section}-${i}`,
+        message: msg,
+        phase: 'runner',
+        isLive: i === simVisibleCount - 1 && simVisibleCount <= fallbackActivities.length,
+      }));
+
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [visibleCount]);
-
-  const visibleActivities = activities.slice(0, visibleCount);
-  const activeIndex = visibleCount - 1;
+  }, [entries.length]);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center min-h-[400px] px-6">
@@ -112,6 +157,11 @@ export function ResearchActivityLog({ section, sectionLabel, phase }: ResearchAc
           <span className="text-[12px] font-mono text-white/20">
             {sectionLabel}
           </span>
+          {hasRealUpdates && (
+            <span className="ml-auto text-[9px] font-mono text-emerald-400/50 uppercase tracking-wider">
+              live
+            </span>
+          )}
         </div>
 
         {/* Activity log */}
@@ -120,13 +170,14 @@ export function ResearchActivityLog({ section, sectionLabel, phase }: ResearchAc
           className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-y-auto max-h-[280px] p-4"
         >
           <AnimatePresence mode="popLayout">
-            {visibleActivities.map((activity, i) => {
-              const isActive = i === activeIndex && visibleCount <= activities.length;
-              const isCompleted = i < activeIndex || visibleCount > activities.length;
+            {entries.map((entry) => {
+              const dotColor = entry.isLive
+                ? PHASE_COLORS[entry.phase] ?? 'var(--accent-blue)'
+                : 'rgb(52, 211, 153)'; // emerald for completed
 
               return (
                 <motion.div
-                  key={`${section}-${i}`}
+                  key={entry.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, ease: [0.21, 0.45, 0.27, 0.9] }}
@@ -134,27 +185,28 @@ export function ResearchActivityLog({ section, sectionLabel, phase }: ResearchAc
                 >
                   {/* Status dot */}
                   <div className="mt-1 shrink-0">
-                    {isActive ? (
+                    {entry.isLive ? (
                       <motion.div
-                        className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)]"
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: dotColor }}
                         animate={{ opacity: [1, 0.3, 1] }}
                         transition={{ duration: 1, repeat: Infinity }}
                       />
                     ) : (
-                      <div className={cn(
-                        'w-1.5 h-1.5 rounded-full',
-                        isCompleted ? 'bg-emerald-400/60' : 'bg-white/15',
-                      )} />
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: dotColor, opacity: 0.6 }}
+                      />
                     )}
                   </div>
 
                   {/* Message */}
                   <span className={cn(
                     'text-[13px] font-mono leading-relaxed',
-                    isActive ? 'text-white/70' : 'text-white/30',
+                    entry.isLive ? 'text-white/70' : 'text-white/30',
                   )}>
-                    {activity}
-                    {isActive && (
+                    {entry.message}
+                    {entry.isLive && (
                       <motion.span
                         className="inline-block ml-0.5"
                         animate={{ opacity: [1, 0, 1] }}
@@ -170,7 +222,7 @@ export function ResearchActivityLog({ section, sectionLabel, phase }: ResearchAc
           </AnimatePresence>
 
           {/* Streaming transition message */}
-          {phase === 'streaming' && visibleCount > activities.length && (
+          {phase === 'streaming' && !hasRealUpdates && simVisibleCount > fallbackActivities.length && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}

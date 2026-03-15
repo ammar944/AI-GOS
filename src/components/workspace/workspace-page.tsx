@@ -8,6 +8,7 @@ import { BottomSheet } from './bottom-sheet';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
 import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
 import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
@@ -108,13 +109,18 @@ function WorkspaceNavBar() {
 }
 
 export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
+  const jobActivity = useResearchJobActivity({
+    userId,
+    activeRunId,
+  });
+
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
       <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
       <WorkspaceNavBar />
       <div className="flex flex-1 min-h-0">
-        <ArtifactCanvas />
+        <ArtifactCanvas jobActivity={jobActivity} />
         <RightRail className="hidden md:flex w-[380px] shrink-0" />
       </div>
       <div className="md:hidden">
