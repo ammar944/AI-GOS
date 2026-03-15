@@ -61,6 +61,14 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
       }
 
       const cards = parseResearchToCards(key, data);
+      if (cards.length === 0) {
+        // Partial result with no parseable data — treat as error so user sees retry
+        const errorMsg = result.status === 'partial'
+          ? (result.error as string | undefined) ?? 'Research returned incomplete data — try again'
+          : 'No data returned for this section';
+        setSectionPhase(key, 'error', errorMsg);
+        return;
+      }
       setCards(key, cards);
       setSectionPhase(key, 'review');
     },
