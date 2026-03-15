@@ -82,95 +82,63 @@ export function FieldGroup({
     <div>
       <AnimatePresence mode="wait" initial={false}>
         {state === 'completed' && (
-          // ── Completed state ──
           <motion.div
             key="completed"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.18 }}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer group/completed transition-all duration-200 hover:bg-white/[0.06]"
-            style={{ background: 'rgb(12, 14, 19)', border: '1px solid rgba(255, 255, 255, 0.12)' }}
+            className="flex items-center gap-3 px-4 py-3.5 rounded-xl cursor-pointer group/completed border border-emerald-500/10 bg-emerald-500/[0.03] transition-all duration-200 hover:border-emerald-500/20 hover:bg-emerald-500/[0.05]"
             onClick={onReopen}
           >
-            {/* Timeline dot — green check */}
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.2)' }}
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                style={{ color: 'var(--accent-green)' }}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/15 border border-emerald-500/20">
+              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span
-                  className="text-[13px] font-medium"
-                  style={{ color: 'rgba(255, 255, 255, 0.9)', fontFamily: 'var(--font-heading)' }}
-                >
+                <span className="text-[13px] font-heading font-medium text-white/90">
                   {group.label}
                 </span>
-                <span className="text-[10px] font-mono" style={{ color: 'rgba(255, 255, 255, 0.3)' }}>
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">
                   {filledCount}/{totalCount}
                 </span>
               </div>
               {summaryPreview && (
-                <p className="text-[12px] mt-0.5 truncate" style={{ color: 'rgba(255, 255, 255, 0.4)' }}>
+                <p className="text-[11px] mt-0.5 truncate text-white/30">
                   {summaryPreview}
                 </p>
               )}
             </div>
 
-            {/* Expand hint */}
-            <svg
-              className="w-4 h-4 flex-shrink-0 opacity-0 group-hover/completed:opacity-100 transition-opacity"
-              style={{ color: 'rgba(255, 255, 255, 0.4)' }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
+            <span className="text-[10px] text-white/20 opacity-0 group-hover/completed:opacity-100 transition-opacity shrink-0">
+              Edit
+            </span>
           </motion.div>
         )}
 
         {state === 'upcoming' && (
-          // ── Upcoming state ──
           <motion.div
             key="upcoming"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.18 }}
-            className="flex items-center gap-3 px-4 py-3"
+            className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] opacity-40"
           >
-            {/* Timeline dot — dim unfilled */}
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{
-                border: '1px dashed rgba(255, 255, 255, 0.12)',
-                background: 'transparent',
-              }}
-            >
-              <span className="text-[10px] font-mono" style={{ color: 'rgba(255, 255, 255, 0.3)' }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-dashed border-white/10">
+              <span className="text-[10px] font-mono text-white/25">
                 {groupIndex + 1}
               </span>
             </div>
 
-            <span className="text-[13px]" style={{ color: 'rgba(255, 255, 255, 0.45)', fontFamily: 'var(--font-heading)' }}>
+            <span className="text-[13px] font-heading text-white/40">
               {group.label}
             </span>
 
-            <span className="text-[11px] font-mono ml-auto" style={{ color: 'rgba(255, 255, 255, 0.25)' }}>
+            <span className="text-[10px] font-mono ml-auto text-white/20">
               {totalCount} fields
             </span>
           </motion.div>
