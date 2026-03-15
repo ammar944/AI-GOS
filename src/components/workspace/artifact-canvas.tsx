@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
-import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
+import { RESEARCH_SECTIONS, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 import { saveResearchDocument } from '@/lib/actions/journey-sessions';
 import { CardContentSwitch } from '@/components/research/card-renderer';
 import { SectionHeader } from './section-header';
@@ -26,13 +26,16 @@ const SECTION_LABELS: Record<string, string> = {
   offerAnalysis: 'Offer Analysis',
   keywordIntel: 'Keywords',
   crossAnalysis: 'Strategic Synthesis',
+  mediaPlan: 'Media Plan',
 };
 
 interface ArtifactCanvasProps {
   jobActivity?: Record<string, ResearchJobActivity>;
+  onGenerateMediaPlan?: () => void;
+  mediaPlanGenerating?: boolean;
 }
 
-export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
+export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating }: ArtifactCanvasProps) {
   const { state, approveSection, setSectionPhase } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
@@ -40,20 +43,28 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
   const isLoading = phase === 'researching' || phase === 'streaming';
   const [isExiting, setIsExiting] = useState(false);
 
-  const allApproved = useMemo(
+  const allResearchApproved = useMemo(
     () => RESEARCH_SECTIONS.every((key) => state.sectionStates[key] === 'approved'),
+    [state.sectionStates],
+  );
+
+  // Media plan is active when it's not queued
+  const mediaPlanActive = state.sectionStates.mediaPlan !== 'queued';
+
+  // All done = all 7 sections approved (research + media plan)
+  const allDone = useMemo(
+    () => SECTION_PIPELINE.every((key) => state.sectionStates[key] === 'approved'),
     [state.sectionStates],
   );
 
   const [docSaveStatus, setDocSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const hasSavedRef = useRef(false);
 
-  // Auto-save research document when all sections are approved
+  // Auto-save research document when all 6 research sections are approved
   useEffect(() => {
-    if (!allApproved || hasSavedRef.current) return;
+    if (!allResearchApproved || hasSavedRef.current) return;
     hasSavedRef.current = true;
 
-    // Group cards by section
     const cardsBySection: Record<string, CardState[]> = {};
     for (const key of RESEARCH_SECTIONS) {
       cardsBySection[key] = Object.values(state.cards).filter(
@@ -65,9 +76,9 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
     saveResearchDocument(state.sessionId, cardsBySection).then((result) => {
       setDocSaveStatus(result.success ? 'saved' : 'error');
     });
-  }, [allApproved, state.cards, state.sessionId]);
+  }, [allResearchApproved, state.cards, state.sessionId]);
 
-  const showCards = isReviewable || isApproved || allApproved;
+  const showCards = isReviewable || isApproved || allResearchApproved || allDone;
 
   const sectionCards = useMemo(() => {
     return Object.values(state.cards)
@@ -77,6 +88,10 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
   const handleRetry = useCallback(() => {
     setSectionPhase(state.currentSection, 'researching');
   }, [setSectionPhase, state.currentSection]);
+
+  // Determine if we're viewing a non-mediaPlan section that's already approved
+  // (browsing completed research while media plan generates)
+  const isBrowsingApproved = allResearchApproved && isApproved && state.currentSection !== 'mediaPlan';
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-x-hidden">
@@ -99,7 +114,7 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
               <SectionHeader section={state.currentSection} />
 
               {/* Queued state — section not yet started */}
-              {!allApproved && phase === 'queued' && (
+              {phase === 'queued' && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
                   <div className="flex flex-col items-center gap-4">
                     <div className="flex items-center gap-1.5">
@@ -120,7 +135,7 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
               )}
 
               {/* Loading state — activity log (real worker updates when available) */}
-              {!allApproved && isLoading && (
+              {isLoading && (
                 <ResearchActivityLog
                   section={state.currentSection}
                   sectionLabel={SECTION_LABELS[state.currentSection] ?? state.currentSection}
@@ -130,7 +145,7 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
               )}
 
               {/* Error state with retry */}
-              {!allApproved && phase === 'error' && (
+              {phase === 'error' && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
                   <div className="flex flex-col items-center gap-4 text-center">
                     <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
@@ -155,7 +170,7 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
                 </div>
               )}
 
-              {/* Cards — shown for review, approved, or allApproved */}
+              {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && (
                 <CardGrid>
                   {sectionCards.map((card, i) => (
@@ -178,7 +193,7 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
               )}
 
               {/* Empty state — no cards but should have them */}
-              {showCards && sectionCards.length === 0 && (
+              {showCards && sectionCards.length === 0 && !isLoading && phase !== 'queued' && phase !== 'error' && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
                   <div className="flex flex-col items-center gap-3 text-center">
                     <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center">
@@ -197,11 +212,29 @@ export function ArtifactCanvas({ jobActivity }: ArtifactCanvasProps) {
         </AnimatePresence>
       </div>
 
-      {/* Show "Looks good" only for sections in review phase with actual cards */}
-      {!allApproved && isReviewable && sectionCards.length > 0 && <ArtifactFooter variant="approve" onApprove={approveSection} />}
+      {/* Show "Looks good" for sections in review phase with actual cards */}
+      {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && (
+        <ArtifactFooter variant="approve" onApprove={approveSection} />
+      )}
 
-      {/* Show completion footer when all sections approved */}
-      {allApproved && (
+      {/* Show completion footer when all 6 research sections approved (media plan not yet generated) */}
+      {allResearchApproved && !mediaPlanActive && (
+        <ArtifactFooter
+          variant="complete"
+          docSaveStatus={docSaveStatus}
+          sessionId={state.sessionId}
+          onGenerateMediaPlan={onGenerateMediaPlan}
+          mediaPlanGenerating={mediaPlanGenerating}
+        />
+      )}
+
+      {/* Media plan section footer — "Looks good" for mediaPlan review */}
+      {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && (
+        <ArtifactFooter variant="approve" onApprove={approveSection} />
+      )}
+
+      {/* All 7 sections done */}
+      {allDone && (
         <ArtifactFooter
           variant="complete"
           docSaveStatus={docSaveStatus}

@@ -50,6 +50,14 @@ const SECTION_ACTIVITIES: Record<string, string[]> = {
     'Generating synthesis insights',
     'Compiling strategic recommendations',
   ],
+  mediaPlan: [
+    'Loading channel mix benchmarks',
+    'Building audience & campaign design',
+    'Designing creative system',
+    'Setting measurement guardrails',
+    'Planning rollout roadmap',
+    'Generating strategy snapshot',
+  ],
 };
 
 const DEFAULT_ACTIVITIES = [

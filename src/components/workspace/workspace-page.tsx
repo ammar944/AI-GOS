@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionTabs } from './section-tabs';
 import { ArtifactCanvas } from './artifact-canvas';
 import { RightRail } from './right-rail';
@@ -9,7 +9,10 @@ import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
+import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
 import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
+import { getJourneySession } from '@/lib/storage/local-storage';
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 
@@ -62,7 +65,6 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
 
       const cards = parseResearchToCards(key, data);
       if (cards.length === 0) {
-        // Partial result with no parseable data — treat as error so user sees retry
         const errorMsg = result.status === 'partial'
           ? (result.error as string | undefined) ?? 'Research returned incomplete data — try again'
           : 'No data returned for this section';
@@ -105,9 +107,18 @@ function WorkspaceApprovalBridge({ onSectionApproved }: { onSectionApproved?: (s
 
 function WorkspaceNavBar() {
   const { state, navigateToSection } = useWorkspace();
+
+  // Show mediaPlan tab when it's no longer queued
+  const visibleSections = useMemo(() => {
+    if (state.sectionStates.mediaPlan !== 'queued') {
+      return SECTION_PIPELINE;
+    }
+    return RESEARCH_SECTIONS;
+  }, [state.sectionStates.mediaPlan]);
+
   return (
     <SectionTabs
-      sections={RESEARCH_SECTIONS}
+      sections={visibleSections}
       currentSection={state.currentSection}
       sectionStates={state.sectionStates}
       onNavigate={navigateToSection}
@@ -117,10 +128,43 @@ function WorkspaceNavBar() {
 }
 
 export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
+  const { setSectionPhase, navigateToSection } = useWorkspace();
+  const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
+
   const jobActivity = useResearchJobActivity({
     userId,
     activeRunId,
   });
+
+  const handleGenerateMediaPlan = useCallback(async () => {
+    if (!activeRunId || mediaPlanGenerating) return;
+    setMediaPlanGenerating(true);
+
+    // Build context from persisted onboarding fields
+    const session = getJourneySession();
+    const contextLines: string[] = [];
+    if (session) {
+      for (const [key, value] of Object.entries(session)) {
+        if (typeof value === 'string' && value.trim()) {
+          contextLines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+        }
+      }
+    }
+    const context = contextLines.length > 0
+      ? contextLines.join('\n')
+      : 'Generate media plan from approved research results';
+
+    // Transition mediaPlan to researching and navigate to it
+    setSectionPhase('mediaPlan', 'researching');
+    navigateToSection('mediaPlan');
+
+    // Dispatch to worker
+    const result = await dispatchResearchSection('mediaPlan', activeRunId, context);
+    if (result.status === 'error') {
+      setSectionPhase('mediaPlan', 'error', result.error ?? 'Failed to start media plan generation');
+    }
+    setMediaPlanGenerating(false);
+  }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection]);
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
@@ -128,7 +172,11 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
       <WorkspaceNavBar />
       <div className="flex flex-1 min-h-0">
-        <ArtifactCanvas jobActivity={jobActivity} />
+        <ArtifactCanvas
+          jobActivity={jobActivity}
+          onGenerateMediaPlan={handleGenerateMediaPlan}
+          mediaPlanGenerating={mediaPlanGenerating}
+        />
         <RightRail className="hidden md:flex w-[380px] shrink-0" />
       </div>
       <div className="md:hidden">
