@@ -22,7 +22,11 @@ import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
 } from '@/components/journey/journey-keyword-intel-detail';
+import { cn } from '@/lib/utils';
 import type { CardState } from '@/lib/workspace/types';
+
+/** Card types that get "hero" visual treatment in document mode */
+const HERO_CARD_TYPES = new Set(['stat-grid', 'strategy-card', 'competitor-card', 'pricing-card']);
 
 /**
  * Pure switch statement mapping card.cardType to component.
@@ -209,14 +213,22 @@ export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
     draftContent: card.content,
   };
 
+  const isHero = HERO_CARD_TYPES.has(card.cardType);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, delay: index * 0.05 }}
-      className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5"
+      className={cn(
+        'rounded-[var(--radius-lg)] bg-[var(--bg-card)]',
+        isHero
+          ? 'border border-[var(--border-subtle)] border-l-2 border-l-[var(--accent-blue)]/40 p-6 print-card-hero'
+          : 'border border-white/[0.04] p-5',
+      )}
     >
-      <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider mb-3 block">
+      <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <span className="w-1 h-1 rounded-full bg-[var(--accent-blue)] shrink-0" />
         {card.label}
       </span>
       <CardEditingContext value={readOnlyContext}>

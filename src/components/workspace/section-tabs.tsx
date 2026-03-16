@@ -40,8 +40,8 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
             className={cn(
               'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200 border shrink-0',
               // Document mode: simple active/inactive
-              mode === 'document' && isActive && 'border-[var(--accent-blue)]/40 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]',
-              mode === 'document' && !isActive && 'border-[var(--border-subtle)] bg-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:border-[var(--border-default)] cursor-pointer',
+              mode === 'document' && isActive && 'border-transparent bg-transparent text-[var(--accent-blue)] font-semibold relative after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-3/4 after:h-0.5 after:bg-[var(--accent-blue)] after:rounded-full',
+              mode === 'document' && !isActive && 'border-transparent bg-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer',
               // Workspace mode states
               mode === 'workspace' && isActive && isApproved && 'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10 text-[var(--accent-green)]',
               mode === 'workspace' && isActive && isReview && 'border-[var(--accent-blue)]/40 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] shadow-[0_0_12px_rgba(96,165,250,0.1)]',

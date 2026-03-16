@@ -1315,3 +1315,71 @@
     opacity: 0.8;
   }
 }
+
+/* ============================================
+   Print Styles — Research Document
+   ============================================ */
+@media print {
+  /* Reset dark background for print */
+  body, html {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide non-content elements */
+  .no-print,
+  nav,
+  aside,
+  [data-sidebar],
+  .glass-panel {
+    display: none !important;
+  }
+
+  /* Show print-only sections */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 1in 0.75in;
+    size: letter;
+  }
+
+  /* Avoid breaking inside cards */
+  .print-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Card styling for print */
+  .print-card-content {
+    color: #1a1a1a;
+  }
+
+  /* Reset glass surfaces */
+  .glass-surface {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: #e5e7eb !important;
+  }
+
+  /* Ensure text is visible */
+  * {
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Hero cards keep visual hierarchy in print */
+  .print-card-hero {
+    border-left: 2px solid #60a5fa !important;
+  }
+
+  /* Gradient dividers become solid lines in print */
+  [class*="bg-gradient-to-r"] {
+    background: #e5e7eb !important;
+  }
+}

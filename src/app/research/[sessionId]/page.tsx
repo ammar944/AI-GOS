@@ -31,7 +31,7 @@ export default async function ResearchPage({ params }: PageProps) {
     { status?: string; data?: Record<string, unknown> }
   > | null;
 
-  if (!researchResults) redirect('/research');
+  if (!researchResults) redirect('/dashboard');
 
   // Parse research results into cards per section
   resetCardIdCounter();
@@ -47,19 +47,26 @@ export default async function ResearchPage({ params }: PageProps) {
     }
   }
 
-  if (availableSections.length === 0) redirect('/research');
+  if (availableSections.length === 0) redirect('/dashboard');
 
   const fields = data.collected_fields as Record<string, unknown> | null;
   const title =
     (fields?.companyName as string) ??
     (fields?.url as string) ??
-    'Research';
+    'Research Document';
 
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-base)' }}>
-      <AppSidebar />
+      <div className="no-print">
+        <AppSidebar />
+      </div>
       <main className="flex-1 min-h-0">
-        <ResearchDocument cardsBySection={cardsBySection} availableSections={availableSections} title={title} />
+        <ResearchDocument
+          cardsBySection={cardsBySection}
+          availableSections={availableSections}
+          title={title}
+          createdAt={data.created_at}
+        />
       </main>
     </div>
   );
