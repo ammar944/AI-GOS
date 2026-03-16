@@ -172,6 +172,12 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   // already committed the job to Supabase above, so crashes are observable.
   void (async () => {
     console.log(`[worker] Starting ${tool} for user ${userId} (job ${jobId})`);
+
+    // Inject current date into context so research models use up-to-date information.
+    // Without this, models default to their training cutoff and return stale data.
+    const now = new Date();
+    const dateContext = `Current date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${now.getFullYear()}). Always search for and prioritize the most recent data available. Do not use outdated statistics or market data from prior years when current data exists.\n\n`;
+    const contextWithDate = dateContext + context;
     let statusWriteChain = Promise.resolve();
     let lastProgressSignature: string | null = null;
     let jobFinalized = false;
@@ -230,7 +236,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         message: 'launching research sub-agent',
         phase: 'runner',
       });
-      const result = await runner(context, emitProgress);
+      const result = await runner(contextWithDate, emitProgress);
 
       // Compression disabled — raw runner data flows through to Supabase
       // so artifact-panel.tsx and research-inline-card.tsx can render
