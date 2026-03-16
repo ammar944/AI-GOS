@@ -3,6 +3,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { SECTION_PIPELINE } from '@/lib/workspace/pipeline'
+import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections'
 import type { SectionKey, CardState } from '@/lib/workspace/types'
 
 export interface JourneySessionRecord {
@@ -60,7 +61,7 @@ export async function getCompletedJourneySessions(): Promise<{
 
   const { data, error } = await supabase
     .from('journey_sessions')
-    .select('id, created_at, collected_fields, research_results')
+    .select('id, created_at, metadata, research_results')
     .eq('user_id', userId)
     .not('research_results', 'is', null)
     .order('created_at', { ascending: false })
@@ -68,18 +69,30 @@ export async function getCompletedJourneySessions(): Promise<{
   if (error) return { error: error.message }
   if (!data) return { data: [] }
 
+  // Build a reverse map: boundary ID → canonical IDs that map to it
+  // so we can check both naming conventions in research_results
+  const boundaryToCanonical = new Map<string, string[]>()
+  for (const [canonical, boundary] of Object.entries(CANONICAL_TO_BOUNDARY_SECTION_MAP)) {
+    const existing = boundaryToCanonical.get(boundary) ?? []
+    existing.push(canonical)
+    boundaryToCanonical.set(boundary, existing)
+  }
+
   const records: JourneySessionRecord[] = data.map((row) => {
-    const fields = row.collected_fields as Record<string, unknown> | null
+    const meta = row.metadata as Record<string, unknown> | null
     const results = row.research_results as Record<string, { status?: string }> | null
 
     const title =
-      (fields?.companyName as string) ??
-      (fields?.url as string) ??
+      (meta?.companyName as string) ??
+      (meta?.url as string) ??
       'Untitled Research'
 
-    const completedSections = SECTION_PIPELINE.filter(
-      (key) => results?.[key]?.status === 'complete',
-    )
+    // Check both boundary IDs (industryMarket) and canonical IDs (industryResearch)
+    const completedSections = SECTION_PIPELINE.filter((key) => {
+      if (results?.[key]?.status === 'complete') return true
+      const canonicalKeys = boundaryToCanonical.get(key) ?? []
+      return canonicalKeys.some((ck) => results?.[ck]?.status === 'complete')
+    })
 
     return {
       id: row.id,

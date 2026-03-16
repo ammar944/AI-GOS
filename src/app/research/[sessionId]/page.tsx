@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/server';
 import { parseResearchToCards, resetCardIdCounter } from '@/lib/workspace/card-taxonomy';
 import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections';
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { ResearchDocument } from '@/components/research/research-document';
 import type { SectionKey, CardState } from '@/lib/workspace/types';
@@ -19,7 +20,7 @@ export default async function ResearchPage({ params }: PageProps) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('journey_sessions')
-    .select('id, research_results, created_at, collected_fields')
+    .select('id, research_results, created_at, metadata')
     .eq('id', sessionId)
     .eq('user_id', userId)
     .single();
@@ -33,13 +34,28 @@ export default async function ResearchPage({ params }: PageProps) {
 
   if (!researchResults) redirect('/dashboard');
 
+  // Build canonical → boundary lookup for section name normalization
+  // Research results may use canonical names (competitorIntel) or boundary names (competitors)
+  const canonicalToBoundary = CANONICAL_TO_BOUNDARY_SECTION_MAP as Record<string, string>;
+
   // Parse research results into cards per section
   resetCardIdCounter();
   const cardsBySection: Record<string, CardState[]> = {};
   const availableSections: SectionKey[] = [];
 
   for (const section of SECTION_PIPELINE) {
-    const sectionResult = researchResults[section];
+    // Try boundary name first, then check all canonical names that map to this boundary
+    let sectionResult = researchResults[section];
+    if (!sectionResult) {
+      // Find canonical key that maps to this boundary section
+      for (const [canonical, boundary] of Object.entries(canonicalToBoundary)) {
+        if (boundary === section && researchResults[canonical]) {
+          sectionResult = researchResults[canonical];
+          break;
+        }
+      }
+    }
+
     if (sectionResult?.status === 'complete' && sectionResult.data) {
       const cards = parseResearchToCards(section, sectionResult.data);
       cardsBySection[section] = cards;
@@ -49,10 +65,10 @@ export default async function ResearchPage({ params }: PageProps) {
 
   if (availableSections.length === 0) redirect('/dashboard');
 
-  const fields = data.collected_fields as Record<string, unknown> | null;
+  const meta = data.metadata as Record<string, unknown> | null;
   const title =
-    (fields?.companyName as string) ??
-    (fields?.url as string) ??
+    (meta?.companyName as string) ??
+    (meta?.url as string) ??
     'Research Document';
 
   return (
