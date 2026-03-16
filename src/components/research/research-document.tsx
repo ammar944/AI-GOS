@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 import { SectionTabs } from '@/components/workspace/section-tabs';
 import { SectionHeader } from '@/components/workspace/section-header';
@@ -46,9 +46,81 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
     [cardsBySection],
   );
 
+  const [copied, setCopied] = useState(false);
+
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
+
+  const handleCopyAll = useCallback(() => {
+    const lines: string[] = [];
+    lines.push(`# ${title}`);
+    if (createdAt) lines.push(`Generated: ${formatDate(createdAt)}`);
+    lines.push('');
+
+    for (const section of availableSections) {
+      const meta = SECTION_META[section];
+      const cards = cardsBySection[section] ?? [];
+      if (cards.length === 0) continue;
+
+      lines.push(`## ${meta?.moduleNumber ?? '00'} — ${meta?.label ?? section}`);
+      if (meta?.description) lines.push(meta.description);
+      lines.push('');
+
+      for (const card of cards) {
+        lines.push(`### ${card.label}`);
+        const c = card.content;
+
+        if (card.cardType === 'stat-grid' && Array.isArray(c.stats)) {
+          for (const s of c.stats as { label: string; value: string }[]) {
+            lines.push(`- ${s.label}: ${s.value}`);
+          }
+        } else if ((card.cardType === 'bullet-list' || card.cardType === 'check-list') && Array.isArray(c.items)) {
+          for (const item of c.items as string[]) {
+            lines.push(`- ${item}`);
+          }
+        } else if (card.cardType === 'prose-card' && typeof c.text === 'string') {
+          lines.push(c.text);
+        } else if (card.cardType === 'competitor-card') {
+          lines.push(`**${c.name as string}**`);
+          if (c.positioning) lines.push(`Positioning: ${c.positioning as string}`);
+          if (c.price) lines.push(`Pricing: ${c.price as string}`);
+          if (Array.isArray(c.strengths)) lines.push(`Strengths: ${(c.strengths as string[]).join(', ')}`);
+          if (Array.isArray(c.weaknesses)) lines.push(`Weaknesses: ${(c.weaknesses as string[]).join(', ')}`);
+        } else if (card.cardType === 'insight-card') {
+          lines.push(c.insight as string);
+          if (c.implication) lines.push(`Implication: ${c.implication as string}`);
+        } else if (card.cardType === 'strategy-card') {
+          if (c.recommendedAngle) lines.push(c.recommendedAngle as string);
+          if (c.leadRecommendation) lines.push(c.leadRecommendation as string);
+          if (c.keyDifferentiator) lines.push(`Differentiator: ${c.keyDifferentiator as string}`);
+        } else if (card.cardType === 'trend-card') {
+          lines.push(`${c.trend as string} (${c.direction as string})`);
+          if (c.evidence) lines.push(c.evidence as string);
+        } else if (card.cardType === 'gap-card') {
+          lines.push(c.gap as string);
+          if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
+          if (c.recommendedAction) lines.push(`Action: ${c.recommendedAction as string}`);
+        } else {
+          // Fallback: dump all string values
+          for (const [key, val] of Object.entries(c)) {
+            if (typeof val === 'string' && val.trim()) {
+              lines.push(`${key}: ${val}`);
+            } else if (Array.isArray(val)) {
+              const strs = val.filter((v): v is string => typeof v === 'string');
+              if (strs.length > 0) lines.push(`${key}: ${strs.join(', ')}`);
+            }
+          }
+        }
+        lines.push('');
+      }
+    }
+
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [title, createdAt, availableSections, cardsBySection]);
 
   return (
     <div className="flex h-full flex-col bg-[var(--bg-base)]">
@@ -70,6 +142,15 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
           />
         </div>
         <div className="flex items-center gap-1 px-3 shrink-0 border-l border-[var(--border-subtle)]">
+          <button
+            type="button"
+            onClick={handleCopyAll}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-white/5 transition-colors"
+            title="Copy all research to clipboard"
+          >
+            {copied ? <Check className="size-3.5 text-[var(--accent-green)]" /> : <Copy className="size-3.5" />}
+            <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
+          </button>
           <button
             type="button"
             onClick={handlePrint}
