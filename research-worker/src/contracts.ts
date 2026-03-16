@@ -345,39 +345,183 @@ const keywordIntelDataSchema = z.object({
   quickWins: nonEmptyStringArraySchema,
 });
 
-const mediaPlanDataSchema = z.object({
-  channelPlan: z
-    .array(
-      z.object({
-        platform: nonEmptyStringSchema,
-        monthlyBudget: z.number().optional(),
-        budgetPercentage: z.number().optional(),
-      }),
-    )
-    .min(1),
+// ── Media Plan Block Schemas (6-block progressive structure) ──
+
+export const channelMixBudgetSchema = z.object({
+  platforms: z.array(z.object({
+    name: z.string(),
+    role: z.enum(['primary-acquisition', 'retargeting', 'awareness', 'testing']),
+    monthlySpend: z.number().min(0),
+    percentage: z.number().min(0).max(100),
+    expectedCPL: z.object({ low: z.number().min(0), high: z.number().min(0) }),
+    rationale: z.string(),
+  })),
   budgetSummary: z.object({
-    totalMonthly: z.number(),
-    byPlatform: z.array(
-      z.object({
-        platform: nonEmptyStringSchema,
-        amount: z.number(),
-        percentage: z.number(),
-      }),
-    ),
+    totalMonthly: z.number().min(0),
+    funnelSplit: z.object({
+      awareness: z.number().min(0).max(100),
+      consideration: z.number().min(0).max(100),
+      conversion: z.number().min(0).max(100),
+    }),
+    rampUpWeeks: z.number().int().min(1),
   }),
-  launchSequence: z
-    .array(
-      z.object({
-        week: z.number(),
-        actions: nonEmptyStringArraySchema,
-        milestone: nonEmptyStringSchema,
-      }),
-    )
-    .min(1),
-  kpiFramework: z.object({
-    northStar: nonEmptyStringSchema,
-    weeklyReview: nonEmptyStringArraySchema,
+  dailyCeilings: z.array(z.object({
+    platform: z.string(),
+    dailyBudget: z.number().min(0),
+    minimumMet: z.boolean(),
+  })),
+});
+
+export const audienceCampaignSchema = z.object({
+  segments: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    targetingParams: z.record(z.string(), z.unknown()),
+    estimatedReach: z.string(),
+    funnelPosition: z.enum(['top', 'mid', 'bottom']),
+    priority: z.number().int().min(1).max(10),
+  })),
+  campaigns: z.array(z.object({
+    platform: z.string(),
+    name: z.string(),
+    objective: z.string(),
+    adSets: z.array(z.object({
+      name: z.string(),
+      segment: z.string(),
+      budget: z.number().min(0),
+    })),
+    namingConvention: z.string(),
+  })),
+  retargetingSegments: z.array(z.object({
+    name: z.string(),
+    source: z.string(),
+    windowDays: z.number().int().min(1).max(180),
+    estimatedSize: z.string(),
+  })),
+});
+
+export const creativeSystemSchema = z.object({
+  angles: z.array(z.object({
+    theme: z.string(),
+    hook: z.string(),
+    messagingApproach: z.string(),
+    targetSegment: z.string(),
+  })),
+  formatSpecs: z.array(z.object({
+    platform: z.string(),
+    format: z.string(),
+    dimensions: z.string(),
+    duration: z.string().optional(),
+    copyLimits: z.object({
+      headline: z.number().int().min(1),
+      description: z.number().int().min(1),
+    }),
+  })),
+  testingPlan: z.object({
+    firstTests: z.array(z.string()),
+    methodology: z.string(),
+    minBudgetPerTest: z.number().min(0),
   }),
+  refreshCadence: z.object({
+    frequencyDays: z.number().int().min(1),
+    fatigueSignals: z.array(z.string()),
+  }),
+});
+
+export const measurementGuardrailsSchema = z.object({
+  kpis: z.array(z.object({
+    metric: z.string(),
+    target: z.number(),
+    industryBenchmark: z.number(),
+    benchmarkSource: z.string(),
+    measurementMethod: z.string(),
+  })),
+  cacModel: z.object({
+    targetCAC: z.number().min(0),
+    expectedCPL: z.number().min(0),
+    leadToSqlRate: z.number().min(0).max(1),
+    sqlToCustomerRate: z.number().min(0).max(1),
+    expectedLeadsPerMonth: z.number().min(0),
+    expectedSQLsPerMonth: z.number().min(0),
+    expectedCustomersPerMonth: z.number().min(0),
+    ltv: z.number().min(0),
+    ltvCacRatio: z.number().min(0),
+  }),
+  risks: z.array(z.object({
+    risk: z.string(),
+    category: z.enum(['budget', 'creative', 'targeting', 'tracking', 'compliance', 'competitive', 'seasonal']),
+    severity: z.enum(['high', 'medium', 'low']),
+    likelihood: z.enum(['high', 'medium', 'low']),
+    mitigation: z.string(),
+    earlyWarning: z.string(),
+  })),
+  trackingRequirements: z.array(z.object({
+    platform: z.string(),
+    requirement: z.string(),
+    status: z.enum(['required', 'recommended', 'optional']),
+  })),
+});
+
+export const rolloutRoadmapSchema = z.object({
+  phases: z.array(z.object({
+    name: z.string(),
+    duration: z.string(),
+    objectives: z.array(z.string()),
+    activities: z.array(z.string()),
+    successCriteria: z.array(z.string()),
+    budgetAllocation: z.number().min(0),
+    goNoGo: z.string(),
+  })),
+  timeline: z.object({
+    totalWeeks: z.number().int().min(1),
+    monthlyMilestones: z.array(z.object({
+      month: z.number().int().min(1),
+      milestone: z.string(),
+    })),
+  }),
+});
+
+export const strategySnapshotSchema = z.object({
+  headline: z.string(),
+  topPriorities: z.array(z.object({
+    priority: z.string(),
+    rationale: z.string(),
+  })).max(3),
+  budgetOverview: z.object({
+    total: z.number().min(0),
+    topPlatform: z.string(),
+    timeToFirstResults: z.string(),
+  }),
+  expectedOutcomes: z.object({
+    leadsPerMonth: z.number().min(0),
+    estimatedCAC: z.number().min(0),
+    expectedROAS: z.number().min(0).optional(),
+  }),
+});
+
+export const MEDIA_PLAN_BLOCK_NAMES = [
+  'channelMixBudget',
+  'audienceCampaign',
+  'creativeSystem',
+  'measurementGuardrails',
+  'rolloutRoadmap',
+  'strategySnapshot',
+] as const;
+
+export type MediaPlanBlock = (typeof MEDIA_PLAN_BLOCK_NAMES)[number];
+
+const mediaPlanDataSchema = z.object({
+  completedBlocks: z.array(z.enum([
+    'channelMixBudget', 'audienceCampaign', 'creativeSystem',
+    'measurementGuardrails', 'rolloutRoadmap', 'strategySnapshot',
+  ])),
+  channelMixBudget: channelMixBudgetSchema.optional(),
+  audienceCampaign: audienceCampaignSchema.optional(),
+  creativeSystem: creativeSystemSchema.optional(),
+  measurementGuardrails: measurementGuardrailsSchema.optional(),
+  rolloutRoadmap: rolloutRoadmapSchema.optional(),
+  strategySnapshot: strategySnapshotSchema.optional(),
+  validationWarnings: z.array(z.string()).optional(),
 });
 
 const SECTION_DATA_SCHEMAS = {
@@ -478,6 +622,23 @@ function buildLimitedCoverageEvidence(evidence: unknown): string {
   return `Limited coverage: ${trimmed} Current active ads are not verified.`;
 }
 
+/**
+ * Ensure a field is a non-empty string array. If missing or empty,
+ * returns a single-item array with the given fallback string.
+ */
+function ensureStringArray(
+  value: unknown,
+  fallback: string,
+): string[] {
+  if (Array.isArray(value)) {
+    const filtered = value.filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0,
+    );
+    if (filtered.length > 0) return filtered;
+  }
+  return [fallback];
+}
+
 function normalizeCompetitorIntelPayload(
   data: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -485,23 +646,39 @@ function normalizeCompetitorIntelPayload(
     return data;
   }
 
-  let changed = false;
   const competitors = data.competitors.map((competitor) => {
-    if (!isRecord(competitor) || !isRecord(competitor.adActivity)) {
+    if (!isRecord(competitor)) {
       return competitor;
     }
 
+    // Fill missing required arrays with safe defaults
+    const strengths = ensureStringArray(competitor.strengths, 'Data not available');
+    const weaknesses = ensureStringArray(competitor.weaknesses, 'Data not available');
+    const opportunities = ensureStringArray(competitor.opportunities, 'Further research needed');
+
+    // Normalize adActivity — ensure it's an object with required fields
+    const adActivity = isRecord(competitor.adActivity)
+      ? competitor.adActivity
+      : {
+          activeAdCount: 0,
+          platforms: ['Not verified'],
+          themes: ['Not available'],
+          evidence: 'Limited coverage: ad data not collected.',
+          sourceConfidence: 'low',
+        };
+
     const sourceConfidence =
-      typeof competitor.adActivity.sourceConfidence === 'string'
-        ? competitor.adActivity.sourceConfidence
+      typeof adActivity.sourceConfidence === 'string'
+        ? adActivity.sourceConfidence
         : null;
-    const evidence = competitor.adActivity.evidence;
-    const platforms = Array.isArray(competitor.adActivity.platforms)
-      ? competitor.adActivity.platforms.filter(
+    const evidence = adActivity.evidence;
+    const platforms = Array.isArray(adActivity.platforms)
+      ? adActivity.platforms.filter(
           (platform): platform is string =>
             typeof platform === 'string' && platform.trim().length > 0,
         )
       : [];
+    const themes = ensureStringArray(adActivity.themes, 'Not available');
     const inferredPlatforms = inferCompetitorPlatformsFromEvidence(evidence);
     const shouldLimitCoverage =
       sourceConfidence === 'low' ||
@@ -514,17 +691,15 @@ function normalizeCompetitorIntelPayload(
           ? inferredPlatforms
           : ['Not verified'];
 
-    if (!shouldLimitCoverage && platforms.length > 0) {
-      return competitor;
-    }
-
-    changed = true;
-
     return {
       ...competitor,
+      strengths,
+      weaknesses,
+      opportunities,
       adActivity: {
-        ...competitor.adActivity,
+        ...adActivity,
         platforms: shouldLimitCoverage ? ['Not verified'] : normalizedPlatforms,
+        themes,
         evidence: shouldLimitCoverage
           ? buildLimitedCoverageEvidence(evidence)
           : evidence,
@@ -532,12 +707,25 @@ function normalizeCompetitorIntelPayload(
     };
   });
 
-  return changed
-    ? {
-        ...data,
-        competitors,
-      }
-    : data;
+  // Normalize top-level whiteSpaceGaps — default to a generic gap if missing
+  const whiteSpaceGaps = Array.isArray(data.whiteSpaceGaps) && data.whiteSpaceGaps.length > 0
+    ? data.whiteSpaceGaps
+    : [
+        {
+          gap: 'Insufficient data to identify specific white space gaps',
+          type: 'messaging',
+          evidence: 'Competitor analysis did not surface clear gaps — further research recommended',
+          exploitability: 3,
+          impact: 3,
+          recommendedAction: 'Conduct deeper competitive analysis with manual review',
+        },
+      ];
+
+  return {
+    ...data,
+    competitors,
+    whiteSpaceGaps,
+  };
 }
 
 function normalizeSectionData(
@@ -831,14 +1019,19 @@ export function finalizeRunnerResult(
 
   if (!parseResult.success) {
     const issue = parseResult.error.issues[0];
+    const path = issue?.path.map(String).join('.') ?? '';
+    const baseMessage = issue?.message ?? 'Runner output failed schema validation.';
+    const message = path
+      ? `Validation failed at "${path}": ${baseMessage}`
+      : `Validation failed: ${baseMessage}`;
     return buildPartialResult(
       section,
       input.durationMs,
       input.rawText,
       {
         code: 'schema_validation',
-        message: issue?.message ?? 'Runner output failed schema validation.',
-        path: issue?.path.map(String).join('.'),
+        message,
+        path,
       },
       telemetry,
     );
