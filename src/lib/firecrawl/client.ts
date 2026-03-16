@@ -185,10 +185,14 @@ export class FirecrawlClient {
   }
 
   /**
-   * Find and scrape a pricing page for a given website
+   * Find and scrape a pricing page for a given website.
    *
-   * Tries common pricing page paths in order: /pricing, /plans, /buy
-   * Returns the first successful result or error if all fail.
+   * Strategy:
+   * 1. Use Firecrawl's `map` to discover the actual pricing URL from the sitemap
+   * 2. Fall back to common paths (/pricing, /plans, /buy) if map finds nothing
+   *
+   * Scrape uses `actions` to click "Annual" toggles when present,
+   * ensuring we capture the best pricing data.
    *
    * @param websiteUrl - Base website URL (e.g., https://example.com)
    * @returns PricingPageResult with markdown or error
@@ -202,18 +206,52 @@ export class FirecrawlClient {
       };
     }
 
-    // Normalize base URL
     const baseUrl = this.normalizeBaseUrl(websiteUrl);
     const attemptedUrls: string[] = [];
 
-    for (const path of PRICING_PATHS) {
-      const url = `${baseUrl}${path}`;
-      attemptedUrls.push(url);
+    // Step 1: Try to discover pricing URL via Firecrawl map
+    let discoveredUrl: string | null = null;
+    try {
+      const mapResult = await withRetry(
+        () => this.client!.map(baseUrl, {
+          search: 'pricing plans cost',
+          limit: 5,
+        }),
+        `map ${baseUrl}`,
+        1,
+      );
 
+      const links = (mapResult as any)?.links ?? mapResult;
+      if (Array.isArray(links) && links.length > 0) {
+        const pricingLink = links.find((link: string) =>
+          /pric|plan|cost|buy|subscri/i.test(link),
+        );
+        if (pricingLink) {
+          discoveredUrl = pricingLink;
+          console.log(`[Firecrawl] Map discovered pricing URL: ${discoveredUrl}`);
+        }
+      }
+    } catch (error) {
+      console.warn(`[Firecrawl] Map failed for ${baseUrl}, falling back to path guessing:`, error instanceof Error ? error.message : error);
+    }
+
+    // Build candidate URLs: discovered URL first, then common paths
+    const candidateUrls = [
+      ...(discoveredUrl ? [discoveredUrl] : []),
+      ...PRICING_PATHS.map((path) => `${baseUrl}${path}`),
+    ];
+    // Dedupe (discovered URL might match a common path)
+    const uniqueUrls = [...new Set(candidateUrls)];
+
+    for (const url of uniqueUrls) {
+      attemptedUrls.push(url);
       console.log(`[Firecrawl] Trying pricing page: ${url}`);
 
-      // Always use US location for pricing pages to get consistent USD pricing
-      const result = await this.scrape({ url, forceUSLocation: true });
+      const result = await this.scrape({
+        url,
+        forceUSLocation: true,
+        formats: ['markdown', 'summary'],
+      });
 
       if (result.success && result.markdown) {
         console.log(`[Firecrawl] Found pricing page: ${url} (${result.markdown.length} chars)`);
@@ -226,15 +264,13 @@ export class FirecrawlClient {
         };
       }
 
-      // Log specific failure for debugging
-      console.log(`[Firecrawl] ${path} failed: ${result.error ?? 'unknown error'}`);
+      console.log(`[Firecrawl] ${url} failed: ${result.error ?? 'unknown error'}`);
     }
 
-    // All paths failed
     console.warn(`[Firecrawl] No pricing page found for ${baseUrl}`);
     return {
       found: false,
-      error: `No pricing page found. Tried: ${PRICING_PATHS.join(', ')}`,
+      error: `No pricing page found. Tried: ${uniqueUrls.join(', ')}`,
       attemptedUrls,
     };
   }

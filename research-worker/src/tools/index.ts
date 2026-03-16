@@ -1,4 +1,5 @@
 export { firecrawlTool } from './firecrawl';
+export { firecrawlExtractTool } from './firecrawl-extract';
 export { spyfuTool } from './spyfu';
 export { adLibraryTool } from './adlibrary';
 export { chartTool } from './chart';

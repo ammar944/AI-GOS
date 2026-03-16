@@ -14,7 +14,7 @@ export interface ScrapeOptions {
   /** Force US geolocation for consistent pricing data (default: false) */
   forceUSLocation?: boolean;
   /** Content formats to return (default: ['markdown']) */
-  formats?: ('markdown' | 'html')[];
+  formats?: ('markdown' | 'html' | 'summary' | 'links' | 'screenshot')[];
 }
 
 /**
@@ -76,7 +76,7 @@ export interface BatchScrapeOptions {
   /** Timeout per URL in milliseconds (default: 30000) */
   timeout?: number;
   /** Content formats to return (default: ['markdown']) */
-  formats?: ('markdown' | 'html')[];
+  formats?: ('markdown' | 'html' | 'summary' | 'links' | 'screenshot')[];
 }
 
 /**

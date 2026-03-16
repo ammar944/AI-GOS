@@ -28,7 +28,7 @@ function compactFirecrawlMarkdown(markdown: string): string {
 
 export const firecrawlTool = betaZodTool({
   name: 'firecrawl',
-  description: 'Scrape a web page and return its content as markdown. Use for pricing pages, landing pages, and competitor websites.',
+  description: 'Scrape a web page and return its content as markdown with an AI-generated summary. Use for pricing pages, landing pages, and competitor websites.',
   inputSchema: z.object({
     url: z.string().url().describe('The URL to scrape'),
   }),
@@ -38,9 +38,10 @@ export const firecrawlTool = betaZodTool({
       if (!apiKey) return JSON.stringify({ success: false, error: 'FIRECRAWL_API_KEY not configured' });
       const client = new Firecrawl({ apiKey });
       const result = await Promise.race([
-        client.scrape(url, { formats: ['markdown'] }) as Promise<{
+        client.scrape(url, { formats: ['markdown', 'summary'] }) as Promise<{
           success: boolean;
           markdown?: string;
+          summary?: string;
           error?: unknown;
         }>,
         new Promise<never>((_, reject) =>
@@ -52,6 +53,7 @@ export const firecrawlTool = betaZodTool({
       ]);
       return JSON.stringify({
         success: result.success,
+        summary: typeof result.summary === 'string' ? result.summary : undefined,
         markdown: typeof result.markdown === 'string' ? compactFirecrawlMarkdown(result.markdown) : undefined,
         error: result.error,
       });

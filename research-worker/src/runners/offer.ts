@@ -9,7 +9,7 @@ import {
   type RunnerProgressReporter,
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
-import { firecrawlTool } from '../tools';
+import { firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
 const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? 'claude-sonnet-4-6';
@@ -19,7 +19,7 @@ const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
   name: 'web_search',
 } as const;
-type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool;
+type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool;
 
 const OFFER_SYSTEM_PROMPT = `You are an expert offer analyst evaluating viability for paid media campaigns.
 
@@ -35,8 +35,10 @@ TOOL USAGE:
 1. Use web_search for at most 2 focused searches:
    - category pricing benchmarks and buyer objections
    - missing market signals not already present in persisted competitor or synthesis context
-2. Use firecrawl only when a first-party pricing or website URL is already present in the context
-3. If firecrawl is available, use it once on the highest-value first-party page only
+2. Use firecrawlExtract (preferred) or firecrawl when a first-party pricing or website URL is present in the context:
+   - firecrawlExtract: Use for pricing pages — returns structured tier/price/feature data directly
+   - firecrawl: Use for general page content when you need the full markdown
+3. Use at most 1 firecrawl/firecrawlExtract call on the highest-value first-party page only
 4. Never scrape competitor pages or second-order URLs in this pass
 5. Reuse persisted competitor context instead of re-running broad competitor discovery
 
@@ -158,7 +160,7 @@ function getOfferAttemptConfig(context: string): OfferAttemptConfig {
     maxTokens: OFFER_MAX_TOKENS,
     timeoutMs: OFFER_TIMEOUT_MS,
     tools: shouldEnableOfferFirecrawl(context)
-      ? [WEB_SEARCH_TOOL, firecrawlTool]
+      ? [WEB_SEARCH_TOOL, firecrawlExtractTool, firecrawlTool]
       : [WEB_SEARCH_TOOL],
     system: OFFER_SYSTEM_PROMPT,
     synthesisMessage: 'synthesizing offer analysis',
