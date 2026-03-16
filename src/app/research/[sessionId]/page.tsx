@@ -71,6 +71,11 @@ export default async function ResearchPage({ params }: PageProps) {
     (meta?.url as string) ??
     'Research Document';
 
+  // Check if media plan already exists (check both naming conventions)
+  const hasMediaPlan =
+    researchResults.mediaPlan?.status === 'complete' ||
+    researchResults.mediaPlan?.status === 'running';
+
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-base)' }}>
       <div className="no-print">
@@ -82,6 +87,8 @@ export default async function ResearchPage({ params }: PageProps) {
           availableSections={availableSections}
           title={title}
           createdAt={data.created_at}
+          sessionId={sessionId}
+          hasMediaPlan={hasMediaPlan}
         />
       </main>
     </div>

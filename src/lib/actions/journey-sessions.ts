@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { SECTION_PIPELINE } from '@/lib/workspace/pipeline'
 import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections'
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog'
 import type { SectionKey, CardState } from '@/lib/workspace/types'
 
 export interface JourneySessionRecord {
@@ -103,4 +104,67 @@ export async function getCompletedJourneySessions(): Promise<{
   })
 
   return { data: records }
+}
+
+/**
+ * Dispatch media plan generation for a completed research session.
+ * Builds context from the session's onboarding metadata and dispatches
+ * to the worker — no need to go through the journey flow again.
+ */
+export async function dispatchMediaPlanForSession(
+  sessionId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { userId } = await auth()
+  if (!userId) return { success: false, error: 'Unauthorized' }
+
+  const supabase = createAdminClient()
+
+  const { data: session, error: fetchError } = await supabase
+    .from('journey_sessions')
+    .select('id, metadata, research_results')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single()
+
+  if (fetchError || !session) {
+    return { success: false, error: 'Session not found' }
+  }
+
+  const results = session.research_results as Record<string, { status?: string }> | null
+
+  // Check if media plan already exists
+  if (results?.mediaPlan?.status === 'complete' || results?.mediaPlan?.status === 'running') {
+    return { success: false, error: 'Media plan already exists or is generating' }
+  }
+
+  // Build context from onboarding metadata
+  const meta = session.metadata as Record<string, unknown> | null
+  const contextLines: string[] = []
+  if (meta) {
+    for (const [key, value] of Object.entries(meta)) {
+      if (key === 'activeJourneyRunId' || key === 'lastUpdated') continue
+      if (typeof value === 'string' && value.trim()) {
+        const label = JOURNEY_FIELD_LABELS[key] ?? key
+        contextLines.push(`${label}: ${value}`)
+      }
+    }
+  }
+
+  const context = contextLines.length > 0
+    ? contextLines.join('\n')
+    : 'Generate media plan from approved research results'
+
+  const runId = (meta?.activeJourneyRunId as string) ?? sessionId
+
+  // Dispatch via the existing infrastructure
+  const { dispatchResearchForUser } = await import('@/lib/ai/tools/research/dispatch')
+  const result = await dispatchResearchForUser('researchMediaPlan', 'mediaPlan', context, userId, {
+    activeRunId: runId,
+  })
+
+  if (result.status === 'error') {
+    return { success: false, error: result.error ?? 'Failed to dispatch media plan' }
+  }
+
+  return { success: true }
 }
