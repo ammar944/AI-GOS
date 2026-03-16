@@ -1,0 +1,76 @@
+[GET] http://localhost:3000/sign-in/SignIn_clerk_catchall_check_1773416609945 => [200] OK
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/environment?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&_method=PATCH&__clerk_db_jwt=dvb_3Atf6DF0fvD2YrCoXWtSWI59ePx => [200] 
+[GET] https://fleet-bengal-80.clerk.accounts.dev/v1/client?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3Atf6DF0fvD2YrCoXWtSWI59ePx => [200] 
+[POST] http://localhost:3000/journey => [200] OK
+[POST] http://localhost:3000/api/journey/prefill => [200] OK
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/client/sessions/sess_3AtfK4ktxFdB5JHKV7IUQ7cXg7o/tokens?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3Atf6DF0fvD2YrCoXWtSWI59ePx => [200] 
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/client/sessions/sess_3AtfK4ktxFdB5JHKV7IUQ7cXg7o/tokens?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3Atf6DF0fvD2YrCoXWtSWI59ePx => [200] 
+[PATCH] http://localhost:3000/api/journey/session => [200] OK
+[PATCH] http://localhost:3000/api/journey/session => [200] OK
+[POST] http://localhost:3000/api/journey/dispatch => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/client/sessions/sess_3AtfK4ktxFdB5JHKV7IUQ7cXg7o/tokens?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3Atf6DF0fvD2YrCoXWtSWI59ePx => [200] 
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/client/sessions/sess_3AtfK4ktxFdB5JHKV7IUQ7cXg7o/tokens?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3Atf6DF0fvD2YrCoXWtSWI59ePx => [200] 
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[POST] http://localhost:3000/api/journey/dispatch => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37 => [200] OK
+[GET] http://localhost:3000/api/journey/session?runId=f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37

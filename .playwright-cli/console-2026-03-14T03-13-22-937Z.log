@@ -1,0 +1,2959 @@
+[     182ms] [WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[     182ms] [WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[   33085ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[   45476ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[   54500ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[   61456ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[   92978ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[   95677ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  104305ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  106004ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  106864ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  107967ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  109966ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  111968ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  113968ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  115967ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  117968ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  119967ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122440ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122441ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/constants.js:2:1
+Module not found: Can't resolve '@clerk/shared/apiUrlFromPublishableKey'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { apiUrlFromPublishableKey } from "@clerk/shared/apiUrlFromPublishableKey";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { isTruthy } from "@clerk/shared/underscore";
+  4 | const CLERK_JS_VERSION = process.env.NEXT_PUBLIC_CLERK_JS_VERSION || "";
+  5 | const CLERK_JS_URL = process.env.NEXT_PUBLIC_CLERK_JS_URL || "";
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:602:1
+Module not found: Can't resolve '@clerk/shared/authorization'
+  600 |
+  601 | // src/tokens/authObjects.ts
+> 602 | import { createCheckAuthorization } from "@clerk/shared/authorization";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  603 | import { __experimental_JWTPayloadToAuthObjectProperties } from "@clerk/shared/jwtPayloadParser";
+  604 |
+  605 | // src/util/path.ts
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:9:1
+Module not found: Can't resolve '@clerk/shared/authorization'
+   7 |
+   8 | // src/hooks/useAuth.ts
+>  9 | import { createCheckAuthorization, resolveAuthState } from "@clerk/shared/authorization";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import { eventMethodCalled } from "@clerk/shared/telemetry";
+  11 | import { useCallback } from "react";
+  12 |
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:5904:1
+Module not found: Can't resolve '@clerk/shared/authorization-errors'
+  5902 |
+  5903 | // src/internal.ts
+> 5904 | import { reverificationError, reverificationErrorResponse } from "@clerk/shared/authorization-errors";
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5905 |
+  5906 | export {
+  5907 |   constants,
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:246:1
+Module not found: Can't resolve '@clerk/shared/browser'
+  244 |
+  245 | // src/stateProxy.ts
+> 246 | import { inBrowser } from "@clerk/shared/browser";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  247 | var defaultSignInErrors = () => ({
+  248 |   fields: {
+  249 |     identifier: null,
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js:4:1
+Module not found: Can't resolve '@clerk/shared/browser'
+  2 | import "../../chunk-BUSYA2B4.js";
+  3 | import { ClerkProvider as ReactClerkProvider } from "@clerk/clerk-react";
+> 4 | import { inBrowser } from "@clerk/shared/browser";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { logger } from "@clerk/shared/logger";
+  6 | import dynamic from "next/dynamic";
+  7 | import { useRouter } from "next/navigation";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:373:1
+Module not found: Can't resolve '@clerk/shared/buildAccountsBaseUrl'
+  371 |
+  372 | // src/tokens/authenticateContext.ts
+> 373 | import { buildAccountsBaseUrl as buildAccountsBaseUrl2 } from "@clerk/shared/buildAccountsBaseUrl";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  374 | import { isCurrentDevAccountPortalOrigin, isLegacyDevAccountPortalOrigin } from "@clerk/shared/url";
+  375 |
+  376 | // src/tokens/tokenTypes.ts
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:241:1
+Module not found: Can't resolve '@clerk/shared/clerkEventBus'
+  239 | // src/isomorphicClerk.ts
+  240 | import { inBrowser as inBrowser2 } from "@clerk/shared/browser";
+> 241 | import { clerkEvents, createClerkEventBus } from "@clerk/shared/clerkEventBus";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  242 | import { loadClerkJsScript } from "@clerk/shared/loadClerkJsScript";
+  243 | import { handleValueOrFn } from "@clerk/shared/utils";
+  244 |
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:2:1
+Module not found: Can't resolve '@clerk/shared/deprecated'
+  1 | // src/util/shared.ts
+> 2 | import { deprecated, deprecatedProperty } from "@clerk/shared/deprecated";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import {
+  4 |   getCookieSuffix,
+  5 |   getSuffixedCookieName,
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs:9:1
+Module not found: Can't resolve '@clerk/shared/deprecated'
+   7 |
+   8 | // src/components/controlComponents.tsx
+>  9 | import { deprecated } from "@clerk/shared/deprecated";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import React from "react";
+  11 |
+  12 | // src/contexts/SessionContext.tsx
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:229:1
+Module not found: Can't resolve '@clerk/shared/deriveState'
+  227 |
+  228 | // src/contexts/ClerkContextProvider.tsx
+> 229 | import { deriveState } from "@clerk/shared/deriveState";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  230 | import {
+  231 |   __experimental_CheckoutProvider as CheckoutProvider,
+  232 |   ClientContext,
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:4740:1
+Module not found: Can't resolve '@clerk/shared/error'
+  4738 |
+  4739 | // src/tokens/verify.ts
+> 4740 | import { isClerkAPIResponseError } from "@clerk/shared/error";
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4741 | async function verifyToken(token, options) {
+  4742 |   const { data: decodedResult, errors } = decodeJwt(token);
+  4743 |   if (errors) {
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:12:1
+Module not found: Can't resolve '@clerk/shared/error'
+  10 | import { retry } from "@clerk/shared/retry";
+  11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+> 12 | import { buildErrorThrower } from "@clerk/shared/error";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+  14 | var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
+  15 | var { isDevOrStagingUrl } = createDevOrStagingUrlCache();
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:2:1
+Module not found: Can't resolve '@clerk/shared/error'
+  1 | // src/errors/errorThrower.ts
+> 2 | import { buildErrorThrower } from "@clerk/shared/error";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | var errorThrower = buildErrorThrower({ packageName: "@clerk/clerk-react" });
+  4 | function setErrorThrowerOptions(options) {
+  5 |   errorThrower.setMessages(options).setPackageName(options);
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/errors.mjs:4:1
+Module not found: Can't resolve '@clerk/shared/error'
+   2 |
+   3 | // src/errors.ts
+>  4 | import {
+     | ^^^^^^^^
+>  5 |   isClerkAPIResponseError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  6 |   isClerkRuntimeError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  7 |   isEmailLinkError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  8 |   isKnownError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  9 |   isMetamaskError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 10 |   isReverificationCancelledError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 11 |   EmailLinkErrorCode,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 12 |   EmailLinkErrorCodeStatus
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 13 | } from "@clerk/shared/error";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  14 | export {
+  15 |   EmailLinkErrorCode,
+  16 |   EmailLinkErrorCodeStatus,
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/errors.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/errors.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/errorThrower.js:2:1
+Module not found: Can't resolve '@clerk/shared/error'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { buildErrorThrower } from "@clerk/shared/error";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | const errorThrower = buildErrorThrower({ packageName: "@clerk/nextjs" });
+  4 | export {
+  5 |   errorThrower
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/errorThrower.js
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-7X3P2E3X.mjs:264:1
+Module not found: Can't resolve '@clerk/shared/isomorphicAtob'
+  262 |
+  263 | // src/jwt/cryptoKeys.ts
+> 264 | import { isomorphicAtob } from "@clerk/shared/isomorphicAtob";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  265 | function pemToBuffer(secret) {
+  266 |   const trimmed = secret.replace(/-----BEGIN.*?-----/g, "").replace(/-----END.*?-----/g, "").replace(/\s/g, "");
+  267 |   const decoded = isomorphicAtob(trimmed);
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-7X3P2E3X.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:603:1
+Module not found: Can't resolve '@clerk/shared/jwtPayloadParser'
+  601 | // src/tokens/authObjects.ts
+  602 | import { createCheckAuthorization } from "@clerk/shared/authorization";
+> 603 | import { __experimental_JWTPayloadToAuthObjectProperties } from "@clerk/shared/jwtPayloadParser";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  604 |
+  605 | // src/util/path.ts
+  606 | var SEPARATOR = "/";
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:13:1
+Module not found: Can't resolve '@clerk/shared/keys'
+  11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+  12 | import { buildErrorThrower } from "@clerk/shared/error";
+> 13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  14 | var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
+  15 | var { isDevOrStagingUrl } = createDevOrStagingUrlCache();
+  16 |
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122442ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:225:1
+Module not found: Can't resolve '@clerk/shared/keys'
+  223 |
+  224 | // src/contexts/ClerkProvider.tsx
+> 225 | import { isPublishableKey } from "@clerk/shared/keys";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  226 | import React6 from "react";
+  227 |
+  228 | // src/contexts/ClerkContextProvider.tsx
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:3:1
+Module not found: Can't resolve '@clerk/shared/keys'
+  1 | import "../chunk-BUSYA2B4.js";
+  2 | import { constants } from "@clerk/backend/internal";
+> 3 | import { isDevelopmentFromSecretKey } from "@clerk/shared/keys";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | import { logger } from "@clerk/shared/logger";
+  5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+  6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:242:1
+Module not found: Can't resolve '@clerk/shared/loadClerkJsScript'
+  240 | import { inBrowser as inBrowser2 } from "@clerk/shared/browser";
+  241 | import { clerkEvents, createClerkEventBus } from "@clerk/shared/clerkEventBus";
+> 242 | import { loadClerkJsScript } from "@clerk/shared/loadClerkJsScript";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  243 | import { handleValueOrFn } from "@clerk/shared/utils";
+  244 |
+  245 | // src/stateProxy.ts
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/internal.mjs:38:1
+Module not found: Can't resolve '@clerk/shared/loadClerkJsScript'
+  36 |
+  37 | // src/internal.ts
+> 38 | import {
+     | ^^^^^^^^
+> 39 |   clerkJsScriptUrl,
+     | ^^^^^^^^^^^^^^^^^^^
+> 40 |   buildClerkJsScriptAttributes,
+     | ^^^^^^^^^^^^^^^^^^^
+> 41 |   setClerkJsLoadingErrorPackageName
+     | ^^^^^^^^^^^^^^^^^^^
+> 42 | } from "@clerk/shared/loadClerkJsScript";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  43 | export {
+  44 |   MultisessionAppSupport,
+  45 |   buildClerkJsScriptAttributes,
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/clerk-js-script.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/clerk-js-script.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js:5:1
+Module not found: Can't resolve '@clerk/shared/logger'
+  3 | import { ClerkProvider as ReactClerkProvider } from "@clerk/clerk-react";
+  4 | import { inBrowser } from "@clerk/shared/browser";
+> 5 | import { logger } from "@clerk/shared/logger";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import dynamic from "next/dynamic";
+  7 | import { useRouter } from "next/navigation";
+  8 | import nextPackage from "next/package.json";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:4:1
+Module not found: Can't resolve '@clerk/shared/logger'
+  2 | import { constants } from "@clerk/backend/internal";
+  3 | import { isDevelopmentFromSecretKey } from "@clerk/shared/keys";
+> 4 | import { logger } from "@clerk/shared/logger";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+  6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+  7 | import { NextResponse } from "next/server";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs:479:1
+Module not found: Can't resolve '@clerk/shared/object'
+  477 |
+  478 | // src/components/ClerkHostRenderer.tsx
+> 479 | import { without } from "@clerk/shared/object";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  480 | import { isDeeplyEqual } from "@clerk/shared/react";
+  481 | import React6 from "react";
+  482 | var isMountProps = (props) => {
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:5202:1
+Module not found: Can't resolve '@clerk/shared/pathToRegexp'
+  5200 |
+  5201 | // src/tokens/organizationMatcher.ts
+> 5202 | import { match } from "@clerk/shared/pathToRegexp";
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5203 | var OrganizationMatcher = class {
+  5204 |   constructor(options) {
+  5205 |     this.organizationPattern = this.createMatcher(options?.organizationPatterns);
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:5:1
+Module not found: Can't resolve '@clerk/shared/proxy'
+  3 | import { isDevelopmentFromSecretKey } from "@clerk/shared/keys";
+  4 | import { logger } from "@clerk/shared/logger";
+> 5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+  7 | import { NextResponse } from "next/server";
+  8 | import { constants as nextConstants } from "../constants";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs:480:1
+Module not found: Can't resolve '@clerk/shared/react'
+  478 | // src/components/ClerkHostRenderer.tsx
+  479 | import { without } from "@clerk/shared/object";
+> 480 | import { isDeeplyEqual } from "@clerk/shared/react";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  481 | import React6 from "react";
+  482 | var isMountProps = (props) => {
+  483 |   return "mount" in props;
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:194:1
+Module not found: Can't resolve '@clerk/shared/react'
+  192 |
+  193 | // src/hooks/index.ts
+> 194 | import {
+      | ^^^^^^^^
+> 195 |   useClerk,
+      | ^^^^^^^^^^^
+> 196 |   useOrganization,
+      | ^^^^^^^^^^^
+> 197 |   useOrganizationList,
+      | ^^^^^^^^^^^
+> 198 |   useSessionList,
+      | ^^^^^^^^^^^
+> 199 |   useUser,
+      | ^^^^^^^^^^^
+> 200 |   useSession,
+      | ^^^^^^^^^^^
+> 201 |   useReverification,
+      | ^^^^^^^^^^^
+> 202 |   __experimental_useCheckout,
+      | ^^^^^^^^^^^
+> 203 |   __experimental_CheckoutProvider,
+      | ^^^^^^^^^^^
+> 204 |   __experimental_usePaymentElement,
+      | ^^^^^^^^^^^
+> 205 |   __experimental_PaymentElementProvider,
+      | ^^^^^^^^^^^
+> 206 |   __experimental_PaymentElement
+      | ^^^^^^^^^^^
+> 207 | } from "@clerk/shared/react";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  208 |
+  209 | // src/components/withClerk.tsx
+  210 | import React2 from "react";
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122443ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs:13:1
+Module not found: Can't resolve '@clerk/shared/react'
+  11 |
+  12 | // src/contexts/SessionContext.tsx
+> 13 | import { SessionContext, useSessionContext } from "@clerk/shared/react";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  14 |
+  15 | // src/components/controlComponents.tsx
+  16 | var SignedIn = ({ children, treatPendingAsSignedOut }) => {
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:230:1
+Module not found: Can't resolve '@clerk/shared/react'
+  228 | // src/contexts/ClerkContextProvider.tsx
+  229 | import { deriveState } from "@clerk/shared/deriveState";
+> 230 | import {
+      | ^^^^^^^^
+> 231 |   __experimental_CheckoutProvider as CheckoutProvider,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |   ClientContext,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 233 |   OrganizationProvider,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 234 |   SessionContext,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 235 |   UserContext
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 | } from "@clerk/shared/react";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  237 | import React5 from "react";
+  238 |
+  239 | // src/isomorphicClerk.ts
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:10:1
+Module not found: Can't resolve '@clerk/shared/retry'
+   8 |   parsePublishableKey
+   9 | } from "@clerk/shared/keys";
+> 10 | import { retry } from "@clerk/shared/retry";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+  12 | import { buildErrorThrower } from "@clerk/shared/error";
+  13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/backend/dist/index.mjs:15:1
+Module not found: Can't resolve '@clerk/shared/telemetry'
+  13 |
+  14 | // src/index.ts
+> 15 | import { TelemetryCollector } from "@clerk/shared/telemetry";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  16 | var verifyToken2 = withLegacyReturn(verifyToken);
+  17 | function createClerkClient(options) {
+  18 |   const opts = { ...options };
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/index.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/createClerkClient.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/keyless-provider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:176:1
+Module not found: Can't resolve '@clerk/shared/telemetry'
+  174 | // src/hooks/useSignUp.ts
+  175 | import { useClientContext as useClientContext2 } from "@clerk/shared/react";
+> 176 | import { eventMethodCalled as eventMethodCalled3 } from "@clerk/shared/telemetry";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  177 | var useSignUp = () => {
+  178 |   var _a;
+  179 |   useAssertWrappedByClerkProvider("useSignUp");
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/utils/router-telemetry.js:2:1
+Module not found: Can't resolve '@clerk/shared/telemetry'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { eventFrameworkMetadata } from "@clerk/shared/telemetry";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { useClerk } from "../client-boundary/hooks";
+  4 | import { usePagesRouter } from "../client-boundary/hooks/usePagesRouter";
+  5 | const RouterTelemetry = () => {
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/router-telemetry.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/router-telemetry.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/constants.js:3:1
+Module not found: Can't resolve '@clerk/shared/underscore'
+  1 | import "../chunk-BUSYA2B4.js";
+  2 | import { apiUrlFromPublishableKey } from "@clerk/shared/apiUrlFromPublishableKey";
+> 3 | import { isTruthy } from "@clerk/shared/underscore";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | const CLERK_JS_VERSION = process.env.NEXT_PUBLIC_CLERK_JS_VERSION || "";
+  5 | const CLERK_JS_URL = process.env.NEXT_PUBLIC_CLERK_JS_URL || "";
+  6 | const API_VERSION = process.env.CLERK_API_VERSION || "v1";
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/createGetAuth.js:3:1
+Module not found: Can't resolve '@clerk/shared/underscore'
+  1 | import "../chunk-BUSYA2B4.js";
+  2 | import { constants } from "@clerk/backend/internal";
+> 3 | import { isTruthy } from "@clerk/shared/underscore";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | import { withLogger } from "../utils/debugLogger";
+  5 | import { isNextWithUnstableServerActions } from "../utils/sdk-versions";
+  6 | import {
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/createGetAuth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js:2:1
+Module not found: Can't resolve '@clerk/shared/underscore'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { isTruthy } from "@clerk/shared/underscore";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { SDK_METADATA } from "../server/constants";
+  4 | const mergeNextClerkPropsWithEnv = (props) => {
+  5 |   var _a;
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:374:1
+Module not found: Can't resolve '@clerk/shared/url'
+  372 | // src/tokens/authenticateContext.ts
+  373 | import { buildAccountsBaseUrl as buildAccountsBaseUrl2 } from "@clerk/shared/buildAccountsBaseUrl";
+> 374 | import { isCurrentDevAccountPortalOrigin, isLegacyDevAccountPortalOrigin } from "@clerk/shared/url";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  375 |
+  376 | // src/tokens/tokenTypes.ts
+  377 | var TokenType = {
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:11:1
+Module not found: Can't resolve '@clerk/shared/url'
+   9 | } from "@clerk/shared/keys";
+  10 | import { retry } from "@clerk/shared/retry";
+> 11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 | import { buildErrorThrower } from "@clerk/shared/error";
+  13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+  14 | var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs:251:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  249 |
+  250 | // src/utils/useCustomMenuItems.tsx
+> 251 | import { logErrorInDevMode as logErrorInDevMode2 } from "@clerk/shared/utils";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  252 | import React5 from "react";
+  253 | var useUserButtonCustomMenuItems = (children, options) => {
+  254 |   var _a;
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:243:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  241 | import { clerkEvents, createClerkEventBus } from "@clerk/shared/clerkEventBus";
+  242 | import { loadClerkJsScript } from "@clerk/shared/loadClerkJsScript";
+> 243 | import { handleValueOrFn } from "@clerk/shared/utils";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  244 |
+  245 | // src/stateProxy.ts
+  246 | import { inBrowser } from "@clerk/shared/browser";
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js:2:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  1 | import "../../chunk-BUSYA2B4.js";
+> 2 | import { isProductionEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import React from "react";
+  4 | import { useSession } from "../hooks";
+  5 | import { usePagesRouter } from "./usePagesRouter";
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/keyless-log-cache.js:2:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { isDevelopmentEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | const THROTTLE_DURATION_MS = 10 * 60 * 1e3;
+  4 | function createClerkDevCache() {
+  5 |   if (!isDevelopmentEnvironment()) {
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/keyless-log-cache.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/keyless-provider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:6:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  4 | import { logger } from "@clerk/shared/logger";
+  5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+> 6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | import { NextResponse } from "next/server";
+  8 | import { constants as nextConstants } from "../constants";
+  9 | import { canUseKeyless } from "../utils/feature-flags";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122444ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js:2:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { isDevelopmentEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { KEYLESS_DISABLED } from "../server/constants";
+  4 | import { isNextWithUnstableServerActions } from "./sdk-versions";
+  5 | const canUseKeyless = !isNextWithUnstableServerActions && // Next.js will inline the value of 'development' or 'production' on the client bundle, so this is client-safe.
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/keyless-provider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122567ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/constants.js:2:1
+Module not found: Can't resolve '@clerk/shared/apiUrlFromPublishableKey'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { apiUrlFromPublishableKey } from "@clerk/shared/apiUrlFromPublishableKey";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { isTruthy } from "@clerk/shared/underscore";
+  4 | const CLERK_JS_VERSION = process.env.NEXT_PUBLIC_CLERK_JS_VERSION || "";
+  5 | const CLERK_JS_URL = process.env.NEXT_PUBLIC_CLERK_JS_URL || "";
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:602:1
+Module not found: Can't resolve '@clerk/shared/authorization'
+  600 |
+  601 | // src/tokens/authObjects.ts
+> 602 | import { createCheckAuthorization } from "@clerk/shared/authorization";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  603 | import { __experimental_JWTPayloadToAuthObjectProperties } from "@clerk/shared/jwtPayloadParser";
+  604 |
+  605 | // src/util/path.ts
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:9:1
+Module not found: Can't resolve '@clerk/shared/authorization'
+   7 |
+   8 | // src/hooks/useAuth.ts
+>  9 | import { createCheckAuthorization, resolveAuthState } from "@clerk/shared/authorization";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import { eventMethodCalled } from "@clerk/shared/telemetry";
+  11 | import { useCallback } from "react";
+  12 |
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:5904:1
+Module not found: Can't resolve '@clerk/shared/authorization-errors'
+  5902 |
+  5903 | // src/internal.ts
+> 5904 | import { reverificationError, reverificationErrorResponse } from "@clerk/shared/authorization-errors";
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5905 |
+  5906 | export {
+  5907 |   constants,
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:246:1
+Module not found: Can't resolve '@clerk/shared/browser'
+  244 |
+  245 | // src/stateProxy.ts
+> 246 | import { inBrowser } from "@clerk/shared/browser";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  247 | var defaultSignInErrors = () => ({
+  248 |   fields: {
+  249 |     identifier: null,
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js:4:1
+Module not found: Can't resolve '@clerk/shared/browser'
+  2 | import "../../chunk-BUSYA2B4.js";
+  3 | import { ClerkProvider as ReactClerkProvider } from "@clerk/clerk-react";
+> 4 | import { inBrowser } from "@clerk/shared/browser";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { logger } from "@clerk/shared/logger";
+  6 | import dynamic from "next/dynamic";
+  7 | import { useRouter } from "next/navigation";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:373:1
+Module not found: Can't resolve '@clerk/shared/buildAccountsBaseUrl'
+  371 |
+  372 | // src/tokens/authenticateContext.ts
+> 373 | import { buildAccountsBaseUrl as buildAccountsBaseUrl2 } from "@clerk/shared/buildAccountsBaseUrl";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  374 | import { isCurrentDevAccountPortalOrigin, isLegacyDevAccountPortalOrigin } from "@clerk/shared/url";
+  375 |
+  376 | // src/tokens/tokenTypes.ts
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:241:1
+Module not found: Can't resolve '@clerk/shared/clerkEventBus'
+  239 | // src/isomorphicClerk.ts
+  240 | import { inBrowser as inBrowser2 } from "@clerk/shared/browser";
+> 241 | import { clerkEvents, createClerkEventBus } from "@clerk/shared/clerkEventBus";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  242 | import { loadClerkJsScript } from "@clerk/shared/loadClerkJsScript";
+  243 | import { handleValueOrFn } from "@clerk/shared/utils";
+  244 |
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:2:1
+Module not found: Can't resolve '@clerk/shared/deprecated'
+  1 | // src/util/shared.ts
+> 2 | import { deprecated, deprecatedProperty } from "@clerk/shared/deprecated";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import {
+  4 |   getCookieSuffix,
+  5 |   getSuffixedCookieName,
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs:9:1
+Module not found: Can't resolve '@clerk/shared/deprecated'
+   7 |
+   8 | // src/components/controlComponents.tsx
+>  9 | import { deprecated } from "@clerk/shared/deprecated";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import React from "react";
+  11 |
+  12 | // src/contexts/SessionContext.tsx
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122568ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:229:1
+Module not found: Can't resolve '@clerk/shared/deriveState'
+  227 |
+  228 | // src/contexts/ClerkContextProvider.tsx
+> 229 | import { deriveState } from "@clerk/shared/deriveState";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  230 | import {
+  231 |   __experimental_CheckoutProvider as CheckoutProvider,
+  232 |   ClientContext,
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:4740:1
+Module not found: Can't resolve '@clerk/shared/error'
+  4738 |
+  4739 | // src/tokens/verify.ts
+> 4740 | import { isClerkAPIResponseError } from "@clerk/shared/error";
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4741 | async function verifyToken(token, options) {
+  4742 |   const { data: decodedResult, errors } = decodeJwt(token);
+  4743 |   if (errors) {
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:12:1
+Module not found: Can't resolve '@clerk/shared/error'
+  10 | import { retry } from "@clerk/shared/retry";
+  11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+> 12 | import { buildErrorThrower } from "@clerk/shared/error";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+  14 | var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
+  15 | var { isDevOrStagingUrl } = createDevOrStagingUrlCache();
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:2:1
+Module not found: Can't resolve '@clerk/shared/error'
+  1 | // src/errors/errorThrower.ts
+> 2 | import { buildErrorThrower } from "@clerk/shared/error";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | var errorThrower = buildErrorThrower({ packageName: "@clerk/clerk-react" });
+  4 | function setErrorThrowerOptions(options) {
+  5 |   errorThrower.setMessages(options).setPackageName(options);
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/errors.mjs:4:1
+Module not found: Can't resolve '@clerk/shared/error'
+   2 |
+   3 | // src/errors.ts
+>  4 | import {
+     | ^^^^^^^^
+>  5 |   isClerkAPIResponseError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  6 |   isClerkRuntimeError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  7 |   isEmailLinkError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  8 |   isKnownError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  9 |   isMetamaskError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 10 |   isReverificationCancelledError,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 11 |   EmailLinkErrorCode,
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 12 |   EmailLinkErrorCodeStatus
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 13 | } from "@clerk/shared/error";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  14 | export {
+  15 |   EmailLinkErrorCode,
+  16 |   EmailLinkErrorCodeStatus,
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/errors.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/errors.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/errorThrower.js:2:1
+Module not found: Can't resolve '@clerk/shared/error'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { buildErrorThrower } from "@clerk/shared/error";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | const errorThrower = buildErrorThrower({ packageName: "@clerk/nextjs" });
+  4 | export {
+  5 |   errorThrower
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/errorThrower.js
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-7X3P2E3X.mjs:264:1
+Module not found: Can't resolve '@clerk/shared/isomorphicAtob'
+  262 |
+  263 | // src/jwt/cryptoKeys.ts
+> 264 | import { isomorphicAtob } from "@clerk/shared/isomorphicAtob";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  265 | function pemToBuffer(secret) {
+  266 |   const trimmed = secret.replace(/-----BEGIN.*?-----/g, "").replace(/-----END.*?-----/g, "").replace(/\s/g, "");
+  267 |   const decoded = isomorphicAtob(trimmed);
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-7X3P2E3X.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:603:1
+Module not found: Can't resolve '@clerk/shared/jwtPayloadParser'
+  601 | // src/tokens/authObjects.ts
+  602 | import { createCheckAuthorization } from "@clerk/shared/authorization";
+> 603 | import { __experimental_JWTPayloadToAuthObjectProperties } from "@clerk/shared/jwtPayloadParser";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  604 |
+  605 | // src/util/path.ts
+  606 | var SEPARATOR = "/";
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:13:1
+Module not found: Can't resolve '@clerk/shared/keys'
+  11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+  12 | import { buildErrorThrower } from "@clerk/shared/error";
+> 13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  14 | var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
+  15 | var { isDevOrStagingUrl } = createDevOrStagingUrlCache();
+  16 |
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:225:1
+Module not found: Can't resolve '@clerk/shared/keys'
+  223 |
+  224 | // src/contexts/ClerkProvider.tsx
+> 225 | import { isPublishableKey } from "@clerk/shared/keys";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  226 | import React6 from "react";
+  227 |
+  228 | // src/contexts/ClerkContextProvider.tsx
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:3:1
+Module not found: Can't resolve '@clerk/shared/keys'
+  1 | import "../chunk-BUSYA2B4.js";
+  2 | import { constants } from "@clerk/backend/internal";
+> 3 | import { isDevelopmentFromSecretKey } from "@clerk/shared/keys";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | import { logger } from "@clerk/shared/logger";
+  5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+  6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:242:1
+Module not found: Can't resolve '@clerk/shared/loadClerkJsScript'
+  240 | import { inBrowser as inBrowser2 } from "@clerk/shared/browser";
+  241 | import { clerkEvents, createClerkEventBus } from "@clerk/shared/clerkEventBus";
+> 242 | import { loadClerkJsScript } from "@clerk/shared/loadClerkJsScript";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  243 | import { handleValueOrFn } from "@clerk/shared/utils";
+  244 |
+  245 | // src/stateProxy.ts
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/internal.mjs:38:1
+Module not found: Can't resolve '@clerk/shared/loadClerkJsScript'
+  36 |
+  37 | // src/internal.ts
+> 38 | import {
+     | ^^^^^^^^
+> 39 |   clerkJsScriptUrl,
+     | ^^^^^^^^^^^^^^^^^^^
+> 40 |   buildClerkJsScriptAttributes,
+     | ^^^^^^^^^^^^^^^^^^^
+> 41 |   setClerkJsLoadingErrorPackageName
+     | ^^^^^^^^^^^^^^^^^^^
+> 42 | } from "@clerk/shared/loadClerkJsScript";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  43 | export {
+  44 |   MultisessionAppSupport,
+  45 |   buildClerkJsScriptAttributes,
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/clerk-js-script.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/internal.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/clerk-js-script.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js:5:1
+Module not found: Can't resolve '@clerk/shared/logger'
+  3 | import { ClerkProvider as ReactClerkProvider } from "@clerk/clerk-react";
+  4 | import { inBrowser } from "@clerk/shared/browser";
+> 5 | import { logger } from "@clerk/shared/logger";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import dynamic from "next/dynamic";
+  7 | import { useRouter } from "next/navigation";
+  8 | import nextPackage from "next/package.json";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:4:1
+Module not found: Can't resolve '@clerk/shared/logger'
+  2 | import { constants } from "@clerk/backend/internal";
+  3 | import { isDevelopmentFromSecretKey } from "@clerk/shared/keys";
+> 4 | import { logger } from "@clerk/shared/logger";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+  6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+  7 | import { NextResponse } from "next/server";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs:479:1
+Module not found: Can't resolve '@clerk/shared/object'
+  477 |
+  478 | // src/components/ClerkHostRenderer.tsx
+> 479 | import { without } from "@clerk/shared/object";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  480 | import { isDeeplyEqual } from "@clerk/shared/react";
+  481 | import React6 from "react";
+  482 | var isMountProps = (props) => {
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:5202:1
+Module not found: Can't resolve '@clerk/shared/pathToRegexp'
+  5200 |
+  5201 | // src/tokens/organizationMatcher.ts
+> 5202 | import { match } from "@clerk/shared/pathToRegexp";
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5203 | var OrganizationMatcher = class {
+  5204 |   constructor(options) {
+  5205 |     this.organizationPattern = this.createMatcher(options?.organizationPatterns);
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:5:1
+Module not found: Can't resolve '@clerk/shared/proxy'
+  3 | import { isDevelopmentFromSecretKey } from "@clerk/shared/keys";
+  4 | import { logger } from "@clerk/shared/logger";
+> 5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+  7 | import { NextResponse } from "next/server";
+  8 | import { constants as nextConstants } from "../constants";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs:480:1
+Module not found: Can't resolve '@clerk/shared/react'
+  478 | // src/components/ClerkHostRenderer.tsx
+  479 | import { without } from "@clerk/shared/object";
+> 480 | import { isDeeplyEqual } from "@clerk/shared/react";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  481 | import React6 from "react";
+  482 | var isMountProps = (props) => {
+  483 |   return "mount" in props;
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:194:1
+Module not found: Can't resolve '@clerk/shared/react'
+  192 |
+  193 | // src/hooks/index.ts
+> 194 | import {
+      | ^^^^^^^^
+> 195 |   useClerk,
+      | ^^^^^^^^^^^
+> 196 |   useOrganization,
+      | ^^^^^^^^^^^
+> 197 |   useOrganizationList,
+      | ^^^^^^^^^^^
+> 198 |   useSessionList,
+      | ^^^^^^^^^^^
+> 199 |   useUser,
+      | ^^^^^^^^^^^
+> 200 |   useSession,
+      | ^^^^^^^^^^^
+> 201 |   useReverification,
+      | ^^^^^^^^^^^
+> 202 |   __experimental_useCheckout,
+      | ^^^^^^^^^^^
+> 203 |   __experimental_CheckoutProvider,
+      | ^^^^^^^^^^^
+> 204 |   __experimental_usePaymentElement,
+      | ^^^^^^^^^^^
+> 205 |   __experimental_PaymentElementProvider,
+      | ^^^^^^^^^^^
+> 206 |   __experimental_PaymentElement
+      | ^^^^^^^^^^^
+> 207 | } from "@clerk/shared/react";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  208 |
+  209 | // src/components/withClerk.tsx
+  210 | import React2 from "react";
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs:13:1
+Module not found: Can't resolve '@clerk/shared/react'
+  11 |
+  12 | // src/contexts/SessionContext.tsx
+> 13 | import { SessionContext, useSessionContext } from "@clerk/shared/react";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  14 |
+  15 | // src/components/controlComponents.tsx
+  16 | var SignedIn = ({ children, treatPendingAsSignedOut }) => {
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-VMBS36YX.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:230:1
+Module not found: Can't resolve '@clerk/shared/react'
+  228 | // src/contexts/ClerkContextProvider.tsx
+  229 | import { deriveState } from "@clerk/shared/deriveState";
+> 230 | import {
+      | ^^^^^^^^
+> 231 |   __experimental_CheckoutProvider as CheckoutProvider,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |   ClientContext,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 233 |   OrganizationProvider,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 234 |   SessionContext,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 235 |   UserContext
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 | } from "@clerk/shared/react";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  237 | import React5 from "react";
+  238 |
+  239 | // src/isomorphicClerk.ts
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122569ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:10:1
+Module not found: Can't resolve '@clerk/shared/retry'
+   8 |   parsePublishableKey
+   9 | } from "@clerk/shared/keys";
+> 10 | import { retry } from "@clerk/shared/retry";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+  12 | import { buildErrorThrower } from "@clerk/shared/error";
+  13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/backend/dist/index.mjs:15:1
+Module not found: Can't resolve '@clerk/shared/telemetry'
+  13 |
+  14 | // src/index.ts
+> 15 | import { TelemetryCollector } from "@clerk/shared/telemetry";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  16 | var verifyToken2 = withLegacyReturn(verifyToken);
+  17 | function createClerkClient(options) {
+  18 |   const opts = { ...options };
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/index.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/createClerkClient.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/keyless-provider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs:176:1
+Module not found: Can't resolve '@clerk/shared/telemetry'
+  174 | // src/hooks/useSignUp.ts
+  175 | import { useClientContext as useClientContext2 } from "@clerk/shared/react";
+> 176 | import { eventMethodCalled as eventMethodCalled3 } from "@clerk/shared/telemetry";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  177 | var useSignUp = () => {
+  178 |   var _a;
+  179 |   useAssertWrappedByClerkProvider("useSignUp");
+
+Import traces:
+  #1 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #2 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #3 [Client Component Browser]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  #4 [Client Component SSR]:
+    ./node_modules/@clerk/clerk-react/dist/chunk-OT5FTIRN.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/utils/router-telemetry.js:2:1
+Module not found: Can't resolve '@clerk/shared/telemetry'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { eventFrameworkMetadata } from "@clerk/shared/telemetry";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { useClerk } from "../client-boundary/hooks";
+  4 | import { usePagesRouter } from "../client-boundary/hooks/usePagesRouter";
+  5 | const RouterTelemetry = () => {
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/router-telemetry.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/router-telemetry.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/constants.js:3:1
+Module not found: Can't resolve '@clerk/shared/underscore'
+  1 | import "../chunk-BUSYA2B4.js";
+  2 | import { apiUrlFromPublishableKey } from "@clerk/shared/apiUrlFromPublishableKey";
+> 3 | import { isTruthy } from "@clerk/shared/underscore";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | const CLERK_JS_VERSION = process.env.NEXT_PUBLIC_CLERK_JS_VERSION || "";
+  5 | const CLERK_JS_URL = process.env.NEXT_PUBLIC_CLERK_JS_URL || "";
+  6 | const API_VERSION = process.env.CLERK_API_VERSION || "v1";
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/server/constants.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/createGetAuth.js:3:1
+Module not found: Can't resolve '@clerk/shared/underscore'
+  1 | import "../chunk-BUSYA2B4.js";
+  2 | import { constants } from "@clerk/backend/internal";
+> 3 | import { isTruthy } from "@clerk/shared/underscore";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  4 | import { withLogger } from "../utils/debugLogger";
+  5 | import { isNextWithUnstableServerActions } from "../utils/sdk-versions";
+  6 | import {
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/createGetAuth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js:2:1
+Module not found: Can't resolve '@clerk/shared/underscore'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { isTruthy } from "@clerk/shared/underscore";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { SDK_METADATA } from "../server/constants";
+  4 | const mergeNextClerkPropsWithEnv = (props) => {
+  5 |   var _a;
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/mergeNextClerkPropsWithEnv.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs:374:1
+Module not found: Can't resolve '@clerk/shared/url'
+  372 | // src/tokens/authenticateContext.ts
+  373 | import { buildAccountsBaseUrl as buildAccountsBaseUrl2 } from "@clerk/shared/buildAccountsBaseUrl";
+> 374 | import { isCurrentDevAccountPortalOrigin, isLegacyDevAccountPortalOrigin } from "@clerk/shared/url";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  375 |
+  376 | // src/tokens/tokenTypes.ts
+  377 | var TokenType = {
+
+Import traces:
+  #1 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  #2 [Server Component]:
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/backend/dist/internal.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs:11:1
+Module not found: Can't resolve '@clerk/shared/url'
+   9 | } from "@clerk/shared/keys";
+  10 | import { retry } from "@clerk/shared/retry";
+> 11 | import { addClerkPrefix, getClerkJsMajorVersionOrTag, getScriptUrl } from "@clerk/shared/url";
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 | import { buildErrorThrower } from "@clerk/shared/error";
+  13 | import { createDevOrStagingUrlCache } from "@clerk/shared/keys";
+  14 | var errorThrower = buildErrorThrower({ packageName: "@clerk/backend" });
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/backend/dist/chunk-YBVFDYDR.mjs
+    ./node_modules/@clerk/backend/dist/chunk-EFURL7PK.mjs
+    ./node_modules/@clerk/nextjs/dist/esm/server/buildClerkProps.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs:251:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  249 |
+  250 | // src/utils/useCustomMenuItems.tsx
+> 251 | import { logErrorInDevMode as logErrorInDevMode2 } from "@clerk/shared/utils";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  252 | import React5 from "react";
+  253 | var useUserButtonCustomMenuItems = (children, options) => {
+  254 |   var _a;
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component Browser]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/chunk-6WD75OPE.mjs [Client Component SSR]
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/controlComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/clerk-react/dist/index.mjs:243:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  241 | import { clerkEvents, createClerkEventBus } from "@clerk/shared/clerkEventBus";
+  242 | import { loadClerkJsScript } from "@clerk/shared/loadClerkJsScript";
+> 243 | import { handleValueOrFn } from "@clerk/shared/utils";
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  244 |
+  245 | // src/stateProxy.ts
+  246 | import { inBrowser } from "@clerk/shared/browser";
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/clerk-react/dist/index.mjs [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js:2:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  1 | import "../../chunk-BUSYA2B4.js";
+> 2 | import { isProductionEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import React from "react";
+  4 | import { useSession } from "../hooks";
+  5 | import { usePagesRouter } from "./usePagesRouter";
+
+Import traces:
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceCatchAllRoute.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/hooks/useEnforceRoutingProps.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/client-boundary/uiComponents.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/keyless-log-cache.js:2:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { isDevelopmentEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | const THROTTLE_DURATION_MS = 10 * 60 * 1e3;
+  4 | function createClerkDevCache() {
+  5 |   if (!isDevelopmentEnvironment()) {
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/keyless-log-cache.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/keyless-provider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/server/utils.js:6:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  4 | import { logger } from "@clerk/shared/logger";
+  5 | import { isHttpOrHttps } from "@clerk/shared/proxy";
+> 6 | import { handleValueOrFn, isProductionEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | import { NextResponse } from "next/server";
+  8 | import { constants as nextConstants } from "../constants";
+  9 | import { canUseKeyless } from "../utils/feature-flags";
+
+Import trace:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/server/utils.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/auth.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/controlComponents.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  122570ms] [ERROR] ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js:2:1
+Module not found: Can't resolve '@clerk/shared/utils'
+  1 | import "../chunk-BUSYA2B4.js";
+> 2 | import { isDevelopmentEnvironment } from "@clerk/shared/utils";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  3 | import { KEYLESS_DISABLED } from "../server/constants";
+  4 | import { isNextWithUnstableServerActions } from "./sdk-versions";
+  5 | const canUseKeyless = !isNextWithUnstableServerActions && // Next.js will inline the value of 'development' or 'production' on the client bundle, so this is client-safe.
+
+Import traces:
+  Server Component:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/keyless-provider.js
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js
+    ./node_modules/@clerk/nextjs/dist/esm/index.js
+    ./src/app/layout.tsx
+
+  Client Component Browser:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component Browser]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+  Client Component SSR:
+    ./node_modules/@clerk/nextjs/dist/esm/utils/feature-flags.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Client Component SSR]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/client/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/app-router/server/ClerkProvider.js [Server Component]
+    ./node_modules/@clerk/nextjs/dist/esm/index.js [Server Component]
+    ./src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  123525ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  123967ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  125969ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  127968ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  129970ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  131969ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  133967ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  135967ms] [ERROR] ./src/app/layout.tsx:4:1
+Module not found: Can't resolve '@clerk/ui/themes'
+  2 | import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+  3 | import { ClerkProvider } from "@clerk/nextjs";
+> 4 | import { dark } from "@clerk/ui/themes";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  5 | import { ErrorBoundary } from "@/components/error-boundary";
+  6 | import "./globals.css";
+  7 |
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  137896ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[  138983ms] [ERROR] [journey] Failed to fetch current research results: TypeError: Failed to fetch
+    at useResearchRealtime.useEffect.fetchCurrentResults (http://localhost:3000/_next/static/chunks/src_lib_9bb12f97._.js:4191:48)
+    at useResearchRealtime.useEffect.interval (http://localhost:3000/_next/static/chunks/src_lib_9bb12f97._.js:4245:26) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:3117
+[  139378ms] [WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[  139378ms] [WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287

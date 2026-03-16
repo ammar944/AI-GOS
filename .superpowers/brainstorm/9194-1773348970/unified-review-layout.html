@@ -1,0 +1,62 @@
+<h2>Unified Onboarding Review — Layout Approach</h2>
+<p class="subtitle">All 39 fields in one scrollable page, grouped by category. Scraped values pre-filled, manual fields empty with placeholders. Required blockers marked.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Accordion Groups (Recommended)</h3>
+      <p>Each category is a collapsible section. Groups with all fields filled show a green checkmark and collapse by default. Groups with missing required fields stay open. User can expand any group to review/edit.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Not overwhelming — user sees 7 group headers, not 39 fields at once</li>
+          <li>Auto-focuses attention on what needs filling</li>
+          <li>Groups with scraped data collapse out of the way</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Extra click to expand a group to review pre-filled values</li>
+          <li>Slightly more component code</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Flat Scrollable Sections</h3>
+      <p>All 7 groups visible at once, separated by section headers. No collapsing. Sticky "Start Market Overview" button at the bottom. Missing required fields highlighted with amber borders.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Everything visible at a glance — no hidden state</li>
+          <li>Simpler implementation — just headers + fields</li>
+          <li>Easy to scan and edit anything</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Long scroll — 39 fields is a lot of vertical space</li>
+          <li>Can feel form-like and tedious</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Two-Column Card Grid</h3>
+      <p>Each group is a card in a 2-column grid. Cards show field count and fill status (e.g., "5/7 filled"). Click a card to expand it inline and edit fields. Required cards have an amber dot.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Compact — all 7 groups visible without scrolling</li>
+          <li>Visual progress at a glance per group</li>
+          <li>Premium feel — card-based, not form-based</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Two interactions to edit (click card → edit field)</li>
+          <li>Harder to review all values quickly</li>
+          <li>More complex expand/collapse behavior</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>

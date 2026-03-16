@@ -1,0 +1,236 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e229]:
+        - generic [ref=e232]: Discovery
+        - generic [ref=e235]: Validation
+        - generic [ref=e238]: Strategy
+        - generic [ref=e241]: Launch
+      - generic [ref=e242]:
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - generic [ref=e247]:
+              - paragraph [ref=e248]:
+                - generic [ref=e249]: "[OK]"
+                - text: Accepted 9 prefill fields
+              - paragraph [ref=e293]:
+                - generic [ref=e294]: "[RUN]"
+                - text: Researching Market Overview...
+              - paragraph [ref=e349]:
+                - generic [ref=e350]: "[OK]"
+                - text: Market Overview research complete
+              - paragraph [ref=e250]: _
+            - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e253]
+            - paragraph [ref=e298]: Building your market overview now.
+            - button "View Market Overview artifact" [ref=e300] [cursor=pointer]:
+              - generic [ref=e306]:
+                - generic [ref=e307]: Module 01
+                - heading "Market Overview" [level=3] [ref=e308]
+              - generic [ref=e309]:
+                - generic [ref=e310]: View artifact
+                - img [ref=e311]
+          - generic [ref=e262]:
+            - textbox "Ask AIGOS to refine the strategy..." [ref=e263]
+            - button "Send message" [disabled] [ref=e264]:
+              - img [ref=e265]
+        - generic [ref=e314]:
+          - generic [ref=e315]:
+            - generic [ref=e319]:
+              - generic [ref=e320]: Module 01
+              - heading "Market Overview" [level=2] [ref=e321]
+            - button "Close artifact panel" [ref=e322]:
+              - img [ref=e323]
+          - generic [ref=e352]:
+            - generic [ref=e353]:
+              - heading "Category Snapshot" [level=3] [ref=e354]
+              - generic [ref=e355]:
+                - generic [ref=e356]:
+                  - generic [ref=e357]: Category
+                  - text: B2B SaaS Marketing Agencies & Growth Services
+                - generic [ref=e358]:
+                  - generic [ref=e359]: Market Size
+                  - text: $390B B2B SaaS software market (expanding to $1.5T by 2031 at 26.24% CAGR); 70% of SaaS companies outsource marketing
+                - generic [ref=e360]:
+                  - generic [ref=e361]: Maturity
+                  - text: growing
+                - generic [ref=e362]:
+                  - generic [ref=e363]: Awareness
+                  - text: solution-aware
+                - generic [ref=e364]:
+                  - generic [ref=e365]: Buying Behavior
+                  - text: Multi-stakeholder evaluation (5-10 decision-makers) with extensive independent research before vendor engagement. Buyers research via G2/Capterra/Reddit, request 3-5 vendor demos, and spend only 17% of buying time with suppliers. Highly consultative, proof-of-concept focused.
+                - generic [ref=e366]:
+                  - generic [ref=e367]: Sales Cycle
+                  - text: 84 days for SMB; 3-6 months for enterprise; 6-9 month cycles increasingly common for higher-ACV deals
+            - generic [ref=e368]:
+              - heading "Pain Points" [level=3] [ref=e369]
+              - list [ref=e370]:
+                - listitem [ref=e371]:
+                  - generic [ref=e372]: •
+                  - text: Rising customer acquisition costs (median CAC ratio increased 14% YoY to $2.00 per $1 new ARR; bottom-quartile spending $2.82)
+                - listitem [ref=e373]:
+                  - generic [ref=e374]: •
+                  - text: Declining retention and rising churn (75% of software companies reported declining retention in 2024; 3.5% average annual churn)
+                - listitem [ref=e375]:
+                  - generic [ref=e376]: •
+                  - text: MQL-to-SQL conversion bottleneck (only 13% of MQLs convert to SQLs, creating pipeline inefficiency)
+                - listitem [ref=e377]:
+                  - generic [ref=e378]: •
+                  - text: Attribution and ROI measurement challenges (26% cite ROI measurement as top concern; multi-touch attribution setup lacking)
+                - listitem [ref=e379]:
+                  - generic [ref=e380]: •
+                  - text: Ineffective traditional outbound (AI-generated content saturation reducing response rates; generic 14-touch cadences no longer working)
+            - generic [ref=e381]:
+              - heading "Demand Drivers" [level=3] [ref=e382]
+              - list [ref=e383]:
+                - listitem [ref=e384]:
+                  - generic [ref=e385]: •
+                  - text: Rising CAC pressures and need to optimize unit economics (CAC inflation 14% YoY forcing efficiency focus)
+                - listitem [ref=e386]:
+                  - generic [ref=e387]: •
+                  - text: Generative AI adoption driving demand for AI-powered marketing automation and content personalization (72% of marketers using AI for content creation)
+                - listitem [ref=e388]:
+                  - generic [ref=e389]: •
+                  - text: Shift toward data-driven decision-making (ranked third most significant industry change in 2024; 70% expect strategic change due to AI/automation in 2 years)
+                - listitem [ref=e390]:
+                  - generic [ref=e391]: •
+                  - text: Consolidation in buyer review platforms (G2 acquisition of Capterra creates unified intent-data infrastructure, driving demand capture urgency)
+                - listitem [ref=e392]:
+                  - generic [ref=e393]: •
+                  - text: Secular shift to online buying (80% of B2B SaaS sales moving online; demand for digital-first GTM expertise)
+            - generic [ref=e394]:
+              - heading "Buying Triggers" [level=3] [ref=e395]
+              - list [ref=e396]:
+                - listitem [ref=e397]:
+                  - generic [ref=e398]: •
+                  - text: Failed or missed growth numbers (triggering emergency demand for agency support mid-year)
+                - listitem [ref=e399]:
+                  - generic [ref=e400]: •
+                  - text: New CMO or VP Sales hire (bringing in new playbooks and agency requirements)
+                - listitem [ref=e401]:
+                  - generic [ref=e402]: •
+                  - text: Annual budget allocation and planning cycles (Q4 and January when budgets lock in)
+                - listitem [ref=e403]:
+                  - generic [ref=e404]: •
+                  - text: Launch of new product lines or market expansion (requiring specialized growth expertise)
+                - listitem [ref=e405]:
+                  - generic [ref=e406]: •
+                  - text: Competitive pressure from fast-growing competitors (forcing acceleration of customer acquisition efforts)
+            - generic [ref=e407]:
+              - heading "Barriers to Purchase" [level=3] [ref=e408]
+              - list [ref=e409]:
+                - listitem [ref=e410]:
+                  - generic [ref=e411]: •
+                  - text: Skepticism of agency quality and ROI (unclear attribution makes it hard to prove agency value; 26% struggle with ROI measurement)
+                - listitem [ref=e412]:
+                  - generic [ref=e413]: •
+                  - text: Internal team resistance (preference to build in-house marketing teams; concern about dependency on external partners)
+                - listitem [ref=e414]:
+                  - generic [ref=e415]: •
+                  - text: Long sales cycles and multiple stakeholder approval (6-10 decision-makers per B2B purchase; 17% of buying time spent with suppliers)
+                - listitem [ref=e416]:
+                  - generic [ref=e417]: •
+                  - text: Price sensitivity and CAC payback concerns (median new-CAC ratio $2.00/$1 ARR creates budget constraints for adding services)
+                - listitem [ref=e418]:
+                  - generic [ref=e419]: •
+                  - text: Implementation risk (integration with existing martech stacks; data quality and CRM readiness issues)
+            - generic [ref=e420]:
+              - heading "Trend Signals" [level=3] [ref=e421]
+              - generic [ref=e422]:
+                - generic [ref=e423]:
+                  - generic [ref=e424]:
+                    - generic [ref=e425]: rising
+                    - generic [ref=e426]: CAC Inflation and Acquisition Cost Pressure
+                  - paragraph [ref=e427]: Customer acquisition costs up 14% YoY to $2.00 per $1 new ARR; bottom-quartile companies spending $2.82. Cost per lead up 5.13% to $70.11. Advertisers seeking cost-efficient channels like Reddit (50-70% cheaper than LinkedIn).
+                - generic [ref=e428]:
+                  - generic [ref=e429]:
+                    - generic [ref=e430]: rising
+                    - generic [ref=e431]: Shift to Community-Led Growth and Authentic Engagement
+                  - paragraph [ref=e432]: 75% of B2B leaders use Reddit for peer validation; Reddit delivers 15-30% lower CAC than LinkedIn. Traditional promotional outreach failing; brands pivoting to technical deep-dive content and peer recommendations over polished sales pitches.
+                - generic [ref=e433]:
+                  - generic [ref=e434]:
+                    - generic [ref=e435]: rising
+                    - generic [ref=e436]: AI-Powered Content and Automation Adoption
+                  - paragraph [ref=e437]: 43% of marketers using AI for content creation; 47.18% understand how to incorporate AI into strategy; 70% expect substantial strategic change within 2 years. But 80% of AI-generated content is generic, reducing effectiveness.
+                - generic [ref=e438]:
+                  - generic [ref=e439]:
+                    - generic [ref=e440]: rising
+                    - generic [ref=e441]: Retention Crisis Across B2B SaaS
+                  - paragraph [ref=e442]: 75% of software companies reported declining retention in 2024; net revenue retention declining YoY (101% median but falling). Marketing agencies positioning retention and expansion revenue strategies gaining traction.
+                - generic [ref=e443]:
+                  - generic [ref=e444]:
+                    - generic [ref=e445]: rising
+                    - generic [ref=e446]: Consolidated Review Platforms Dominance
+                  - paragraph [ref=e447]: G2 acquiring Capterra, Software Advice, and GetApp (Jan 2026) to create unified intent-data layer. 200M annual software buyers across platforms; high-intent signals concentrated in one ecosystem. Vendor visibility on review sites becoming critical.
+                - generic [ref=e448]:
+                  - generic [ref=e449]:
+                    - generic [ref=e450]: stable
+                    - generic [ref=e451]: Seasonal Q4 Budget Cycles Creating Demand Spikes
+                  - paragraph [ref=e452]: Q4 revenue 28-30% larger than Q1; Q1 sees 20-25% revenue drop. New fiscal year planning in January; 41% of SaaS companies adjust pricing in January. Hiring surge in September-November and Q1 creates talent gaps.
+                - generic [ref=e453]:
+                  - generic [ref=e454]:
+                    - generic [ref=e455]: rising
+                    - generic [ref=e456]: Extended Sales Cycles and Multi-Stakeholder Complexity
+                  - paragraph [ref=e457]: Average B2B SaaS sales cycle 84 days; enterprise deals 3-6 months common; 6-9 month cycles increasingly typical. 6-10 decision-makers per deal. Only 17% of buying time spent with suppliers; buyers spend 83% researching independently.
+            - generic [ref=e458]:
+              - heading "Messaging Opportunities" [level=3] [ref=e459]
+              - list [ref=e460]:
+                - listitem [ref=e461]:
+                  - generic [ref=e462]: ✓
+                  - text: "Emphasize Efficiency & Unit Economics: Position around CAC payback, LTV:CAC ratios, and revenue per FTE. B2B SaaS buyers are data-driven and desperate to solve the $2-per-$1-ARR problem."
+                - listitem [ref=e463]:
+                  - generic [ref=e464]: ✓
+                  - text: "Highlight Retention & Expansion: Frame growth beyond new customer acquisition. 75% of companies struggling with retention creates whitespace for agencies focused on expansion revenue and churn reduction."
+                - listitem [ref=e465]:
+                  - generic [ref=e466]: ✓
+                  - text: "Target Q4 and Q1 Aggressively: Run paid campaigns September-December (budget cycle urgency) and January-February (new fiscal year planning, new hires settling in). These windows show 30-40% higher conversion rates."
+                - listitem [ref=e467]:
+                  - generic [ref=e468]: ✓
+                  - text: "Leverage Community Platforms (Reddit + G2): Spend on Reddit for B2B decision-makers at 50-70% lower CAC than LinkedIn. Build presence on G2 (now unified with Capterra) where 100M+ annual buyers research and validate."
+                - listitem [ref=e469]:
+                  - generic [ref=e470]: ✓
+                  - text: "Use Attribution & Multi-Touch Proof: Lead with case studies showing MQL-to-SQL improvements, CAC reductions, and revenue attribution. 26% pain point = huge messaging lever."
+                - listitem [ref=e471]:
+                  - generic [ref=e472]: ✓
+                  - text: "Focus on SMB + Mid-Market Segments: These respond faster to agency support ($1-50K ACV with faster buying cycles). Enterprise segments have longer cycles; mid-market offers better CAC payback within 90-120 days."
+                - listitem [ref=e473]:
+                  - generic [ref=e474]: ✓
+                  - text: "Address Hiring & Execution Gaps: Emphasize 'interim marketing team' positioning for companies struggling with SDR hiring, onboarding delays, or execution bandwidth. Solve the 3-6 month ramp problem."
+                - listitem [ref=e475]:
+                  - generic [ref=e476]: ✓
+                  - text: "Position as System Integrator: Most prospects have disconnected tools (CRM, ads, content, automation). Own the 35-point effectiveness gap by positioning as the team that bridges silos and aligns data."
+                - listitem [ref=e477]:
+                  - generic [ref=e478]: ✓
+                  - text: "Create 'CAC Audit' Lead Magnet: Free benchmarking against their cohort, broken down by channel. Shows your expertise, builds trust, and identifies expansion opportunities for paid engagement."
+          - generic [ref=e346]:
+            - button "Looks Good" [ref=e479] [cursor=pointer]
+            - button "Needs changes" [ref=e348]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

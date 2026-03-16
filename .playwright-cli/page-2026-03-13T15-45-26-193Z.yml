@@ -1,0 +1,99 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e8] [cursor=pointer]:
+    - img [ref=e9]
+  - alert [ref=e12]
+  - generic [ref=e100]:
+    - banner [ref=e101]:
+      - generic [ref=e102]:
+        - link "SaaSLaunch" [ref=e103] [cursor=pointer]:
+          - /url: /
+          - img "SaaSLaunch" [ref=e105]
+        - button "Open user menu" [ref=e107] [cursor=pointer]:
+          - img "Ammar's logo" [ref=e110]
+    - main [ref=e112]:
+      - generic [ref=e114]:
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - heading "Hey Ammar" [level=1] [ref=e118]
+            - generic [ref=e119]:
+              - generic [ref=e120]:
+                - img [ref=e121]
+                - generic [ref=e125]: AgentSupply
+              - generic [ref=e126]: /
+              - link "saaslaunch.net" [ref=e127] [cursor=pointer]:
+                - /url: https://saaslaunch.net/
+                - img [ref=e128]
+                - generic [ref=e131]: saaslaunch.net
+              - link [ref=e132] [cursor=pointer]:
+                - /url: /onboarding/edit
+                - img [ref=e133]
+            - generic [ref=e136]:
+              - generic [ref=e137]:
+                - generic [ref=e138]: "1"
+                - text: blueprint
+              - generic [ref=e139]:
+                - generic [ref=e140]: "1"
+                - text: plan
+          - generic [ref=e141]:
+            - link "Edit Profile" [ref=e142] [cursor=pointer]:
+              - /url: /onboarding/edit
+              - button "Edit Profile" [ref=e143]:
+                - img
+                - text: Edit Profile
+            - link "New Blueprint" [ref=e144] [cursor=pointer]:
+              - /url: /generate
+              - button "New Blueprint" [ref=e145]:
+                - img
+                - text: New Blueprint
+        - generic [ref=e147]:
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - button "All2" [ref=e150] [cursor=pointer]: All2
+              - button "Blueprints1" [ref=e152] [cursor=pointer]
+              - button "Media Plans1" [ref=e153] [cursor=pointer]
+            - generic [ref=e154]:
+              - generic [ref=e155]:
+                - img
+                - textbox "Search documents..." [ref=e156]
+              - combobox [ref=e157]:
+                - img
+                - generic: Newest
+                - img
+          - paragraph [ref=e158]: Showing 2 documents
+          - generic [ref=e160]:
+            - link "Generate 200 leads/month at <$75 CPL and 40 SQLs/month, targeting 10 new customers monthly with <$450 CAC via LinkedIn-led multi-platform approach Plan Feb 18, 2026 Approved" [ref=e162] [cursor=pointer]:
+              - /url: /media-plan/768c3d51-d9fa-46c6-b361-aad3f2fb01cf
+              - generic [ref=e165]:
+                - generic [ref=e166]:
+                  - generic [ref=e167]:
+                    - img [ref=e169]
+                    - generic [ref=e173]:
+                      - generic [ref=e174]:
+                        - heading "Generate 200 leads/month at <$75 CPL and 40 SQLs/month, targeting 10 new customers monthly with <$450 CAC via LinkedIn-led multi-platform approach" [level=3] [ref=e175]
+                        - generic [ref=e176]: Plan
+                      - paragraph [ref=e177]: Feb 18, 2026
+                  - button [ref=e178]:
+                    - img
+                - generic [ref=e179]:
+                  - generic [ref=e181]:
+                    - img [ref=e182]
+                    - text: Approved
+                  - img [ref=e185]
+            - link "B2B Marketing Attribution SaaS Blueprint Feb 4, 2026 Media Plan" [ref=e188] [cursor=pointer]:
+              - /url: /blueprint/cb8d3455-00af-46a4-897a-64082c8ac2c9
+              - generic [ref=e191]:
+                - generic [ref=e192]:
+                  - generic [ref=e193]:
+                    - img [ref=e195]
+                    - generic [ref=e197]:
+                      - generic [ref=e198]:
+                        - heading "B2B Marketing Attribution SaaS" [level=3] [ref=e199]
+                        - generic [ref=e200]: Blueprint
+                      - paragraph [ref=e201]: Feb 4, 2026
+                  - button [ref=e202]:
+                    - img
+                - generic [ref=e204]:
+                  - button "Media Plan" [ref=e205]:
+                    - img [ref=e206]
+                    - text: Media Plan
+                  - img [ref=e209]

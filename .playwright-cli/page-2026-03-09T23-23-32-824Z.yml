@@ -1,0 +1,81 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e238]:
+        - generic [ref=e241]: Discovery
+        - generic [ref=e244]: Validation
+        - generic [ref=e247]: Strategy
+        - generic [ref=e250]: Launch
+      - generic [ref=e252]:
+        - generic [ref=e253]:
+          - generic [ref=e256]:
+            - paragraph [ref=e257]:
+              - generic [ref=e258]: "[OK]"
+              - text: Accepted 10 prefill fields
+            - paragraph [ref=e259]: _
+          - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e262]
+          - generic [ref=e266]:
+            - button "Thought for 1.2s" [ref=e268] [cursor=pointer]:
+              - img [ref=e269]
+              - generic [ref=e271]: Thought for 1.2s
+            - generic [ref=e274]:
+              - generic [ref=e276]: Module 01
+              - heading "Market Overview" [level=3] [ref=e278]
+        - generic [ref=e283]:
+          - textbox "Ask AIGOS to refine the strategy..." [disabled] [ref=e284]
+          - button "Send message" [disabled] [ref=e285]:
+            - img [ref=e286]
+    - complementary [ref=e67]:
+      - generic [ref=e68]:
+        - heading "Journey Progress" [level=3] [ref=e69]
+        - generic [ref=e72]:
+          - generic [ref=e291]:
+            - generic [ref=e292]: Market Research
+            - generic [ref=e293]: Queued
+          - generic [ref=e80]:
+            - generic [ref=e81]: ICP Validation
+            - generic [ref=e82]: Queued
+          - generic [ref=e296]:
+            - generic [ref=e297]: Competitor Intel
+            - generic [ref=e298]: Queued
+          - generic [ref=e301]:
+            - generic [ref=e302]: Offer Analysis
+            - generic [ref=e303]: Queued
+          - generic [ref=e306]:
+            - generic [ref=e307]: Strategic Synthesis
+            - generic [ref=e308]: Queued
+          - generic [ref=e311]:
+            - generic [ref=e312]: Keyword Intel
+            - generic [ref=e313]: Queued
+        - generic [ref=e94]:
+          - generic [ref=e95]: Compute Node
+          - generic [ref=e96]: Stable
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

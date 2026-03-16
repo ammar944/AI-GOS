@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e12] [cursor=pointer]:
+    - img [ref=e13]
+  - alert [ref=e16]
+  - generic [ref=e18]:
+    - complementary [ref=e19]:
+      - navigation [ref=e20]:
+        - link "Home" [ref=e21] [cursor=pointer]:
+          - /url: /
+          - img [ref=e22]
+          - text: Home
+        - link "Journey" [ref=e25] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e26]
+          - text: Journey
+        - link "Blueprints" [ref=e29] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e30]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e32] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e33]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e35] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e36]
+          - text: Creatives
+      - link "Settings" [ref=e40] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e41]
+        - text: Settings
+    - main [ref=e44]:
+      - generic [ref=e47]:
+        - generic [ref=e51]: AIGOS JOURNEY
+        - generic [ref=e52]:
+          - heading "Seed your strategy." [level=1] [ref=e53]
+          - paragraph [ref=e54]: Drop your website URL. AIGOS pulls your context, runs market research, and builds a full paid media blueprint.
+        - generic [ref=e55]:
+          - generic [ref=e60]: Seed context
+          - generic [ref=e66]: Verify findings
+          - generic [ref=e71]: Research streams
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]: Company Website
+            - textbox "https://yourcompany.com" [ref=e76]
+          - generic [ref=e78]:
+            - generic [ref=e79]: LinkedIn Company Pageoptional
+            - textbox "https://linkedin.com/company/your-company" [ref=e81]
+        - button "Begin Analysis" [disabled] [ref=e83]:
+          - img [ref=e84]
+          - text: Begin Analysis

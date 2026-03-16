@@ -1,0 +1,178 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e117]:
+        - generic [ref=e118]:
+          - generic [ref=e121]: Extraction Complete
+          - heading "Context extracted" [level=2] [ref=e122]
+          - generic [ref=e123]:
+            - paragraph [ref=e124]: saaslaunch.net
+            - generic [ref=e125]: 12/25 fields
+        - generic [ref=e129]:
+          - generic [ref=e132]:
+            - generic [ref=e133]: Company Name
+            - textbox [ref=e134]: SaaSLaunch
+          - generic [ref=e137]:
+            - generic [ref=e138]: Business Model
+            - textbox [ref=e139]: Agency / Services
+          - generic [ref=e142]:
+            - generic [ref=e143]: Industry Vertical
+            - textbox [ref=e144]: B2B SaaS Marketing
+          - generic [ref=e147]:
+            - generic [ref=e148]: Ideal Customer Profile
+            - textbox [ref=e149]: B2B SaaS companies and software businesses seeking to generate SQL’s and MQL’s, improve conversion rates, and achieve sustainable SaaS growth. Trusted by 200+ founders and startups.
+          - generic [ref=e152]:
+            - generic [ref=e153]: Product Description
+            - textbox [ref=e154]: We build, manage, and optimize complete client acquisition systems for B2B SaaS companies. We help software businesses generate SQL’s and MQL’s, improve conversion rates, and achieve sustainable SaaS growth.
+          - generic [ref=e157]:
+            - generic [ref=e158]: Core Deliverables
+            - textbox [ref=e159]: "Growth Engine: work directly as growth partners in scaling user acquisition and predictable revenue growth engine to add at least an additional $1M in ARR. Predictable SaaS Revenue: build inbound and outbound systems. Built to Scale Growth: design scalable growth infrastructure across data, conversions, and automation."
+          - generic [ref=e162]:
+            - generic [ref=e163]: Value Proposition
+            - textbox [ref=e164]: End-to-End SaaS Growth Partner
+          - generic [ref=e167]:
+            - generic [ref=e168]: Unique Edge
+            - textbox [ref=e169]: We work directly as growth partners, not a traditional SaaS agency
+          - generic [ref=e172]:
+            - generic [ref=e173]: Market Problem
+            - textbox [ref=e174]: B2B SaaS companies need to generate SQL’s and MQL’s, improve conversion rates, and achieve sustainable SaaS growth.
+          - generic [ref=e177]:
+            - generic [ref=e178]: Desired Transformation
+            - textbox [ref=e179]: Generate SQL’s and MQL’s, improve conversion rates, achieve sustainable SaaS growth, add at least an additional $1M in ARR.
+          - generic [ref=e182]:
+            - generic [ref=e183]: Brand Positioning
+            - textbox [ref=e184]: End-to-End SaaS Growth Partner
+          - generic [ref=e187]:
+            - generic [ref=e188]: Testimonial Quote
+            - textbox [ref=e189]: "\"That $100 deposit idea was super clutch. We closed three deals from it.\" -Omer J."
+        - button "Review extracted fields" [ref=e191]
+    - complementary [ref=e73]:
+      - generic [ref=e74]:
+        - heading "Journey Progress" [level=3] [ref=e75]
+        - generic [ref=e78]:
+          - generic [ref=e81]:
+            - generic [ref=e82]: Market Overview
+            - generic [ref=e83]: Completed 12m ago
+          - generic [ref=e86]:
+            - generic [ref=e87]: Competitor Intel
+            - generic [ref=e88]: Processing data...
+          - generic [ref=e91]:
+            - generic [ref=e92]: ICP Validation
+            - generic [ref=e93]: Queued
+          - generic [ref=e96]:
+            - generic [ref=e97]: Offer Analysis
+            - generic [ref=e98]: Queued
+        - generic [ref=e100]:
+          - generic [ref=e101]: Compute Node
+          - generic [ref=e102]: Stable
+  - generic:
+    - generic [ref=e194]:
+      - generic [ref=e195]:
+        - generic [ref=e196]:
+          - navigation [ref=e197]:
+            - button "previous" [disabled] [ref=e198]:
+              - img "previous" [ref=e199]
+            - generic [ref=e201]:
+              - generic [ref=e202]: 1/
+              - text: "1"
+            - button "next" [disabled] [ref=e203]:
+              - img "next" [ref=e204]
+          - img
+        - generic [ref=e206]:
+          - link "Next.js 16.0.10 (stale) Turbopack" [ref=e207] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+            - img [ref=e208]
+            - generic "There is a newer version (16.1.6) available, upgrade recommended!" [ref=e210]: Next.js 16.0.10 (stale)
+            - generic [ref=e211]: Turbopack
+          - img
+      - dialog "Build Error" [ref=e213]:
+        - generic [ref=e216]:
+          - generic [ref=e217]:
+            - generic [ref=e218]:
+              - generic [ref=e220]: Build Error
+              - generic [ref=e221]:
+                - button "Copy Error Info" [ref=e222] [cursor=pointer]:
+                  - img [ref=e223]
+                - link "Go to related documentation" [ref=e225] [cursor=pointer]:
+                  - /url: https://nextjs.org/docs/messages/module-not-found
+                  - img [ref=e226]
+                - link "Learn more about enabling Node.js inspector for server code with Chrome DevTools" [ref=e228] [cursor=pointer]:
+                  - /url: https://nextjs.org/docs/app/building-your-application/configuring/debugging#server-side-code
+                  - img [ref=e229]
+            - generic [ref=e238]: "Module not found: Can't resolve '@clerk/ui/themes'"
+          - generic [ref=e240]:
+            - generic [ref=e242]:
+              - img [ref=e244]
+              - generic [ref=e247]: ./src/app/layout.tsx (4:1)
+              - button "Open in editor" [ref=e248] [cursor=pointer]:
+                - img [ref=e250]
+            - generic [ref=e253]:
+              - generic [ref=e254]: Module not found
+              - generic [ref=e255]: ": Can't resolve"
+              - text: "'@clerk/ui/themes'"
+              - generic [ref=e256]: 2 |
+              - text: import
+              - generic [ref=e257]: "{"
+              - text: DM_Sans, Instrument_Sans, JetBrains_Mono
+              - generic [ref=e258]: "}"
+              - text: from "next/font/google";
+              - generic [ref=e259]: 3 |
+              - text: import
+              - generic [ref=e260]: "{"
+              - text: ClerkProvider
+              - generic [ref=e261]: "}"
+              - text: from "@clerk/nextjs"; >
+              - generic [ref=e262]: 4 |
+              - text: import
+              - generic [ref=e263]: "{ dark }"
+              - text: from "@clerk/ui/themes";
+              - generic [ref=e264]: "|"
+              - text: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              - generic [ref=e265]: 5 |
+              - text: import
+              - generic [ref=e266]: "{"
+              - text: ErrorBoundary
+              - generic [ref=e267]: "}"
+              - text: from "@/components/error-boundary";
+              - generic [ref=e268]: 6 |
+              - text: import "./globals.css";
+              - generic [ref=e269]: 7 |
+              - link "https://nextjs.org/docs/messages/module-not-found" [ref=e271] [cursor=pointer]:
+                - /url: https://nextjs.org/docs/messages/module-not-found
+        - generic [ref=e272]: "1"
+        - generic [ref=e273]: "2"
+    - generic [ref=e278] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e279]:
+        - img [ref=e280]
+      - button "Open issues overlay" [ref=e284]:
+        - generic [ref=e285]:
+          - generic [ref=e286]: "0"
+          - generic [ref=e287]: "1"
+        - generic [ref=e288]: Issue
+  - alert [ref=e114]

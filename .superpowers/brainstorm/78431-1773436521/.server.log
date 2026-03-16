@@ -1,0 +1,5 @@
+{"type":"server-started","port":61045,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61045","screen_dir":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/78431-1773436521"}
+{"type":"screen-added","file":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/78431-1773436521/section-tabs.html"}
+{"type":"screen-added","file":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/78431-1773436521/document-view.html"}
+{"type":"screen-added","file":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/78431-1773436521/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

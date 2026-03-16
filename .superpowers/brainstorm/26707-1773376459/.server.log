@@ -1,0 +1,4 @@
+{"type":"server-started","port":62004,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:62004","screen_dir":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/26707-1773376459"}
+{"type":"screen-added","file":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/26707-1773376459/workspace-layout.html"}
+{"type":"screen-added","file":"/Users/ammar/Dev-Projects/AI-GOS-main/.superpowers/brainstorm/26707-1773376459/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

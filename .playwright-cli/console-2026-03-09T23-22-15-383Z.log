@@ -1,0 +1,144 @@
+[     594ms] [WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[     594ms] [WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[   70408ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:1 (2.91.0) 2026-03-09T23:23:25.790Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[   70420ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:2 (2.91.0) 2026-03-09T23:23:25.802Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[  370423ms] [WARNING] [journey] Research timed out, pending: [competitors, icpValidation, offerAnalysis] @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[  880719ms] [WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[  880719ms] [WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[  975539ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:1 (2.91.0) 2026-03-09T23:38:30.921Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[  975549ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:2 (2.91.0) 2026-03-09T23:38:30.931Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[ 1275551ms] [WARNING] [journey] Research timed out, pending: [competitors, icpValidation, offerAnalysis] @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[ 4719080ms] [ERROR] ./AI-GOS-main/src/app/journey/page.tsx:20:1
+Module not found: Can't resolve '@/lib/journey/chat-auto-send'
+  18 | import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+  19 | import { createClient as createSupabaseClient } from '@/lib/supabase/client';
+> 20 | import { shouldAutoSendJourneyMessages } from '@/lib/journey/chat-auto-send';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  21 | import {
+  22 |   LEAD_AGENT_WELCOME_MESSAGE,
+  23 |   LEAD_AGENT_RESUME_WELCOME,
+
+Import map: aliased to relative './src/lib/journey/chat-auto-send' inside of [project]/AI-GOS-main
+
+Import traces:
+  Client Component Browser:
+    ./AI-GOS-main/src/app/journey/page.tsx [Client Component Browser]
+    ./AI-GOS-main/src/app/journey/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./AI-GOS-main/src/app/journey/page.tsx [Client Component SSR]
+    ./AI-GOS-main/src/app/journey/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:3117
+[ 4723519ms] [ERROR] ./AI-GOS-main/src/app/journey/page.tsx:20:1
+Module not found: Can't resolve '@/lib/journey/chat-auto-send'
+  18 | import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
+  19 | import { createClient as createSupabaseClient } from '@/lib/supabase/client';
+> 20 | import { shouldAutoSendJourneyMessages } from '@/lib/journey/chat-auto-send';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  21 | import {
+  22 |   LEAD_AGENT_WELCOME_MESSAGE,
+  23 |   LEAD_AGENT_RESUME_WELCOME,
+
+Import map: aliased to relative './src/lib/journey/chat-auto-send' inside of [project]/AI-GOS-main
+
+Import traces:
+  Client Component Browser:
+    ./AI-GOS-main/src/app/journey/page.tsx [Client Component Browser]
+    ./AI-GOS-main/src/app/journey/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./AI-GOS-main/src/app/journey/page.tsx [Client Component SSR]
+    ./AI-GOS-main/src/app/journey/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:3117
+[ 4723922ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:3 (2.91.0) 2026-03-10T00:40:59.303Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[ 5024033ms] [WARNING] [journey] Research timed out, pending: [competitors, icpValidation, offerAnalysis] @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[12839886ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:4 (2.91.0) 2026-03-10T02:56:15.268Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[17410527ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:5 (2.91.0) 2026-03-10T04:12:25.910Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[17428192ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:6 (2.91.0) 2026-03-10T04:12:43.574Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[17456240ms] [ERROR] %o
+
+%s ReferenceError: Cannot access 'markResearchDispatchError' before initialization
+    at JourneyPageContent (http://localhost:3000/_next/static/chunks/AI-GOS-main_src_ddd7f634._.js?id=%255Bproject%255D%252FAI-GOS-main%252Fsrc%252Fapp%252Fjourney%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:380:9)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:14816:24)
+    at renderWithHooks (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:4645:24)
+    at updateFunctionComponent (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6106:21)
+    at beginWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6702:24)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:959:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9556:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9450:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9434:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9099:47)
+    at performSyncWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10232:9)
+    at flushSyncWorkAcrossRoots_impl (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10148:316)
+    at flushSyncWork$1 (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9231:86)
+    at Object.scheduleRefresh (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:294:13)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:391:33
+    at Set.forEach (<anonymous>)
+    at Object.performReactRefresh (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:384:38)
+    at applyUpdate (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:878:31)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:886:13 The above error occurred in the <JourneyPageContent> component. It was handled by the <ErrorBoundaryHandler> error boundary. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:1294
+[17456245ms] [ERROR] ReferenceError: Cannot access 'markResearchDispatchError' before initialization
+    at JourneyPageContent (http://localhost:3000/_next/static/chunks/AI-GOS-main_src_ddd7f634._.js?id=%255Bproject%255D%252FAI-GOS-main%252Fsrc%252Fapp%252Fjourney%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:380:9)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:14816:24)
+    at renderWithHooks (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:4645:24)
+    at updateFunctionComponent (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6106:21)
+    at beginWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6702:24)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:959:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9556:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9450:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9434:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9099:47)
+    at performSyncWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10232:9)
+    at flushSyncWorkAcrossRoots_impl (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10148:316)
+    at flushSyncWork$1 (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9231:86)
+    at Object.scheduleRefresh (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:294:13)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:391:33
+    at Set.forEach (<anonymous>)
+    at Object.performReactRefresh (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:384:38)
+    at applyUpdate (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:878:31)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:886:13 @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:3117
+[17456246ms] [ERROR] ReferenceError: Cannot access 'markResearchDispatchError' before initialization
+    at JourneyPageContent (http://localhost:3000/_next/static/chunks/AI-GOS-main_src_ddd7f634._.js?id=%255Bproject%255D%252FAI-GOS-main%252Fsrc%252Fapp%252Fjourney%252Fpage.tsx+%255Bapp-client%255D+%2528ecmascript%2529:380:9)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:14816:24)
+    at renderWithHooks (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:4645:24)
+    at updateFunctionComponent (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6106:21)
+    at beginWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:6702:24)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:959:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9556:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9450:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9434:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9099:47)
+    at performSyncWorkOnRoot (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10232:9)
+    at flushSyncWorkAcrossRoots_impl (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:10148:316)
+    at flushSyncWork$1 (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:9231:86)
+    at Object.scheduleRefresh (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_react-dom_4d846256._.js:294:13)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:391:33
+    at Set.forEach (<anonymous>)
+    at Object.performReactRefresh (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:384:38)
+    at applyUpdate (http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:878:31)
+    at http://localhost:3000/_next/static/chunks/8b03e_next_dist_compiled_48283e78._.js:886:13 @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:3117
+[17707192ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:7 (2.91.0) 2026-03-10T04:17:22.574Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[17763166ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:8 (2.91.0) 2026-03-10T04:18:18.548Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[19987205ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:9 (2.91.0) 2026-03-10T04:55:22.587Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[19987210ms] [WARNING] GoTrueClient@sb-sidrtuxpqftyzwdusdha-auth-token:10 (2.91.0) 2026-03-10T04:55:22.592Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[23608686ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23609688ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23610688ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23611690ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23612692ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23617698ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23622711ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23627724ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23632753ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23637783ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23642828ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[23648133ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=v-eJD4q7mUYtxipQsKpUA' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_client_6f0f5f7f._.js:10116
+[24652934ms] [WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[24652935ms] [WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[24653815ms] [WARNING] Clerk: The "signInFallbackRedirectUrl" prop ("http://localhost:3000/dashboard") has priority over the legacy "afterSignInUrl" (or "redirectUrl") ("http://localhost:3000/dashboard"), which will be completely ignored in this case. "afterSignInUrl" (or "redirectUrl" prop) should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[24653815ms] [WARNING] Clerk: The "signUpFallbackRedirectUrl" prop ("http://localhost:3000/journey") has priority over the legacy "afterSignUpUrl" (or "redirectUrl") ("http://localhost:3000/dashboard"), which will be completely ignored in this case. "afterSignUpUrl" (or "redirectUrl" prop) should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[24653816ms] [WARNING] Clerk: The "signInFallbackRedirectUrl" prop ("http://localhost:3000/journey") has priority over the legacy "afterSignInUrl" (or "redirectUrl") ("http://localhost:3000/dashboard"), which will be completely ignored in this case. "afterSignInUrl" (or "redirectUrl" prop) should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[24654664ms] [WARNING] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287
+[24654984ms] [WARNING] Image with src "/salf2.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:2287

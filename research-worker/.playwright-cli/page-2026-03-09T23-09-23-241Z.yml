@@ -1,0 +1,76 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e253]:
+        - generic [ref=e256]: Discovery
+        - generic [ref=e259]: Validation
+        - generic [ref=e262]: Strategy
+        - generic [ref=e265]: Launch
+      - generic [ref=e266]:
+        - generic [ref=e267]:
+          - generic [ref=e268]:
+            - generic [ref=e271]:
+              - paragraph [ref=e272]:
+                - generic [ref=e273]: "[OK]"
+                - text: Market Overview research complete
+              - paragraph [ref=e274]:
+                - generic [ref=e275]: "[RUN]"
+                - text: Analyzing https://saaslaunch.net
+              - paragraph [ref=e276]:
+                - generic [ref=e277]: "[OK]"
+                - text: Accepted 11 prefill fields
+              - paragraph [ref=e278]: _
+            - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e281]
+            - generic [ref=e285]:
+              - button "Thought for 14.6s" [ref=e340] [cursor=pointer]:
+                - img [ref=e341]
+                - generic [ref=e291]: Thought for 14.6s
+              - paragraph [ref=e346]: Research is underway — your market overview will appear in the panel shortly.
+            - button "View Market Overview artifact" [active] [ref=e296] [cursor=pointer]:
+              - generic [ref=e299]:
+                - generic [ref=e300]: Module 01
+                - heading "Market Overview" [level=3] [ref=e301]
+              - generic [ref=e302]:
+                - generic [ref=e303]: View artifact
+                - img [ref=e304]
+          - generic [ref=e309]:
+            - textbox "Ask AIGOS to refine the strategy..." [ref=e310]
+            - button "Send message" [disabled] [ref=e311]:
+              - img [ref=e312]
+        - generic [ref=e348]:
+          - generic [ref=e349]:
+            - generic [ref=e352]:
+              - generic [ref=e353]: Module 01
+              - heading "Market Overview" [level=2] [ref=e354]
+            - button "Close artifact panel" [ref=e355]:
+              - img [ref=e356]
+          - button "Looks Good" [ref=e362] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

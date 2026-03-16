@@ -1,0 +1,28 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "SaaSLaunch" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - img "SaaSLaunch" [ref=e7]
+        - link "Sign In" [ref=e8] [cursor=pointer]:
+          - /url: /sign-in
+          - button "Sign In" [ref=e9]
+    - main [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e14]: AI-Powered Marketing Intelligence
+        - heading "Your paid media command center" [level=1] [ref=e15]
+        - paragraph [ref=e16]: Drop a URL. AIGOS pulls your context, runs live market research, and builds a full paid media blueprint — strategy to spend.
+        - link "Start Journey" [ref=e18] [cursor=pointer]:
+          - /url: /journey
+          - button "Start Journey" [ref=e19]:
+            - text: Start Journey
+            - img
+        - paragraph [ref=e20]: Research · Strategy · Media Plan — One Session
+    - contentinfo [ref=e21]:
+      - generic [ref=e22]:
+        - img "SaaSLaunch" [ref=e24]
+        - paragraph [ref=e25]: © 2026 AIGOS. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e31] [cursor=pointer]:
+    - img [ref=e32]
+  - alert [ref=e35]

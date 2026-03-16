@@ -1,0 +1,332 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link [ref=e318] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link [ref=e319] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link [ref=e320] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link [ref=e321] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link [ref=e322] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link [ref=e323] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e324]:
+        - generic [ref=e325]:
+          - generic [ref=e328]: Market Overview
+          - generic [ref=e331]: 1 of 6
+          - generic [ref=e332]: Idle
+        - generic [ref=e333]:
+          - generic [ref=e334]:
+            - generic [ref=e336]:
+              - generic [ref=e338]: 01 · Market Overview
+              - generic [ref=e350]:
+                - generic [ref=e352]:
+                  - generic [ref=e353]:
+                    - generic [ref=e354]: Category Snapshot
+                    - generic [ref=e355]:
+                      - button [ref=e356]:
+                        - img [ref=e357]
+                      - button [ref=e360]:
+                        - img [ref=e361]
+                  - generic [ref=e363]:
+                    - generic [ref=e364]:
+                      - generic [ref=e365]: Category
+                      - text: B2B SaaS Client Acquisition & Demand Generation Agencies
+                    - generic [ref=e366]:
+                      - generic [ref=e367]: Market Size
+                      - text: "Proxy estimate: $15-18B (B2B SaaS marketing services segment within the broader $327.7B B2B SaaS market, assuming 5-6% of SaaS budgets allocated to specialized growth agencies)"
+                    - generic [ref=e368]:
+                      - generic [ref=e369]: Maturity
+                      - text: growing
+                    - generic [ref=e370]:
+                      - generic [ref=e371]: Awareness
+                      - text: high
+                    - generic [ref=e372]:
+                      - generic [ref=e373]: Buying Behavior
+                      - text: committee driven
+                    - generic [ref=e374]:
+                      - generic [ref=e375]: Sales Cycle
+                      - text: 90-120 days for retainer-based SaaS agency services
+                - generic [ref=e377]:
+                  - generic [ref=e378]:
+                    - generic [ref=e379]: Pain Points
+                    - generic [ref=e380]:
+                      - button [ref=e381]:
+                        - img [ref=e382]
+                      - button [ref=e385]:
+                        - img [ref=e386]
+                  - generic [ref=e388]:
+                    - heading [level=4] [ref=e389]: Pain Points
+                    - list [ref=e390]:
+                      - listitem [ref=e391]:
+                        - generic [ref=e392]: •
+                        - text: Escalating customer acquisition costs (CAC inflation of 14% YoY; median $2.00 spend per $1.00 new ARR in 2024)
+                      - listitem [ref=e393]:
+                        - generic [ref=e394]: •
+                        - text: MQL-to-SQL conversion bottleneck (only 13% of MQLs convert to SQLs, largest funnel leak for SaaS)
+                      - listitem [ref=e395]:
+                        - generic [ref=e396]: •
+                        - text: Pipeline attribution and ROI measurement opacity (26% of B2B marketers cite ROI measurement as top challenge)
+                      - listitem [ref=e397]:
+                        - generic [ref=e398]: •
+                        - text: Declining net revenue retention and churn (75% of SaaS companies report declining retention; NRR declining YoY)
+                      - listitem [ref=e399]:
+                        - generic [ref=e400]: •
+                        - text: Multi-stakeholder consensus paralysis and non-linear deal cycles (86% of B2B purchases encounter stalls; 70% of evaluation conducted anonymously pre-engagement)
+                      - listitem [ref=e401]:
+                        - generic [ref=e402]: •
+                        - text: Expensive paid media with diminishing returns (LinkedIn costs rising despite better ROI than Google Ads, but still expensive)
+                - generic [ref=e404]:
+                  - generic [ref=e405]:
+                    - generic [ref=e406]: Demand Drivers
+                    - generic [ref=e407]:
+                      - button [ref=e408]:
+                        - img [ref=e409]
+                      - button [ref=e412]:
+                        - img [ref=e413]
+                  - generic [ref=e415]:
+                    - heading [level=4] [ref=e416]: Demand Drivers
+                    - list [ref=e417]:
+                      - listitem [ref=e418]:
+                        - generic [ref=e419]: •
+                        - text: B2B SaaS market growth (18.7% CAGR through 2032; projected $1.088T by 2032) driving increased competition and need for differentiated growth strategies
+                      - listitem [ref=e420]:
+                        - generic [ref=e421]: •
+                        - text: "CAC pressures accelerating outsourcing: 70% of SaaS companies outsource at least part of marketing due to complexity and cost efficiency demands"
+                      - listitem [ref=e422]:
+                        - generic [ref=e423]: •
+                        - text: "Shift toward outcome-driven metrics: companies now demand proof of pipeline impact over vanity metrics (leads, impressions)"
+                      - listitem [ref=e424]:
+                        - generic [ref=e425]: •
+                        - text: LinkedIn dominance in B2B ad spend (39% of B2B ad budgets in 2024, up from 31%) creating need for specialized platform expertise
+                      - listitem [ref=e426]:
+                        - generic [ref=e427]: •
+                        - text: Vertical SaaS specialization and niche category growth increasing demand for focused, SaaS-only agencies rather than generalist shops
+                - generic [ref=e429]:
+                  - generic [ref=e430]:
+                    - generic [ref=e431]: Buying Triggers
+                    - generic [ref=e432]:
+                      - button [ref=e433]:
+                        - img [ref=e434]
+                      - button [ref=e437]:
+                        - img [ref=e438]
+                  - generic [ref=e440]:
+                    - heading [level=4] [ref=e441]: Buying Triggers
+                    - list [ref=e442]:
+                      - listitem [ref=e443]:
+                        - generic [ref=e444]: •
+                        - text: Post-quarter reporting cycle showing missed pipeline targets or rising CAC ratios
+                      - listitem [ref=e445]:
+                        - generic [ref=e446]: •
+                        - text: Competitor visibility spike requiring rapid growth response
+                      - listitem [ref=e447]:
+                        - generic [ref=e448]: •
+                        - text: Executive leadership change (CFO, VP Sales, CMO) demanding accountability for revenue impact
+                      - listitem [ref=e449]:
+                        - generic [ref=e450]: •
+                        - text: New funding round closing requiring demonstration of scalable GTM engine
+                      - listitem [ref=e451]:
+                        - generic [ref=e452]: •
+                        - text: Internal team bandwidth constraints as scaling SaaS struggles to hire and retain marketing talent
+                      - listitem [ref=e453]:
+                        - generic [ref=e454]: •
+                        - text: Failed internal demand gen experiment prompting search for specialized agency
+                - generic [ref=e456]:
+                  - generic [ref=e457]:
+                    - generic [ref=e458]: Barriers to Purchase
+                    - generic [ref=e459]:
+                      - button [ref=e460]:
+                        - img [ref=e461]
+                      - button [ref=e464]:
+                        - img [ref=e465]
+                  - generic [ref=e467]:
+                    - heading [level=4] [ref=e468]: Barriers to Purchase
+                    - list [ref=e469]:
+                      - listitem [ref=e470]:
+                        - generic [ref=e471]: •
+                        - text: "High switching costs: SaaS companies already invested in existing agency relationships or MarTech stacks reluctant to change"
+                      - listitem [ref=e472]:
+                        - generic [ref=e473]: •
+                        - text: "Skepticism about agency ROI: 27% of B2B SaaS buyers complete full journey before engaging sales; many prefer self-service and distrust aggressive outreach"
+                      - listitem [ref=e474]:
+                        - generic [ref=e475]: •
+                        - text: "Committee approval friction: procurement, legal, finance stakeholders all required approval slowing 90–120 day sales cycle"
+                      - listitem [ref=e476]:
+                        - generic [ref=e477]: •
+                        - text: "Budget constraints post-downturn: many SaaS companies cut marketing budgets in 2023–24, making discretionary agency spend harder to justify"
+                      - listitem [ref=e478]:
+                        - generic [ref=e479]: •
+                        - text: "Proof-of-concept anxiety: buyer committees demand pilot programs or guaranteed ROI clauses before committing to 12-month retainers"
+                      - listitem [ref=e480]:
+                        - generic [ref=e481]: •
+                        - text: "Attribution ambiguity: lack of clear pipeline traceability makes it hard to prove SaaS growth agency ROI vs. existing channels"
+                - generic [ref=e483]:
+                  - generic [ref=e484]:
+                    - generic [ref=e485]: Trend Signal
+                    - generic [ref=e486]:
+                      - button [ref=e487]:
+                        - img [ref=e488]
+                      - button [ref=e491]:
+                        - img [ref=e492]
+                  - generic [ref=e494]:
+                    - generic [ref=e495]:
+                      - generic [ref=e496]: rising
+                      - generic [ref=e497]: CAC-to-ARR Ratio Inflation
+                    - paragraph [ref=e498]: Median new CAC ratio increased 14% YoY to $2.00 for every $1.00 new ARR in 2024; 4th quartile companies spending $2.82 per dollar of ARR (Benchmarkit 2025)
+                - generic [ref=e500]:
+                  - generic [ref=e501]:
+                    - generic [ref=e502]: Trend Signal
+                    - generic [ref=e503]:
+                      - button [ref=e504]:
+                        - img [ref=e505]
+                      - button [ref=e508]:
+                        - img [ref=e509]
+                  - generic [ref=e511]:
+                    - generic [ref=e512]:
+                      - generic [ref=e513]: rising
+                      - generic [ref=e514]: SaaS Company Growth Ambitions Outpacing Reality
+                    - paragraph [ref=e515]: Median SaaS growth hit 26% in 2024, but 35% planned for 2025; optimistic projections creating urgency for external growth muscle (Understory 2025)
+                - generic [ref=e517]:
+                  - generic [ref=e518]:
+                    - generic [ref=e519]: Trend Signal
+                    - generic [ref=e520]:
+                      - button [ref=e521]:
+                        - img [ref=e522]
+                      - button [ref=e525]:
+                        - img [ref=e526]
+                  - generic [ref=e528]:
+                    - generic [ref=e529]:
+                      - generic [ref=e530]: rising
+                      - generic [ref=e531]: LinkedIn Dominance in B2B Paid Media
+                    - paragraph [ref=e532]: LinkedIn's share of B2B ad budgets grew from 31% to 39% in 2024; ROI (113%) now exceeds Google Ads (78%), making specialized LinkedIn expertise a key agency differentiator
+                - generic [ref=e534]:
+                  - generic [ref=e535]:
+                    - generic [ref=e536]: Trend Signal
+                    - generic [ref=e537]:
+                      - button [ref=e538]:
+                        - img [ref=e539]
+                      - button [ref=e542]:
+                        - img [ref=e543]
+                  - generic [ref=e545]:
+                    - generic [ref=e546]:
+                      - generic [ref=e547]: rising
+                      - generic [ref=e548]: Outsourcing of SaaS Marketing as Norm
+                    - paragraph [ref=e549]: 70% of SaaS companies outsource at least part of marketing, signaling structural shift toward specialized agencies (Statista 2024)
+                - generic [ref=e551]:
+                  - generic [ref=e552]:
+                    - generic [ref=e553]: Trend Signal
+                    - generic [ref=e554]:
+                      - button [ref=e555]:
+                        - img [ref=e556]
+                      - button [ref=e559]:
+                        - img [ref=e560]
+                  - generic [ref=e562]:
+                    - generic [ref=e563]:
+                      - generic [ref=e564]: rising
+                      - generic [ref=e565]: Non-Linear Buyer Journey & Anonymous Evaluation
+                    - paragraph [ref=e566]: 70% of B2B evaluation now conducted anonymously; buyers spending 67% of journey digitally before touching sales; means agencies need organic + owned-channel expertise (Gartner, Sirius Decisions)
+                - generic [ref=e568]:
+                  - generic [ref=e569]:
+                    - generic [ref=e570]: Trend Signal
+                    - generic [ref=e571]:
+                      - button [ref=e572]:
+                        - img [ref=e573]
+                      - button [ref=e576]:
+                        - img [ref=e577]
+                  - generic [ref=e579]:
+                    - generic [ref=e580]:
+                      - generic [ref=e581]: rising
+                      - generic [ref=e582]: Retention Crisis Outpacing Acquisition Urgency
+                    - paragraph [ref=e583]: 75% of SaaS companies report declining retention rates (Oliver Munro 2025); NRR declining YoY, shifting focus from new CAC to expansion and retention efficiency
+                - generic [ref=e585]:
+                  - generic [ref=e586]:
+                    - generic [ref=e587]: Trend Signal
+                    - generic [ref=e588]:
+                      - button [ref=e589]:
+                        - img [ref=e590]
+                      - button [ref=e593]:
+                        - img [ref=e594]
+                  - generic [ref=e596]:
+                    - generic [ref=e597]:
+                      - generic [ref=e598]: rising
+                      - generic [ref=e599]: Review Site Credibility Trumps Direct Vendor Messaging
+                    - paragraph [ref=e600]: 92% of B2B buyers prefer purchase after reading trusted review; 80%+ of SaaS buyers evaluate on G2/Capterra/TrustRadius (G2, Wynter)
+                - generic [ref=e602]:
+                  - generic [ref=e603]:
+                    - generic [ref=e604]: Trend Signal
+                    - generic [ref=e605]:
+                      - button [ref=e606]:
+                        - img [ref=e607]
+                      - button [ref=e610]:
+                        - img [ref=e611]
+                  - generic [ref=e613]:
+                    - generic [ref=e614]:
+                      - generic [ref=e615]: rising
+                      - generic [ref=e616]: AI-Powered Personalization & Automation Adoption
+                    - paragraph [ref=e617]: 19.65% of marketers plan AI agents for marketing automation in 2025; 70% expect substantial strategic change within 2 years; agencies differentiate via AI-native systems (Understory)
+                - generic [ref=e619]:
+                  - generic [ref=e620]:
+                    - generic [ref=e621]: Messaging Opportunities
+                    - generic [ref=e622]:
+                      - button [ref=e623]:
+                        - img [ref=e624]
+                      - button [ref=e627]:
+                        - img [ref=e628]
+                  - generic [ref=e630]:
+                    - heading [level=4] [ref=e631]: Messaging Opportunities
+                    - list [ref=e632]:
+                      - listitem [ref=e633]:
+                        - generic [ref=e634]: ✓
+                        - text: "**LinkedIn + G2 Dominance**: Allocate 60% of $10–30K monthly ad budget to LinkedIn (which captures 39% of B2B spend and delivers 113% ROI) and Capterra/G2 retargeting. Position SaaSLaunch as the growth partner for SaaS CMOs evaluating demand gen agencies. Conquest ads targeting Hey Digital, Sales Captain, Growth Marketing Pro competitors."
+                      - listitem [ref=e635]:
+                        - generic [ref=e636]: ✓
+                        - text: "**Founder/VP Sales Direct Outreach**: 30% of ad budget to targeted YouTube/LinkedIn video ads showcasing CAC reduction proof (case studies with real SaaS companies). Focus on VP Sales & CMO personas."
+                      - listitem [ref=e637]:
+                        - generic [ref=e638]: ✓
+                        - text: "**Content + Community Presence**: 10% of budget to Reddit (r/SaaS, r/startups), HackerNews, Indie Hackers—organic + light sponsorship to build thought leadership. Address pain points (MQL-to-SQL conversion, retention metrics, attribution) where SaaS founders congregate."
+                      - listitem [ref=e639]:
+                        - generic [ref=e640]: ✓
+                        - text: "**Seasonal Campaign Timing**: Align to board cycle (Q4/Q1 budget planning) and funding announcements. Launch aggressive campaigns post-Series funding rounds (via TechCrunch alerts, CrunchBase monitoring)."
+                      - listitem [ref=e641]:
+                        - generic [ref=e642]: ✓
+                        - text: "**Performance Metrics & Transparency**: Lead with SQLs and closed-won ARR, not leads or impressions. Retainer position allows SaaSLaunch to own multi-quarter results—emphasize 90–120 day ramp-to-profitability."
+                      - listitem [ref=e643]:
+                        - generic [ref=e644]: ✓
+                        - text: "**Segmentation by Growth Stage**: Tailor messaging to Seed/Series A founders (affordability + fast wins with Launch Pad) vs. Series B+ (complexity + scale with Scale Partner tier). Show progression path."
+                      - listitem [ref=e645]:
+                        - generic [ref=e646]: ✓
+                        - text: "**Proof-of-Concept Offer**: Create a low-friction 30-day pilot or diagnostic offering ($2K–3K, part of Launch Pad retainer) to reduce adoption friction and build internal champion before full commitment."
+                      - listitem [ref=e647]:
+                        - generic [ref=e648]: ✓
+                        - text: "**Review Site Credibility**: Ensure strong presence on G2 and Capterra (92% of B2B buyers trust reviews). Run conquest ads on competitor pages (Hey Digital, Sales Captain, Growth Marketing Pro) to capture high-intent prospects mid-evaluation."
+                      - listitem [ref=e649]:
+                        - generic [ref=e650]: ✓
+                        - text: "**Buyer Committee Enablement**: Create internal stakeholder presentation kits (for finance, sales, ops, marketing) to ease multi-stakeholder approval. Position SaaSLaunch as derisk-ing ROI uncertainty via transparent metrics."
+            - button [ref=e652]: Looks good →
+          - generic [ref=e341]:
+            - generic [ref=e343]: Chat · Market Overview
+            - paragraph [ref=e345]: Ask questions about this section...
+            - generic [ref=e346]:
+              - button [ref=e653]: Looks good →
+              - textbox [ref=e348]:
+                - /placeholder: Ask about this section...
+  - button "Open Next.js Dev Tools" [ref=e110] [cursor=pointer]:
+    - img [ref=e111]
+  - alert [ref=e114]

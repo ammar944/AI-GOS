@@ -1,0 +1,74 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e229]:
+        - generic [ref=e232]: Discovery
+        - generic [ref=e235]: Validation
+        - generic [ref=e238]: Strategy
+        - generic [ref=e241]: Launch
+      - generic [ref=e243]:
+        - generic [ref=e244]:
+          - generic [ref=e247]:
+            - paragraph [ref=e248]:
+              - generic [ref=e249]: "[OK]"
+              - text: Accepted 9 prefill fields
+            - paragraph [ref=e250]: _
+          - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e253]
+        - generic [ref=e262]:
+          - textbox "Ask AIGOS to refine the strategy..." [disabled] [ref=e263]
+          - button "Send message" [disabled] [ref=e264]:
+            - img [ref=e265]
+    - complementary [ref=e67]:
+      - generic [ref=e68]:
+        - heading "Journey Progress" [level=3] [ref=e69]
+        - generic [ref=e72]:
+          - generic [ref=e270]:
+            - generic [ref=e271]: Market Research
+            - generic [ref=e272]: Queued
+          - generic [ref=e80]:
+            - generic [ref=e81]: ICP Validation
+            - generic [ref=e82]: Queued
+          - generic [ref=e275]:
+            - generic [ref=e276]: Competitor Intel
+            - generic [ref=e277]: Queued
+          - generic [ref=e280]:
+            - generic [ref=e281]: Offer Analysis
+            - generic [ref=e282]: Queued
+          - generic [ref=e285]:
+            - generic [ref=e286]: Strategic Synthesis
+            - generic [ref=e287]: Queued
+          - generic [ref=e290]:
+            - generic [ref=e291]: Keyword Intel
+            - generic [ref=e292]: Queued
+        - generic [ref=e94]:
+          - generic [ref=e95]: Compute Node
+          - generic [ref=e96]: Stable
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

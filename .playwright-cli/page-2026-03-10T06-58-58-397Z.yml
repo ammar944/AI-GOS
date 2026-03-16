@@ -1,0 +1,91 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e215]:
+        - generic [ref=e218]: Discovery
+        - generic [ref=e221]: Validation
+        - generic [ref=e224]: Strategy
+        - generic [ref=e227]: Launch
+      - generic [ref=e229]:
+        - generic [ref=e230]:
+          - generic [ref=e233]:
+            - paragraph [ref=e234]:
+              - generic [ref=e235]: "[OK]"
+              - text: Accepted 9 prefill fields
+            - paragraph [ref=e236]:
+              - generic [ref=e237]: "[RUN]"
+              - text: Researching Market Overview...
+            - paragraph [ref=e311]:
+              - generic [ref=e312]: "[OK]"
+              - text: Market Overview research complete
+            - paragraph [ref=e238]: _
+          - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e241]
+          - paragraph [ref=e300]: Building your market overview now.
+          - generic [ref=e451]:
+            - paragraph [ref=e452]: Market overview locked in. That gives us a strong foundation — rising CAC pressure, multi-stakeholder buying committees, and a market that's increasingly skeptical of agencies that can't prove pipeline impact. All of that shapes how we position your paid media.
+            - paragraph [ref=e453]: "Here's what's next: I need to lock in three more inputs before I can fire the next research wave — competitive landscape, your pricing structure, and a deeper"
+          - button "View Market Overview artifact" [ref=e248] [cursor=pointer]:
+            - generic [ref=e254]:
+              - generic [ref=e255]: Module 01
+              - heading "Market Overview" [level=3] [ref=e256]
+            - generic [ref=e257]:
+              - generic [ref=e258]: View artifact
+              - img [ref=e259]
+        - generic [ref=e264]:
+          - textbox "Ask AIGOS to refine the strategy..." [disabled] [ref=e265]
+          - button "Send message" [disabled] [ref=e266]:
+            - img [ref=e267]
+    - complementary [ref=e455]:
+      - generic [ref=e456]:
+        - heading "Journey Progress" [level=3] [ref=e457]
+        - generic [ref=e460]:
+          - generic [ref=e463]:
+            - generic [ref=e464]: Market Research
+            - generic [ref=e465]: Completed
+          - generic [ref=e468]:
+            - generic [ref=e469]: ICP Validation
+            - generic [ref=e470]: Queued
+          - generic [ref=e473]:
+            - generic [ref=e474]: Competitor Intel
+            - generic [ref=e475]: Queued
+          - generic [ref=e478]:
+            - generic [ref=e479]: Offer Analysis
+            - generic [ref=e480]: Queued
+          - generic [ref=e483]:
+            - generic [ref=e484]: Strategic Synthesis
+            - generic [ref=e485]: Queued
+          - generic [ref=e488]:
+            - generic [ref=e489]: Keyword Intel
+            - generic [ref=e490]: Queued
+        - generic [ref=e492]:
+          - generic [ref=e493]: Compute Node
+          - generic [ref=e494]: Stable
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

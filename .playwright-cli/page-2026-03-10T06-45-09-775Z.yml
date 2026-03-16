@@ -1,0 +1,240 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e268]:
+        - generic [ref=e271]: Discovery
+        - generic [ref=e274]: Validation
+        - generic [ref=e277]: Strategy
+        - generic [ref=e280]: Launch
+      - generic [ref=e281]:
+        - generic [ref=e282]:
+          - generic [ref=e283]:
+            - generic [ref=e286]:
+              - paragraph [ref=e287]:
+                - generic [ref=e288]: "[OK]"
+                - text: Accepted 10 prefill fields
+              - paragraph [ref=e332]:
+                - generic [ref=e333]: "[RUN]"
+                - text: Researching Market Overview...
+              - paragraph [ref=e385]:
+                - generic [ref=e386]: "[OK]"
+                - text: Market Overview research complete
+              - paragraph [ref=e289]: _
+            - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e292]
+            - paragraph [ref=e337]: Building your market overview now.
+            - button "View Market Overview artifact" [ref=e339] [cursor=pointer]:
+              - generic [ref=e345]:
+                - generic [ref=e346]: Module 01
+                - heading "Market Overview" [level=3] [ref=e347]
+              - generic [ref=e348]:
+                - generic [ref=e349]: View artifact
+                - img [ref=e350]
+          - generic [ref=e301]:
+            - textbox "Ask AIGOS to refine the strategy..." [disabled] [ref=e302]
+            - button "Send message" [disabled] [ref=e303]:
+              - img [ref=e304]
+        - generic [ref=e353]:
+          - generic [ref=e354]:
+            - generic [ref=e358]:
+              - generic [ref=e359]: Module 01
+              - heading "Market Overview" [level=2] [ref=e360]
+            - button "Close artifact panel" [ref=e361]:
+              - img [ref=e362]
+          - generic [ref=e388]:
+            - generic [ref=e389]:
+              - heading "Category Snapshot" [level=3] [ref=e390]
+              - generic [ref=e391]:
+                - generic [ref=e392]:
+                  - generic [ref=e393]: Category
+                  - text: B2B SaaS Marketing Services & Growth Agencies
+                - generic [ref=e394]:
+                  - generic [ref=e395]: Market Size
+                  - text: $327.74B–$1.088T TAM (B2B SaaS overall); $80.45B Marketing SaaS market (2025)
+                - generic [ref=e396]:
+                  - generic [ref=e397]: Maturity
+                  - text: growing
+                - generic [ref=e398]:
+                  - generic [ref=e399]: Awareness
+                  - text: solution-aware to product-aware
+                - generic [ref=e400]:
+                  - generic [ref=e401]: Buying Behavior
+                  - text: High-consideration, committee-driven; long evaluation cycles (3–6 months post-funding window); buyers prioritize ROI, CAC payback, and proven SaaS-native frameworks; evaluate multiple agencies on execution speed, alignment, and results-based models
+                - generic [ref=e402]:
+                  - generic [ref=e403]: Sales Cycle
+                  - text: 3–6 months (aligned with funding cycles and team build-outs; Series A/B companies show highest purchase velocity within 4–8 weeks of funding)
+            - generic [ref=e404]:
+              - heading "Pain Points" [level=3] [ref=e405]
+              - list [ref=e406]:
+                - listitem [ref=e407]:
+                  - generic [ref=e408]: •
+                  - text: Insufficient lead quality and conversion rates despite high marketing spend—New CAC Ratio increased 14% YoY to $2.00 spend per $1.00 acquired ARR
+                - listitem [ref=e409]:
+                  - generic [ref=e410]: •
+                  - text: Long, unpredictable sales cycles (6+ months) and misalignment between marketing and sales on buyer journey
+                - listitem [ref=e411]:
+                  - generic [ref=e412]: •
+                  - text: High customer acquisition cost (CAC $200–$1,000+ per customer) without clear ROI attribution or pipeline visibility
+                - listitem [ref=e413]:
+                  - generic [ref=e414]: •
+                  - text: Lack of demand generation vs. lead generation clarity—many struggle with poor database quality and low-fit leads
+                - listitem [ref=e415]:
+                  - generic [ref=e416]: •
+                  - text: Difficulty recruiting and retaining specialized marketing/sales talent; over-hiring during capital abundance followed by forced cuts
+                - listitem [ref=e417]:
+                  - generic [ref=e418]: •
+                  - text: Churn and retention challenges despite new customer acquisition; customers unimpressed by onboarding and support
+            - generic [ref=e419]:
+              - heading "Demand Drivers" [level=3] [ref=e420]
+              - list [ref=e421]:
+                - listitem [ref=e422]:
+                  - generic [ref=e423]: •
+                  - text: B2B SaaS market growing at 18.7%–27.54% CAGR; expected to reach $1.088T–$1.58T by 2031–2032
+                - listitem [ref=e424]:
+                  - generic [ref=e425]: •
+                  - text: Increased focus on unit economics and capital efficiency post-2023; companies need scrappy, creative, accountable growth strategies rather than budget-based hiring
+                - listitem [ref=e426]:
+                  - generic [ref=e427]: •
+                  - text: Rise of AI-powered marketing and analytics tools; 91% of SMBs using AI-powered analytics reported higher revenue after cloud adoption
+                - listitem [ref=e428]:
+                  - generic [ref=e429]: •
+                  - text: Account-Based Marketing (ABM) momentum for high-value enterprise deals with complex buying committees
+                - listitem [ref=e430]:
+                  - generic [ref=e431]: •
+                  - text: Shift toward demand generation over pure lead generation; 70% of SaaS companies outsource at least part of marketing
+            - generic [ref=e432]:
+              - heading "Buying Triggers" [level=3] [ref=e433]
+              - list [ref=e434]:
+                - listitem [ref=e435]:
+                  - generic [ref=e436]: •
+                  - text: Funding announcement (Seed 2–4 weeks post-announcement; Series A 3–6 weeks; Series B 4–8 weeks; Series C+ 6–12 weeks optimal outreach window)
+                - listitem [ref=e437]:
+                  - generic [ref=e438]: •
+                  - text: Board pressure to hit growth targets or reduce CAC by 20%+ within next quarter
+                - listitem [ref=e439]:
+                  - generic [ref=e440]: •
+                  - text: Executive hiring announcements (new CMO/VP Sales = signals leadership stability and budget allocation)
+                - listitem [ref=e441]:
+                  - generic [ref=e442]: •
+                  - text: Product launch or new feature release requiring go-to-market push
+                - listitem [ref=e443]:
+                  - generic [ref=e444]: •
+                  - text: Churn spike or retention issue requiring cohort analysis and win-back campaigns
+            - generic [ref=e445]:
+              - heading "Barriers to Purchase" [level=3] [ref=e446]
+              - list [ref=e447]:
+                - listitem [ref=e448]:
+                  - generic [ref=e449]: •
+                  - text: Budget constraints post-capital availability crunch; founders reluctant to hire large teams without proven demand
+                - listitem [ref=e450]:
+                  - generic [ref=e451]: •
+                  - text: Skepticism toward 'one-size-fits-all' agency models after previous failed marketing initiatives or bad ROI
+                - listitem [ref=e452]:
+                  - generic [ref=e453]: •
+                  - text: Long internal evaluation cycles with multiple stakeholders (founders, CFO, VP Sales, product) requiring aligned messaging and proof
+                - listitem [ref=e454]:
+                  - generic [ref=e455]: •
+                  - text: Preference for fractional/part-time leadership (CMO, VP Marketing) vs. full-service agency—lower cost and more control
+                - listitem [ref=e456]:
+                  - generic [ref=e457]: •
+                  - text: Data and attribution gaps—difficult to prove marketing impact without existing analytics infrastructure
+            - generic [ref=e458]:
+              - heading "Trend Signals" [level=3] [ref=e459]
+              - generic [ref=e460]:
+                - generic [ref=e461]:
+                  - generic [ref=e462]:
+                    - generic [ref=e463]: rising
+                    - generic [ref=e464]: Shift from volume-based lead gen to quality-focused demand generation
+                  - paragraph [ref=e465]: 70% of SaaS companies outsource marketing; agencies like Refine Labs gaining traction for 'pipeline over leads' approach; New CAC Ratio deteriorating signals push for efficiency-first strategies
+                - generic [ref=e466]:
+                  - generic [ref=e467]:
+                    - generic [ref=e468]: rising
+                    - generic [ref=e469]: Account-Based Marketing (ABM) adoption accelerating
+                  - paragraph [ref=e470]: 30% of B2B SaaS CMOs prioritizing ABM for high-value accounts; complex buying committees and longer sales cycles drive targeted, personalized approaches
+                - generic [ref=e471]:
+                  - generic [ref=e472]:
+                    - generic [ref=e473]: rising
+                    - generic [ref=e474]: AI-powered personalization and marketing automation
+                  - paragraph [ref=e475]: AI-driven marketing tool adoption increased 48% in North America, 37% in Europe (2023); 72% of marketing teams rely on automation platforms
+                - generic [ref=e476]:
+                  - generic [ref=e477]:
+                    - generic [ref=e478]: rising
+                    - generic [ref=e479]: Founding-team-led GTM with outsourced specialist agencies
+                  - paragraph [ref=e480]: Founder responsibility for scrappy, creative, accountable growth; fractional CMO model (e.g., Kalungi) gaining adoption; hiring discipline post-capital crunch favors agile partnerships
+                - generic [ref=e481]:
+                  - generic [ref=e482]:
+                    - generic [ref=e483]: stable
+                    - generic [ref=e484]: Content marketing and SEO dominance for SaaS lead gen
+                  - paragraph [ref=e485]: 9 out of 10 large SaaS companies use blogs; SEO-driven thought leadership seen as low-CAC, high-compounding acquisition channel; category education and comparison content critical
+                - generic [ref=e486]:
+                  - generic [ref=e487]:
+                    - generic [ref=e488]: rising
+                    - generic [ref=e489]: Rise of funding-triggered prospecting and outreach sequences
+                  - paragraph [ref=e490]: Companies finalize major software purchases within first quarter post-funding; 3–8 week window for engagement per funding stage; multi-touch personalized outreach becoming table stakes
+                - generic [ref=e491]:
+                  - generic [ref=e492]:
+                    - generic [ref=e493]: rising
+                    - generic [ref=e494]: Emphasis on CAC payback, LTV, and unit economics metrics
+                  - paragraph [ref=e495]: SaaS teams increasingly benchmark CAC payback and 3:1 LTV-to-CAC ratio; focus shifting from MRR/vanity metrics to sustainable unit economics and retention
+            - generic [ref=e496]:
+              - heading "Messaging Opportunities" [level=3] [ref=e497]
+              - list [ref=e498]:
+                - listitem [ref=e499]:
+                  - generic [ref=e500]: ✓
+                  - text: Target newly funded companies (Seed, Series A, Series B) within 3–8 weeks post-announcement; develop funding-triggered prospecting sequences with messaging tied to specific funding challenges (GTM, hiring, pipeline)
+                - listitem [ref=e501]:
+                  - generic [ref=e502]: ✓
+                  - text: Differentiate on demand generation + revenue-first metrics—move away from vanity metrics; emphasize CAC payback speed, SQL quality, and MQL-to-SQL conversion
+                - listitem [ref=e503]:
+                  - generic [ref=e504]: ✓
+                  - text: "Lead with founder/CMO pain points: short-staffed teams, board pressure on CAC, need for rapid GTM setup; position as fractional CMO/VP Sales alternative"
+                - listitem [ref=e505]:
+                  - generic [ref=e506]: ✓
+                  - text: Build case studies around CAC reduction (target 20%–30% reduction in 90 days), SQL generation velocity, and market repositioning; quantify ROI in terms of payback period and LTV impact
+                - listitem [ref=e507]:
+                  - generic [ref=e508]: ✓
+                  - text: Use LinkedIn as primary channel for outreach to founders, new executives, and VPs of Marketing/Sales; target with intent signals (recent funding, job postings, exec announcements)
+                - listitem [ref=e509]:
+                  - generic [ref=e510]: ✓
+                  - text: "Create gated content assets: 'SaaS Growth Playbook for Post-Funding GTM,' 'CAC Payback Benchmark Report,' 'Founder Guide to Hiring vs. Outsourcing Growth'—gate on email for list building"
+                - listitem [ref=e511]:
+                  - generic [ref=e512]: ✓
+                  - text: Implement warm outreach sequences (email + LinkedIn) referencing specific company funding news, growth stage, and known challenges; personalize to avoid 'generic blast' perception
+                - listitem [ref=e513]:
+                  - generic [ref=e514]: ✓
+                  - text: Develop podcast/thought leadership strategy targeting SaaS founders and CMOs; position as expert on unit economics, demand gen, and founder-led growth in post-capital-crunch era
+                - listitem [ref=e515]:
+                  - generic [ref=e516]: ✓
+                  - text: "Consider retargeting campaigns for site visitors who don't convert; focus on SEO for high-intent keywords: 'B2B SaaS marketing agency,' 'CAC reduction,' 'demand generation for SaaS,' 'SQL generation'"
+                - listitem [ref=e517]:
+                  - generic [ref=e518]: ✓
+                  - text: Partner with complementary vendors (CRM, marketing automation, analytics platforms) and industry influencers to co-market and co-create asset; leverage shared audience overlap
+          - button "Looks Good" [ref=e525] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

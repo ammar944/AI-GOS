@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIGOS Research Skills Evaluation — 2026</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a26;
+    --border: #2a2a3a;
+    --text: #e4e4ef;
+    --text-dim: #8888a0;
+    --accent: #6366f1;
+    --accent-dim: #4f46e5;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --cyan: #06b6d4;
+    --pink: #ec4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 2.5rem 0 1rem;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem;
+    color: var(--accent);
+  }
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.5rem;
+    color: var(--pink);
+  }
+  .runner-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.25rem 0;
+  }
+  .runner-card.current {
+    border-left: 3px solid var(--green);
+  }
+  .runner-card.missing {
+    border-left: 3px solid var(--red);
+  }
+  .runner-card.proposed {
+    border-left: 3px solid var(--accent);
+  }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .status-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .status-card .number {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .status-card .label {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .green { color: var(--green); }
+  .amber { color: var(--amber); }
+  .red { color: var(--red); }
+  .cyan { color: var(--cyan); }
+  .pink { color: var(--pink); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--surface-2);
+    color: var(--accent);
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:hover td { background: rgba(99,102,241,0.05); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge.high { background: rgba(239,68,68,0.2); color: var(--red); }
+  .badge.medium { background: rgba(245,158,11,0.2); color: var(--amber); }
+  .badge.low { background: rgba(34,197,94,0.2); color: var(--green); }
+  .badge.has { background: rgba(34,197,94,0.2); color: var(--green); }
+  .badge.missing { background: rgba(239,68,68,0.2); color: var(--red); }
+  .badge.partial { background: rgba(245,158,11,0.2); color: var(--amber); }
+
+  .skill-block {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+  .skill-label {
+    display: inline-block;
+    background: var(--accent-dim);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .framework-list {
+    list-style: none;
+    padding: 0;
+  }
+  .framework-list li {
+    padding: 0.75rem 1rem;
+    border-left: 2px solid var(--border);
+    margin: 0.5rem 0;
+    background: var(--surface);
+    border-radius: 0 6px 6px 0;
+  }
+  .framework-list li strong {
+    color: var(--cyan);
+  }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .toc a {
+    color: var(--accent);
+    text-decoration: none;
+    display: block;
+    padding: 4px 0;
+  }
+  .toc a:hover { color: var(--cyan); }
+  .toc .indent { padding-left: 1.5rem; }
+
+  .verdict {
+    background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(6,182,212,0.1));
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .verdict h3 { color: var(--cyan); margin-top: 0; }
+
+  .benchmark-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+  }
+  .benchmark-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .benchmark-cell .value {
+    font-weight: 700;
+    color: var(--cyan);
+  }
+
+  .source-tag {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<h1>AIGOS Research Skills Evaluation</h1>
+<p class="subtitle">4 missing skills researched &bull; 2026 benchmarks &bull; Frameworks evaluated for injection into Railway research runners</p>
+
+<!-- Status Overview -->
+<div class="status-grid">
+  <div class="status-card">
+    <div class="number green">2</div>
+    <div class="label">Skills Already Built</div>
+  </div>
+  <div class="status-card">
+    <div class="number red">4</div>
+    <div class="label">Skills Missing</div>
+  </div>
+  <div class="status-card">
+    <div class="number cyan">6</div>
+    <div class="label">Total After Build</div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <strong>Contents</strong>
+  <a href="#current">1. Current State (2 existing skills)</a>
+  <a href="#industry">2. Industry Analysis Skill (NEW)</a>
+  <a class="indent" href="#industry-tam">TAM/SAM/SOM Methodology</a>
+  <a class="indent" href="#industry-lifecycle">Lifecycle Stage Diagnostics</a>
+  <a class="indent" href="#industry-porter">Porter's Forces for Paid Media</a>
+  <a class="indent" href="#industry-reg">Regulatory Risk Triage</a>
+  <a href="#icp">3. ICP / Buyer Persona Skill (NEW)</a>
+  <a class="indent" href="#icp-awareness">Awareness Stage Assessment</a>
+  <a class="indent" href="#icp-jtbd">JTBD Decomposition</a>
+  <a class="indent" href="#icp-committee">Buying Committee Framework</a>
+  <a class="indent" href="#icp-objections">Objection Type Tagging</a>
+  <a href="#offer">4. Offer Analysis Skill (NEW)</a>
+  <a class="indent" href="#offer-hormozi">Hormozi Value Equation</a>
+  <a class="indent" href="#offer-stack">Value Ladder / Offer Stack</a>
+  <a class="indent" href="#offer-pricing">Pricing Cold Traffic Thresholds</a>
+  <a class="indent" href="#offer-anchoring">Price Anchoring Techniques</a>
+  <a href="#keywords">5. Keywords / Search Intel Skill (NEW)</a>
+  <a class="indent" href="#kw-intent">Search Intent Taxonomy</a>
+  <a class="indent" href="#kw-sge">AI Overviews / SGE Impact (2025-2026)</a>
+  <a class="indent" href="#kw-bid">Bid Strategy Framework</a>
+  <a class="indent" href="#kw-cpc">CPC Benchmarks by Industry</a>
+  <a href="#matrix">6. Full Skill Matrix</a>
+  <a href="#verdict">7. Verdict & Recommendations</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: CURRENT STATE -->
+<!-- ============================================================ -->
+<h2 id="current">1. Current State</h2>
+
+<p>Only 2 of 6 runners currently have skill injection. The other 4 run on raw system prompts + web search with no domain expertise.</p>
+
+<div class="runner-card current">
+  <h3>COMPETITOR_ANALYSIS_SKILL <span class="badge has">has skill</span></h3>
+  <p>Injected into: <code>researchCompetitors</code> primary stage</p>
+  <p>File: <code>research-worker/src/runners/competitors.ts:36-62</code></p>
+  <p>Covers: Ad Library interpretation (ad count ranges), 4 competitive positioning archetypes, review mining patterns (G2/Capterra), white space taxonomy (messaging/audience/channel/feature)</p>
+</div>
+
+<div class="runner-card current">
+  <h3>PAID_ADS_SKILL <span class="badge has">has skill</span></h3>
+  <p>Injected into: <code>synthesizeResearch</code> primary stage</p>
+  <p>File: <code>research-worker/src/runners/synthesize.ts:23-36</code></p>
+  <p>Covers: Hook quality rule (80% of performance), pain-agitation-solution vs feature-benefit, social proof CTR lift (15-25%), specificity principle, budget funnel allocation (50/30/20)</p>
+</div>
+
+<div class="runner-card missing">
+  <h3>researchIndustry <span class="badge missing">no skill</span></h3>
+  <p>Current state: Label enforcement for SAM/TAM, but no derivation methodology, lifecycle diagnostics, or regulatory triage</p>
+</div>
+
+<div class="runner-card missing">
+  <h3>researchICP <span class="badge missing">no skill</span></h3>
+  <p>Current state: Schema has psychographics, buyingCommittee, platformAudienceSize fields but runner prompt doesn't elicit them</p>
+</div>
+
+<div class="runner-card missing">
+  <h3>researchOffer <span class="badge missing">no skill</span></h3>
+  <p>Current state: Scores 6 dimensions (painRelevance, urgency, differentiation, etc.) but no named frameworks, pricing psychology, or conversion benchmarks</p>
+</div>
+
+<div class="runner-card missing">
+  <h3>researchKeywords <span class="badge missing">no skill</span></h3>
+  <p>Current state: Free-text intent labels, no bid strategy framework, no AI Overviews context, no CPC benchmarks, 8-item negative keyword cap</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: INDUSTRY ANALYSIS SKILL -->
+<!-- ============================================================ -->
+<h2 id="industry">2. INDUSTRY_ANALYSIS_SKILL</h2>
+<p>Target runner: <code>research-worker/src/runners/industry.ts</code></p>
+
+<h3 id="industry-tam">A. TAM/SAM/SOM Calculation Methodology</h3>
+<p class="source-tag">Sources: McKinsey Market Sizing Primer, CB Insights VC methodology, bottom-up SaaS benchmarks</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+MARKET SIZING DERIVATION RULES:
+- Always attempt bottom-up sizing first:
+  Count (potential buyers matching ICP) x (ACV for this product tier)
+  State derivation: "~30K US agencies with 5-50 employees x $15K/yr = $450M SAM"
+- Ratio benchmarks when bottom-up data unavailable:
+  - B2B SaaS (US-focused): SAM ~ 8-15% of published category TAM
+  - MarTech/AdTech: SAM ~ 15-25% of category TAM (high online distribution)
+  - Consumer apps: SAM ~ 20-40% of TAM (geography/platform bounded)
+  - E-commerce tools: SAM ~ 12-20% of category TAM
+- SOM estimate: 1-5% of SAM (seed/early), 3-10% (growth), 5-15% (scale-up)
+- Growth rate anchors by maturity:
+  - Early-stage markets: 40-100% YoY TAM growth
+  - Growth-stage markets: 15-40% YoY
+  - Mature markets: 3-15% YoY (GDP + category premium)
+  - Declining markets: &lt;3% or negative
+- Never cite a parent-market TAM as direct niche size
+- Always state the derivation trace in output</div>
+
+<h3 id="industry-lifecycle">B. Market Lifecycle Stage Diagnostics</h3>
+<p class="source-tag">Sources: Rogers Adoption Curve, Gartner Market Guide taxonomy</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+MARKET MATURITY DIAGNOSTIC SIGNALS:
+Maps to enum: early | growing | saturated
+
+EARLY:
+- Buyers still defining the problem, not searching category keywords
+- G2/Capterra: no dedicated category page OR &lt;20 reviews
+- &lt;5 funded competitors in the space
+- Category name not yet standardized across vendors
+- Paid media: Problem-aware targeting required, category education ads
+- CPC environment: Low (untargeted market), but CVR also low
+
+GROWING:
+- Category keywords being actively bought by 3+ competitors
+- G2/Capterra: dedicated category with 20-200 reviews
+- 5-20 funded competitors, category leader emerging
+- VC funding actively flowing (new rounds in last 12 months)
+- CAGR typically 20-60% in industry reports
+- Paid media: Solution comparison, category ownership, speed to market
+- CPC environment: Rising 20-40% YoY as competition heats up
+
+SATURATED:
+- 1-3 dominant players with &gt;40% market share
+- G2/Capterra: 200+ reviews, quarterly top-lists published
+- Analyst reports exist (Gartner MQ, Forrester Wave, G2 Grid)
+- M&A activity: leaders acquiring smaller players
+- Price compression visible (free tiers, aggressive trials)
+- Paid media: Differentiation on niche/price/service, high-intent capture only
+- CPC environment: Peak competitive, high-intent keywords expensive</div>
+
+<h3 id="industry-porter">C. Porter's Forces for Digital Advertising</h3>
+<p class="source-tag">Sources: Porter "Competitive Strategy" (1979), adapted for paid media context</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+MARKET DYNAMICS DIAGNOSTIC (Porter's Forces adapted):
+Assess each force and its paid media implication:
+
+1. COMPETITIVE RIVALRY
+   Count active funded competitors. Proxy: ad library active ad count.
+   High rivalry (5+ funded, aggressive ad spend) = differentiation and
+   proof-of-ROI messaging critical. CPCs elevated.
+
+2. BUYER POWER
+   Fragmented SMB = impulsive buying, lower LTV, volume plays
+   Concentrated enterprise = committee-driven, ROI-based, longer sales cycle
+   High buyer power = ROI-centric ads, case studies, money-back offers
+
+3. SUBSTITUTE THREAT
+   Manual/spreadsheet substitutes = "why upgrade" messaging
+   Adjacent tool substitutes = feature comparison messaging
+   Low switching cost = aggressive offer/price ads required
+
+4. ENTRY BARRIERS
+   Low barriers = attack incumbent weaknesses before copycats arrive
+   High barriers = brand equity and trust messaging (certifications, longevity)
+
+5. SUPPLIER POWER (for AI-native companies)
+   API cost volatility (OpenAI/Anthropic pricing) = macro risk
+   Flag in marketDynamics.macroRisks when relevant</div>
+
+<h3 id="industry-reg">D. Regulatory Risk Triage</h3>
+<p class="source-tag">Sources: FTC guidelines, GDPR/CCPA, industry-specific compliance (FINRA, HIPAA, FDA)</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+REGULATORY RISK ASSESSMENT (for paid media strategy):
+
+FINANCIAL SERVICES (FinTech, crypto, lending, insurance):
+- FTC deceptive practice rules, SEC/FINRA investment advice restrictions
+- Required: APR disclosures, no return claims without disclaimers
+- Paid media impact: Legal review bottleneck, narrow claim language
+
+HEALTH/WELLNESS/MEDICAL (supplements, digital health, telehealth):
+- FTC health claim substantiation ("clinically proven" requires trials)
+- FDA drug/device claim enforcement risk
+- HIPAA: PHI cannot be used for ad targeting
+- Paid media impact: Meta/Google categorical restrictions, limited targeting
+
+E-COMMERCE / DTC:
+- FTC endorsement disclosure rules (influencer required disclosures)
+- CCPA/GDPR retargeting consent requirements in EU + California
+
+SAAS / B2B:
+- GDPR: consent for email retargeting, lead gen forms in EU
+- SOC 2 / ISO 27001: compliance certifications are a MESSAGING ASSET
+  (enterprise buyers require them — feature in ad creative)
+
+ALL VERTICALS — SIGNAL LOSS (2025-2026):
+- iOS ATT: 60-70% opt-out rate decimates mobile IDFA targeting
+- Chrome 3P cookie deprecation: cross-site retargeting declining
+- Mitigations: CAPI (Meta Conversions API), enhanced conversions,
+  server-side tagging, on-platform lead gen (Meta Lead Ads, LinkedIn Lead Gen)
+- First-party data collection is now a competitive advantage
+
+If no vertical-specific risk: state "No significant regulatory advertising
+constraint. Standard privacy signal loss (iOS ATT, cookie deprecation) applies."</div>
+
+<div class="verdict">
+  <h3>Industry Skill Verdict</h3>
+  <p><strong>Priority: HIGH</strong> — The runner currently guesses market sizes from web snippets without derivation methodology. Adding TAM/SAM/SOM calculation rules and lifecycle diagnostics would be the single highest-impact improvement to industry research output quality.</p>
+  <p><strong>Frameworks used:</strong> McKinsey bottom-up sizing, Rogers Adoption Curve, Porter's Five Forces, PESTLE regulatory mapping</p>
+  <p><strong>Estimated skill size:</strong> ~2,500 tokens</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: ICP / BUYER PERSONA SKILL -->
+<!-- ============================================================ -->
+<h2 id="icp">3. ICP_ANALYSIS_SKILL</h2>
+<p>Target runner: <code>research-worker/src/runners/icp.ts</code></p>
+
+<h3 id="icp-awareness">A. Awareness Stage Assessment</h3>
+<p class="source-tag">Sources: Eugene Schwartz "Breakthrough Advertising" (5-stage awareness), Forrester B2B Revenue Waterfall</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge — Highest Impact Single Addition</span>
+AWARENESS LADDER (drives entire ad strategy):
+
+| Stage            | Buyer State                           | Ad Hook Strategy                    | Best Platform              |
+|------------------|---------------------------------------|-------------------------------------|----------------------------|
+| Unaware          | Doesn't know they have a problem      | Disrupt with consequence of inaction| Meta, TikTok (scroll stop) |
+| Problem Aware    | Knows pain, doesn't know solutions    | Name the pain in their exact words  | Meta, YouTube pre-roll     |
+| Solution Aware   | Knows solutions exist, evaluating     | Category education, why now         | LinkedIn, Google Display   |
+| Product Aware    | Knows your product, hasn't bought     | Differentiation, proof              | Google Search, LI Retarget |
+| Most Aware       | Ready to buy, evaluating details      | Offer clarity, guarantee, urgency   | Google branded, email      |
+
+Classify: Where does most of the ICP sit when they FIRST encounter an ad?
+This single variable dictates platform selection, hook strategy, and expected CVR.
+
+DEMAND TYPE CLASSIFICATION:
+- Demand Generation (creates new demand): LinkedIn + YouTube + Meta awareness.
+  KPI = pipeline influenced, NOT direct conversion.
+- Demand Capture (captures existing demand): Google Search + retargeting.
+  KPI = direct conversion.
+Output which type this ICP represents — it changes the entire strategy.</div>
+
+<h3 id="icp-jtbd">B. JTBD Decomposition for Ad Targeting</h3>
+<p class="source-tag">Sources: Ulwick ODI, Moesta/Spiek demand-side JTBD, HubSpot 2025 State of Marketing</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+JTBD DECOMPOSITION — for each ICP persona output:
+
+1. Functional job: What task are they literally trying to accomplish?
+   → Maps to feature/benefit ads (what it does) — landing page content
+2. Emotional job: How do they want to FEEL after completing it?
+   → Maps to aspirational creative (how you'll feel) — ad hooks
+3. Social job: How do they want to be PERCEIVED by peers/boss?
+   → Maps to social proof / prestige creative — highest B2B conversion
+4. Pain consequence: What happens if the job is NOT done?
+   → Urgency driver for cold traffic hooks
+5. Workarounds: How are they doing this job today without the solution?
+   → "Still doing [workaround]?" hooks outperform "Introducing [product]"
+
+B2B ads that lead with emotional/social job in creative (hooks attention)
+and satisfy functional job on landing page (converts intent) outperform
+feature-first ads by 2.3x CTR (HubSpot 2025).
+
+BUYING TRIGGER TAXONOMY:
+- Push trigger: Painful event forces action (system broke, audit failed)
+  → Best for urgency hooks
+- Pull trigger: Aspirational event (competitor raised money, new VP hired)
+  → Best for LinkedIn
+- Anxiety trigger: Fear of falling behind / FOMO
+  → Best for retargeting and warm audiences
+- Habit trigger: Contract renewal, new fiscal year, new hire onboarding
+  → Best for seasonal campaign timing</div>
+
+<h3 id="icp-committee">C. Buying Committee Framework</h3>
+<p class="source-tag">Sources: Gartner B2B Buying Research (6-10 stakeholders), Miller Heiman, MEDDIC/MEDDPICC</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+BUYING COMMITTEE STRUCTURE (B2B):
+Average B2B software purchase involves 6-10 stakeholders (Gartner).
+
+For each stakeholder role, output:
+- Role title (e.g., "VP of Marketing", "Revenue Operations Manager")
+- Influence type: decision-maker | user | technical | champion | gatekeeper
+- Messaging angle: What this role needs to see in an ad to care
+- Platform: Where they are found (LinkedIn job title, Google intent signal)
+
+Role-specific ad strategy:
+- Economic Buyer: Responds to ROI, risk reduction, strategic fit
+- User Buyer: Responds to ease-of-use, time savings, workflow improvement
+- Technical Buyer: Responds to security, compliance, API docs, integrations
+- Champion: Responds to career-win, "be the hero" messaging
+- Gatekeeper: Responds to compliance, vendor management simplification
+
+Critical insight: Targeting the Economic Buyer without content for the
+Champion wastes spend. Most B2B campaigns never activate the internal champion.
+
+LINKEDIN 95:5 RULE:
+- Only 5% of target market is in-market at any given time
+- 95% is out-of-market but will buy within 2-3 years
+- Brand/awareness campaigns MUST target the 95%
+- Direct response targets the 5%
+- Platform minimum: 50,000 audience members for LinkedIn optimization
+  (flag if estimated audience is below this threshold)</div>
+
+<h3 id="icp-objections">D. Objection Type Tagging</h3>
+<p class="source-tag">Sources: SPIN Selling (Rackham), Hormozi "Objection Aikido", Cialdini 6 Principles</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+OBJECTION CLASSIFICATION — for each objection, tag:
+
+Type (SPIN categories):
+- no_need: "We don't have this problem" → Situation hook, agitate pain
+- no_urgency: "We can deal with this later" → Consequence amplification, scarcity
+- no_budget: "We can't afford this" → ROI calculation, payment framing
+- no_confidence: "Will this actually work?" → Social proof, case study, guarantee
+
+Cialdini counter-principle (which principle addresses this objection):
+- Social Proof → "Will this work?" objection (logos, testimonials, counts)
+- Authority → "Is this credible?" objection (press, certifications, founder)
+- Scarcity → "I'll think about it" objection (limited spots, seasonal)
+- Reciprocity → "I don't know enough" objection (free tool, audit, guide)
+- Commitment → "Big decision" objection (low-risk trial, freemium step)
+- Liking → "I don't relate" objection (UGC, relatable spokesperson)
+
+Output format per objection:
+{
+  "objection": "We already have an in-house solution",
+  "type": "no_need",
+  "cialdiniCounter": "social_proof",
+  "adCreativeRemedy": "Case study showing ROI vs. in-house build cost",
+  "buyerLanguageHook": "Still maintaining your homegrown [tool]?"
+}</div>
+
+<h3>E. Media Consumption by Generation (2025-2026)</h3>
+<p class="source-tag">Sources: GWI 2025 Trend Report, LinkedIn B2B Institute, Meta Business Insights</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+MEDIA CONSUMPTION BY GENERATION (2025):
+
+Gen Z professionals (born 1997-2012, entering buying committees):
+  89% TikTok, 67% discover B2B via video first
+  → Video-first creative mandatory for this demographic
+
+Millennials (born 1981-1996, primary decision-makers 2025-2026):
+  LinkedIn-first research, podcast during commute, YouTube for demos
+  → LinkedIn + YouTube pre-roll = highest reach for this cohort
+
+Gen X (born 1965-1980, budget authority holders):
+  Email newsletter, LinkedIn, industry publications
+  → Email nurture + LinkedIn Sponsored Content = primary channels
+
+PLATFORM-SPECIFIC B2B DATA (2025):
+- LinkedIn: 77% of B2B buyers research here before contacting sales
+  Min audience: 50K for Sponsored Content optimization
+  CTR: 0.44% Sponsored Content, 0.08% Text Ads
+  CPL: SaaS $150-$400, Finance $200-$600, HR Tech $120-$280
+- Meta B2B: Median CPL 40% lower than LinkedIn for awareness
+  BUT LinkedIn outperforms Meta for BOFU by 2.3x
+  Best targeting: Lookalike audiences (NOT job title on Meta)
+- TikTok B2B: Emerging for SMB/founder audiences
+  31% of SMB owners discover B2B tools via TikTok
+  Conversion tracking weak — awareness only in 2025</div>
+
+<div class="verdict">
+  <h3>ICP Skill Verdict</h3>
+  <p><strong>Priority: HIGH</strong> — The schema already has psychographics, buyingCommittee, and platformAudienceSize Zod fields that exist but aren't elicited by the runner prompt. The awareness stage assessment is the single highest-leverage addition — it determines platform selection, hook strategy, and expected CVR for the entire strategy.</p>
+  <p><strong>Frameworks used:</strong> Schwartz Awareness Ladder, Ulwick JTBD/ODI, Gartner Buying Groups, Miller Heiman, SPIN Selling, Cialdini, LinkedIn 95:5 Rule</p>
+  <p><strong>Estimated skill size:</strong> ~3,000 tokens</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: OFFER ANALYSIS SKILL -->
+<!-- ============================================================ -->
+<h2 id="offer">4. OFFER_ANALYSIS_SKILL</h2>
+<p>Target runner: <code>research-worker/src/runners/offer.ts</code></p>
+
+<h3 id="offer-hormozi">A. Hormozi Value Equation</h3>
+<p class="source-tag">Sources: Alex Hormozi "$100M Offers", direct response copywriting canon</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+HORMOZI VALUE EQUATION:
+Value = (Dream Outcome x Perceived Likelihood) / (Time Delay x Effort &amp; Sacrifice)
+
+Apply to every offer dimension:
+- Dream Outcome: Does the headline name the specific end-state?
+  Specificity multiplies perceived value.
+  "$47K revenue increase" &gt; "improve revenue"
+- Perceived Likelihood: What proof mechanisms increase believability?
+  Numbered case studies beat vague testimonials.
+  Money-back guarantees increase perceived likelihood 30-50%.
+- Time Delay: Speed to first value = primary cold traffic conversion lever.
+  Free trials, instant access, "done-for-you" reduce this.
+  "Results in 7 days" &gt; "Results over time"
+- Effort &amp; Sacrifice: "We do it for you" outperforms "here's how to do it"
+  for cold traffic by 2-5x CVR.
+
+Every paid media offer can be scored on these four levers.
+Hook = Dream Outcome. Body copy = Perceived Likelihood.
+CTA = Time Delay reduction. Offer framing = Effort reduction.</div>
+
+<h3 id="offer-stack">B. Value Ladder / Offer Stack Assessment</h3>
+<p class="source-tag">Sources: Russell Brunson "DotCom Secrets", direct response offer architecture</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+OFFER STACK ASSESSMENT (Cold Traffic Viability):
+
+Check whether an entry-point offer exists before the core product:
+
+- Lead Magnet / Free Value ($0): Risk-free micro-commitment.
+  CPL ads only. CVR: 5-15% from cold paid traffic (top quartile: 20-30%)
+
+- Tripwire / SLO ($7-$97): Designed to cover ad spend from first purchase.
+  Best for DTC and info products. Single-session conversion viable.
+
+- Core Offer ($97-$10K): Requires 2-4 touch nurture for cold traffic
+  if over $200/mo. Demo-led for higher price points.
+
+- Profit Maximizer (upsell/cross-sell): 40-80% of revenue per customer.
+  Never advertised directly to cold traffic.
+
+COLD TRAFFIC VIABILITY CHECK:
+1. Is there a risk reversal (guarantee, free trial, free tier)?
+2. Is there a fast first win the buyer gets immediately?
+3. Are bonuses/inclusions named and valued explicitly?
+4. Is the offer named (not just described)?
+
+RED FLAG: No entry-point + high-ticket core offer = flag as
+"cold traffic viability concern — no low-friction entry point"</div>
+
+<h3 id="offer-pricing">C. SaaS Pricing Cold Traffic Conversion Thresholds</h3>
+<p class="source-tag">Sources: WordStream, Unbounce, ConversionXL aggregated conversion data 2024-2025</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+SAAS PRICING x COLD TRAFFIC CONVERSION THRESHOLDS:
+
+Under $50/mo: Direct purchase viable. Single-session conversion.
+  CVR 3-8% from cold paid traffic. Free trial with credit card works.
+
+$50-$200/mo: Free trial or demo required. 2-4 touch nurture.
+  CVR 1-3% for demo request from cold traffic.
+
+$200-$500/mo: Demo-led sales. 14-30 day cycle.
+  Paid ads drive MQL, not direct purchase. CVR 0.5-1.5%.
+
+$500+/mo: Account-based approach. Ads support brand recall + retargeting.
+  CVR 0.3-0.8% from cold traffic. Requires multi-touch attribution.
+
+Below 0.3% expected CVR = DO NOT LAUNCH signal.
+Flag in redFlags when pricing suggests this threshold.
+
+CONVERSION RATE BENCHMARKS BY OFFER TYPE (2025):
+- SaaS free trial from cold traffic: 2-5% (top quartile: 8-12%)
+- B2B demo/lead form: 1-3% (top quartile: 5-7%)
+- E-commerce direct purchase: 1-4% (top quartile: 6-10%)
+- Lead magnet / content download: 5-15% (top quartile: 20-30%)
+- Webinar registration: 15-35% (top quartile: 40%+)
+- High-ticket application: 2-8% (top quartile: 12-15%)
+
+CHANNEL-SPECIFIC LANDING PAGE CVR (2025):
+- Google Search: 4-8% avg for lead gen (highest intent)
+- Meta (FB/IG): 1-3% lead gen, 0.5-2% direct purchase
+- LinkedIn: 0.5-1.5% CVR, highest quality leads, highest CPL ($50-300+)
+- YouTube: 1-2% from pre-roll for consideration offers
+- TikTok: 1-4% DTC under $100, declining for higher AOV</div>
+
+<h3 id="offer-anchoring">D. Price Anchoring Techniques</h3>
+<p class="source-tag">Sources: Direct response copywriting, SaaS pricing psychology research</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+PRICE ANCHORING TECHNIQUES (ranked by cold traffic effectiveness):
+
+1. Hiring cost anchor (B2B, highest converting):
+   "Replaces a $75K/yr hire" — makes software pricing feel trivially small
+
+2. Agency cost anchor:
+   "Agencies charge $5K/mo for this. Our tool does it for $197/mo"
+
+3. Time cost anchor:
+   "Saves 10 hours/week. At $100/hr, that's $4,000/mo recovered"
+
+4. Named competitor anchor:
+   "[Competitor] charges $300/user/mo. We're $49 flat"
+
+5. ROI anchor:
+   "4.2x ROI in 90 days" — requires proof, highest trust ceiling
+
+6. Per-unit anchor:
+   "Just $1.63/day" — works for sub-$60/mo products
+
+7. Risk reversal anchor:
+   "14-day free trial, no credit card" — highest trial CVR
+
+VALUE GAP FORMULA for messaging:
+"You pay $X/mo. You get [specific outcome worth $Y/mo] back."
+Explicit value gap quantification converts skeptical B2B buyers.
+
+OFFER DIFFERENTIATION SCORING (ranked by cold traffic conversion):
+1. Speed: "Results in 7 days" — highest urgency, highest conversion
+2. Specificity: "$47K increase per client" — 2-5x higher CTR than vague
+3. Risk elimination: "We do it for you / full refund" — removes #1 objection
+4. Social proof density: Logos, review counts, case study specifics
+5. Exclusivity: "Only for [specific ICP qualifier]" — premium perception
+6. Mechanism specificity: "Our proprietary [named process]" — blocks comparison
+
+RED FLAGS FOR PAID ADS (Offer Dimension):
+- "Contact sales for pricing" with no price anchor = cold traffic bounce
+- Pricing page requires email = low conversion from paid traffic
+- No risk reversal (guarantee/trial/refund) = high objection rate
+- Vague outcomes ("improve your business") = low relevance score
+- Time-to-value &gt;30 days = unsuitable without nurture sequence
+- No named differentiator = competes on price only, margin erosion</div>
+
+<div class="verdict">
+  <h3>Offer Skill Verdict</h3>
+  <p><strong>Priority: HIGH</strong> — The runner currently scores 6 dimensions but with no reference framework. Adding the Hormozi Value Equation and pricing-to-CVR thresholds would give the agent calibrated benchmarks instead of guessing whether an offer will convert cold traffic.</p>
+  <p><strong>Frameworks used:</strong> Hormozi Value Equation, Brunson Value Ladder, JTBD Trigger Taxonomy, SaaS pricing psychology, WordStream/Unbounce conversion benchmarks</p>
+  <p><strong>Estimated skill size:</strong> ~2,800 tokens</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: KEYWORDS / SEARCH INTEL SKILL -->
+<!-- ============================================================ -->
+<h2 id="keywords">5. KEYWORD_INTELLIGENCE_SKILL</h2>
+<p>Target runner: <code>research-worker/src/runners/keywords.ts</code></p>
+
+<h3 id="kw-intent">A. Search Intent Taxonomy (Controlled Vocabulary)</h3>
+<p class="source-tag">Sources: Google Search Quality Rater Guidelines, PPC agency consensus 2025</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+SEARCH INTENT TAXONOMY (use these exact values in intent fields):
+
+competitor-alternative: Buyer knows the space, evaluating switching.
+  MOFU-BOFU. Example: "Salesforce alternative for SMBs"
+  AI Overviews rarely answer these → HIGHEST PRIORITY category
+
+commercial-investigation: Buyer is solution-aware, comparing vendors.
+  MOFU. Example: "best CRM software 2026"
+  AI Overviews appear below ads → safe and increasingly valuable
+
+transactional: Buyer is ready to act.
+  BOFU. Example: "HubSpot pricing", "book demo", "free trial CRM"
+  Ads retain full visibility above AI Overviews
+
+pain-led-category: Buyer is problem-aware, not solution-aware.
+  TOFU-MOFU. Example: "reduce customer churn", "why is my CAC so high"
+  Mixed AI Overview impact — use cautiously for paid search
+
+brand: Searches for the client's own brand.
+  BOFU. Defensive only. AI Overviews may surface competitors unprompted.
+
+navigational: Product/feature lookup.
+  BOFU. Example: "Notion template library"
+  Low-value for conquest campaigns
+
+FOUR PILLARS OF KEYWORD ARCHITECTURE:
+1. Brand Defense — own brand + brand+category + brand+competitor
+2. Competitor Conquest — "[Competitor] alternative/pricing/vs"
+3. Category Intent — category-level terms for solution-aware buyers
+4. Pain-Led / JTBD — terms expressing the pain before solution is known</div>
+
+<h3 id="kw-sge">B. AI Overviews / SGE Impact (2025-2026)</h3>
+<p class="source-tag">Sources: WordStream, HubSpot, Semrush SGE impact studies 2024-2025</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge — Critical 2025-2026 Context</span>
+AI OVERVIEWS IMPACT ON PAID SEARCH:
+
+What changed:
+- AI Overviews appear ABOVE ads for informational queries
+  → Pushes ads down, 40-70% CTR reduction on informational terms
+- AI Overviews appear BELOW ads for commercial/transactional queries
+  → Paid positions 1-3 retain full visibility
+
+Strategic shifts required:
+1. DEPRIORITIZE informational TOFU keywords for paid search entirely
+   "How to X", "what is X" = near-worthless for paid search in 2025-2026
+2. PRIORITIZE commercial-investigation and competitor-alternative terms
+   These are the new gold standard for paid search ROI
+3. Competitor comparison terms are TOP PRIORITY because AI Overviews
+   rarely run for "[X] vs [Y]" specific queries
+4. Long-tail informational = dead for paid search
+   Long-tail commercial = goldmine ("best [category] for [vertical] under 50 employees")
+
+Build keyword lists around "query types AI Overviews can't answer":
+- Price comparison queries
+- Vendor evaluation queries
+- Case study / proof queries
+- Integration compatibility queries
+- "[Category] for [specific vertical]" queries
+
+MATCH TYPE STRATEGY (post-2023):
+- Exact [keyword]: Brand terms, competitor terms, highest-intent transactional
+- Phrase "keyword": Commercial-investigation, pain-led-category
+- Broad keyword: ONLY with Target CPA/ROAS AND 30+ conversions/month
+- Default for new campaigns: Phrase + Exact only. Add Broad after calibration.
+- eCPC: Do NOT recommend — Google deprecating in 2025</div>
+
+<h3 id="kw-bid">C. Bid Strategy Framework</h3>
+<p class="source-tag">Sources: Google Ads Smart Bidding documentation, PPC expert consensus 2025</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+BID STRATEGY DECISION TREE:
+
+Monthly budget &lt; $1,500:
+  → Maximize Conversions (no target). Default for new accounts.
+
+Monthly budget $1,500-$5,000:
+  → Start with Maximize Conversions
+  → Set tCPA after accumulating 30 conversions
+
+Monthly budget $5,000+:
+  → Start Max Conversions → transition to Target CPA after 2-3 months
+  → Requires 50+ conversions/month for reliable tCPA optimization
+
+Revenue tracking possible (eCommerce, subscription LTV):
+  → Target ROAS. Requires 50+ conversions/month.
+
+DEPRECATED — do NOT recommend:
+  - Manual CPC (only for very mature accounts with 100+ conv/month)
+  - Enhanced CPC (Google sunsetting in 2025)
+
+Smart Bidding reliability REQUIRES enhanced conversions.
+If conversion tracking is unconfirmed, add confidenceNote:
+"Bid strategy recommendation assumes enhanced conversions are configured."
+
+QUALITY SCORE FACTORS (optimize per ad group):
+- Expected CTR (40% weight): keyword-specific headline text, ad extensions
+- Ad Relevance (35% weight): ad group theme must appear in headline
+- Landing Page Experience (25% weight): PageSpeed &gt;80 mobile, keyword in H1
+Flag ad groups containing keywords from different intent tiers — this kills QS.</div>
+
+<h3 id="kw-cpc">D. CPC Benchmarks by Industry (2025-2026)</h3>
+<p class="source-tag">Sources: WordStream 2024 Google Ads Benchmarks, Databox aggregated data</p>
+
+<div class="skill-block">
+<span class="skill-label">Skill Knowledge</span>
+CPC REFERENCE BENCHMARKS (2024-2025 medians):
+Use to calibrate estimates when SpyFu data is unavailable.
+High-intent/competitive terms run 2-4x these medians.
+
+B2B SaaS (general):     $6-$12 avg CPC  |  4.5-6.2% CTR  |  3.0-4.5% CVR
+Finance / Insurance:     $14-$55 avg CPC |  4.1% CTR      |  2.4% CVR
+Legal / Consulting:      $8-$40 avg CPC  |  5.0% CTR      |  2.3% CVR
+B2B Services:            $5-$18 avg CPC  |  4.8% CTR      |  3.2% CVR
+eCommerce / Retail:      $1-$6 avg CPC   |  5.2% CTR      |  3.7% CVR
+Healthcare / Medical:    $4-$15 avg CPC  |  4.4% CTR      |  2.9% CVR
+Real Estate:             $3-$12 avg CPC  |  5.3% CTR      |  2.4% CVR
+Education / Training:    $4-$20 avg CPC  |  5.8% CTR      |  3.1% CVR
+Marketing / Agency:      $7-$20 avg CPC  |  5.4% CTR      |  3.6% CVR
+HR / Recruiting:         $5-$15 avg CPC  |  4.9% CTR      |  2.8% CVR
+
+2025-2026 TREND: CPCs running 20-35% HIGHER than 2022-2023 benchmarks
+due to Performance Max budget cannibalization. Skew estimates upward
+when SpyFu data is unavailable.
+
+Confidence rule: When estimating without SpyFu data, set confidence
+to "low" and note the benchmark source used. Never present estimated
+CPC as "verified".
+
+NEGATIVE KEYWORD CATEGORIES — always include:
+Universal: jobs, careers, hiring, salary, resume, intern, free, open source,
+  DIY, tutorial, template, crack, download, course, degree, certification,
+  definition, meaning, wikipedia, history
+B2B SaaS: github, npm, documentation (unless dev-tool), reddit, quora
+Industry-specific: Derive from business context (e.g., legal tech adds:
+  "bar exam", "law school", "paralegal training")
+Cross-campaign: Add competitor brands as negatives in non-conquest campaigns</div>
+
+<div class="verdict">
+  <h3>Keywords Skill Verdict</h3>
+  <p><strong>Priority: HIGH</strong> — This runner has the largest gap. No AI Overviews context (the biggest shift in paid search in a decade), no bid strategy framework, free-text intent labels, no CPC benchmarks, and an 8-item negative keyword cap. The controlled intent vocabulary and SGE impact guidance alone would dramatically improve output actionability.</p>
+  <p><strong>Frameworks used:</strong> Google Search intent taxonomy (2025 update), AI Overviews impact data, Smart Bidding decision tree, WordStream CPC benchmarks, Quality Score optimization, SKAG-to-theme migration</p>
+  <p><strong>Estimated skill size:</strong> ~3,200 tokens</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 6: FULL SKILL MATRIX -->
+<!-- ============================================================ -->
+<h2 id="matrix">6. Full Skill Matrix — All 6 Runners</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Runner</th>
+      <th>Skill Name</th>
+      <th>Status</th>
+      <th>Key Frameworks</th>
+      <th>Est. Tokens</th>
+      <th>Priority</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>researchIndustry</code></td>
+      <td>INDUSTRY_ANALYSIS_SKILL</td>
+      <td><span class="badge missing">to build</span></td>
+      <td>TAM/SAM/SOM derivation, Lifecycle diagnostics, Porter's Forces, Regulatory triage, Trend evidence standards</td>
+      <td>~2,500</td>
+      <td><span class="badge high">high</span></td>
+    </tr>
+    <tr>
+      <td><code>researchCompetitors</code></td>
+      <td>COMPETITOR_ANALYSIS_SKILL</td>
+      <td><span class="badge has">exists</span></td>
+      <td>Ad Library interpretation, 4 positioning archetypes, Review mining, White space taxonomy</td>
+      <td>~1,200</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td><code>researchICP</code></td>
+      <td>ICP_ANALYSIS_SKILL</td>
+      <td><span class="badge missing">to build</span></td>
+      <td>Awareness Ladder, JTBD decomposition, Buying Committee, Objection tagging (SPIN + Cialdini), Media consumption 2025-2026</td>
+      <td>~3,000</td>
+      <td><span class="badge high">high</span></td>
+    </tr>
+    <tr>
+      <td><code>researchOffer</code></td>
+      <td>OFFER_ANALYSIS_SKILL</td>
+      <td><span class="badge missing">to build</span></td>
+      <td>Hormozi Value Equation, Value Ladder, Pricing-to-CVR thresholds, Price anchoring (7 types), Offer differentiation scoring</td>
+      <td>~2,800</td>
+      <td><span class="badge high">high</span></td>
+    </tr>
+    <tr>
+      <td><code>synthesizeResearch</code></td>
+      <td>PAID_ADS_SKILL</td>
+      <td><span class="badge has">exists</span></td>
+      <td>Hook quality, PAS vs feature-benefit, Social proof CTR lift, Budget allocation 50/30/20</td>
+      <td>~800</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td><code>researchKeywords</code></td>
+      <td>KEYWORD_INTELLIGENCE_SKILL</td>
+      <td><span class="badge missing">to build</span></td>
+      <td>Intent taxonomy (controlled vocab), AI Overviews impact, Bid strategy decision tree, CPC benchmarks, QS factors, Negative keyword categories</td>
+      <td>~3,200</td>
+      <td><span class="badge high">high</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin-top:1rem; color: var(--text-dim);">Total new skill tokens: ~11,500 across 4 new skills. Combined with existing 2 skills (~2,000 tokens), all 6 runners would have ~13,500 tokens of domain expertise.</p>
+
+<!-- ============================================================ -->
+<!-- SECTION 7: VERDICT -->
+<!-- ============================================================ -->
+<h2 id="verdict">7. Verdict & Recommendations</h2>
+
+<div class="verdict">
+  <h3>Overall Assessment</h3>
+  <p>The research found <strong>no single GitHub repo</strong> that provides a ready-made paid media strategy skill system. The best frameworks come from established strategy literature (Porter, Schwartz, Hormozi, Gartner, SPIN Selling) adapted specifically for digital advertising context. The <code>danielmiessler/fabric</code> repo has the closest structural pattern but lacks paid media specificity.</p>
+  <p>The frameworks compiled above are drawn from:</p>
+  <ul style="margin: 0.75rem 0 0.75rem 1.5rem;">
+    <li><strong>Market sizing:</strong> McKinsey bottom-up methodology, CB Insights VC benchmarks</li>
+    <li><strong>Buyer psychology:</strong> Schwartz Awareness Ladder, Ulwick JTBD/ODI, Cialdini 6 Principles</li>
+    <li><strong>Offer strategy:</strong> Hormozi Value Equation, Brunson Value Ladder, direct response canon</li>
+    <li><strong>Competitive dynamics:</strong> Porter's Five Forces, Gartner Buying Groups, Miller Heiman</li>
+    <li><strong>Paid search:</strong> Google Smart Bidding docs, WordStream 2024-2025 benchmarks, AI Overviews impact data</li>
+    <li><strong>Platform data:</strong> LinkedIn B2B Institute, Meta Business Insights, GWI 2025 Trend Report</li>
+  </ul>
+</div>
+
+<div class="runner-card proposed">
+  <h3>Implementation Order</h3>
+  <ol style="margin-left: 1.5rem; line-height: 2;">
+    <li><strong>KEYWORD_INTELLIGENCE_SKILL</strong> — Largest gap (no SGE context, no bid strategy, free-text intents)</li>
+    <li><strong>ICP_ANALYSIS_SKILL</strong> — Schema fields exist but aren't elicited; awareness stage is highest-leverage single addition</li>
+    <li><strong>OFFER_ANALYSIS_SKILL</strong> — No reference frameworks for conversion thresholds or pricing psychology</li>
+    <li><strong>INDUSTRY_ANALYSIS_SKILL</strong> — Runner works but guesses market sizes without derivation methodology</li>
+  </ol>
+</div>
+
+<div class="runner-card proposed">
+  <h3>Injection Pattern</h3>
+  <p>All 4 skills follow the same pattern already used in <code>competitors.ts:520</code>:</p>
+  <div class="skill-block">const SKILL_NAME = `...skill content...`;
+
+// In the system prompt injection:
+system: `${SKILL_NAME}\n\n---\n\n${PRIMARY_SYSTEM_PROMPT}`</div>
+  <p style="margin-top: 0.75rem;">Skills are prepended to primary stage system prompts only (not repair/rescue stages). The Railway worker maintains inline copies because it's a separate Node process that cannot import from <code>src/lib/</code>.</p>
+</div>
+
+<div class="runner-card proposed">
+  <h3>Canonical Skill Files</h3>
+  <p>Create in <code>src/lib/ai/prompts/skills/</code> alongside the existing two:</p>
+  <table>
+    <tr><th>File</th><th>Constant</th><th>Injected Into</th></tr>
+    <tr><td><code>industry-analysis-skill.ts</code></td><td>INDUSTRY_ANALYSIS_SKILL</td><td>industry.ts primary</td></tr>
+    <tr><td><code>icp-analysis-skill.ts</code></td><td>ICP_ANALYSIS_SKILL</td><td>icp.ts primary</td></tr>
+    <tr><td><code>offer-analysis-skill.ts</code></td><td>OFFER_ANALYSIS_SKILL</td><td>offer.ts primary</td></tr>
+    <tr><td><code>keyword-intelligence-skill.ts</code></td><td>KEYWORD_INTELLIGENCE_SKILL</td><td>keywords.ts primary</td></tr>
+  </table>
+  <p style="margin-top: 0.5rem; color: var(--text-dim);">Each canonical file exports the constant. The Railway worker gets an inline copy of the same content (process isolation requirement).</p>
+</div>
+
+<p style="margin-top: 2rem; color: var(--text-dim); font-size: 0.85rem; text-align: center;">
+  Generated 2026-03-13 &bull; Research confidence: HIGH for frameworks, MEDIUM for 2026-specific benchmark numbers (may drift quarterly)
+</p>
+
+</body>
+</html>

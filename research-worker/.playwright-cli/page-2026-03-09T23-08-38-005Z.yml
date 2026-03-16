@@ -1,0 +1,92 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e253]:
+        - generic [ref=e256]: Discovery
+        - generic [ref=e259]: Validation
+        - generic [ref=e262]: Strategy
+        - generic [ref=e265]: Launch
+      - generic [ref=e267]:
+        - generic [ref=e268]:
+          - generic [ref=e271]:
+            - paragraph [ref=e272]:
+              - generic [ref=e273]: "[OK]"
+              - text: Market Overview research complete
+            - paragraph [ref=e274]:
+              - generic [ref=e275]: "[RUN]"
+              - text: Analyzing https://saaslaunch.net
+            - paragraph [ref=e276]:
+              - generic [ref=e277]: "[OK]"
+              - text: Accepted 11 prefill fields
+            - paragraph [ref=e278]: _
+          - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e281]
+          - generic [ref=e286]:
+            - button "Thinking for 4.4s" [expanded] [ref=e287] [cursor=pointer]:
+              - img [ref=e289]
+              - generic [ref=e291]: Thinking for 4.4s
+            - paragraph [ref=e293]: "The user has provided prefill data that has already been reviewed and accepted through the UI. Per my instructions, I should treat ALL prefill fields as confirmed. I should fire researchIndustry ONLY in my first response. Wait - looking at the Research Running Directive at the bottom of my system prompt: \"researchIndustry has been dispatched and is running asynchronously (30-60 seconds).\" So researchIndustry has ALREADY been dispatched. And the directive says: \"YOUR ONLY RESPONSE: 'Research is underway — your market overview will appear in the panel shortly.' Then STOP. Do NOT: Ask any questions, Continue the onboarding, Call any tools, Suggest next steps, Add commentary\""
+          - button "View Market Overview artifact" [ref=e296] [cursor=pointer]:
+            - generic [ref=e299]:
+              - generic [ref=e300]: Module 01
+              - heading "Market Overview" [level=3] [ref=e301]
+            - generic [ref=e302]:
+              - generic [ref=e303]: View artifact
+              - img [ref=e304]
+        - generic [ref=e309]:
+          - textbox "Ask AIGOS to refine the strategy..." [disabled] [ref=e310]
+          - button "Send message" [disabled] [ref=e311]:
+            - img [ref=e312]
+    - complementary [ref=e67]:
+      - generic [ref=e68]:
+        - heading "Journey Progress" [level=3] [ref=e69]
+        - generic [ref=e72]:
+          - generic [ref=e317]:
+            - generic [ref=e318]: Market Research
+            - generic [ref=e319]: Completed
+          - generic [ref=e80]:
+            - generic [ref=e81]: ICP Validation
+            - generic [ref=e82]: Queued
+          - generic [ref=e322]:
+            - generic [ref=e323]: Competitor Intel
+            - generic [ref=e324]: Queued
+          - generic [ref=e327]:
+            - generic [ref=e328]: Offer Analysis
+            - generic [ref=e329]: Queued
+          - generic [ref=e332]:
+            - generic [ref=e333]: Strategic Synthesis
+            - generic [ref=e334]: Queued
+          - generic [ref=e337]:
+            - generic [ref=e338]: Keyword Intel
+            - generic [ref=e339]: Queued
+        - generic [ref=e94]:
+          - generic [ref=e95]: Compute Node
+          - generic [ref=e96]: Stable
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

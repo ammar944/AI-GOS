@@ -1,0 +1,68 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e117]:
+        - generic [ref=e118]:
+          - generic [ref=e121]: Extracting Context
+          - heading "Analyzing your footprint" [level=2] [ref=e122]
+          - generic [ref=e123]:
+            - paragraph [ref=e124]: https://saaslaunch.net
+            - generic [ref=e125]: 3/25 fields
+        - generic [ref=e129]:
+          - generic [ref=e132]:
+            - generic [ref=e133]: Company Name
+            - paragraph [ref=e134]: SaaSLaunch
+          - generic [ref=e137]:
+            - generic [ref=e138]: Business Model
+            - paragraph [ref=e139]: Agency / Services
+          - generic [ref=e142]:
+            - generic [ref=e143]: Industry Vertical
+            - paragraph [ref=e144]: B2B SaaS Marketing
+    - complementary [ref=e73]:
+      - generic [ref=e74]:
+        - heading "Journey Progress" [level=3] [ref=e75]
+        - generic [ref=e78]:
+          - generic [ref=e81]:
+            - generic [ref=e82]: Market Overview
+            - generic [ref=e83]: Completed 12m ago
+          - generic [ref=e86]:
+            - generic [ref=e87]: Competitor Intel
+            - generic [ref=e88]: Processing data...
+          - generic [ref=e91]:
+            - generic [ref=e92]: ICP Validation
+            - generic [ref=e93]: Queued
+          - generic [ref=e96]:
+            - generic [ref=e97]: Offer Analysis
+            - generic [ref=e98]: Queued
+        - generic [ref=e100]:
+          - generic [ref=e101]: Compute Node
+          - generic [ref=e102]: Stable
+  - button "Open Next.js Dev Tools" [ref=e110] [cursor=pointer]:
+    - img [ref=e111]
+  - alert [ref=e114]

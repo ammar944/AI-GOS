@@ -1,0 +1,274 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e235]:
+        - generic [ref=e238]: Discovery
+        - generic [ref=e241]: Validation
+        - generic [ref=e244]: Strategy
+        - generic [ref=e247]: Launch
+      - generic [ref=e248]:
+        - generic [ref=e249]:
+          - generic [ref=e250]:
+            - generic [ref=e253]:
+              - paragraph [ref=e254]:
+                - generic [ref=e255]: "[OK]"
+                - text: Accepted 9 prefill fields
+              - paragraph [ref=e317]:
+                - generic [ref=e318]: "[OK]"
+                - text: Market Overview research complete
+              - paragraph [ref=e256]: _
+            - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e259]
+            - generic [ref=e263]:
+              - button "Thought for 1.3s" [ref=e265] [cursor=pointer]:
+                - img [ref=e266]
+                - generic [ref=e268]: Thought for 1.3s
+              - generic [ref=e271]:
+                - generic [ref=e273]: Module 01
+                - heading "Market Overview" [level=3] [ref=e275]
+              - generic [ref=e313]:
+                - paragraph [ref=e314]: Building your market overview now.
+                - paragraph [ref=e315]: SaaSLaunch sits in an interesting spot — the B2B SaaS agency space is crowded with generalists, but positioning as an end-to-end acquisition system builder (not just "we run your ads") gives you a stronger defensible angle. The fact that you're framing deliverables around SQLs and MQLs rather than clicks or impressions tells me you're already speaking the language your buyers care about. The key strategic question will be how to differentiate in paid channels where dozens of agencies are bidding on the same "SaaS marketing agency" keywords.
+                - paragraph [ref=e316]: Research is running — results will stream in shortly.
+            - generic [ref=e322]:
+              - button "Thought for 9.0s" [ref=e324] [cursor=pointer]:
+                - img [ref=e325]
+                - generic [ref=e327]: Thought for 9.0s
+              - generic [ref=e330]:
+                - paragraph [ref=e331]: "Your market overview is ready — take a look in the panel. Some standout findings: the SaaS market is $327B+ and growing at nearly 19% CAGR, but median CAC ratios are climbing fast ($2 spent per $1 new ARR). That's exactly the pain you solve, which puts SaaSLaunch in a strong position. The research also flagged that 49% of buyers now shortlist only 1-3 vendors — so early brand presence is make-or-break."
+                - paragraph [ref=e332]:
+                  - text: Now let's dig deeper into who you're actually selling to. Your ICP is "B2B SaaS companies," but I need to get more specific to build targeting that works. Tell me about your
+                  - emphasis [ref=e333]: best
+                  - text: customers — the ones who get the most value, close fastest, and stick around longest. What stage are they at? What ARR range? What does their team look like when they come to you?
+              - group "What company sizes are you typically working with?" [ref=e334]:
+                - generic [ref=e335]:
+                  - checkbox "Solo / Freelancer Solo founders, pre-revenue" [ref=e336] [cursor=pointer]:
+                    - generic [ref=e339]:
+                      - generic [ref=e340]: Solo / Freelancer
+                      - generic [ref=e341]: Solo founders, pre-revenue
+                  - checkbox "1-10 employees Early stage, pre-seed to seed" [ref=e342] [cursor=pointer]:
+                    - generic [ref=e345]:
+                      - generic [ref=e346]: 1-10 employees
+                      - generic [ref=e347]: Early stage, pre-seed to seed
+                  - checkbox "11-50 employees Growth stage, typically Series A" [ref=e348] [cursor=pointer]:
+                    - generic [ref=e351]:
+                      - generic [ref=e352]: 11-50 employees
+                      - generic [ref=e353]: Growth stage, typically Series A
+                  - checkbox "51-200 employees Scaling, Series A-B" [ref=e354] [cursor=pointer]:
+                    - generic [ref=e357]:
+                      - generic [ref=e358]: 51-200 employees
+                      - generic [ref=e359]: Scaling, Series A-B
+                  - checkbox "201-1000 employees Late stage / enterprise" [ref=e360] [cursor=pointer]:
+                    - generic [ref=e363]:
+                      - generic [ref=e364]: 201-1000 employees
+                      - generic [ref=e365]: Late stage / enterprise
+                  - checkbox "1000+ employees Enterprise SaaS" [ref=e366] [cursor=pointer]:
+                    - generic [ref=e369]:
+                      - generic [ref=e370]: 1000+ employees
+                      - generic [ref=e371]: Enterprise SaaS
+                  - checkbox "Other" [ref=e372] [cursor=pointer]:
+                    - generic [ref=e376]: Other
+            - button "View Market Overview artifact" [ref=e379] [cursor=pointer]:
+              - generic [ref=e382]:
+                - generic [ref=e383]: Module 01
+                - heading "Market Overview" [level=3] [ref=e384]
+              - generic [ref=e385]:
+                - generic [ref=e386]: View artifact
+                - img [ref=e387]
+          - generic [ref=e280]:
+            - textbox "Pick an option or type your own answer..." [ref=e389]
+            - button "Send message" [disabled] [ref=e282]:
+              - img [ref=e283]
+        - generic [ref=e391]:
+          - generic [ref=e392]:
+            - generic [ref=e395]:
+              - generic [ref=e396]: Module 01
+              - heading "Market Overview" [level=2] [ref=e397]
+            - button "Close artifact panel" [ref=e398]:
+              - img [ref=e399]
+          - generic [ref=e403]:
+            - generic [ref=e404]:
+              - heading "Category Snapshot" [level=3] [ref=e405]
+              - generic [ref=e406]:
+                - generic [ref=e407]:
+                  - generic [ref=e408]: Category
+                  - text: B2B SaaS Marketing Agency / Client Acquisition Systems
+                - generic [ref=e409]:
+                  - generic [ref=e410]: Market Size
+                  - text: $327B+ TAM (B2B SaaS market, 2024); agency services segment estimated at $15–25B SAM targeting growth-stage SaaS companies
+                - generic [ref=e411]:
+                  - generic [ref=e412]: Maturity
+                  - text: growing
+                - generic [ref=e413]:
+                  - generic [ref=e414]: Awareness
+                  - text: solution-aware
+                - generic [ref=e415]:
+                  - generic [ref=e416]: Buying Behavior
+                  - text: "Buyers are highly self-directed — 81% arrive at sales conversations already vendor-aware, having researched via Google, G2, peer networks, and review sites. 54% begin with a category search, 73% rely on word-of-mouth as the #1 shortlisting factor, and 78% narrow to just 3 vendors before requesting a demo. Committees of 5–8 stakeholders are involved in complex decisions. Buyers are solution-aware but often struggle to evaluate ROI and attribution of marketing agencies. Shortlists are shrinking: 49% of buyers now evaluate only 1–3 vendors (up from 33% in 2023), meaning early brand presence and social proof are critical to being considered at all."
+                - generic [ref=e417]:
+                  - generic [ref=e418]: Sales Cycle
+                  - text: 1–4 months for SMB/growth-stage SaaS; 3–6+ months for scaling or enterprise SaaS clients. 63% of B2B leads take at least 3 months to decide.
+            - generic [ref=e419]:
+              - heading "Pain Points" [level=3] [ref=e420]
+              - list [ref=e421]:
+                - listitem [ref=e422]:
+                  - generic [ref=e423]: •
+                  - text: "Inability to generate a consistent, predictable pipeline of qualified SQLs and MQLs — 61% of B2B marketers cite 'finding high-quality leads' as their #1 challenge"
+                - listitem [ref=e424]:
+                  - generic [ref=e425]: •
+                  - text: Skyrocketing CAC with no clear payback timeline — median new-CAC ratio rose 14% YoY to $2 spent per $1 new ARR, with payback periods up 12.5% since 2022
+                - listitem [ref=e426]:
+                  - generic [ref=e427]: •
+                  - text: Fragmented marketing efforts with no full-funnel system — most SaaS companies run isolated campaigns that don't connect awareness to conversion
+                - listitem [ref=e428]:
+                  - generic [ref=e429]: •
+                  - text: Poor ROI attribution and measurement — 26% of SaaS marketers say ROI measurement is their top concern, lacking multi-touch attribution infrastructure
+                - listitem [ref=e430]:
+                  - generic [ref=e431]: •
+                  - text: Sales and marketing misalignment — marketing teams generate MQLs that sales considers unqualified, creating internal friction and pipeline waste
+                - listitem [ref=e432]:
+                  - generic [ref=e433]: •
+                  - text: Churn eroding growth despite new revenue — rising customer turnover is undermining acquisition gains, demanding stronger retention-first strategy
+            - generic [ref=e434]:
+              - heading "Demand Drivers" [level=3] [ref=e435]
+              - list [ref=e436]:
+                - listitem [ref=e437]:
+                  - generic [ref=e438]: •
+                  - text: Massive B2B SaaS market expansion — valued at $327B+ in 2024, growing at 18.7% CAGR to $1T+ by 2032, creating intense competitive pressure to acquire customers efficiently
+                - listitem [ref=e439]:
+                  - generic [ref=e440]: •
+                  - text: AI-driven martech adoption — 48% of SaaS companies plan to increase martech budgets, and 63% are investing more in automation and personalization, creating demand for expert execution partners
+                - listitem [ref=e441]:
+                  - generic [ref=e442]: •
+                  - text: Rising CAC and efficiency pressure — as payback periods extend and VC scrutiny intensifies, SaaS founders increasingly outsource acquisition to specialists rather than build expensive in-house teams
+                - listitem [ref=e443]:
+                  - generic [ref=e444]: •
+                  - text: Digital-first buying behavior — 80% of B2B SaaS sales will occur entirely online by 2025, demanding sophisticated digital acquisition systems that most SaaS teams can't build alone
+                - listitem [ref=e445]:
+                  - generic [ref=e446]: •
+                  - text: Growth-stage SaaS companies scaling from $1M to $10M ARR urgently need repeatable client acquisition systems as product-market fit solidifies but growth plateaus
+            - generic [ref=e447]:
+              - heading "Buying Triggers" [level=3] [ref=e448]
+              - list [ref=e449]:
+                - listitem [ref=e450]:
+                  - generic [ref=e451]: •
+                  - text: New funding round received — investor pressure to deploy capital into growth and hit ARR milestones within 12–18 months
+                - listitem [ref=e452]:
+                  - generic [ref=e453]: •
+                  - text: Pipeline crisis — sales team reports insufficient demo volume or MQL quality drops below acceptable conversion thresholds
+                - listitem [ref=e454]:
+                  - generic [ref=e455]: •
+                  - text: Leadership change — new CMO, VP Marketing, or CEO brought in with mandate to professionalize the go-to-market motion
+                - listitem [ref=e456]:
+                  - generic [ref=e457]: •
+                  - text: Failed DIY or generalist agency experience — SaaS company tried a non-specialist agency or in-house approach that produced poor ROI
+                - listitem [ref=e458]:
+                  - generic [ref=e459]: •
+                  - text: Competitor visibility surge — seeing a competitor rapidly gain market share via paid channels prompts reactive investment in acquisition infrastructure
+            - generic [ref=e460]:
+              - heading "Barriers to Purchase" [level=3] [ref=e461]
+              - list [ref=e462]:
+                - listitem [ref=e463]:
+                  - generic [ref=e464]: •
+                  - text: Agency trust deficit — B2B SaaS buyers are skeptical of agencies overpromising results; they want proven SaaS-specific case studies and transparent reporting before committing
+                - listitem [ref=e465]:
+                  - generic [ref=e466]: •
+                  - text: Fear of long onboarding lag — prospects worry about a 60–90 day ramp before results materialize, especially when under investor or board pressure
+                - listitem [ref=e467]:
+                  - generic [ref=e468]: •
+                  - text: ROI uncertainty — without a clear attribution model, prospects struggle to justify agency retainer spend vs. hiring in-house headcount
+                - listitem [ref=e469]:
+                  - generic [ref=e470]: •
+                  - text: Budget scrutiny — economic uncertainty and cost-reduction mandates mean even interested buyers face internal approval hurdles for marketing services spend
+                - listitem [ref=e471]:
+                  - generic [ref=e472]: •
+                  - text: Perceived lack of specialization — buyers worry a general marketing agency won't understand SaaS metrics (ARR, NRR, CAC, LTV), funnel mechanics, or their ICP deeply enough to drive results
+            - generic [ref=e473]:
+              - heading "Trend Signals" [level=3] [ref=e474]
+              - generic [ref=e475]:
+                - generic [ref=e476]:
+                  - generic [ref=e477]:
+                    - generic [ref=e478]: rising
+                    - generic [ref=e479]: AI-Augmented Demand Generation
+                  - paragraph [ref=e480]: 70% of SaaS marketing leaders expect substantial strategic change due to AI/automation within two years; 19.65% plan to deploy AI agents to automate marketing in 2025 (Understory, 2025)
+                - generic [ref=e481]:
+                  - generic [ref=e482]:
+                    - generic [ref=e483]: rising
+                    - generic [ref=e484]: Shrinking Vendor Shortlists — Brand Presence Now Critical
+                  - paragraph [ref=e485]: G2's 2024 Buyer Behavior Report shows buyers shortlisting only 1–3 vendors surged from 33% to 49% YoY, making early-funnel brand trust and awareness a decisive competitive advantage
+                - generic [ref=e486]:
+                  - generic [ref=e487]:
+                    - generic [ref=e488]: rising
+                    - generic [ref=e489]: Rising CAC and Payback Pressure on SaaS Growth Teams
+                  - paragraph [ref=e490]: Median new-CAC ratio increased 14% YoY to $2 per $1 new ARR; CAC payback periods now regularly exceed the 12-month 'healthy' threshold (Understory 2025 SaaS Benchmarks)
+                - generic [ref=e491]:
+                  - generic [ref=e492]:
+                    - generic [ref=e493]: rising
+                    - generic [ref=e494]: Community-Led and Peer-Driven Buying Influence
+                  - paragraph [ref=e495]: "Word-of-mouth is the #1 shortlisting factor (73%) for B2B SaaS buyers; community engagement expected to influence 40%+ of SaaS buying decisions in 2025"
+                - generic [ref=e496]:
+                  - generic [ref=e497]:
+                    - generic [ref=e498]: stable
+                    - generic [ref=e499]: Multi-Stakeholder, Committee-Based Purchase Decisions
+                  - paragraph [ref=e500]: Average B2B buying group for complex solutions now involves 8.2 stakeholders — up 21% since 2015 — requiring multi-persona messaging across the funnel (Sopro, 2025)
+                - generic [ref=e501]:
+                  - generic [ref=e502]:
+                    - generic [ref=e503]: rising
+                    - generic [ref=e504]: Reddit and Alternative Channels Disrupting LinkedIn Dominance
+                  - paragraph [ref=e505]: Reddit B2B CPCs of $0.50–$2.00 vs LinkedIn's $7–$12 represent 75–90% savings; B2B SaaS companies report CAC 15–30% lower on Reddit vs LinkedIn (2024–2025 data)
+            - generic [ref=e506]:
+              - heading "Messaging Opportunities" [level=3] [ref=e507]
+              - list [ref=e508]:
+                - listitem [ref=e509]:
+                  - generic [ref=e510]: ✓
+                  - text: Target LinkedIn with role-specific creative (Founder, VP Marketing, CMO, Head of Growth at B2B SaaS companies with 10–200 employees) using CAC and pipeline anxiety as the primary emotional hook — these personas are active on LinkedIn and respond to ROI-framed messaging
+                - listitem [ref=e511]:
+                  - generic [ref=e512]: ✓
+                  - text: Deploy retargeting aggressively since 70% of B2B buyers complete most of their research before contacting a vendor — use retargeting to build authority and stay top-of-mind during the 'dark funnel' evaluation phase with case studies, benchmarks, and social proof
+                - listitem [ref=e513]:
+                  - generic [ref=e514]: ✓
+                  - text: Use Reddit ads in SaaS-specific subreddits (r/SaaS, r/startups, r/entrepreneur) as a cost-efficient top-of-funnel channel; CPCs are 75–90% lower than LinkedIn and the audience actively researches solutions — ideal for reaching technical co-founders and early-stage SaaS operators
+                - listitem [ref=e515]:
+                  - generic [ref=e516]: ✓
+                  - text: Build a G2/review-site presence immediately — 81% of B2B buyers check third-party reviews when vetting vendors and 54% begin research with a category search that leads directly to G2; a strong profile with case-study proof is a prerequisite to being shortlisted
+                - listitem [ref=e517]:
+                  - generic [ref=e518]: ✓
+                  - text: Create dedicated landing pages for each buying trigger scenario (e.g., 'Just raised funding?', 'Pipeline dried up?', 'Agency let you down?') to intercept high-intent prospects at the moment of decision with hyper-relevant messaging
+                - listitem [ref=e519]:
+                  - generic [ref=e520]: ✓
+                  - text: Invest in thought leadership content (benchmark reports, SaaS-specific data studies) — 65% of decision-makers say high-quality thought leadership enhances brand reputation and 55% will pay a premium to work with organizations that publish it; this is the highest-leverage brand-building activity for an agency in a skeptical market
+                - listitem [ref=e521]:
+                  - generic [ref=e522]: ✓
+                  - text: "Front-load proof and specificity in all ad creative — use concrete metrics (e.g., 'We helped [SaaS client] reduce CAC by 34% in 90 days') to overcome the #1 barrier to purchase: agency skepticism and ROI uncertainty"
+                - listitem [ref=e523]:
+                  - generic [ref=e524]: ✓
+                  - text: "Align paid media calendar to SaaS buying seasonality: Q1 (January–March) is the highest-intent period as new budgets are approved and annual planning drives agency procurement; Q3 (July–August) sees budget-flush mid-year reviews creating secondary opportunity windows"
+          - button "Looks Good" [ref=e526] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

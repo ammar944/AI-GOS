@@ -1,0 +1,174 @@
+Total messages: 83 (Errors: 1, Warnings: 16)
+Returning 1 messages for level "error"
+
+[ERROR] The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [welcome, ready, [object Object], (section, result)=>{
+            const syntheticMessage = createRealtimeResearchMessage(section, result);
+            setMessages({
+                "JourneyPageContent.useCallback[appendRealtimeResearchMessage]": (prev)=>{
+                    const alreadyInjected = prev.some({
+                        "JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected": (msg)=>msg.parts.some({
+                                "JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected": (part)=>{
+                                    if (typeof part !== 'object' || !part || !('toolCallId' in part)) {
+                                        return false;
+                                    }
+                                    return part.toolCallId === `realtime-${section}`;
+                                }
+                            }["JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected"])
+                    }["JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected"]);
+                    return alreadyInjected ? prev : [
+                        ...prev,
+                        syntheticMessage
+                    ];
+                }
+            }["JourneyPageContent.useCallback[appendRealtimeResearchMessage]"]);
+        }, async (message, options)=>{
+            var _a21, _b, _c, _d;
+            if (message == null) {
+                await this.makeRequest({
+                    trigger: "submit-message",
+                    messageId: (_a21 = this.lastMessage) == null ? void 0 : _a21.id,
+                    ...options
+                });
+                return;
+            }
+            let uiMessage;
+            if ("text" in message || "files" in message) {
+                const fileParts = Array.isArray(message.files) ? message.files : await convertFileListToFileUIParts(message.files);
+                uiMessage = {
+                    parts: [
+                        ...fileParts,
+                        ..."text" in message && message.text != null ? [
+                            {
+                                type: "text",
+                                text: message.text
+                            }
+                        ] : []
+                    ]
+                };
+            } else {
+                uiMessage = message;
+            }
+            if (message.messageId != null) {
+                const messageIndex = this.state.messages.findIndex((m)=>m.id === message.messageId);
+                if (messageIndex === -1) {
+                    throw new Error(`message with id ${message.messageId} not found`);
+                }
+                if (this.state.messages[messageIndex].role !== "user") {
+                    throw new Error(`message with id ${message.messageId} is not a user message`);
+                }
+                this.state.messages = this.state.messages.slice(0, messageIndex + 1);
+                this.state.replaceMessage(messageIndex, {
+                    ...uiMessage,
+                    id: message.messageId,
+                    role: (_b = uiMessage.role) != null ? _b : "user",
+                    metadata: message.metadata
+                });
+            } else {
+                this.state.pushMessage({
+                    ...uiMessage,
+                    id: (_c = uiMessage.id) != null ? _c : this.generateId(),
+                    role: (_d = uiMessage.role) != null ? _d : "user",
+                    metadata: message.metadata
+                });
+            }
+            await this.makeRequest({
+                trigger: "submit-message",
+                messageId: message.messageId,
+                ...options
+            });
+        }] [welcome, ready, [object Object], (section, result)=>{
+            const syntheticMessage = createRealtimeResearchMessage(section, result);
+            setMessages({
+                "JourneyPageContent.useCallback[appendRealtimeResearchMessage]": (prev)=>{
+                    const alreadyInjected = prev.some({
+                        "JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected": (msg)=>msg.parts.some({
+                                "JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected": (part)=>{
+                                    if (typeof part !== 'object' || !part || !('toolCallId' in part)) {
+                                        return false;
+                                    }
+                                    return part.toolCallId === `realtime-${section}`;
+                                }
+                            }["JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected"])
+                    }["JourneyPageContent.useCallback[appendRealtimeResearchMessage].alreadyInjected"]);
+                    return alreadyInjected ? prev : [
+                        ...prev,
+                        syntheticMessage
+                    ];
+                }
+            }["JourneyPageContent.useCallback[appendRealtimeResearchMessage]"]);
+        }, (section)=>{
+            setApprovedArtifactSections({
+                "JourneyPageContent.useCallback[clearArtifactSectionState]": (prev)=>{
+                    if (!prev[section]) return prev;
+                    const next = {
+                        ...prev
+                    };
+                    delete next[section];
+                    return next;
+                }
+            }["JourneyPageContent.useCallback[clearArtifactSectionState]"]);
+            setArtifactFeedbackSection({
+                "JourneyPageContent.useCallback[clearArtifactSectionState]": (prev)=>prev === section ? null : prev
+            }["JourneyPageContent.useCallback[clearArtifactSectionState]"]);
+            setRecentlyApprovedArtifactSection({
+                "JourneyPageContent.useCallback[clearArtifactSectionState]": (prev)=>prev === section ? null : prev
+            }["JourneyPageContent.useCallback[clearArtifactSectionState]"]);
+        }, async (message, options)=>{
+            var _a21, _b, _c, _d;
+            if (message == null) {
+                await this.makeRequest({
+                    trigger: "submit-message",
+                    messageId: (_a21 = this.lastMessage) == null ? void 0 : _a21.id,
+                    ...options
+                });
+                return;
+            }
+            let uiMessage;
+            if ("text" in message || "files" in message) {
+                const fileParts = Array.isArray(message.files) ? message.files : await convertFileListToFileUIParts(message.files);
+                uiMessage = {
+                    parts: [
+                        ...fileParts,
+                        ..."text" in message && message.text != null ? [
+                            {
+                                type: "text",
+                                text: message.text
+                            }
+                        ] : []
+                    ]
+                };
+            } else {
+                uiMessage = message;
+            }
+            if (message.messageId != null) {
+                const messageIndex = this.state.messages.findIndex((m)=>m.id === message.messageId);
+                if (messageIndex === -1) {
+                    throw new Error(`message with id ${message.messageId} not found`);
+                }
+                if (this.state.messages[messageIndex].role !== "user") {
+                    throw new Error(`message with id ${message.messageId} is not a user message`);
+                }
+                this.state.messages = this.state.messages.slice(0, messageIndex + 1);
+                this.state.replaceMessage(messageIndex, {
+                    ...uiMessage,
+                    id: message.messageId,
+                    role: (_b = uiMessage.role) != null ? _b : "user",
+                    metadata: message.metadata
+                });
+            } else {
+                this.state.pushMessage({
+                    ...uiMessage,
+                    id: (_c = uiMessage.id) != null ? _c : this.generateId(),
+                    role: (_d = uiMessage.role) != null ? _d : "user",
+                    metadata: message.metadata
+                });
+            }
+            await this.makeRequest({
+                trigger: "submit-message",
+                messageId: message.messageId,
+                ...options
+            });
+        }] @ http://localhost:3000/_next/static/chunks/8b03e_next_dist_8feedd46._.js:3117

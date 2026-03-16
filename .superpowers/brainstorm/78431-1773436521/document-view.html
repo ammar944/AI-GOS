@@ -1,0 +1,122 @@
+<h2>Research Document View — /research/[sessionId]</h2>
+<p class="subtitle">Read-only, polished document layout. Same card components, no workspace editing UI. Accessible from dashboard.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Document View — Saved Research</div>
+  <div class="mockup-body" style="background: #0a0a0f; padding: 0; max-height: 600px; overflow-y: auto;">
+
+    <!-- Top bar — same style as existing StatusStrip -->
+    <div style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); position: sticky; top: 0; z-index: 10;">
+      <!-- Back button -->
+      <button style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: transparent; font-size: 12px; color: rgba(255,255,255,0.5); cursor: pointer; margin-right: 8px;">
+        ← Back
+      </button>
+
+      <!-- Same section tabs as workspace -->
+      <button style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(96,165,250,0.4); background: rgba(96,165,250,0.15); font-size: 12px; color: #60a5fa; white-space: nowrap; cursor: pointer;">
+        <span style="font-weight: 600;">Market Overview</span>
+      </button>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); background: transparent; font-size: 12px; color: rgba(255,255,255,0.5); white-space: nowrap; cursor: pointer;">
+        Competitor Intel
+      </button>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); background: transparent; font-size: 12px; color: rgba(255,255,255,0.5); white-space: nowrap; cursor: pointer;">
+        ICP Validation
+      </button>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); background: transparent; font-size: 12px; color: rgba(255,255,255,0.5); white-space: nowrap; cursor: pointer;">
+        Offer Analysis
+      </button>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); background: transparent; font-size: 12px; color: rgba(255,255,255,0.5); white-space: nowrap; cursor: pointer;">
+        Keywords
+      </button>
+      <button style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); background: transparent; font-size: 12px; color: rgba(255,255,255,0.5); white-space: nowrap; cursor: pointer;">
+        Strategic Synthesis
+      </button>
+    </div>
+
+    <!-- Content area — full width, no right rail, no chat -->
+    <div style="max-width: 800px; margin: 0 auto; padding: 32px 24px;">
+      <!-- Section header (same as workspace SectionHeader) -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.3); margin-bottom: 4px;">Module 01</div>
+        <div style="font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.9);">Market Overview</div>
+      </div>
+
+      <!-- Cards — same components, read-only, slightly wider since no right rail -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Stat grid card -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 20px;">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.4); margin-bottom: 14px;">Category Snapshot</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <div style="font-size: 11px; color: rgba(255,255,255,0.4);">Category</div>
+              <div style="font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85); margin-top: 2px;">B2B SaaS Marketing</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: rgba(255,255,255,0.4);">Market Size</div>
+              <div style="font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85); margin-top: 2px;">$47.2B</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: rgba(255,255,255,0.4);">Growth Rate</div>
+              <div style="font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85); margin-top: 2px;">18.4% YoY</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: rgba(255,255,255,0.4);">Saturation</div>
+              <div style="font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85); margin-top: 2px;">
+                <span style="background: rgba(251,191,36,0.15); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Medium</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bullet list card -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 20px;">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.4); margin-bottom: 14px;">Primary Pain Points</div>
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+            <li style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
+              <span style="color: #60a5fa; margin-top: 2px;">•</span>
+              CAC increasing 40% YoY across primary channels
+            </li>
+            <li style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
+              <span style="color: #60a5fa; margin-top: 2px;">•</span>
+              Attribution gaps between marketing spend and revenue
+            </li>
+            <li style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
+              <span style="color: #60a5fa; margin-top: 2px;">•</span>
+              Content saturation making organic growth 3x harder
+            </li>
+          </ul>
+        </div>
+
+        <!-- Prose card -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 20px;">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.4); margin-bottom: 14px;">Market Dynamics</div>
+          <p style="font-size: 13px; line-height: 1.7; color: rgba(255,255,255,0.6); margin: 0;">
+            The B2B SaaS marketing landscape is experiencing a fundamental shift toward AI-powered personalization. Companies that adapt their paid media strategy to leverage intent signals are seeing 2.3x better conversion rates compared to traditional demographic targeting...
+          </p>
+        </div>
+
+        <!-- Trend card -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 20px;">
+          <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.4); margin-bottom: 10px;">Key Trend</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="color: #4ade80; font-size: 16px;">↗</span>
+            <span style="font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85);">AI-First Ad Creative</span>
+          </div>
+          <p style="font-size: 12px; color: rgba(255,255,255,0.5); margin: 0;">67% of top performers now use AI-generated ad variations, up from 23% last year.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 16px;">
+  <h3>Key differences from workspace</h3>
+  <ul style="font-size: 14px; line-height: 1.8;">
+    <li><strong>No right rail / chat</strong> — full-width content area (max-width: 800px centered)</li>
+    <li><strong>No edit/approve buttons</strong> on cards — clean read-only</li>
+    <li><strong>No "Looks good →" footer</strong> — just content</li>
+    <li><strong>← Back button</strong> to return to dashboard</li>
+    <li><strong>Same section tabs</strong> — shared SectionTabs component, all clickable</li>
+    <li><strong>Same card components</strong> — StatGrid, BulletList, ProseCard etc. via CardRenderer mode="document"</li>
+  </ul>
+</div>

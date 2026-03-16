@@ -1,0 +1,7 @@
+- generic [active] [ref=e1]:
+  - link "SaaSLaunch" [ref=e4] [cursor=pointer]:
+    - /url: /
+    - img "SaaSLaunch" [ref=e6]
+  - button "Open Next.js Dev Tools" [ref=e12] [cursor=pointer]:
+    - img [ref=e13]
+  - alert [ref=e16]

@@ -1,0 +1,87 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e117]:
+        - generic [ref=e118]:
+          - generic [ref=e121]: Extraction Complete
+          - heading "Context extracted" [level=2] [ref=e153]
+          - generic [ref=e123]:
+            - paragraph [ref=e124]: https://saaslaunch.net
+            - generic [ref=e125]: 9/25 fields
+        - generic [ref=e155]:
+          - generic [ref=e158]:
+            - generic [ref=e159]: Company Name
+            - textbox [ref=e160]: SaaSLaunch
+          - generic [ref=e163]:
+            - generic [ref=e164]: Business Model
+            - textbox [ref=e165]: Agency / Services
+          - generic [ref=e168]:
+            - generic [ref=e169]: Industry Vertical
+            - textbox [ref=e170]: B2B SaaS Marketing
+          - generic [ref=e173]:
+            - generic [ref=e174]: Ideal Customer Profile
+            - textbox [ref=e175]: B2B SaaS companies, software businesses, founders and startups
+          - generic [ref=e178]:
+            - generic [ref=e179]: Product Description
+            - textbox [ref=e180]: We build, manage, and optimize complete client acquisition systems for B2B SaaS companies. We help software businesses generate SQL’s and MQL’s, improve conversion rates, and achieve sustainable SaaS growth.
+          - generic [ref=e183]:
+            - generic [ref=e184]: Core Deliverables
+            - textbox [ref=e185]: build, manage, and optimize complete client acquisition systems; generate SQL’s and MQL’s; improve conversion rates; achieve sustainable SaaS growth
+          - generic [ref=e188]:
+            - generic [ref=e189]: Value Proposition
+            - textbox [ref=e190]: End-to-End SaaS Growth Partner
+          - generic [ref=e193]:
+            - generic [ref=e194]: Desired Transformation
+            - textbox [ref=e195]: generate SQL’s and MQL’s, improve conversion rates, and achieve sustainable SaaS growth
+          - generic [ref=e198]:
+            - generic [ref=e199]: Brand Positioning
+            - textbox [ref=e200]: End-to-End SaaS Growth Partner
+        - button "Review extracted fields" [ref=e202]
+    - complementary [ref=e73]:
+      - generic [ref=e74]:
+        - heading "Journey Progress" [level=3] [ref=e75]
+        - generic [ref=e78]:
+          - generic [ref=e81]:
+            - generic [ref=e82]: Market Overview
+            - generic [ref=e83]: Completed 12m ago
+          - generic [ref=e86]:
+            - generic [ref=e87]: Competitor Intel
+            - generic [ref=e88]: Processing data...
+          - generic [ref=e91]:
+            - generic [ref=e92]: ICP Validation
+            - generic [ref=e93]: Queued
+          - generic [ref=e96]:
+            - generic [ref=e97]: Offer Analysis
+            - generic [ref=e98]: Queued
+        - generic [ref=e100]:
+          - generic [ref=e101]: Compute Node
+          - generic [ref=e102]: Stable
+  - button "Open Next.js Dev Tools" [ref=e110] [cursor=pointer]:
+    - img [ref=e111]
+  - alert [ref=e114]

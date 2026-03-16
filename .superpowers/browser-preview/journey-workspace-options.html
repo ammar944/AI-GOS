@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Journey Workspace Directions</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #0d1727;
+      --panel: rgba(12, 20, 33, 0.9);
+      --panel-2: rgba(18, 28, 45, 0.88);
+      --line: rgba(154, 178, 214, 0.16);
+      --text: #f6f7fb;
+      --muted: #a0b2ca;
+      --warm: #ffd8a0;
+      --cyan: #60c8ff;
+      --green: #6de2a0;
+      --amber: #ffbe6b;
+      --red: #ff8c8c;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(96, 200, 255, 0.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(109, 226, 160, 0.10), transparent 26%),
+        linear-gradient(180deg, #08111d 0%, #050b14 100%);
+    }
+
+    .shell {
+      width: min(1320px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 36px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .hero-card,
+    .summary-card,
+    .option,
+    .mockup,
+    .signal {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero-card {
+      padding: 32px;
+    }
+
+    .summary-card {
+      padding: 24px;
+      background: linear-gradient(180deg, rgba(19, 30, 48, 0.96), rgba(9, 17, 30, 0.92));
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--warm);
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.2rem, 4vw, 4.5rem);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+      font-weight: 650;
+    }
+
+    .hero p,
+    .summary-card p,
+    .option-copy p,
+    .bullet,
+    .meta-row,
+    .subagent-note {
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .signal {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(13, 22, 36, 0.86);
+      box-shadow: none;
+    }
+
+    .signal strong,
+    .summary-card strong {
+      display: block;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .summary-card h2 {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .summary-item {
+      border-top: 1px solid rgba(154, 178, 214, 0.12);
+      padding-top: 12px;
+    }
+
+    .options {
+      display: grid;
+      gap: 22px;
+    }
+
+    .option {
+      display: grid;
+      grid-template-columns: 1.06fr 1fr;
+      gap: 22px;
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(12, 20, 33, 0.96), rgba(8, 14, 24, 0.94));
+    }
+
+    .option.recommended {
+      border-color: rgba(109, 226, 160, 0.28);
+      background:
+        radial-gradient(circle at top right, rgba(109, 226, 160, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(14, 24, 36, 0.98), rgba(7, 13, 23, 0.96));
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(154, 178, 214, 0.16);
+      color: #dce9fb;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tag.good { color: #c8f7dd; border-color: rgba(109, 226, 160, 0.24); }
+    .tag.warn { color: #ffe1bc; border-color: rgba(255, 190, 107, 0.22); }
+    .tag.bad { color: #ffc3c3; border-color: rgba(255, 140, 140, 0.22); }
+
+    .option h3 {
+      margin: 0 0 10px;
+      font-size: 1.55rem;
+      letter-spacing: -0.04em;
+    }
+
+    .option-copy ul {
+      padding-left: 18px;
+      margin: 16px 0 0;
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+    }
+
+    .mockup {
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(15, 25, 39, 0.98), rgba(8, 15, 26, 0.96));
+    }
+
+    .mockup-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .mockup-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: #cdd9ea;
+    }
+
+    .start-pill {
+      border-radius: 999px;
+      padding: 9px 14px;
+      background: linear-gradient(90deg, rgba(96, 200, 255, 0.22), rgba(109, 226, 160, 0.18));
+      border: 1px solid rgba(96, 200, 255, 0.24);
+      font-size: 12px;
+      color: #eef7ff;
+    }
+
+    .canvas {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr) 300px;
+      gap: 12px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .panel {
+      border-radius: 20px;
+      border: 1px solid rgba(154, 178, 214, 0.12);
+      background: var(--panel-2);
+      padding: 14px;
+      min-height: 168px;
+    }
+
+    .panel h4 {
+      margin: 0 0 12px;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #c2d4ec;
+    }
+
+    .section-list,
+    .chat-list,
+    .log-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .section-item,
+    .chat-bubble,
+    .log-line,
+    .artifact-block {
+      border-radius: 16px;
+      border: 1px solid rgba(154, 178, 214, 0.10);
+      padding: 11px 12px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .section-item.active {
+      border-color: rgba(96, 200, 255, 0.24);
+      background: rgba(96, 200, 255, 0.08);
+    }
+
+    .section-item.complete {
+      border-color: rgba(109, 226, 160, 0.20);
+      background: rgba(109, 226, 160, 0.08);
+    }
+
+    .artifact-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .artifact-block strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 7px;
+      color: #f7fbff;
+    }
+
+    .artifact-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .action {
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid rgba(154, 178, 214, 0.16);
+      font-size: 12px;
+      color: #e8f1ff;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .action.primary {
+      background: rgba(109, 226, 160, 0.12);
+      border-color: rgba(109, 226, 160, 0.24);
+      color: #dffff0;
+    }
+
+    .chat-bubble.user {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .chat-bubble.agent {
+      border-color: rgba(96, 200, 255, 0.16);
+      background: rgba(96, 200, 255, 0.06);
+    }
+
+    .log-line.ok { color: #c8f7dd; }
+    .log-line.run { color: #d8eeff; }
+    .log-line.warn { color: #ffe0b5; }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(154, 178, 214, 0.12);
+      background: rgba(9, 16, 26, 0.9);
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1100px) {
+      .hero,
+      .option,
+      .row-3,
+      .row-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .signal-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 24px, 1320px);
+        padding-top: 20px;
+      }
+
+      .signal-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-card">
+        <p class="eyebrow">AI-GOS Journey Direction</p>
+        <h1>Artifact-first research studio, not chat-first onboarding.</h1>
+        <p>
+          Your clarified flow is now specific: onboarding gathers context, the user clicks
+          <strong>Start research</strong>, then artifacts arrive one by one in front of them with
+          strong motion, live worker status, and a focused sub-agent chat for each artifact.
+        </p>
+        <div class="signal-grid">
+          <div class="signal">
+            <strong>What leaders do</strong>
+            Large outputs live in a dedicated canvas, not buried in messages.
+          </div>
+          <div class="signal">
+            <strong>What Manus-like means</strong>
+            Show work happening in public with generated surfaces, not invisible backend steps.
+          </div>
+          <div class="signal">
+            <strong>What your repo already has</strong>
+            Artifact review, worker status, progress rails, and a Manus-like intake preview.
+          </div>
+          <div class="signal">
+            <strong>What should go</strong>
+            The old lead-agent chat as the primary state machine.
+          </div>
+        </div>
+      </div>
+
+      <aside class="summary-card">
+        <h2>Recommendation</h2>
+        <p>
+          <strong>Option A</strong> fits your latest clarification best.
+          It keeps the screen visually advanced without becoming noisy, because the user
+          always has one active artifact in focus, one visible next action, and one sub-agent
+          conversation tied to that artifact.
+        </p>
+        <div class="summary-list">
+          <div class="summary-item">
+            <strong>Best for trust</strong>
+            Users see the artifact forming, what is running now, and what comes next.
+          </div>
+          <div class="summary-item">
+            <strong>Best for edits</strong>
+            Sub-agent chat modifies only the focused artifact, which keeps change intent clean.
+          </div>
+          <div class="summary-item">
+            <strong>Best for pacing</strong>
+            “Looks good” becomes the trigger for the next research wave.
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="options">
+      <article class="option recommended">
+        <div class="option-copy">
+          <div class="tag-row">
+            <span class="tag good">Recommended</span>
+            <span class="tag good">Best clarity</span>
+            <span class="tag">Strongest approval loop</span>
+          </div>
+          <h3>Option A: Sequential Artifact Studio</h3>
+          <p>
+            After onboarding, the hero CTA becomes <strong>Start research</strong>. The screen
+            transitions into a cinematic studio where exactly one artifact is “on stage” at a time.
+            A left rail shows the section queue. The center is the live artifact canvas. The right rail
+            is the section’s sub-agent thread with <strong>Looks good</strong> and <strong>Request changes</strong>.
+          </p>
+          <ul>
+            <li>Best fit for one-by-one artifact arrival and visible generation.</li>
+            <li>Most premium-feeling because the center canvas gets full visual focus.</li>
+            <li>Sub-agent chat stays contextual instead of becoming another generic inbox.</li>
+            <li>Lets you use advanced frontend touches: staged reveals, citation chips, diff glow, live proof logs.</li>
+          </ul>
+        </div>
+
+        <div class="mockup">
+          <div class="mockup-head">
+            <div class="mockup-title">Sequential Artifact Studio</div>
+            <div class="start-pill">Start research -> artifact 1 animates in</div>
+          </div>
+          <div class="canvas">
+            <div class="row-3">
+              <div class="panel">
+                <h4>Research Queue</h4>
+                <div class="section-list">
+                  <div class="section-item active">01 Market Overview · generating now</div>
+                  <div class="section-item">02 Competitor Intel · next</div>
+                  <div class="section-item">03 ICP Validation · queued</div>
+                  <div class="section-item">04 Offer Analysis · queued</div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h4>Focused Artifact Canvas</h4>
+                <div class="artifact-stack">
+                  <div class="artifact-block">
+                    <strong>Market snapshot</strong>
+                    Category, maturity, buying behavior, and urgency signals resolve into cards and prose blocks as they stream in.
+                  </div>
+                  <div class="artifact-block">
+                    <strong>Pain and trigger layer</strong>
+                    Bullets appear with subtle stagger, source chips, and confidence tags.
+                  </div>
+                  <div class="artifact-block">
+                    <strong>Messaging openings</strong>
+                    Hooks are highlighted so edits feel like operating on the artifact, not chatting about it.
+                  </div>
+                </div>
+                <div class="artifact-actions">
+                  <div class="action primary">Looks good</div>
+                  <div class="action">Ask sub-agent to revise</div>
+                  <div class="action">See sources</div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h4>Artifact Sub-agent</h4>
+                <div class="chat-list">
+                  <div class="chat-bubble user">Tighten the messaging around operator speed, not generic automation.</div>
+                  <div class="chat-bubble agent">Updating the artifact now. I’ll rewrite the opportunity framing and keep the evidence blocks intact.</div>
+                  <div class="chat-bubble agent">Revision ready. Review the highlighted paragraphs or click Looks good.</div>
+                </div>
+                <div class="meta-row">
+                  <span>Section scope only</span>
+                  <span>safe, focused edits</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h4>Live Research Trace</h4>
+              <div class="log-list">
+                <div class="log-line run">[RUN] Parsing homepage and category signals</div>
+                <div class="log-line ok">[OK] Four buyer pain clusters validated</div>
+                <div class="log-line warn">[WAIT] Competitor Intel unlocks after approval</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="option">
+        <div class="option-copy">
+          <div class="tag-row">
+            <span class="tag">Broader visibility</span>
+            <span class="tag warn">Weaker focus</span>
+            <span class="tag warn">More dashboard-y</span>
+          </div>
+          <h3>Option B: Orchestration Board + Artifact Drawer</h3>
+          <p>
+            The primary surface is a board of section cards showing state, progress, and summaries.
+            Clicking a card opens the artifact in a right-side drawer or modal with its own sub-agent chat.
+          </p>
+          <ul>
+            <li>Strong if you want users to see the whole research program at once.</li>
+            <li>Feels operational and agentic, but less magical than a staged artifact canvas.</li>
+            <li>Risks making each artifact feel secondary because the board becomes the main surface.</li>
+          </ul>
+        </div>
+
+        <div class="mockup">
+          <div class="mockup-head">
+            <div class="mockup-title">Board + Drawer</div>
+            <div class="start-pill">Good for monitoring, weaker for wow</div>
+          </div>
+          <div class="canvas">
+            <div class="panel">
+              <h4>Section Board</h4>
+              <div class="section-list">
+                <div class="section-item complete">Market Overview · approved</div>
+                <div class="section-item active">Competitor Intel · running</div>
+                <div class="section-item">ICP Validation · waiting</div>
+                <div class="section-item">Offer Analysis · waiting</div>
+              </div>
+            </div>
+
+            <div class="row-2">
+              <div class="panel">
+                <h4>Board Metrics</h4>
+                <div class="artifact-block">4 sections queued</div>
+                <div class="artifact-block">1 active worker</div>
+                <div class="artifact-block">2 approvals completed</div>
+              </div>
+              <div class="panel">
+                <h4>Artifact Drawer</h4>
+                <div class="artifact-block">
+                  Current artifact opens in a side sheet with edit chat and approve controls.
+                </div>
+                <div class="artifact-actions">
+                  <div class="action primary">Looks good</div>
+                  <div class="action">Revise</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="option">
+        <div class="option-copy">
+          <div class="tag-row">
+            <span class="tag">Most dynamic</span>
+            <span class="tag bad">Highest complexity</span>
+            <span class="tag bad">Easy to overwhelm</span>
+          </div>
+          <h3>Option C: Dual-Pane Live Build Surface</h3>
+          <p>
+            The center view splits into a live generation pane and the resulting artifact pane. The sub-agent
+            chat docks beneath or to the right. This is the most “advanced AI UI” feeling, but it can easily
+            look busy during onboarding-era research.
+          </p>
+          <ul>
+            <li>Best if your product’s identity is “watch the machine build”.</li>
+            <li>Great for motion and streaming spectacle, but harder to read and approve.</li>
+            <li>Higher implementation and interaction complexity than the value likely justifies here.</li>
+          </ul>
+        </div>
+
+        <div class="mockup">
+          <div class="mockup-head">
+            <div class="mockup-title">Dual-Pane Live Build</div>
+            <div class="start-pill">Exciting, but noisy</div>
+          </div>
+          <div class="canvas">
+            <div class="row-2">
+              <div class="panel">
+                <h4>Live Build Stream</h4>
+                <div class="log-list">
+                  <div class="log-line run">[RUN] Fetching pricing pages</div>
+                  <div class="log-line run">[RUN] Summarizing ad hooks</div>
+                  <div class="log-line warn">[WAIT] Human approval recommended</div>
+                </div>
+              </div>
+              <div class="panel">
+                <h4>Artifact Preview</h4>
+                <div class="artifact-block">Preview updates as the model writes, highlights diffs, and promotes approved blocks to the final artifact.</div>
+                <div class="artifact-actions">
+                  <div class="action primary">Approve block</div>
+                  <div class="action">Undo</div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>Sub-agent Thread</h4>
+              <div class="chat-list">
+                <div class="chat-bubble user">Merge the strongest competitor hooks into one executive summary.</div>
+                <div class="chat-bubble agent">Composing a condensed version and preserving the source citations.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <div class="footer-note">
+      My current recommendation is <strong>Option A</strong> with these rules:
+      onboarding stays form-like and calm; <strong>Start research</strong> is the hard transition into the studio;
+      only one artifact is editable at a time; the sub-agent chat belongs to the focused artifact; and
+      <strong>Looks good</strong> is what advances the pipeline to the next artifact.
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "SaaSLaunch" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - img "SaaSLaunch" [ref=e6]
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e22]:
+          - heading "Sign in to My Application" [level=1] [ref=e23]
+          - paragraph [ref=e24]: Welcome back! Please sign in to continue
+        - generic [ref=e25]:
+          - button "Sign in with Google Continue with Google" [ref=e28] [cursor=pointer]:
+            - generic [ref=e29]:
+              - img "Sign in with Google" [ref=e31]
+              - generic [ref=e32]: Continue with Google
+          - paragraph [ref=e35]: or
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - generic [ref=e41]:
+                - generic [ref=e43]: Email address
+                - textbox "Email address" [ref=e44]:
+                  - /placeholder: Enter your email address
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: Password
+                    - generic:
+                      - textbox "Password":
+                        - /placeholder: Enter your password
+                      - button "Show password":
+                        - img
+            - button "Continue" [ref=e47] [cursor=pointer]:
+              - generic [ref=e48]:
+                - text: Continue
+                - img [ref=e49]
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]: Don’t have an account?
+          - link "Sign up" [ref=e54] [cursor=pointer]:
+            - /url: http://localhost:3000/sign-up#/?redirect_url=http%3A%2F%2Flocalhost%3A3000%2Fjourney
+        - generic [ref=e56]:
+          - generic [ref=e58]:
+            - paragraph [ref=e59]: Secured by
+            - link "Clerk logo" [ref=e60] [cursor=pointer]:
+              - /url: https://go.clerk.com/components
+              - img [ref=e61]
+          - paragraph [ref=e66]: Development mode
+  - button "Open Next.js Dev Tools" [ref=e12] [cursor=pointer]:
+    - img [ref=e13]
+  - alert [ref=e16]

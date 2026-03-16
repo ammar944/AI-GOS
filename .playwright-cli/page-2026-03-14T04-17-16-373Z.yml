@@ -1,0 +1,38 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - link "SaaSLaunch" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - img "SaaSLaunch" [ref=e6]
+    - generic [ref=e67]:
+      - generic [ref=e68]:
+        - generic [ref=e70]:
+          - heading "Check your email" [level=1] [ref=e71]
+          - paragraph [ref=e72]: to continue to My Application
+          - generic [ref=e73]:
+            - paragraph [ref=e74]: ammarv67@gmail.com
+            - button "Edit" [ref=e75] [cursor=pointer]:
+              - img [ref=e76]
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e81]:
+              - generic:
+                - group
+                - textbox "Enter verification code" [active] [ref=e82]
+            - button "Didn't receive a code? Resend (29)" [disabled]
+          - generic [ref=e84]:
+            - button "Continue" [ref=e85] [cursor=pointer]:
+              - generic [ref=e86]:
+                - text: Continue
+                - img [ref=e87]
+            - link "Use another method" [ref=e90] [cursor=pointer]:
+              - /url: http://localhost:3000/sign-in/factor-one
+      - generic [ref=e93]:
+        - generic [ref=e95]:
+          - paragraph [ref=e96]: Secured by
+          - link "Clerk logo" [ref=e97] [cursor=pointer]:
+            - /url: https://go.clerk.com/components
+            - img [ref=e98]
+        - paragraph [ref=e103]: Development mode
+  - button "Open Next.js Dev Tools" [ref=e12] [cursor=pointer]:
+    - img [ref=e13]
+  - alert [ref=e16]

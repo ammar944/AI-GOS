@@ -1,0 +1,281 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link [ref=e318] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link [ref=e319] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link [ref=e320] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link [ref=e321] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link [ref=e322] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link [ref=e323] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e324]:
+        - generic [ref=e325]:
+          - generic [ref=e328]: Market Overview
+          - generic [ref=e331]: 1 of 6
+          - generic [ref=e332]: Idle
+        - generic [ref=e333]:
+          - generic [ref=e334]:
+            - generic [ref=e336]:
+              - generic [ref=e338]: 01 · Market Overview
+              - generic [ref=e350]:
+                - generic [ref=e352]:
+                  - generic [ref=e353]:
+                    - generic [ref=e354]: Category Snapshot
+                    - generic [ref=e355]:
+                      - button [ref=e356]:
+                        - img [ref=e357]
+                      - button [ref=e360]:
+                        - img [ref=e361]
+                  - generic [ref=e363]:
+                    - generic [ref=e364]:
+                      - generic [ref=e365]: Category
+                      - text: B2B SaaS Growth & Demand Generation Agencies
+                    - generic [ref=e366]:
+                      - generic [ref=e367]: Market Size
+                      - text: "SAM: Estimated $8.6B (B2B SaaS marketing services segment within $364.3B B2B SaaS market, with 33% of SaaS spend allocated to marketing/sales)"
+                    - generic [ref=e368]:
+                      - generic [ref=e369]: Maturity
+                      - text: growing
+                    - generic [ref=e370]:
+                      - generic [ref=e371]: Awareness
+                      - text: high
+                    - generic [ref=e372]:
+                      - generic [ref=e373]: Buying Behavior
+                      - text: roi based
+                    - generic [ref=e374]:
+                      - generic [ref=e375]: Sales Cycle
+                      - text: 3-6 months
+                - generic [ref=e377]:
+                  - generic [ref=e378]:
+                    - generic [ref=e379]: Pain Points
+                    - generic [ref=e380]:
+                      - button [ref=e381]:
+                        - img [ref=e382]
+                      - button [ref=e385]:
+                        - img [ref=e386]
+                  - generic [ref=e388]:
+                    - heading [level=4] [ref=e389]: Pain Points
+                    - list [ref=e390]:
+                      - listitem [ref=e391]:
+                        - generic [ref=e392]: •
+                        - text: Escalating customer acquisition cost (CAC) — B2B SaaS CAC increased 222% over 8 years, now averaging $702, with CAC-to-ARR ratio at $2.00 spend per $1.00 new ARR
+                      - listitem [ref=e393]:
+                        - generic [ref=e394]: •
+                        - text: Inefficient pipeline attribution — difficulty connecting marketing spend to actual SQL/MQL conversion and revenue impact
+                      - listitem [ref=e395]:
+                        - generic [ref=e396]: •
+                        - text: Long, complex sales cycles with multi-stakeholder buying committees requiring sustained nurturing across 25+ touchpoints
+                      - listitem [ref=e397]:
+                        - generic [ref=e398]: •
+                        - text: High churn rates negating new customer acquisition gains — lack of retention strategies despite acquisition investment
+                      - listitem [ref=e399]:
+                        - generic [ref=e400]: •
+                        - text: Unqualified lead generation — high-volume lead gen tactics producing low-quality MQLs that waste sales team time
+                - generic [ref=e402]:
+                  - generic [ref=e403]:
+                    - generic [ref=e404]: Demand Drivers
+                    - generic [ref=e405]:
+                      - button [ref=e406]:
+                        - img [ref=e407]
+                      - button [ref=e410]:
+                        - img [ref=e411]
+                  - generic [ref=e413]:
+                    - heading [level=4] [ref=e414]: Demand Drivers
+                    - list [ref=e415]:
+                      - listitem [ref=e416]:
+                        - generic [ref=e417]: •
+                        - text: Rapid B2B SaaS market expansion — market growing at 18.7-26.24% CAGR, pushing more companies to seek professional growth partnerships
+                      - listitem [ref=e418]:
+                        - generic [ref=e419]: •
+                        - text: AI-driven buyer research behavior — 50% of B2B SaaS buyers now start research in ChatGPT instead of Google, creating new positioning and content requirements
+                      - listitem [ref=e420]:
+                        - generic [ref=e421]: •
+                        - text: Revenue predictability mandate — private B2B SaaS companies now investing 33% of revenue in S&M (matching public SaaS), requiring professional infrastructure
+                      - listitem [ref=e422]:
+                        - generic [ref=e423]: •
+                        - text: Churn crisis awareness — rising recognition that CAC efficiency alone insufficient without retention; buyers seeking partners who address both acquisition and expansion
+                      - listitem [ref=e424]:
+                        - generic [ref=e425]: •
+                        - text: Product-led growth saturation — PLG-first strategies plateauing for mid-market; demand for blended PLG + sales-led models
+                - generic [ref=e427]:
+                  - generic [ref=e428]:
+                    - generic [ref=e429]: Buying Triggers
+                    - generic [ref=e430]:
+                      - button [ref=e431]:
+                        - img [ref=e432]
+                      - button [ref=e435]:
+                        - img [ref=e436]
+                  - generic [ref=e438]:
+                    - heading [level=4] [ref=e439]: Buying Triggers
+                    - list [ref=e440]:
+                      - listitem [ref=e441]:
+                        - generic [ref=e442]: •
+                        - text: Board/investor scrutiny on unit economics and CAC payback period
+                      - listitem [ref=e443]:
+                        - generic [ref=e444]: •
+                        - text: Revenue growth plateau despite increased marketing spend
+                      - listitem [ref=e445]:
+                        - generic [ref=e446]: •
+                        - text: Inability to achieve qualified SQL volume needed for 35% planned growth targets
+                      - listitem [ref=e447]:
+                        - generic [ref=e448]: •
+                        - text: Loss of product-market fit evidence due to CAC inflation relative to ACV
+                      - listitem [ref=e449]:
+                        - generic [ref=e450]: •
+                        - text: Year-end or fiscal planning cycle when budget is available and performance expectations reset
+                - generic [ref=e452]:
+                  - generic [ref=e453]:
+                    - generic [ref=e454]: Barriers to Purchase
+                    - generic [ref=e455]:
+                      - button [ref=e456]:
+                        - img [ref=e457]
+                      - button [ref=e460]:
+                        - img [ref=e461]
+                  - generic [ref=e463]:
+                    - heading [level=4] [ref=e464]: Barriers to Purchase
+                    - list [ref=e465]:
+                      - listitem [ref=e466]:
+                        - generic [ref=e467]: •
+                        - text: Skepticism about agency ability to deliver SQLs vs. vanity MQLs — brands burned by previous low-quality lead gen vendors
+                      - listitem [ref=e468]:
+                        - generic [ref=e469]: •
+                        - text: Internal resistance from existing marketing teams viewing external agency as threat to headcount
+                      - listitem [ref=e470]:
+                        - generic [ref=e471]: •
+                        - text: Difficulty isolating incremental revenue lift from agency work in presence of other marketing channels
+                      - listitem [ref=e472]:
+                        - generic [ref=e473]: •
+                        - text: High switching costs — existing marketing stack integration (HubSpot, Salesforce, ad platforms) requires significant onboarding
+                      - listitem [ref=e474]:
+                        - generic [ref=e475]: •
+                        - text: Longer sales cycles requiring proof of concept or pilot before full retainer commitment
+                - generic [ref=e477]:
+                  - generic [ref=e478]:
+                    - generic [ref=e479]: Trend Signal
+                    - generic [ref=e480]:
+                      - button [ref=e481]:
+                        - img [ref=e482]
+                      - button [ref=e485]:
+                        - img [ref=e486]
+                  - generic [ref=e488]:
+                    - generic [ref=e489]:
+                      - generic [ref=e490]: rising
+                      - generic [ref=e491]: CAC-to-ARR efficiency crisis driving agency demand
+                    - paragraph [ref=e492]: New CAC Ratio at median $2.00 sales spend per $1.00 new ARR (up 14% in 2024); CAC payback period extended to 22 months for $20-50M ARR companies
+                - generic [ref=e494]:
+                  - generic [ref=e495]:
+                    - generic [ref=e496]: Trend Signal
+                    - generic [ref=e497]:
+                      - button [ref=e498]:
+                        - img [ref=e499]
+                      - button [ref=e502]:
+                        - img [ref=e503]
+                  - generic [ref=e505]:
+                    - generic [ref=e506]:
+                      - generic [ref=e507]: rising
+                      - generic [ref=e508]: AI search transformation reshaping B2B buyer research
+                    - paragraph [ref=e509]: 70% of B2B software buyers now use AI search tools; 50% start research in ChatGPT; AI search traffic converts 23x better than organic search
+                - generic [ref=e511]:
+                  - generic [ref=e512]:
+                    - generic [ref=e513]: Trend Signal
+                    - generic [ref=e514]:
+                      - button [ref=e515]:
+                        - img [ref=e516]
+                      - button [ref=e519]:
+                        - img [ref=e520]
+                  - generic [ref=e522]:
+                    - generic [ref=e523]:
+                      - generic [ref=e524]: rising
+                      - generic [ref=e525]: Shift from vanity metrics to pipeline-first measurement
+                    - paragraph [ref=e526]: Top agencies now focus on demos, SQLs, pipeline velocity, and CAC payback instead of impressions or MQL volume; RevOps-aligned agencies commanding premium positioning
+                - generic [ref=e528]:
+                  - generic [ref=e529]:
+                    - generic [ref=e530]: Trend Signal
+                    - generic [ref=e531]:
+                      - button [ref=e532]:
+                        - img [ref=e533]
+                      - button [ref=e536]:
+                        - img [ref=e537]
+                  - generic [ref=e539]:
+                    - generic [ref=e540]:
+                      - generic [ref=e541]: rising
+                      - generic [ref=e542]: Reddit and community-sourced intelligence becoming primary buyer research channel
+                    - paragraph [ref=e543]: Reddit influences 75% of B2B buying decisions; G2-Reddit integration (Oct 2025) enables verified B2B profile data in Reddit discussions; community-centric targeting shows 340% increase in qualified leads
+                - generic [ref=e545]:
+                  - generic [ref=e546]:
+                    - generic [ref=e547]: Trend Signal
+                    - generic [ref=e548]:
+                      - button [ref=e549]:
+                        - img [ref=e550]
+                      - button [ref=e553]:
+                        - img [ref=e554]
+                  - generic [ref=e556]:
+                    - generic [ref=e557]:
+                      - generic [ref=e558]: rising
+                      - generic [ref=e559]: Enterprise SaaS companies increasing R&D investment despite funding pressure
+                    - paragraph [ref=e560]: R&D spend increasing at each growth stage as companies face AI-native competitive threat; smaller companies redirecting away from R&D toward go-to-market
+                - generic [ref=e562]:
+                  - generic [ref=e563]:
+                    - generic [ref=e564]: Messaging Opportunities
+                    - generic [ref=e565]:
+                      - button [ref=e566]:
+                        - img [ref=e567]
+                      - button [ref=e570]:
+                        - img [ref=e571]
+                  - generic [ref=e573]:
+                    - heading [level=4] [ref=e574]: Messaging Opportunities
+                    - list [ref=e575]:
+                      - listitem [ref=e576]:
+                        - generic [ref=e577]: ✓
+                        - text: Target acquisition-constrained SaaS companies ($1-50M ARR) facing CAC inflation or growth plateau; position as CAC-reduction specialists with SQL/MQL accountability over brand awareness
+                      - listitem [ref=e578]:
+                        - generic [ref=e579]: ✓
+                        - text: "Prioritize messaging around pipeline attribution and revenue-connected measurement — this is the #1 pain point and strongest differentiator vs. traditional agencies"
+                      - listitem [ref=e580]:
+                        - generic [ref=e581]: ✓
+                        - text: Build case studies quantifying CAC payback period improvement and ARR addition (e.g., 'Reduced CAC payback from 22 to 14 months, added $2M+ ARR in 12 months')
+                      - listitem [ref=e582]:
+                        - generic [ref=e583]: ✓
+                        - text: Emphasize end-to-end systems approach (data, conversion, automation) rather than siloed channel expertise — appeal to founders seeking 'growth partners' not vendors
+                      - listitem [ref=e584]:
+                        - generic [ref=e585]: ✓
+                        - text: Activate Reddit and community channels for product research and early-stage awareness; showcase knowledge of buyer pain points sourced from r/SaaS, r/Startups, r/Entrepreneur
+                      - listitem [ref=e586]:
+                        - generic [ref=e587]: ✓
+                        - text: "Run paid media campaigns to in-market signals: 'CAC payback period optimization', 'B2B SaaS unit economics', 'SQL generation systems', 'attribution model for SaaS' — these are high-intent keywords"
+                      - listitem [ref=e588]:
+                        - generic [ref=e589]: ✓
+                        - text: Offer free audit or assessment of current CAC payback period and pipeline efficiency vs. benchmarks; position as no-obligation proof point before retainer
+                      - listitem [ref=e590]:
+                        - generic [ref=e591]: ✓
+                        - text: "Tailor outbound to buying committee: creator/founder messaging (founder-to-founder growth stories), CMO messaging (pipeline predictability), RevOps messaging (attribution architecture)"
+            - button [ref=e593]: Looks good →
+          - generic [ref=e341]:
+            - generic [ref=e343]: Chat · Market Overview
+            - paragraph [ref=e345]: Ask questions about this section...
+            - generic [ref=e346]:
+              - button [ref=e594]: Looks good →
+              - textbox [ref=e348]:
+                - /placeholder: Ask about this section...
+  - button "Open Next.js Dev Tools" [ref=e110] [cursor=pointer]:
+    - img [ref=e111]
+  - alert [ref=e114]

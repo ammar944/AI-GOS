@@ -1,0 +1,47 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e34] [cursor=pointer]:
+    - img [ref=e35]
+  - alert [ref=e38]
+  - generic [ref=e41]:
+    - generic [ref=e42]:
+      - generic [ref=e44]:
+        - heading "Sign in to My Application" [level=1] [ref=e45]
+        - paragraph [ref=e46]: Welcome back! Please sign in to continue
+      - generic [ref=e47]:
+        - button "Sign in with Google Continue with Google" [ref=e50] [cursor=pointer]:
+          - generic [ref=e51]:
+            - img "Sign in with Google" [ref=e53]
+            - generic [ref=e54]: Continue with Google
+        - paragraph [ref=e57]: or
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e63]:
+              - generic [ref=e65]: Email address
+              - textbox "Email address" [ref=e66]:
+                - /placeholder: Enter your email address
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: Password
+                  - generic:
+                    - textbox "Password":
+                      - /placeholder: Enter your password
+                    - button "Show password":
+                      - img
+          - button "Continue" [ref=e69] [cursor=pointer]:
+            - generic [ref=e70]:
+              - text: Continue
+              - img [ref=e71]
+    - generic [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]: Don’t have an account?
+        - link "Sign up" [ref=e76] [cursor=pointer]:
+          - /url: http://localhost:3000/sign-up
+      - generic [ref=e78]:
+        - generic [ref=e80]:
+          - paragraph [ref=e81]: Secured by
+          - link "Clerk logo" [ref=e82] [cursor=pointer]:
+            - /url: https://go.clerk.com/components
+            - img [ref=e83]
+        - paragraph [ref=e88]: Development mode

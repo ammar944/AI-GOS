@@ -1,0 +1,97 @@
+Total messages: 95 (Errors: 0, Warnings: 4)
+
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 113ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[WARNING] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[WARNING] Clerk: The prop "afterSignInUrl" is deprecated and should be replaced with the new "fallbackRedirectUrl" or "forceRedirectUrl" props instead. Learn more: https://clerk.com/docs/guides/custom-redirects#redirect-url-props @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 253ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 313ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 189ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 306ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 349ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 311ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[WARNING] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[WARNING] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 364ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: ed5c75f2-4f14-442b-8b89-306ab8d9d71c} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 297ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 339ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 304ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 321ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 399ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 309ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 318ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 440ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 330ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 435ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 376ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 293ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 551ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[LOG] [Fast Refresh] done in 297ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287
+[INFO] [journey] Ignoring stale research snapshot with mismatched run id: {activeRunId: f98dafbc-dd6a-44d5-a64d-00f7ce8c7a37, snapshotRunId: 91780ef9-3240-449c-a259-355a4da6649b} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2287

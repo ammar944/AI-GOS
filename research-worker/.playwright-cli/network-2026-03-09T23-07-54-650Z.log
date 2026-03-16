@@ -1,0 +1,5 @@
+[GET] http://localhost:3000/sign-in/SignIn_clerk_catchall_check_1773097535764 => [200] OK
+[POST] https://fleet-bengal-80.clerk.accounts.dev/v1/environment?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&_method=PATCH&__clerk_db_jwt=dvb_3AjEN5Cux1ykmoPKShihXQyhYGo => [200] 
+[GET] https://fleet-bengal-80.clerk.accounts.dev/v1/client?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3AjEN5Cux1ykmoPKShihXQyhYGo => [200] 
+[POST] http://localhost:3000/journey => [200] OK
+[GET] https://sidrtuxpqftyzwdusdha.supabase.co/rest/v1/journey_sessions?select=research_results&user_id=eq.user_38cLJEcQD4FBbI3Rni00d8N3lHD&order=created_at.desc&limit=1 => [200] 

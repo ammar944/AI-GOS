@@ -1,0 +1,46 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link [ref=e318] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link [ref=e319] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link [ref=e320] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link [ref=e321] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link [ref=e322] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link [ref=e323] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e324]:
+        - generic [ref=e325]:
+          - generic [ref=e595]: Competitor Intel
+          - generic [ref=e331]: 2 of 6
+          - generic [ref=e332]: Working
+        - generic [ref=e333]:
+          - generic [ref=e596]:
+            - generic [ref=e598]: 02 · Competitor Intel
+            - paragraph [ref=e600]: Researching...
+          - generic [ref=e341]:
+            - generic [ref=e343]: Chat · Competitor Intel
+            - paragraph [ref=e345]: Ask questions about this section...
+            - textbox [ref=e348]:
+              - /placeholder: Ask about this section...
+  - button "Open Next.js Dev Tools" [ref=e110] [cursor=pointer]:
+    - img [ref=e111]
+  - alert [ref=e114]

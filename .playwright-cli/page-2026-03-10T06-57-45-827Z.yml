@@ -1,0 +1,77 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e215]:
+        - generic [ref=e218]: Discovery
+        - generic [ref=e221]: Validation
+        - generic [ref=e224]: Strategy
+        - generic [ref=e227]: Launch
+      - generic [ref=e228]:
+        - generic [ref=e229]:
+          - generic [ref=e230]:
+            - generic [ref=e233]:
+              - paragraph [ref=e234]:
+                - generic [ref=e235]: "[OK]"
+                - text: Accepted 9 prefill fields
+              - paragraph [ref=e236]:
+                - generic [ref=e237]: "[RUN]"
+                - text: Researching Market Overview...
+              - paragraph [ref=e238]: _
+            - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e241]
+            - button "View Market Overview artifact" [ref=e248] [cursor=pointer]:
+              - generic [ref=e254]:
+                - generic [ref=e255]: Module 01
+                - heading "Market Overview" [level=3] [ref=e256]
+              - generic [ref=e257]:
+                - generic [ref=e258]: View progress
+                - img [ref=e259]
+          - generic [ref=e264]:
+            - textbox "Ask AIGOS to refine the strategy..." [disabled] [ref=e265]
+            - button "Send message" [disabled] [ref=e266]:
+              - img [ref=e267]
+        - generic [ref=e271]:
+          - generic [ref=e272]:
+            - generic [ref=e273]:
+              - img [ref=e274]
+              - generic [ref=e276]:
+                - generic [ref=e277]: Module 01
+                - heading "Market Overview" [level=2] [ref=e278]
+            - button "Close artifact panel" [ref=e279]:
+              - img [ref=e280]
+          - generic [ref=e284]:
+            - generic [ref=e286]:
+              - img [ref=e287]
+              - text: Worker Running
+            - generic [ref=e291]: "[RUNNER] worker accepted research job · 2s ago"
+          - generic [ref=e294]:
+            - button "Waiting for research..." [disabled] [ref=e295]
+            - button "Needs changes" [disabled] [ref=e296]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

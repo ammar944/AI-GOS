@@ -1,0 +1,96 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e238]:
+        - generic [ref=e241]: Discovery
+        - generic [ref=e244]: Validation
+        - generic [ref=e247]: Strategy
+        - generic [ref=e250]: Launch
+      - generic [ref=e251]:
+        - generic [ref=e252]:
+          - generic [ref=e253]:
+            - generic [ref=e256]:
+              - paragraph [ref=e257]:
+                - generic [ref=e258]: "[OK]"
+                - text: Accepted 10 prefill fields
+              - paragraph [ref=e321]:
+                - generic [ref=e322]: "[OK]"
+                - text: Market Overview research complete
+              - paragraph [ref=e367]:
+                - generic [ref=e368]: "[WARN]"
+                - text: "Research timed out for: competitors, icpValidation, offerAnalysis"
+              - paragraph [ref=e259]: _
+            - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e262]
+            - generic [ref=e266]:
+              - button "Thought for 1.2s" [ref=e268] [cursor=pointer]:
+                - img [ref=e269]
+                - generic [ref=e271]: Thought for 1.2s
+              - generic [ref=e274]:
+                - generic [ref=e276]: Module 01
+                - heading "Market Overview" [level=3] [ref=e278]
+              - generic [ref=e316]:
+                - paragraph [ref=e317]: Building your market overview now.
+                - paragraph [ref=e318]: "SaaSLaunch sits in a crowded but high-value niche — B2B SaaS growth agencies are everywhere, but most position around a single channel (paid ads, SEO, or content). Your \"end-to-end acquisition system\" positioning is a stronger frame because it speaks to the real frustration SaaS founders have: stitching together 4-5 vendors just to get a pipeline running. The question will be how sharply you can differentiate that full-stack promise from agencies making similar claims."
+                - paragraph [ref=e319]: The SaaS marketing services space also has interesting timing dynamics — budget cycles, funding rounds, and board pressure on efficient growth (the "Rule of 40" era) all create natural buying triggers we can build campaigns around.
+                - paragraph [ref=e320]: Research results will stream in shortly — once they land, we'll dig into what the data tells us about your market landscape.
+            - generic [ref=e326]:
+              - button "Thought for 5.4s" [ref=e328] [cursor=pointer]:
+                - img [ref=e329]
+                - generic [ref=e331]: Thought for 5.4s
+              - generic [ref=e334]:
+                - paragraph [ref=e335]: "Your market overview is ready — take a look in the panel. Some standout findings: 81% of B2B SaaS buyers already have a preferred vendor before first contact, and CAC ratios are climbing 14% YoY across the space. That's a massive tailwind for your positioning — SaaS companies are actively looking for help, but they need to find you early in their research cycle."
+                - paragraph [ref=e336]: Once you've reviewed it, let me know if it looks good or if anything needs adjusting. In the meantime, let's keep building your strategic picture.
+                - paragraph [ref=e337]:
+                  - text: I want to get sharper on your ICP. The prefill says "B2B SaaS companies and software businesses" — that's broad. Tell me about your
+                  - emphasis [ref=e338]: best
+                  - text: "customers: What stage are they (seed, Series A, Series B+)? What size team? What's usually going on in their world when they reach out to you? The more specific you are here, the better I can target the paid strategy."
+                - paragraph [ref=e339]: Also — who are you running into most when competing for deals? Name your top 2-3 competitors so I can pull live intel on what they're doing.
+            - button "View Market Overview artifact" [ref=e341] [cursor=pointer]:
+              - generic [ref=e344]:
+                - generic [ref=e345]: Module 01
+                - heading "Market Overview" [level=3] [ref=e346]
+              - generic [ref=e347]:
+                - generic [ref=e348]: View artifact
+                - img [ref=e349]
+            - generic [ref=e370]: Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
+          - generic [ref=e283]:
+            - textbox "Ask AIGOS to refine the strategy..." [ref=e284]
+            - button "Send message" [disabled] [ref=e285]:
+              - img [ref=e286]
+        - generic [ref=e352]:
+          - generic [ref=e353]:
+            - generic [ref=e356]:
+              - generic [ref=e357]: Module 01
+              - heading "Market Overview" [level=2] [ref=e358]
+            - button "Close artifact panel" [ref=e359]:
+              - img [ref=e360]
+          - button "Looks Good" [ref=e366] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

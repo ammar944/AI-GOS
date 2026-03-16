@@ -7,6 +7,11 @@ These test files have failures that predate all V2 sprint work:
 - `src/lib/storage/__tests__/local-storage.test.ts` — 1 failing (stale schema property names)
 - `src/lib/ai/__tests__/keyword-prefilter.test.ts` — 1 failing (mojibake test)
 - Pre-existing TS errors in same test files (stale schema fields, Location type)
+- `src/app/journey/__tests__/page.test.tsx` — 11/11 failing due to untracked `field-group.tsx` with stale field-catalog imports breaking `WelcomeForm` render
+- `src/lib/journey/__tests__/session-state-server.test.ts` — 1 failing (p_result shape mismatch: `adCreatives: []` default + `citations`, `provenance`, `rawText`, `telemetry` added since test was written)
+
+## Pipeline Test Updated (media plan sprint)
+`src/lib/workspace/__tests__/pipeline.test.ts` was stale (expected 6 sections, crossAnalysis as final). Updated to expect 7 sections with mediaPlan as the last section. Tests now pass 11/11.
 
 ## Architecture Facts (Confirmed)
 

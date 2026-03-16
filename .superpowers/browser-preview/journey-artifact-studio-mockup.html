@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Journey Artifact Studio Mockup</title>
+  <style>
+    :root {
+      --bg: #06101d;
+      --bg-2: #0a1424;
+      --panel: rgba(13, 21, 35, 0.88);
+      --panel-strong: rgba(16, 26, 42, 0.95);
+      --panel-soft: rgba(255, 255, 255, 0.03);
+      --line: rgba(170, 193, 225, 0.14);
+      --line-strong: rgba(109, 226, 160, 0.2);
+      --text: #f4f8fd;
+      --muted: #97abc5;
+      --muted-2: #7487a0;
+      --cyan: #6cc9ff;
+      --cyan-soft: rgba(108, 201, 255, 0.16);
+      --green: #75e3a9;
+      --green-soft: rgba(117, 227, 169, 0.15);
+      --amber: #ffcb7c;
+      --amber-soft: rgba(255, 203, 124, 0.14);
+      --shadow: 0 30px 120px rgba(0, 0, 0, 0.38);
+      --radius-xl: 30px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --radius-sm: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Inter", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 14% 12%, rgba(108, 201, 255, 0.18), transparent 24%),
+        radial-gradient(circle at 90% 18%, rgba(117, 227, 169, 0.10), transparent 24%),
+        linear-gradient(180deg, #08111c 0%, #040913 100%);
+      min-height: 100vh;
+    }
+
+    .page {
+      width: min(1440px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 24px 0 34px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(10, 18, 30, 0.8);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      color: #08111c;
+      font-weight: 800;
+      background: linear-gradient(135deg, #78d7ff, #7de4a7);
+    }
+
+    .brand-copy strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-copy span,
+    .top-pill,
+    .eyebrow,
+    .panel h3,
+    .mini-label,
+    .artifact-label,
+    .source-chip,
+    .event-tag,
+    .input-hint {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .top-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      letter-spacing: 0.04em;
+      text-transform: none;
+      font-size: 12px;
+    }
+
+    .top-pill.primary {
+      color: #effbff;
+      background: linear-gradient(90deg, rgba(108, 201, 255, 0.20), rgba(117, 227, 169, 0.16));
+      border-color: rgba(108, 201, 255, 0.24);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .hero-card,
+    .summary-card,
+    .workspace,
+    .panel,
+    .artifact-card,
+    .trace-card,
+    .proof-card,
+    .message,
+    .button,
+    .queue-item,
+    .metric,
+    .section-bar,
+    .composer {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card,
+    .summary-card {
+      padding: 28px;
+    }
+
+    .eyebrow {
+      margin-bottom: 16px;
+      color: #ffdcb0;
+      letter-spacing: 0.22em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.3rem, 4vw, 4.8rem);
+      line-height: 0.94;
+      letter-spacing: -0.06em;
+      font-weight: 700;
+    }
+
+    .hero-card p,
+    .summary-card p,
+    .queue-copy,
+    .artifact-text,
+    .message p,
+    .trace-line,
+    .proof-card p,
+    .metric small,
+    .section-bar span,
+    .composer p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .summary-card {
+      background:
+        radial-gradient(circle at top right, rgba(108, 201, 255, 0.10), transparent 24%),
+        linear-gradient(180deg, rgba(17, 28, 45, 0.98), rgba(10, 18, 31, 0.95));
+    }
+
+    .summary-card h2 {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+      letter-spacing: -0.03em;
+    }
+
+    .summary-points {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .summary-point {
+      padding-top: 12px;
+      border-top: 1px solid rgba(170, 193, 225, 0.10);
+    }
+
+    .summary-point strong,
+    .metric strong,
+    .queue-item strong,
+    .artifact-card strong,
+    .proof-card strong,
+    .message strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 356px;
+      gap: 16px;
+      padding: 16px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(108, 201, 255, 0.07), transparent 20%),
+        linear-gradient(180deg, rgba(10, 17, 29, 0.98), rgba(7, 13, 22, 0.96));
+    }
+
+    .panel {
+      padding: 16px;
+      background: rgba(16, 25, 40, 0.86);
+      box-shadow: none;
+    }
+
+    .panel h3 {
+      margin: 0 0 14px;
+      color: #cadcf3;
+      letter-spacing: 0.18em;
+    }
+
+    .trace-list,
+    .chat-list,
+    .artifact-stream {
+      display: grid;
+      gap: 10px;
+    }
+
+    .artifact-stage {
+      display: grid;
+      gap: 14px;
+    }
+
+    .artifact-stage-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .artifact-stage-header-actions {
+      display: grid;
+      gap: 10px;
+      justify-items: end;
+    }
+
+    .artifact-stage-header h2 {
+      margin: 8px 0 0;
+      font-size: clamp(1.6rem, 3vw, 2.65rem);
+      letter-spacing: -0.05em;
+      line-height: 0.98;
+    }
+
+    .artifact-card {
+      padding: 18px;
+      border-radius: 26px;
+      background:
+        radial-gradient(circle at top right, rgba(117, 227, 169, 0.10), transparent 22%),
+        linear-gradient(180deg, rgba(18, 29, 46, 0.98), rgba(10, 18, 32, 0.97));
+      border-color: rgba(108, 201, 255, 0.12);
+      box-shadow: none;
+    }
+
+    .artifact-card.featured {
+      border-color: rgba(117, 227, 169, 0.22);
+      background:
+        radial-gradient(circle at top right, rgba(117, 227, 169, 0.12), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(108, 201, 255, 0.08), transparent 20%),
+        linear-gradient(180deg, rgba(20, 32, 49, 0.99), rgba(11, 18, 31, 0.97));
+    }
+
+    .artifact-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .artifact-label {
+      color: #d2deef;
+      letter-spacing: 0.16em;
+    }
+
+    .artifact-status {
+      padding: 8px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #dcfff2;
+      background: var(--green-soft);
+      border: 1px solid rgba(117, 227, 169, 0.24);
+    }
+
+    .artifact-card h4 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .artifact-columns {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 12px;
+    }
+
+    .source-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .source-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(170, 193, 225, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      color: #d8e7f8;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    .section-bar {
+      padding: 13px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      box-shadow: none;
+    }
+
+    .section-bar span {
+      display: block;
+      margin-bottom: 6px;
+      color: #cfe0f2;
+      letter-spacing: 0.16em;
+      font-size: 11px;
+    }
+
+    .section-bar em {
+      display: block;
+      color: var(--text);
+      font-style: normal;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .trace-card {
+      padding: 15px;
+      border-radius: 20px;
+      background: rgba(6, 11, 18, 0.72);
+      box-shadow: none;
+    }
+
+    .trace-line {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+      font-size: 12px;
+    }
+
+    .trace-line.run { color: #dff4ff; }
+    .trace-line.ok { color: #d8ffeb; }
+    .trace-line.warn { color: #ffe7be; }
+
+    .proof-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .micro-progress {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .micro-step {
+      padding: 12px 13px;
+      border-radius: 16px;
+      border: 1px solid rgba(170, 193, 225, 0.10);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .micro-step.active {
+      border-color: rgba(108, 201, 255, 0.22);
+      background: rgba(108, 201, 255, 0.08);
+    }
+
+    .micro-step.complete {
+      border-color: rgba(117, 227, 169, 0.22);
+      background: rgba(117, 227, 169, 0.08);
+    }
+
+    .micro-step strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .micro-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .proof-card {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      box-shadow: none;
+    }
+
+    .event-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.06em;
+      font-size: 10px;
+      color: #e1f7ff;
+      background: rgba(108, 201, 255, 0.10);
+      border: 1px solid rgba(108, 201, 255, 0.16);
+    }
+
+    .message {
+      padding: 13px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      box-shadow: none;
+    }
+
+    .message.agent {
+      border-color: rgba(108, 201, 255, 0.16);
+      background: rgba(108, 201, 255, 0.06);
+    }
+
+    .message.user {
+      border-color: rgba(170, 193, 225, 0.10);
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .button {
+      padding: 12px 14px;
+      border-radius: 999px;
+      box-shadow: none;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+      color: #edf5ff;
+    }
+
+    .button.primary {
+      background: linear-gradient(90deg, rgba(117, 227, 169, 0.22), rgba(108, 201, 255, 0.18));
+      border-color: rgba(117, 227, 169, 0.24);
+      color: #effff7;
+      font-weight: 600;
+    }
+
+    .button.subtle {
+      color: #dce8f6;
+    }
+
+    .composer {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(8, 15, 25, 0.84);
+      box-shadow: none;
+    }
+
+    .composer-input {
+      margin-top: 10px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(170, 193, 225, 0.12);
+      color: #eff6ff;
+      font-size: 14px;
+    }
+
+    .input-hint {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+    }
+
+    .note {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(170, 193, 225, 0.12);
+      background: rgba(8, 14, 22, 0.84);
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1240px) {
+      .workspace { grid-template-columns: minmax(0, 1fr); }
+      .right-rail { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .workspace,
+      .artifact-columns,
+      .proof-row,
+      .micro-progress { grid-template-columns: 1fr; }
+      .page { width: min(100vw - 24px, 1440px); }
+      .topbar { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-badge">AG</div>
+        <div class="brand-copy">
+          <strong>Journey Artifact Studio</strong>
+          <span>Onboarding complete -> Start research -> approve artifact -> next artifact</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="top-pill">Onboarding locked</div>
+        <div class="top-pill">4 artifacts queued</div>
+        <div class="top-pill primary">Start research complete · Market Overview live</div>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="hero-card">
+        <div class="eyebrow">Recommended Interaction Model</div>
+        <h1>The artifact stays in the middle. Everything else serves it.</h1>
+        <p>
+          This mockup assumes the user has already finished onboarding. They clicked
+          <strong>Start research</strong>, the first artifact is now generating in the center,
+          and the right rail is a scoped sub-agent thread for editing that artifact or approving it
+          with <strong>Looks good</strong>.
+        </p>
+      </div>
+
+      <div class="summary-card">
+        <h2>Why this direction fits your product</h2>
+        <p>
+          The user should never feel like they are “back in chat.” The center canvas is the proof
+          of work. The right rail is for revisions and approval only. Progress still exists, but it
+          should be compressed into lightweight status chips, not a permanent rail.
+        </p>
+        <div class="summary-points">
+          <div class="summary-point">
+            <strong>One artifact in focus</strong>
+            No noisy feed. No generic assistant history.
+          </div>
+          <div class="summary-point">
+            <strong>Scoped edit loop</strong>
+            Sub-agent chat changes only the focused artifact.
+          </div>
+          <div class="summary-point">
+            <strong>Clear progress trigger</strong>
+            `Looks good` is what advances the pipeline.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <main class="artifact-stage">
+        <div class="artifact-stage-header">
+          <div>
+            <div class="artifact-label">Artifact In Focus</div>
+            <h2>Market Overview</h2>
+          </div>
+          <div class="artifact-stage-header-actions">
+            <div class="top-pill primary">Streaming section by section</div>
+            <div class="top-pill">Next: Competitor Intel after approval</div>
+          </div>
+        </div>
+
+        <div class="micro-progress">
+          <div class="micro-step complete">
+            <strong>Intake Brief</strong>
+            <p>Website, pricing, goals, and competitors locked.</p>
+          </div>
+          <div class="micro-step active">
+            <strong>Market Overview</strong>
+            <p>Generating and open for edits.</p>
+          </div>
+          <div class="micro-step">
+            <strong>Competitor Intel</strong>
+            <p>Starts after Looks good.</p>
+          </div>
+          <div class="micro-step">
+            <strong>Offer Analysis</strong>
+            <p>Queued behind the next approvals.</p>
+          </div>
+        </div>
+
+        <div class="artifact-card featured">
+          <div class="artifact-topline">
+            <div class="artifact-label">Live Artifact Canvas</div>
+            <div class="artifact-status">Ready for review in 3 blocks</div>
+          </div>
+          <h4>Category snapshot</h4>
+          <div class="artifact-columns">
+            <div class="artifact-stream">
+              <p class="artifact-text">
+                The product sits inside a high-friction operator workflow category where speed-to-offer
+                and underwriting confidence matter more than generic “all-in-one CRM” positioning.
+                The strongest demand driver is reducing spreadsheet drift while keeping deal evaluation fast enough
+                for small teams and solo operators.
+              </p>
+              <div class="section-bar">
+                <span>Pain Cluster</span>
+                <em>Operators waste time moving between spreadsheets, calculators, and follow-up systems.</em>
+              </div>
+              <div class="section-bar">
+                <span>Buying Trigger</span>
+                <em>Traffic or lead volume rises, but decision quality drops because the offer math is inconsistent.</em>
+              </div>
+            </div>
+            <div class="artifact-stream">
+              <div class="section-bar">
+                <span>Messaging Opening</span>
+                <em>Position the product as the fastest path from inbound lead to confident offer, not as another CRM dashboard.</em>
+              </div>
+              <div class="section-bar">
+                <span>Market Signal</span>
+                <em>Users compare process reliability and speed, not just feature count.</em>
+              </div>
+              <div class="section-bar">
+                <span>Confidence</span>
+                <em>High confidence on workflow pain, medium confidence on pricing pressure until competitor review lands.</em>
+              </div>
+            </div>
+          </div>
+          <div class="source-row">
+            <div class="source-chip">Homepage copy</div>
+            <div class="source-chip">Feature page</div>
+            <div class="source-chip">Pricing page</div>
+            <div class="source-chip">LinkedIn positioning</div>
+          </div>
+        </div>
+
+        <div class="trace-card">
+          <div class="artifact-label" style="margin-bottom: 10px;">Visible AI Activity</div>
+          <div class="trace-list">
+            <div class="trace-line run">[RUN] Extracting category and positioning claims from homepage sections</div>
+            <div class="trace-line ok">[OK] Three recurring workflow pain points validated across source pages</div>
+            <div class="trace-line run">[RUN] Composing messaging opportunities for artifact section 03</div>
+            <div class="trace-line warn">[WAIT] Competitor Intel remains queued until this artifact is approved</div>
+          </div>
+        </div>
+
+        <div class="proof-row">
+          <div class="proof-card">
+            <div class="event-tag">Signal 01</div>
+            <strong>Users hire this to make faster offers</strong>
+            <p>The core value is operational certainty under pressure, not broad enterprise workflow management.</p>
+          </div>
+          <div class="proof-card">
+            <div class="event-tag">Signal 02</div>
+            <strong>Speed is credible only with math confidence</strong>
+            <p>The message should combine rapid decision-making with cleaner deal underwriting.</p>
+          </div>
+          <div class="proof-card">
+            <div class="event-tag">Signal 03</div>
+            <strong>Next artifact should sharpen the contrast</strong>
+            <p>Competitor Intel should prove where rivals still sound generic and where the white space sits.</p>
+          </div>
+        </div>
+      </main>
+
+      <aside class="panel right-rail">
+        <h3>Chat With This Artifact</h3>
+        <div class="chat-list">
+          <div class="message user">
+            <strong>User request</strong>
+            <p>Make this less generic. Push the operator-speed angle harder and remove “all-in-one” language.</p>
+          </div>
+          <div class="message agent">
+            <strong>Section sub-agent</strong>
+            <p>I’ll rewrite the messaging opening and category summary to anchor on speed-to-offer and underwriting confidence.</p>
+          </div>
+          <div class="message agent">
+            <strong>Revision preview</strong>
+            <p>The updated artifact will highlight changed blocks so the user can either keep the revision or type `looks good`.</p>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <div class="button primary">Looks good</div>
+          <div class="button subtle">Revise artifact</div>
+          <div class="button subtle">Open sources</div>
+        </div>
+
+        <div class="composer">
+          <p>Sub-agent messages are scoped to <strong style="color: var(--text);">Market Overview</strong>. This is not a general chat.</p>
+          <div class="composer-input">Type feedback for this artifact, or just type: looks good</div>
+          <div class="input-hint">
+            <span>Scoped edit thread</span>
+            <span>Approval text works like the button</span>
+          </div>
+        </div>
+
+        <div class="note">
+          After approval, the center canvas transitions to <strong style="color: var(--text);">Competitor Intel</strong>.
+          The left rail advances automatically, and the right rail thread resets to the next artifact’s sub-agent context.
+        </div>
+      </aside>
+    </section>
+  </div>
+</body>
+</html>

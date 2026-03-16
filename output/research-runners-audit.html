@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AIGOS Research Runners - Technical Audit Report</title>
+<style>
+  @media print {
+    body { font-size: 11px; }
+    .runner-section { page-break-inside: avoid; }
+    table { font-size: 10px; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    color: #1d1d1f;
+    background: #fff;
+    line-height: 1.6;
+    padding: 48px 56px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #86868b;
+    margin-bottom: 32px;
+  }
+  .meta-bar {
+    display: flex;
+    gap: 24px;
+    background: #f5f5f7;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 40px;
+    font-size: 13px;
+  }
+  .meta-bar dt { font-weight: 600; color: #86868b; }
+  .meta-bar dd { margin: 0; }
+  .toc {
+    background: #fafafa;
+    border: 1px solid #e8e8ed;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+  .toc h2 { font-size: 16px; margin-bottom: 12px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin-bottom: 6px; font-size: 14px; }
+  .toc a { color: #0066cc; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  .runner-section {
+    border: 1px solid #e8e8ed;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+  }
+  .runner-section h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .runner-section h2 .badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: #e8e8ed;
+    color: #6e6e73;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .runner-section .section-desc {
+    font-size: 14px;
+    color: #6e6e73;
+    margin-bottom: 20px;
+  }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #86868b;
+    margin: 20px 0 10px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 6px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  th {
+    font-weight: 600;
+    color: #6e6e73;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td { vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin: 1px 2px;
+  }
+  .tag-model { background: #e8d5f5; color: #6b21a8; }
+  .tag-api { background: #dbeafe; color: #1e40af; }
+  .tag-tool { background: #dcfce7; color: #166534; }
+  .tag-timeout { background: #fef3c7; color: #92400e; }
+  .tag-output { background: #fce7f3; color: #9d174d; }
+
+  .cascade {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 8px 0;
+  }
+  .cascade-step {
+    background: #f5f5f7;
+    border: 1px solid #e8e8ed;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .cascade-arrow {
+    color: #86868b;
+    font-size: 14px;
+  }
+
+  .schema-list {
+    list-style: none;
+    padding: 0;
+  }
+  .schema-list li {
+    font-size: 13px;
+    padding: 3px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+  .schema-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 11px;
+    width: 6px;
+    height: 6px;
+    background: #d1d1d6;
+    border-radius: 50%;
+  }
+  .schema-list code {
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: #f5f5f7;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  .file-ref {
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #6e6e73;
+    background: #f5f5f7;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .summary-table {
+    margin-top: 40px;
+    border: 1px solid #e8e8ed;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .summary-table h2 {
+    font-size: 18px;
+    padding: 20px 24px 12px;
+  }
+  .summary-table table {
+    margin: 0;
+  }
+  .summary-table th {
+    background: #f5f5f7;
+    padding: 10px 12px;
+  }
+  .summary-table td {
+    padding: 10px 12px;
+  }
+
+  .dispatch-section {
+    background: #f0f4ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+  }
+  .dispatch-section h2 {
+    font-size: 18px;
+    color: #1e3a5f;
+  }
+
+  .note {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    padding: 10px 14px;
+    font-size: 13px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+  }
+
+  .skill-block {
+    background: #1d1d1f;
+    color: #e5e5ea;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 12px 0;
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .skill-block .sk-role {
+    color: #bf5af2;
+    font-weight: 700;
+  }
+  .skill-block .sk-task {
+    color: #64d2ff;
+    font-weight: 600;
+  }
+  .skill-block .sk-section {
+    color: #ffd60a;
+    font-weight: 600;
+  }
+  .skill-block .sk-rule {
+    color: #30d158;
+  }
+  .skill-block .sk-dim {
+    color: #8e8e93;
+  }
+  .skill-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6e6e73;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .skill-knowledge {
+    background: #f0f4ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+  }
+  .skill-knowledge strong { color: #1e3a5f; }
+  .skill-knowledge ul { padding-left: 18px; margin: 6px 0; }
+  .skill-knowledge li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<h1>AIGOS Research Runners</h1>
+<p class="subtitle">Technical Audit Report &mdash; All 6 Core Research Sections</p>
+
+<div class="meta-bar">
+  <dl><dt>Date</dt><dd>March 13, 2026</dd></dl>
+  <dl><dt>Branch</dt><dd>redesign/v2-command-center</dd></dl>
+  <dl><dt>Scope</dt><dd>6 research runners (excludes mediaPlan)</dd></dl>
+  <dl><dt>Status</dt><dd>Post competitor-intel update</dd></dl>
+</div>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#industry">Research Industry</a></li>
+    <li><a href="#competitors">Research Competitors</a></li>
+    <li><a href="#icp">Research ICP</a></li>
+    <li><a href="#offer">Research Offer</a></li>
+    <li><a href="#synthesize">Synthesize Research</a></li>
+    <li><a href="#keywords">Research Keywords</a></li>
+    <li><a href="#framework">Worker Agent Framework (OpenClaw)</a></li>
+    <li><a href="#dispatch">Dispatch Mechanism (Shared)</a></li>
+    <li><a href="#summary">Summary Comparison</a></li>
+  </ol>
+</div>
+
+<!-- ============================================ -->
+<!-- 1. RESEARCH INDUSTRY -->
+<!-- ============================================ -->
+<div class="runner-section" id="industry">
+  <h2>1. Research Industry <span class="badge">Runner</span></h2>
+  <p class="section-desc">Market landscape analysis &mdash; category snapshot, pain points, trend signals, messaging opportunities.</p>
+
+  <h3>Configuration</h3>
+  <table>
+    <tr><th style="width:180px">Property</th><th>Value</th></tr>
+    <tr><td>Tool Name</td><td><code>researchIndustry</code></td></tr>
+    <tr><td>Lead Agent File</td><td><span class="file-ref">src/lib/ai/tools/research/research-industry.ts</span></td></tr>
+    <tr><td>Runner File</td><td><span class="file-ref">research-worker/src/runners/industry.ts</span></td></tr>
+    <tr><td>Input Schema</td><td><code>context: string</code> (assembled onboarding context)</td></tr>
+    <tr><td>Output Section</td><td><code>industryResearch</code> &rarr; displayed as <code>industryMarket</code></td></tr>
+  </table>
+
+  <h3>Models</h3>
+  <table>
+    <tr><th>Stage</th><th>Model</th><th>Max Tokens</th><th>Timeout</th></tr>
+    <tr>
+      <td>Primary</td>
+      <td><span class="tag tag-model">claude-haiku-4-5-20251001</span></td>
+      <td>4,500</td>
+      <td><span class="tag tag-timeout">120s</span></td>
+    </tr>
+    <tr>
+      <td>Repair</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>3,000</td>
+      <td><span class="tag tag-timeout">60s</span></td>
+    </tr>
+  </table>
+
+  <h3>External APIs &amp; Tools</h3>
+  <table>
+    <tr><th>Tool</th><th>Usage</th></tr>
+    <tr>
+      <td><span class="tag tag-api">web_search_20250305</span></td>
+      <td>Up to 3 focused searches: market trends, pain points, buying behaviors, seasonal patterns</td>
+    </tr>
+  </table>
+
+  <h3>Skill / System Prompt Setup</h3>
+  <p class="skill-label">Primary Prompt &mdash; Expert Market Researcher</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert market researcher with real-time web search capabilities
+
+<span class="sk-task">Task:</span> Research the industry and market landscape to inform a paid media strategy
+
+<span class="sk-section">Research Focus:</span>
+- Current market trends and statistics (2024+)
+- Pain points sourced from G2, Capterra, Reddit, community forums
+- Buying behaviors and triggers specific to this market
+- Seasonal patterns and sales cycles
+- Demand drivers and barriers
+
+<span class="sk-section">Tool Usage:</span> Up to 3 focused web searches:
+1. Industry overview, market size, key demand drivers
+2. Customer pain points and complaints (G2/Reddit/forums)
+3. Buying behavior, decision process, seasonal patterns
+
+<span class="sk-section">Speed Rules:</span>
+<span class="sk-rule">- Optimize for fast, decision-useful first pass (not exhaustive)</span>
+<span class="sk-rule">- Stop searching once enough evidence fills the schema</span>
+<span class="sk-rule">- If 2 searches already support the schema, skip the third</span>
+
+<span class="sk-section">Quality Standards:</span>
+- Be specific with real data points and statistics
+- Source pain points from actual customer feedback
+- Derive market category from business context first
+- Normalize categorical fields to allowed enums
+- Market-size honesty: SAM first &rarr; Estimated SAM &rarr; Proxy estimate &rarr; TAM context
+<span class="sk-dim">- marketMaturity: early | growing | saturated</span>
+<span class="sk-dim">- buyingBehavior: impulsive | committee_driven | roi_based | mixed</span>
+<span class="sk-dim">- awarenessLevel: low | medium | high</span></div>
+
+  <p class="skill-label">Repair Prompt &mdash; Evidence-Only Repair</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert market researcher repairing an incomplete artifact from captured evidence
+
+<span class="sk-rule">- No tools, no new research</span>
+<span class="sk-rule">- Use only captured search/source/analysis evidence</span>
+<span class="sk-rule">- Limit trendSignals to 5, citations to 8</span>
+<span class="sk-rule">- Market-size honesty still applies in repair mode</span></div>
+
+  <h3>Resilience Cascade</h3>
+  <div class="cascade">
+    <span class="cascade-step">Primary (Haiku + web search)</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Timeout?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Repair (Sonnet, no tools, evidence-based)</span>
+  </div>
+
+  <h3>Output Schema</h3>
+  <ul class="schema-list">
+    <li><code>categorySnapshot</code> &mdash; category, marketSize, marketMaturity, buyingBehavior, awarenessLevel, averageSalesCycle</li>
+    <li><code>painPoints</code> &mdash; array of market pain points</li>
+    <li><code>marketDynamics</code> &mdash; demand/supply signals</li>
+    <li><code>trendSignals</code> &mdash; emerging patterns</li>
+    <li><code>messagingOpportunities</code> &mdash; gaps to exploit in messaging</li>
+    <li><code>citations</code> &mdash; sources array</li>
+  </ul>
+
+  <h3>Special Logic</h3>
+  <div class="note">
+    <strong>Market-size normalization:</strong> Smart label normalization (SAM vs TAM context detection) prevents parent-market sizes being mislabeled as direct addressable market.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 2. RESEARCH COMPETITORS -->
+<!-- ============================================ -->
+<div class="runner-section" id="competitors">
+  <h2>2. Research Competitors <span class="badge">Runner</span> <span class="badge" style="background:#fef3c7;color:#92400e">Recently Updated</span></h2>
+  <p class="section-desc">Competitive intelligence &mdash; 5 direct competitors with ad activity, threat assessment, white space gaps.</p>
+
+  <h3>Configuration</h3>
+  <table>
+    <tr><th style="width:180px">Property</th><th>Value</th></tr>
+    <tr><td>Tool Name</td><td><code>researchCompetitors</code></td></tr>
+    <tr><td>Lead Agent File</td><td><span class="file-ref">src/lib/ai/tools/research/research-competitors.ts</span></td></tr>
+    <tr><td>Runner File</td><td><span class="file-ref">research-worker/src/runners/competitors.ts</span></td></tr>
+    <tr><td>Input Schema</td><td><code>context: string</code></td></tr>
+    <tr><td>Output Section</td><td><code>competitorIntel</code></td></tr>
+  </table>
+
+  <h3>Models</h3>
+  <table>
+    <tr><th>Stage</th><th>Model</th><th>Max Tokens</th><th>Timeout</th></tr>
+    <tr>
+      <td>Primary</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>5,600</td>
+      <td><span class="tag tag-timeout">120s</span></td>
+    </tr>
+    <tr>
+      <td>Repair</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>4,200</td>
+      <td><span class="tag tag-timeout">60s</span></td>
+    </tr>
+    <tr>
+      <td>Rescue</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>3,200</td>
+      <td><span class="tag tag-timeout">45s</span></td>
+    </tr>
+  </table>
+
+  <h3>External APIs &amp; Tools</h3>
+  <table>
+    <tr><th>Tool</th><th>Usage</th></tr>
+    <tr>
+      <td><span class="tag tag-api">web_search_20250305</span></td>
+      <td>5 competitors: positioning, weaknesses, review analysis</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-tool">adLibraryTool</span></td>
+      <td>Top 3 competitors &mdash; Meta, LinkedIn, Google ad libraries with creative samples &amp; library links</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-tool">spyfuTool</span></td>
+      <td>Max 1 competitor &mdash; keyword intelligence / spend estimation</td>
+    </tr>
+  </table>
+
+  <h3>Skill / System Prompt Setup</h3>
+
+  <p class="skill-label">Embedded Domain Knowledge &mdash; Competitive Analysis Skill</p>
+  <div class="skill-knowledge">
+    <strong>Ad Library Interpretation:</strong>
+    <ul>
+      <li>0-5 active ads: testing phase or low investment</li>
+      <li>5-20 active ads: established presence, iterating</li>
+      <li>20-50 active ads: scaling actively, well-funded</li>
+      <li>50+ active ads: dominant advertiser, heavy investment</li>
+    </ul>
+    <strong>Competitive Positioning Frameworks:</strong>
+    <ul>
+      <li>Category leader: "the #1 X"</li>
+      <li>Challenger: "X without the [pain]"</li>
+      <li>Niche specialist: "the only X for [ICP]"</li>
+      <li>Price disruptor: "enterprise features at SMB prices"</li>
+    </ul>
+    <strong>Review Mining (G2/Capterra) Patterns:</strong>
+    <ul>
+      <li>"switched from X" reviews reveal switching triggers</li>
+      <li>1-2 star reviews = acute pain points = messaging hooks</li>
+      <li>Feature requests = product gaps = white space opportunity</li>
+    </ul>
+    <strong>White Space Identification:</strong>
+    <ul>
+      <li>Messaging white space: emotional angles no one owns</li>
+      <li>Audience white space: ICP sub-segments being ignored</li>
+      <li>Channel white space: platforms with weak competitor presence</li>
+      <li>Feature white space: capabilities no one talks about in ads</li>
+    </ul>
+  </div>
+
+  <p class="skill-label">Primary Prompt &mdash; Expert Competitive Analyst</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert competitive analyst researching competitor landscape for paid media strategy
+
+<span class="sk-task">Task:</span> Research competitors to inform paid media positioning and messaging
+
+<span class="sk-section">Competitor Disambiguation (Critical):</span>
+- Identify companies in SAME product category and SAME target audience
+- Verify primary product/service matches market segment
+- Exclude homonyms serving different industries
+- Always include official website URL
+
+<span class="sk-section">Tool Usage Plan:</span>
+1. web_search first &rarr; lock 5 strongest direct competitors
+2. adLibraryTool for top 3 by threat relevance &rarr; retain raw adCreatives + libraryLinks
+3. Remaining 2: generate libraryLinks from name/domain, leave adCreatives empty
+4. spyfuTool for at most 1 domain, only if it materially changes interpretation
+
+<span class="sk-section">Research Focus:</span>
+- Competitor positioning and messaging
+- Strengths/weaknesses from G2, Capterra reviews
+- Market patterns and gaps (white space)
+- Ad strategies and creative angles
+- Counter-positioning: explicitly state our angle against each competitor
+
+<span class="sk-section">Threat Assessment (Top 2):</span> Score 5 factors (1-10 each):
+<span class="sk-dim">marketShareRecognition, adSpendIntensity, productOverlap, priceCompetitiveness, growthTrajectory</span>
+<span class="sk-rule">- If ad evidence is low-confidence, keep adSpendIntensity &le; 4</span>
+<span class="sk-rule">- Don't claim channel white space from low-confidence ad evidence alone</span>
+
+<span class="sk-section">White Space Analysis Framework:</span>
+1. Messaging: angles NO competitor is using
+2. Feature/Capability: unaddressed or poorly addressed
+3. Audience: ICP sub-segments competitors ignoring
+4. Channel: platforms with few active competitor ads
+
+<span class="sk-section">Compression Rules:</span>
+<span class="sk-rule">- Exactly 5 competitors, 2-3 bullets per strengths/weaknesses/opportunities</span>
+<span class="sk-rule">- whiteSpaceGaps: 2 highest-impact, citations: 4 most relevant</span></div>
+
+  <p class="skill-label">Repair Prompt &mdash; Fast First-Pass Repair</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert competitive analyst producing fast first-pass competitor artifact
+
+<span class="sk-rule">- No tools, no new research &mdash; evidence package only</span>
+<span class="sk-rule">- 5 competitors with official URLs</span>
+<span class="sk-rule">- Limit every competitor to: 2 strengths, 2 weaknesses, 2 opportunities, 2 ad themes, 2 hooks</span>
+<span class="sk-rule">- whiteSpaceGaps: 3 highest-impact, citations: 6 most relevant</span></div>
+
+  <p class="skill-label">Rescue Prompt &mdash; Ultra-Compact Fallback</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert competitive analyst producing ultra-compact artifact when prior attempts exceeded output budget
+
+<span class="sk-rule">- Exactly 5 competitors, all fields capped to 18 words max</span>
+<span class="sk-rule">- strengths: exactly 2, weaknesses: exactly 2, opportunities: exactly 2</span>
+<span class="sk-rule">- whiteSpaceGaps: exactly 3, citations: at most 6</span>
+<span class="sk-rule">- Short plain-language summaries only</span></div>
+
+  <h3>Resilience Cascade</h3>
+  <div class="cascade">
+    <span class="cascade-step">Primary (Sonnet + web search + adLibrary + spyfu)</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Timeout?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Repair (no tools, captured evidence)</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Repair timeout?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Rescue (ultra-compact)</span>
+  </div>
+
+  <h3>Output Schema</h3>
+  <ul class="schema-list">
+    <li><code>competitors[]</code> &mdash; Array of 5: name, website, positioning, price, pricingConfidence, strengths, weaknesses, opportunities, ourAdvantage</li>
+    <li><code>competitors[].adActivity</code> &mdash; activeAdCount, platforms[], themes[], evidence, sourceConfidence</li>
+    <li><code>competitors[].adCreatives[]</code> &mdash; Creative samples for top competitors</li>
+    <li><code>competitors[].libraryLinks</code> &mdash; metaLibraryUrl, linkedInLibraryUrl, googleAdvertiserUrl</li>
+    <li><code>competitors[0..1].threatAssessment</code> &mdash; threatFactors (1-10), topAdHooks[], counterPositioning</li>
+    <li><code>whiteSpaceGaps[]</code> &mdash; gap, type (messaging|feature|audience|channel), evidence, exploitability score</li>
+    <li><code>marketPatterns</code>, <code>marketStrengths</code>, <code>marketWeaknesses</code>, <code>overallLandscape</code></li>
+    <li><code>citations</code></li>
+  </ul>
+
+  <h3>Special Logic</h3>
+  <div class="note">
+    <strong>Conservative threat scoring:</strong> When ad evidence is limited or historical, threat scores are moderated. Embedded system prompt includes ad count interpretation, positioning frameworks, review mining patterns, and white space identification.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3. RESEARCH ICP -->
+<!-- ============================================ -->
+<div class="runner-section" id="icp">
+  <h2>3. Research ICP <span class="badge">Runner</span></h2>
+  <p class="section-desc">Ideal Customer Profile validation &mdash; persona, channels, triggers, objections, decision factors.</p>
+
+  <h3>Configuration</h3>
+  <table>
+    <tr><th style="width:180px">Property</th><th>Value</th></tr>
+    <tr><td>Tool Name</td><td><code>researchICP</code></td></tr>
+    <tr><td>Lead Agent File</td><td><span class="file-ref">src/lib/ai/tools/research/research-icp.ts</span></td></tr>
+    <tr><td>Runner File</td><td><span class="file-ref">research-worker/src/runners/icp.ts</span></td></tr>
+    <tr><td>Input Schema</td><td><code>context: string</code></td></tr>
+    <tr><td>Output Section</td><td><code>icpValidation</code></td></tr>
+  </table>
+
+  <h3>Models</h3>
+  <table>
+    <tr><th>Stage</th><th>Model</th><th>Max Tokens</th><th>Timeout</th></tr>
+    <tr>
+      <td>Single pass</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>5,200</td>
+      <td><span class="tag tag-timeout">120s</span></td>
+    </tr>
+  </table>
+
+  <h3>External APIs &amp; Tools</h3>
+  <table>
+    <tr><th>Tool</th><th>Usage</th></tr>
+    <tr>
+      <td><span class="tag tag-api">web_search_20250305</span></td>
+      <td>Up to 2 searches: audience size, reachability on ad platforms, economic profile, pain points, buying behavior</td>
+    </tr>
+  </table>
+
+  <h3>Skill / System Prompt Setup</h3>
+  <p class="skill-label">Primary Prompt &mdash; Expert ICP Analyst</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert ICP analyst validating whether a target audience is viable for paid media
+
+<span class="sk-task">Task:</span> Critically assess whether this ICP can be profitably targeted with paid ads
+
+<span class="sk-section">Validation Approach:</span>
+1. Check targeting feasibility on Meta, LinkedIn, and Google
+2. Verify adequate audience scale for testing
+3. Assess pain-solution fit strength
+4. Evaluate economic feasibility (budget authority, purchasing power)
+
+<span class="sk-section">Tool Usage:</span> Up to 2 focused web searches:
+1. Audience size, reachability on ad platforms, economic profile
+2. Industry pain points, buying behavior, decision process (buyer-language sources)
+
+<span class="sk-section">Speed / Scope Rules:</span>
+<span class="sk-rule">- Reuse persisted competitor/offer context instead of re-researching</span>
+<span class="sk-rule">- Stop once enough evidence fills the schema</span>
+<span class="sk-rule">- Keep verdict-first reasoning tight and decision-useful</span>
+
+<span class="sk-section">Be Critical:</span>
+<span class="sk-rule">- "validated" = truly ready for ads</span>
+<span class="sk-rule">- "workable" = proceed with caution</span>
+<span class="sk-rule">- "invalid" = do not spend money until fixed</span>
+<span class="sk-rule">- Each objection must be specific, buyer-language, tied to proof required before purchase</span>
+<span class="sk-rule">- Avoid generic objections like "price" or "trust" without context</span>
+
+<span class="sk-section">Compression:</span>
+<span class="sk-dim">channels: max 3, triggers: max 4, objections: max 4, decisionFactors: max 4</span>
+<span class="sk-dim">recommendations: max 3, citations: max 4</span></div>
+
+  <h3>Resilience Cascade</h3>
+  <div class="cascade">
+    <span class="cascade-step">Single pass (Sonnet + web search)</span>
+    <span class="cascade-arrow">&mdash;</span>
+    <span class="cascade-step" style="background:#fef3c7">No fallback</span>
+  </div>
+
+  <h3>Output Schema</h3>
+  <ul class="schema-list">
+    <li><code>validatedPersona</code> &mdash; single best paid-media-ready ICP</li>
+    <li><code>demographics</code> &mdash; firmographics, geography, team profile summary</li>
+    <li><code>channels[]</code> &mdash; best paid channels (max 3)</li>
+    <li><code>triggers[]</code> &mdash; buying triggers (max 4)</li>
+    <li><code>objections[]</code> &mdash; in buyer language (max 4) &mdash; <strong>CRITICAL for synthesis carry-through</strong></li>
+    <li><code>decisionFactors[]</code> &mdash; with relevance scores</li>
+    <li><code>audienceSize</code> &mdash; Small | Medium | Large</li>
+    <li><code>confidenceScore</code> &mdash; 0&ndash;100</li>
+    <li><code>decisionProcess</code> &mdash; who drives evaluation</li>
+    <li><code>finalVerdict</code> &mdash; validated | workable | invalid + reasoning + recommendations</li>
+    <li><code>citations</code></li>
+  </ul>
+</div>
+
+<!-- ============================================ -->
+<!-- 4. RESEARCH OFFER -->
+<!-- ============================================ -->
+<div class="runner-section" id="offer">
+  <h2>4. Research Offer <span class="badge">Runner</span></h2>
+  <p class="section-desc">Offer strength analysis &mdash; scoring, pricing analysis, red flags, messaging recommendations.</p>
+
+  <h3>Configuration</h3>
+  <table>
+    <tr><th style="width:180px">Property</th><th>Value</th></tr>
+    <tr><td>Tool Name</td><td><code>researchOffer</code></td></tr>
+    <tr><td>Lead Agent File</td><td><span class="file-ref">src/lib/ai/tools/research/research-offer.ts</span></td></tr>
+    <tr><td>Runner File</td><td><span class="file-ref">research-worker/src/runners/offer.ts</span></td></tr>
+    <tr><td>Input Schema</td><td><code>context: string</code></td></tr>
+    <tr><td>Output Section</td><td><code>offerAnalysis</code></td></tr>
+  </table>
+
+  <h3>Models</h3>
+  <table>
+    <tr><th>Stage</th><th>Model</th><th>Max Tokens</th><th>Timeout</th></tr>
+    <tr>
+      <td>Single pass</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>5,200</td>
+      <td><span class="tag tag-timeout">120s</span></td>
+    </tr>
+  </table>
+
+  <h3>External APIs &amp; Tools</h3>
+  <table>
+    <tr><th>Tool</th><th>Usage</th><th>Condition</th></tr>
+    <tr>
+      <td><span class="tag tag-api">web_search_20250305</span></td>
+      <td>Up to 2 searches: category pricing benchmarks, buyer objections, market signals</td>
+      <td>Always</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-tool">firecrawlTool</span></td>
+      <td>Scrapes pricing/website pages (first-party only, never competitor pages)</td>
+      <td>Only when URL detected in context (Pricing Page URL, Website URL, etc.)</td>
+    </tr>
+  </table>
+
+  <h3>Skill / System Prompt Setup</h3>
+  <p class="skill-label">Primary Prompt &mdash; Expert Offer Analyst</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Expert offer analyst evaluating viability for paid media campaigns
+
+<span class="sk-task">Task:</span> Score and assess whether this offer can convert cold traffic profitably
+
+<span class="sk-section">Evaluation Approach:</span>
+1. Clarity &mdash; Can the offer be understood in 10 seconds?
+2. Strength &mdash; Score 6 dimensions (1-10 each)
+3. Market Fit &mdash; Does the market want this now?
+4. Red Flags &mdash; What could hurt ad performance?
+
+<span class="sk-section">Tool Usage:</span>
+1. web_search: at most 2 searches (pricing benchmarks, buyer objections)
+2. firecrawl: ONLY when first-party pricing/website URL is present in context
+3. Never scrape competitor pages or second-order URLs
+4. Reuse persisted competitor context instead of re-running discovery
+
+<span class="sk-section">Scoring Dimensions (1-10 each):</span>
+<span class="sk-dim">- painRelevance: How directly does this solve the primary pain?</span>
+<span class="sk-dim">- urgency: Compelling reason to buy NOW vs later?</span>
+<span class="sk-dim">- differentiation: How unique vs competitors?</span>
+<span class="sk-dim">- tangibility: Can buyers visualize the outcome?</span>
+<span class="sk-dim">- proof: How much evidence supports the claims?</span>
+<span class="sk-dim">- pricingLogic: Does price make sense relative to value?</span>
+
+<span class="sk-section">Red Flags for Paid Ads:</span>
+<span class="sk-rule">- Vague outcomes ("improve your business")</span>
+<span class="sk-rule">- No clear differentiator from competitors</span>
+<span class="sk-rule">- Price too high for cold traffic conversion</span>
+<span class="sk-rule">- No social proof or credibility signals</span>
+<span class="sk-rule">- Long sales cycle for cold traffic</span>
+
+<span class="sk-section">Compression:</span>
+<span class="sk-dim">topStrengths: 2-3, priorityFixes: 2-3, actionPlan: 3 max</span>
+<span class="sk-dim">redFlags: 3 max, messagingRecs: 3 max, citations: max 4</span></div>
+
+  <h3>Resilience Cascade</h3>
+  <div class="cascade">
+    <span class="cascade-step">Single pass (Sonnet + web search + conditional firecrawl)</span>
+    <span class="cascade-arrow">&mdash;</span>
+    <span class="cascade-step" style="background:#fef3c7">No fallback</span>
+  </div>
+
+  <h3>Output Schema</h3>
+  <ul class="schema-list">
+    <li><code>offerStrength</code> &mdash; overallScore (1-10), painRelevance, urgency, differentiation, tangibility, proof, pricingLogic</li>
+    <li><code>recommendation</code> &mdash; status (proceed | needs-work | adjust-messaging | adjust-pricing | icp-refinement-needed | major-offer-rebuild | do-not-launch) + summary, topStrengths, priorityFixes, recommendedActionPlan</li>
+    <li><code>redFlags[]</code> &mdash; issue, severity (high|medium|low), priority, recommendedAction, launchBlocker, evidence</li>
+    <li><code>pricingAnalysis</code> &mdash; currentPricing, marketBenchmark, pricingPosition (premium|mid-market|budget|unclear), coldTrafficViability</li>
+    <li><code>marketFitAssessment</code></li>
+    <li><code>messagingRecommendations[]</code></li>
+    <li><code>citations</code></li>
+  </ul>
+
+  <h3>Special Logic</h3>
+  <div class="note">
+    <strong>Conditional Firecrawl:</strong> <code>shouldEnableOfferFirecrawl(context)</code> inspects context for URL patterns (Pricing Page URL, Website URL, Homepage URL, Client URL, Landing Page URL). Only scrapes first-party pages &mdash; graceful degradation to web search only if no URLs present.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 5. SYNTHESIZE RESEARCH -->
+<!-- ============================================ -->
+<div class="runner-section" id="synthesize">
+  <h2>5. Synthesize Research <span class="badge">Runner</span></h2>
+  <p class="section-desc">Cross-section synthesis &mdash; positioning strategy, platform recommendations, messaging angles, next steps.</p>
+
+  <h3>Configuration</h3>
+  <table>
+    <tr><th style="width:180px">Property</th><th>Value</th></tr>
+    <tr><td>Tool Name</td><td><code>synthesizeResearch</code></td></tr>
+    <tr><td>Lead Agent File</td><td><span class="file-ref">src/lib/ai/tools/research/synthesize-research.ts</span></td></tr>
+    <tr><td>Runner File</td><td><span class="file-ref">research-worker/src/runners/synthesize.ts</span></td></tr>
+    <tr><td>Input Schema</td><td><code>context: string</code> (onboarding + all 4 prior research summaries)</td></tr>
+    <tr><td>Output Section</td><td><code>strategicSynthesis</code></td></tr>
+  </table>
+
+  <h3>Models</h3>
+  <table>
+    <tr><th>Stage</th><th>Model</th><th>Max Tokens</th><th>Timeout</th></tr>
+    <tr>
+      <td>Primary</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>6,000</td>
+      <td><span class="tag tag-timeout">120s</span></td>
+    </tr>
+    <tr>
+      <td>Repair</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>3,500</td>
+      <td><span class="tag tag-timeout">75s</span></td>
+    </tr>
+  </table>
+
+  <h3>External APIs &amp; Tools</h3>
+  <table>
+    <tr><th>Tool</th><th>Usage</th></tr>
+    <tr>
+      <td colspan="2" style="color:#6e6e73;font-style:italic">None &mdash; Pure synthesis pass. Consumes raw outputs from prior 4 research runners.</td>
+    </tr>
+  </table>
+
+  <h3>Skill / System Prompt Setup</h3>
+
+  <p class="skill-label">Embedded Domain Knowledge &mdash; Paid Media Skill</p>
+  <div class="skill-knowledge">
+    <strong>Creative Performance Patterns:</strong>
+    <ul>
+      <li>Hook quality determines 80% of ad performance &mdash; first 3 seconds on video, first line on static</li>
+      <li>Pain-agitation-solution outperforms feature-benefit for B2B</li>
+      <li>Social proof (customer logos, review counts) lifts CTR 15-25% on landing pages</li>
+      <li>Specificity beats generality: "$47K saved" &gt; "save money", "3x faster" &gt; "saves time"</li>
+    </ul>
+    <strong>Budget Allocation by Funnel Stage:</strong>
+    <ul>
+      <li>Awareness (cold traffic): 50-60% of budget</li>
+      <li>Consideration (warm/retargeting): 25-30%</li>
+      <li>Conversion (hot retargeting): 15-20%</li>
+    </ul>
+  </div>
+
+  <p class="skill-label">Primary Prompt &mdash; Strategic Synthesizer</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Synthesizing research into an actionable paid media strategy
+
+<span class="sk-task">Task:</span> Create strategic cross-analysis connecting all research insights into actionable strategy
+
+<span class="sk-section">Synthesis Approach:</span>
+1. Extract 4-5 key insights (at least one from each research section)
+2. Develop clear positioning strategy with 2 alternatives to test
+3. Mine competitor data for positioning gold &mdash; at least ONE insight must reference specific competitor weaknesses/review data
+4. Identify strongest messaging angles supported by research
+
+<span class="sk-section">Budget Allocation Rules (by tier):</span>
+<span class="sk-rule">&lt;$2,000/mo: 1 PRIMARY platform only (70-80%), 1 secondary retargeting only (20-30%)</span>
+<span class="sk-rule">$2,000-$5,000/mo: 1 primary (50-60%) + 1 secondary (25-30%) + 1 testing (10-20%)</span>
+<span class="sk-rule">$5,000-$15,000/mo: Full multi-platform testing viable</span>
+<span class="sk-rule">&gt;$15,000/mo: Aggressive multi-platform per funnel stage</span>
+
+<span class="sk-section">Minimum Viable Spend:</span>
+<span class="sk-dim">LinkedIn: $500/mo, Google Search: $500/mo, Meta retargeting: $300/mo, Meta prospecting: $1,000+</span>
+
+<span class="sk-section">Messaging Angles (Critical):</span>
+<span class="sk-rule">- Map at least 2 angles as: objection &rarr; counter-angle &rarr; supporting proof</span>
+<span class="sk-rule">- Use real buyer-language objections from ICP validation</span>
+<span class="sk-rule">- exampleHook must directly answer the objection</span>
+<span class="sk-rule">- evidence field must name both the objection and the proof signal</span>
+
+<span class="sk-section">Compression:</span>
+<span class="sk-dim">criticalSuccessFactors: 3-4, nextSteps: 4, strategicNarrative: 1-2 paragraphs, citations: max 4</span></div>
+
+  <p class="skill-label">Repair Prompt &mdash; Compact Evidence Synthesis</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Synthesizing research into strategy from compact evidence only
+
+<span class="sk-rule">- No tools, no charts</span>
+<span class="sk-rule">- Use only business snapshot, section snapshots, analysis notes</span>
+<span class="sk-rule">- Still map at least 2 messaging angles as objection &rarr; counter &rarr; proof</span></div>
+
+  <h3>Resilience Cascade</h3>
+  <div class="cascade">
+    <span class="cascade-step">Primary synthesis</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Timeout or max_tokens?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Repair (evidence-based)</span>
+  </div>
+  <div class="cascade" style="margin-top:4px">
+    <span class="cascade-step">Output check</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Missing objection carry-through?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Repair (remap ICP objections &rarr; messaging angles)</span>
+  </div>
+
+  <h3>Output Schema</h3>
+  <ul class="schema-list">
+    <li><code>keyInsights[]</code> &mdash; insight, source (industryResearch|icpValidation|offerAnalysis|competitorIntel), implication, priority</li>
+    <li><code>positioningStrategy</code> &mdash; recommendedAngle, alternativeAngles[], leadRecommendation, keyDifferentiator</li>
+    <li><code>platformRecommendations[]</code> &mdash; platform, role (primary|secondary|testing), budgetAllocation (% + $), rationale, priority</li>
+    <li><code>messagingAngles[]</code> &mdash; angle, targetEmotion, exampleHook, evidence &mdash; <strong>MUST map ICP objections</strong></li>
+    <li><code>criticalSuccessFactors[]</code> &mdash; 3&ndash;5 items</li>
+    <li><code>nextSteps[]</code> &mdash; 5&ndash;7 specific 2-week actions</li>
+    <li><code>planningContext</code> &mdash; monthlyBudget, targetCpl, targetCac, downstreamSequence</li>
+    <li><code>strategicNarrative</code> &mdash; 1&ndash;2 short paragraphs</li>
+    <li><code>citations</code></li>
+  </ul>
+
+  <h3>Special Logic</h3>
+  <div class="note">
+    <strong>Objection carry-through check:</strong> <code>shouldRetrySynthesisForObjectionCarryThrough()</code> verifies at least 2 messaging angles explicitly map ICP objections using "objection:" and "proof:" keywords in the evidence field. Triggers repair if missing.
+  </div>
+  <div class="note">
+    <strong>Budget-tier aware:</strong> Platform budget allocations follow different rules for &lt;$2k, $2k-$5k, $5k-$15k, &gt;$15k tiers.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 6. RESEARCH KEYWORDS -->
+<!-- ============================================ -->
+<div class="runner-section" id="keywords">
+  <h2>6. Research Keywords <span class="badge">Runner</span></h2>
+  <p class="section-desc">Keyword intelligence &mdash; campaign groups, ad groups, negative keywords, competitive gaps, quick wins.</p>
+
+  <h3>Configuration</h3>
+  <table>
+    <tr><th style="width:180px">Property</th><th>Value</th></tr>
+    <tr><td>Tool Name</td><td><code>researchKeywords</code></td></tr>
+    <tr><td>Lead Agent File</td><td><span class="file-ref">src/lib/ai/tools/research/research-keywords.ts</span></td></tr>
+    <tr><td>Runner File</td><td><span class="file-ref">research-worker/src/runners/keywords.ts</span></td></tr>
+    <tr><td>Input Schema</td><td><code>context: string</code> (business context + product + competitors + platform recs from synthesis)</td></tr>
+    <tr><td>Output Section</td><td><code>keywordIntel</code></td></tr>
+  </table>
+
+  <h3>Models</h3>
+  <table>
+    <tr><th>Stage</th><th>Model</th><th>Max Tokens</th><th>Timeout</th></tr>
+    <tr>
+      <td>Primary</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>4,000</td>
+      <td><span class="tag tag-timeout">120s</span></td>
+    </tr>
+    <tr>
+      <td>Repair</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>3,200</td>
+      <td><span class="tag tag-timeout">90s</span></td>
+    </tr>
+    <tr>
+      <td>Heuristic</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>2,600</td>
+      <td><span class="tag tag-timeout">75s</span></td>
+    </tr>
+    <tr>
+      <td>Rescue</td>
+      <td><span class="tag tag-model">claude-sonnet-4-6</span></td>
+      <td>2,200</td>
+      <td><span class="tag tag-timeout">75s</span></td>
+    </tr>
+  </table>
+
+  <h3>External APIs &amp; Tools</h3>
+  <table>
+    <tr><th>Tool</th><th>Usage</th><th>Condition</th></tr>
+    <tr>
+      <td><span class="tag tag-tool">spyfuTool</span></td>
+      <td>1 call for keyword/competitor evidence</td>
+      <td>Only if <code>SPYFU_API_KEY</code> env var is set</td>
+    </tr>
+  </table>
+  <div class="note">
+    <strong>Provider status tracking:</strong> Checks environment for SpyFu, Google Keyword Planner (not implemented), SEMrush (not implemented), Ahrefs (not implemented). Builds <code>KeywordProviderStatus[]</code> documenting availability. Degrades gracefully to heuristic mode if no live providers.
+  </div>
+
+  <h3>Skill / System Prompt Setup</h3>
+  <p class="skill-label">Primary Prompt &mdash; Paid Search Keyword Intelligence Specialist</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Paid search keyword intelligence specialist
+
+<span class="sk-task">Task:</span> Find highest-value paid search keyword opportunities for this business
+
+<span class="sk-section">Research Focus:</span>
+1. Competitor alternative terms ("[competitor] alternative", "[competitor] pricing")
+2. Category-intent terms ("b2b saas demand generation agency")
+3. Pain-point terms tied to buyer language ("lower CAC", "pipeline attribution")
+4. Long-tail terms with clear commercial intent
+
+<span class="sk-section">Tool Usage:</span>
+<span class="sk-rule">- Use spyfu tool once when it can add live keyword/competitor evidence</span>
+<span class="sk-rule">- If spyfu unavailable/sparse/errors, continue using persisted context</span>
+
+<span class="sk-section">Data Honesty:</span>
+<span class="sk-rule">- Never invent verified search volume or CPC data</span>
+<span class="sk-rule">- If metric unavailable: searchVolume=0, estimatedCpc="Not verified", confidence="low"</span>
+<span class="sk-rule">- If live coverage sparse, return fewer terms instead of filler</span>
+<span class="sk-rule">- competitorGaps may be [] when no source-backed gap data exists</span>
+
+<span class="sk-section">Size Rules:</span>
+<span class="sk-dim">Max 2 campaignGroups, max 2 adGroups each, max 4 keywords per adGroup</span>
+<span class="sk-dim">topOpportunities: max 6, startingSet: max 6, competitorGaps: max 6</span>
+<span class="sk-dim">negativeKeywords: max 8, confidenceNotes: 2-4, quickWins: exactly 3</span></div>
+
+  <p class="skill-label">Repair Prompt &mdash; Evidence-Only Keyword Repair</p>
+  <div class="skill-block"><span class="sk-rule">- No tools, evidence package only</span>
+<span class="sk-rule">- Max 2 campaigns, 1 adGroup/campaign, 3 keywords/adGroup</span>
+<span class="sk-rule">- topOpportunities/startingSet/competitorGaps: max 4 each</span>
+<span class="sk-rule">- Prefer fewer high-intent terms over broad filler</span></div>
+
+  <p class="skill-label">Heuristic Prompt &mdash; Strategic Grouping Without Empirical Data</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Heuristic fallback after live keyword providers failed/unavailable
+
+<span class="sk-rule">- All searchVolume=0, estimatedCpc="Not verified", confidence="low"</span>
+<span class="sk-rule">- Prefer buckets: competitor alternative/pricing, pain-led category, proof-led evaluation</span>
+<span class="sk-rule">- Exactly 2 campaigns, 1 adGroup each, 2 keywords each</span>
+<span class="sk-rule">- Keep grouping strategic, not empirical</span></div>
+
+  <p class="skill-label">Rescue Prompt &mdash; Ultra-Compact Keyword Artifact</p>
+  <div class="skill-block"><span class="sk-rule">- Smallest complete form that unblocks campaign planning</span>
+<span class="sk-rule">- Exactly 2 campaigns, 1 adGroup each, 2 keywords each</span>
+<span class="sk-rule">- confidenceNotes: exactly 2, quickWins: exactly 3</span>
+<span class="sk-rule">- All reasons/notes to one sentence each</span></div>
+
+  <h3>Resilience Cascade</h3>
+  <div class="cascade">
+    <span class="cascade-step">Primary (Sonnet + SpyFu if available)</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Timeout?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Repair (no tools, evidence)</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Sparse/unavailable?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Heuristic (no empirical metrics)</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">max_tokens?</span>
+    <span class="cascade-arrow">&rarr;</span>
+    <span class="cascade-step">Rescue (ultra-compact)</span>
+  </div>
+
+  <h3>Output Schema</h3>
+  <ul class="schema-list">
+    <li><code>totalKeywordsFound</code> &mdash; must equal total keyword objects across all campaignGroups</li>
+    <li><code>competitorGapCount</code> &mdash; must equal competitorGaps.length</li>
+    <li><code>campaignGroups[]</code> &mdash; max 2 campaigns, each with:
+      <ul class="schema-list" style="margin-top:4px">
+        <li><code>campaign</code>, <code>intent</code> (funnel stage), <code>recommendedMonthlyBudget</code></li>
+        <li><code>adGroups[]</code> (max 2 per campaign in repair/rescue) &mdash; recommendedMatchTypes, keywords[], negativeKeywords</li>
+        <li>Each keyword: keyword, searchVolume, difficulty, estimatedCpc, priorityScore (1-100), confidence</li>
+      </ul>
+    </li>
+    <li><code>topOpportunities[]</code> &mdash; max 6 (primary) / max 4 (repair+)</li>
+    <li><code>recommendedStartingSet[]</code> &mdash; max 6 (primary) / max 4 (repair) &mdash; with reason</li>
+    <li><code>competitorGaps[]</code> &mdash; max 6 (primary); may be [] if no source-backed evidence</li>
+    <li><code>negativeKeywords[]</code> &mdash; max 8/6/4 by stage</li>
+    <li><code>confidenceNotes[]</code> &mdash; 2&ndash;4 entries on evidence quality</li>
+    <li><code>quickWins[]</code> &mdash; exactly 3 actionable recommendations</li>
+    <li><code>citations</code></li>
+  </ul>
+
+  <h3>Special Logic</h3>
+  <div class="note">
+    <strong>Data honesty:</strong> Never invents search volume or CPC. Sets to 0 / "Not verified" / confidence: "low" when data is unavailable. Prefers fewer high-confidence terms over filler.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SKILLS SYSTEM -->
+<!-- ============================================ -->
+<div class="runner-section" id="skills" style="border-color:#6366f1">
+  <h2>Skill Files <span class="badge" style="background:#e8d5f5;color:#6b21a8">src/lib/ai/prompts/skills/</span></h2>
+  <p class="section-desc">Reusable domain knowledge modules injected into runner system prompts. The research worker (separate process) maintains <strong>inline copies</strong> of these skills in its runner files since it cannot import from <code>src/lib/</code>.</p>
+
+  <h3>Skill &rarr; Runner Mapping</h3>
+  <table>
+    <tr><th>Skill File</th><th>Constant Name</th><th>Used By Runner</th><th>Injection Point</th></tr>
+    <tr>
+      <td><span class="file-ref">src/lib/ai/prompts/skills/competitor-analysis-skill.ts</span></td>
+      <td><code>COMPETITOR_ANALYSIS_SKILL</code></td>
+      <td><strong>researchCompetitors</strong> (primary stage only)</td>
+      <td>Prepended to primary system prompt: <code>`${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`</code></td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">src/lib/ai/prompts/skills/paid-ads-skill.ts</span></td>
+      <td><code>PAID_ADS_SKILL</code></td>
+      <td><strong>synthesizeResearch</strong> (primary stage only)</td>
+      <td>Prepended to primary system prompt: <code>`${PAID_ADS_SKILL}\n\n---\n\n${SYNTHESIS_PRIMARY_SYSTEM_PROMPT}`</code></td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">src/lib/ai/prompts/copywriting-persona.ts</span></td>
+      <td><code>COPYWRITING_EXPERT_PERSONA</code><br><code>PSYCHOGRAPHICS_RESEARCH_PROMPT</code><br><code>MESSAGING_ANGLES_PROMPT</code></td>
+      <td><em style="color:#86868b">V1 pipeline only</em> (<code>src/lib/ai/research.ts</code>)</td>
+      <td>NOT used by V2 Railway runners &mdash; legacy V1 ICP &amp; messaging sections</td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <strong>Inline copy pattern:</strong> Since the Railway worker is a separate Node process, it cannot <code>import</code> from <code>src/lib/</code>. Both <code>COMPETITOR_ANALYSIS_SKILL</code> and <code>PAID_ADS_SKILL</code> are duplicated as inline string constants in <code>research-worker/src/runners/competitors.ts</code> and <code>research-worker/src/runners/synthesize.ts</code> respectively. The canonical source files in <code>src/lib/ai/prompts/skills/</code> serve as the reference copies.
+  </div>
+
+  <h3>Skill: Competitive Analysis Domain Knowledge</h3>
+  <p class="skill-label"><span class="file-ref">competitor-analysis-skill.ts</span> &rarr; researchCompetitors primary stage</p>
+  <div class="skill-knowledge">
+    <strong>Ad Library Interpretation:</strong>
+    <ul>
+      <li>0-5 active ads: testing phase or low investment</li>
+      <li>5-20 active ads: established presence, iterating</li>
+      <li>20-50 active ads: scaling actively, well-funded</li>
+      <li>50+ active ads: dominant advertiser, heavy investment</li>
+    </ul>
+    <strong>Competitive Positioning Frameworks:</strong>
+    <ul>
+      <li>Category leader: focuses on market share ("the #1 X")</li>
+      <li>Challenger: attacks leader's weakness ("X without the [pain]")</li>
+      <li>Niche specialist: owns a segment ("the only X for [ICP]")</li>
+      <li>Price disruptor: "enterprise features at SMB prices"</li>
+    </ul>
+    <strong>Review Mining (G2/Capterra) Patterns:</strong>
+    <ul>
+      <li>"switched from X" reviews &rarr; switching triggers</li>
+      <li>1-2 star reviews = acute pain points = messaging hooks</li>
+      <li>Feature requests = product gaps = white space opportunity</li>
+      <li>"What do you wish it did" = unmet needs to address</li>
+    </ul>
+    <strong>White Space Identification:</strong>
+    <ul>
+      <li>Messaging: emotional angles no one owns</li>
+      <li>Audience: ICP sub-segments being ignored</li>
+      <li>Channel: platforms with weak competitor presence</li>
+      <li>Feature: capabilities no one talks about in ads</li>
+    </ul>
+  </div>
+
+  <h3>Skill: Paid Media Domain Knowledge</h3>
+  <p class="skill-label"><span class="file-ref">paid-ads-skill.ts</span> &rarr; synthesizeResearch primary stage</p>
+  <div class="skill-knowledge">
+    <strong>Platform Benchmarks (2024-2025):</strong>
+    <ul>
+      <li>Google Search: avg CPC $2-8 for mid-market SaaS, CTR 3-6% branded</li>
+      <li>LinkedIn Ads: CPL $150-400 for B2B, CPC $8-20, best for titles/functions</li>
+      <li>Meta Ads: CPM $20-50 B2B, CPL $30-80 SMB, $100-200 enterprise</li>
+      <li>YouTube: CPV $0.03-0.10, 25-40% view-through on 30s ads</li>
+    </ul>
+    <strong>CAC by Business Model:</strong>
+    <ul>
+      <li>B2B SaaS: $800-3,000 (SMB), $3,000-15,000 (mid-market), $15,000+ (enterprise)</li>
+      <li>B2C SaaS: $20-150 (consumer), $50-500 (prosumer)</li>
+      <li>E-commerce: $15-80 (impulse), $50-200 (considered)</li>
+      <li>Marketplace: $20-100 (supply), $5-30 (demand)</li>
+    </ul>
+    <strong>ROAS Benchmarks:</strong>
+    <ul>
+      <li>Minimum viable: 2x | Target: 3-4x for scaling, 5x+ for profitable growth</li>
+      <li>Cold traffic ROAS 30-50% lower than retargeting</li>
+    </ul>
+    <strong>Creative Performance Patterns:</strong>
+    <ul>
+      <li>Hook quality = 80% of ad performance (first 3s video, first line static)</li>
+      <li>Pain-agitation-solution outperforms feature-benefit for B2B</li>
+      <li>Social proof lifts CTR 15-25% on landing pages</li>
+      <li>Specificity beats generality: "$47K saved" &gt; "save money"</li>
+    </ul>
+    <strong>Budget Allocation by Funnel Stage:</strong>
+    <ul>
+      <li>Awareness (cold): 50-60% | Consideration (warm): 25-30% | Conversion (hot): 15-20%</li>
+    </ul>
+  </div>
+
+  <h3>Skill: Copywriting Expert Persona</h3>
+  <p class="skill-label"><span class="file-ref">copywriting-persona.ts</span> &rarr; <em>V1 pipeline only (NOT used by V2 runners)</em></p>
+  <div class="skill-knowledge">
+    <strong>Status:</strong> <span style="color:#dc2626">Not active in V2 research runners.</span> Used only by the legacy V1 pipeline in <code>src/lib/ai/research.ts</code> for ICP psychographics and messaging angle generation.
+    <br><br>
+    <strong>Contains:</strong>
+    <ul>
+      <li><code>COPYWRITING_EXPERT_PERSONA</code> &mdash; Expert direct response copywriter persona (Gary Halbert, Eugene Schwartz, David Ogilvy, Joe Sugarman influences). NLP patterns, hypnotic writing, behavioral triggers.</li>
+      <li><code>PSYCHOGRAPHICS_RESEARCH_PROMPT</code> &mdash; Deep ICP psychology research: goals, fears, embarrassing situations, the enemy, failed solutions, day-in-the-life journal.</li>
+      <li><code>MESSAGING_ANGLES_PROMPT</code> &mdash; Hook sourcing priority (extracted &gt; inspired &gt; generated), 6 angle types, diversity quotas (max 2 hooks per competitor, always exactly 8 hooks total).</li>
+    </ul>
+  </div>
+
+  <h3>Runner &rarr; Skills Summary</h3>
+  <table>
+    <tr><th>Runner</th><th>Skills Injected</th><th>Stage</th></tr>
+    <tr>
+      <td><strong>researchIndustry</strong></td>
+      <td><em style="color:#86868b">None</em></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td><strong>researchCompetitors</strong></td>
+      <td><span class="tag tag-model">COMPETITOR_ANALYSIS_SKILL</span></td>
+      <td>Primary only (not repair/rescue)</td>
+    </tr>
+    <tr>
+      <td><strong>researchICP</strong></td>
+      <td><em style="color:#86868b">None</em></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td><strong>researchOffer</strong></td>
+      <td><em style="color:#86868b">None</em></td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td><strong>synthesizeResearch</strong></td>
+      <td><span class="tag tag-model">PAID_ADS_SKILL</span></td>
+      <td>Primary only (not repair)</td>
+    </tr>
+    <tr>
+      <td><strong>researchKeywords</strong></td>
+      <td><em style="color:#86868b">None</em></td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+
+  <h3>Lead Agent System Prompt (Orchestrator)</h3>
+  <p class="skill-label"><span class="file-ref">src/lib/ai/prompts/lead-agent-system.ts</span> &rarr; Journey stream route</p>
+  <div class="skill-block"><span class="sk-role">Role:</span> Senior paid media strategist with 15+ years in B2B/B2C performance marketing
+
+<span class="sk-section">Personality:</span> Warm but direct. Talks like a smart colleague, not a consultant billing by the word.
+
+<span class="sk-section">NEVER:</span>
+<span class="sk-rule">- "Great question!", "Absolutely!", "I'd be happy to help!"</span>
+<span class="sk-rule">- Make up numbers, statistics, CAC ranges, benchmarks from training data</span>
+<span class="sk-rule">- Guess at what a company does, charges, or targets</span>
+
+<span class="sk-section">Research Tool Trigger Rules (drives when each runner fires):</span>
+<span class="sk-rule">researchIndustry: businessModel confirmed + primaryIcpDescription collected</span>
+<span class="sk-rule">researchCompetitors: industry result received + productDescription + topCompetitors</span>
+<span class="sk-rule">researchICP: industry result received + primaryIcpDescription in detail</span>
+<span class="sk-rule">researchOffer: industry result received + productDescription + pricingTiers</span>
+<span class="sk-rule">synthesizeResearch: all 4 above completed, pass all summaries</span>
+<span class="sk-rule">researchKeywords: synthesis received, pass business + competitors + platform recs</span>
+
+<span class="sk-section">Execution Order (strictly sequential):</span>
+1. researchIndustry &rarr; user reviews Market Overview
+2. researchCompetitors &rarr; user reviews Competitor Intel
+3. researchICP &rarr; user reviews ICP Validation
+4. researchOffer &rarr; user reviews Offer Analysis
+5. synthesizeResearch &rarr; researchKeywords
+6. Strategist Mode (no more askUser, present findings)</div>
+</div>
+
+<!-- ============================================ -->
+<!-- WORKER AGENT FRAMEWORK (OpenClaw) -->
+<!-- ============================================ -->
+<div class="runner-section" id="framework" style="background:#fafafa">
+  <h2>Research Worker Agent Framework <span class="badge" style="background:#dcfce7;color:#166534">OpenClaw</span></h2>
+  <p class="section-desc">The research-worker directory has OpenClaw agent framework files that define the worker's identity, behavior rules, and operational protocols. These are <strong>workspace-level</strong> guidance files &mdash; the runner system prompts are hardcoded TypeScript constants that are injected at runtime, not loaded from these files.</p>
+
+  <h3>Framework Files</h3>
+  <table>
+    <tr><th>File</th><th>Purpose</th><th>Key Content</th></tr>
+    <tr>
+      <td><span class="file-ref">AGENTS.md</span></td>
+      <td>Workspace operating manual</td>
+      <td>
+        Session startup protocol (read SOUL &rarr; USER &rarr; memory), memory persistence rules, red lines (no data exfiltration, <code>trash &gt; rm</code>), heartbeat/proactive behavior rules, group chat etiquette
+      </td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">SOUL.md</span></td>
+      <td>Agent personality &amp; values</td>
+      <td>
+        "Be genuinely helpful, not performatively helpful." Have opinions. Be resourceful before asking. Earn trust through competence. Remember you're a guest. Concise when needed, thorough when it matters.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">TOOLS.md</span></td>
+      <td>Environment-specific notes</td>
+      <td>
+        Template for camera names, SSH hosts, TTS voices, device nicknames. Currently empty/template &mdash; no runtime tool config stored here.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">IDENTITY.md</span></td>
+      <td>Agent identity card</td>
+      <td>
+        Template for name, creature type, vibe, emoji, avatar. Currently unfilled.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">USER.md</span></td>
+      <td>Human profile</td>
+      <td>
+        Template for user name, pronouns, timezone, project context. Currently unfilled.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">HEARTBEAT.md</span></td>
+      <td>Periodic check tasks</td>
+      <td>
+        Currently empty &mdash; no heartbeat tasks configured.
+      </td>
+    </tr>
+    <tr>
+      <td><span class="file-ref">BOOTSTRAP.md</span></td>
+      <td>First-run onboarding</td>
+      <td>
+        "You just woke up." Guides agent through identity setup, user discovery, and workspace initialization. Should be deleted after first run (still present &mdash; bootstrap incomplete).
+      </td>
+    </tr>
+  </table>
+
+  <h3>How These Relate to Runners</h3>
+  <div class="note">
+    <strong>Not loaded at runtime.</strong> The research runners (<code>industry.ts</code>, <code>competitors.ts</code>, etc.) use hardcoded TypeScript string constants for system prompts. These OpenClaw files govern the <em>development agent</em> working on the research-worker codebase, not the sub-agents that execute research. The runtime skill setup is the system prompt constants documented in each runner section above.
+  </div>
+
+  <h3>Key SOUL.md Principles (Workspace-Level)</h3>
+  <div class="skill-block"><span class="sk-section">Core Truths:</span>
+<span class="sk-rule">- Be genuinely helpful, not performatively helpful</span>
+<span class="sk-rule">- Have opinions &mdash; disagree, prefer things, find stuff amusing or boring</span>
+<span class="sk-rule">- Be resourceful before asking &mdash; try to figure it out first</span>
+<span class="sk-rule">- Earn trust through competence</span>
+<span class="sk-rule">- Remember you're a guest &mdash; treat access with respect</span>
+
+<span class="sk-section">Boundaries:</span>
+<span class="sk-rule">- Private things stay private. Period.</span>
+<span class="sk-rule">- Ask before acting externally</span>
+<span class="sk-rule">- Never send half-baked replies to messaging surfaces</span>
+
+<span class="sk-section">Vibe:</span>
+<span class="sk-dim">Concise when needed, thorough when it matters. Not a corporate drone. Not a sycophant. Just... good.</span></div>
+
+  <h3>Key AGENTS.md Rules (Workspace-Level)</h3>
+  <div class="skill-block"><span class="sk-section">Session Startup Protocol:</span>
+1. Read SOUL.md &mdash; who you are
+2. Read USER.md &mdash; who you're helping
+3. Read memory/YYYY-MM-DD.md for recent context
+4. If main session: also read MEMORY.md
+
+<span class="sk-section">Memory Rules:</span>
+<span class="sk-rule">- Daily notes: memory/YYYY-MM-DD.md (raw logs)</span>
+<span class="sk-rule">- Long-term: MEMORY.md (curated memories)</span>
+<span class="sk-rule">- "Mental notes" don't survive restarts. Files do.</span>
+<span class="sk-rule">- Text &gt; Brain</span>
+
+<span class="sk-section">Red Lines:</span>
+<span class="sk-rule">- Don't exfiltrate private data. Ever.</span>
+<span class="sk-rule">- Don't run destructive commands without asking.</span>
+<span class="sk-rule">- trash &gt; rm (recoverable beats gone forever)</span>
+<span class="sk-rule">- When in doubt, ask.</span></div>
+</div>
+
+<!-- ============================================ -->
+<!-- DISPATCH MECHANISM -->
+<!-- ============================================ -->
+<div class="dispatch-section" id="dispatch">
+  <h2>Dispatch Mechanism (Shared)</h2>
+  <p style="font-size:14px;color:#4a5568;margin:8px 0 16px"><span class="file-ref">src/lib/ai/tools/research/dispatch.ts</span></p>
+
+  <h3>Flow</h3>
+  <table>
+    <tr><th style="width:40px">Step</th><th>Action</th></tr>
+    <tr><td>1</td><td>Resolve <code>RAILWAY_WORKER_URL</code> from env</td></tr>
+    <tr><td>2</td><td>Generate unique <code>jobId</code> (UUID)</td></tr>
+    <tr><td>3</td><td>POST <code>${WORKER_URL}/run</code> with <code>{ tool, context, userId, jobId, runId? }</code></td></tr>
+    <tr><td>4</td><td>Network timeout: <strong>5 seconds</strong></td></tr>
+    <tr><td>5</td><td>Retry: 3 attempts, exponential backoff (500ms / 1s / 2s) &mdash; skips retry on AbortError</td></tr>
+    <tr><td>6</td><td>Returns <code>{ status: 'queued', section, jobId, userId }</code> immediately &mdash; does NOT wait for result</td></tr>
+  </table>
+
+  <h3>Worker Side</h3>
+  <table>
+    <tr><th style="width:40px">Step</th><th>Action</th></tr>
+    <tr><td>1</td><td>Validate request &rarr; 400 if missing fields</td></tr>
+    <tr><td>2</td><td>Write <code>{ status: 'running' }</code> to Supabase job_status</td></tr>
+    <tr><td>3</td><td>Return HTTP <strong>202 Accepted</strong></td></tr>
+    <tr><td>4</td><td>Execute runner asynchronously (detached context)</td></tr>
+    <tr><td>5</td><td>Heartbeat every 30s &rarr; Supabase <code>lastHeartbeat</code></td></tr>
+    <tr><td>6</td><td>Write result via <code>writeResearchResult()</code> with retry</td></tr>
+    <tr><td>7</td><td>Update job_status to <code>complete</code> or <code>error</code></td></tr>
+    <tr><td>8</td><td>Stale job detection: &gt;5 min running &rarr; auto-marked error</td></tr>
+  </table>
+
+  <h3>Auth</h3>
+  <table>
+    <tr><td><code>Authorization: Bearer ${RAILWAY_API_KEY}</code></td><td>If env var is set</td></tr>
+  </table>
+</div>
+
+<!-- ============================================ -->
+<!-- SUMMARY TABLE -->
+<!-- ============================================ -->
+<div class="summary-table" id="summary">
+  <h2>Summary Comparison</h2>
+  <table>
+    <tr>
+      <th>Runner</th>
+      <th>Model(s)</th>
+      <th>External APIs</th>
+      <th>Resilience</th>
+      <th>Section Key</th>
+    </tr>
+    <tr>
+      <td><strong>Industry</strong></td>
+      <td>
+        <span class="tag tag-model">Haiku</span>
+        <span class="tag tag-model">Sonnet</span>
+      </td>
+      <td><span class="tag tag-api">web_search</span></td>
+      <td>2-stage</td>
+      <td><code>industryResearch</code></td>
+    </tr>
+    <tr>
+      <td><strong>Competitors</strong></td>
+      <td>
+        <span class="tag tag-model">Sonnet</span>
+      </td>
+      <td>
+        <span class="tag tag-api">web_search</span>
+        <span class="tag tag-tool">adLibrary</span>
+        <span class="tag tag-tool">spyfu</span>
+      </td>
+      <td>3-stage</td>
+      <td><code>competitorIntel</code></td>
+    </tr>
+    <tr>
+      <td><strong>ICP</strong></td>
+      <td>
+        <span class="tag tag-model">Sonnet</span>
+      </td>
+      <td><span class="tag tag-api">web_search</span></td>
+      <td>None</td>
+      <td><code>icpValidation</code></td>
+    </tr>
+    <tr>
+      <td><strong>Offer</strong></td>
+      <td>
+        <span class="tag tag-model">Sonnet</span>
+      </td>
+      <td>
+        <span class="tag tag-api">web_search</span>
+        <span class="tag tag-tool">firecrawl</span>
+      </td>
+      <td>None</td>
+      <td><code>offerAnalysis</code></td>
+    </tr>
+    <tr>
+      <td><strong>Synthesis</strong></td>
+      <td>
+        <span class="tag tag-model">Sonnet</span>
+      </td>
+      <td><em style="color:#86868b">None</em></td>
+      <td>2-stage + objection check</td>
+      <td><code>strategicSynthesis</code></td>
+    </tr>
+    <tr>
+      <td><strong>Keywords</strong></td>
+      <td>
+        <span class="tag tag-model">Sonnet</span>
+      </td>
+      <td><span class="tag tag-tool">spyfu</span></td>
+      <td>4-stage</td>
+      <td><code>keywordIntel</code></td>
+    </tr>
+  </table>
+</div>
+
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #e8e8ed;font-size:12px;color:#86868b;text-align:center">
+  Generated March 13, 2026 &mdash; AIGOS Research Runners Technical Audit
+</div>
+
+</body>
+</html>

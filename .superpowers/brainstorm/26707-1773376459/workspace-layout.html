@@ -1,0 +1,274 @@
+<h2>Workspace Layout Model</h2>
+<p class="subtitle">After onboarding, the user enters this workspace. Artifact in center, sub-agent chat in right rail. Which proportions feel right?</p>
+
+<div class="cards" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;">
+
+  <!-- Option A: 70/30 split -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="padding:0;overflow:hidden;">
+    <div class="card-image" style="padding:0;">
+      <div style="background:#111;border-radius:8px;overflow:hidden;border:1px solid #333;">
+        <!-- Status strip -->
+        <div style="height:40px;background:#0d0f14;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;padding:0 16px;gap:12px;">
+          <div style="display:flex;gap:6px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></div>
+            <span style="font-size:11px;color:#9ca3af;">Market Overview</span>
+          </div>
+          <div style="flex:1;height:3px;background:#1a1d24;border-radius:2px;">
+            <div style="width:35%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:2px;"></div>
+          </div>
+          <span style="font-size:10px;color:#6b7280;">2 of 6</span>
+        </div>
+        <div style="display:flex;height:320px;">
+          <!-- Center: Artifact Canvas (70%) -->
+          <div style="flex:7;padding:20px;overflow:hidden;">
+            <div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Market Overview</div>
+            <!-- Cards -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">TAM</div>
+                <div style="font-size:18px;font-weight:600;color:#f0f0f0;">$4.2B</div>
+                <div style="font-size:9px;color:#22c55e;margin-top:4px;">+12% YoY</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Growth Rate</div>
+                <div style="font-size:18px;font-weight:600;color:#f0f0f0;">18.3%</div>
+                <div style="font-size:9px;color:#60a5fa;margin-top:4px;">CAGR 2024-28</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;grid-column:span 2;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Key Finding</div>
+                <div style="font-size:12px;color:#d1d5db;line-height:1.5;">SaaS marketing automation growing fastest in mid-market segment. Mobile-first adoption driving 3x conversion improvement.</div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                  <span style="font-size:9px;background:rgba(59,130,246,0.15);color:#60a5fa;padding:2px 8px;border-radius:99px;">Gartner 2024</span>
+                  <span style="font-size:9px;background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:99px;">High confidence</span>
+                </div>
+              </div>
+            </div>
+            <!-- Approval -->
+            <div style="display:flex;justify-content:flex-end;margin-top:12px;gap:8px;">
+              <div style="font-size:11px;color:#9ca3af;padding:6px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">Edit</div>
+              <div style="font-size:11px;color:#fff;padding:6px 14px;background:#3b82f6;border-radius:8px;">Looks good →</div>
+            </div>
+          </div>
+          <!-- Right rail (30%) -->
+          <div style="flex:3;border-left:1px solid rgba(255,255,255,0.06);background:rgba(9,11,16,0.8);padding:16px;display:flex;flex-direction:column;">
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:12px;">Chat · Market Overview</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+              <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;font-size:11px;color:#d1d5db;">I found 3 key market trends. The TAM card reflects latest Gartner data.</div>
+              <div style="background:rgba(59,130,246,0.1);border-radius:8px;padding:10px;font-size:11px;color:#93c5fd;margin-left:20px;">Can you add competitor market share data?</div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;font-size:11px;color:#d1d5db;">Adding market share breakdown now...</div>
+            </div>
+            <div style="margin-top:auto;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
+              <div style="background:#0e1017;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;font-size:11px;color:#6b7280;">Ask about this section...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Wide Canvas (70/30)</h3>
+      <p>Artifact gets most of the space. Right rail is compact — good for quick revisions, but limits chat history visibility.</p>
+    </div>
+  </div>
+
+  <!-- Option B: 60/40 split -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="padding:0;overflow:hidden;">
+    <div class="card-image" style="padding:0;">
+      <div style="background:#111;border-radius:8px;overflow:hidden;border:1px solid #333;">
+        <!-- Status strip -->
+        <div style="height:40px;background:#0d0f14;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;padding:0 16px;gap:12px;">
+          <div style="display:flex;gap:6px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></div>
+            <span style="font-size:11px;color:#9ca3af;">Market Overview</span>
+          </div>
+          <div style="flex:1;height:3px;background:#1a1d24;border-radius:2px;">
+            <div style="width:35%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:2px;"></div>
+          </div>
+          <span style="font-size:10px;color:#6b7280;">2 of 6</span>
+        </div>
+        <div style="display:flex;height:320px;">
+          <!-- Center: Artifact Canvas (60%) -->
+          <div style="flex:6;padding:20px;overflow:hidden;">
+            <div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Market Overview</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">TAM</div>
+                <div style="font-size:18px;font-weight:600;color:#f0f0f0;">$4.2B</div>
+                <div style="font-size:9px;color:#22c55e;margin-top:4px;">+12% YoY</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Growth</div>
+                <div style="font-size:18px;font-weight:600;color:#f0f0f0;">18.3%</div>
+                <div style="font-size:9px;color:#60a5fa;margin-top:4px;">CAGR</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;grid-column:span 2;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Key Finding</div>
+                <div style="font-size:12px;color:#d1d5db;line-height:1.5;">SaaS marketing automation growing fastest in mid-market.</div>
+                <div style="display:flex;gap:6px;margin-top:8px;">
+                  <span style="font-size:9px;background:rgba(59,130,246,0.15);color:#60a5fa;padding:2px 8px;border-radius:99px;">Gartner</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:12px;gap:8px;">
+              <div style="font-size:11px;color:#9ca3af;padding:6px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">Edit</div>
+              <div style="font-size:11px;color:#fff;padding:6px 14px;background:#3b82f6;border-radius:8px;">Looks good →</div>
+            </div>
+          </div>
+          <!-- Right rail (40%) -->
+          <div style="flex:4;border-left:1px solid rgba(255,255,255,0.06);background:rgba(9,11,16,0.8);padding:16px;display:flex;flex-direction:column;">
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:12px;">Chat · Market Overview</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+              <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;font-size:11px;color:#d1d5db;">I found 3 key market trends across your sector. The TAM figure is from Gartner's latest report.</div>
+              <div style="background:rgba(59,130,246,0.1);border-radius:8px;padding:10px;font-size:11px;color:#93c5fd;margin-left:20px;">Can you add competitor market share breakdown?</div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;font-size:11px;color:#d1d5db;">Adding market share breakdown now. I'll create a new card with the top 5 players and their estimated share.</div>
+              <div style="background:rgba(59,130,246,0.1);border-radius:8px;padding:10px;font-size:11px;color:#93c5fd;margin-left:20px;">Perfect, also highlight where we fit</div>
+            </div>
+            <div style="margin-top:auto;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
+              <div style="background:#0e1017;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;font-size:11px;color:#6b7280;">Ask about this section...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Balanced (60/40)</h3>
+      <p>More room for chat thread — better for multi-turn revisions. Artifact cards get slightly less horizontal space but still feel primary.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Canvas with collapsible rail -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="padding:0;overflow:hidden;">
+    <div class="card-image" style="padding:0;">
+      <div style="background:#111;border-radius:8px;overflow:hidden;border:1px solid #333;">
+        <!-- Status strip -->
+        <div style="height:40px;background:#0d0f14;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;padding:0 16px;gap:12px;">
+          <div style="display:flex;gap:6px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></div>
+            <span style="font-size:11px;color:#9ca3af;">Market Overview</span>
+          </div>
+          <div style="flex:1;height:3px;background:#1a1d24;border-radius:2px;">
+            <div style="width:35%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:2px;"></div>
+          </div>
+          <span style="font-size:10px;color:#6b7280;">2 of 6</span>
+          <div style="font-size:10px;color:#60a5fa;cursor:pointer;">☰ Chat</div>
+        </div>
+        <div style="display:flex;height:320px;">
+          <!-- Center: Full width artifact -->
+          <div style="flex:1;padding:24px;overflow:hidden;">
+            <div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">Market Overview</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">TAM</div>
+                <div style="font-size:20px;font-weight:600;color:#f0f0f0;">$4.2B</div>
+                <div style="font-size:9px;color:#22c55e;margin-top:4px;">+12% YoY</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Growth Rate</div>
+                <div style="font-size:20px;font-weight:600;color:#f0f0f0;">18.3%</div>
+                <div style="font-size:9px;color:#60a5fa;margin-top:4px;">CAGR 2024-28</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Segments</div>
+                <div style="font-size:20px;font-weight:600;color:#f0f0f0;">12</div>
+                <div style="font-size:9px;color:#a78bfa;margin-top:4px;">3 high-growth</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;grid-column:span 3;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Key Finding</div>
+                <div style="font-size:12px;color:#d1d5db;line-height:1.6;">SaaS marketing automation growing fastest in mid-market segment. Mobile-first adoption driving 3x conversion improvement across all verticals.</div>
+                <div style="display:flex;gap:6px;margin-top:10px;">
+                  <span style="font-size:9px;background:rgba(59,130,246,0.15);color:#60a5fa;padding:2px 8px;border-radius:99px;">Gartner 2024</span>
+                  <span style="font-size:9px;background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:99px;">High confidence</span>
+                  <span style="font-size:9px;background:rgba(167,139,250,0.15);color:#a78bfa;padding:2px 8px;border-radius:99px;">Forrester</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:8px;">
+              <div style="font-size:11px;color:#9ca3af;padding:6px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">Edit</div>
+              <div style="font-size:11px;color:#fff;padding:6px 14px;background:#3b82f6;border-radius:8px;">Looks good →</div>
+            </div>
+          </div>
+          <!-- Collapsed rail indicator -->
+          <div style="width:44px;border-left:1px solid rgba(255,255,255,0.06);background:rgba(9,11,16,0.8);display:flex;flex-direction:column;align-items:center;padding-top:16px;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:8px;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:12px;">💬</div>
+            <div style="width:6px;height:6px;border-radius:50%;background:#3b82f6;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Full Canvas + Collapsible Rail</h3>
+      <p>Artifact gets maximum space. Chat rail collapses to an icon strip — expand on demand. Most canvas-like, but chat is hidden by default.</p>
+    </div>
+  </div>
+
+  <!-- Option D: Floating chat overlay -->
+  <div class="card" data-choice="d" onclick="toggleSelect(this)" style="padding:0;overflow:hidden;">
+    <div class="card-image" style="padding:0;">
+      <div style="background:#111;border-radius:8px;overflow:hidden;border:1px solid #333;">
+        <!-- Status strip -->
+        <div style="height:40px;background:#0d0f14;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;padding:0 16px;gap:12px;">
+          <div style="display:flex;gap:6px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></div>
+            <span style="font-size:11px;color:#9ca3af;">Market Overview</span>
+          </div>
+          <div style="flex:1;height:3px;background:#1a1d24;border-radius:2px;">
+            <div style="width:35%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:2px;"></div>
+          </div>
+          <span style="font-size:10px;color:#6b7280;">2 of 6</span>
+        </div>
+        <div style="position:relative;height:320px;">
+          <!-- Full width artifact -->
+          <div style="padding:24px;overflow:hidden;">
+            <div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">Market Overview</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">TAM</div>
+                <div style="font-size:20px;font-weight:600;color:#f0f0f0;">$4.2B</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Growth Rate</div>
+                <div style="font-size:20px;font-weight:600;color:#f0f0f0;">18.3%</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Segments</div>
+                <div style="font-size:20px;font-weight:600;color:#f0f0f0;">12</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;grid-column:span 3;">
+                <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;">Key Finding</div>
+                <div style="font-size:12px;color:#d1d5db;line-height:1.6;">SaaS marketing automation growing fastest in mid-market segment.</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:8px;">
+              <div style="font-size:11px;color:#9ca3af;padding:6px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;">Edit</div>
+              <div style="font-size:11px;color:#fff;padding:6px 14px;background:#3b82f6;border-radius:8px;">Looks good →</div>
+            </div>
+          </div>
+          <!-- Floating chat panel -->
+          <div style="position:absolute;bottom:16px;right:16px;width:280px;height:200px;background:rgba(9,11,16,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:12px;backdrop-filter:blur(12px);display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:#9ca3af;">Chat · Market</span>
+              <span style="font-size:10px;color:#6b7280;cursor:pointer;">✕</span>
+            </div>
+            <div style="flex:1;padding:10px;display:flex;flex-direction:column;gap:6px;overflow:hidden;">
+              <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:8px;font-size:10px;color:#d1d5db;">TAM reflects Gartner data.</div>
+              <div style="background:rgba(59,130,246,0.1);border-radius:6px;padding:8px;font-size:10px;color:#93c5fd;margin-left:12px;">Add market share?</div>
+            </div>
+            <div style="padding:8px;border-top:1px solid rgba(255,255,255,0.06);">
+              <div style="background:#0e1017;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 10px;font-size:10px;color:#6b7280;">Ask...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D. Full Canvas + Floating Chat</h3>
+      <p>Canvas uses 100% width. Chat floats as a draggable panel overlay. Maximum artifact space, but chat can occlude content.</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;padding:16px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;">
+  <p style="font-size:13px;color:#93c5fd;margin:0;">
+    <strong>My recommendation:</strong> Option A (70/30) or B (60/40). Your skeleton says "right rail always visible" — that rules out C and D. Between A and B, it depends on how much revision chat you expect per artifact. If most users approve quickly → A. If they iterate a lot → B.
+  </p>
+</div>

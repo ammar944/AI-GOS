@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e6]: Market Overview
+      - generic [ref=e9]: 1 of 6
+      - generic [ref=e10]: Idle
+    - generic [ref=e11]:
+      - generic [ref=e14]:
+        - generic [ref=e16]: 01 · Market Overview
+        - paragraph [ref=e18]: Waiting for previous sections...
+      - generic [ref=e20]:
+        - generic [ref=e22]: Chat · Market Overview
+        - paragraph [ref=e24]: Ask questions about this section...
+        - textbox [ref=e27]:
+          - /placeholder: Ask about this section...
+  - generic [ref=e32] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e33]:
+      - img [ref=e34]
+    - generic [ref=e37]:
+      - button "Open issues overlay" [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]: "0"
+          - generic [ref=e41]: "1"
+        - generic [ref=e42]: Issue
+      - button "Collapse issues badge" [ref=e43]:
+        - img [ref=e44]
+  - alert [ref=e46]

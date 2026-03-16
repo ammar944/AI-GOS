@@ -1,0 +1,4 @@
+Total messages: 11 (Errors: 1, Warnings: 5)
+Returning 1 messages for level "error"
+
+[ERROR] Failed to load resource: the server responded with a status of 422 () @ https://fleet-bengal-80.clerk.accounts.dev/v1/client/sign_ins/sia_3Av0OJyDrQuVO3gDrQT4QuPEPPT/attempt_first_factor?__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4&__clerk_db_jwt=dvb_3Av086JaVGBrDRqIjVigSFWJJrk:0

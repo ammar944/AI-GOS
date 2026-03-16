@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unified Onboarding — Progressive Flow</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #09090b;
+    color: #fafafa;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+  }
+
+  /* Header */
+  .page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+  .page-badge {
+    display: inline-block;
+    background: rgba(59,130,246,0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 9999px;
+    padding: 0.25rem 0.85rem;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  .page-header h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #fafafa;
+    margin-bottom: 0.5rem;
+  }
+  .page-header p {
+    font-size: 0.85rem;
+    color: #52525b;
+    line-height: 1.6;
+  }
+
+  /* Progress bar */
+  .progress-track {
+    height: 2px;
+    background: #1c1c1f;
+    border-radius: 1px;
+    margin-bottom: 2.5rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    border-radius: 1px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Group states */
+  .group {
+    margin-bottom: 0.5rem;
+    border-radius: 1rem;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Completed group — collapses to a slim summary row */
+  .group.completed {
+    background: transparent;
+    border: 1px solid #1c1c1f;
+    margin-bottom: 0.375rem;
+  }
+  .group-summary {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    cursor: default;
+  }
+  .group.completed .group-summary {
+    display: flex;
+  }
+  .group.completed .group-active-content {
+    display: none;
+  }
+  .summary-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .summary-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: #22c55e;
+  }
+  .summary-title {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #71717a;
+  }
+  .summary-preview {
+    font-size: 0.7rem;
+    color: #3f3f46;
+    max-width: 280px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Active group — fully expanded with fields */
+  .group.active {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid #27272a;
+    animation: groupEnter 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes groupEnter {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Upcoming group — dim placeholder */
+  .group.upcoming {
+    background: transparent;
+    border: 1px solid #141416;
+    margin-bottom: 0.375rem;
+  }
+  .group-upcoming-row {
+    display: none;
+    align-items: center;
+    padding: 0.65rem 1.25rem;
+    gap: 0.6rem;
+  }
+  .group.upcoming .group-upcoming-row {
+    display: flex;
+  }
+  .group.upcoming .group-active-content {
+    display: none;
+  }
+  .upcoming-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #27272a;
+  }
+  .upcoming-label {
+    font-size: 0.8rem;
+    color: #3f3f46;
+  }
+  .upcoming-count {
+    font-size: 0.7rem;
+    color: #27272a;
+    margin-left: auto;
+  }
+
+  /* Active group content */
+  .group-active-content {
+    padding: 1.5rem;
+  }
+  .group-active-header {
+    margin-bottom: 1.5rem;
+  }
+  .group-active-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #e4e4e7;
+    margin-bottom: 0.25rem;
+  }
+  .group-active-header p {
+    font-size: 0.78rem;
+    color: #52525b;
+  }
+
+  /* Field cards within active group */
+  .field-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #27272a;
+    border-radius: 0.75rem;
+    padding: 1rem 1.125rem;
+    margin-bottom: 0.625rem;
+    transition: all 0.3s ease;
+    animation: fieldEnter 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  .field-card:nth-child(2) { animation-delay: 0.05s; }
+  .field-card:nth-child(3) { animation-delay: 0.1s; }
+  .field-card:nth-child(4) { animation-delay: 0.15s; }
+  .field-card:nth-child(5) { animation-delay: 0.2s; }
+  .field-card:nth-child(6) { animation-delay: 0.25s; }
+  .field-card:nth-child(7) { animation-delay: 0.3s; }
+  @keyframes fieldEnter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .field-card:focus-within {
+    border-color: #3b82f6;
+    background: rgba(59,130,246,0.03);
+  }
+  .field-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  .field-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #a1a1aa;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tag {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .tag-required {
+    color: #f59e0b;
+    background: rgba(245,158,11,0.08);
+  }
+  .tag-scraped {
+    color: #60a5fa;
+    background: rgba(59,130,246,0.08);
+  }
+  .field-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e4e4e7;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    resize: none;
+    font-family: inherit;
+  }
+  .field-input::placeholder {
+    color: #3f3f46;
+    font-style: italic;
+  }
+  .field-helper {
+    font-size: 0.68rem;
+    color: #3f3f46;
+    margin-top: 0.35rem;
+    line-height: 1.4;
+  }
+
+  /* Bottom bar — fixed */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(9,9,11,0.9);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid #1c1c1f;
+    padding: 0.875rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    z-index: 10;
+  }
+  .bottom-status {
+    font-size: 0.75rem;
+    color: #52525b;
+  }
+  .bottom-status strong {
+    color: #a1a1aa;
+  }
+  .bottom-cta {
+    padding: 0.55rem 1.75rem;
+    border-radius: 0.625rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .bottom-cta.ready {
+    background: #fafafa;
+    color: #09090b;
+  }
+  .bottom-cta.ready:hover {
+    background: #e4e4e7;
+  }
+  .bottom-cta.waiting {
+    background: #1c1c1f;
+    color: #52525b;
+    cursor: default;
+  }
+
+  /* Transition effect label */
+  .transition-hint {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #27272a;
+    margin: 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .transition-hint::before,
+  .transition-hint::after {
+    content: '';
+    flex: 1;
+    max-width: 60px;
+    height: 1px;
+    background: #1c1c1f;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <div class="page-badge">Auto-prefill · SaaSLaunch</div>
+    <h1>Review your context</h1>
+    <p>Each group auto-advances when filled. Edit anything by clicking.</p>
+  </div>
+
+  <div class="progress-track">
+    <div class="progress-fill" style="width: 42%"></div>
+  </div>
+
+  <!-- GROUP 1: Completed — slim summary -->
+  <div class="group completed">
+    <div class="group-summary">
+      <div class="summary-left">
+        <div class="summary-check">✓</div>
+        <span class="summary-title">Company Profile</span>
+      </div>
+      <span class="summary-preview">SaaSLaunch · Agency / Services · B2B SaaS Marketing</span>
+    </div>
+    <div class="group-active-content"></div>
+  </div>
+
+  <!-- GROUP 2: Completed — slim summary -->
+  <div class="group completed">
+    <div class="group-summary">
+      <div class="summary-left">
+        <div class="summary-check">✓</div>
+        <span class="summary-title">Product & Offer</span>
+      </div>
+      <span class="summary-preview">$4k–$12k/mo retainers · $10k–$30k ad budget</span>
+    </div>
+    <div class="group-active-content"></div>
+  </div>
+
+  <!-- GROUP 3: ACTIVE — expanded with staggered field cards -->
+  <div class="group active">
+    <div class="group-active-content">
+      <div class="group-active-header">
+        <h2>Customers & ICP</h2>
+        <p>4 of 7 fields filled — complete the rest or leave blank to continue</p>
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Ideal Customer Profile <span class="tag tag-required">required</span> <span class="tag tag-scraped">scraped</span></div>
+        </div>
+        <input class="field-input" value="B2B SaaS companies and software businesses" />
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Target Job Titles <span class="tag tag-scraped">scraped</span></div>
+        </div>
+        <input class="field-input" value="VP Marketing, Head of Growth, CMO" />
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Company Size <span class="tag tag-scraped">scraped</span></div>
+        </div>
+        <input class="field-input" value="Seed to Series B" />
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Geographic Focus <span class="tag tag-scraped">scraped</span></div>
+        </div>
+        <input class="field-input" value="United States, Canada" />
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Easiest to Close</div>
+        </div>
+        <input class="field-input" placeholder="Which customer type closes fastest for you?" />
+        <div class="field-helper">Helps ICP research prioritize the highest-value segment.</div>
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Buying Triggers</div>
+        </div>
+        <input class="field-input" placeholder="What events cause prospects to start looking?" />
+        <div class="field-helper">E.g., "just raised a round", "CMO hire", "competitor launched ads"</div>
+      </div>
+
+      <div class="field-card">
+        <div class="field-top">
+          <div class="field-label">Best Client Sources</div>
+        </div>
+        <input class="field-input" placeholder="Where do your best clients come from today?" />
+        <div class="field-helper">Referrals, LinkedIn, Google Ads, cold outbound...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="transition-hint">auto-advances when filled</div>
+
+  <!-- GROUP 4: Upcoming -->
+  <div class="group upcoming">
+    <div class="group-upcoming-row">
+      <div class="upcoming-dot"></div>
+      <span class="upcoming-label">Competition & Market</span>
+      <span class="upcoming-count">5 fields</span>
+    </div>
+    <div class="group-active-content"></div>
+  </div>
+
+  <!-- GROUP 5: Upcoming -->
+  <div class="group upcoming">
+    <div class="group-upcoming-row">
+      <div class="upcoming-dot"></div>
+      <span class="upcoming-label">Sales & Positioning</span>
+      <span class="upcoming-count">6 fields</span>
+    </div>
+    <div class="group-active-content"></div>
+  </div>
+
+  <!-- GROUP 6: Upcoming -->
+  <div class="group upcoming">
+    <div class="group-upcoming-row">
+      <div class="upcoming-dot"></div>
+      <span class="upcoming-label">Goals & Targets</span>
+      <span class="upcoming-count">4 fields</span>
+    </div>
+    <div class="group-active-content"></div>
+  </div>
+
+  <!-- GROUP 7: Upcoming -->
+  <div class="group upcoming">
+    <div class="group-upcoming-row">
+      <div class="upcoming-dot"></div>
+      <span class="upcoming-label">Proof & Assets</span>
+      <span class="upcoming-count">5 fields</span>
+    </div>
+    <div class="group-active-content"></div>
+  </div>
+</div>
+
+<!-- Fixed bottom bar -->
+<div class="bottom-bar">
+  <div class="bottom-status"><strong>3</strong> / 7 groups · <strong>26</strong> / 39 fields</div>
+  <button class="bottom-cta waiting">Reviewing Customers & ICP...</button>
+</div>
+</body>
+</html>

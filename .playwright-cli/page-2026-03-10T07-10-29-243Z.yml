@@ -1,0 +1,113 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e229]:
+        - generic [ref=e232]: Discovery
+        - generic [ref=e235]: Validation
+        - generic [ref=e238]: Strategy
+        - generic [ref=e241]: Launch
+      - generic [ref=e243]:
+        - generic [ref=e244]:
+          - generic [ref=e247]:
+            - paragraph [ref=e248]:
+              - generic [ref=e249]: "[OK]"
+              - text: Accepted 9 prefill fields
+            - paragraph [ref=e293]:
+              - generic [ref=e294]: "[RUN]"
+              - text: Researching Market Overview...
+            - paragraph [ref=e349]:
+              - generic [ref=e350]: "[OK]"
+              - text: Market Overview research complete
+            - paragraph [ref=e540]:
+              - generic [ref=e541]: "[RUN]"
+              - text: "Processing: \"KlientBoost, Directive, Refine Labs\""
+            - paragraph [ref=e250]: _
+          - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e253]
+          - paragraph [ref=e298]: Building your market overview now.
+          - generic [ref=e486]:
+            - paragraph [ref=e487]: Market overview locked in.
+            - paragraph [ref=e488]: "Here's what's next: I've got a strong read on the B2B SaaS marketing landscape — rising CAC pressures, the MQL-to-SQL conversion bottleneck, and the seasonal budget cycles that drive demand. Now I need to turn that into actionable competitive intelligence, validate your ICP for targeting, and stress-test your offer against the market."
+            - paragraph [ref=e536]:
+              - text: "To kick off that next wave of research, I need three things from you:"
+              - strong [ref=e537]: who you're competing against
+              - text: ","
+              - strong [ref=e538]: your pricing structure
+              - text: ", and a bit more detail on your ideal customer. Let's start with the competitive landscape."
+            - paragraph [ref=e539]: Who are the top 2-3 agencies or competitors you run into most when going after the same clients? Names, URLs, whoever comes to mind — even if they're not a perfect apples-to-apples comparison.
+          - heading "KlientBoost, Directive, Refine Labs" [level=2] [ref=e544]
+          - generic [ref=e601]:
+            - paragraph [ref=e602]: Good intel here. KlientBoost is running 37 active ads, mostly pushing a free marketing plan lead magnet they position as "$10k value." They lean hard into financial accountability with proprietary tech called "Growth Grid" — but their positioning is generalist across e-commerce, law, D2C, everything. They're not SaaS-specific, which is a meaningful gap you can exploit.
+            - paragraph [ref=e603]: "Now, before I launch the next research wave, I need two more things from you:"
+            - paragraph [ref=e604]:
+              - strong [ref=e605]: Pricing
+              - text: — walk me through your pricing structure. How many tiers, what does each cost, and is it monthly retainer, project-based, or something else?
+            - paragraph [ref=e606]:
+              - strong [ref=e607]: ICP detail
+              - text: — I know you serve B2B SaaS companies, but I want to go deeper. Tell me about your
+              - emphasis [ref=e608]: best
+              - text: customers — the ones where the engagement just works. What size are they (ARR, headcount)? What stage? Who's the person signing the contract? What's usually going on in their world that makes them reach out?
+          - button "View Market Overview artifact" [ref=e300] [cursor=pointer]:
+            - generic [ref=e306]:
+              - generic [ref=e307]: Module 01
+              - heading "Market Overview" [level=3] [ref=e308]
+            - generic [ref=e309]:
+              - generic [ref=e310]: Approved
+              - img [ref=e311]
+        - generic [ref=e262]:
+          - textbox "Ask AIGOS to refine the strategy..." [ref=e263]
+          - button "Send message" [disabled] [ref=e264]:
+            - img [ref=e265]
+    - complementary [ref=e494]:
+      - generic [ref=e495]:
+        - heading "Journey Progress" [level=3] [ref=e496]
+        - generic [ref=e499]:
+          - generic [ref=e502]:
+            - generic [ref=e503]: Market Research
+            - generic [ref=e504]: Completed
+          - generic [ref=e507]:
+            - generic [ref=e508]: ICP Validation
+            - generic [ref=e509]: Queued
+          - generic [ref=e512]:
+            - generic [ref=e513]: Competitor Intel
+            - generic [ref=e514]: Queued
+          - generic [ref=e517]:
+            - generic [ref=e518]: Offer Analysis
+            - generic [ref=e519]: Queued
+          - generic [ref=e522]:
+            - generic [ref=e523]: Strategic Synthesis
+            - generic [ref=e524]: Queued
+          - generic [ref=e527]:
+            - generic [ref=e528]: Keyword Intel
+            - generic [ref=e529]: Queued
+        - generic [ref=e531]:
+          - generic [ref=e532]: Compute Node
+          - generic [ref=e533]: Stable
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]

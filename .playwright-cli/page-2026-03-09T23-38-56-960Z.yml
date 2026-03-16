@@ -1,0 +1,85 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - navigation [ref=e5]:
+        - link "Home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - text: Home
+        - link "Journey" [ref=e10] [cursor=pointer]:
+          - /url: /journey
+          - img [ref=e11]
+          - text: Journey
+        - link "Blueprints" [ref=e14] [cursor=pointer]:
+          - /url: /blueprints
+          - img [ref=e15]
+          - text: Blueprints
+        - link "Ad Launcher" [ref=e17] [cursor=pointer]:
+          - /url: /ads
+          - img [ref=e18]
+          - text: Ad Launcher
+        - link "Creatives" [ref=e20] [cursor=pointer]:
+          - /url: /creatives
+          - img [ref=e21]
+          - text: Creatives
+      - link "Settings" [ref=e25] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e26]
+        - text: Settings
+    - main [ref=e29]:
+      - generic [ref=e235]:
+        - generic [ref=e238]: Discovery
+        - generic [ref=e241]: Validation
+        - generic [ref=e244]: Strategy
+        - generic [ref=e247]: Launch
+      - generic [ref=e249]:
+        - generic [ref=e250]:
+          - generic [ref=e253]:
+            - paragraph [ref=e254]:
+              - generic [ref=e255]: "[OK]"
+              - text: Accepted 9 prefill fields
+            - paragraph [ref=e256]: _
+          - heading "Company profile accepted for SaaSLaunch" [level=2] [ref=e259]
+          - generic [ref=e263]:
+            - button "Thought for 1.3s" [ref=e265] [cursor=pointer]:
+              - img [ref=e266]
+              - generic [ref=e268]: Thought for 1.3s
+            - generic [ref=e271]:
+              - generic [ref=e273]: Module 01
+              - heading "Market Overview" [level=3] [ref=e275]
+            - generic [ref=e313]:
+              - paragraph [ref=e314]: Building your market overview now.
+              - paragraph [ref=e315]: SaaSLaunch sits in an interesting spot — the B2B SaaS agency space is crowded with generalists, but positioning as an end-to-end acquisition system builder (not just "we run your ads") gives you a stronger defensible angle. The fact that you're framing deliverables around SQLs and MQLs rather than clicks or impressions tells me you're already speaking the language your buyers care about. The key strategic question will be how to differentiate in paid channels where dozens of agencies are bidding on the same "SaaS marketing agency" keywords.
+              - paragraph [ref=e316]: Research is running — results will stream in shortly.
+        - generic [ref=e280]:
+          - textbox "Ask AIGOS to refine the strategy..." [ref=e281]
+          - button "Send message" [disabled] [ref=e282]:
+            - img [ref=e283]
+    - complementary [ref=e67]:
+      - generic [ref=e68]:
+        - heading "Journey Progress" [level=3] [ref=e69]
+        - generic [ref=e72]:
+          - generic [ref=e288]:
+            - generic [ref=e289]: Market Research
+            - generic [ref=e290]: Queued
+          - generic [ref=e80]:
+            - generic [ref=e81]: ICP Validation
+            - generic [ref=e82]: Queued
+          - generic [ref=e293]:
+            - generic [ref=e294]: Competitor Intel
+            - generic [ref=e295]: Queued
+          - generic [ref=e298]:
+            - generic [ref=e299]: Offer Analysis
+            - generic [ref=e300]: Queued
+          - generic [ref=e303]:
+            - generic [ref=e304]: Strategic Synthesis
+            - generic [ref=e305]: Queued
+          - generic [ref=e308]:
+            - generic [ref=e309]: Keyword Intel
+            - generic [ref=e310]: Queued
+        - generic [ref=e94]:
+          - generic [ref=e95]: Compute Node
+          - generic [ref=e96]: Stable
+  - button "Open Next.js Dev Tools" [ref=e104] [cursor=pointer]:
+    - img [ref=e105]
+  - alert [ref=e108]
