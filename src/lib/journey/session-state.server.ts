@@ -76,6 +76,8 @@ async function readCurrentJourneyRunId(
     .from('journey_sessions')
     .select('metadata')
     .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -93,6 +95,8 @@ export async function readPipelineState(userId: string): Promise<PipelineState |
     .from('journey_sessions')
     .select('metadata')
     .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -161,12 +165,21 @@ export async function persistToSupabase(
 
     const supabase = createAdminClient();
 
-    // Fetch current metadata (D13: fetch-then-merge pattern)
-    const { data: existing } = await supabase
+    // Fetch current metadata (fetch-then-merge pattern)
+    // When activeRunId is available, scope to that specific run row;
+    // otherwise fall back to the latest row for this user.
+    let existingQuery = supabase
       .from('journey_sessions')
       .select('metadata')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
+
+    if (activeRunId) {
+      existingQuery = existingQuery.eq('run_id', activeRunId);
+    } else {
+      existingQuery = existingQuery.order('created_at', { ascending: false }).limit(1);
+    }
+
+    const { data: existing } = await existingQuery.maybeSingle();
 
     const currentMetadata =
       (existing?.metadata as Record<string, unknown>) || {};
@@ -179,14 +192,15 @@ export async function persistToSupabase(
       lastUpdated: new Date().toISOString(),
     };
 
-    // Upsert (D12: one session per user, UNIQUE on user_id)
+    // Upsert on composite key (user_id, run_id)
     const { error } = await supabase.from('journey_sessions').upsert(
       {
         user_id: userId,
+        run_id: activeRunId ?? null,
         metadata: merged,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id' },
+      { onConflict: 'user_id,run_id' },
     );
 
     if (error) {

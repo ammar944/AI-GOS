@@ -23,10 +23,10 @@ const COMPETITORS_RESCUE_MODEL =
   process.env.RESEARCH_COMPETITORS_RESCUE_MODEL ?? COMPETITORS_REPAIR_MODEL;
 const COMPETITORS_PRIMARY_MAX_TOKENS = 5600;
 const COMPETITORS_REPAIR_MAX_TOKENS = 4200;
-const COMPETITORS_RESCUE_MAX_TOKENS = 3200;
-const COMPETITORS_PRIMARY_TIMEOUT_MS = 120_000;
-const COMPETITORS_REPAIR_TIMEOUT_MS = 60_000;
-const COMPETITORS_RESCUE_TIMEOUT_MS = 45_000;
+const COMPETITORS_RESCUE_MAX_TOKENS = 4200;
+const COMPETITORS_PRIMARY_TIMEOUT_MS = 180_000;
+const COMPETITORS_REPAIR_TIMEOUT_MS = 90_000;
+const COMPETITORS_RESCUE_TIMEOUT_MS = 60_000;
 const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
   name: 'web_search',
@@ -146,16 +146,18 @@ CRITICAL — COMPETITOR DISAMBIGUATION:
 - ALWAYS include the competitor's official website URL
 - When in doubt between similar-named companies, choose the one with the most similar target customer, product category, and go-to-market approach
 
-TOOL USAGE PLAN:
-1. Use web_search first to lock the 5 strongest direct competitors, their positioning, and their review-backed weaknesses
-2. Use adLibraryTool for the top 3 competitors by threat relevance — retain the raw adCreatives and libraryLinks from the tool response
-3. For the remaining 2 competitors, generate libraryLinks from their name and domain but leave adCreatives empty
-4. Use spyfuTool for at most 1 competitor domain, only if it materially changes spend/threat interpretation after the web and ad evidence
+TOOL USAGE PLAN — SPEED IS CRITICAL (aim for < 90 seconds total):
+1. Use ONE web_search to identify the top 3-5 direct competitors with positioning and review signals — combine terms to reduce calls
+2. Use ONE follow-up web_search ONLY if the first search missed a known competitor from the user's context
+3. Use adLibraryTool for the SINGLE highest-threat competitor only — skip ad library for others and generate libraryLinks from name/domain
+4. Do NOT use spyfuTool unless the user's context explicitly requests keyword spend data
+5. MAX 3 total tool calls. Once you have positioning + review evidence for 3-5 competitors, STOP searching and START writing JSON.
 
 SPEED RULES:
-- Optimize for a fast first pass instead of exhaustive coverage
-- Stop once you have enough evidence to fill the schema confidently
-- If adLibraryTool or spyfuTool is slow or sparse, continue with web evidence only instead of blocking the artifact
+- You MUST start producing JSON output within 3 tool calls — do not keep searching
+- If you have evidence for 3+ competitors, that is enough — start writing
+- Combine search queries (e.g. "CompA vs CompB vs CompC pricing reviews") to reduce round-trips
+- Skip adLibraryTool entirely if the first web search already surfaces ad activity evidence
 - adActivity.platforms must never be empty; if a platform is not verified, use ["Not verified"] and explain that in adActivity.evidence
 - Treat adActivity.activeAdCount as observed ad-library records, not verified always-on live ads, unless the evidence explicitly says the coverage is current and verified
 - adActivity.evidence must state one of: Verified, Partial coverage, Limited coverage, or Not verified
@@ -186,10 +188,10 @@ Identify gaps using this framework:
 4. Channel White Space — platforms with few active competitor ads
 
 COMPRESSION RULES:
-- Return exactly 5 direct competitors when evidence supports it
-- Keep "positioning", "ourAdvantage", "overallLandscape", and whitespace "recommendedAction" to 1-2 sentences max
-- Limit competitor "strengths", "weaknesses", and "opportunities" to 2-3 concise bullets each
-- Limit "marketPatterns", "marketStrengths", and "marketWeaknesses" to 2-3 concise bullets each
+- Return 3-5 direct competitors — 3 is enough if evidence is strong
+- Keep "positioning", "ourAdvantage", "overallLandscape", and whitespace "recommendedAction" to 1 sentence max
+- Limit competitor "strengths", "weaknesses", and "opportunities" to 2 concise bullets each
+- Limit "marketPatterns", "marketStrengths", and "marketWeaknesses" to 2 bullets each
 - Limit "whiteSpaceGaps" to the 2 highest-impact gaps
 - Limit citations to the 4 most relevant sources
 - If ad tools are sparse, keep the structured field and explain the evidence briefly instead of writing long prose
@@ -562,7 +564,11 @@ export function shouldRetryCompetitorsWithFallback(input: {
     return false;
   }
 
-  return input.telemetry.stopReason === 'max_tokens';
+  // Retry on truncation (max_tokens) OR when the model finished but
+  // produced non-JSON output (end_turn / tool_use). The repair pass
+  // uses a no-tool prompt with the captured evidence, which is far
+  // more likely to produce valid JSON than the primary tool-using pass.
+  return true;
 }
 
 export function shouldRetryCompetitorsWithRescue(input: {
@@ -573,7 +579,10 @@ export function shouldRetryCompetitorsWithRescue(input: {
     return false;
   }
 
-  return input.telemetry.stopReason === 'max_tokens';
+  // Same rationale: always attempt rescue when repair also fails to
+  // parse. The rescue pass uses an ultra-compact prompt with hard
+  // word limits, maximizing the chance of a complete JSON response.
+  return true;
 }
 
 function getCompetitorResultText(finalMsg: { content: BetaContentBlock[] }): string {
@@ -798,6 +807,7 @@ export async function runResearchCompetitorsWithDeps(
 
     let resultText: string;
     let telemetry: ReturnType<typeof buildRunnerTelemetry>;
+    let alreadyRecovered = false;
     try {
       const attemptResult = await runCompetitorAttemptWithObservability(
         context,
@@ -829,6 +839,7 @@ export async function runResearchCompetitorsWithDeps(
       });
       resultText = attemptResult.resultText;
       telemetry = attemptResult.telemetry;
+      alreadyRecovered = true;
     }
 
     let parsed: unknown;
@@ -840,11 +851,18 @@ export async function runResearchCompetitorsWithDeps(
       parseError = error;
     }
 
-    if (shouldRetryCompetitorsWithFallback({ parseError, telemetry })) {
+    // Only attempt repair if the PRIMARY pass completed (not timed out).
+    // The timeout handler above already runs repair → rescue, so retrying
+    // here would create an infinite loop.
+    if (!alreadyRecovered && shouldRetryCompetitorsWithFallback({ parseError, telemetry })) {
+      const retryReason =
+        telemetry.stopReason === 'max_tokens'
+          ? 'primary competitor pass hit token limit'
+          : 'primary competitor pass produced non-JSON output';
       await emitRunnerProgress(
         reportProgress,
         'runner',
-        'primary competitor pass hit token limit — repairing artifact from captured evidence',
+        `${retryReason} — repairing artifact from captured evidence`,
       );
       const repairAttempt = await runCompetitorRepairWithTimeoutFallback({
         context,
@@ -866,7 +884,7 @@ export async function runResearchCompetitorsWithDeps(
       }
     }
 
-    if (shouldRetryCompetitorsWithRescue({ parseError, telemetry })) {
+    if (!alreadyRecovered && shouldRetryCompetitorsWithRescue({ parseError, telemetry })) {
       const recoveryContext = buildCompetitorRecoveryContext({
         mode: 'rescue',
         context,

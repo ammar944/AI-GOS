@@ -308,6 +308,8 @@ export function extractJson(text: string): unknown {
   if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
   const first = trimmed.indexOf('{');
   const last = trimmed.lastIndexOf('}');
-  if (first >= 0 && last > first) { return JSON.parse(trimmed.slice(first, last + 1)); }
+  if (first >= 0 && last > first) {
+    try { return JSON.parse(trimmed.slice(first, last + 1)); } catch {}
+  }
   throw new Error('No parseable JSON found');
 }

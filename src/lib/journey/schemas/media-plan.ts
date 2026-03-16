@@ -2,7 +2,22 @@ import { z } from 'zod';
 import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const mediaPlanDataSchema = z.object({
-  // ── Current worker output (required) ─────────────────────────────
+  // ── 6-block worker output (from media-plan.ts generateObject) ────
+  completedBlocks: z
+    .array(z.enum([
+      'channelMixBudget', 'audienceCampaign', 'creativeSystem',
+      'measurementGuardrails', 'rolloutRoadmap', 'strategySnapshot',
+    ]))
+    .optional(),
+  channelMixBudget: z.record(z.string(), z.unknown()).optional(),
+  audienceCampaign: z.record(z.string(), z.unknown()).optional(),
+  creativeSystem: z.record(z.string(), z.unknown()).optional(),
+  measurementGuardrails: z.record(z.string(), z.unknown()).optional(),
+  rolloutRoadmap: z.record(z.string(), z.unknown()).optional(),
+  strategySnapshot: z.record(z.string(), z.unknown()).optional(),
+  validationWarnings: z.array(z.string()).optional(),
+
+  // ── Legacy/flat worker output (optional) ─────────────────────────
   dataSourced: z
     .object({
       googleAdsConnected: z.boolean().optional(),
@@ -62,7 +77,8 @@ export const mediaPlanDataSchema = z.object({
         optimizationCadence: nonEmptyStringSchema.optional(),
       }),
     )
-    .min(1),
+    .min(1)
+    .optional(),
   launchSequence: z
     .array(
       z.object({
@@ -72,7 +88,8 @@ export const mediaPlanDataSchema = z.object({
         milestone: nonEmptyStringSchema,
       }),
     )
-    .min(1),
+    .min(1)
+    .optional(),
   creativeCalendar: z
     .object({
       week1to2: nonEmptyStringArraySchema.optional(),
@@ -100,7 +117,7 @@ export const mediaPlanDataSchema = z.object({
     ),
     contingency: z.number().optional(),
     note: nonEmptyStringSchema.optional(),
-  }),
+  }).optional(),
 
   // ── Legacy/alternate fields (optional) ───────────────────────────
   allocations: z

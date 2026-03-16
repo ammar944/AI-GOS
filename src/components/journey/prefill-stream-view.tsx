@@ -9,8 +9,6 @@ import { formatJourneyErrorMessage } from '@/lib/journey/http';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import { cn } from '@/lib/utils';
 
-const TOTAL_PREFILL_FIELDS = JOURNEY_PREFILL_REVIEW_FIELDS.length;
-
 interface PrefillStreamField {
   key: string;
   label: string;
@@ -62,7 +60,7 @@ export function PrefillStreamView({
     () => formatJourneyErrorMessage(error),
     [error],
   );
-  const progressPct = Math.round((fieldsFound / TOTAL_PREFILL_FIELDS) * 100);
+  const progressPct = fieldsFound > 0 ? Math.min(100, Math.round((fieldsFound / 20) * 100)) : 0;
   const isComplete = !isPrefilling && fieldsFound > 0 && !error;
   const isFailed = !isPrefilling && fieldsFound === 0 && !error;
   const visibleFields = resolveVisibleFields(partialResult);
@@ -143,7 +141,7 @@ export function PrefillStreamView({
                 isComplete ? 'text-emerald-400' : 'text-[var(--accent-blue)]',
               )}
             >
-              {fieldsFound}/{TOTAL_PREFILL_FIELDS} fields
+              {fieldsFound} {fieldsFound === 1 ? 'field' : 'fields'} found
             </span>
           </div>
         </motion.div>

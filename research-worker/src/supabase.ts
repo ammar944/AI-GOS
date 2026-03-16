@@ -84,10 +84,19 @@ async function isActiveJourneyRun(
   }
 
   const supabase = getClient();
-  const { data, error } = await supabase
+  const query = supabase
     .from('journey_sessions')
     .select('metadata')
-    .eq('user_id', userId)
+    .eq('user_id', userId);
+
+  // If we have a runId, filter by it directly
+  if (runId) {
+    query.eq('run_id', runId);
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
