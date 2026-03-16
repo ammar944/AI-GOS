@@ -7,12 +7,13 @@ import {
   runResearchOffer,
   runSynthesizeResearch,
   runResearchKeywords,
-  runMediaPlanner,
+  runMediaPlan,
 } from './runners';
 import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
 import { writeDeadLetter } from './dead-letter';
 import type { RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
+import { authorizeWorkerRequest } from './auth';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -25,17 +26,26 @@ function requireApiKey(
   res: express.Response,
   next: express.NextFunction,
 ): void {
-  const authHeader = req.headers.authorization;
-  const expectedKey = process.env.RAILWAY_API_KEY;
-  if (!expectedKey) {
-    console.warn('[auth] RAILWAY_API_KEY not set — skipping auth (dev mode)');
-    next();
-    return;
-  }
-  if (authHeader !== `Bearer ${expectedKey}`) {
+  const decision = authorizeWorkerRequest({
+    authHeader: req.headers.authorization as string | undefined,
+    environment: process.env.NODE_ENV,
+    expectedKey: process.env.RAILWAY_API_KEY,
+    forwardedFor: req.headers['x-forwarded-for'] as string | undefined,
+    host: req.hostname,
+    ip: req.ip,
+    remoteAddress: req.socket?.remoteAddress,
+  });
+
+  if (!decision.authorized) {
+    console.warn(`[auth] Rejected request: ${decision.reason}`);
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
+
+  if (decision.reason !== 'matched-key') {
+    console.info(`[auth] Authorized via ${decision.reason}`);
+  }
+
   next();
 }
 
@@ -64,7 +74,7 @@ const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgre
   researchOffer: runResearchOffer,
   synthesizeResearch: runSynthesizeResearch,
   researchKeywords: runResearchKeywords,
-  researchMediaPlan: runMediaPlanner,
+  researchMediaPlan: runMediaPlan,
 };
 
 // -- Health -------------------------------------------------------------------
@@ -330,16 +340,22 @@ app.listen(PORT, () => {
 // -- Stale job detection ------------------------------------------------------
 const STALE_THRESHOLD_MS = 300_000; // 5 minutes
 
+// Per-tool overrides — media plan runs 6 sequential generateObject() calls
+const TOOL_STALE_THRESHOLDS: Partial<Record<ToolName, number>> = {
+  researchMediaPlan: 900_000, // 15 minutes for 6-block sequential generation
+};
+
 setInterval(() => {
   const now = Date.now();
   for (const [jobId, job] of activeJobs) {
-    if (now - job.startedAt > STALE_THRESHOLD_MS) {
-      console.error(`[stale-check] Job ${jobId} (${job.tool}) exceeded ${STALE_THRESHOLD_MS / 1000}s — marking as error`);
+    const threshold = TOOL_STALE_THRESHOLDS[job.tool as ToolName] ?? STALE_THRESHOLD_MS;
+    if (now - job.startedAt > threshold) {
+      console.error(`[stale-check] Job ${jobId} (${job.tool}) exceeded ${threshold / 1000}s — marking as error`);
       writeJobStatus(job.userId, jobId, {
         runId: job.runId,
         status: 'error',
         tool: job.tool,
-        error: `timeout: job exceeded ${STALE_THRESHOLD_MS / 1000}s`,
+        error: `timeout: job exceeded ${threshold / 1000}s`,
         startedAt: new Date(job.startedAt).toISOString(),
         completedAt: new Date().toISOString(),
       }).catch(err => console.error('[stale-check] writeJobStatus failed:', err));

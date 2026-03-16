@@ -14,6 +14,7 @@ function createMockState(sessionId = 'test-session'): WorkspaceState {
       offerAnalysis: 'queued',
       keywordIntel: 'queued',
       crossAnalysis: 'queued',
+      mediaPlan: 'queued',
     },
     sectionErrors: {},
     cards: {},

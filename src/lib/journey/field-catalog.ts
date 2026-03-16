@@ -199,3 +199,66 @@ export function getJourneyFollowupFieldsForSection(
 ): JourneyFieldDefinition[] {
   return JOURNEY_SECTION_FOLLOWUP_FIELDS.filter((field) => field.section === section);
 }
+
+// ── Group / Set exports for unified-field-review & field-group ──
+
+export interface JourneyFieldGroupMeta {
+  id: string;
+  label: string;
+  fieldKeys: string[];
+}
+
+/** Required field keys (required: true in manual blocker definitions) */
+export const JOURNEY_REQUIRED_FIELD_KEYS: ReadonlySet<string> = new Set(
+  JOURNEY_MANUAL_BLOCKER_FIELDS
+    .filter((f) => f.required)
+    .map((f) => f.key),
+);
+
+/** Pricing-context group keys (requiredGroup: 'pricingContext') — at least one must be filled */
+export const JOURNEY_PRICING_GROUP_KEYS: ReadonlySet<string> = new Set(
+  JOURNEY_MANUAL_BLOCKER_FIELDS
+    .filter((f) => f.requiredGroup === 'pricingContext')
+    .map((f) => f.key),
+);
+
+/** Fields that should render as multiline inputs (rows > 1) */
+export const JOURNEY_MULTILINE_FIELDS: ReadonlySet<string> = new Set(
+  JOURNEY_MANUAL_BLOCKER_FIELDS
+    .filter((f) => f.rows > 1)
+    .map((f) => f.key),
+);
+
+/** Get manual blocker metadata for a field key (placeholder, helper, rows) */
+export function getManualBlockerMeta(key: string): JourneyManualFieldDefinition | undefined {
+  return JOURNEY_MANUAL_BLOCKER_FIELDS.find((f) => f.key === key);
+}
+
+/** Logical field groupings for the review UI */
+export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
+  {
+    id: 'business-basics',
+    label: 'Business Basics',
+    fieldKeys: ['companyName', 'businessModel', 'productDescription'],
+  },
+  {
+    id: 'target-customer',
+    label: 'Target Customer',
+    fieldKeys: ['primaryIcpDescription', 'industryVertical', 'jobTitles', 'companySize', 'geography'],
+  },
+  {
+    id: 'offer-pricing',
+    label: 'Offer & Pricing',
+    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees'],
+  },
+  {
+    id: 'competition',
+    label: 'Competition',
+    fieldKeys: ['topCompetitors', 'uniqueEdge'],
+  },
+  {
+    id: 'goals-strategy',
+    label: 'Goals & Strategy',
+    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning'],
+  },
+];

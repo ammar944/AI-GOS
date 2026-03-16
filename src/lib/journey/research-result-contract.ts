@@ -74,6 +74,7 @@ const WRAPPER_KEYS = new Set([
   'sources',
   'provenance',
   'telemetry',
+  'runId',
 ]);
 
 const ROOT_METADATA_KEYS = new Set(['citations', 'sources', 'provenance']);
@@ -311,12 +312,85 @@ function normalizeIndustryResearchData(
       };
 }
 
+function ensureStringArray(
+  value: unknown,
+  fallback: string,
+): string[] {
+  if (Array.isArray(value)) {
+    const filtered = value.filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0,
+    );
+    if (filtered.length > 0) return filtered;
+  }
+  return [fallback];
+}
+
+function normalizeCompetitorIntelData(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const competitors = Array.isArray(data.competitors)
+    ? data.competitors.map((competitor) => {
+        if (!isRecord(competitor)) return competitor;
+
+        const strengths = ensureStringArray(competitor.strengths, 'Data not available');
+        const weaknesses = ensureStringArray(competitor.weaknesses, 'Data not available');
+        const opportunities = ensureStringArray(competitor.opportunities, 'Further research needed');
+
+        const adActivity = isRecord(competitor.adActivity)
+          ? {
+              ...competitor.adActivity,
+              platforms: ensureStringArray(competitor.adActivity.platforms, 'Not verified'),
+              themes: ensureStringArray(competitor.adActivity.themes, 'Not available'),
+            }
+          : {
+              activeAdCount: 0,
+              platforms: ['Not verified'],
+              themes: ['Not available'],
+              evidence: 'Limited coverage: ad data not collected.',
+              sourceConfidence: 'low',
+            };
+
+        return {
+          ...competitor,
+          strengths,
+          weaknesses,
+          opportunities,
+          adActivity,
+        };
+      })
+    : data.competitors;
+
+  const whiteSpaceGaps =
+    Array.isArray(data.whiteSpaceGaps) && data.whiteSpaceGaps.length > 0
+      ? data.whiteSpaceGaps
+      : [
+          {
+            gap: 'Insufficient data to identify specific white space gaps',
+            type: 'messaging',
+            evidence: 'Competitor analysis did not surface clear gaps — further research recommended',
+            exploitability: 3,
+            impact: 3,
+            recommendedAction: 'Conduct deeper competitive analysis with manual review',
+          },
+        ];
+
+  return {
+    ...data,
+    ...(competitors !== data.competitors ? { competitors } : {}),
+    whiteSpaceGaps,
+  };
+}
+
 function normalizeCandidateData(
   section: CanonicalResearchSectionId,
   data: Record<string, unknown>,
 ): Record<string, unknown> {
   if (section === 'industryResearch') {
     return normalizeIndustryResearchData(data);
+  }
+
+  if (section === 'competitorIntel') {
+    return normalizeCompetitorIntelData(data);
   }
 
   return data;
@@ -436,6 +510,35 @@ export function normalizeStoredResearchResult(
         citations,
         provenance,
         telemetry,
+      },
+      target,
+    );
+  }
+
+  if (status === 'partial' && !payloadRecord) {
+    return projectResult(
+      {
+        status: 'partial',
+        section: canonicalSection,
+        durationMs,
+        error: asString(result.error) ?? 'Research artifact requires review.',
+        rawText,
+        citations,
+        provenance,
+        telemetry,
+        validation: isRecord(result.validation)
+          ? {
+              section: canonicalSection,
+              issues: Array.isArray(result.validation.issues)
+                ? result.validation.issues
+                    .filter((issue) => isRecord(issue))
+                    .map(
+                      (issue) =>
+                        issue as unknown as ResearchValidationIssue,
+                    )
+                : [],
+            }
+          : undefined,
       },
       target,
     );

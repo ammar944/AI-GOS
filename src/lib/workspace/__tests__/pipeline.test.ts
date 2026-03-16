@@ -7,7 +7,7 @@ import {
 } from '../pipeline';
 
 describe('SECTION_PIPELINE', () => {
-  it('has 6 sections in correct order', () => {
+  it('has 7 sections in correct order', () => {
     expect(SECTION_PIPELINE).toEqual([
       'industryMarket',
       'competitors',
@@ -15,6 +15,7 @@ describe('SECTION_PIPELINE', () => {
       'offerAnalysis',
       'keywordIntel',
       'crossAnalysis',
+      'mediaPlan',
     ]);
   });
 });
@@ -24,8 +25,12 @@ describe('getNextSection', () => {
     expect(getNextSection('industryMarket')).toBe('competitors');
   });
 
-  it('returns null after crossAnalysis (last section)', () => {
-    expect(getNextSection('crossAnalysis')).toBeNull();
+  it('returns null after mediaPlan (last section)', () => {
+    expect(getNextSection('mediaPlan')).toBeNull();
+  });
+
+  it('returns mediaPlan after crossAnalysis', () => {
+    expect(getNextSection('crossAnalysis')).toBe('mediaPlan');
   });
 
   it('returns crossAnalysis after keywordIntel', () => {
@@ -41,11 +46,19 @@ describe('getSectionIndex', () => {
   it('returns 5 for crossAnalysis', () => {
     expect(getSectionIndex('crossAnalysis')).toBe(5);
   });
+
+  it('returns 6 for mediaPlan', () => {
+    expect(getSectionIndex('mediaPlan')).toBe(6);
+  });
 });
 
 describe('isFinalSection', () => {
-  it('returns true for crossAnalysis', () => {
-    expect(isFinalSection('crossAnalysis')).toBe(true);
+  it('returns true for mediaPlan', () => {
+    expect(isFinalSection('mediaPlan')).toBe(true);
+  });
+
+  it('returns false for crossAnalysis', () => {
+    expect(isFinalSection('crossAnalysis')).toBe(false);
   });
 
   it('returns false for industryMarket', () => {

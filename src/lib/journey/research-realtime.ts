@@ -61,6 +61,8 @@ interface UseResearchRealtimeOptions {
   /** Increment to reset internal seen-sections state (e.g. when starting a new session). */
   resetSignal?: number;
   ignoreUpdatedBefore?: string | null;
+  /** Skip run ID validation — use in workspace mode where dispatch manages the session directly. */
+  skipRunIdCheck?: boolean;
 }
 
 const CORE_RESEARCH_SECTIONS = new Set([
@@ -91,6 +93,7 @@ export function useResearchRealtime({
   timeoutMs,
   resetSignal,
   ignoreUpdatedBefore,
+  skipRunIdCheck,
 }: UseResearchRealtimeOptions) {
   const seenResults = useRef<Map<string, string>>(new Map());
   const onSectionCompleteRef = useRef(onSectionComplete);
@@ -148,22 +151,24 @@ export function useResearchRealtime({
         }
 
         const data = (await response.json()) as JourneySessionSnapshotResponse;
-        const snapshotRunId =
-          data.runId ?? getJourneyRunIdFromMetadata(data.metadata);
-        if (
-          snapshotRunId !== null &&
-          !doesJourneyRunMatchActiveRun(activeRunId, snapshotRunId)
-        ) {
-          if (!cancelled && process.env.NODE_ENV !== 'production') {
-            console.info(
-              '[journey] Ignoring stale research snapshot with mismatched run id:',
-              {
-                activeRunId,
-                snapshotRunId,
-              },
-            );
+        if (!skipRunIdCheck) {
+          const snapshotRunId =
+            data.runId ?? getJourneyRunIdFromMetadata(data.metadata);
+          if (
+            snapshotRunId !== null &&
+            !doesJourneyRunMatchActiveRun(activeRunId, snapshotRunId)
+          ) {
+            if (!cancelled && process.env.NODE_ENV !== 'production') {
+              console.info(
+                '[journey] Ignoring stale research snapshot with mismatched run id:',
+                {
+                  activeRunId,
+                  snapshotRunId,
+                },
+              );
+            }
+            return;
           }
-          return;
         }
 
         if (!data.researchResults) {
@@ -212,5 +217,5 @@ export function useResearchRealtime({
       clearTimeout(timeout);
       window.clearInterval(interval);
     };
-  }, [activeRunId, userId, timeoutMs, resetSignal, ignoreUpdatedBefore]);
+  }, [activeRunId, userId, timeoutMs, resetSignal, ignoreUpdatedBefore, skipRunIdCheck]);
 }

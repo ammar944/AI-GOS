@@ -128,19 +128,19 @@ export function WelcomeStrip({
         {/* Right: Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {!hasOnboardingData && (
-            <Link href="/generate">
+            <Link href="/journey">
               <Button variant="default" size="default" className="group">
-                Start Onboarding
+                Start Journey
                 <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
               </Button>
             </Link>
           )}
 
           {isOnboardingPartial && (
-            <Link href="/generate">
+            <Link href="/journey">
               <Button variant="default" size="default" className="group">
                 <Play className="size-3.5" />
-                Resume Step {onboardingProgress!.currentStep + 1}/{onboardingProgress!.totalSections}
+                Continue Journey
                 <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
               </Button>
             </Link>
@@ -158,10 +158,10 @@ export function WelcomeStrip({
                   Edit Profile
                 </Button>
               </Link>
-              <Link href="/generate">
+              <Link href="/journey">
                 <Button variant="default" size="default" className="group">
                   <Wand2 className="size-3.5" />
-                  New Blueprint
+                  New Journey
                 </Button>
               </Link>
             </>

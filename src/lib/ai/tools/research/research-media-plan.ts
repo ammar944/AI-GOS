@@ -10,16 +10,17 @@ import {
 
 export const researchMediaPlan = tool({
   description:
-    'Build an execution-ready media plan using live platform data from Google Ads, Meta Ads, and Google Analytics. ' +
-    'Generates channel-specific campaign structures, budget allocations, audience strategies, and performance benchmarks. ' +
-    'ONLY call this after synthesizeResearch AND researchKeywords have been queued. ' +
-    'Pass the full synthesis output and keyword intel in the context parameter. ' +
-    'Returns immediately with status "queued" — results stream to the UI via Realtime.',
+    'Build a 6-block execution-ready media plan from onboarding data and approved research results. ' +
+    'Generates channel mix & budget, audience & campaign design, creative system, measurement & guardrails, rollout roadmap, and strategy snapshot. ' +
+    'All benchmarks come from vendored reference data — no live API calls. ' +
+    'ONLY call this after synthesizeResearch has completed successfully. ' +
+    'Pass ALL approved research results and onboarding context in the context parameter. ' +
+    'Returns immediately with status "queued" — blocks stream progressively to the workspace.',
   inputSchema: z.object({
     context: z
       .string()
       .describe(
-        'Full context including onboarding fields, synthesis findings, keyword intel, and any platform credentials context',
+        'Full context including all onboarding fields and all approved research results (industry, competitors, ICP, offer, synthesis, keywords)',
       ),
   }),
   execute: async ({ context }, options) => {

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles, BarChart3, FileCheck, SearchX } from "lucide-react";
+import { Sparkles, BarChart3, FileCheck, SearchX, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { springs } from "@/lib/motion";
 
-type EmptyStateVariant = "all" | "blueprints" | "media-plans" | "search";
+type EmptyStateVariant = "all" | "blueprints" | "media-plans" | "search" | "research";
 
 interface EmptyStateProps {
   variant: EmptyStateVariant;
@@ -45,6 +45,11 @@ const config: Record<
     icon: SearchX,
     title: "",
     description: "Try adjusting your search or clearing the filter.",
+  },
+  research: {
+    icon: FlaskConical,
+    title: "No research sessions",
+    description: "Start a journey to generate AI-powered market research and competitor analysis.",
   },
 };
 
@@ -91,7 +96,7 @@ export function EmptyState({
 
       <div className="flex items-center justify-center gap-3 mt-7">
         {(variant === "all" || variant === "blueprints") && cfg.cta && (
-          <Link href="/generate">
+          <Link href="/journey">
             <Button variant="default" size="default">
               <Sparkles className="size-4" />
               {cfg.cta}
@@ -108,6 +113,15 @@ export function EmptyState({
           >
             View Blueprints
           </Button>
+        )}
+
+        {variant === "research" && (
+          <Link href="/journey">
+            <Button variant="default" size="default">
+              <Sparkles className="size-4" />
+              Start Research
+            </Button>
+          </Link>
         )}
 
         {variant === "search" && onClearSearch && (

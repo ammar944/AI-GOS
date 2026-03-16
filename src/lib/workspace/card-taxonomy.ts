@@ -521,6 +521,201 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
   return cards;
 }
 
+// -- Media Plan ----------------------------------------------------------------
+
+function parseMediaPlan(data: Record<string, unknown>): CardState[] {
+  const cards: CardState[] = [];
+  const section: SectionKey = 'mediaPlan';
+
+  // Block 6: Strategy Snapshot (hero card at top)
+  const snapshot = asRecord(data.strategySnapshot);
+  if (snapshot) {
+    const budgetOverview = asRecord(snapshot.budgetOverview);
+    const expectedOutcomes = asRecord(snapshot.expectedOutcomes);
+    cards.push(makeCard(section, 'strategy-snapshot', asString(snapshot.headline) ?? 'Strategy Snapshot', {
+      headline: asString(snapshot.headline),
+      topPriorities: asRecordArray(snapshot.topPriorities),
+      budgetOverview: budgetOverview ? {
+        total: asNumber(budgetOverview.total),
+        topPlatform: asString(budgetOverview.topPlatform),
+        timeToFirstResults: asString(budgetOverview.timeToFirstResults),
+      } : undefined,
+      expectedOutcomes: expectedOutcomes ? {
+        leadsPerMonth: asNumber(expectedOutcomes.leadsPerMonth),
+        estimatedCAC: asNumber(expectedOutcomes.estimatedCAC),
+        expectedROAS: asNumber(expectedOutcomes.expectedROAS),
+      } : undefined,
+    }));
+  }
+
+  // Block 1: Channel Mix — one card per platform + budget summary
+  const channelMix = asRecord(data.channelMixBudget);
+  if (channelMix) {
+    const platforms = asRecordArray(channelMix.platforms);
+    for (const platform of platforms) {
+      const name = asString(platform.name);
+      if (name) {
+        const expectedCPL = asRecord(platform.expectedCPL);
+        cards.push(makeCard(section, 'platform-card', name, {
+          name,
+          role: asString(platform.role),
+          monthlySpend: asNumber(platform.monthlySpend),
+          percentage: asNumber(platform.percentage),
+          expectedCPL: expectedCPL ? { low: asNumber(expectedCPL.low), high: asNumber(expectedCPL.high) } : undefined,
+          rationale: asString(platform.rationale),
+        }));
+      }
+    }
+
+    const budgetSummary = asRecord(channelMix.budgetSummary);
+    if (budgetSummary) {
+      const funnelSplit = asRecord(budgetSummary.funnelSplit);
+      cards.push(makeCard(section, 'budget-summary', 'Budget Summary', {
+        totalMonthly: asNumber(budgetSummary.totalMonthly),
+        funnelSplit: funnelSplit ? {
+          awareness: asNumber(funnelSplit.awareness),
+          consideration: asNumber(funnelSplit.consideration),
+          conversion: asNumber(funnelSplit.conversion),
+        } : undefined,
+        rampUpWeeks: asNumber(budgetSummary.rampUpWeeks),
+      }));
+    }
+  }
+
+  // Block 2: Audience & Campaign
+  const audience = asRecord(data.audienceCampaign);
+  if (audience) {
+    const segments = asRecordArray(audience.segments);
+    for (const segment of segments) {
+      const name = asString(segment.name);
+      if (name) {
+        cards.push(makeCard(section, 'segment-card', name, {
+          name,
+          description: asString(segment.description),
+          estimatedReach: asString(segment.estimatedReach),
+          funnelPosition: asString(segment.funnelPosition),
+          priority: asNumber(segment.priority),
+        }));
+      }
+    }
+
+    const campaigns = asRecordArray(audience.campaigns);
+    for (const campaign of campaigns) {
+      const name = asString(campaign.name);
+      if (name) {
+        cards.push(makeCard(section, 'campaign-card', name, {
+          platform: asString(campaign.platform),
+          name,
+          objective: asString(campaign.objective),
+          adSets: asRecordArray(campaign.adSets),
+          namingConvention: asString(campaign.namingConvention),
+        }));
+      }
+    }
+  }
+
+  // Block 3: Creative System
+  const creative = asRecord(data.creativeSystem);
+  if (creative) {
+    const angles = asRecordArray(creative.angles);
+    for (const angle of angles) {
+      const theme = asString(angle.theme);
+      if (theme) {
+        cards.push(makeCard(section, 'creative-angle', theme, {
+          theme,
+          hook: asString(angle.hook),
+          messagingApproach: asString(angle.messagingApproach),
+          targetSegment: asString(angle.targetSegment),
+        }));
+      }
+    }
+
+    const formatSpecs = asRecordArray(creative.formatSpecs);
+    if (formatSpecs.length > 0) {
+      cards.push(makeCard(section, 'format-spec', 'Ad Format Specifications', { specs: formatSpecs }));
+    }
+
+    const testingPlan = asRecord(creative.testingPlan);
+    if (testingPlan) {
+      cards.push(makeCard(section, 'testing-plan', 'Creative Testing Plan', {
+        firstTests: asStringArray(testingPlan.firstTests),
+        methodology: asString(testingPlan.methodology),
+        minBudgetPerTest: asNumber(testingPlan.minBudgetPerTest),
+      }));
+    }
+  }
+
+  // Block 4: Measurement & Guardrails
+  const measurement = asRecord(data.measurementGuardrails);
+  if (measurement) {
+    const kpis = asRecordArray(measurement.kpis);
+    if (kpis.length > 0) {
+      cards.push(makeCard(section, 'kpi-grid', 'KPI Targets', { kpis }));
+    }
+
+    const cacModel = asRecord(measurement.cacModel);
+    if (cacModel) {
+      cards.push(makeCard(section, 'cac-model', 'CAC Model', {
+        targetCAC: asNumber(cacModel.targetCAC),
+        expectedCPL: asNumber(cacModel.expectedCPL),
+        leadToSqlRate: asNumber(cacModel.leadToSqlRate),
+        sqlToCustomerRate: asNumber(cacModel.sqlToCustomerRate),
+        expectedLeadsPerMonth: asNumber(cacModel.expectedLeadsPerMonth),
+        expectedSQLsPerMonth: asNumber(cacModel.expectedSQLsPerMonth),
+        expectedCustomersPerMonth: asNumber(cacModel.expectedCustomersPerMonth),
+        ltv: asNumber(cacModel.ltv),
+        ltvCacRatio: asNumber(cacModel.ltvCacRatio),
+      }));
+    }
+
+    const risks = asRecordArray(measurement.risks);
+    for (const risk of risks) {
+      const riskName = asString(risk.risk);
+      if (riskName) {
+        cards.push(makeCard(section, 'risk-card', riskName, {
+          risk: riskName,
+          category: asString(risk.category),
+          severity: asString(risk.severity),
+          likelihood: asString(risk.likelihood),
+          mitigation: asString(risk.mitigation),
+          earlyWarning: asString(risk.earlyWarning),
+        }));
+      }
+    }
+  }
+
+  // Block 5: Rollout Roadmap
+  const roadmap = asRecord(data.rolloutRoadmap);
+  if (roadmap) {
+    const phases = asRecordArray(roadmap.phases);
+    for (const phase of phases) {
+      const name = asString(phase.name);
+      if (name) {
+        cards.push(makeCard(section, 'phase-card', name, {
+          name,
+          duration: asString(phase.duration),
+          objectives: asStringArray(phase.objectives),
+          activities: asStringArray(phase.activities),
+          successCriteria: asStringArray(phase.successCriteria),
+          budgetAllocation: asNumber(phase.budgetAllocation),
+          goNoGo: asString(phase.goNoGo),
+        }));
+      }
+    }
+  }
+
+  // Validation warnings
+  const warnings = asStringArray(data.validationWarnings);
+  if (warnings.length > 0) {
+    cards.push(makeCard(section, 'bullet-list', 'Validation Notes', {
+      items: warnings,
+      accent: 'var(--accent-amber)',
+    }));
+  }
+
+  return cards;
+}
+
 export function parseResearchToCards(
   section: SectionKey,
   data: Record<string, unknown>,
@@ -538,6 +733,8 @@ export function parseResearchToCards(
       return parseKeywordIntel(data);
     case 'crossAnalysis':
       return parseCrossAnalysis(data);
+    case 'mediaPlan':
+      return parseMediaPlan(data);
     default:
       return [];
   }

@@ -326,6 +326,42 @@ describe('research-result-contract', () => {
     expect(results.industryResearch).toBeUndefined();
   });
 
+  it('passes through worker error for partial results with runId (no data payload)', () => {
+    const result = normalizeStoredResearchResult('competitorIntel', {
+      status: 'partial',
+      section: 'competitorIntel',
+      durationMs: 5200,
+      rawText: '{"competitors": [',
+      error: 'Validation failed at "competitors": Runner output was truncated.',
+      validation: {
+        section: 'competitorIntel',
+        issues: [
+          {
+            code: 'schema_validation',
+            message: 'Runner output was truncated.',
+            path: 'competitors',
+          },
+        ],
+      },
+      telemetry: { model: 'claude-sonnet-4-6', stopReason: 'max_tokens' },
+      runId: 'run-abc-123',
+    });
+
+    expect(result).toMatchObject({
+      status: 'partial',
+      section: 'competitorIntel',
+      error: 'Validation failed at "competitors": Runner output was truncated.',
+      validation: {
+        section: 'competitorIntel',
+        issues: [
+          expect.objectContaining({ code: 'schema_validation' }),
+        ],
+      },
+    });
+    // Must NOT re-validate empty data and produce "expected array" errors
+    expect(result?.error).not.toContain('expected array');
+  });
+
   it('normalizes industry trend direction aliases before validating stored results', () => {
     const result = normalizeStoredResearchResult('industryResearch', {
       status: 'complete',

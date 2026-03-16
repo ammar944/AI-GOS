@@ -4,7 +4,8 @@ export type SectionKey =
   | 'icpValidation'
   | 'offerAnalysis'
   | 'keywordIntel'
-  | 'crossAnalysis';
+  | 'crossAnalysis'
+  | 'mediaPlan';
 
 export type SectionPhase =
   | 'queued'
