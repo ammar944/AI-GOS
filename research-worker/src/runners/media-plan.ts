@@ -204,12 +204,14 @@ export async function runMediaPlan(
 
       const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
 
+      const blockAbort = AbortSignal.timeout(120_000); // 2 min per block
       const { object } = await generateObject({
         model: anthropic(MODEL),
         schema: stripNumericConstraints(block.schema),
         maxOutputTokens: MAX_TOKENS,
         system: systemParts.filter(Boolean).join('\n'),
         prompt: userPrompt,
+        abortSignal: blockAbort,
       });
 
       // Validate the block
@@ -323,12 +325,14 @@ export async function runMediaPlan(
         .map((name) => `### ${name}\n${JSON.stringify(blockResults[name], null, 2)}`)
         .join('\n\n');
 
+      const regenAbort = AbortSignal.timeout(120_000); // 2 min for regen
       const { object: regenerated } = await generateObject({
         model: anthropic(MODEL),
         schema: stripNumericConstraints(strategySnapshotSchema),
         maxOutputTokens: MAX_TOKENS,
         system: systemParts.filter(Boolean).join('\n'),
         prompt: `Create a strategy snapshot that exactly matches these validated block results:\n\n${correctedContext}`,
+        abortSignal: regenAbort,
       });
 
       blockResults.strategySnapshot = regenerated;
