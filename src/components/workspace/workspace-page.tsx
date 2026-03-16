@@ -140,7 +140,8 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     if (!activeRunId || mediaPlanGenerating) return;
     setMediaPlanGenerating(true);
 
-    // Build context from persisted onboarding fields
+    // Build context: try localStorage first, then Supabase metadata
+    let context = 'Generate media plan from approved research results';
     const session = getJourneySession();
     const contextLines: string[] = [];
     if (session) {
@@ -150,9 +151,39 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
         }
       }
     }
-    const context = contextLines.length > 0
-      ? contextLines.join('\n')
-      : 'Generate media plan from approved research results';
+
+    // If localStorage was empty, try Supabase metadata
+    if (contextLines.length === 0) {
+      try {
+        const res = await fetch(`/api/journey/session?runId=${activeRunId}`, {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const metadata = data?.metadata as Record<string, unknown> | null;
+          if (metadata) {
+            for (const [key, value] of Object.entries(metadata)) {
+              if (
+                typeof value === 'string' &&
+                value.trim() &&
+                key !== 'activeJourneyRunId' &&
+                key !== 'lastUpdated' &&
+                key !== 'researchPipeline'
+              ) {
+                contextLines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+              }
+            }
+          }
+        }
+      } catch {
+        // Fall through with default context
+      }
+    }
+
+    if (contextLines.length > 0) {
+      context = contextLines.join('\n');
+    }
 
     // Transition mediaPlan to researching and navigate to it
     setSectionPhase('mediaPlan', 'researching');
