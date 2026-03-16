@@ -18,6 +18,7 @@ interface ResearchDocumentProps {
   title: string;
   createdAt?: string;
   sessionId?: string;
+  runId?: string;
   hasMediaPlan?: boolean;
 }
 
@@ -30,7 +31,7 @@ function formatDate(iso: string): string {
   });
 }
 
-export function ResearchDocument({ cardsBySection, availableSections, title, createdAt, sessionId, hasMediaPlan }: ResearchDocumentProps) {
+export function ResearchDocument({ cardsBySection, availableSections, title, createdAt, sessionId, runId, hasMediaPlan }: ResearchDocumentProps) {
   const [currentSection, setCurrentSection] = useState<SectionKey>(
     availableSections[0] ?? 'industryMarket',
   );
@@ -96,9 +97,9 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               <span className="text-[var(--text-quaternary)]">&middot;</span>
               <span>{totalCards} insights</span>
             </div>
-            {sessionId && (
+            {sessionId && runId && (
               <div className="mt-4">
-                <MediaPlanButton sessionId={sessionId} hasMediaPlan={hasMediaPlan ?? false} />
+                <MediaPlanButton sessionId={sessionId} runId={runId} hasMediaPlan={hasMediaPlan ?? false} />
               </div>
             )}
             <div className="h-px bg-gradient-to-r from-[var(--accent-blue)]/20 to-transparent mt-4" />

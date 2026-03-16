@@ -22,27 +22,41 @@ export const WorkspaceContext = createContext<WorkspaceActions | null>(null);
 interface WorkspaceProviderProps {
   sessionId: string;
   startInWorkspace?: boolean;
+  initialSection?: SectionKey;
   children: React.ReactNode;
 }
 
-function createFreshState(sessionId: string, startInWorkspace = false): WorkspaceState {
+function createFreshState(sessionId: string, startInWorkspace = false, initialSection?: SectionKey): WorkspaceState {
   const sectionStates = createInitialSectionStates();
   if (startInWorkspace) {
     sectionStates[SECTION_PIPELINE[0]] = 'researching';
   }
+  // If an initial section is specified (e.g. mediaPlan from deep-link),
+  // set it to researching
+  if (initialSection) {
+    sectionStates[initialSection] = 'researching';
+  }
   return {
     sessionId,
     phase: startInWorkspace ? 'workspace' : 'onboarding',
-    currentSection: SECTION_PIPELINE[0],
+    currentSection: initialSection ?? SECTION_PIPELINE[0],
     sectionStates,
     sectionErrors: {},
     cards: {},
   };
 }
 
-export function WorkspaceProvider({ sessionId, startInWorkspace = false, children }: WorkspaceProviderProps) {
+export function WorkspaceProvider({ sessionId, startInWorkspace = false, initialSection, children }: WorkspaceProviderProps) {
   const [state, setState] = useState<WorkspaceState>(() => {
-    return loadWorkspaceState(sessionId) ?? createFreshState(sessionId, startInWorkspace);
+    const loaded = loadWorkspaceState(sessionId);
+    if (loaded) {
+      // If deep-linking to a specific section, navigate to it
+      if (initialSection) {
+        return { ...loaded, currentSection: initialSection };
+      }
+      return loaded;
+    }
+    return createFreshState(sessionId, startInWorkspace, initialSection);
   });
 
   const stateRef = useRef(state);

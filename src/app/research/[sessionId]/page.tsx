@@ -76,6 +76,9 @@ export default async function ResearchPage({ params }: PageProps) {
     researchResults.mediaPlan?.status === 'complete' ||
     researchResults.mediaPlan?.status === 'running';
 
+  // Run ID for workspace deep-linking (used by MediaPlanButton)
+  const runId = (meta?.activeJourneyRunId as string) ?? sessionId;
+
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-base)' }}>
       <div className="no-print">
@@ -88,6 +91,7 @@ export default async function ResearchPage({ params }: PageProps) {
           title={title}
           createdAt={data.created_at}
           sessionId={sessionId}
+          runId={runId}
           hasMediaPlan={hasMediaPlan}
         />
       </main>

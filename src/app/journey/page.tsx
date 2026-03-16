@@ -362,6 +362,11 @@ function deriveProgressItems(
 
 function JourneyPageContent() {
   const searchParams = useSearchParams();
+
+  // Deep-link support: ?session=X&mediaPlan=1 jumps to workspace with that session
+  const deepLinkSession = searchParams.get('session');
+  const deepLinkMediaPlan = searchParams.get('mediaPlan') === '1';
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const statusRef = useRef<string>('ready');
@@ -374,7 +379,10 @@ function JourneyPageContent() {
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
 
   // Journey phase: controls which view renders
-  const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>('welcome');
+  // Deep-link: ?session=X jumps straight to workspace
+  const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>(
+    deepLinkSession ? 'workspace' : 'welcome',
+  );
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [isResuming, setIsResuming] = useState(false);
   const [prefillWebsiteUrl, setPrefillWebsiteUrl] = useState('');
@@ -413,7 +421,9 @@ function JourneyPageContent() {
     return flat;
   }, [partialResult, prefillWebsiteUrl]);
 
-  const [activeRunId, setActiveRunId] = useState<string | null>(() => getStoredJourneyRunId());
+  const [activeRunId, setActiveRunId] = useState<string | null>(() =>
+    deepLinkSession ?? getStoredJourneyRunId(),
+  );
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
   const activeRunIdRef = useRef<string | null>(activeRunId);
   const resumeTransportStateRef = useRef<Record<string, unknown> | undefined>(
@@ -1947,23 +1957,42 @@ function JourneyPageContent() {
 
   // Workspace phase — replaces entire chat layout with artifact-first workspace
   if (journeyPhase === 'workspace') {
-    const handleWorkspaceSectionApproved = (approvedSection: SectionKey) => {
+    const handleWorkspaceSectionApproved = async (approvedSection: SectionKey) => {
       const nextSection = getNextSection(approvedSection);
       if (!nextSection || !activeRunId) return;
 
-      // Build context from persisted onboarding state
-      const session = getJourneySession();
-      const contextLines: string[] = [];
-      if (session) {
-        for (const [key, value] of Object.entries(session)) {
-          if (typeof value === 'string' && value.trim()) {
-            contextLines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+      // Read context from Supabase metadata (where handleAcceptPrefill persisted the V2 fields).
+      // getJourneySession() reads from localStorage which is never written with V2 data.
+      let context = 'Research context from onboarding session';
+      try {
+        const res = await fetch(`/api/journey/session?runId=${activeRunId}`, {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const metadata = data?.metadata as Record<string, unknown> | null;
+          if (metadata) {
+            const contextLines: string[] = [];
+            for (const [key, value] of Object.entries(metadata)) {
+              if (
+                typeof value === 'string' &&
+                value.trim() &&
+                key !== 'activeJourneyRunId' &&
+                key !== 'lastUpdated' &&
+                key !== 'researchPipeline'
+              ) {
+                contextLines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+              }
+            }
+            if (contextLines.length > 0) {
+              context = contextLines.join('\n');
+            }
           }
         }
+      } catch {
+        // Fall through with default — dispatch will still fire
       }
-      const context = contextLines.length > 0
-        ? contextLines.join('\n')
-        : 'Research context from onboarding session';
 
       addLog('run', `Dispatching ${SECTION_META[nextSection] ?? nextSection}...`);
       void dispatchResearchSection(nextSection, activeRunId, context);
@@ -1977,7 +2006,7 @@ function JourneyPageContent() {
         <div className="flex flex-1 min-h-0">
           <AppSidebar />
           <div className="flex flex-1 flex-col min-h-0 min-w-0">
-            <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace>
+            <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace initialSection={deepLinkMediaPlan ? 'mediaPlan' : undefined}>
               <WorkspacePage
                 userId={user?.id}
                 activeRunId={activeRunId}
