@@ -11,6 +11,7 @@ import { ArtifactFooter } from './artifact-footer';
 import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
+import { MediaPlanCta } from './media-plan-cta';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
@@ -48,7 +49,16 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     [state.sectionStates],
   );
 
-  // Media plan is active when it's not queued
+  // All research sections are ready for media plan generation (review or approved)
+  const allResearchComplete = useMemo(
+    () => RESEARCH_SECTIONS.every(
+      (key) => state.sectionStates[key] === 'review' || state.sectionStates[key] === 'approved',
+    ),
+    [state.sectionStates],
+  );
+
+  // mediaPlan is "active" once it leaves 'queued' — any subsequent phase (researching,
+  // streaming, review, approved, error) means generation was triggered.
   const mediaPlanActive = state.sectionStates.mediaPlan !== 'queued';
 
   // All done = all 7 sections approved (research + media plan)
@@ -207,6 +217,15 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                   </div>
                 </div>
               )}
+
+              {/* Media plan CTA — shown when all 6 research sections complete and media plan not yet started */}
+              {allResearchComplete && !mediaPlanActive && state.currentSection !== 'mediaPlan' && onGenerateMediaPlan && (
+                <MediaPlanCta
+                  sectionStates={state.sectionStates}
+                  onGenerateMediaPlan={onGenerateMediaPlan}
+                  mediaPlanGenerating={mediaPlanGenerating}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -217,14 +236,13 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         <ArtifactFooter variant="approve" onApprove={approveSection} />
       )}
 
-      {/* Show completion footer when all 6 research sections approved (media plan not yet generated) */}
+      {/* Show completion footer when all 6 research sections approved (media plan not yet generated).
+          The generate button is intentionally omitted here — the in-canvas MediaPlanCta card handles it. */}
       {allResearchApproved && !mediaPlanActive && (
         <ArtifactFooter
           variant="complete"
           docSaveStatus={docSaveStatus}
           sessionId={state.sessionId}
-          onGenerateMediaPlan={onGenerateMediaPlan}
-          mediaPlanGenerating={mediaPlanGenerating}
         />
       )}
 
