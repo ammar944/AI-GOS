@@ -204,15 +204,30 @@ export async function runMediaPlan(
 
       const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
 
-      const blockAbort = AbortSignal.timeout(120_000); // 2 min per block
-      const { object } = await generateObject({
-        model: anthropic(MODEL),
-        schema: stripNumericConstraints(block.schema),
-        maxOutputTokens: MAX_TOKENS,
-        system: systemParts.filter(Boolean).join('\n'),
-        prompt: userPrompt,
-        abortSignal: blockAbort,
-      });
+      // Try with 3-min timeout, retry once on timeout
+      let object: unknown;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const blockAbort = AbortSignal.timeout(180_000); // 3 min per block
+          const result = await generateObject({
+            model: anthropic(MODEL),
+            schema: stripNumericConstraints(block.schema),
+            maxOutputTokens: MAX_TOKENS,
+            system: systemParts.filter(Boolean).join('\n'),
+            prompt: userPrompt,
+            abortSignal: blockAbort,
+          });
+          object = result.object;
+          break;
+        } catch (err) {
+          const isTimeout = err instanceof DOMException && err.name === 'TimeoutError';
+          if (isTimeout && attempt === 1) {
+            console.warn(`[media-plan] Block ${i + 1} timed out — retrying (attempt 2)`);
+            continue;
+          }
+          throw err;
+        }
+      }
 
       // Validate the block
       let validatedData = object;
