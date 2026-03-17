@@ -1,6 +1,6 @@
-import { streamObject } from 'ai';
+import { generateObject } from 'ai';
 import { perplexity, MODELS } from '@/lib/ai/providers';
-import { companyResearchSchema } from '@/lib/company-intel/schemas';
+import { companyResearchSchema, type CompanyResearchOutput } from '@/lib/company-intel/schemas';
 import { createFirecrawlClient } from '@/lib/firecrawl';
 
 const SYSTEM_PROMPT = `You are a factual business researcher. You ONLY extract verifiable information from real web sources.
@@ -16,7 +16,8 @@ ABSOLUTE RULES:
 6. For testimonial quotes, ONLY use real quotes found on the site with attribution
 7. For competitor names, ONLY list competitors explicitly mentioned or clearly in the same market
 8. For URLs (case studies, pricing, demo pages), ONLY include URLs that actually exist on the site
-9. When scraped content is provided, prefer extracting from it over web search — it is the ground truth`;
+9. When scraped content is provided, prefer extracting from it over web search — it is the ground truth
+10. You MUST output EVERY field in the schema. If you cannot find a value for a field, output { "value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not found on website or LinkedIn." }. Never omit a field.`;
 
 const SCRAPE_PATHS = [
   '',
@@ -35,8 +36,53 @@ const SCRAPE_PATHS = [
 
 const MAX_PAGE_CHARS = 3000;
 const MAX_TOTAL_CHARS = 15000;
-const SCRAPE_TIMEOUT = 8000; // 8s per page — fast fail to avoid blocking Perplexity stream
+const SCRAPE_TIMEOUT = 8000; // 8s per page — fast fail to avoid blocking research
 const TOTAL_SCRAPE_TIMEOUT = 20000; // 20s max for entire scrape phase
+
+/**
+ * The canonical null field value returned for any field that cannot be found.
+ * Ensures every field in the schema is present even when the AI returns nothing.
+ */
+const NULL_FIELD = {
+  value: null,
+  confidence: 0,
+  sourceUrl: null,
+  reasoning: 'Not found on website or LinkedIn.',
+} as const;
+
+/**
+ * All 25 content fields in CompanyResearchOutput (excludes confidenceNotes).
+ * Hoisted to module scope so ensureCompleteOutput and countNonNullFields both
+ * iterate the same authoritative list — and log messages derive their count
+ * from CONTENT_FIELDS.length instead of a hardcoded magic number.
+ */
+const CONTENT_FIELDS: Array<keyof Omit<CompanyResearchOutput, 'confidenceNotes'>> = [
+  'companyName',
+  'businessModel',
+  'industryVertical',
+  'primaryIcpDescription',
+  'jobTitles',
+  'companySize',
+  'geography',
+  'headquartersLocation',
+  'productDescription',
+  'coreDeliverables',
+  'pricingTiers',
+  'valueProp',
+  'guarantees',
+  'topCompetitors',
+  'uniqueEdge',
+  'marketProblem',
+  'situationBeforeBuying',
+  'desiredTransformation',
+  'commonObjections',
+  'brandPositioning',
+  'testimonialQuote',
+  'caseStudiesUrl',
+  'testimonialsUrl',
+  'pricingUrl',
+  'demoUrl',
+];
 
 export interface CompanyResearchInput {
   websiteUrl: string;
@@ -129,11 +175,64 @@ export async function scrapeWebsiteContent(websiteUrl: string): Promise<string> 
   }
 }
 
+/**
+ * Guarantee every schema field is present in the AI output.
+ *
+ * generateObject() with a Zod schema will throw if required fields are missing,
+ * but this guard catches any edge case where the object was mutated or a field
+ * slipped through as undefined (possible with Perplexity provider quirks).
+ * All CONTENT_FIELDS.length content fields + confidenceNotes are enforced here.
+ */
+function ensureCompleteOutput(output: CompanyResearchOutput): CompanyResearchOutput {
+  // Shallow copy is intentional: we replace top-level field objects, not mutate nested values
+  const patched = { ...output };
+
+  for (const field of CONTENT_FIELDS) {
+    const existing = patched[field];
+    if (
+      !existing ||
+      typeof existing !== 'object' ||
+      !('value' in existing)
+    ) {
+      // Field is missing or malformed — replace with canonical null value
+      (patched as Record<string, unknown>)[field] = { ...NULL_FIELD };
+    }
+  }
+
+  if (typeof patched.confidenceNotes !== 'string') {
+    patched.confidenceNotes = 'Extraction completed. Some fields may not have been found.';
+  }
+
+  return patched;
+}
+
+/**
+ * Count how many content fields have a non-null value.
+ */
+function countNonNullFields(output: CompanyResearchOutput): number {
+  return CONTENT_FIELDS.filter((field) => {
+    const val = output[field];
+    return val && typeof val === 'object' && 'value' in val && (val as { value: string | null }).value !== null;
+  }).length;
+}
+
+/**
+ * Run company research using generateObject() for deterministic, complete output.
+ *
+ * Uses generateObject() instead of streamObject() to ensure:
+ * - All 25 schema fields are ALWAYS present in the response
+ * - temperature: 0 for deterministic extraction
+ * - Complete Zod validation before any data leaves this function
+ *
+ * Returns an object with a `textStream` property that emits the complete JSON
+ * as a single chunk — compatible with the route's createTextStreamResponse() call
+ * and the frontend's experimental_useObject() consumer.
+ */
 export async function runCompanyResearch({
   websiteUrl,
   linkedinUrl,
-}: CompanyResearchInput) {
-  // Race scrape against total timeout — never let scraping block the Perplexity stream
+}: CompanyResearchInput): Promise<{ textStream: ReadableStream<string> }> {
+  // Race scrape against total timeout — never let scraping block research
   console.log('[company-research] Starting scrape for:', websiteUrl);
   const scrapeStart = Date.now();
   const scrapedContent = await Promise.race([
@@ -147,7 +246,7 @@ export async function runCompanyResearch({
   ]);
   console.log(`[company-research] Scrape done in ${Date.now() - scrapeStart}ms, content: ${scrapedContent.length} chars`);
 
-  const userPrompt = `Research this company thoroughly:
+  const userPrompt = `Research this company thoroughly and extract ALL fields in the schema:
 - Website: ${websiteUrl}
 ${linkedinUrl ? `- LinkedIn: ${linkedinUrl}` : ''}
 ${scrapedContent}
@@ -155,32 +254,42 @@ ${scrapedContent}
 ${scrapedContent
     ? 'I have provided the actual scraped content from their website above. Extract information primarily from this content, and supplement with web search for anything not covered (e.g., LinkedIn data, competitor info).'
     : 'Visit the website and extract factual information for each field in the schema.'}
-For any field you cannot verify from actual sources, set the value to null.
-Be thorough but honest — a null value is better than a fabricated one.`;
 
-  console.log('[company-research] Starting Perplexity streamObject...');
-  const result = streamObject({
+CRITICAL: You MUST output every single field in the schema. For any field you cannot verify from actual sources, output: { "value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not found on website or LinkedIn." }
+Never omit a field — null is correct, missing is not.`;
+
+  console.log('[company-research] Starting Perplexity generateObject...');
+  const generateStart = Date.now();
+
+  const { object: rawOutput, usage } = await generateObject({
     model: perplexity(MODELS.SONAR_PRO),
     schema: companyResearchSchema,
     system: SYSTEM_PROMPT,
     prompt: userPrompt,
-    temperature: 0.1,
-    maxOutputTokens: 4000,
-    onFinish: ({ object, error, usage }) => {
-      if (error) {
-        console.error('[company-research] streamObject finished with error:', error);
-      } else {
-        const fieldCount = object ? Object.keys(object).filter(k =>
-          k !== 'confidenceNotes' && (object as Record<string, unknown>)[k] &&
-          typeof (object as Record<string, unknown>)[k] === 'object' &&
-          ((object as Record<string, { value?: string | null }>)[k])?.value != null
-        ).length : 0;
-        console.log(`[company-research] streamObject finished — ${fieldCount} fields with values`, {
-          inputTokens: usage?.inputTokens,
-          outputTokens: usage?.outputTokens,
-        });
-      }
+    temperature: 0,
+    maxOutputTokens: 8000,
+  });
+
+  const elapsed = Date.now() - generateStart;
+  const output = ensureCompleteOutput(rawOutput);
+  const fieldCount = countNonNullFields(output);
+
+  console.log(`[company-research] generateObject finished in ${elapsed}ms — ${fieldCount}/${CONTENT_FIELDS.length} fields with values`, {
+    inputTokens: usage?.inputTokens,
+    outputTokens: usage?.outputTokens,
+  });
+
+  // Serialize the complete object to JSON and stream it as a single chunk.
+  // The frontend's experimental_useObject() accumulates raw JSON text — emitting
+  // the full JSON at once is valid and guarantees a consistent, complete result.
+  const jsonPayload = JSON.stringify(output);
+
+  const textStream = new ReadableStream<string>({
+    start(controller) {
+      controller.enqueue(jsonPayload);
+      controller.close();
     },
   });
-  return result;
+
+  return { textStream };
 }

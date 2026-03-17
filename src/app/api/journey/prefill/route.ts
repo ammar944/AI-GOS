@@ -6,7 +6,7 @@ import {
   runCompanyResearch,
 } from '@/lib/company-intel/run-company-research';
 
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   console.log('[prefill] Starting research for:', websiteUrl, linkedinUrl ? `+ LinkedIn: ${linkedinUrl}` : '');
   try {
     const result = await runCompanyResearch({ websiteUrl, linkedinUrl });
-    console.log('[prefill] streamObject created — starting stream response');
+    console.log('[prefill] Research complete — streaming response');
 
     // Use createTextStreamResponse for safer stream handling in Next.js 16
     // avoids "Controller is already closed" errors from toTextStreamResponse()
