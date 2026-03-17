@@ -19,17 +19,26 @@ export interface SynthesisInput {
   sonarResults: SonarCompetitorResult;
 }
 
-const SYNTHESIS_SYSTEM_PROMPT = `You are an expert competitive analyst producing a competitor artifact for a paid media strategist.
+/**
+ * Build the synthesis system prompt with the current date injected.
+ * This is a function (not a constant) so the date is always fresh
+ * and the model knows what "currently in business" means.
+ */
+function buildSynthesisSystemPrompt(currentDate: string): string {
+  return `You are an expert competitive analyst producing a competitor artifact for a paid media strategist.
+Today's date is ${currentDate}.
 
 TASK: Synthesize the pre-fetched evidence into the required JSON schema. All research data has already been gathered — your job is ONLY to synthesize it, not to research further.
 
 CRITICAL RULES:
+- HALLUCINATION PREVENTION: NEVER invent competitors, data points, or claims not present in the evidence package. If a competitor has no evidence in the package, do not include them in the output.
+- VERIFIED COMPETITORS ONLY: The evidence package includes a "Competitor Validation Results" section. Only include competitors listed under "VERIFIED". Do NOT include any competitor listed under "REMOVED (unverified or wrong industry)".
 - PRICING: Use ONLY the Firecrawl pricing data as ground truth. If Firecrawl found pricing, use those exact tiers. If Firecrawl did NOT find pricing, set price to "See pricing page" and pricingConfidence to "low". NEVER infer or hallucinate pricing.
 - AD DATA: Use the Ad Library data as ground truth for ad counts, platforms, and creatives. If ad data is sparse, say so in the evidence field.
 - REVIEWS: Use the Sonar Pro review intelligence for strengths, weaknesses, and switching triggers. Attribute to source when possible.
 - SPYFU: Use SpyFu data for keyword intelligence and ad spend estimates. If SpyFu data is missing, keep adSpendIntensity conservative (4 or below).
-- Return exactly 5 competitors when the evidence supports it. If fewer than 5 competitors have data, include what you have.
-- Do not invent competitors, data points, or claims not in the evidence.
+- Return exactly 5 competitors when the evidence supports it. If fewer than 5 competitors have verified data, include only those that have been verified.
+- Only include companies that are verifiably currently in business.
 
 COMPRESSION RULES (STRICT — output must fit in 7000 tokens):
 - positioning, ourAdvantage, counterPositioning: ONE sentence max (under 20 words)
@@ -43,6 +52,7 @@ COMPRESSION RULES (STRICT — output must fit in 7000 tokens):
 - overallLandscape: 1 sentence
 
 OUTPUT: Return ONLY the JSON object. No preamble, no markdown fences, no \`\`\`json wrapper. Start with { and end with }.`;
+}
 
 const OUTPUT_SCHEMA = `{
   "competitors": [
@@ -115,9 +125,16 @@ function buildEvidencePackage(input: SynthesisInput): string {
 - Unique Edge: ${parsed.uniqueEdge ?? 'Unknown'}
 - Goals: ${parsed.goals ?? 'Unknown'}`);
 
-  // 2. Competitors list
-  sections.push(`## Competitors Identified (from user)
-${parsed.competitors.map(c => `- ${c.name} (${c.domain ?? 'no domain'})${c.inferredDomain ? ' [domain inferred]' : ''}`).join('\n')}`);
+  // 2. Competitor validation results — synthesis model MUST respect these
+  const verifiedNames = sonarResults.verifiedCompetitors ?? parsed.competitors.map(c => c.name);
+  const removedList = sonarResults.removedCompetitors ?? [];
+
+  sections.push(`## Competitor Validation Results (WEB-VERIFIED)
+VERIFIED — include in output:
+${verifiedNames.map(n => `- ${n}`).join('\n') || '(none verified — use all from context with caution)'}
+
+REMOVED (unverified or wrong industry) — DO NOT include in output:
+${removedList.map(r => `- ${r.name}: ${r.reason}`).join('\n') || '(none removed)'}`);
 
   // 3. Firecrawl pricing data
   sections.push('## Firecrawl Pricing Data (GROUND TRUTH for pricing)');
@@ -228,12 +245,14 @@ export async function synthesizeCompetitorIntel(
 ): Promise<{ resultText: string; stopReason: string | null }> {
   const client = new Anthropic({ maxRetries: 0 });
   const evidence = buildEvidencePackage(input);
+  const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const systemPrompt = buildSynthesisSystemPrompt(currentDate);
 
   const result = await Promise.race([
     client.messages.create({
       model: SYNTHESIS_MODEL,
       max_tokens: SYNTHESIS_MAX_TOKENS,
-      system: `${SYNTHESIS_SYSTEM_PROMPT}\n\n${OUTPUT_SCHEMA}`,
+      system: `${systemPrompt}\n\n${OUTPUT_SCHEMA}`,
       messages: [
         {
           role: 'user',
