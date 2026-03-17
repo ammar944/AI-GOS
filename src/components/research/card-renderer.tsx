@@ -18,6 +18,17 @@ import { InsightCard } from '@/components/workspace/cards/insight-card';
 import { PlatformCard } from '@/components/workspace/cards/platform-card';
 import { AngleCard } from '@/components/workspace/cards/angle-card';
 import { ChartCard } from '@/components/workspace/cards/chart-card';
+import { StrategySnapshotCard } from '@/components/workspace/cards/strategy-snapshot-card';
+import { BudgetSummaryCard } from '@/components/workspace/cards/budget-summary-card';
+import { SegmentCard } from '@/components/workspace/cards/segment-card';
+import { CampaignCard } from '@/components/workspace/cards/campaign-card';
+import { CreativeAngleCard } from '@/components/workspace/cards/creative-angle-card';
+import { RiskCard } from '@/components/workspace/cards/risk-card';
+import { FormatSpecCard } from '@/components/workspace/cards/format-spec-card';
+import { TestingPlanCard } from '@/components/workspace/cards/testing-plan-card';
+import { KpiGridCard } from '@/components/workspace/cards/kpi-grid-card';
+import { CacModelCard } from '@/components/workspace/cards/cac-model-card';
+import { PhaseCard } from '@/components/workspace/cards/phase-card';
 import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
@@ -177,6 +188,101 @@ export function CardContentSwitch({ card }: { card: CardState }) {
       if (!normalized) return <p className="text-sm text-[var(--text-secondary)]">Keyword intelligence could not be rendered.</p>;
       return <JourneyKeywordIntelDetail data={normalized} />;
     }
+    case 'strategy-snapshot':
+      return (
+        <StrategySnapshotCard
+          headline={card.content.headline as string | undefined}
+          topPriorities={card.content.topPriorities as Array<{label?: string; description?: string}> | undefined}
+          budgetOverview={card.content.budgetOverview as {total?: number; topPlatform?: string; timeToFirstResults?: string} | undefined}
+          expectedOutcomes={card.content.expectedOutcomes as {leadsPerMonth?: number; estimatedCAC?: number; expectedROAS?: number} | undefined}
+        />
+      );
+    case 'budget-summary':
+      return (
+        <BudgetSummaryCard
+          totalMonthly={card.content.totalMonthly as number | undefined}
+          funnelSplit={card.content.funnelSplit as {awareness?: number; consideration?: number; conversion?: number} | undefined}
+          rampUpWeeks={card.content.rampUpWeeks as number | undefined}
+        />
+      );
+    case 'segment-card':
+      return (
+        <SegmentCard
+          name={card.content.name as string}
+          description={card.content.description as string | undefined}
+          estimatedReach={card.content.estimatedReach as string | undefined}
+          funnelPosition={card.content.funnelPosition as string | undefined}
+          priority={card.content.priority as number | undefined}
+        />
+      );
+    case 'campaign-card':
+      return (
+        <CampaignCard
+          platform={card.content.platform as string | undefined}
+          name={card.content.name as string}
+          objective={card.content.objective as string | undefined}
+          adSets={card.content.adSets as Array<Record<string, unknown>> | undefined}
+          namingConvention={card.content.namingConvention as string | undefined}
+        />
+      );
+    case 'creative-angle':
+      return (
+        <CreativeAngleCard
+          theme={card.content.theme as string}
+          hook={card.content.hook as string | undefined}
+          messagingApproach={card.content.messagingApproach as string | undefined}
+          targetSegment={card.content.targetSegment as string | undefined}
+        />
+      );
+    case 'format-spec':
+      return <FormatSpecCard specs={card.content.specs as Array<Record<string, unknown>>} />;
+    case 'testing-plan':
+      return (
+        <TestingPlanCard
+          firstTests={card.content.firstTests as string[] | undefined}
+          methodology={card.content.methodology as string | undefined}
+          minBudgetPerTest={card.content.minBudgetPerTest as number | undefined}
+        />
+      );
+    case 'kpi-grid':
+      return <KpiGridCard kpis={card.content.kpis as Array<Record<string, unknown>>} />;
+    case 'cac-model':
+      return (
+        <CacModelCard
+          targetCAC={card.content.targetCAC as number | undefined}
+          expectedCPL={card.content.expectedCPL as number | undefined}
+          leadToSqlRate={card.content.leadToSqlRate as number | undefined}
+          sqlToCustomerRate={card.content.sqlToCustomerRate as number | undefined}
+          expectedLeadsPerMonth={card.content.expectedLeadsPerMonth as number | undefined}
+          expectedSQLsPerMonth={card.content.expectedSQLsPerMonth as number | undefined}
+          expectedCustomersPerMonth={card.content.expectedCustomersPerMonth as number | undefined}
+          ltv={card.content.ltv as number | undefined}
+          ltvCacRatio={card.content.ltvCacRatio as number | undefined}
+        />
+      );
+    case 'risk-card':
+      return (
+        <RiskCard
+          risk={card.content.risk as string}
+          category={card.content.category as string | undefined}
+          severity={card.content.severity as string | undefined}
+          likelihood={card.content.likelihood as string | undefined}
+          mitigation={card.content.mitigation as string | undefined}
+          earlyWarning={card.content.earlyWarning as string | undefined}
+        />
+      );
+    case 'phase-card':
+      return (
+        <PhaseCard
+          name={card.content.name as string}
+          duration={card.content.duration as string | undefined}
+          objectives={card.content.objectives as string[] | undefined}
+          activities={card.content.activities as string[] | undefined}
+          successCriteria={card.content.successCriteria as string[] | undefined}
+          budgetAllocation={card.content.budgetAllocation as number | undefined}
+          goNoGo={card.content.goNoGo as string | undefined}
+        />
+      );
     default:
       return <p className="text-xs text-[var(--text-tertiary)]">Unknown card type: {card.cardType}</p>;
   }
