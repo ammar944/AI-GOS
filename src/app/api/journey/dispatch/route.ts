@@ -64,7 +64,40 @@ export async function POST(req: Request) {
     });
   }
 
-  const result = await dispatchResearchForUser(tool, section, context, userId, {
+  // For mediaPlan: inject prior research results so the model synthesizes
+  // from real data instead of hallucinating evidence. The 6 research sections
+  // are already in Supabase — fetch and append them to the context string.
+  let enrichedContext = context;
+  if (section === 'mediaPlan' && runId) {
+    try {
+      const supabase = createAdminClient();
+      const { data: sessionData } = await supabase
+        .from('journey_sessions')
+        .select('research_results')
+        .eq('user_id', userId)
+        .eq('run_id', runId)
+        .maybeSingle();
+
+      const research = sessionData?.research_results as Record<string, unknown> | null;
+      if (research && Object.keys(research).length > 0) {
+        const researchSections: string[] = [];
+        for (const [key, value] of Object.entries(research)) {
+          if (key === 'mediaPlan' || !value) continue;
+          // Extract the data payload — research results wrap data in { status, data, ... }
+          const payload = (value as Record<string, unknown>)?.data ?? value;
+          researchSections.push(`## ${key}\n${JSON.stringify(payload, null, 1)}`);
+        }
+        if (researchSections.length > 0) {
+          enrichedContext = `${context}\n\n# Approved Research Results\n\n${researchSections.join('\n\n')}`;
+        }
+      }
+    } catch (err) {
+      // Non-fatal: proceed with original context if research fetch fails
+      console.warn('[dispatch] Failed to fetch research results for mediaPlan:', err);
+    }
+  }
+
+  const result = await dispatchResearchForUser(tool, section, enrichedContext, userId, {
     activeRunId: runId,
   });
 

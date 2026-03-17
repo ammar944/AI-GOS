@@ -704,6 +704,65 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
     }
   }
 
+  // Client-side charts from block data
+  if (channelMix) {
+    const platforms = asRecordArray(channelMix.platforms);
+    const platformChartData = platforms
+      .map(p => ({ name: asString(p.name) ?? '', percentage: asNumber(p.percentage) ?? 0 }))
+      .filter(p => p.name && p.percentage > 0);
+    if (platformChartData.length > 0) {
+      cards.push(makeCard(section, 'pie-chart', 'Platform Budget Allocation', { platforms: platformChartData }));
+    }
+
+    const budgetSummary = asRecord(channelMix.budgetSummary);
+    const funnelSplit = budgetSummary ? asRecord(budgetSummary.funnelSplit) : null;
+    if (funnelSplit) {
+      cards.push(makeCard(section, 'funnel-split-chart', 'Budget by Funnel Stage', {
+        funnelSplit: {
+          awareness: asNumber(funnelSplit.awareness) ?? 0,
+          consideration: asNumber(funnelSplit.consideration) ?? 0,
+          conversion: asNumber(funnelSplit.conversion) ?? 0,
+        },
+      }));
+    }
+  }
+
+  if (measurement) {
+    const cacModel = asRecord(measurement.cacModel);
+    if (cacModel) {
+      const leads = asNumber(cacModel.expectedLeadsPerMonth);
+      const sqls = asNumber(cacModel.expectedSQLsPerMonth);
+      const customers = asNumber(cacModel.expectedCustomersPerMonth);
+      if (leads != null && sqls != null && customers != null) {
+        cards.push(makeCard(section, 'cac-funnel-chart', 'CAC Conversion Funnel', {
+          cacModel: { expectedLeadsPerMonth: leads, expectedSQLsPerMonth: sqls, expectedCustomersPerMonth: customers },
+        }));
+      }
+    }
+
+    const kpis = asRecordArray(measurement.kpis);
+    const kpiChartData = kpis
+      .map(k => ({
+        metric: asString(k.metric) ?? '',
+        target: asNumber(k.target) ?? 0,
+        industryBenchmark: asNumber(k.industryBenchmark) ?? 0,
+      }))
+      .filter(k => k.metric);
+    if (kpiChartData.length > 0) {
+      cards.push(makeCard(section, 'kpi-benchmark-chart', 'KPI Targets vs Benchmarks', { kpis: kpiChartData }));
+    }
+  }
+
+  if (roadmap) {
+    const phases = asRecordArray(roadmap.phases);
+    const phaseChartData = phases
+      .map(p => ({ name: asString(p.name) ?? '', budgetAllocation: asNumber(p.budgetAllocation) ?? 0 }))
+      .filter(p => p.name && p.budgetAllocation > 0);
+    if (phaseChartData.length > 0) {
+      cards.push(makeCard(section, 'phase-budget-chart', 'Phase Budget Timeline', { phases: phaseChartData }));
+    }
+  }
+
   // Validation warnings
   const warnings = asStringArray(data.validationWarnings);
   if (warnings.length > 0) {

@@ -30,6 +30,13 @@ import { KpiGridCard } from '@/components/workspace/cards/kpi-grid-card';
 import { CacModelCard } from '@/components/workspace/cards/cac-model-card';
 import { PhaseCard } from '@/components/workspace/cards/phase-card';
 import {
+  PlatformBudgetPieChart,
+  FunnelSplitBarChart,
+  CACFunnelChart,
+  KPIBenchmarkChart,
+  PhaseBudgetChart,
+} from '@/components/workspace/cards/media-plan-charts';
+import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
 } from '@/components/journey/journey-keyword-intel-detail';
@@ -180,6 +187,36 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           title={card.content.title as string}
           description={card.content.description as string | undefined}
           imageUrl={card.content.imageUrl as string | undefined}
+        />
+      );
+    case 'pie-chart':
+      return (
+        <PlatformBudgetPieChart
+          platforms={card.content.platforms as Array<{name: string; percentage: number}>}
+        />
+      );
+    case 'funnel-split-chart':
+      return (
+        <FunnelSplitBarChart
+          funnelSplit={card.content.funnelSplit as {awareness: number; consideration: number; conversion: number}}
+        />
+      );
+    case 'cac-funnel-chart':
+      return (
+        <CACFunnelChart
+          cacModel={card.content.cacModel as {expectedLeadsPerMonth: number; expectedSQLsPerMonth: number; expectedCustomersPerMonth: number}}
+        />
+      );
+    case 'kpi-benchmark-chart':
+      return (
+        <KPIBenchmarkChart
+          kpis={card.content.kpis as Array<{metric: string; target: number; industryBenchmark: number}>}
+        />
+      );
+    case 'phase-budget-chart':
+      return (
+        <PhaseBudgetChart
+          phases={card.content.phases as Array<{name: string; budgetAllocation: number}>}
         />
       );
     case 'keyword-grid': {

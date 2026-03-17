@@ -380,3 +380,81 @@ describe('parseResearchToCards — crossAnalysis', () => {
     expect(cards.length).toBe(0);
   });
 });
+
+// -- Media Plan ----------------------------------------------------------------
+
+describe('parseResearchToCards — mediaPlan charts', () => {
+  it('creates pie-chart from channelMixBudget platforms', () => {
+    const mockData = {
+      channelMixBudget: {
+        platforms: [
+          { name: 'Google Search', percentage: 45 },
+          { name: 'LinkedIn', percentage: 30 },
+          { name: 'Meta', percentage: 25 },
+        ],
+      },
+    };
+
+    const cards = parseResearchToCards('mediaPlan', mockData);
+    const pieChart = cards.find((c) => c.cardType === 'pie-chart');
+
+    expect(pieChart).toBeDefined();
+    expect(pieChart!.sectionKey).toBe('mediaPlan');
+    expect(pieChart!.content.platforms).toHaveLength(3);
+  });
+
+  it('creates funnel-split-chart from budgetSummary', () => {
+    const mockData = {
+      channelMixBudget: {
+        budgetSummary: {
+          funnelSplit: { awareness: 30, consideration: 45, conversion: 25 },
+        },
+      },
+    };
+
+    const cards = parseResearchToCards('mediaPlan', mockData);
+    const funnelChart = cards.find((c) => c.cardType === 'funnel-split-chart');
+
+    expect(funnelChart).toBeDefined();
+    expect(funnelChart!.content.funnelSplit).toEqual({ awareness: 30, consideration: 45, conversion: 25 });
+  });
+
+  it('creates cac-funnel-chart from measurementGuardrails', () => {
+    const mockData = {
+      measurementGuardrails: {
+        cacModel: {
+          expectedLeadsPerMonth: 100,
+          expectedSQLsPerMonth: 15,
+          expectedCustomersPerMonth: 4,
+        },
+      },
+    };
+
+    const cards = parseResearchToCards('mediaPlan', mockData);
+    const cacChart = cards.find((c) => c.cardType === 'cac-funnel-chart');
+
+    expect(cacChart).toBeDefined();
+    expect(cacChart!.content.cacModel).toEqual({
+      expectedLeadsPerMonth: 100,
+      expectedSQLsPerMonth: 15,
+      expectedCustomersPerMonth: 4,
+    });
+  });
+
+  it('handles empty block data without chart cards', () => {
+    const mockData = {
+      channelMixBudget: { platforms: [] },
+      completedBlocks: ['channelMixBudget'],
+    };
+
+    const cards = parseResearchToCards('mediaPlan', mockData);
+    const chartCards = cards.filter((c) => c.cardType.includes('chart'));
+
+    expect(chartCards).toHaveLength(0);
+  });
+
+  it('handles missing charts key without error', () => {
+    const cards = parseResearchToCards('mediaPlan', {});
+    expect(cards).toHaveLength(0);
+  });
+});

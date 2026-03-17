@@ -178,3 +178,5 @@ describe('normalizeChartSpec', () => {
     });
   });
 });
+
+// generateChart was removed — charts are now rendered client-side via Recharts
