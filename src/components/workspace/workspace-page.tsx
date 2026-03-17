@@ -136,12 +136,8 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     activeRunId,
   });
 
-  const handleGenerateMediaPlan = useCallback(async () => {
-    if (!activeRunId || mediaPlanGenerating) return;
-    setMediaPlanGenerating(true);
-
-    // Build context: try localStorage first, then Supabase metadata
-    let context = 'Generate media plan from approved research results';
+  // Build context from localStorage or Supabase metadata
+  const buildSectionContext = useCallback(async (fallbackLabel: string): Promise<string> => {
     const session = getJourneySession();
     const contextLines: string[] = [];
     if (session) {
@@ -152,8 +148,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
       }
     }
 
-    // If localStorage was empty, try Supabase metadata
-    if (contextLines.length === 0) {
+    if (contextLines.length === 0 && activeRunId) {
       try {
         const res = await fetch(`/api/journey/session?runId=${activeRunId}`, {
           cache: 'no-store',
@@ -181,21 +176,35 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
       }
     }
 
-    if (contextLines.length > 0) {
-      context = contextLines.join('\n');
-    }
+    return contextLines.length > 0 ? contextLines.join('\n') : fallbackLabel;
+  }, [activeRunId]);
 
-    // Transition mediaPlan to researching and navigate to it
+  const handleRetrySection = useCallback(async (section: SectionKey) => {
+    if (!activeRunId) return;
+    setSectionPhase(section, 'researching');
+
+    const context = await buildSectionContext(`Retry ${section} research`);
+    const result = await dispatchResearchSection(section, activeRunId, context);
+    if (result.status === 'error') {
+      setSectionPhase(section, 'error', result.error ?? 'Retry failed');
+    }
+  }, [activeRunId, setSectionPhase, buildSectionContext]);
+
+  const handleGenerateMediaPlan = useCallback(async () => {
+    if (!activeRunId || mediaPlanGenerating) return;
+    setMediaPlanGenerating(true);
+
+    const context = await buildSectionContext('Generate media plan from approved research results');
+
     setSectionPhase('mediaPlan', 'researching');
     navigateToSection('mediaPlan');
 
-    // Dispatch to worker
     const result = await dispatchResearchSection('mediaPlan', activeRunId, context);
     if (result.status === 'error') {
       setSectionPhase('mediaPlan', 'error', result.error ?? 'Failed to start media plan generation');
     }
     setMediaPlanGenerating(false);
-  }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection]);
+  }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection, buildSectionContext]);
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
@@ -207,6 +216,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
           jobActivity={jobActivity}
           onGenerateMediaPlan={handleGenerateMediaPlan}
           mediaPlanGenerating={mediaPlanGenerating}
+          onRetrySection={handleRetrySection}
         />
         <RightRail className="hidden md:flex w-[380px] shrink-0" />
       </div>

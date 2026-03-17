@@ -34,10 +34,11 @@ interface ArtifactCanvasProps {
   jobActivity?: Record<string, ResearchJobActivity>;
   onGenerateMediaPlan?: () => void;
   mediaPlanGenerating?: boolean;
+  onRetrySection?: (section: SectionKey) => void;
 }
 
-export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating }: ArtifactCanvasProps) {
-  const { state, approveSection, setSectionPhase } = useWorkspace();
+export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection }: ArtifactCanvasProps) {
+  const { state, approveSection } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
   const isApproved = phase === 'approved';
@@ -96,8 +97,8 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   }, [state.cards, state.currentSection]);
 
   const handleRetry = useCallback(() => {
-    setSectionPhase(state.currentSection, 'researching');
-  }, [setSectionPhase, state.currentSection]);
+    onRetrySection?.(state.currentSection);
+  }, [onRetrySection, state.currentSection]);
 
   // Determine if we're viewing a non-mediaPlan section that's already approved
   // (browsing completed research while media plan generates)
