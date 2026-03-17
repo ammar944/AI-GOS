@@ -1593,7 +1593,7 @@ function JourneyPageContent() {
 
   const showChatView = journeyPhase === 'chat';
   const showResumeView = journeyPhase === 'resume';
-  const isResearchGenerating = activeResearch.size > 0;
+  const isResearchGenerating = activeResearch.size > 0 && !pendingAskUser && !artifactFeedbackSection;
   const showStudioPreview = isJourneyStudioPreview(searchParams);
   const studioDockItems = showChatView ? progressItems : DEMO_PROGRESS_ITEMS;
   const conversationWidthClass = showStudioPreview
@@ -1691,7 +1691,7 @@ function JourneyPageContent() {
                 : 'w-full',
           )}
         >
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="sync" initial={false}>
             {isResearchGenerating ? (
               <motion.div
                 key="research-in-progress"
@@ -1733,12 +1733,7 @@ function JourneyPageContent() {
                   )}
 
                   <div className={wideContentWidthClass}>
-                    <JourneyProgressPanel
-                      items={studioDockItems}
-                      computeStatus="stable"
-                      computePercent={85}
-                      variant={showStudioPreview ? 'studio' : 'default'}
-                    />
+                    {progressPanel}
                   </div>
 
                   {dispatchTimeoutFallbackSections.size > 0 && (
