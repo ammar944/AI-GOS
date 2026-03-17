@@ -1593,6 +1593,7 @@ function JourneyPageContent() {
 
   const showChatView = journeyPhase === 'chat';
   const showResumeView = journeyPhase === 'resume';
+  const isResearchGenerating = activeResearch.size > 0;
   const showStudioPreview = isJourneyStudioPreview(searchParams);
   const studioDockItems = showChatView ? progressItems : DEMO_PROGRESS_ITEMS;
   const conversationWidthClass = showStudioPreview
@@ -1690,187 +1691,258 @@ function JourneyPageContent() {
                 : 'w-full',
           )}
         >
-          <section
-            ref={scrollAreaRef}
-            className={cn(
-              'flex-1 overflow-y-auto custom-scrollbar',
-              showStudioPreview
-                ? 'space-y-6 px-6 pb-44 pt-6 sm:px-8'
-                : 'space-y-8 px-6 pb-32',
-            )}
-          >
-            {messages.length === 0 && (
-              <div className={conversationWidthClass}>
-                <ChatMessage
-                  role="assistant"
-                  content={welcomeMessage}
-                  isStreaming={false}
-                />
-              </div>
-            )}
+          <AnimatePresence mode="wait" initial={false}>
+            {isResearchGenerating ? (
+              <motion.div
+                key="research-in-progress"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="flex flex-1 min-h-0 flex-col"
+              >
+                <section
+                  className={cn(
+                    'flex-1 overflow-y-auto custom-scrollbar',
+                    showStudioPreview
+                      ? 'space-y-6 px-6 pb-8 pt-6 sm:px-8'
+                      : 'space-y-6 px-6 pb-8 pt-8',
+                  )}
+                >
+                  <div className={wideContentWidthClass}>
+                    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4">
+                      <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/30">
+                        Research in progress
+                      </p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+                        Chat will be available once results are ready for review.
+                      </p>
+                    </div>
+                  </div>
 
-            {researchCards.filter((card) => !REVIEW_ARTIFACT_SECTIONS.has(card.section)).length > 0 && (
-              <div className={cn('grid gap-4', researchGridClassName)}>
-                {researchCards
-                  .filter((card) => !REVIEW_ARTIFACT_SECTIONS.has(card.section))
-                  .map((card) => (
-                    <ResearchInlineCard
-                      key={card.section}
-                      activity={card.activity}
-                      section={card.section}
-                      status={card.status}
-                      data={card.data}
-                      error={card.error}
-                    />
-                  ))}
-              </div>
-            )}
+                  {terminalLogs.length > 0 && (
+                    <div className={wideContentWidthClass}>
+                      <TerminalStream logs={terminalLogs} />
+                    </div>
+                  )}
 
-            {workerStatusItems.length > 0 && (
-              <div className={wideContentWidthClass}>
-                <JourneyWorkerStatusBanner items={workerStatusItems} />
-              </div>
-            )}
+                  {workerStatusItems.length > 0 && (
+                    <div className={wideContentWidthClass}>
+                      <JourneyWorkerStatusBanner items={workerStatusItems} />
+                    </div>
+                  )}
 
-            {terminalLogs.length > 0 && (
-              <div className={wideContentWidthClass}>
-                <TerminalStream logs={terminalLogs} />
-              </div>
-            )}
-
-            {messages
-              .filter((m) => {
-                if (
-                  m.role === 'user' &&
-                  m.parts?.some((part) =>
-                    getMessageTextPartText(part)?.startsWith('[SECTION_APPROVED') === true,
-                  )
-                ) {
-                  return false;
-                }
-                if (isHiddenJourneyMessage(m)) return false;
-                if (m.id.startsWith('realtime-')) return false;
-                return true;
-              })
-              .map((message, index) => {
-                const isThisMessageStreaming =
-                  message.role === 'assistant' &&
-                  message.id === messages[messages.length - 1]?.id &&
-                  isLastMessageStreaming;
-
-                const metadata = message.metadata as Record<string, unknown> | undefined;
-                const displayText = metadata?.displayText as string | undefined;
-                const effectiveParts = displayText
-                  ? [{ type: 'text' as const, text: displayText }]
-                  : filterJourneyMessageParts(message.parts);
-
-                return (
-                  <div key={`${message.id}-${index}`} className={conversationWidthClass}>
-                    <ChatMessage
-                      messageId={message.id}
-                      role={message.role as 'user' | 'assistant'}
-                      parts={effectiveParts}
-                      isStreaming={isThisMessageStreaming}
-                      onToolApproval={(approvalId, approved) =>
-                        addToolApprovalResponse({ id: approvalId, approved })
-                      }
-                      onToolOutput={handleAskUserResponse}
+                  <div className={wideContentWidthClass}>
+                    <JourneyProgressPanel
+                      items={studioDockItems}
+                      computeStatus="stable"
+                      computePercent={85}
+                      variant={showStudioPreview ? 'studio' : 'default'}
                     />
                   </div>
-                );
-              })}
 
-            {showArtifactTrigger && (
-              <div className={conversationWidthClass}>
-                <ArtifactTriggerCard
-                  approved={artifactApproved}
-                  section={artifactSection}
-                  status={artifactStatus}
-                  onClick={() => showArtifactSection(artifactSection)}
-                />
-              </div>
-            )}
-
-            {recentlyApprovedArtifactSection && approvedSectionLabel && !artifactFeedbackSection && (
-              <div className={conversationWidthClass}>
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-4">
-                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-emerald-300/80">
-                    {approvedSectionLabel} Approved
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-white/78">
-                    {approvedSectionNextStep}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {artifactFeedbackSection && feedbackSectionLabel && (
-              <div className={conversationWidthClass}>
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-4">
-                  <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-amber-300/80">
-                    Refine {feedbackSectionLabel}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-white/78">
-                    Tell me what should change in this artifact. I&apos;ll keep the Journey
-                    anchored here until the section is clarified and approved.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {isSubmitted && (
-              <div className={conversationWidthClass}>
-                <TypingIndicator className="ml-9" />
-              </div>
-            )}
-
-            {error && (
-              <div className={conversationWidthClass}>
-                <div
-                  className="rounded-lg px-3 py-2 text-xs"
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    color: '#ef4444',
-                  }}
+                  {dispatchTimeoutFallbackSections.size > 0 && (
+                    <div className={wideContentWidthClass}>
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                        Research is taking longer than expected. Results will appear here once the worker completes.
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="chat-active"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="relative flex flex-1 min-h-0 flex-col"
+              >
+                <section
+                  ref={scrollAreaRef}
+                  className={cn(
+                    'flex-1 overflow-y-auto custom-scrollbar',
+                    showStudioPreview
+                      ? 'space-y-6 px-6 pb-44 pt-6 sm:px-8'
+                      : 'space-y-8 px-6 pb-32',
+                  )}
                 >
-                  {renderedChatError}
-                </div>
-              </div>
-            )}
+                  {messages.length === 0 && (
+                    <div className={conversationWidthClass}>
+                      <ChatMessage
+                        role="assistant"
+                        content={welcomeMessage}
+                        isStreaming={false}
+                      />
+                    </div>
+                  )}
 
-            {dispatchTimeoutFallbackSections.size > 0 && activeResearch.size > 0 && (
-              <div className={conversationWidthClass}>
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                  Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
-                </div>
-              </div>
-            )}
-          </section>
+                  {researchCards.filter((card) => !REVIEW_ARTIFACT_SECTIONS.has(card.section)).length > 0 && (
+                    <div className={cn('grid gap-4', researchGridClassName)}>
+                      {researchCards
+                        .filter((card) => !REVIEW_ARTIFACT_SECTIONS.has(card.section))
+                        .map((card) => (
+                          <ResearchInlineCard
+                            key={card.section}
+                            activity={card.activity}
+                            section={card.section}
+                            status={card.status}
+                            data={card.data}
+                            error={card.error}
+                          />
+                        ))}
+                    </div>
+                  )}
 
-          <div
-            className={cn(
-              'pointer-events-none flex justify-center',
-              showStudioPreview
-                ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0c0b09] via-[#0c0b09]/96 to-transparent px-5 pb-6 pt-20'
-                : 'absolute bottom-8 left-0 right-0 px-6',
+                  {workerStatusItems.length > 0 && (
+                    <div className={wideContentWidthClass}>
+                      <JourneyWorkerStatusBanner items={workerStatusItems} />
+                    </div>
+                  )}
+
+                  {terminalLogs.length > 0 && (
+                    <div className={wideContentWidthClass}>
+                      <TerminalStream logs={terminalLogs} />
+                    </div>
+                  )}
+
+                  {messages
+                    .filter((m) => {
+                      if (
+                        m.role === 'user' &&
+                        m.parts?.some((part) =>
+                          getMessageTextPartText(part)?.startsWith('[SECTION_APPROVED') === true,
+                        )
+                      ) {
+                        return false;
+                      }
+                      if (isHiddenJourneyMessage(m)) return false;
+                      if (m.id.startsWith('realtime-')) return false;
+                      return true;
+                    })
+                    .map((message, index) => {
+                      const isThisMessageStreaming =
+                        message.role === 'assistant' &&
+                        message.id === messages[messages.length - 1]?.id &&
+                        isLastMessageStreaming;
+
+                      const metadata = message.metadata as Record<string, unknown> | undefined;
+                      const displayText = metadata?.displayText as string | undefined;
+                      const effectiveParts = displayText
+                        ? [{ type: 'text' as const, text: displayText }]
+                        : filterJourneyMessageParts(message.parts);
+
+                      return (
+                        <div key={`${message.id}-${index}`} className={conversationWidthClass}>
+                          <ChatMessage
+                            messageId={message.id}
+                            role={message.role as 'user' | 'assistant'}
+                            parts={effectiveParts}
+                            isStreaming={isThisMessageStreaming}
+                            onToolApproval={(approvalId, approved) =>
+                              addToolApprovalResponse({ id: approvalId, approved })
+                            }
+                            onToolOutput={handleAskUserResponse}
+                          />
+                        </div>
+                      );
+                    })}
+
+                  {showArtifactTrigger && (
+                    <div className={conversationWidthClass}>
+                      <ArtifactTriggerCard
+                        approved={artifactApproved}
+                        section={artifactSection}
+                        status={artifactStatus}
+                        onClick={() => showArtifactSection(artifactSection)}
+                      />
+                    </div>
+                  )}
+
+                  {recentlyApprovedArtifactSection && approvedSectionLabel && !artifactFeedbackSection && (
+                    <div className={conversationWidthClass}>
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-4">
+                        <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-emerald-300/80">
+                          {approvedSectionLabel} Approved
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-white/78">
+                          {approvedSectionNextStep}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {artifactFeedbackSection && feedbackSectionLabel && (
+                    <div className={conversationWidthClass}>
+                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-4">
+                        <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-amber-300/80">
+                          Refine {feedbackSectionLabel}
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-white/78">
+                          Tell me what should change in this artifact. I&apos;ll keep the Journey
+                          anchored here until the section is clarified and approved.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isSubmitted && (
+                    <div className={conversationWidthClass}>
+                      <TypingIndicator className="ml-9" />
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className={conversationWidthClass}>
+                      <div
+                        className="rounded-lg px-3 py-2 text-xs"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          color: '#ef4444',
+                        }}
+                      >
+                        {renderedChatError}
+                      </div>
+                    </div>
+                  )}
+
+                  {dispatchTimeoutFallbackSections.size > 0 && activeResearch.size > 0 && (
+                    <div className={conversationWidthClass}>
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                        Research is taking longer than expected. You can continue the conversation — results will appear if they complete.
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <div
+                  className={cn(
+                    'pointer-events-none flex justify-center',
+                    showStudioPreview
+                      ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0c0b09] via-[#0c0b09]/96 to-transparent px-5 pb-6 pt-20'
+                      : 'absolute bottom-8 left-0 right-0 px-6',
+                  )}
+                >
+                  <JourneyChatInput
+                    onSubmit={handleSubmit}
+                    isLoading={isLoading && !pendingAskUser}
+                    placeholder={
+                      artifactFeedbackSection && feedbackSectionLabel
+                        ? `Tell me what to change in ${feedbackSectionLabel}...`
+                        : pendingAskUser
+                          ? 'Pick an option or type your own answer...'
+                          : isResuming
+                            ? "Let's pick up where we left off..."
+                            : 'Ask AIGOS to refine the strategy...'
+                    }
+                    variant={showStudioPreview ? 'studio' : 'default'}
+                  />
+                </div>
+              </motion.div>
             )}
-          >
-            <JourneyChatInput
-              onSubmit={handleSubmit}
-              isLoading={isLoading && !pendingAskUser}
-              placeholder={
-                artifactFeedbackSection && feedbackSectionLabel
-                  ? `Tell me what to change in ${feedbackSectionLabel}...`
-                  : pendingAskUser
-                    ? 'Pick an option or type your own answer...'
-                    : isResuming
-                      ? "Let's pick up where we left off..."
-                      : 'Ask AIGOS to refine the strategy...'
-              }
-              variant={showStudioPreview ? 'studio' : 'default'}
-            />
-          </div>
+          </AnimatePresence>
         </div>
 
         {!showStudioPreview && (
