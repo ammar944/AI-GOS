@@ -1,5 +1,5 @@
 export { runResearchIndustry } from './industry';
-export { runResearchCompetitors } from './competitors';
+export { runResearchCompetitors } from '../competitors';
 export { runResearchICP } from './icp';
 export { runResearchOffer } from './offer';
 export { runSynthesizeResearch } from './synthesize';

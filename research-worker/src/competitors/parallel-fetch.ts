@@ -5,11 +5,13 @@
 import type { BetaToolResultContentBlockParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { firecrawlTool } from '../tools/firecrawl';
 import { spyfuTool } from '../tools/spyfu';
-import { adLibraryTool } from '../tools/adlibrary';
+import { fetchCompetitorAds } from '../tools/apify-ads';
 import type { WorkerAdInsight } from '../tools/adlibrary-types';
 import type { CompetitorEntry } from './parse-context';
 
-const PARALLEL_TIMEOUT_MS = 20_000;
+// SearchAPI calls complete in 2-5s. Firecrawl + SpyFu may take up to 20s.
+// 30s is generous for the SearchAPI-only ad path + Firecrawl + SpyFu.
+const PARALLEL_TIMEOUT_MS = 30_000;
 
 // Maximum competitors to process — keeps API rate limits sane
 const MAX_COMPETITORS = 5;
@@ -174,22 +176,20 @@ async function fetchSpyfu(competitor: CompetitorEntry): Promise<SpyfuResult> {
 }
 
 /**
- * Get ad library creative data for a competitor from SearchAPI.io.
+ * Get ad creatives for a competitor.
+ * Uses Apify for Meta + Google, SearchAPI for LinkedIn.
  */
 async function fetchAdLibrary(competitor: CompetitorEntry): Promise<AdLibraryResult> {
   try {
-    const resultStr = runResultToString(
-      await adLibraryTool.run({
-        companyName: competitor.name,
-        domain: competitor.domain ?? undefined,
-      }),
+    const insight = await fetchCompetitorAds(
+      competitor.name,
+      competitor.domain ?? undefined,
     );
-    const result = safeJsonParse(resultStr) as WorkerAdInsight | null;
 
     return {
       competitorName: competitor.name,
       domain: competitor.domain ?? '',
-      adInsight: result,
+      adInsight: insight,
     };
   } catch (error) {
     return {

@@ -8,11 +8,12 @@ import type {
 } from './adlibrary-types';
 
 interface SearchApiAdRecord {
+  // Flat fields (some platforms)
   platform?: string;
   headline?: string;
   title?: string;
   description?: string;
-  body?: string;
+  body?: string | { text?: string };
   text?: string;
   advertiser_id?: string;
   advertiser_name?: string;
@@ -25,6 +26,43 @@ interface SearchApiAdRecord {
   first_shown?: string;
   last_shown?: string;
   is_active?: boolean;
+
+  // Meta nested structure (SearchAPI returns raw Meta Ad Library format)
+  page_name?: string;
+  ad_archive_id?: string;
+  ad_library_url?: string;
+  publisher_platform?: string[];
+  start_date?: number;
+  end_date?: number;
+  start_date_formatted?: string;
+  end_date_formatted?: string;
+  snapshot?: {
+    title?: string;
+    caption?: string;
+    body?: { text?: string } | string;
+    cta_text?: string;
+    display_format?: string;
+    link_url?: string;
+    images?: Array<string | { url?: string }>;
+    videos?: Array<{ video_hd_url?: string; video_preview_image_url?: string }>;
+    cards?: Array<{ title?: string; body?: string; original_image_url?: string }>;
+    page_name?: string;
+  };
+
+  // LinkedIn nested structure
+  content?: {
+    headline?: string;
+    body?: string;
+    image?: string;
+  };
+  advertiser?: {
+    name?: string;
+    promotor?: string;
+    thumbnail?: string;
+  };
+  ad_type?: string;
+  link?: string;
+  position?: number;
 }
 
 interface ForeplayBrand {
@@ -56,13 +94,26 @@ function normalizeDomain(value: string): string {
 }
 
 function extractMessage(record: Record<string, unknown>): string | null {
+  // Check nested structures first (Meta snapshot, LinkedIn content)
+  const snapshot = record.snapshot as SearchApiAdRecord['snapshot'] | undefined;
+  const content = record.content as SearchApiAdRecord['content'] | undefined;
+
   const candidates = [
+    // Flat fields
     record.headline,
     record.title,
     record.description,
-    record.body,
+    typeof record.body === 'string' ? record.body : null,
     record.text,
     record.primary_text,
+    // Meta nested (snapshot)
+    snapshot?.title,
+    snapshot?.caption,
+    typeof snapshot?.body === 'object' && snapshot?.body ? (snapshot.body as { text?: string }).text : snapshot?.body,
+    snapshot?.cards?.[0]?.title,
+    // LinkedIn nested (content)
+    content?.headline,
+    content?.body,
   ];
 
   for (const candidate of candidates) {
@@ -156,17 +207,28 @@ export async function searchGoogleAds(
     api_key: apiKey,
   });
 
-  const payload = await fetchJson(
-    `https://www.searchapi.io/api/v1/search?${params.toString()}`,
-  );
-  const ads = Array.isArray((payload as { ads?: unknown[] }).ads)
-    ? (payload as { ads: unknown[] }).ads
-    : [];
+  try {
+    const payload = await fetchJson(
+      `https://www.searchapi.io/api/v1/search?${params.toString()}`,
+    );
 
-  return ads.filter(
-    (ad): ad is SearchApiAdRecord =>
-      Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
-  );
+    // SearchAPI returns { error: "..." } if the engine isn't enabled
+    if (payload && typeof payload === 'object' && 'error' in payload) {
+      console.warn('[adlibrary] Google Ads Transparency engine not available:', (payload as { error: string }).error);
+      return [];
+    }
+
+    const ads = Array.isArray((payload as { ads?: unknown[] }).ads)
+      ? (payload as { ads: unknown[] }).ads
+      : [];
+
+    return ads.filter(
+      (ad): ad is SearchApiAdRecord =>
+        Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
+    );
+  } catch {
+    return [];
+  }
 }
 
 export async function searchLinkedInAds(
@@ -331,49 +393,125 @@ export function normalizeSearchApiToCreatives(
   domain?: string,
 ): WorkerAdCreative[] {
   return records
-    .filter((record) =>
-      isAdvertiserMatch(
-        record.advertiser_name,
-        companyName,
-        domain,
-      ),
-    )
-    .map((record, index) => ({
-      platform: guessPlatform(record, sourcePlatform),
-      id: record.ad_id ?? record.id ?? `${sourcePlatform}-${index}`,
-      advertiser:
-        record.advertiser_name ?? companyName,
-      headline:
-        typeof record.headline === 'string' && record.headline.trim().length > 0
-          ? record.headline.trim()
-          : typeof record.title === 'string' && record.title.trim().length > 0
-            ? record.title.trim()
-            : undefined,
-      body:
-        typeof record.description === 'string' && record.description.trim().length > 0
-          ? record.description.trim()
-          : typeof record.body === 'string' && record.body.trim().length > 0
-            ? record.body.trim()
-            : undefined,
-      imageUrl:
-        typeof record.image_url === 'string' && record.image_url.trim().length > 0
-          ? record.image_url
-          : undefined,
-      videoUrl:
-        typeof record.video_url === 'string' && record.video_url.trim().length > 0
-          ? record.video_url
-          : undefined,
-      format: guessFormat(record),
-      isActive: record.is_active ?? true,
-      firstSeen:
-        typeof record.first_shown === 'string' ? record.first_shown : undefined,
-      lastSeen:
-        typeof record.last_shown === 'string' ? record.last_shown : undefined,
-      detailsUrl:
-        typeof record.details_url === 'string' && record.details_url.trim().length > 0
-          ? record.details_url
-          : undefined,
-    }));
+    .filter((record) => {
+      // LinkedIn SearchAPI returns keyword-matched ads (ads in the competitive space),
+      // NOT ads BY the company. Skip advertiser matching for LinkedIn.
+      if (sourcePlatform === 'linkedin') return true;
+
+      // For Meta/Google, verify the advertiser matches the target company
+      const advertiserName =
+        record.advertiser_name ??
+        record.page_name ??                          // Meta top-level
+        record.snapshot?.page_name ??                // Meta snapshot
+        record.advertiser?.promotor ??               // LinkedIn (sponsoring brand)
+        record.advertiser?.name;                     // LinkedIn (person name)
+      return isAdvertiserMatch(advertiserName, companyName, domain);
+    })
+    .map((record, index) => {
+      const snap = record.snapshot;
+      const content = record.content;
+
+      // Extract headline from all possible locations
+      const headline = firstNonEmpty([
+        record.headline,
+        record.title,
+        snap?.title,
+        snap?.caption,
+        snap?.cards?.[0]?.title,
+        content?.headline,
+      ]);
+
+      // Extract body from all possible locations (handle body as object or string)
+      const snapBodyText = snap?.body
+        ? typeof snap.body === 'string' ? snap.body : snap.body.text
+        : undefined;
+      const recordBodyText = record.body
+        ? typeof record.body === 'string' ? record.body : record.body.text
+        : undefined;
+      const body = firstNonEmpty([
+        record.description,
+        recordBodyText,
+        record.text,
+        snapBodyText,
+        snap?.cards?.[0]?.body,
+        content?.body,
+      ]);
+
+      // Extract image URL from all possible locations
+      const snapFirstImage = snap?.images?.[0];
+      const snapImageUrl = typeof snapFirstImage === 'string'
+        ? snapFirstImage
+        : (snapFirstImage as { url?: string } | undefined)?.url;
+      const imageUrl = firstNonEmpty([
+        record.image_url,
+        snapImageUrl,
+        snap?.cards?.[0]?.original_image_url,
+        snap?.videos?.[0]?.video_preview_image_url,
+        content?.image,
+      ]);
+
+      // Extract video URL
+      const videoUrl = firstNonEmpty([
+        record.video_url,
+        snap?.videos?.[0]?.video_hd_url,
+      ]);
+
+      // Extract advertiser name
+      const advertiser =
+        record.advertiser_name ??
+        record.page_name ??
+        record.advertiser?.promotor ??
+        record.advertiser?.name ??
+        companyName;
+
+      // Extract format — check nested display_format too
+      const displayFormat = snap?.display_format ?? record.ad_type ?? record.format;
+      let format = guessFormat(record);
+      if (displayFormat) {
+        const df = displayFormat.toUpperCase();
+        if (df === 'VIDEO' || df.includes('VIDEO')) format = 'video';
+        else if (df === 'IMAGE' || df.includes('IMAGE')) format = 'image';
+        else if (df === 'CAROUSEL' || df.includes('CAROUSEL')) format = 'carousel';
+        else if (df === 'TEXT' || df.includes('TEXT')) format = 'text';
+      }
+      // Override based on actual media presence
+      if (videoUrl && format === 'unknown') format = 'video';
+      else if (imageUrl && format === 'unknown') format = 'image';
+
+      // Extract dates
+      const firstSeen = record.first_shown ?? record.start_date_formatted ?? undefined;
+      const lastSeen = record.last_shown ?? record.end_date_formatted ?? undefined;
+
+      // Extract details URL
+      const detailsUrl = firstNonEmpty([
+        record.details_url,
+        record.ad_library_url,
+        record.link,
+      ]);
+
+      return {
+        platform: guessPlatform(record, sourcePlatform),
+        id: record.ad_id ?? record.ad_archive_id ?? record.id ?? `${sourcePlatform}-${index}`,
+        advertiser,
+        headline,
+        body,
+        imageUrl,
+        videoUrl,
+        format,
+        isActive: record.is_active ?? true,
+        firstSeen,
+        lastSeen,
+        detailsUrl,
+      };
+    });
+}
+
+/** Return the first non-empty string from candidates */
+function firstNonEmpty(candidates: (string | undefined | null)[]): string | undefined {
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim().length > 0) return c.trim();
+  }
+  return undefined;
 }
 
 // --- Library link generation ---

@@ -17,6 +17,7 @@
     "@mendable/firecrawl-js": "^4.12.0",
     "@supabase/supabase-js": "^2.87.1",
     "ai": "^6.0.116",
+    "apify-client": "^2.22.2",
     "dotenv": "^17.3.1",
     "express": "^4.18.2",
     "zod": "^4.2.1"
