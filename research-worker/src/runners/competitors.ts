@@ -595,14 +595,21 @@ function areCompetitorToolsEnabled(config: CompetitorAttemptConfig): boolean {
 }
 
 function buildCompetitorAttemptLabel(config: CompetitorAttemptConfig): string {
-  return `attempt ${config.mode} (model: ${config.model}, tools: ${areCompetitorToolsEnabled(config) ? 'enabled' : 'disabled'})`;
+  const modeLabel =
+    config.mode === 'primary'
+      ? 'competitor analysis'
+      : config.mode === 'repair'
+        ? 'competitor analysis (repair pass)'
+        : 'competitor analysis (rescue pass)';
+  const toolsLabel = areCompetitorToolsEnabled(config) ? 'with live data' : 'from context';
+  return `${modeLabel} ${toolsLabel}`;
 }
 
 function buildCompetitorRecoveryStatsMessage(
-  mode: Exclude<CompetitorAttemptMode, 'primary'>,
-  stats: CompetitorRecoveryContextStats,
+  _mode: Exclude<CompetitorAttemptMode, 'primary'>,
+  _stats: CompetitorRecoveryContextStats,
 ): string {
-  return `${mode} evidence package prepared (business lines: ${stats.businessLineCount}, searches: ${stats.searchCount}, sources: ${stats.sourceCount}, analysis notes: ${stats.analysisCount}, draft chars: ${stats.partialDraftChars}, total chars: ${stats.totalChars})`;
+  return 'preparing additional competitor analysis';
 }
 
 async function runCompetitorToolAttempt(
@@ -709,7 +716,7 @@ async function runCompetitorAttemptWithObservability(
     await emitRunnerProgress(
       onProgress,
       'runner',
-      `${buildCompetitorAttemptLabel(config)} completed (stop reason: ${attemptResult.telemetry.stopReason ?? 'unknown'})`,
+      `${buildCompetitorAttemptLabel(config)} complete`,
     );
     return attemptResult;
   } catch (error) {
@@ -718,7 +725,7 @@ async function runCompetitorAttemptWithObservability(
       await emitRunnerProgress(
         onProgress,
         'runner',
-        `${buildCompetitorAttemptLabel(config)} timed out (source: ${timeoutSource})`,
+        `${buildCompetitorAttemptLabel(config)} timed out`,
       );
     }
 

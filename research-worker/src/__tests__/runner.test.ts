@@ -27,7 +27,7 @@ describe('describeToolUseBlock', () => {
         name: 'web_search',
         input: {},
       }),
-    ).toBe('web search started');
+    ).toBe('Searching the web');
   });
 });
 

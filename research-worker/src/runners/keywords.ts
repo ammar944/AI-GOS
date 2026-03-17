@@ -1055,14 +1055,23 @@ function areKeywordToolsEnabled(config: KeywordAttemptConfig): boolean {
 }
 
 function buildKeywordAttemptLabel(config: KeywordAttemptConfig): string {
-  return `attempt ${config.mode} (model: ${config.model}, tools: ${areKeywordToolsEnabled(config) ? 'enabled' : 'disabled'})`;
+  const modeLabel =
+    config.mode === 'primary'
+      ? 'keyword research'
+      : config.mode === 'repair'
+        ? 'keyword research (repair pass)'
+        : config.mode === 'heuristic'
+          ? 'keyword research (heuristic pass)'
+          : 'keyword research (rescue pass)';
+  const toolsLabel = areKeywordToolsEnabled(config) ? 'with live data' : 'from context';
+  return `${modeLabel} ${toolsLabel}`;
 }
 
 function buildKeywordRecoveryStatsMessage(
-  mode: Exclude<KeywordAttemptMode, 'primary'>,
-  stats: KeywordRecoveryContextStats,
+  _mode: Exclude<KeywordAttemptMode, 'primary'>,
+  _stats: KeywordRecoveryContextStats,
 ): string {
-  return `${mode} evidence package prepared (business lines: ${stats.businessLineCount}, section summaries: ${stats.sectionSummaryCount}, analysis notes: ${stats.analysisCount}, draft chars: ${stats.partialDraftChars}, total chars: ${stats.totalChars})`;
+  return 'preparing additional keyword analysis';
 }
 
 async function runKeywordToolAttempt(
@@ -1179,7 +1188,7 @@ async function runKeywordAttemptWithObservability(
     await emitRunnerProgress(
       onProgress,
       'runner',
-      `${buildKeywordAttemptLabel(config)} completed (stop reason: ${attemptResult.telemetry.stopReason ?? 'unknown'})`,
+      `${buildKeywordAttemptLabel(config)} complete`,
     );
     return attemptResult;
   } catch (error) {
@@ -1188,7 +1197,7 @@ async function runKeywordAttemptWithObservability(
       await emitRunnerProgress(
         onProgress,
         'runner',
-        `${buildKeywordAttemptLabel(config)} timed out (source: ${timeoutSource})`,
+        `${buildKeywordAttemptLabel(config)} timed out`,
       );
     }
 
@@ -1232,14 +1241,6 @@ export async function runResearchKeywordsWithDeps(
         'runner',
         'live keyword providers unavailable — switching to heuristic fallback',
       );
-      for (const provider of providerStatuses.filter((provider) => !provider.available)) {
-        await emitRunnerProgress(
-          reportProgress,
-          'analysis',
-          `keyword provider unavailable: ${provider.label}`,
-        );
-      }
-
       const heuristicContext = buildKeywordRecoveryContext({
         mode: 'heuristic',
         context,
@@ -1331,15 +1332,6 @@ export async function runResearchKeywordsWithDeps(
         'runner',
         'keyword research artifact was too thin to trust — switching to heuristic fallback',
       );
-      for (const provider of providerStatuses.filter(
-        (provider) => provider.id !== 'spyfu' && !provider.available,
-      )) {
-        await emitRunnerProgress(
-          reportProgress,
-          'analysis',
-          `keyword provider unavailable: ${provider.label}`,
-        );
-      }
       await emitRunnerProgress(
         reportProgress,
         'runner',

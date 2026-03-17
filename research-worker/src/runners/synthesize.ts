@@ -706,13 +706,20 @@ function areSynthesisToolsEnabled(config: SynthesisAttemptConfig): boolean {
 }
 
 function buildSynthesisAttemptLabel(config: SynthesisAttemptConfig): string {
-  return `attempt ${config.mode} (model: ${config.model}, tools: ${areSynthesisToolsEnabled(config) ? 'enabled' : 'disabled'})`;
+  const modeLabel =
+    config.mode === 'primary'
+      ? 'strategic synthesis'
+      : config.mode === 'repair'
+        ? 'strategic synthesis (repair pass)'
+        : 'strategic synthesis (rescue pass)';
+  const toolsLabel = areSynthesisToolsEnabled(config) ? 'with live data' : 'from context';
+  return `${modeLabel} ${toolsLabel}`;
 }
 
 function buildSynthesisRecoveryStatsMessage(
-  stats: SynthesisRecoveryContextStats,
+  _stats: SynthesisRecoveryContextStats,
 ): string {
-  return `repair evidence package prepared (business lines: ${stats.businessLineCount}, section summaries: ${stats.sectionSummaryCount}, citations: ${stats.citationCount}, analysis notes: ${stats.analysisCount}, draft chars: ${stats.partialDraftChars}, total chars: ${stats.totalChars})`;
+  return 'preparing additional strategic analysis';
 }
 
 function extractSynthesisObjections(context: string): string[] {
@@ -883,7 +890,7 @@ async function runSynthesisAttemptWithObservability(
     await emitRunnerProgress(
       onProgress,
       'runner',
-      `${buildSynthesisAttemptLabel(config)} completed (stop reason: ${attemptResult.telemetry.stopReason ?? 'unknown'})`,
+      `${buildSynthesisAttemptLabel(config)} complete`,
     );
     return attemptResult;
   } catch (error) {
@@ -892,7 +899,7 @@ async function runSynthesisAttemptWithObservability(
       await emitRunnerProgress(
         onProgress,
         'runner',
-        `${buildSynthesisAttemptLabel(config)} timed out (source: ${timeoutSource})`,
+        `${buildSynthesisAttemptLabel(config)} timed out`,
       );
     }
 

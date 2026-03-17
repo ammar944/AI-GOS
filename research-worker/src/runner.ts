@@ -115,8 +115,45 @@ function extractToolQuery(input: unknown): string | null {
   return null;
 }
 
+const TOOL_FRIENDLY_LABELS: Record<string, string> = {
+  // Web search
+  web_search: 'Searching the web',
+  web_fetch: 'Reading page content',
+
+  // Website analysis
+  firecrawl_scrape: 'Analyzing website content',
+  firecrawl_scrape_url: 'Analyzing website content',
+
+  // Ad intelligence
+  ad_library_search: 'Checking ad libraries',
+  search_ads: 'Checking ad libraries',
+  google_ads_transparency: 'Checking ad transparency data',
+  meta_ad_library: 'Checking paid social ad data',
+  linkedin_ad_library: 'Checking LinkedIn ad data',
+
+  // Keyword intelligence
+  spyfu_keyword_intel: 'Gathering keyword intelligence',
+  spyfu_domain_stats: 'Analyzing domain performance',
+  spyfu: 'Gathering keyword intelligence',
+
+  // Performance
+  pagespeed_audit: 'Running page speed analysis',
+  page_speed: 'Running page speed analysis',
+
+  // Platform APIs
+  google_ads: 'Querying paid search data',
+  meta_ads: 'Querying paid social data',
+  ga4: 'Querying analytics data',
+  google_ads_manager: 'Querying paid search data',
+  meta_ads_manager: 'Querying paid social data',
+
+  // Charts
+  chart: 'Generating visualization',
+  create_chart: 'Generating visualization',
+};
+
 export function describeToolUseBlock(block: ToolUseBlock): string {
-  const label = block.name.replaceAll('_', ' ');
+  const friendlyLabel = TOOL_FRIENDLY_LABELS[block.name];
   const detail = extractToolQuery(block.input);
 
   if (detail) {
@@ -125,13 +162,14 @@ export function describeToolUseBlock(block: ToolUseBlock): string {
     }
 
     if (block.name === 'web_fetch') {
-      return `fetching: ${truncate(detail, 120)}`;
+      return `reading: ${truncate(detail, 120)}`;
     }
 
-    return `${label}: ${truncate(detail, 120)}`;
+    const prefix = friendlyLabel ?? 'analyzing';
+    return `${prefix}: ${truncate(detail, 120)}`;
   }
 
-  return `${label} started`;
+  return friendlyLabel ?? 'running analysis';
 }
 
 export function describeWebSearchResultBlock(
