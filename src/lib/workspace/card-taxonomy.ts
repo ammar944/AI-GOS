@@ -301,12 +301,26 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'offerAnalysis';
 
-  // Score + Status
+  // Score + Status + Dimension breakdown
   const offerStrength = asRecord(data.offerStrength);
   const recommendation = asRecord(data.recommendation);
+
+  const dimensionLabels: [string, string][] = [
+    ['painRelevance', 'Pain Relevance'],
+    ['urgency', 'Urgency'],
+    ['differentiation', 'Differentiation'],
+    ['tangibility', 'Tangibility'],
+    ['proof', 'Proof'],
+    ['pricingLogic', 'Pricing Logic'],
+  ];
+
   const scoreStats = [
     { label: 'Overall Score', value: asNumber(offerStrength?.overallScore) !== null ? `${asNumber(offerStrength?.overallScore)}/10` : null },
     { label: 'Recommendation', value: asString(recommendation?.status)?.replaceAll('_', ' ') ?? null },
+    ...dimensionLabels.map(([key, label]) => ({
+      label,
+      value: asNumber(offerStrength?.[key]) !== null ? `${asNumber(offerStrength?.[key])}/10` : null,
+    })),
   ].filter((s): s is { label: string; value: string } => s.value !== null);
 
   if (scoreStats.length > 0) {
