@@ -203,6 +203,13 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
 
     const context = await buildSectionContext('Generate media plan from approved research results');
 
+    // Auto-approve crossAnalysis (strategic synthesis) when generating media plan
+    // — it's the last research section before media plan, and clicking "Generate"
+    // signals the user is done reviewing it
+    if (state.sectionStates.crossAnalysis === 'review') {
+      setSectionPhase('crossAnalysis', 'approved');
+    }
+
     setSectionPhase('mediaPlan', 'researching');
     navigateToSection('mediaPlan');
 
@@ -211,7 +218,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
       setSectionPhase('mediaPlan', 'error', result.error ?? 'Failed to start media plan generation');
     }
     setMediaPlanGenerating(false);
-  }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection, buildSectionContext]);
+  }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection, buildSectionContext, state.sectionStates.crossAnalysis]);
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">

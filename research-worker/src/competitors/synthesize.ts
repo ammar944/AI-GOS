@@ -330,7 +330,12 @@ function injectReviews(
       r => r.competitorName.toLowerCase() === name.toLowerCase(),
     );
 
-    if (!reviewResult) continue;
+    if (!reviewResult) {
+      console.log(`[injectReviews] no review match for "${name}" — available: ${input.fetchResults.reviews.map(r => r.competitorName).join(', ')}`);
+      continue;
+    }
+
+    console.log(`[injectReviews] matched "${name}" — tp=${reviewResult.trustpilot ? 'yes' : 'no'}, g2=${reviewResult.g2 ? 'yes' : 'no'}`);
 
     const reviews: Record<string, unknown> = {};
 
@@ -359,6 +364,9 @@ function injectReviews(
     // Only inject if we actually have data from at least one source
     if (reviews.trustpilot || reviews.g2) {
       c.reviews = reviews;
+      console.log(`[injectReviews] injected reviews for "${name}":`, JSON.stringify(reviews));
+    } else {
+      console.log(`[injectReviews] skipped "${name}" — both sources empty`);
     }
   }
 }

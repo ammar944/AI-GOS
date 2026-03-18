@@ -179,7 +179,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                       {[0, 1, 2].map((i) => (
                         <motion.div
                           key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-white/20"
+                          className="w-1.5 h-1.5 rounded-full bg-[var(--bg-hover)]"
                           animate={{ opacity: [0.2, 0.5, 0.2] }}
                           transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
                         />
@@ -220,7 +220,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                     <button
                       type="button"
                       onClick={handleRetry}
-                      className="cursor-pointer rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90"
+                      className="cursor-pointer rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90"
                     >
                       Retry
                     </button>
@@ -295,14 +295,14 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         </AnimatePresence>
       </div>
 
-      {/* Show "Looks good" for sections in review phase with actual cards */}
-      {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && (
+      {/* Show "Looks good" for research sections in review phase (not media plan — handled below) */}
+      {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && state.currentSection !== 'mediaPlan' && (
         <ArtifactFooter variant="approve" onApprove={approveSection} />
       )}
 
       {/* Show completion footer when all 6 research sections approved (media plan not yet generated).
           The generate button is intentionally omitted here — the in-canvas MediaPlanCta card handles it. */}
-      {allResearchApproved && !mediaPlanActive && (
+      {allResearchApproved && !mediaPlanActive && !allDone && (
         <ArtifactFooter
           variant="complete"
           docSaveStatus={docSaveStatus}
@@ -310,12 +310,12 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         />
       )}
 
-      {/* Media plan section footer — "Looks good" for mediaPlan review */}
-      {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && (
+      {/* Media plan in review — show approve only if not already all done */}
+      {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && !allDone && (
         <ArtifactFooter variant="approve" onApprove={approveSection} />
       )}
 
-      {/* All 7 sections done */}
+      {/* All 7 sections done — single completion footer */}
       {allDone && (
         <ArtifactFooter
           variant="complete"
