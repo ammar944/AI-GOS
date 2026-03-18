@@ -47,7 +47,7 @@ async function runParallelCollection(
   const parsed = parseCompetitorContext(context);
 
   await emitRunnerProgress(onProgress, 'runner',
-    `parsed ${parsed.competitors.length} competitors from context: ${parsed.competitors.map(c => c.name).join(', ')}`,
+    `found ${parsed.competitors.length} competitors: ${parsed.competitors.map(c => c.name).join(', ')}`,
   );
 
   if (parsed.competitors.length === 0) {
@@ -58,7 +58,7 @@ async function runParallelCollection(
 
   // Fire ALL data collection in parallel
   await emitRunnerProgress(onProgress, 'tool',
-    `launching parallel fetch: Sonar Pro + Firecrawl×${Math.min(parsed.competitors.length, 5)} + SpyFu×${Math.min(parsed.competitors.length, 5)} + AdLibrary×${Math.min(parsed.competitors.length, 5)}`,
+    `researching ${Math.min(parsed.competitors.length, 5)} competitors in parallel`,
   );
 
   const [fetchResults, sonarResults] = await Promise.all([
@@ -78,7 +78,7 @@ async function runParallelCollection(
   const sonarHits = sonarResults.competitorInsights.length;
 
   await emitRunnerProgress(onProgress, 'tool',
-    `parallel fetch complete in ${fetchResults.durationMs}ms — pricing: ${pricingHits}/${fetchResults.pricing.length}, spyfu: ${spyfuHits}/${fetchResults.spyfu.length}, ads: ${adHits}/${fetchResults.adLibrary.length}, sonar: ${sonarHits} insights`,
+    `gathered data for ${parsed.competitors.length} competitors — ${pricingHits} pricing pages, ${adHits} ad profiles, ${sonarHits} market insights`,
   );
 
   return { parsed, fetchResults, sonarResults };
@@ -91,12 +91,12 @@ async function runSynthesis(
   input: SynthesisInput,
   onProgress?: RunnerProgressReporter,
 ): Promise<{ resultText: string; stopReason: string | null }> {
-  await emitRunnerProgress(onProgress, 'analysis', 'synthesizing competitor landscape from all evidence');
+  await emitRunnerProgress(onProgress, 'analysis', 'building competitor landscape');
 
   const result = await synthesizeCompetitorIntel(input);
 
   await emitRunnerProgress(onProgress, 'analysis',
-    `synthesis complete (stop reason: ${result.stopReason ?? 'unknown'})`,
+    'competitor analysis complete',
   );
 
   return result;
@@ -134,7 +134,7 @@ export async function runResearchCompetitors(
   const startTime = Date.now();
 
   try {
-    await emitRunnerProgress(onProgress, 'runner', 'starting optimized competitor pipeline (parallel fetch + synthesis)');
+    await emitRunnerProgress(onProgress, 'runner', 'starting competitor analysis');
 
     // Run with hard timeout
     const pipelineResult = await Promise.race([
@@ -148,7 +148,7 @@ export async function runResearchCompetitors(
     ]);
 
     await emitRunnerProgress(onProgress, 'runner',
-      `pipeline complete — fetch: ${pipelineResult.fetchDurationMs}ms, synthesis: ${pipelineResult.synthesisDurationMs}ms, total: ${Date.now() - startTime}ms`,
+      `competitor analysis complete in ${Math.round((Date.now() - startTime) / 1000)}s`,
     );
 
     // Parse the synthesis output

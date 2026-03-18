@@ -128,8 +128,15 @@ function WorkspaceNavBar() {
 }
 
 export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
-  const { setSectionPhase, navigateToSection } = useWorkspace();
+  const { state, setSectionPhase, navigateToSection } = useWorkspace();
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
+
+  // Hide chat rail when any section is actively generating
+  const hasActiveResearch = useMemo(() => {
+    return SECTION_PIPELINE.some(
+      (key) => state.sectionStates[key] === 'researching' || state.sectionStates[key] === 'streaming',
+    );
+  }, [state.sectionStates]);
 
   const jobActivity = useResearchJobActivity({
     userId,
@@ -218,7 +225,9 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
           mediaPlanGenerating={mediaPlanGenerating}
           onRetrySection={handleRetrySection}
         />
-        <RightRail className="hidden md:flex w-[380px] shrink-0" />
+        {!hasActiveResearch && (
+          <RightRail className="hidden md:flex w-[380px] shrink-0" />
+        )}
       </div>
       <div className="md:hidden">
         <BottomSheet />

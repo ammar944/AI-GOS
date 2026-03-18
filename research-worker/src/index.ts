@@ -152,7 +152,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         {
           at: new Date(startMs).toISOString(),
           id: crypto.randomUUID(),
-          message: 'worker accepted research job',
+          message: 'research job started',
           phase: 'runner',
         },
       ],
@@ -233,7 +233,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
 
     try {
       await emitProgress({
-        message: 'launching research sub-agent',
+        message: 'launching research analysis',
         phase: 'runner',
       });
       const result = await runner(contextWithDate, emitProgress);
