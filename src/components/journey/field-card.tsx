@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { durations } from '@/lib/motion';
@@ -33,13 +33,25 @@ export function FieldCard({
   autoFocus,
 }: FieldCardProps) {
   const [focused, setFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleFocus = useCallback(() => setFocused(true), []);
   const handleBlur = useCallback(() => {
     setFocused(false);
     onBlur?.();
   }, [onBlur]);
+
+  // Auto-resize textarea to fit content
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [value, autoResize]);
 
   const sharedInputClasses = cn(
     'w-full bg-transparent border-none outline-none text-[14px] leading-relaxed placeholder:text-[var(--text-quaternary)]',
@@ -51,8 +63,8 @@ export function FieldCard({
       className={cn(
         'group relative rounded-xl transition-all duration-200',
         focused
-          ? 'bg-[rgb(20,22,28)]'
-          : 'bg-transparent hover:bg-[rgb(16,18,24)]',
+          ? 'bg-[var(--bg-active)]'
+          : 'bg-transparent hover:bg-[var(--bg-hover)]',
       )}
     >
       {/* Header — label + tags */}
@@ -60,8 +72,8 @@ export function FieldCard({
         <label
           htmlFor={fieldKey}
           className="text-[11px] font-mono uppercase tracking-[0.14em] cursor-pointer"
-          style={{ color: focused ? 'var(--accent-blue)' : 'rgba(255, 255, 255, 0.45)' }}
-          onClick={() => inputRef.current?.focus()}
+          style={{ color: focused ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}
+          onClick={() => textareaRef.current?.focus()}
         >
           {label}
         </label>
@@ -102,37 +114,24 @@ export function FieldCard({
         </div>
       </div>
 
-      {/* Input area */}
+      {/* Input area — all fields use auto-resizing textarea so content is always visible */}
       <div className="px-4 pb-3">
-        {isMultiline ? (
-          <textarea
-            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-            id={fieldKey}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            autoFocus={autoFocus}
-            placeholder={placeholder}
-            rows={3}
-            className={cn(sharedInputClasses, 'resize-none')}
-            style={{ color: 'rgba(255, 255, 255, 0.9)' }}
-          />
-        ) : (
-          <input
-            ref={inputRef as React.RefObject<HTMLInputElement>}
-            id={fieldKey}
-            type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            autoFocus={autoFocus}
-            placeholder={placeholder}
-            className={cn(sharedInputClasses, 'py-1')}
-            style={{ color: 'rgba(255, 255, 255, 0.9)' }}
-          />
-        )}
+        <textarea
+          ref={textareaRef}
+          id={fieldKey}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            autoResize();
+          }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          autoFocus={autoFocus}
+          placeholder={placeholder}
+          rows={isMultiline ? 3 : 1}
+          className={cn(sharedInputClasses, 'resize-none overflow-hidden')}
+          style={{ color: 'var(--text-primary)' }}
+        />
 
         {/* Focus line */}
         <motion.div
@@ -149,7 +148,7 @@ export function FieldCard({
         {helper && (
           <p
             className="mt-2 text-[11px] leading-relaxed"
-            style={{ color: 'rgba(255, 255, 255, 0.3)' }}
+            style={{ color: 'var(--text-quaternary)' }}
           >
             {helper}
           </p>
