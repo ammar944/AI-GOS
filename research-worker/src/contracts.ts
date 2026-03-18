@@ -212,7 +212,7 @@ const offerAnalysisDataSchema = z.object({
     coldTrafficViability: nonEmptyStringSchema,
   }),
   marketFitAssessment: nonEmptyStringSchema,
-  messagingRecommendations: nonEmptyStringArraySchema,
+  messagingRecommendations: z.array(nonEmptyStringSchema).default([]),
 });
 
 const strategicSynthesisDataSchema = z.object({
