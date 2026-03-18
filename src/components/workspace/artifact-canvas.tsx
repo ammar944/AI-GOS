@@ -45,8 +45,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   const isApproved = phase === 'approved';
   const isLoading = phase === 'researching' || phase === 'streaming';
   const [isExiting, setIsExiting] = useState(false);
-  const [offerRerunning, setOfferRerunning] = useState(false);
-  const offerRoundRef = useRef(0);
   const offerPrevScoreRef = useRef<number | null>(null);
 
   // Extract offer score data for the refinement card
@@ -77,10 +75,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
     if (overall === 0) return null;
 
-    // Track rounds
-    if (offerPrevScoreRef.current !== null && offerPrevScoreRef.current !== overall) {
-      offerRoundRef.current += 1;
-    }
     const prevScore = offerPrevScoreRef.current;
     offerPrevScoreRef.current = overall;
 
@@ -94,7 +88,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     const priorityFixes = (weaknessesCard?.content?.items ?? []) as string[];
     const actionPlan = (actionsCard?.content?.items ?? []) as string[];
 
-    return { overall, dimensions, prevScore, round: offerRoundRef.current, priorityFixes, actionPlan };
+    return { overall, dimensions, prevScore, priorityFixes, actionPlan };
   }, [state.currentSection, state.cards]);
 
   const allResearchApproved = useMemo(
@@ -152,13 +146,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     onRetrySection?.(state.currentSection);
   }, [onRetrySection, state.currentSection]);
 
-  const handleOfferRerun = useCallback(async () => {
-    if (offerRerunning) return;
-    setOfferRerunning(true);
-    onRetrySection?.('offerAnalysis');
-    // Reset after a short delay — the phase transition will update the UI
-    setTimeout(() => setOfferRerunning(false), 3000);
-  }, [offerRerunning, onRetrySection]);
 
   // Determine if we're viewing a non-mediaPlan section that's already approved
   // (browsing completed research while media plan generates)
@@ -249,10 +236,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                     dimensions={offerScoreData.dimensions}
                     priorityFixes={offerScoreData.priorityFixes}
                     actionPlan={offerScoreData.actionPlan}
-                    onRerun={handleOfferRerun}
-                    onApproveAsIs={approveSection}
-                    isRerunning={offerRerunning}
-                    round={offerScoreData.round}
                     prevScore={offerScoreData.prevScore}
                   />
                 </div>

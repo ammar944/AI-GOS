@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 
 interface ScoreDimension {
   label: string;
@@ -13,10 +12,6 @@ export interface OfferRefinementCardProps {
   dimensions: ScoreDimension[];
   priorityFixes: string[];
   actionPlan: string[];
-  onRerun: () => void;
-  onApproveAsIs: () => void;
-  isRerunning?: boolean;
-  round?: number;
   prevScore?: number | null;
 }
 
@@ -40,14 +35,12 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
         {label}
       </span>
       <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
-        {/* Target ghost bar */}
         {isWeak && target && (
           <div
             className="absolute inset-y-0 left-0 rounded-full opacity-15"
             style={{ width: `${targetPct}%`, background: 'var(--accent-green)' }}
           />
         )}
-        {/* Current bar */}
         <motion.div
           className="absolute inset-y-0 left-0 rounded-full"
           style={{ background: color }}
@@ -56,7 +49,6 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
           transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
         />
       </div>
-      {/* Score display */}
       <div className="flex items-center gap-1 shrink-0">
         <span
           className="text-[12px] font-mono font-semibold tabular-nums"
@@ -116,20 +108,14 @@ export function OfferRefinementCard({
   dimensions,
   priorityFixes,
   actionPlan,
-  onRerun,
-  onApproveAsIs,
-  isRerunning,
-  round = 0,
   prevScore,
 }: OfferRefinementCardProps) {
   const sorted = [...dimensions].sort((a, b) => a.value - b.value);
-  const isLowScore = overallScore < 8;
-  const isStructuralGap = round >= 2 && isLowScore;
   const weakDimensions = sorted.filter((d) => d.value < 7);
 
   return (
     <div className="space-y-4">
-      {/* Overall score header */}
+      {/* Score breakdown */}
       <div
         className="rounded-2xl border border-white/[0.06] p-5"
         style={{ background: 'var(--bg-card)' }}
@@ -148,26 +134,20 @@ export function OfferRefinementCard({
               </span>
             )}
             <span
-              className={cn(
-                'text-[18px] font-mono font-bold tabular-nums px-3 py-1 rounded-lg',
-                overallScore >= 8
-                  ? 'text-[var(--accent-green)] bg-[var(--accent-green)]/10'
+              className="text-[18px] font-mono font-bold tabular-nums"
+              style={{
+                color: overallScore >= 8
+                  ? 'var(--accent-green)'
                   : overallScore >= 5
-                    ? 'text-[var(--accent-amber)] bg-[var(--accent-amber)]/10'
-                    : 'text-[var(--accent-red)] bg-[var(--accent-red)]/10',
-              )}
+                    ? 'var(--accent-amber)'
+                    : 'var(--accent-red)',
+              }}
             >
               {overallScore}/10
             </span>
-            {isLowScore && (
-              <span className="text-[10px] font-mono" style={{ color: 'var(--text-quaternary)' }}>
-                → 8+ to pass
-              </span>
-            )}
           </div>
         </div>
 
-        {/* Dimension bars with targets */}
         <div className="space-y-2.5">
           {sorted.map((dim) => (
             <ScoreBar
@@ -178,19 +158,10 @@ export function OfferRefinementCard({
             />
           ))}
         </div>
-
-        {/* Score >= 8 success */}
-        {!isLowScore && (
-          <div className="mt-4 rounded-xl border border-[var(--accent-green)]/15 bg-[var(--accent-green)]/[0.04] px-4 py-3">
-            <p className="text-[12px] leading-relaxed" style={{ color: 'var(--accent-green)' }}>
-              Your offer scores strong across all dimensions. Approve to continue.
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Improvement recommendations — one per weak dimension */}
-      {isLowScore && weakDimensions.length > 0 && (
+      {/* Gap recommendations */}
+      {weakDimensions.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3 px-1">
             <h3
@@ -200,7 +171,7 @@ export function OfferRefinementCard({
               How to reach 8+
             </h3>
             <span className="text-[11px] font-mono" style={{ color: 'var(--text-quaternary)' }}>
-              {weakDimensions.length} area{weakDimensions.length !== 1 ? 's' : ''} to improve
+              {weakDimensions.length} gap{weakDimensions.length !== 1 ? 's' : ''}
             </span>
           </div>
 
@@ -214,41 +185,6 @@ export function OfferRefinementCard({
               />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Structural gap warning */}
-      {isStructuralGap && (
-        <div className="rounded-xl border border-[var(--accent-amber)]/15 bg-[var(--accent-amber)]/[0.04] px-4 py-3">
-          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--accent-amber)' }}>
-            After {round} refinement round{round !== 1 ? 's' : ''}, the remaining gaps may require
-            actual business changes — adjusting your offer, pricing, or proof points.
-          </p>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      {isLowScore && (
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            onClick={onRerun}
-            disabled={isRerunning}
-            className={cn(
-              'cursor-pointer h-10 rounded-xl font-medium text-[13px] px-6 transition-all',
-              isRerunning
-                ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                : 'bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]',
-            )}
-          >
-            {isRerunning ? 'Re-running...' : 'Re-run Analysis'}
-          </button>
-          <button
-            onClick={onApproveAsIs}
-            className="cursor-pointer h-10 rounded-xl border border-white/10 text-[13px] font-medium px-6 transition-all hover:border-white/20"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Approve as-is
-          </button>
         </div>
       )}
     </div>
