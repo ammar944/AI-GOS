@@ -225,9 +225,14 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
           mediaPlanGenerating={mediaPlanGenerating}
           onRetrySection={handleRetrySection}
         />
-        {!hasActiveResearch && (
-          <RightRail className="hidden md:flex w-[380px] shrink-0" />
-        )}
+        {(() => {
+          const currentPhase = state.sectionStates[state.currentSection];
+          const isCurrentSectionActive = currentPhase === 'review' || currentPhase === 'researching';
+          const showChat = !hasActiveResearch || isCurrentSectionActive;
+          return showChat ? (
+            <RightRail className="hidden md:flex w-[380px] shrink-0" />
+          ) : null;
+        })()}
       </div>
       <div className="md:hidden">
         <BottomSheet />
