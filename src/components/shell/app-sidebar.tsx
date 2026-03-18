@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, FileText, Settings } from 'lucide-react';
+import { Home, Compass, FileText, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { LogoMark } from '@/components/ui/logo';
 import { cn } from '@/lib/utils';
+import { useOptionalShell } from '@/components/shell/shell-provider';
 
 interface NavEntry {
   icon: React.ComponentType<{ className?: string; size?: number }>;
@@ -20,7 +21,7 @@ const NAV_ITEMS: NavEntry[] = [
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 
-function SidebarLink({ item }: { item: NavEntry }) {
+function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) {
   const pathname = usePathname();
   const isActive =
     item.href === '/dashboard'
@@ -32,6 +33,7 @@ function SidebarLink({ item }: { item: NavEntry }) {
   return (
     <Link
       href={item.href}
+      title={expanded ? undefined : item.label}
       className={cn(
         'relative flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer transition-colors duration-150',
         isActive
@@ -43,16 +45,27 @@ function SidebarLink({ item }: { item: NavEntry }) {
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-[var(--accent-blue)]" />
       )}
       <Icon size={18} className="shrink-0" />
-      <span className="text-[13px] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
-        {item.label}
-      </span>
+      {expanded && (
+        <span className="text-[13px] font-medium whitespace-nowrap">
+          {item.label}
+        </span>
+      )}
     </Link>
   );
 }
 
 export function AppSidebar() {
+  const shell = useOptionalShell();
+  const collapsed = shell?.sidebarCollapsed ?? false;
+  const expanded = !collapsed;
+
   return (
-    <aside className="group flex flex-col h-full w-14 hover:w-48 transition-all duration-200 ease-out bg-[var(--bg-base)] border-r border-white/[0.06] py-4 shrink-0 overflow-hidden">
+    <aside
+      className={cn(
+        'flex flex-col h-full transition-all duration-200 ease-out bg-[var(--bg-base)] border-r border-white/[0.06] py-4 shrink-0 overflow-hidden',
+        expanded ? 'w-48' : 'w-14',
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center justify-center px-2 mb-6">
         <Link href="/dashboard" className="transition-opacity hover:opacity-80">
@@ -63,20 +76,41 @@ export function AppSidebar() {
       {/* Navigation */}
       <nav className="flex flex-col gap-1 px-2">
         {NAV_ITEMS.map((item) => (
-          <SidebarLink key={item.href} item={item} />
+          <SidebarLink key={item.href} item={item} expanded={expanded} />
         ))}
       </nav>
 
-      {/* User — bottom */}
-      <div className="mt-auto flex items-center justify-center px-2">
-        <UserButton
-          afterSignOutUrl="/"
-          appearance={{
-            elements: {
-              avatarBox: 'w-8 h-8',
-            },
-          }}
-        />
+      {/* Collapse toggle + User — bottom */}
+      <div className="mt-auto flex flex-col gap-2 px-2">
+        {shell && (
+          <button
+            type="button"
+            onClick={shell.toggleSidebar}
+            title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            className="flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer text-white/35 hover:text-white/70 hover:bg-white/[0.03] transition-colors duration-150"
+          >
+            {expanded ? (
+              <PanelLeftClose size={18} className="shrink-0" />
+            ) : (
+              <PanelLeft size={18} className="shrink-0" />
+            )}
+            {expanded && (
+              <span className="text-[13px] font-medium whitespace-nowrap">
+                Collapse
+              </span>
+            )}
+          </button>
+        )}
+        <div className="flex items-center justify-center">
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: 'w-8 h-8',
+              },
+            }}
+          />
+        </div>
       </div>
     </aside>
   );

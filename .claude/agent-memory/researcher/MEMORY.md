@@ -350,3 +350,17 @@ const response = await client.beta.messages.create({
 ### Investigation Complete
 
 The native tool exists, is production-ready, and could replace the custom SearchAPI wrapper entirely. However, the custom wrapper gives more control for enterprise features (ad library search, domain filtering). **No code changes needed unless strategy shifts to use native tool.**
+
+---
+
+## Reference: Old Onboarding Wizard (Main Branch)
+
+See `OLD-ONBOARDING-WIZARD.md` for complete documentation of the 9-step structured form UI that existed before V2 journey redesign.
+
+**Key points**:
+- 9 sequential steps with horizontal progress bar and desktop/mobile steppers
+- Step components in `src/components/onboarding/step-*.tsx`
+- Main container: `src/components/onboarding/onboarding-wizard.tsx` (880 lines)
+- Entry route: `/onboarding/edit` (with resume capability via `currentStep`)
+- Persistence: Supabase `user_profiles.onboarding_data` + localStorage
+- Fully replaced by conversational chat agent (`/journey`) on V2 branch
