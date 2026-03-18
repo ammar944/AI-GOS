@@ -12,6 +12,7 @@ import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
 import { MediaPlanCta } from './media-plan-cta';
+import { OfferRefinementCard } from './cards/offer-refinement-card';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
@@ -44,6 +45,47 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   const isApproved = phase === 'approved';
   const isLoading = phase === 'researching' || phase === 'streaming';
   const [isExiting, setIsExiting] = useState(false);
+  const [offerRerunning, setOfferRerunning] = useState(false);
+  const offerRoundRef = useRef(0);
+  const offerPrevScoreRef = useRef<number | null>(null);
+
+  // Extract offer score data for the refinement card
+  const offerScoreData = useMemo(() => {
+    if (state.currentSection !== 'offerAnalysis') return null;
+    const scoreCard = Object.values(state.cards).find(
+      (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Offer Score',
+    );
+    if (!scoreCard) return null;
+
+    const stats = scoreCard.content?.stats;
+    if (!Array.isArray(stats) || stats.length === 0) return null;
+
+    const dimensions: Array<{ label: string; value: number }> = [];
+    let overall = 0;
+
+    for (const stat of stats) {
+      const s = stat as { label?: string; value?: string };
+      if (!s.label || !s.value) continue;
+      const num = parseFloat(String(s.value).split('/')[0]);
+      if (Number.isNaN(num)) continue;
+      if (s.label === 'Overall Score') {
+        overall = num;
+      } else {
+        dimensions.push({ label: s.label, value: num });
+      }
+    }
+
+    if (overall === 0) return null;
+
+    // Track rounds
+    if (offerPrevScoreRef.current !== null && offerPrevScoreRef.current !== overall) {
+      offerRoundRef.current += 1;
+    }
+    const prevScore = offerPrevScoreRef.current;
+    offerPrevScoreRef.current = overall;
+
+    return { overall, dimensions, prevScore, round: offerRoundRef.current };
+  }, [state.currentSection, state.cards]);
 
   const allResearchApproved = useMemo(
     () => RESEARCH_SECTIONS.every((key) => state.sectionStates[key] === 'approved'),
@@ -99,6 +141,14 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   const handleRetry = useCallback(() => {
     onRetrySection?.(state.currentSection);
   }, [onRetrySection, state.currentSection]);
+
+  const handleOfferRerun = useCallback(async () => {
+    if (offerRerunning) return;
+    setOfferRerunning(true);
+    onRetrySection?.('offerAnalysis');
+    // Reset after a short delay — the phase transition will update the UI
+    setTimeout(() => setOfferRerunning(false), 3000);
+  }, [offerRerunning, onRetrySection]);
 
   // Determine if we're viewing a non-mediaPlan section that's already approved
   // (browsing completed research while media plan generates)
@@ -216,6 +266,21 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                       No data received for this section
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* Offer refinement card — visual score breakdown with re-run/approve CTAs */}
+              {state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && (
+                <div className="mt-6">
+                  <OfferRefinementCard
+                    overallScore={offerScoreData.overall}
+                    dimensions={offerScoreData.dimensions}
+                    onRerun={handleOfferRerun}
+                    onApproveAsIs={approveSection}
+                    isRerunning={offerRerunning}
+                    round={offerScoreData.round}
+                    prevScore={offerScoreData.prevScore}
+                  />
                 </div>
               )}
 

@@ -6,88 +6,11 @@ import { DefaultChatTransport } from 'ai';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
-import type { CardState } from '@/lib/workspace/types';
 
 interface LocalMessage {
   id: string;
   role: 'assistant';
   text: string;
-}
-
-/**
- * Extract the numeric offer score from workspace cards.
- * Cards are keyed by cardId (not sectionKey), so we filter by sectionKey.
- */
-function extractOfferScore(cards: Record<string, CardState>): {
-  overall: number;
-  dimensions: Array<{ label: string; value: number }>;
-} | null {
-  const scoreCard = Object.values(cards).find(
-    (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Offer Score',
-  );
-  if (!scoreCard) return null;
-
-  const stats = scoreCard.content?.stats;
-  if (!Array.isArray(stats) || stats.length === 0) return null;
-
-  const dimensions: Array<{ label: string; value: number }> = [];
-  let overall = 0;
-
-  for (const stat of stats) {
-    const s = stat as { label?: string; value?: string };
-    if (!s.label || !s.value) continue;
-    const num = parseFloat(String(s.value).split('/')[0]);
-    if (Number.isNaN(num)) continue;
-
-    if (s.label === 'Overall Score') {
-      overall = num;
-    } else {
-      dimensions.push({ label: s.label, value: num });
-    }
-  }
-
-  return overall > 0 ? { overall, dimensions } : null;
-}
-
-/**
- * Format score breakdown into a chat-friendly message.
- */
-function formatScoreMessage(
-  score: { overall: number; dimensions: Array<{ label: string; value: number }> },
-  prevScore: number | null,
-  round: number,
-): string {
-  const lines: string[] = [];
-
-  if (prevScore !== null) {
-    lines.push(`Score: ${prevScore}/10 → ${score.overall}/10`);
-  } else {
-    lines.push(`Your offer analysis scored ${score.overall}/10.`);
-  }
-
-  const sorted = [...score.dimensions].sort((a, b) => a.value - b.value);
-  lines.push('');
-  lines.push('Breakdown:');
-  for (const dim of sorted) {
-    const bar = dim.value >= 7 ? 'strong' : dim.value >= 5 ? 'moderate' : 'weak';
-    lines.push(`  ${dim.label}: ${dim.value}/10 (${bar})`);
-  }
-
-  if (score.overall >= 8) {
-    lines.push('');
-    lines.push('Looking good — approve when you\'re ready.');
-  } else if (round >= 2) {
-    const weakest = sorted[0];
-    lines.push('');
-    lines.push(
-      `The remaining gaps may need business-level changes (e.g., ${weakest.label}: ${weakest.value}/10). You can approve as-is or keep refining.`,
-    );
-  } else {
-    lines.push('');
-    lines.push('I can help improve the weak areas. Which should we tackle first?');
-  }
-
-  return lines.join('\n');
 }
 
 /** Extract concatenated text from UIMessage.parts */
@@ -112,83 +35,13 @@ export function RightRail({ className }: RightRailProps) {
   const threadEndRef = useRef<HTMLDivElement>(null);
   const prevSectionRef = useRef(state.currentSection);
 
-  // Offer refinement tracking
-  const refinementRoundRef = useRef(0);
-  const prevScoreRef = useRef<number | null>(null);
-  const lastSeededPhaseRef = useRef<string | null>(null);
-
-  // Clear local messages + reset refinement refs on section change
+  // Clear local messages on section change
   useEffect(() => {
     if (prevSectionRef.current !== state.currentSection) {
       setLocalMessages([]);
       prevSectionRef.current = state.currentSection;
-      refinementRoundRef.current = 0;
-      prevScoreRef.current = null;
-      lastSeededPhaseRef.current = null;
     }
   }, [state.currentSection]);
-
-  // Auto-seed offer score breakdown when section enters review
-  useEffect(() => {
-    if (state.currentSection !== 'offerAnalysis') return;
-
-    const phase = state.sectionStates.offerAnalysis;
-
-    // Build a discriminator that changes on re-runs — use the score card's
-    // latest version timestamp (changes each time worker writes new results).
-    const scoreCard = Object.values(state.cards).find(
-      (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Offer Score',
-    );
-    const latestVersion = scoreCard?.versions?.[scoreCard.versions.length - 1]?.timestamp ?? 0;
-    const phaseKey = `${phase}-${latestVersion}`;
-
-    // Only fire once per distinct phase+result combination (not on re-renders)
-    if (lastSeededPhaseRef.current === phaseKey) return;
-
-    if (phase === 'review') {
-      lastSeededPhaseRef.current = phaseKey;
-
-      const score = extractOfferScore(state.cards);
-      if (!score) return; // No score card — skip silently
-
-      // Increment round counter on each re-run (prevScore exists = this is a re-run).
-      // Round 0 = first result, round 1 = first re-run, round 2 = second re-run.
-      // Exit condition (round >= 2) fires after the second re-run attempt.
-      if (prevScoreRef.current !== null) {
-        refinementRoundRef.current += 1;
-      }
-
-      const message = formatScoreMessage(
-        score,
-        prevScoreRef.current,
-        refinementRoundRef.current,
-      );
-
-      prevScoreRef.current = score.overall;
-
-      setLocalMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant' as const,
-          text: message,
-        },
-      ]);
-    }
-
-    if (phase === 'error') {
-      lastSeededPhaseRef.current = phaseKey;
-      const errorMsg = state.sectionErrors.offerAnalysis ?? 'Unknown error';
-      setLocalMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant' as const,
-          text: `Re-run failed: ${errorMsg}. You can retry or approve the previous results.`,
-        },
-      ]);
-    }
-  }, [state.currentSection, state.sectionStates, state.cards, state.sectionErrors]);
 
   // Section-scoped transport — new DefaultChatTransport per section
   const transport = useMemo(
