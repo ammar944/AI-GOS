@@ -24,6 +24,7 @@ import {
   synthesizeResearch,
   researchKeywords,
 } from '@/lib/ai/tools/research';
+import { updateFieldInputSchema } from '@/lib/ai/tools/update-field';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
 import { validateWorkerUrl } from '@/lib/env';
@@ -558,6 +559,22 @@ YOUR RESPONSE MUST:
       researchOffer,
       synthesizeResearch,
       researchKeywords,
+      updateField: {
+        description:
+          'Update a specific onboarding field in the user\'s session. Call this when the user approves a recommended improvement to their business data (value prop, pricing, ICP description, etc.). Only call after the user explicitly confirms the change.',
+        inputSchema: updateFieldInputSchema,
+        execute: async ({ key, value, reason }: { key: string; value: string; reason: string }) => {
+          const result = await persistToSupabase(
+            userId,
+            { [key]: value },
+            body.activeRunId ?? undefined,
+          );
+          if (!result.ok) {
+            return { updated: false, error: result.error ?? 'Failed to update field' };
+          }
+          return { updated: true, key, value, reason };
+        },
+      },
     },
     stopWhen: stepCountIs(25),
     providerOptions: {
