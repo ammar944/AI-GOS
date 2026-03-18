@@ -136,17 +136,65 @@ async function scrapeTrustpilot(domain: string): Promise<TrustpilotResult | null
   }
 }
 
-// ── G2 (Perplexity Sonar Pro search — v1 approach) ──
+// ── G2 (Perplexity search + Firecrawl verification) ──
 
 const G2_TIMEOUT_MS = 15_000;
+const G2_VERIFY_TIMEOUT_MS = 10_000;
+
+/** Patterns that indicate a G2 page has no real reviews */
+const G2_NO_REVIEWS_PATTERNS = [
+  /hasn't been reviewed yet/i,
+  /be the first to share your experience/i,
+  /0\/5\s*\(0\)/,
+  /0 out of 5/i,
+  /no reviews/i,
+];
 
 const g2MetadataSchema = z.object({
   found: z.boolean(),
   url: z.string().optional(),
-  rating: z.number().optional().describe('G2 star rating out of 5. ONLY from the G2 page itself.'),
-  reviewCount: z.number().optional().describe('Total reviews on G2. ONLY from G2 data.'),
+  rating: z.number().optional().describe('G2 star rating out of 5. ONLY the rating shown directly next to the product name, NOT from sponsored alternatives or comparison widgets.'),
+  reviewCount: z.number().optional().describe('Total reviews shown in parentheses next to the star rating on the product page header. NOT from alternative products.'),
   productCategory: z.string().optional().describe('G2 category for this product'),
 });
+
+/**
+ * Verify G2 data by scraping the actual G2 URL with Firecrawl.
+ * Returns false if the page says "hasn't been reviewed yet" or shows 0 reviews.
+ */
+async function verifyG2Page(url: string, companyName: string): Promise<boolean> {
+  try {
+    const resultStr = runResultToString(
+      await Promise.race([
+        firecrawlTool.run({ url }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('G2 verify timeout')), G2_VERIFY_TIMEOUT_MS),
+        ),
+      ]),
+    );
+    const result = safeJsonParse(resultStr) as { markdown?: string } | null;
+    const markdown = typeof result?.markdown === 'string' ? result.markdown : '';
+
+    if (markdown.length < 100) {
+      console.log(`[reviews] G2 verify ${companyName}: page too short (${markdown.length} chars)`);
+      return false;
+    }
+
+    for (const pattern of G2_NO_REVIEWS_PATTERNS) {
+      if (pattern.test(markdown)) {
+        console.log(`[reviews] G2 verify ${companyName}: REJECTED — page says "${pattern.source}"`);
+        return false;
+      }
+    }
+
+    console.log(`[reviews] G2 verify ${companyName}: passed (${markdown.length} chars, no rejection patterns)`);
+    return true;
+  } catch (error) {
+    // Verification failure = don't trust the data
+    console.log(`[reviews] G2 verify ${companyName}: failed (${error instanceof Error ? error.message : error}) — rejecting`);
+    return false;
+  }
+}
 
 async function searchG2(companyName: string): Promise<G2Result | null> {
   console.log(`[reviews] searching G2 via Perplexity for: ${companyName}`);
@@ -168,9 +216,13 @@ async function searchG2(companyName: string): Promise<G2Result | null> {
         temperature: 0.1,
         maxOutputTokens: 400,
         system: `You look up G2.com product pages to find their aggregate rating and review count.
-ONLY return data that appears on the actual G2 product page (rating stars and review count).
-DO NOT summarize reviews or extract quotes. Just the metadata.
-If the product is not found on G2, set found: false.`,
+
+CRITICAL RULES — read carefully:
+- ONLY report the star rating and review count shown directly next to the PRODUCT NAME at the top of the G2 product page.
+- Do NOT report ratings from "Top-Rated Alternatives", "Sponsored" listings, or comparison widgets on the same page.
+- If the G2 page says "This product hasn't been reviewed yet" or shows 0/5 (0), set found: false.
+- If you cannot find a dedicated G2 product page for this exact company, set found: false.
+- Do NOT confuse similarly-named products. Verify the company website matches.`,
         prompt: `What is the G2 rating and review count for "${companyName}"? Search: "${companyName} site:g2.com"`,
       }),
       new Promise<never>((_, reject) =>
@@ -188,7 +240,24 @@ If the product is not found on G2, set found: false.`,
       return null;
     }
 
-    console.log(`[reviews] G2 ${companyName}: rating=${obj.rating}, count=${obj.reviewCount}, category=${obj.productCategory}`);
+    // Reject if Perplexity claims 0 reviews
+    if (obj.reviewCount !== undefined && obj.reviewCount === 0) {
+      console.log(`[reviews] G2 ${companyName}: Perplexity returned 0 reviews — skipping`);
+      return null;
+    }
+
+    console.log(`[reviews] G2 ${companyName} (unverified): rating=${obj.rating}, count=${obj.reviewCount}, category=${obj.productCategory}`);
+
+    // Ground-truth verification: scrape the actual G2 URL to confirm reviews exist
+    if (obj.url) {
+      const verified = await verifyG2Page(obj.url, companyName);
+      if (!verified) {
+        console.log(`[reviews] G2 ${companyName}: REJECTED by Firecrawl verification — Perplexity data was hallucinated`);
+        return null;
+      }
+    }
+
+    console.log(`[reviews] G2 ${companyName} (verified): rating=${obj.rating}, count=${obj.reviewCount}`);
 
     return {
       rating: obj.rating ?? null,
