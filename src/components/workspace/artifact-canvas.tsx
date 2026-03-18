@@ -84,7 +84,17 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     const prevScore = offerPrevScoreRef.current;
     offerPrevScoreRef.current = overall;
 
-    return { overall, dimensions, prevScore, round: offerRoundRef.current };
+    // Extract priorityFixes and actionPlan from the offer cards
+    const weaknessesCard = Object.values(state.cards).find(
+      (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Weaknesses',
+    );
+    const actionsCard = Object.values(state.cards).find(
+      (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Recommended Actions',
+    );
+    const priorityFixes = (weaknessesCard?.content?.items ?? []) as string[];
+    const actionPlan = (actionsCard?.content?.items ?? []) as string[];
+
+    return { overall, dimensions, prevScore, round: offerRoundRef.current, priorityFixes, actionPlan };
   }, [state.currentSection, state.cards]);
 
   const allResearchApproved = useMemo(
@@ -275,6 +285,8 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                   <OfferRefinementCard
                     overallScore={offerScoreData.overall}
                     dimensions={offerScoreData.dimensions}
+                    priorityFixes={offerScoreData.priorityFixes}
+                    actionPlan={offerScoreData.actionPlan}
                     onRerun={handleOfferRerun}
                     onApproveAsIs={approveSection}
                     isRerunning={offerRerunning}
