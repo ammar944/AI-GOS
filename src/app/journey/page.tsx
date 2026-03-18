@@ -79,7 +79,6 @@ import {
   JOURNEY_REQUIRED_FIELD_KEYS,
   JOURNEY_PRICING_GROUP_KEYS,
 } from '@/lib/journey/field-catalog';
-import { getManualPrefillPreset } from '@/lib/journey/manual-prefill-presets';
 import { isJourneyStudioPreview } from '@/lib/journey/journey-preview';
 import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
 import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
@@ -395,18 +394,6 @@ function JourneyPageContent() {
     error: prefillError,
     stop: stopPrefill,
   } = useJourneyPrefill();
-  const prefillReviewPreset = useMemo(
-    () =>
-      getManualPrefillPreset({
-        websiteUrl: prefillWebsiteUrl,
-        companyName: readJourneyPrefillFieldValue(
-          partialResult as Record<string, unknown> | null | undefined,
-          'companyName',
-        ),
-      }),
-    [partialResult, prefillWebsiteUrl],
-  );
-
   // Flatten partialResult { key: { value } } into Record<string, string> for UnifiedFieldReview
   const extractedFieldsFlat = useMemo(() => {
     const flat: Record<string, string> = {};
@@ -1991,7 +1978,6 @@ function JourneyPageContent() {
   const reviewWorkspace = (
     <UnifiedFieldReview
       extractedFields={extractedFieldsFlat}
-      presetFields={prefillReviewPreset?.values}
       onStart={handleStartFromUnifiedReview}
     />
   );
@@ -2191,20 +2177,6 @@ function PrefillReviewView({
     return fields;
   }, [partialResult]);
 
-  const preset = useMemo(
-    () =>
-      getManualPrefillPreset({
-        websiteUrl,
-        companyName:
-          editedFields.companyName?.trim() ||
-          readJourneyPrefillFieldValue(
-            partialResult as Record<string, unknown>,
-            'companyName',
-          ),
-      }),
-    [editedFields.companyName, partialResult, websiteUrl],
-  );
-
   const resolvedManualFieldValues = useMemo(() => {
     const values: Record<string, string> = {};
 
@@ -2230,11 +2202,11 @@ function PrefillReviewView({
         continue;
       }
 
-      values[field.key] = preset?.values[field.key] ?? '';
+      values[field.key] = '';
     }
 
     return values;
-  }, [editedFields, manualFields, partialResult, preset]);
+  }, [editedFields, manualFields, partialResult]);
 
   const pricingContextReady = Boolean(
     resolvedManualFieldValues.pricingTiers?.trim() ||
@@ -2337,11 +2309,6 @@ function PrefillReviewView({
                 Complete these before research begins.
               </p>
             </div>
-            {preset ? (
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-300">
-                Auto-prefill: {preset.label}
-              </span>
-            ) : null}
           </div>
 
           {/* Status banner */}
@@ -2372,15 +2339,9 @@ function PrefillReviewView({
               const isMissing = field.requiredGroup === 'pricingContext'
                 ? !pricingContextReady
                 : Boolean(field.required && !value.trim());
-              const presetValue = preset?.values[field.key];
               const extractedValue = readJourneyPrefillFieldValue(
                 partialResult as Record<string, unknown>,
                 field.key,
-              );
-              const usedPreset = Boolean(
-                presetValue &&
-                  !extractedValue &&
-                  !Object.prototype.hasOwnProperty.call(manualFields, field.key),
               );
 
               return (
@@ -2402,11 +2363,6 @@ function PrefillReviewView({
                       )}
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {usedPreset && (
-                        <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
-                          Auto-filled
-                        </span>
-                      )}
                       {isMissing && (
                         <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">
                           Required

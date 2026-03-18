@@ -3,21 +3,30 @@ import { perplexity, MODELS } from '@/lib/ai/providers';
 import { companyResearchSchema, type CompanyResearchOutput } from '@/lib/company-intel/schemas';
 import { createFirecrawlClient } from '@/lib/firecrawl';
 
-const SYSTEM_PROMPT = `You are a factual business researcher. You ONLY extract verifiable information from real web sources.
+const SYSTEM_PROMPT = `You are a factual business researcher. You extract verifiable information from real web sources.
 
-You may be provided with SCRAPED WEBSITE CONTENT below — this is the actual HTML-to-markdown content of the company's website pages. Use this content as your PRIMARY source for extraction. It is real, verified content from their site.
+You may be provided with SCRAPED WEBSITE CONTENT below — this is the actual HTML-to-markdown content of the company's website pages. Use this content as your PRIMARY source for most fields. It is real, verified content from their site.
 
-ABSOLUTE RULES:
-1. ONLY include information you can VERIFY from the scraped website content, LinkedIn page, or credible search results
+EXTRACTION RULES (for most fields):
+1. For fields extracted from the company's OWN site: ONLY include information you can VERIFY from the scraped website content, LinkedIn page, or credible search results
 2. If you cannot find a piece of information, the value MUST be null — NEVER guess, infer, or make up data
 3. Every non-null value must have a real sourceUrl where you found it — do NOT fabricate URLs
 4. Use the company's own words whenever possible — quote, don't paraphrase
 5. Confidence scores must honestly reflect certainty — do NOT inflate scores
 6. For testimonial quotes, ONLY use real quotes found on the site with attribution
-7. For competitor names, ONLY list competitors explicitly mentioned or clearly in the same market
-8. For URLs (case studies, pricing, demo pages), ONLY include URLs that actually exist on the site
-9. When scraped content is provided, prefer extracting from it over web search — it is the ground truth
-10. You MUST output EVERY field in the schema. If you cannot find a value for a field, output { "value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not found on website or LinkedIn." }. Never omit a field.`;
+7. For URLs (case studies, pricing, demo pages), ONLY include URLs that actually exist on the site
+8. When scraped content is provided, prefer extracting from it over web search — it is the ground truth
+9. You MUST output EVERY field in the schema. If you cannot find a value for a field, output { "value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not found on website or LinkedIn." }. Never omit a field.
+
+COMPETITOR RESEARCH (EXCEPTION — this field uses web search, not just the company's site):
+The topCompetitors field is DIFFERENT from all other fields. For this field you MUST:
+- Search the web for "[company name] competitors" and "[company name] alternatives"
+- Identify the top 3-5 companies that offer similar products/services to the same target audience
+- These are companies prospects would compare against — direct market rivals
+- Return as a comma-separated list of company names (e.g., "Kalungi, Directive, Hey Digital")
+- The sourceUrl should be the search result or comparison page where you found them
+- This field should almost NEVER be null — every company has competitors
+- Do NOT limit yourself to competitors mentioned on the company's own website`;
 
 const SCRAPE_PATHS = [
   '',
@@ -254,6 +263,8 @@ ${scrapedContent}
 ${scrapedContent
     ? 'I have provided the actual scraped content from their website above. Extract information primarily from this content, and supplement with web search for anything not covered (e.g., LinkedIn data, competitor info).'
     : 'Visit the website and extract factual information for each field in the schema.'}
+
+COMPETITOR RESEARCH (IMPORTANT): For topCompetitors, do NOT just check if the company mentions competitors on their own site. Actively search the web to find their top 3-5 direct competitors — companies offering similar products/services to the same target market. Use search queries like "[company name] competitors", "[company name] alternatives", and "[industry] market landscape". Return the competitor names as a comma-separated list (e.g., "Kalungi, Hey Digital, Directive"). Be accurate — verify each competitor is a real company in the same space.
 
 CRITICAL: You MUST output every single field in the schema. For any field you cannot verify from actual sources, output: { "value": null, "confidence": 0, "sourceUrl": null, "reasoning": "Not found on website or LinkedIn." }
 Never omit a field — null is correct, missing is not.`;

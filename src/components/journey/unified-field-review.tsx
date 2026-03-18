@@ -1,63 +1,51 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Building2, Users, Package, TrendingUp, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { FieldGroup } from '@/components/journey/field-group';
+import { FieldCard } from '@/components/journey/field-card';
 import {
   JOURNEY_FIELD_GROUPS,
   JOURNEY_FIELD_LABELS,
   JOURNEY_REQUIRED_FIELD_KEYS,
   JOURNEY_PRICING_GROUP_KEYS,
+  JOURNEY_MULTILINE_FIELDS,
+  getManualBlockerMeta,
 } from '@/lib/journey/field-catalog';
+
+const GROUP_ICONS = [
+  <Building2 key="biz" className="h-3.5 w-3.5" />,
+  <Users key="cust" className="h-3.5 w-3.5" />,
+  <Package key="offer" className="h-3.5 w-3.5" />,
+  <TrendingUp key="comp" className="h-3.5 w-3.5" />,
+  <Target key="goals" className="h-3.5 w-3.5" />,
+];
 
 export interface UnifiedFieldReviewProps {
   extractedFields: Record<string, string>;
-  presetFields?: Record<string, string>;
   onStart: (onboardingData: Record<string, string>) => void;
 }
 
 export function UnifiedFieldReview({
   extractedFields,
-  presetFields,
   onStart,
 }: UnifiedFieldReviewProps) {
-  // Merge preset → extracted → user edits (user edits win)
   const [userEdits, setUserEdits] = useState<Record<string, string>>({});
-  const [activeGroupIndex, setActiveGroupIndex] = useState<number>(() => {
-    // Find first group that has unfilled required fields
-    for (let i = 0; i < JOURNEY_FIELD_GROUPS.length; i++) {
-      const group = JOURNEY_FIELD_GROUPS[i];
-      const hasUnfilled = group.fieldKeys.some((key) => {
-        const val = extractedFields[key] || presetFields?.[key] || '';
-        return (JOURNEY_REQUIRED_FIELD_KEYS.has(key) || JOURNEY_PRICING_GROUP_KEYS.has(key)) && !val.trim();
-      });
-      if (hasUnfilled) return i;
-    }
-    return 0;
-  });
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [isStarting, setIsStarting] = useState(false);
-  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Merged field values: preset → extracted → user edits
+  // Merged field values: extracted → user edits (user edits win)
   const fieldValues = useMemo(() => {
     const merged: Record<string, string> = {};
-    // Layer 1: presets (lowest priority)
-    if (presetFields) {
-      for (const [key, val] of Object.entries(presetFields)) {
-        if (val) merged[key] = val;
-      }
-    }
-    // Layer 2: extracted (overwrites presets)
     for (const [key, val] of Object.entries(extractedFields)) {
       if (val) merged[key] = val;
     }
-    // Layer 3: user edits (highest priority)
     for (const [key, val] of Object.entries(userEdits)) {
       merged[key] = val;
     }
     return merged;
-  }, [extractedFields, presetFields, userEdits]);
+  }, [extractedFields, userEdits]);
 
   // Track which keys came from scraping
   const scrapedKeys = useMemo(() => {
@@ -71,80 +59,45 @@ export function UnifiedFieldReview({
   // Gate logic — all required fields must be filled
   const gateStatus = useMemo(() => {
     const missing: string[] = [];
-
     for (const key of JOURNEY_REQUIRED_FIELD_KEYS) {
       if (!fieldValues[key]?.trim()) {
         missing.push(key);
       }
     }
-
-    // Pricing group: at least one of pricingTiers or monthlyAdBudget
     const hasPricing = Array.from(JOURNEY_PRICING_GROUP_KEYS).some(
       (key) => fieldValues[key]?.trim(),
     );
     if (!hasPricing) {
       missing.push('pricingContext');
     }
-
     return { ready: missing.length === 0, missing };
   }, [fieldValues]);
 
-  // Progress calculation
+  // Progress per group
+  const groupProgress = useMemo(() => {
+    return JOURNEY_FIELD_GROUPS.map((group) => {
+      let filled = 0;
+      for (const key of group.fieldKeys) {
+        if (fieldValues[key]?.trim()) filled++;
+      }
+      return { filled, total: group.fieldKeys.length };
+    });
+  }, [fieldValues]);
+
+  // Overall progress
   const progress = useMemo(() => {
     let filled = 0;
     let total = 0;
-    for (const group of JOURNEY_FIELD_GROUPS) {
-      for (const key of group.fieldKeys) {
-        total++;
-        if (fieldValues[key]?.trim()) filled++;
-      }
+    for (const gp of groupProgress) {
+      filled += gp.filled;
+      total += gp.total;
     }
     return { filled, total, percent: total > 0 ? Math.round((filled / total) * 100) : 0 };
-  }, [fieldValues]);
-
-  // Determine group state
-  const getGroupState = useCallback(
-    (index: number): 'active' | 'completed' | 'upcoming' => {
-      if (index === activeGroupIndex) return 'active';
-      if (index < activeGroupIndex) return 'completed';
-      return 'upcoming';
-    },
-    [activeGroupIndex],
-  );
+  }, [groupProgress]);
 
   const handleFieldChange = useCallback((key: string, value: string) => {
     setUserEdits((prev) => ({ ...prev, [key]: value }));
   }, []);
-
-  const handleContinue = useCallback(() => {
-    if (activeGroupIndex < JOURNEY_FIELD_GROUPS.length - 1) {
-      setActiveGroupIndex((prev) => prev + 1);
-    }
-  }, [activeGroupIndex]);
-
-  const handleReopen = useCallback((index: number) => {
-    setActiveGroupIndex(index);
-  }, []);
-
-  const handleFieldBlur = useCallback(
-    (key: string) => {
-      // Check if this is the last field in the active group
-      const activeGroup = JOURNEY_FIELD_GROUPS[activeGroupIndex];
-      if (!activeGroup) return;
-
-      const lastKey = activeGroup.fieldKeys[activeGroup.fieldKeys.length - 1];
-      if (key === lastKey) {
-        // Auto-advance after 300ms delay
-        if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-        blurTimeoutRef.current = setTimeout(() => {
-          if (activeGroupIndex < JOURNEY_FIELD_GROUPS.length - 1) {
-            setActiveGroupIndex((prev) => prev + 1);
-          }
-        }, 300);
-      }
-    },
-    [activeGroupIndex],
-  );
 
   const handleStart = useCallback(async () => {
     if (!gateStatus.ready || isStarting) return;
@@ -156,14 +109,16 @@ export function UnifiedFieldReview({
     }
   }, [gateStatus.ready, isStarting, fieldValues, onStart]);
 
+  const activeGroup = JOURNEY_FIELD_GROUPS[activeGroupIndex];
+
   return (
     <section className="flex-1 flex flex-col min-h-0">
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 sm:px-12 pb-32">
-        <div className="max-w-2xl mx-auto pt-8 sm:pt-12">
+        <div className="max-w-3xl mx-auto pt-8 sm:pt-12">
           {/* Header */}
           <motion.div
-            className="mb-8"
+            className="mb-6"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.21, 0.45, 0.27, 0.9] }}
@@ -176,50 +131,243 @@ export function UnifiedFieldReview({
             </p>
           </motion.div>
 
-          {/* Progress indicator — compact */}
+          {/* Progress bar */}
           <motion.div
-            className="flex items-center gap-3 mb-6 px-1"
+            className="flex items-center gap-3 mb-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
+            transition={{ delay: 0.15, duration: 0.4 }}
           >
-            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(30, 32, 38)' }}>
+            <div className="flex items-center gap-2 text-[13px]">
+              <span className="font-medium text-white/80">
+                Step {activeGroupIndex + 1} of {JOURNEY_FIELD_GROUPS.length}
+              </span>
+              <span className="text-white/30">&middot;</span>
+              <span className="text-white/40 font-mono tabular-nums">
+                {progress.percent}% complete
+              </span>
+            </div>
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
               <motion.div
                 className="h-full rounded-full"
                 style={{ background: 'var(--gradient-primary)' }}
                 initial={{ width: 0 }}
                 animate={{ width: `${progress.percent}%` }}
-                transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
               />
             </div>
-            <span className="text-[11px] font-mono tabular-nums" style={{ color: 'rgba(255, 255, 255, 0.4)' }}>
-              {progress.filled}/{progress.total}
-            </span>
           </motion.div>
 
-          {/* Field groups — progressive reveal */}
-          <div className="space-y-2">
-            {JOURNEY_FIELD_GROUPS.map((group, index) => (
-              <FieldGroup
-                key={group.id}
-                group={group}
-                groupIndex={index}
-                state={getGroupState(index)}
-                fieldValues={fieldValues}
-                scrapedKeys={scrapedKeys}
-                onFieldChange={handleFieldChange}
-                onContinue={handleContinue}
-                onReopen={() => handleReopen(index)}
-                onFieldBlur={handleFieldBlur}
-              />
-            ))}
-          </div>
+          {/* Horizontal step indicators */}
+          <motion.div
+            className="mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+          >
+            {/* Desktop: full step indicators with connecting lines */}
+            <div className="hidden sm:flex items-center justify-between relative" role="tablist" aria-label="Onboarding sections">
+              {JOURNEY_FIELD_GROUPS.map((group, index) => {
+                const isActive = index === activeGroupIndex;
+                const gp = groupProgress[index];
+                const isComplete = gp.filled === gp.total;
+
+                return (
+                  <div key={group.id} className="flex flex-col items-center gap-2 flex-1 relative z-10">
+                    {/* Connector line (between circles) */}
+                    {index > 0 && (
+                      <div
+                        className="absolute top-4 right-1/2 w-full h-0.5 -z-10"
+                        style={{
+                          background: groupProgress[index - 1].filled === groupProgress[index - 1].total
+                            ? 'var(--accent-blue)'
+                            : 'var(--border-hover)',
+                        }}
+                      />
+                    )}
+
+                    {/* Step circle */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-label={`${group.label} — ${gp.filled} of ${gp.total} filled`}
+                      onClick={() => setActiveGroupIndex(index)}
+                      className={cn(
+                        'relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-200 cursor-pointer',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]',
+                        'hover:scale-110',
+                      )}
+                      style={{
+                        borderColor: isActive
+                          ? 'var(--text-secondary)'
+                          : isComplete
+                            ? 'var(--accent-blue)'
+                            : 'var(--border-hover)',
+                        background: isActive
+                          ? 'var(--text-secondary)'
+                          : isComplete
+                            ? 'var(--accent-blue)'
+                            : 'var(--bg-hover)',
+                        color: isActive
+                          ? 'var(--bg-hover)'
+                          : isComplete
+                            ? '#fff'
+                            : 'var(--text-tertiary)',
+                      }}
+                    >
+                      {isComplete && !isActive ? (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        GROUP_ICONS[index]
+                      )}
+
+                      {/* Active pulse */}
+                      {isActive && (
+                        <motion.div
+                          className="absolute inset-0 rounded-full"
+                          style={{ border: '2px solid var(--text-secondary)' }}
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                      )}
+                    </button>
+
+                    {/* Label */}
+                    <span
+                      className={cn(
+                        'text-[11px] font-medium text-center leading-tight transition-colors duration-200',
+                      )}
+                      style={{
+                        color: isActive
+                          ? 'var(--text-primary)'
+                          : isComplete
+                            ? 'var(--accent-blue)'
+                            : 'var(--text-tertiary)',
+                      }}
+                    >
+                      {group.label}
+                    </span>
+
+                    {/* Fill count */}
+                    <span className="text-[9px] font-mono tabular-nums" style={{ color: 'rgba(255, 255, 255, 0.3)' }}>
+                      {gp.filled}/{gp.total}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile: scrollable pill buttons */}
+            <div className="flex sm:hidden gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-none">
+              {JOURNEY_FIELD_GROUPS.map((group, index) => {
+                const isActive = index === activeGroupIndex;
+                const gp = groupProgress[index];
+                const isComplete = gp.filled === gp.total;
+
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => setActiveGroupIndex(index)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 rounded-full text-[12px] font-medium whitespace-nowrap transition-all shrink-0 cursor-pointer',
+                      isActive
+                        ? 'bg-white text-black'
+                        : isComplete
+                          ? 'bg-[rgb(54,94,255)]/15 text-[rgb(54,94,255)] border border-[rgb(54,94,255)]/20'
+                          : 'bg-white/5 text-white/50 border border-white/[0.06]',
+                    )}
+                  >
+                    {isComplete && !isActive && (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {group.label}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Active group fields */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeGroup.id}
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+              className="rounded-2xl overflow-hidden"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--accent-blue-subtle)',
+                boxShadow: 'var(--shadow-glow-blue), var(--shadow-elevated)',
+              }}
+            >
+              {/* Group header */}
+              <div className="flex items-center gap-3 px-5 pt-5 pb-2">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: 'var(--accent-blue-glow)',
+                    border: '1px solid var(--accent-blue-subtle)',
+                  }}
+                >
+                  <span style={{ color: 'var(--accent-blue)' }}>
+                    {GROUP_ICONS[activeGroupIndex]}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <h3
+                    className="text-[15px] font-semibold tracking-[-0.01em]"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
+                  >
+                    {activeGroup.label}
+                  </h3>
+                  <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                    {groupProgress[activeGroupIndex].filled} of {groupProgress[activeGroupIndex].total} filled
+                  </p>
+                </div>
+              </div>
+
+              {/* Field cards */}
+              <div className="px-5 pb-4 space-y-1.5">
+                {activeGroup.fieldKeys.map((key, i) => {
+                  const fieldLabel = JOURNEY_FIELD_LABELS[key] || key;
+                  const isRequired = JOURNEY_REQUIRED_FIELD_KEYS.has(key) || JOURNEY_PRICING_GROUP_KEYS.has(key);
+                  const isScraped = scrapedKeys.has(key);
+                  const isMultiline = JOURNEY_MULTILINE_FIELDS.has(key);
+                  const blockerMeta = getManualBlockerMeta(key);
+
+                  return (
+                    <FieldCard
+                      key={key}
+                      fieldKey={key}
+                      label={fieldLabel}
+                      value={fieldValues[key] ?? ''}
+                      placeholder={blockerMeta?.placeholder ?? ''}
+                      helper={blockerMeta?.helper}
+                      isRequired={isRequired}
+                      isScraped={isScraped}
+                      isMultiline={isMultiline}
+                      onChange={(val) => handleFieldChange(key, val)}
+                      autoFocus={i === 0}
+                    />
+                  );
+                })}
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
       {/* Sticky bottom bar */}
       <div className="sticky bottom-0 border-t border-white/[0.06] px-6 sm:px-12 py-4 bg-[var(--bg-base)]/95 backdrop-blur-xl">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
           {/* Status */}
           <div className="flex-1 min-w-0">
             {gateStatus.ready ? (
@@ -235,11 +383,20 @@ export function UnifiedFieldReview({
             )}
           </div>
 
-          {/* Step / Start buttons */}
+          {/* Navigation + Start buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            {activeGroupIndex < JOURNEY_FIELD_GROUPS.length - 1 && !gateStatus.ready ? (
+            {activeGroupIndex > 0 && (
               <button
-                onClick={handleContinue}
+                onClick={() => setActiveGroupIndex((prev) => prev - 1)}
+                className="cursor-pointer h-10 rounded-full border border-white/10 text-white/60 font-medium text-[13px] px-5 transition-all hover:border-white/20 hover:text-white/80"
+              >
+                Back
+              </button>
+            )}
+
+            {activeGroupIndex < JOURNEY_FIELD_GROUPS.length - 1 ? (
+              <button
+                onClick={() => setActiveGroupIndex((prev) => prev + 1)}
                 className="cursor-pointer h-10 rounded-full bg-white text-black font-semibold text-[13px] px-6 transition-all hover:bg-white/90"
               >
                 Next Section

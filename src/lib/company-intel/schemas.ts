@@ -80,7 +80,7 @@ export const companyResearchSchema = z.object({
 
   // ── Market & Competition (Phase 4) ────────────────────────────────────────
   topCompetitors: researchedFieldSchema
-    .describe('Named competitors ONLY if mentioned on their website (comparison pages, "why us" sections, case studies) or clearly identifiable from the same market. Do NOT fabricate competitor names.'),
+    .describe('Top 3-5 direct competitors — actively search the web to find companies offering similar products/services to the same target market. Use "[company] competitors" and "[company] alternatives" searches. Return as comma-separated names. Verify each is a real company in the same space. Do NOT fabricate names.'),
 
   uniqueEdge: researchedFieldSchema
     .describe('What they claim makes them different — use their own words from "why us", comparison, or about pages.'),
