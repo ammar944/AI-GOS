@@ -540,6 +540,37 @@ YOUR RESPONSE MUST:
     }
   }
 
+  // ── Offer refinement mode ──────────────────────────────────────────────
+  // Detect if the RightRail chat contains offer score data (seeded by frontend).
+  // If so, append refinement instructions so Claude knows to use updateField.
+  const isRefinementChat = requestMessages.some(
+    (m) =>
+      m.role === 'assistant' &&
+      m.parts.some((p) => {
+        if (typeof p !== 'object' || !p || !('type' in p)) return false;
+        const typed = p as { type: string; text?: string };
+        return (
+          typed.type === 'text' &&
+          typeof typed.text === 'string' &&
+          typed.text.includes('Score:') &&
+          typed.text.includes('/10')
+        );
+      }),
+  );
+
+  if (isRefinementChat) {
+    systemPrompt += `\n\n## Offer Refinement Mode
+
+You are helping the user improve their offer based on scoring data visible in the conversation.
+Rules:
+1. Reference specific dimensions that scored low
+2. Suggest concrete field updates — always name the field key (valueProp, productDescription, coreDeliverables, pricingTiers, etc.)
+3. Call updateField ONLY after the user confirms ("yes", "do it", "update it", etc.)
+4. After 2-3 field updates, suggest re-running offer analysis to see the new score
+5. Base suggestions on the conversation context — never fabricate metrics
+6. If the user says "re-run" or "re-analyze", call researchOffer to re-dispatch the offer analysis`;
+  }
+
   // ── Stream ──────────────────────────────────────────────────────────────
   const result = streamText({
     model: anthropic(MODELS.CLAUDE_OPUS),
