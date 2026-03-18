@@ -8,10 +8,17 @@ const SPYFU_KEYWORD_PAGE_SIZE = 12;
 async function spyfuGet(path: string): Promise<unknown> {
   const apiKey = process.env.SPYFU_API_KEY;
   if (!apiKey) throw new Error('SPYFU_API_KEY not configured');
-  const res = await fetch(`${SPYFU_BASE_URL}${path}&api_key=${apiKey}`, {
+  const separator = path.includes('?') ? '&' : '?';
+  const url = `${SPYFU_BASE_URL}${path}${separator}api_key=${apiKey}`;
+  console.log(`[spyfu] GET ${url.replace(apiKey, '***')}`);
+  const res = await fetch(url, {
     signal: AbortSignal.timeout(SPYFU_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`SpyFu API error: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(`[spyfu] ${res.status} for ${path}: ${body.slice(0, 200)}`);
+    throw new Error(`SpyFu API error: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -24,9 +31,9 @@ export const spyfuTool = betaZodTool({
   run: async ({ domain }) => {
     try {
       const [domainStats, keywords] = await Promise.all([
-        spyfuGet(`/domain_stats/v2/getDomainStatsForQuery?query=${domain}&countryCode=US&_p=1&_pageSize=1`),
+        spyfuGet(`/domain_stats_api/v2/getAllDomainStats?domain=${encodeURIComponent(domain)}&countryCode=US`),
         spyfuGet(
-          `/keyword_snake/v2/getMostValuableKeywordsForQuery?query=${domain}&countryCode=US&_p=1&_pageSize=${SPYFU_KEYWORD_PAGE_SIZE}&excludeTerms=jobs,career,salary`,
+          `/serp_api/v2/ppc/getPaidSerps?query=${encodeURIComponent(domain)}&countryCode=US&pageSize=${SPYFU_KEYWORD_PAGE_SIZE}&startingRow=1&excludeTerms=jobs,career,salary&sortBy=SearchVolume&sortOrder=Descending`,
         ),
       ]);
       return JSON.stringify({ keywords, domainStats });

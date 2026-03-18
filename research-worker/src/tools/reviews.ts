@@ -1,8 +1,11 @@
 // research-worker/src/tools/reviews.ts
-// Scrapes Trustpilot and G2 review data for a competitor using Firecrawl.
-// Never throws — always returns a ReviewResult with whatever succeeded.
+// Fetches Trustpilot (Firecrawl scrape) and G2 (Perplexity search) review data.
+// Both run in parallel per competitor. Never throws.
 
 import type { BetaToolResultContentBlockParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { generateObject } from 'ai';
+import { createPerplexity } from '@ai-sdk/perplexity';
+import { z } from 'zod';
 import { firecrawlTool } from './firecrawl';
 
 export interface TrustpilotResult {
@@ -16,7 +19,7 @@ export interface G2Result {
   rating: number | null;
   reviewCount: number | null;
   categories: string[];
-  url: string;
+  url: string | null;
 }
 
 export interface ReviewResult {
@@ -27,11 +30,8 @@ export interface ReviewResult {
   error?: string;
 }
 
-/**
- * betaZodTool.run() returns Promise<string | Array<BetaToolResultContentBlockParam>>.
- * In practice our tool implementations return a JSON string, but TypeScript sees
- * the wider union. This helper narrows to string.
- */
+// ── Helpers ──
+
 function runResultToString(
   value: string | Array<BetaToolResultContentBlockParam>,
 ): string {
@@ -49,7 +49,10 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-// ── Trustpilot ──
+// ── Trustpilot (Firecrawl scrape) ──
+
+const TRUSTPILOT_404_PATTERN = /(?:page you're looking for could not be found|Whoops!|404)/i;
+const TRUSTPILOT_MIN_CHARS = 300;
 
 const TRUSTPILOT_RATING_PATTERNS = [
   /TrustScore\s*(\d+\.?\d*)/i,
@@ -79,17 +82,11 @@ function parseTrustpilotCount(markdown: string): number | null {
   return null;
 }
 
-/**
- * Extract review themes from Trustpilot markdown.
- * Looks for category headings, common topic words near review sections.
- */
 function parseTrustpilotThemes(markdown: string): string[] {
   const themes: string[] = [];
-
-  // Look for category-style headings: "## Customer Service", "### Ease of Use"
   const headingPattern = /^#{1,4}\s+(.{3,40})$/gm;
   let match;
-  const skipHeadings = /trustpilot|review|about|write|filter|sort|share|report|reply|page|showing|company/i;
+  const skipHeadings = /trustpilot|review|about|write|filter|sort|share|report|reply|page|showing|company|whoops|404/i;
 
   while ((match = headingPattern.exec(markdown)) !== null && themes.length < 5) {
     const heading = match[1].trim();
@@ -103,6 +100,7 @@ function parseTrustpilotThemes(markdown: string): string[] {
 
 async function scrapeTrustpilot(domain: string): Promise<TrustpilotResult | null> {
   const url = `https://www.trustpilot.com/review/${domain}`;
+  console.log(`[reviews] scraping Trustpilot: ${url}`);
 
   try {
     const resultStr = runResultToString(await firecrawlTool.run({ url }));
@@ -112,126 +110,94 @@ async function scrapeTrustpilot(domain: string): Promise<TrustpilotResult | null
       error?: unknown;
     } | null;
 
-    if (!result?.success || typeof result.markdown !== 'string' || result.markdown.trim().length < 20) {
+    const markdown = typeof result?.markdown === 'string' ? result.markdown : '';
+
+    // Detect 404 pages and too-short content
+    if (markdown.trim().length < TRUSTPILOT_MIN_CHARS || TRUSTPILOT_404_PATTERN.test(markdown)) {
+      console.log(`[reviews] Trustpilot ${domain}: skipped (${markdown.length} chars, 404=${TRUSTPILOT_404_PATTERN.test(markdown)})`);
       return null;
     }
 
-    const markdown = result.markdown;
+    const rating = parseTrustpilotRating(markdown);
+    const reviewCount = parseTrustpilotCount(markdown);
+    const recentThemes = parseTrustpilotThemes(markdown);
 
-    return {
-      rating: parseTrustpilotRating(markdown),
-      reviewCount: parseTrustpilotCount(markdown),
-      recentThemes: parseTrustpilotThemes(markdown),
-      url,
-    };
-  } catch {
+    // Only return if we got at least a rating or count
+    if (rating === null && reviewCount === null) {
+      console.log(`[reviews] Trustpilot ${domain}: page found but no rating/count parseable`);
+      return null;
+    }
+
+    console.log(`[reviews] Trustpilot ${domain}: rating=${rating}, count=${reviewCount}, themes=${recentThemes.length}`);
+    return { rating, reviewCount, recentThemes, url };
+  } catch (error) {
+    console.error(`[reviews] Trustpilot error for ${domain}:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
 
-// ── G2 ──
+// ── G2 (Perplexity Sonar Pro search — v1 approach) ──
 
-const G2_RATING_PATTERNS = [
-  /(\d+\.?\d*)\s*(?:out of\s*5|\/\s*5|stars?)/i,
-  /rated?\s+(\d+\.?\d*)/i,
-  /rating[:\s]+(\d+\.?\d*)/i,
-];
+const G2_TIMEOUT_MS = 15_000;
 
-const G2_COUNT_PATTERN = /(\d[\d,]*)\s*(?:total\s+)?reviews?/i;
+const g2MetadataSchema = z.object({
+  found: z.boolean(),
+  url: z.string().optional(),
+  rating: z.number().optional().describe('G2 star rating out of 5. ONLY from the G2 page itself.'),
+  reviewCount: z.number().optional().describe('Total reviews on G2. ONLY from G2 data.'),
+  productCategory: z.string().optional().describe('G2 category for this product'),
+});
 
-function parseG2Rating(markdown: string): number | null {
-  for (const pattern of G2_RATING_PATTERNS) {
-    const match = markdown.match(pattern);
-    if (match?.[1]) {
-      const rating = parseFloat(match[1]);
-      if (rating >= 1.0 && rating <= 5.0) return rating;
-    }
+async function searchG2(companyName: string): Promise<G2Result | null> {
+  console.log(`[reviews] searching G2 via Perplexity for: ${companyName}`);
+
+  if (!process.env.PERPLEXITY_API_KEY) {
+    console.log(`[reviews] G2 skipped for ${companyName}: no PERPLEXITY_API_KEY`);
+    return null;
   }
-  return null;
-}
-
-function parseG2Count(markdown: string): number | null {
-  const match = markdown.match(G2_COUNT_PATTERN);
-  if (match?.[1]) {
-    const count = parseInt(match[1].replace(/,/g, ''), 10);
-    if (count > 0 && Number.isFinite(count)) return count;
-  }
-  return null;
-}
-
-/**
- * Extract G2 category badges from the markdown.
- * G2 typically shows categories like "CRM Software", "Sales Automation", etc.
- */
-function parseG2Categories(markdown: string): string[] {
-  const categories: string[] = [];
-
-  // Look for category patterns: "Category: X" or lines with "Software", "Platform", etc.
-  const categoryPattern = /(?:categor(?:y|ies)|type)[:\s]+([^\n]{3,50})/gi;
-  let match;
-
-  while ((match = categoryPattern.exec(markdown)) !== null && categories.length < 5) {
-    const cat = match[1].trim().replace(/[|\\].*$/, '').trim();
-    if (cat.length > 2 && cat.length < 50) {
-      categories.push(cat);
-    }
-  }
-
-  // Also look for badge-like patterns: "Leader in X" or "High Performer in X"
-  if (categories.length === 0) {
-    const badgePattern = /(?:Leader|High Performer|Momentum Leader|Best[\s-]?Of)\s+(?:in\s+)?([^\n|]{3,50})/gi;
-    while ((match = badgePattern.exec(markdown)) !== null && categories.length < 5) {
-      const cat = match[1].trim();
-      if (cat.length > 2 && cat.length < 50) {
-        categories.push(cat);
-      }
-    }
-  }
-
-  return categories.slice(0, 5);
-}
-
-/**
- * Build a G2 slug from company name.
- * Lowercased, spaces to hyphens, non-alphanumeric (except hyphens) removed.
- */
-function buildG2Slug(companyName: string): string {
-  return companyName
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-async function scrapeG2(companyName: string): Promise<G2Result | null> {
-  const slug = buildG2Slug(companyName);
-  if (!slug) return null;
-
-  const url = `https://www.g2.com/products/${slug}/reviews`;
 
   try {
-    const resultStr = runResultToString(await firecrawlTool.run({ url }));
-    const result = safeJsonParse(resultStr) as {
-      success?: boolean;
-      markdown?: string;
-      error?: unknown;
-    } | null;
+    const perplexity = createPerplexity({
+      apiKey: process.env.PERPLEXITY_API_KEY,
+    });
 
-    if (!result?.success || typeof result.markdown !== 'string' || result.markdown.trim().length < 20) {
+    const result = await Promise.race([
+      generateObject({
+        model: perplexity('sonar-pro'),
+        schema: g2MetadataSchema,
+        temperature: 0.1,
+        maxOutputTokens: 400,
+        system: `You look up G2.com product pages to find their aggregate rating and review count.
+ONLY return data that appears on the actual G2 product page (rating stars and review count).
+DO NOT summarize reviews or extract quotes. Just the metadata.
+If the product is not found on G2, set found: false.`,
+        prompt: `What is the G2 rating and review count for "${companyName}"? Search: "${companyName} site:g2.com"`,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`G2 search timed out after ${G2_TIMEOUT_MS / 1000}s`)),
+          G2_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+
+    const obj = result.object;
+
+    if (!obj.found) {
+      console.log(`[reviews] G2 ${companyName}: not found on G2`);
       return null;
     }
 
-    const markdown = result.markdown;
+    console.log(`[reviews] G2 ${companyName}: rating=${obj.rating}, count=${obj.reviewCount}, category=${obj.productCategory}`);
 
     return {
-      rating: parseG2Rating(markdown),
-      reviewCount: parseG2Count(markdown),
-      categories: parseG2Categories(markdown),
-      url,
+      rating: obj.rating ?? null,
+      reviewCount: obj.reviewCount ?? null,
+      categories: obj.productCategory ? [obj.productCategory] : [],
+      url: obj.url ?? null,
     };
-  } catch {
-    // G2 slugs are unpredictable — graceful null return
+  } catch (error) {
+    console.error(`[reviews] G2 error for ${companyName}:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -245,12 +211,15 @@ interface ReviewInput {
 
 /**
  * Fetch Trustpilot and G2 reviews for a single competitor.
- * Runs both scrapes in parallel. Never throws.
+ * Trustpilot: Firecrawl scrape (fast, ~5s)
+ * G2: Perplexity Sonar Pro search (fast, ~3-5s)
+ * Both run in parallel. Never throws.
  */
 export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResult> {
   const domain = competitor.domain ?? '';
 
   if (!domain) {
+    console.log(`[reviews] skipping ${competitor.name}: no domain`);
     return {
       competitorName: competitor.name,
       domain: '',
@@ -260,19 +229,27 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
     };
   }
 
+  console.log(`[reviews] fetching reviews for ${competitor.name} (${domain})`);
+
   try {
     const [trustpilot, g2] = await Promise.all([
       scrapeTrustpilot(domain),
-      scrapeG2(competitor.name),
+      searchG2(competitor.name),
     ]);
+
+    const hasTrustpilot = trustpilot && (trustpilot.rating !== null || trustpilot.reviewCount !== null);
+    const hasG2 = g2 && (g2.rating !== null || g2.reviewCount !== null);
+
+    console.log(`[reviews] ${competitor.name}: trustpilot=${hasTrustpilot ? 'data' : 'none'}, g2=${hasG2 ? 'data' : 'none'}`);
 
     return {
       competitorName: competitor.name,
       domain,
-      trustpilot,
-      g2,
+      trustpilot: hasTrustpilot ? trustpilot : null,
+      g2: hasG2 ? g2 : null,
     };
   } catch (error) {
+    console.error(`[reviews] ${competitor.name} failed:`, error instanceof Error ? error.message : error);
     return {
       competitorName: competitor.name,
       domain,
