@@ -39,22 +39,22 @@ export function SharedBlueprintView({
       {/* Main Content */}
       <main className="flex-1 min-h-0 flex flex-col relative z-10">
         {/* Shared View Header — compact bar */}
-        <div className="shrink-0 border-b border-white/[0.06] bg-[rgba(7,9,14,0.8)] backdrop-blur-xl">
+        <div className="shrink-0 border-b border-[var(--border-default)] bg-[rgba(7,9,14,0.8)] backdrop-blur-xl">
           <div className="container mx-auto px-4">
             <div className="flex h-12 items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
                 <Share2 className="h-4 w-4 text-blue-400 shrink-0" />
-                <h1 className="text-white/90 text-sm font-semibold font-[family-name:var(--font-heading)] truncate">
+                <h1 className="text-[var(--text-primary)] text-sm font-semibold font-[family-name:var(--font-heading)] truncate">
                   {title || "Strategic Blueprint"}
                 </h1>
-                <span className="text-white/25 hidden sm:inline">|</span>
-                <span className="text-white/35 text-xs hidden sm:inline shrink-0">
+                <span className="text-[var(--text-quaternary)] hidden sm:inline">|</span>
+                <span className="text-[var(--text-tertiary)] text-xs hidden sm:inline shrink-0">
                   {formatDate(createdAt)}
                 </span>
               </div>
               <Badge
                 variant="outline"
-                className="ml-3 shrink-0 flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] text-white/40 text-[11px] px-2 py-0.5"
+                className="ml-3 shrink-0 flex items-center gap-1 bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-tertiary)] text-[11px] px-2 py-0.5"
               >
                 <ExternalLink className="h-3 w-3" />
                 Read-only
@@ -69,10 +69,10 @@ export function SharedBlueprintView({
         </div>
 
         {/* Footer CTA — compact bar */}
-        <div className="shrink-0 border-t border-white/[0.06] bg-[rgba(7,9,14,0.6)] backdrop-blur-xl">
+        <div className="shrink-0 border-t border-[var(--border-default)] bg-[rgba(7,9,14,0.6)] backdrop-blur-xl">
           <div className="container mx-auto px-4">
             <div className="flex h-11 items-center justify-between">
-              <p className="text-white/35 text-xs hidden sm:inline">
+              <p className="text-[var(--text-tertiary)] text-xs hidden sm:inline">
                 Want your own Strategic Blueprint?
               </p>
               <a

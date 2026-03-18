@@ -55,7 +55,7 @@ export function ProfileCard({ state, className }: ProfileCardProps) {
       )}
     >
       {/* Section title */}
-      <h4 className="text-xs font-mono text-white/30 uppercase tracking-widest mb-6">
+      <h4 className="text-xs font-mono text-[var(--text-quaternary)] uppercase tracking-widest mb-6">
         Profile Snapshot: {state.companyName || 'Project Alpha'}
       </h4>
 
@@ -68,7 +68,7 @@ export function ProfileCard({ state, className }: ProfileCardProps) {
 
           return (
             <div key={key}>
-              <p className="text-[10px] text-white/30 uppercase mb-2">
+              <p className="text-[10px] text-[var(--text-quaternary)] uppercase mb-2">
                 {label}
               </p>
               <p className="text-sm font-medium" title={value}>

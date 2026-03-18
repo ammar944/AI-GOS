@@ -34,7 +34,7 @@ export function JourneyStudioPreviewShell({
       <header
         data-testid="journey-studio-masthead"
         className={cn(
-          'relative overflow-hidden rounded-[28px] border border-white/[0.08]',
+          'relative overflow-hidden rounded-[28px] border border-[var(--border-default)]',
           'bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.18),transparent_34%),linear-gradient(180deg,rgba(22,21,18,0.96),rgba(11,10,8,0.92))]',
           'px-5 py-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl',
           'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/16 before:to-transparent',
@@ -43,7 +43,7 @@ export function JourneyStudioPreviewShell({
         <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.24em] text-white/42">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-[var(--bg-surface)] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.24em] text-white/42">
                 {eyebrow}
               </span>
               <span className="h-px w-12 bg-gradient-to-r from-brand-accent/50 to-transparent" />

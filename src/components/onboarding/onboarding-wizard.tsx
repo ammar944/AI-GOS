@@ -467,7 +467,7 @@ export function OnboardingWizard({
                     }
                     aria-current={isCurrent ? "step" : undefined}
                     className={cn(
-                      "relative flex h-8 w-8 items-center justify-center rounded-full border-2",
+                      "relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2",
                       "transition-all duration-200",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]",
                       isClickable && "cursor-pointer hover:scale-110",

@@ -33,7 +33,7 @@ export function ArtifactTriggerCard({
       aria-label={`View ${meta.label} artifact`}
       className={cn(
         'w-full glass-surface rounded-[var(--radius-module)] p-5 flex items-center justify-between gap-4',
-        'cursor-pointer hover:bg-white/[0.05] transition-colors duration-200',
+        'cursor-pointer hover:bg-[var(--bg-hover)] transition-colors duration-200',
         'text-left group',
         className,
       )}

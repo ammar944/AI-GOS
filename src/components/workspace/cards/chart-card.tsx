@@ -20,7 +20,7 @@ export function ChartCard({ title, description, imageUrl }: ChartCardProps) {
         <img
           src={imageUrl}
           alt={title}
-          className="w-full rounded-[var(--radius-md)] border border-white/10 bg-white/[0.02] object-cover"
+          className="w-full rounded-[var(--radius-md)] border border-white/10 bg-[var(--bg-surface)] object-cover"
         />
       )}
     </div>

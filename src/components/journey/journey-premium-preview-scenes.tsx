@@ -128,7 +128,7 @@ function PremiumPreviewSidebar(): React.JSX.Element {
   return (
     <aside className="hidden w-72 flex-none border-r border-white/6 bg-[#050608] px-5 py-6 xl:flex xl:flex-col">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[var(--bg-hover)] text-sm font-semibold text-white">
           AG
         </div>
         <div>
@@ -137,7 +137,7 @@ function PremiumPreviewSidebar(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+      <div className="mt-6 rounded-[24px] border border-white/8 bg-[var(--bg-surface)] p-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/36">
             Current cycle
@@ -176,7 +176,7 @@ function PremiumPreviewSidebar(): React.JSX.Element {
               'rounded-xl border px-3 py-2.5 text-sm',
               item === 'Journey'
                 ? 'border-brand-accent/20 bg-brand-accent/10 font-medium text-brand-accent'
-                : 'border-white/6 bg-white/[0.02] text-white/52',
+                : 'border-white/6 bg-[var(--bg-surface)] text-white/52',
             )}
           >
             {item}
@@ -184,7 +184,7 @@ function PremiumPreviewSidebar(): React.JSX.Element {
         ))}
       </nav>
 
-      <div className="mt-auto rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+      <div className="mt-auto rounded-[24px] border border-white/8 bg-[var(--bg-surface)] p-4">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/36">
           Operator posture
         </p>
@@ -214,7 +214,7 @@ function PremiumPreviewDock(): React.JSX.Element {
           <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/36">
             Proof dock
           </p>
-          <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/44">
+          <span className="rounded-full border border-white/8 bg-[var(--bg-hover)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/44">
             Review
           </span>
         </div>
@@ -242,7 +242,7 @@ function PremiumPreviewDock(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="mt-4 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+      <div className="mt-4 rounded-[24px] border border-white/8 bg-[var(--bg-surface)] p-4">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/36">
           Evidence health
         </p>
@@ -263,7 +263,7 @@ function PremiumPreviewDock(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="mt-4 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+      <div className="mt-4 rounded-[24px] border border-white/8 bg-[var(--bg-surface)] p-4">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/36">
           Next move
         </p>
@@ -294,7 +294,7 @@ function PremiumShell({
         <main className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden bg-[#07090c]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(66,153,225,0.08),transparent_24%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.05),transparent_18%),linear-gradient(180deg,rgba(8,10,12,1),rgba(5,6,8,1)),linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[length:auto,auto,auto,32px_32px,32px_32px]" />
           <div className="relative flex min-h-screen flex-col">
-            <div className="border-b border-white/[0.06] bg-[#07090c]/88 px-6 py-4 backdrop-blur sm:px-7">
+            <div className="border-b border-[var(--border-default)] bg-[#07090c]/88 px-6 py-4 backdrop-blur sm:px-7">
               <div className="mx-auto flex max-w-[72rem] flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.22em] text-white/34">
@@ -306,7 +306,7 @@ function PremiumShell({
                     {['Preview only', 'No live edits', 'Desktop review'].map((item) => (
                       <span
                         key={item}
-                        className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1 text-[11px] text-white/54"
+                        className="rounded-full border border-white/8 bg-[var(--bg-hover)] px-3 py-1 text-[11px] text-white/54"
                       >
                         {item}
                       </span>
@@ -368,7 +368,7 @@ function SceneSwitcher({
               'rounded-full px-3 py-2 text-[12px] transition-colors',
               scene === link.id
                 ? 'bg-brand-accent text-white'
-                : 'text-white/56 hover:bg-white/[0.05] hover:text-white',
+                : 'text-white/56 hover:bg-[var(--bg-hover)] hover:text-white',
             )}
           >
             {link.label}
@@ -425,15 +425,15 @@ function WelcomeScene(): React.JSX.Element {
               <label className="text-[11px] font-mono uppercase tracking-[0.18em] text-white/38">
                 Company footprint
               </label>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/44">
+              <span className="rounded-full border border-white/10 bg-[var(--bg-hover)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/44">
                 Live sample
               </span>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3">
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/58">
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[18px] border border-white/8 bg-[var(--bg-surface)] px-4 py-3">
+              <span className="rounded-full border border-white/10 bg-[var(--bg-hover)] px-2.5 py-1 text-[11px] text-white/58">
                 https
               </span>
-              <span className="min-w-0 flex-1 text-sm text-white/78">https://miana.ai</span>
+              <span className="min-w-0 flex-1 text-sm text-[var(--text-secondary)]">https://miana.ai</span>
               <button
                 type="button"
                 className="rounded-full border border-brand-accent/20 bg-brand-accent/10 px-4 py-2 text-sm text-brand-accent"
@@ -465,7 +465,7 @@ function WelcomeScene(): React.JSX.Element {
               <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
                 Launch plan
               </p>
-              <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/44">
+              <span className="rounded-full border border-white/8 bg-[var(--bg-hover)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/44">
                 3 steps
               </span>
             </div>
@@ -498,12 +498,12 @@ function WelcomeScene(): React.JSX.Element {
             {QUICK_START_CARDS.map((card) => (
               <div
                 key={card.title}
-                className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.22)]"
+                className="rounded-[22px] border border-white/8 bg-[var(--bg-surface)] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.22)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-medium text-white">{card.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-white/50">{card.description}</p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{card.description}</p>
                   </div>
                   <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/42">
                     {card.status}
@@ -521,7 +521,7 @@ function WelcomeScene(): React.JSX.Element {
           ['What this pass fixes', 'Real launch sequence, visible decision routing, and a tighter intake surface.'],
           ['What should remain next', 'Your actual Journey components, not decorative concept blocks.'],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-[20px] border border-white/8 bg-white/[0.03] px-4 py-4">
+          <div key={label} className="rounded-[20px] border border-white/8 bg-[var(--bg-surface)] px-4 py-4">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
               {label}
             </p>
@@ -544,7 +544,7 @@ function EvidenceModuleCard({
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-brand-accent">
           {card.module}
         </p>
-        <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/50">
+        <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-secondary)]">
           {card.status}
         </span>
       </div>
@@ -555,7 +555,7 @@ function EvidenceModuleCard({
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
           Strategic read
         </p>
-        <p className="mt-2 text-sm leading-6 text-white/70">{card.summary}</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{card.summary}</p>
       </div>
       <div className="mt-3 space-y-2">
         {card.proofPoints.map((bullet) => (
@@ -581,7 +581,7 @@ function EvidenceModuleCard({
         <p className="text-xs text-white/38">Module ready for operator review</p>
         <button
           type="button"
-          className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/76 transition-colors hover:bg-white/[0.08]"
+          className="rounded-full border border-white/10 bg-[var(--bg-hover)] px-4 py-2 text-sm text-white/76 transition-colors hover:bg-white/[0.08]"
         >
           Open full review
         </button>
@@ -612,7 +612,7 @@ function CompactEvidenceModuleCard({
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
           Strategic read
         </p>
-        <p className="mt-2 text-sm leading-6 text-white/70">{card.summary}</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{card.summary}</p>
       </div>
       <div className="mt-3 flex gap-3 text-sm leading-6 text-white/56">
         <span className="mt-2 h-1.5 w-1.5 rounded-full bg-brand-accent" />
@@ -632,7 +632,7 @@ function CompactEvidenceModuleCard({
       </div>
       <button
         type="button"
-        className="mt-4 w-full rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/76 transition-colors hover:bg-white/[0.08]"
+        className="mt-4 w-full rounded-full border border-white/10 bg-[var(--bg-hover)] px-4 py-2 text-sm text-white/76 transition-colors hover:bg-white/[0.08]"
       >
         Open full review
       </button>
@@ -684,7 +684,7 @@ function CardsScene(): React.JSX.Element {
             ].map(([title, body]) => (
               <div
                 key={title}
-                className="rounded-[18px] border border-white/8 bg-white/[0.03] px-4 py-3"
+                className="rounded-[18px] border border-white/8 bg-[var(--bg-surface)] px-4 py-3"
               >
                 <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
                   {title}
@@ -750,7 +750,7 @@ function ArtifactScene(): React.JSX.Element {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+            <div className="rounded-[22px] border border-white/8 bg-[var(--bg-surface)] p-5">
               <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
                 Key findings
               </p>
@@ -760,7 +760,7 @@ function ArtifactScene(): React.JSX.Element {
                 <li>Current homepage copy underplays proof and overplays feature breadth.</li>
               </ul>
             </div>
-            <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+            <div className="rounded-[22px] border border-white/8 bg-[var(--bg-surface)] p-5">
               <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
                 Evidence pack
               </p>
@@ -796,14 +796,14 @@ function ArtifactScene(): React.JSX.Element {
               </button>
               <button
                 type="button"
-                className="w-full rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/72"
+                className="w-full rounded-full border border-white/10 bg-[var(--bg-surface)] px-4 py-3 text-sm text-white/72"
               >
                 Request changes
               </button>
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+          <div className="rounded-[24px] border border-white/8 bg-[var(--bg-surface)] p-5">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
               Review routing
             </p>
@@ -841,12 +841,12 @@ function ChatScene(): React.JSX.Element {
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
               Strategist note
             </p>
-            <p className="mt-4 text-[1rem] leading-7 text-white/78">
+            <p className="mt-4 text-[1rem] leading-7 text-[var(--text-secondary)]">
               Keep the offer narrative anchored on faster deal certainty. The next approval should decide whether the first paid branch is solo wholesalers or team operators.
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+          <div className="rounded-[24px] border border-white/8 bg-[var(--bg-surface)] p-5">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/34">
               Live context
             </p>

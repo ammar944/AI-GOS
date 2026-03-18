@@ -1624,7 +1624,7 @@ function JourneyPageContent() {
       <JourneyStepper
         currentPhase={currentPhase}
         completedPhases={completedPhases}
-        className="justify-start gap-8 border-b border-white/[0.06] px-6 py-5 sm:px-8"
+        className="justify-start gap-8 border-b border-[var(--border-default)] px-6 py-5 sm:px-8"
       />
       <div className="min-h-0 flex-1 overflow-hidden">
         {content}
@@ -1663,7 +1663,7 @@ function JourneyPageContent() {
         completedPhases={completedPhases}
         className={
           showStudioPreview
-            ? 'justify-start gap-8 border-b border-white/[0.06] px-6 py-5 sm:px-8'
+            ? 'justify-start gap-8 border-b border-[var(--border-default)] px-6 py-5 sm:px-8'
             : undefined
         }
       />
@@ -1698,11 +1698,11 @@ function JourneyPageContent() {
                   )}
                 >
                   <div className={wideContentWidthClass}>
-                    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-4">
-                      <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/30">
+                    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-4">
+                      <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-quaternary)]">
                         Research in progress
                       </p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-white/50">
+                      <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">
                         Chat will be available once results are ready for review.
                       </p>
                     </div>
@@ -1849,7 +1849,7 @@ function JourneyPageContent() {
                         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-emerald-300/80">
                           {approvedSectionLabel} Approved
                         </p>
-                        <p className="mt-2 text-sm leading-relaxed text-white/78">
+                        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                           {approvedSectionNextStep}
                         </p>
                       </div>
@@ -1862,7 +1862,7 @@ function JourneyPageContent() {
                         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-amber-300/80">
                           Refine {feedbackSectionLabel}
                         </p>
-                        <p className="mt-2 text-sm leading-relaxed text-white/78">
+                        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                           Tell me what should change in this artifact. I&apos;ll keep the Journey
                           anchored here until the section is clarified and approved.
                         </p>
@@ -2248,7 +2248,7 @@ function PrefillReviewView({
           <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-white">
             Found {fieldsFound} details from your site
           </h2>
-          <p className="text-sm text-white/40 leading-relaxed">
+          <p className="text-sm text-[var(--text-tertiary)] leading-relaxed">
             Review the extracted info below. Click any value to edit before starting.
           </p>
         </div>
@@ -2263,7 +2263,7 @@ function PrefillReviewView({
             return (
               <div
                 key={key}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex items-start gap-3 group cursor-pointer transition-colors hover:border-white/[0.1]"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 flex items-start gap-3 group cursor-pointer transition-colors hover:border-white/[0.1]"
                 onClick={() => {
                   if (!isEditing) {
                     if (!hasEditedValue) setEditedFields((prev) => ({ ...prev, [key]: value }));
@@ -2277,11 +2277,11 @@ function PrefillReviewView({
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] font-mono text-white/30 uppercase tracking-[0.16em]">{label}</span>
+                  <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.16em]">{label}</span>
                   {isEditing ? (
                     <input
                       autoFocus
-                      className="w-full mt-1.5 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/20 outline-none focus:border-[var(--accent-blue)]/40"
+                      className="w-full mt-1.5 bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[var(--text-quaternary)] outline-none focus:border-[var(--accent-blue)]/40"
                       value={displayValue}
                       onChange={(e) => setEditedFields((prev) => ({ ...prev, [key]: e.target.value }))}
                       onBlur={() => setEditingKey(null)}
@@ -2289,7 +2289,7 @@ function PrefillReviewView({
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    <p className="text-sm text-white/75 mt-0.5 break-words leading-relaxed">
+                    <p className="text-sm text-[var(--text-secondary)] mt-0.5 break-words leading-relaxed">
                       {displayValue}
                     </p>
                   )}
@@ -2300,13 +2300,13 @@ function PrefillReviewView({
         </div>
 
         {/* Human Context — required fields */}
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 space-y-5">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
               <h3 className="font-heading text-lg font-semibold text-white">
                 Fill what the web can&apos;t know
               </h3>
-              <p className="text-sm text-white/35">
+              <p className="text-sm text-[var(--text-tertiary)]">
                 Complete these before research begins.
               </p>
             </div>
@@ -2327,7 +2327,7 @@ function PrefillReviewView({
                 : `${missingManualBlockers.length} required field${missingManualBlockers.length > 1 ? 's' : ''} missing`}
             </p>
             {!canStartResearch && (
-              <p className="mt-1 text-xs text-white/35">
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">
                 {missingManualBlockers.join(' · ')}
               </p>
             )}
@@ -2352,12 +2352,12 @@ function PrefillReviewView({
                     'rounded-xl border p-4 transition-colors',
                     isMissing
                       ? 'border-amber-500/20 bg-amber-500/[0.03]'
-                      : 'border-white/[0.06] bg-white/[0.02]',
+                      : 'border-[var(--border-default)] bg-[var(--bg-surface)]',
                   )}
                   data-testid={`manual-blocker-${field.key}`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-white/35">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                       {field.label}
                       {(field.required || field.requiredGroup) && (
                         <span className="ml-1.5 text-amber-400/80">*</span>
@@ -2380,8 +2380,8 @@ function PrefillReviewView({
                         setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
                       }
                       className={cn(
-                        'mt-3 w-full resize-none rounded-lg border bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder-white/15 outline-none transition-colors',
-                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-white/[0.06] focus:border-[var(--accent-blue)]/40',
+                        'mt-3 w-full resize-none rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-white placeholder-[var(--text-quaternary)] outline-none transition-colors',
+                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--accent-blue)]/40',
                       )}
                       placeholder={field.placeholder}
                     />
@@ -2392,15 +2392,15 @@ function PrefillReviewView({
                         setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
                       }
                       className={cn(
-                        'mt-3 w-full rounded-lg border bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder-white/15 outline-none transition-colors',
-                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-white/[0.06] focus:border-[var(--accent-blue)]/40',
+                        'mt-3 w-full rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-white placeholder-[var(--text-quaternary)] outline-none transition-colors',
+                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--accent-blue)]/40',
                       )}
                       placeholder={field.placeholder}
                     />
                   )}
 
                   {field.helper && (
-                    <p className="mt-2 text-[11px] leading-relaxed text-white/25">{field.helper}</p>
+                    <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-quaternary)]">{field.helper}</p>
                   )}
                 </div>
               );
@@ -2422,7 +2422,7 @@ function PrefillReviewView({
               'w-full h-12 rounded-full font-semibold text-[15px] transition-all duration-200 cursor-pointer',
               canStartResearch
                 ? 'bg-white text-black hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]'
-                : 'bg-white/10 text-white/30 cursor-not-allowed',
+                : 'bg-[var(--bg-hover)] text-[var(--text-quaternary)] cursor-not-allowed',
             )}
           >
             {canStartResearch ? 'Start Market Overview' : `Fill ${missingManualBlockers.length} required field${missingManualBlockers.length > 1 ? 's' : ''} to continue`}
@@ -2474,14 +2474,14 @@ function WelcomeForm({
           <h1 className="font-heading text-4xl md:text-5xl font-bold tracking-[-0.04em] text-white">
             Seed your strategy.
           </h1>
-          <p className="text-[16px] text-white/40 max-w-sm mx-auto leading-[1.7]">
+          <p className="text-[16px] text-[var(--text-tertiary)] max-w-sm mx-auto leading-[1.7]">
             Drop your website URL. AIGOS pulls context, runs research, and builds your media blueprint.
           </p>
         </motion.div>
 
         {/* URL input card */}
         <motion.div
-          className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm p-6 space-y-5"
+          className="w-full rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] backdrop-blur-sm p-6 space-y-5"
           variants={fadeUpVariants}
           initial="initial"
           animate="animate"
@@ -2498,7 +2498,7 @@ function WelcomeForm({
         >
           {/* Website URL */}
           <div>
-            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-white/30 mb-2.5">
+            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--text-quaternary)] mb-2.5">
               Company Website
             </label>
             <div className="relative">
@@ -2515,7 +2515,7 @@ function WelcomeForm({
                 }}
                 placeholder="https://yourcompany.com"
                 autoFocus
-                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 text-base text-white/90 placeholder:text-white/20 placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
+                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
               />
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
@@ -2530,13 +2530,13 @@ function WelcomeForm({
           </div>
 
           {/* Divider */}
-          <div className="h-px bg-white/[0.04]" />
+          <div className="h-px bg-[var(--bg-hover)]" />
 
           {/* LinkedIn */}
           <div>
-            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-white/30 mb-2.5">
+            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--text-quaternary)] mb-2.5">
               LinkedIn Company Page
-              <span className="ml-1.5 normal-case tracking-normal text-white/15">
+              <span className="ml-1.5 normal-case tracking-normal text-[var(--text-quaternary)]">
                 (optional)
               </span>
             </label>
@@ -2548,7 +2548,7 @@ function WelcomeForm({
                 onFocus={() => setLinkedinFocused(true)}
                 onBlur={() => setLinkedinFocused(false)}
                 placeholder="https://linkedin.com/company/your-company"
-                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-2.5 text-sm text-white/90 placeholder:text-white/15 placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
+                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
               />
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
@@ -2587,7 +2587,7 @@ function WelcomeForm({
           >
             Begin Analysis
           </motion.button>
-          <p className="text-[11px] text-white/15 tracking-wide">
+          <p className="text-[11px] text-[var(--text-quaternary)] tracking-wide">
             Takes ~3 minutes. No credit card required.
           </p>
         </motion.div>

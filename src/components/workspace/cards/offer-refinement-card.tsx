@@ -75,7 +75,7 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
 function RecommendationCard({ dimension, score, fix }: { dimension: string; score: number; fix: string }) {
   return (
     <div
-      className="rounded-xl border border-white/[0.06] p-4 transition-colors hover:border-white/[0.1]"
+      className="rounded-xl border border-[var(--border-default)] p-4 transition-colors hover:border-white/[0.1]"
       style={{ background: 'var(--bg-card)' }}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -117,7 +117,7 @@ export function OfferRefinementCard({
     <div className="space-y-4">
       {/* Score breakdown */}
       <div
-        className="rounded-2xl border border-white/[0.06] p-5"
+        className="rounded-2xl border border-[var(--border-default)] p-5"
         style={{ background: 'var(--bg-card)' }}
       >
         <div className="flex items-center justify-between mb-5">

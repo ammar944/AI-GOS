@@ -162,7 +162,7 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity }: 
           <span className="text-[12px] font-mono uppercase tracking-[0.14em] text-[var(--accent-blue)]">
             {phase === 'streaming' ? 'Processing results' : 'Running research'}
           </span>
-          <span className="text-[12px] font-mono text-white/20">
+          <span className="text-[12px] font-mono text-[var(--text-quaternary)]">
             {sectionLabel}
           </span>
           {hasRealUpdates && (
@@ -175,7 +175,7 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity }: 
         {/* Activity log */}
         <div
           ref={scrollRef}
-          className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-y-auto max-h-[280px] p-4"
+          className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-y-auto max-h-[280px] p-4"
         >
           <AnimatePresence mode="popLayout">
             {entries.map((entry) => {
@@ -211,7 +211,7 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity }: 
                   {/* Message */}
                   <span className={cn(
                     'text-[13px] font-mono leading-relaxed',
-                    entry.isLive ? 'text-white/70' : 'text-white/30',
+                    entry.isLive ? 'text-[var(--text-secondary)]' : 'text-[var(--text-quaternary)]',
                   )}>
                     {entry.message}
                     {entry.isLive && (
@@ -234,7 +234,7 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity }: 
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-start gap-3 py-2 mt-1 border-t border-white/[0.04] pt-3"
+              className="flex items-start gap-3 py-2 mt-1 border-t border-[var(--border-glass)] pt-3"
             >
               <motion.div
                 className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1 shrink-0"
@@ -253,13 +253,13 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity }: 
           {[1, 2].map((i) => (
             <motion.div
               key={i}
-              className="rounded-xl border border-white/[0.04] bg-white/[0.015] p-4"
+              className="rounded-xl border border-[var(--border-glass)] bg-[var(--bg-glass-panel)] p-4"
               animate={{ opacity: [0.3, 0.5, 0.3] }}
               transition={{ duration: 2, repeat: Infinity, delay: i * 0.4 }}
             >
               <div className="space-y-2">
-                <div className="h-2 w-16 rounded bg-white/[0.06]" />
-                <div className="h-3 rounded bg-white/[0.03]" style={{ width: `${40 + i * 20}%` }} />
+                <div className="h-2 w-16 rounded bg-[var(--bg-hover)]" />
+                <div className="h-3 rounded bg-[var(--bg-surface)]" style={{ width: `${40 + i * 20}%` }} />
               </div>
             </motion.div>
           ))}

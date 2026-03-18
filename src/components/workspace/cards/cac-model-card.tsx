@@ -73,7 +73,7 @@ export function CacModelCard({
       {bottomStats.length > 0 && <StatGrid stats={bottomStats} columns={2} />}
       {summaryStats.length > 0 && (
         <>
-          <div className="border-t border-white/[0.06]" />
+          <div className="border-t border-[var(--border-default)]" />
           <StatGrid stats={summaryStats} columns={3} />
         </>
       )}

@@ -31,7 +31,7 @@ export function DeleteConfirmationDialog({
 }: DeleteConfirmationDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-md rounded-xl border-white/[0.08]">
+      <AlertDialogContent className="max-w-md rounded-xl border-[var(--border-default)]">
         <AlertDialogHeader>
           <div className="flex items-start gap-3.5">
             <div className="inline-flex items-center justify-center size-10 rounded-xl bg-red-500/10 text-red-400 border border-red-500/15 shrink-0 mt-0.5">
@@ -56,7 +56,7 @@ export function DeleteConfirmationDialog({
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-2 gap-2.5">
-          <AlertDialogCancel className="text-[13px] font-medium border-white/[0.08] hover:bg-white/[0.04] hover:border-white/[0.12]">
+          <AlertDialogCancel className="text-[13px] font-medium border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:border-white/[0.12]">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction

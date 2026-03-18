@@ -132,7 +132,7 @@ export function PrefillStreamView({
 
           {/* URL + counter */}
           <div className="flex items-baseline gap-3 flex-wrap">
-            <p className="text-[12px] font-mono text-white/30 break-all">
+            <p className="text-[12px] font-mono text-[var(--text-quaternary)] break-all">
               {websiteUrl}
             </p>
             <span
@@ -147,7 +147,7 @@ export function PrefillStreamView({
         </motion.div>
 
         {/* Progress bar */}
-        <div className="w-full rounded-full overflow-hidden h-[2px] bg-white/[0.06]">
+        <div className="w-full rounded-full overflow-hidden h-[2px] bg-[var(--bg-hover)]">
           <motion.div
             className="h-full rounded-full"
             style={{
@@ -164,7 +164,7 @@ export function PrefillStreamView({
         </div>
 
         {/* Content card */}
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] backdrop-blur-sm overflow-hidden">
           {/* Error state */}
           {error && (
             <div className="px-6 py-6 flex flex-col items-center gap-3 text-center">
@@ -176,17 +176,17 @@ export function PrefillStreamView({
           {/* Empty/failed state */}
           {isFailed && (
             <div className="px-6 py-8 flex flex-col items-center gap-4 text-center">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center">
-                <AlertCircle className="size-5 text-white/30" />
+              <div className="w-10 h-10 rounded-xl bg-[var(--bg-hover)] flex items-center justify-center">
+                <AlertCircle className="size-5 text-[var(--text-quaternary)]" />
               </div>
               <div className="space-y-2">
-                <p className="text-sm text-white/60 leading-relaxed max-w-sm">
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed max-w-sm">
                   We couldn&apos;t find usable public details for{' '}
-                  <span className="text-white/90 font-medium">{websiteUrl}</span>.
+                  <span className="text-[var(--text-primary)] font-medium">{websiteUrl}</span>.
                   Double-check the URL and TLD, then try again.
                 </p>
                 {confidenceNotes && (
-                  <p className="text-[12px] text-white/30 leading-relaxed max-w-sm">
+                  <p className="text-[12px] text-[var(--text-quaternary)] leading-relaxed max-w-sm">
                     {confidenceNotes}
                   </p>
                 )}
@@ -213,9 +213,9 @@ export function PrefillStreamView({
                   <div className="flex items-start gap-3">
                     <div className="w-2 h-2 rounded-full shrink-0 mt-1 bg-white/[0.08]" />
                     <div className="flex-1 space-y-2.5">
-                      <div className="h-2.5 w-24 rounded bg-white/[0.06]" />
+                      <div className="h-2.5 w-24 rounded bg-[var(--bg-hover)]" />
                       <div
-                        className="h-4 rounded bg-white/[0.04]"
+                        className="h-4 rounded bg-[var(--bg-hover)]"
                         style={{ width: `${45 + index * 12}%` }}
                       />
                     </div>
@@ -233,11 +233,11 @@ export function PrefillStreamView({
                   key={field.key}
                   data-testid={`prefill-field-${field.key}`}
                   data-field-key={field.key}
-                  className="flex items-start gap-3 rounded-xl px-4 py-3 border border-white/[0.04] bg-white/[0.02]"
+                  className="flex items-start gap-3 rounded-xl px-4 py-3 border border-[var(--border-glass)] bg-[var(--bg-surface)]"
                 >
                   <div className="w-2 h-2 rounded-full shrink-0 mt-1.5 bg-emerald-400 shadow-[0_0_6px_rgba(34,197,94,0.3)]" />
                   <div className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-white/30">
+                    <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-quaternary)]">
                       {field.label}
                     </span>
                     {isComplete ? (
@@ -252,7 +252,7 @@ export function PrefillStreamView({
                             }));
                           }}
                           rows={Math.min(6, Math.max(2, getFieldValue(field).split('\n').length))}
-                          className="mt-2 w-full resize-y rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-white/90 leading-relaxed focus:outline-none focus:border-[var(--accent-blue)]/40"
+                          className="mt-2 w-full resize-y rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)] leading-relaxed focus:outline-none focus:border-[var(--accent-blue)]/40"
                         />
                       ) : (
                         <input
@@ -264,7 +264,7 @@ export function PrefillStreamView({
                               [field.key]: event.target.value,
                             }));
                           }}
-                          className="mt-2 w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-[var(--accent-blue)]/40"
+                          className="mt-2 w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]/40"
                         />
                       )
                     ) : (
@@ -314,7 +314,7 @@ export function PrefillStreamView({
             >
               Continue with {fieldsFound} fields
             </button>
-            <span className="text-[11px] text-white/25">
+            <span className="text-[11px] text-[var(--text-quaternary)]">
               Still extracting — you can review now and fill the rest manually
             </span>
           </motion.div>

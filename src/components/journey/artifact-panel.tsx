@@ -599,7 +599,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
                     {asString(gap.gap) ?? `Gap ${index + 1}`}
                   </p>
                   {asString(gap.type) && (
-                    <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+                    <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
                       {String(gap.type)}
                     </span>
                   )}
@@ -855,7 +855,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
             <p className="text-sm leading-relaxed text-text-secondary">{leadRecommendation}</p>
           )}
           {differentiator && (
-            <div className="rounded-[var(--radius-control)] bg-white/[0.03] px-3 py-2 text-sm text-text-secondary">
+            <div className="rounded-[var(--radius-control)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-text-secondary">
               <span className="font-medium text-text-primary">Differentiator:</span> {differentiator}
             </div>
           )}
@@ -910,7 +910,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
                     <img
                       src={imageUrl}
                       alt={title}
-                      className="w-full rounded-[var(--radius-control)] border border-white/10 bg-white/[0.02] object-cover"
+                      className="w-full rounded-[var(--radius-control)] border border-white/10 bg-[var(--bg-surface)] object-cover"
                     />
                   )}
                 </div>
@@ -948,7 +948,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
                 <div key={`${headline}-${index}`} className="glass-surface rounded-[var(--radius-control)] p-3 space-y-1">
                   <div className="flex items-center gap-2">
                     {source && (
-                      <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+                      <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
                         {source}
                       </span>
                     )}
@@ -981,7 +981,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-sm font-medium text-text-primary">{name}</p>
                     {role && (
-                      <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
+                      <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-text-tertiary">
                         {role}
                       </span>
                     )}
@@ -1186,7 +1186,7 @@ export function ArtifactPanel({
       className="h-full flex flex-col glass-panel"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-glass)]">
         <div className="flex items-center gap-3">
           {approved ? (
             <div className="w-2.5 h-2.5 rounded-full bg-accent-green shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
@@ -1208,7 +1208,7 @@ export function ArtifactPanel({
           <button
             onClick={onClose}
             aria-label="Close artifact panel"
-            className="p-1.5 rounded-lg hover:bg-white/[0.05] text-text-tertiary hover:text-text-secondary transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-text-tertiary hover:text-text-secondary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1250,7 +1250,7 @@ export function ArtifactPanel({
 
       {/* Footer -- Approval button */}
       {showReviewControls ? (
-        <div className="px-6 py-4 border-t border-white/[0.04]">
+        <div className="px-6 py-4 border-t border-[var(--border-glass)]">
           {approved ? (
             <div className="flex items-center justify-center gap-2 py-2.5 text-sm text-accent-green">
               <Check className="w-4 h-4" />
@@ -1266,7 +1266,7 @@ export function ArtifactPanel({
                     'flex-1 py-2.5 rounded-[var(--radius-control)] text-sm font-medium transition-all duration-200',
                     isComplete
                       ? 'sl-btn-primary cursor-pointer'
-                      : 'bg-white/[0.03] text-text-tertiary cursor-not-allowed',
+                      : 'bg-[var(--bg-surface)] text-text-tertiary cursor-not-allowed',
                   )}
                 >
                   {isComplete ? 'Looks Good' : 'Waiting for research...'}
@@ -1277,8 +1277,8 @@ export function ArtifactPanel({
                   className={cn(
                     'rounded-[var(--radius-control)] border px-4 py-2.5 text-sm font-medium transition-colors duration-200',
                     isComplete
-                      ? 'border-white/10 text-white/72 hover:bg-white/[0.05] hover:text-white'
-                      : 'border-white/[0.04] text-text-tertiary cursor-not-allowed',
+                      ? 'border-white/10 text-white/72 hover:bg-[var(--bg-hover)] hover:text-white'
+                      : 'border-[var(--border-glass)] text-text-tertiary cursor-not-allowed',
                   )}
                 >
                   Needs changes

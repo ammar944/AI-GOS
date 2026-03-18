@@ -185,7 +185,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                         />
                       ))}
                     </div>
-                    <p className="text-sm text-white/25 font-mono">
+                    <p className="text-sm text-[var(--text-quaternary)] font-mono">
                       Waiting for previous sections
                     </p>
                   </div>
@@ -213,7 +213,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                     </div>
                     <div>
                       <p className="text-sm font-medium text-red-400">Research failed</p>
-                      <p className="mt-1 text-xs text-white/30">
+                      <p className="mt-1 text-xs text-[var(--text-quaternary)]">
                         {state.sectionErrors[state.currentSection] ?? 'Unknown error'}
                       </p>
                     </div>
@@ -270,12 +270,12 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
               {showCards && sectionCards.length === 0 && !isLoading && phase !== 'queued' && phase !== 'error' && (
                 <div className="flex flex-1 items-center justify-center min-h-[400px]">
                   <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center">
-                      <svg className="w-5 h-5 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-hover)] flex items-center justify-center">
+                      <svg className="w-5 h-5 text-[var(--text-quaternary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                       </svg>
                     </div>
-                    <p className="text-sm text-white/30">
+                    <p className="text-sm text-[var(--text-quaternary)]">
                       No data received for this section
                     </p>
                   </div>

@@ -21,7 +21,7 @@ export function StrategyCard({ recommendedAngle, leadRecommendation, keyDifferen
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{leadRecommendation}</p>
       )}
       {keyDifferentiator && (
-        <div className="rounded-[var(--radius-md)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--text-secondary)]">
+        <div className="rounded-[var(--radius-md)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-secondary)]">
           <span className="font-medium text-[var(--text-primary)]">Differentiator:</span> {keyDifferentiator}
         </div>
       )}

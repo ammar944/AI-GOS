@@ -2,7 +2,7 @@ export default function DashboardLoading() {
   return (
     <div className="dashboard-skeleton min-h-screen bg-[var(--bg-base)] flex flex-col">
       {/* Header skeleton — mirrors the sticky header in page.tsx */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[var(--bg-base)]/80">
+      <header className="sticky top-0 z-50 border-b border-[var(--border-default)] bg-[var(--bg-base)]/80">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           {/* Logo placeholder */}
           <div className="skeleton-block h-6 w-24 rounded" />
@@ -26,11 +26,11 @@ export default function DashboardLoading() {
               <div className="skeleton-block h-9 w-36 rounded-lg shrink-0" />
             </div>
             {/* Bottom divider */}
-            <div className="mt-6 h-px bg-white/[0.06]" />
+            <div className="mt-6 h-px bg-[var(--bg-hover)]" />
           </div>
 
           {/* Tab bar skeleton */}
-          <div className="flex items-center gap-4 mt-8 border-b border-white/[0.06] pb-2.5">
+          <div className="flex items-center gap-4 mt-8 border-b border-[var(--border-default)] pb-2.5">
             <div className="skeleton-block h-8 w-24 rounded-full" />
             <div className="skeleton-block h-8 w-24 rounded-full" />
             <div className="skeleton-block h-8 w-24 rounded-full" />
@@ -41,7 +41,7 @@ export default function DashboardLoading() {
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-3"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 space-y-3"
               >
                 <div className="skeleton-block h-4 w-3/4 rounded" />
                 <div className="skeleton-block h-3 w-1/2 rounded" />

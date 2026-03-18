@@ -11,7 +11,7 @@ export function InsightCard({ insight, source, implication }: InsightCardProps) 
     <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-1">
       <div className="flex items-center gap-2">
         {source && (
-          <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
+          <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
             {source}
           </span>
         )}

@@ -106,7 +106,7 @@ export function WelcomeStrip({
           {totalDocs > 0 && (
             <div className="flex items-center gap-2 pt-1.5">
               {totalBlueprints > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-hover)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
                   <span className="font-medium text-white tabular-nums">
                     {totalBlueprints}
                   </span>
@@ -114,7 +114,7 @@ export function WelcomeStrip({
                 </span>
               )}
               {totalMediaPlans > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-hover)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
                   <span className="font-medium text-white tabular-nums">
                     {totalMediaPlans}
                   </span>
@@ -152,7 +152,7 @@ export function WelcomeStrip({
                 <Button
                   variant="outline"
                   size="default"
-                  className="text-[var(--text-secondary)] border-white/[0.08] hover:border-white/[0.15] hover:text-white"
+                  className="text-[var(--text-secondary)] border-[var(--border-default)] hover:border-white/[0.15] hover:text-white"
                 >
                   <Pencil className="size-3.5" />
                   Edit Profile
@@ -170,7 +170,7 @@ export function WelcomeStrip({
       </div>
 
       {/* Clean bottom border */}
-      <div className="mt-6 h-px bg-white/[0.06]" />
+      <div className="mt-6 h-px bg-[var(--bg-hover)]" />
     </motion.div>
   );
 }

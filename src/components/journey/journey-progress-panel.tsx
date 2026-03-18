@@ -31,7 +31,7 @@ export function JourneyProgressPanel({
       className={cn(
         'flex h-full flex-col',
         variant === 'studio' && [
-          'journey-studio-progress-panel rounded-[26px] border border-white/[0.08]',
+          'journey-studio-progress-panel rounded-[26px] border border-[var(--border-default)]',
           'bg-[linear-gradient(180deg,rgba(18,17,14,0.78),rgba(10,10,8,0.7))] px-5 py-5',
           'shadow-[0_20px_50px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.04)]',
         ],
@@ -44,7 +44,7 @@ export function JourneyProgressPanel({
           'text-xs font-mono uppercase tracking-widest',
           variant === 'studio'
             ? 'mb-8 text-white/42'
-            : 'mb-10 text-white/30',
+            : 'mb-10 text-[var(--text-quaternary)]',
         )}
       >
         Journey Progress
@@ -53,7 +53,7 @@ export function JourneyProgressPanel({
       {/* Timeline */}
       <div className="relative flex-1">
         {/* Vertical Timeline Line */}
-        <div className="absolute left-[7px] top-2 bottom-2 w-[1px] bg-white/10" />
+        <div className="absolute left-[7px] top-2 bottom-2 w-[1px] bg-[var(--bg-hover)]" />
 
         <div className={cn('relative', variant === 'studio' ? 'space-y-8' : 'space-y-12')}>
           {items.map((item) => (
@@ -88,9 +88,9 @@ export function JourneyProgressPanel({
                   <span
                     className={cn(
                       'text-[10px]',
-                      item.status === 'complete' && 'text-white/30',
+                      item.status === 'complete' && 'text-[var(--text-quaternary)]',
                       item.status === 'active' && 'text-brand-accent/60',
-                      item.status === 'queued' && 'text-white/30',
+                      item.status === 'queued' && 'text-[var(--text-quaternary)]',
                     )}
                   >
                     {item.detail}
@@ -107,12 +107,12 @@ export function JourneyProgressPanel({
         className={cn(
           'mt-auto rounded-xl border p-4',
           variant === 'studio'
-            ? 'border-white/[0.08] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
+            ? 'border-[var(--border-default)] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
             : 'glass-surface border-white/5',
         )}
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] text-white/40">Compute Node</span>
+          <span className="text-[10px] text-[var(--text-tertiary)]">Compute Node</span>
           <span
             className={cn(
               'text-[10px]',

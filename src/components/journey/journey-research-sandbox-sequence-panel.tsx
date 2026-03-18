@@ -160,7 +160,7 @@ export function JourneyResearchSandboxSequencePanel({
                 'w-full rounded-2xl border px-4 py-4 text-left transition-colors',
                 isActive
                   ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10'
-                  : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
+                  : 'border-white/10 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
               )}
               aria-label={section.label}
             >
@@ -181,7 +181,7 @@ export function JourneyResearchSandboxSequencePanel({
                           'bg-[rgba(255,186,59,0.14)] text-[rgb(255,222,158)]',
                         section.status === 'blocked' &&
                           'bg-[rgba(255,120,120,0.12)] text-[rgb(255,206,206)]',
-                        section.status === 'idle' && 'bg-white/[0.06] text-text-tertiary',
+                        section.status === 'idle' && 'bg-[var(--bg-hover)] text-text-tertiary',
                       )}
                     >
                       {section.status}
@@ -229,7 +229,7 @@ export function JourneyResearchSandboxSequencePanel({
         })}
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="mt-5 rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
@@ -243,7 +243,7 @@ export function JourneyResearchSandboxSequencePanel({
           <button
             type="button"
             onClick={onCopyUnifiedOutput}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
           >
             <Copy className="h-3.5 w-3.5" />
             Copy all outputs
@@ -265,7 +265,7 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-3">
+    <div className="rounded-[20px] border border-white/10 bg-[var(--bg-surface)] px-4 py-3">
       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
         {label}
       </div>

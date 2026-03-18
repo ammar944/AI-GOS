@@ -140,7 +140,7 @@ export function StepBusinessBasics({
             <button
               type="button"
               onClick={() => setShowClearConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-white/10"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
               style={{
                 color: 'var(--text-tertiary)',
                 border: '1px solid var(--border-default)',
@@ -174,7 +174,7 @@ export function StepBusinessBasics({
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(false)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-white/10"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
                 style={{
                   color: 'var(--text-tertiary)',
                   border: '1px solid var(--border-default)',

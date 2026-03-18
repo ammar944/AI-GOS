@@ -25,7 +25,7 @@ export function JourneyStudioPreviewDock({
         className,
       )}
     >
-      <div className="border-b border-white/[0.08] px-5 py-4">
+      <div className="border-b border-[var(--border-default)] px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-white/38">

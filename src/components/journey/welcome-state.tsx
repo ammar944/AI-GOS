@@ -13,11 +13,11 @@ export function WelcomeState({ onSubmit, isLoading }: WelcomeStateProps) {
       {/* Hero message — exact mockup markup */}
       <div className="flex-1 flex flex-col items-center justify-center px-12 space-y-12">
         <div className="max-w-3xl mx-auto text-center space-y-4">
-          <h2 className="text-3xl font-light text-white/90">
+          <h2 className="text-3xl font-light text-[var(--text-primary)]">
             Initialize a performance-driven market analysis for{' '}
             <span className="text-brand-accent">SaaS Infrastructure</span>.
           </h2>
-          <p className="text-white/40 text-sm">
+          <p className="text-[var(--text-tertiary)] text-sm">
             Targeting Series A startups in North America.
           </p>
         </div>

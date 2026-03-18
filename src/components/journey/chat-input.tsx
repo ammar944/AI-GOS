@@ -172,22 +172,22 @@ export function JourneyChatInput({
                 'px-4 py-3',
                 variant === 'paper'
                   ? 'border-b border-black/6'
-                  : 'border-b border-white/[0.08]',
+                  : 'border-b border-[var(--border-default)]',
               )}
             >
               {variant === 'premium' ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-white/42">
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/58">
+                    <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 text-white/58">
                       Mode
                     </span>
                     <span className="rounded-full border border-brand-accent/20 bg-brand-accent/10 px-2.5 py-1 text-brand-accent">
                       Directive
                     </span>
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/58">
+                    <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 text-white/58">
                       Scope
                     </span>
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-white/76">
+                    <span className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-white/76">
                       Market Overview
                     </span>
                   </div>
@@ -195,7 +195,7 @@ export function JourneyChatInput({
                     {['9 sources', '1 approval', 'Research live'].map((chip) => (
                       <span
                         key={chip}
-                        className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/52"
+                        className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-white/52"
                       >
                         {chip}
                       </span>
@@ -214,7 +214,7 @@ export function JourneyChatInput({
                         'rounded-full px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em]',
                         variant === 'paper'
                           ? 'border border-black/8 bg-white text-[#7b756d]'
-                          : 'border border-white/[0.08] bg-white/[0.03] text-white/48',
+                          : 'border border-[var(--border-default)] bg-[var(--bg-surface)] text-white/48',
                       )}
                     >
                       {chip}
@@ -263,7 +263,7 @@ export function JourneyChatInput({
                     ? 'text-[15px] text-white placeholder-white/26'
                   : variant === 'paper'
                     ? 'text-[15px] text-[#1f1d18] placeholder-[#a7a095]'
-                  : 'text-sm text-white placeholder-white/20',
+                  : 'text-sm text-white placeholder-[var(--text-quaternary)]',
               )}
               style={{ minHeight: '20px', maxHeight: '120px' }}
             />
@@ -284,12 +284,12 @@ export function JourneyChatInput({
                       ? 'bg-brand-accent/15 text-brand-accent hover:bg-brand-accent/24'
                     : variant === 'paper'
                       ? 'bg-[#1f1d18] text-white hover:opacity-92'
-                    : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+                    : 'bg-white/5 text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] hover:text-white'
                   : variant === 'paper'
                     ? 'cursor-default bg-[#ece7dc] text-[#b4aea3]'
                     : variant === 'premium'
-                      ? 'cursor-default bg-white/[0.04] text-white/24'
-                    : 'cursor-default text-white/20',
+                      ? 'cursor-default bg-[var(--bg-hover)] text-white/24'
+                    : 'cursor-default text-[var(--text-quaternary)]',
               )}
             >
               <Send size={16} />

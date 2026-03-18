@@ -750,7 +750,7 @@ function UserMessage({ content, className }: { content: string; className?: stri
       animate="visible"
       className={cn('max-w-3xl mx-auto text-center space-y-4 mb-8', className)}
     >
-      <h2 className="text-3xl font-light text-white/90">{content}</h2>
+      <h2 className="text-3xl font-light text-[var(--text-primary)]">{content}</h2>
     </motion.div>
   );
 }

@@ -42,7 +42,7 @@ export function FieldCard({
   }, [onBlur]);
 
   const sharedInputClasses = cn(
-    'w-full bg-transparent border-none outline-none text-[14px] leading-relaxed placeholder:text-white/25',
+    'w-full bg-transparent border-none outline-none text-[14px] leading-relaxed placeholder:text-[var(--text-quaternary)]',
     'caret-[var(--accent-blue)]',
   );
 

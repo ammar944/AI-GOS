@@ -62,7 +62,7 @@ export function JourneyStepper({
                 'text-[10px] uppercase tracking-widest font-semibold',
                 status === 'complete' && 'text-brand-success',
                 status === 'active' && 'text-brand-accent',
-                status === 'pending' && 'text-white/50',
+                status === 'pending' && 'text-[var(--text-secondary)]',
               )}
             >
               {phase.label}

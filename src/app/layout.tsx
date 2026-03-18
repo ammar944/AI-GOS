@@ -3,6 +3,7 @@ import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 // AIGOS v2 Typography System
@@ -68,12 +69,14 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en" className="dark">
+      <html lang="en" suppressHydrationWarning>
         <body
           className={`${dmSans.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} font-sans antialiased`}
           suppressHydrationWarning
         >
-          <ErrorBoundary>{children}</ErrorBoundary>
+          <ThemeProvider>
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

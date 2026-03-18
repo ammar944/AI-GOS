@@ -73,7 +73,7 @@ export default function Home() {
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-6 text-[16px] md:text-[17px] text-white/60 max-w-md mx-auto leading-[1.7] animate-in fade-in slide-in-from-bottom-3 duration-700 delay-200 fill-mode-backwards">
+          <p className="mt-6 text-[16px] md:text-[17px] text-[var(--text-secondary)] max-w-md mx-auto leading-[1.7] animate-in fade-in slide-in-from-bottom-3 duration-700 delay-200 fill-mode-backwards">
             Drop a URL. AIGOS runs market research, maps your
             competitors, and builds a full paid media blueprint.
           </p>

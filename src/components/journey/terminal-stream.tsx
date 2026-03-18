@@ -18,7 +18,7 @@ interface TerminalStreamProps {
 const LEVEL_COLORS: Record<string, string> = {
   ok: 'text-brand-success',
   run: 'text-brand-accent',
-  inf: 'text-white/20',
+  inf: 'text-[var(--text-quaternary)]',
   warn: 'text-amber-400',
   err: 'text-red-400',
 };
@@ -55,7 +55,7 @@ export function TerminalStream({
 
   return (
     <div
-      className={cn('glass-surface rounded-module p-6 font-mono text-[11px] text-white/40 bg-black/40', className)}
+      className={cn('glass-surface rounded-module p-6 font-mono text-[11px] text-[var(--text-tertiary)] bg-black/40', className)}
     >
       {/* Lines */}
       <div
@@ -65,7 +65,7 @@ export function TerminalStream({
       >
         {visibleLines.map((entry, i) => (
           <p key={i}>
-            <span className={cn(LEVEL_COLORS[entry.level] || 'text-white/20')}>
+            <span className={cn(LEVEL_COLORS[entry.level] || 'text-[var(--text-quaternary)]')}>
               [{LEVEL_LABELS[entry.level] || entry.level.toUpperCase()}]
             </span>{' '}
             {entry.message}

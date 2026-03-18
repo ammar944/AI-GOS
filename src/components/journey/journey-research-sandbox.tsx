@@ -592,7 +592,7 @@ export function JourneyResearchSandbox({
       <div className="relative z-10 mx-auto max-w-[1600px] px-6 py-10 lg:px-8">
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.22em] text-[var(--accent-cyan)]">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[var(--bg-hover)] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.22em] text-[var(--accent-cyan)]">
               <FlaskConical className="h-3.5 w-3.5" />
               Journey Research Sandbox
             </div>
@@ -612,7 +612,7 @@ export function JourneyResearchSandbox({
               onClick={() => {
                 void navigator.clipboard?.writeText(sandboxUserId);
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
             >
               <Copy className="h-4 w-4" />
               Copy sandbox user id
@@ -628,7 +628,7 @@ export function JourneyResearchSandbox({
                   );
                 });
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh snapshot
@@ -650,7 +650,7 @@ export function JourneyResearchSandbox({
                   </p>
                 </div>
                 {isPending ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1 text-xs text-text-secondary">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[var(--bg-hover)] px-3 py-1 text-xs text-text-secondary">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     {pendingAction ?? 'Working'}
                   </span>
@@ -665,7 +665,7 @@ export function JourneyResearchSandbox({
                   <input
                     value={sandboxKey}
                     onChange={(event) => setSandboxKey(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="h-11 w-full rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
                     placeholder="default"
                   />
                 </label>
@@ -679,7 +679,7 @@ export function JourneyResearchSandbox({
                     onChange={(event) =>
                       setSection(event.target.value as JourneyResearchSandboxSection)
                     }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="h-11 w-full rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
                   >
                     {JOURNEY_RESEARCH_SANDBOX_SECTIONS.map((config) => (
                       <option key={config.section} value={config.section}>
@@ -702,7 +702,7 @@ export function JourneyResearchSandbox({
                       'rounded-xl border px-4 py-3 text-left transition-colors',
                       contextSource === 'live'
                         ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]/10'
-                        : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
+                        : 'border-white/10 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
                     )}
                   >
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
@@ -729,7 +729,7 @@ export function JourneyResearchSandbox({
                       'rounded-xl border px-4 py-3 text-left transition-colors',
                       contextSource === 'sandbox'
                         ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10'
-                        : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
+                        : 'border-white/10 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
                     )}
                   >
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
@@ -772,7 +772,7 @@ export function JourneyResearchSandbox({
                         },
                       )
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
                   >
                     <Database className="h-4 w-4" />
                     Seed sandbox from live
@@ -787,7 +787,7 @@ export function JourneyResearchSandbox({
                         { resetRealtime: true, clearSelectedSection: true },
                       )
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
                   >
                     <Trash2 className="h-4 w-4" />
                     Clear selected section
@@ -1053,7 +1053,7 @@ function InfoCard({
             onClick={() => onRowClick?.(label)}
             className={cn(
               'flex w-full items-start justify-between gap-4 rounded-xl px-3 py-2 text-left',
-              onRowClick ? 'transition-colors hover:bg-white/[0.05]' : 'cursor-default',
+              onRowClick ? 'transition-colors hover:bg-[var(--bg-hover)]' : 'cursor-default',
             )}
           >
             <span className="text-xs text-text-tertiary">{label}</span>
@@ -1074,7 +1074,7 @@ function StatusPill({ status }: { status: string }) {
         normalized === 'complete' && 'bg-[rgba(30,170,95,0.16)] text-[rgb(134,255,188)]',
         normalized === 'error' && 'bg-[rgba(255,120,120,0.16)] text-[rgb(255,188,188)]',
         normalized === 'running' && 'bg-[rgba(48,126,255,0.18)] text-[rgb(168,205,255)]',
-        normalized === 'idle' && 'bg-white/[0.06] text-text-tertiary',
+        normalized === 'idle' && 'bg-[var(--bg-hover)] text-text-tertiary',
         normalized !== 'complete' &&
           normalized !== 'error' &&
           normalized !== 'running' &&
@@ -1241,7 +1241,7 @@ function InlineSectionPreview({
 
   if (status === 'idle') {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-6">
         <div className="text-sm font-semibold text-text-primary">
           {getSectionLabel(section)}
         </div>
@@ -1255,7 +1255,7 @@ function InlineSectionPreview({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
         <ResearchInlineCard
           section={section}
           status={status}
@@ -1274,7 +1274,7 @@ function InlineSectionPreview({
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
           Activity feed
         </div>

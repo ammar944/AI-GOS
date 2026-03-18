@@ -48,7 +48,7 @@ export function JourneyWorkerStatusBanner({
     <div
       data-testid="journey-worker-status-banner"
       className={cn(
-        'rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4',
+        'rounded-2xl border border-white/10 bg-[var(--bg-surface)] px-4 py-4',
         className,
       )}
     >
@@ -57,7 +57,7 @@ export function JourneyWorkerStatusBanner({
           <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/45">
             Research Operations
           </p>
-          <p className="mt-1 text-sm text-white/78">
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Journey is tracking worker pickup, background execution, and dispatch failures here.
           </p>
         </div>

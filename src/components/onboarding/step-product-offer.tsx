@@ -326,7 +326,7 @@ export function StepProductOffer({
                     <button
                       type="button"
                       onClick={() => removeTier(index)}
-                      className="flex-shrink-0 p-1.5 rounded-md transition-colors hover:bg-white/10"
+                      className="flex-shrink-0 p-1.5 rounded-md transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: 'var(--text-tertiary)' }}
                       aria-label={`Remove tier ${tier.name || index + 1}`}
                     >

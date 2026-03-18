@@ -37,7 +37,7 @@ function DashboardSkeleton() {
 
       {/* Tab bar + controls skeleton */}
       <div className="mt-8">
-        <div className="flex items-end justify-between border-b border-white/[0.06] pb-2.5">
+        <div className="flex items-end justify-between border-b border-[var(--border-default)] pb-2.5">
           <div className="flex items-center gap-6">
             <div className="h-4 w-12 skeleton-block-subtle rounded" />
             <div className="h-4 w-20 skeleton-block-subtle rounded" />
@@ -57,7 +57,7 @@ function DashboardSkeleton() {
           {[1, 2, 3, 4].map((i) => (
             <motion.div
               key={i}
-              className="rounded-xl border border-white/[0.04] bg-white/[0.015] p-5"
+              className="rounded-xl border border-[var(--border-glass)] bg-[var(--bg-glass-panel)] p-5"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: i * 0.06 }}
@@ -73,7 +73,7 @@ function DashboardSkeleton() {
                 <div className="h-6 w-20 skeleton-block-subtle rounded-md" />
                 <div className="h-6 w-16 skeleton-block-subtle rounded-md" />
               </div>
-              <div className="mt-4 pt-3 border-t border-white/[0.04]">
+              <div className="mt-4 pt-3 border-t border-[var(--border-glass)]">
                 <div className="h-8 w-full skeleton-block-subtle rounded-lg" />
               </div>
             </motion.div>

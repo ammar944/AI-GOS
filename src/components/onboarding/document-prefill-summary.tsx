@@ -309,7 +309,7 @@ export function DocumentPrefillSummary({
         <button
           type="button"
           onClick={onDismiss}
-          className="flex-shrink-0 p-1 rounded-md transition-colors hover:bg-white/10"
+          className="flex-shrink-0 p-1 rounded-md transition-colors hover:bg-[var(--bg-hover)]"
           style={{ color: "rgb(100, 105, 115)" }}
           aria-label="Dismiss"
         >

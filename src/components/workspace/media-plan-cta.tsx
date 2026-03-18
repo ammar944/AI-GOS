@@ -29,8 +29,8 @@ export function MediaPlanCta({ sectionStates, onGenerateMediaPlan, mediaPlanGene
       animate="animate"
       transition={springs.smooth}
       className={cn(
-        'mt-8 mb-2 rounded-2xl border border-white/[0.08]',
-        'bg-white/[0.03]',
+        'mt-8 mb-2 rounded-2xl border border-[var(--border-default)]',
+        'bg-[var(--bg-surface)]',
         'overflow-hidden',
       )}
     >
@@ -117,7 +117,7 @@ export function MediaPlanCta({ sectionStates, onGenerateMediaPlan, mediaPlanGene
                 <span
                   className={cn(
                     'text-xs font-mono',
-                    isApproved ? 'text-[var(--text-tertiary)]' : 'text-white/50',
+                    isApproved ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-secondary)]',
                   )}
                 >
                   {SECTION_LABELS[section as Exclude<SectionKey, 'mediaPlan'>]}

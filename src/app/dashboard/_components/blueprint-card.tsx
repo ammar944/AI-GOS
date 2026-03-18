@@ -52,7 +52,7 @@ export function BlueprintCard({
       className={isDeleting ? "opacity-40 pointer-events-none scale-[0.98]" : ""}
     >
       <Link href={`/blueprint/${blueprint.id}`} className="block">
-        <div className="group relative rounded-xl bg-white/[0.02] border border-white/[0.06] overflow-hidden transition-all duration-200 hover:bg-white/[0.04] hover:border-white/[0.10]">
+        <div className="group relative rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] overflow-hidden transition-all duration-200 hover:bg-[var(--bg-hover)] hover:border-[var(--border-default)]">
           <div className="p-4">
             <div className="flex flex-col gap-3">
               {/* Header row */}
@@ -63,7 +63,7 @@ export function BlueprintCard({
                   </div>
                   <div className="min-w-0 pt-0.5">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-[14px] font-medium text-white/90 truncate leading-tight">
+                      <h3 className="text-[14px] font-medium text-[var(--text-primary)] truncate leading-tight">
                         {blueprint.title}
                       </h3>
                       {showTypeBadge && (
@@ -83,7 +83,7 @@ export function BlueprintCard({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="size-7 text-[var(--text-tertiary)] show-on-card-hover hover:text-white hover:bg-white/[0.06]"
+                      className="size-7 text-[var(--text-tertiary)] show-on-card-hover hover:text-white hover:bg-[var(--bg-hover)]"
                       onClick={(e) => e.preventDefault()}
                     >
                       <MoreHorizontal className="size-4" />
@@ -110,14 +110,14 @@ export function BlueprintCard({
                   {competitorCount > 0 && (
                     <span className="inline-flex items-center gap-1">
                       <Users className="size-3" />
-                      <span className="tabular-nums text-white/60">{competitorCount}</span>
+                      <span className="tabular-nums text-[var(--text-secondary)]">{competitorCount}</span>
                       competitors
                     </span>
                   )}
                   {linkedMediaPlanCount > 0 && (
                     <span className="inline-flex items-center gap-1">
                       <FileCheck className="size-3" />
-                      <span className="tabular-nums text-white/60">{linkedMediaPlanCount}</span>
+                      <span className="tabular-nums text-[var(--text-secondary)]">{linkedMediaPlanCount}</span>
                       {linkedMediaPlanCount === 1 ? "plan" : "plans"}
                     </span>
                   )}

@@ -82,7 +82,9 @@ export const updateFieldSchema = z.object({
 });
 ```
 
-**Registration**: Defined inline in `src/app/api/journey/stream/route.ts` as a closure capturing `userId` and `body.activeRunId` from the request scope — same pattern as existing tools. Calls `persistToSupabase(userId, { [key]: value }, activeRunId)`.
+**Registration**: Defined **inline** in `src/app/api/journey/stream/route.ts` inside the POST handler as a closure capturing `userId` and `body.activeRunId` from the request scope. This is intentionally different from the standalone import pattern used by other tools — `updateField` needs request-scoped auth context that standalone modules don't have. The schema (`updateFieldSchema`) is imported from the standalone file; only the `execute` function is defined inline. Calls `persistToSupabase(userId, { [key]: value }, activeRunId)`.
+
+**QC note**: `state.cards` is keyed by cardId (globally unique), NOT by sectionKey. To find offer score cards, filter: `Object.values(state.cards).filter(c => c.sectionKey === 'offerAnalysis')`. The stat-grid card has `label: 'Offer Score'` with `content.stats[0].value` formatted as `"5.7/10"` — parse with `parseFloat(value.split('/')[0])`.
 
 **No approval gate**: The tool executes immediately when Claude calls it (same as `askUser`). The user's natural language confirmation ("yeah update it") is sufficient — the conversational context makes intent clear. If the user wants to undo, they can say "revert that" and Claude calls `updateField` again with the original value.
 

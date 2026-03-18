@@ -27,11 +27,11 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
         </div>
         <div className="flex flex-col items-center gap-2 opacity-30">
           <div className="w-2.5 h-2.5 rounded-full bg-white/50" />
-          <span className="text-[10px] uppercase tracking-widest text-white/50 font-semibold">Strategy</span>
+          <span className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] font-semibold">Strategy</span>
         </div>
         <div className="flex flex-col items-center gap-2 opacity-30">
           <div className="w-2.5 h-2.5 rounded-full bg-white/50" />
-          <span className="text-[10px] uppercase tracking-widest text-white/50 font-semibold">Launch</span>
+          <span className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] font-semibold">Launch</span>
         </div>
       </div>
 
@@ -39,11 +39,11 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
       <section className="flex-1 overflow-y-auto custom-scrollbar px-12 pb-32 space-y-12">
         {/* Chat Area Message */}
         <div className="max-w-3xl mx-auto text-center space-y-4" data-purpose="message-user">
-          <h2 className="text-3xl font-light text-white/90">
+          <h2 className="text-3xl font-light text-[var(--text-primary)]">
             Initialize a performance-driven market analysis for{' '}
             <span className="text-brand-accent">SaaS Infrastructure</span>.
           </h2>
-          <p className="text-white/40 text-sm">Targeting Series A startups in North America.</p>
+          <p className="text-[var(--text-tertiary)] text-sm">Targeting Series A startups in North America.</p>
         </div>
 
         {/* Research Grid */}
@@ -51,14 +51,14 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
           {/* Card: Market Overview */}
           <div className="glass-surface p-6 rounded-module relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-mono text-white/40 uppercase tracking-tighter">Module 01</span>
+              <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-tighter">Module 01</span>
               <div className="w-2 h-2 rounded-full bg-brand-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
             </div>
             <h3 className="text-lg font-medium mb-2">Market Overview</h3>
-            <p className="text-sm text-white/50 leading-relaxed mb-4">
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
               Identified 4.2k potential entry points within the cloud infrastructure vertical.
             </p>
-            <div className="space-y-1 text-[11px] font-mono text-white/30">
+            <div className="space-y-1 text-[11px] font-mono text-[var(--text-quaternary)]">
               <div className="flex justify-between"><span>TAM:</span> <span>$14.2B</span></div>
               <div className="flex justify-between"><span>CAGR:</span> <span>18.4%</span></div>
             </div>
@@ -75,7 +75,7 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
               </div>
             </div>
             <h3 className="text-lg font-medium mb-2 text-brand-accent">Competitor Intel</h3>
-            <p className="text-sm text-white/70 leading-relaxed">Scraping G2 reviews and pricing pages for direct competitors...</p>
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">Scraping G2 reviews and pricing pages for direct competitors...</p>
             <div className="mt-4 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
               <div className="bg-brand-accent h-full w-[45%]" />
             </div>
@@ -84,11 +84,11 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
 
         {/* Technical Data Stream */}
         <div className="max-w-5xl mx-auto" data-purpose="technical-stream">
-          <div className="glass-surface rounded-module p-6 font-mono text-[11px] text-white/40 space-y-1 bg-black/40">
+          <div className="glass-surface rounded-module p-6 font-mono text-[11px] text-[var(--text-tertiary)] space-y-1 bg-black/40">
             <p><span className="text-brand-success">[OK]</span> Connection established to LinkedIn Sales Navigator API</p>
             <p><span className="text-brand-accent">[RUN]</span> Scanning 850 profiles for Ideal Customer Persona match</p>
-            <p><span className="text-white/20">[INF]</span> Found signal: &quot;Kubernetes cost optimization&quot; mentioned in 42 recent posts</p>
-            <p><span className="text-white/20">[INF]</span> Mapping decision makers at: Vercel, HashiCorp, Supabase</p>
+            <p><span className="text-[var(--text-quaternary)]">[INF]</span> Found signal: &quot;Kubernetes cost optimization&quot; mentioned in 42 recent posts</p>
+            <p><span className="text-[var(--text-quaternary)]">[INF]</span> Mapping decision makers at: Vercel, HashiCorp, Supabase</p>
             <p><span className="text-brand-accent animate-pulse">_</span></p>
           </div>
         </div>
@@ -102,18 +102,18 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
 
         {/* Profile Card: What I know */}
         <div className="max-w-5xl mx-auto glass-surface rounded-module p-8" data-purpose="summary-grid">
-          <h4 className="text-xs font-mono text-white/30 uppercase tracking-widest mb-6">Profile Snapshot: Project Alpha</h4>
+          <h4 className="text-xs font-mono text-[var(--text-quaternary)] uppercase tracking-widest mb-6">Profile Snapshot: Project Alpha</h4>
           <div className="grid grid-cols-3 gap-8">
             <div>
-              <p className="text-[10px] text-white/30 uppercase mb-2">Primary ICP</p>
+              <p className="text-[10px] text-[var(--text-quaternary)] uppercase mb-2">Primary ICP</p>
               <p className="text-sm font-medium">DevOps Leads @ Series A</p>
             </div>
             <div>
-              <p className="text-[10px] text-white/30 uppercase mb-2">Pain Point</p>
+              <p className="text-[10px] text-[var(--text-quaternary)] uppercase mb-2">Pain Point</p>
               <p className="text-sm font-medium">Cloud Cost Attribution</p>
             </div>
             <div>
-              <p className="text-[10px] text-white/30 uppercase mb-2">Active Channels</p>
+              <p className="text-[10px] text-[var(--text-quaternary)] uppercase mb-2">Active Channels</p>
               <p className="text-sm font-medium">LinkedIn, Twitter, Reddit</p>
             </div>
           </div>

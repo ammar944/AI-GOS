@@ -126,7 +126,7 @@ export function UnifiedFieldReview({
             <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-white">
               Review your data
             </h2>
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm text-[var(--text-tertiary)]">
               We found {scrapedKeys.size} fields from your site. Review and fill any missing required fields.
             </p>
           </motion.div>
@@ -142,8 +142,8 @@ export function UnifiedFieldReview({
               <span className="font-medium text-white/80">
                 Step {activeGroupIndex + 1} of {JOURNEY_FIELD_GROUPS.length}
               </span>
-              <span className="text-white/30">&middot;</span>
-              <span className="text-white/40 font-mono tabular-nums">
+              <span className="text-[var(--text-quaternary)]">&middot;</span>
+              <span className="text-[var(--text-tertiary)] font-mono tabular-nums">
                 {progress.percent}% complete
               </span>
             </div>
@@ -278,7 +278,7 @@ export function UnifiedFieldReview({
                         ? 'bg-white text-black'
                         : isComplete
                           ? 'bg-[rgb(54,94,255)]/15 text-[rgb(54,94,255)] border border-[rgb(54,94,255)]/20'
-                          : 'bg-white/5 text-white/50 border border-white/[0.06]',
+                          : 'bg-white/5 text-[var(--text-secondary)] border border-[var(--border-default)]',
                     )}
                   >
                     {isComplete && !isActive && (
@@ -366,7 +366,7 @@ export function UnifiedFieldReview({
       </div>
 
       {/* Sticky bottom bar */}
-      <div className="sticky bottom-0 border-t border-white/[0.06] px-6 sm:px-12 py-4 bg-[var(--bg-base)]/95 backdrop-blur-xl">
+      <div className="sticky bottom-0 border-t border-[var(--border-default)] px-6 sm:px-12 py-4 bg-[var(--bg-base)]/95 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           {/* Status */}
           <div className="flex-1 min-w-0">
@@ -388,7 +388,7 @@ export function UnifiedFieldReview({
             {activeGroupIndex > 0 && (
               <button
                 onClick={() => setActiveGroupIndex((prev) => prev - 1)}
-                className="cursor-pointer h-10 rounded-full border border-white/10 text-white/60 font-medium text-[13px] px-5 transition-all hover:border-white/20 hover:text-white/80"
+                className="cursor-pointer h-10 rounded-full border border-white/10 text-[var(--text-secondary)] font-medium text-[13px] px-5 transition-all hover:border-white/20 hover:text-white/80"
               >
                 Back
               </button>
@@ -409,7 +409,7 @@ export function UnifiedFieldReview({
                   'cursor-pointer h-10 rounded-full font-semibold text-[13px] px-6 transition-all',
                   gateStatus.ready && !isStarting
                     ? 'bg-white text-black hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]'
-                    : 'bg-white/10 text-white/30 cursor-not-allowed',
+                    : 'bg-[var(--bg-hover)] text-[var(--text-quaternary)] cursor-not-allowed',
                 )}
               >
                 {isStarting ? 'Starting...' : 'Start Research'}

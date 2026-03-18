@@ -358,7 +358,7 @@ export function PaginatedBlueprintView({
               </div>
             </TooltipProvider>
 
-            <span className="text-xs tabular-nums text-white/40 font-[family-name:var(--font-mono)]">
+            <span className="text-xs tabular-nums text-[var(--text-tertiary)] font-[family-name:var(--font-mono)]">
               {currentPage + 1} of {availableSections.length}
             </span>
           </div>

@@ -34,7 +34,7 @@ export function PhaseCard({
       <div className="flex items-center gap-2">
         <p className="text-sm font-semibold text-[var(--text-primary)]">{name}</p>
         {duration && (
-          <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
+          <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
             {duration}
           </span>
         )}

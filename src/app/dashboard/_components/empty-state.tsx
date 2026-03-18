@@ -84,7 +84,7 @@ export function EmptyState({
       {variant === "search" && searchQuery && (
         <p className="mt-2 text-[13px] text-[var(--text-tertiary)]">
           No matches for{" "}
-          <code className="inline-block px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] font-mono text-[12px] text-white/70">
+          <code className="inline-block px-1.5 py-0.5 rounded bg-[var(--bg-hover)] border border-[var(--border-default)] font-mono text-[12px] text-[var(--text-secondary)]">
             {searchQuery}
           </code>
         </p>
@@ -108,7 +108,7 @@ export function EmptyState({
           <Button
             variant="outline"
             size="default"
-            className="border-white/[0.08] hover:border-white/[0.15] text-[var(--text-secondary)] hover:text-white"
+            className="border-[var(--border-default)] hover:border-white/[0.15] text-[var(--text-secondary)] hover:text-white"
             onClick={() => onSwitchTab("blueprints")}
           >
             View Blueprints
@@ -128,7 +128,7 @@ export function EmptyState({
           <Button
             variant="outline"
             size="default"
-            className="border-white/[0.08] hover:border-white/[0.15] text-[var(--text-secondary)] hover:text-white"
+            className="border-[var(--border-default)] hover:border-white/[0.15] text-[var(--text-secondary)] hover:text-white"
             onClick={onClearSearch}
           >
             Clear Search

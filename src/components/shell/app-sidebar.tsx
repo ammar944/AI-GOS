@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, Compass, FileText, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { LogoMark } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 import { useOptionalShell } from '@/components/shell/shell-provider';
 
@@ -37,8 +38,8 @@ function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) 
       className={cn(
         'relative flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer transition-colors duration-150',
         isActive
-          ? 'text-white bg-white/[0.05]'
-          : 'text-white/35 hover:text-white/70 hover:bg-white/[0.03]',
+          ? 'text-[var(--text-primary)] bg-[var(--bg-hover)]'
+          : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]',
       )}
     >
       {isActive && (
@@ -62,7 +63,7 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        'flex flex-col h-full transition-all duration-200 ease-out bg-[var(--bg-base)] border-r border-white/[0.06] py-4 shrink-0 overflow-hidden',
+        'flex flex-col h-full transition-all duration-200 ease-out bg-[var(--bg-base)] border-r border-[var(--border-default)] py-4 shrink-0 overflow-hidden',
         expanded ? 'w-48' : 'w-14',
       )}
     >
@@ -80,14 +81,19 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* Collapse toggle + User — bottom */}
+      {/* Theme toggle + Collapse + User — bottom */}
       <div className="mt-auto flex flex-col gap-2 px-2">
+        {/* Theme toggle */}
+        <div className={cn('flex items-center', expanded ? 'px-4' : 'justify-center')}>
+          <ThemeToggle />
+        </div>
+
         {shell && (
           <button
             type="button"
             onClick={shell.toggleSidebar}
             title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer text-white/35 hover:text-white/70 hover:bg-white/[0.03] transition-colors duration-150"
+            className="flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
           >
             {expanded ? (
               <PanelLeftClose size={18} className="shrink-0" />

@@ -55,9 +55,9 @@ export function IntegrationCard({
   return (
     <div
       className={cn(
-        "bg-white/[0.03] border border-white/[0.06] rounded-xl backdrop-blur-sm",
+        "bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl backdrop-blur-sm",
         "transition-colors duration-150",
-        expanded && "border-white/[0.10]"
+        expanded && "border-[var(--border-default)]"
       )}
     >
       <button
@@ -70,19 +70,19 @@ export function IntegrationCard({
           <span className="text-sm font-semibold text-white truncate">
             {name}
           </span>
-          <span className="text-xs text-white/40 truncate">{purpose}</span>
+          <span className="text-xs text-[var(--text-tertiary)] truncate">{purpose}</span>
         </div>
 
         <div className="flex items-center gap-3 shrink-0 ml-4">
           {latencyMs !== null && (
-            <span className="hidden sm:inline-block text-xs font-mono text-white/30 bg-white/[0.05] border border-white/[0.06] rounded-full px-2 py-0.5">
+            <span className="hidden sm:inline-block text-xs font-mono text-[var(--text-quaternary)] bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-full px-2 py-0.5">
               {latencyMs}ms
             </span>
           )}
           <StatusDot configured={configured} reachable={reachable} />
           <svg
             className={cn(
-              "w-4 h-4 text-white/30 transition-transform duration-200 group-hover:text-white/50",
+              "w-4 h-4 text-[var(--text-quaternary)] transition-transform duration-200 group-hover:text-[var(--text-secondary)]",
               expanded && "rotate-180"
             )}
             viewBox="0 0 16 16"
@@ -103,18 +103,18 @@ export function IntegrationCard({
           expanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
         )}
       >
-        <div className="px-4 pb-4 border-t border-white/[0.06] pt-3 space-y-2">
-          <p className="text-xs text-white/30 uppercase tracking-wider font-medium mb-2">
+        <div className="px-4 pb-4 border-t border-[var(--border-default)] pt-3 space-y-2">
+          <p className="text-xs text-[var(--text-quaternary)] uppercase tracking-wider font-medium mb-2">
             Environment Variables
           </p>
           {envVars.length === 0 ? (
-            <p className="text-xs text-white/30 italic">
+            <p className="text-xs text-[var(--text-quaternary)] italic">
               No API key required (public API)
             </p>
           ) : (
             envVars.map((v) => (
               <div key={v.key} className="flex items-center justify-between">
-                <span className="text-xs font-mono text-white/50">
+                <span className="text-xs font-mono text-[var(--text-secondary)]">
                   {v.key}
                 </span>
                 {v.set ? (

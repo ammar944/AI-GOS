@@ -367,7 +367,7 @@ export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
         'rounded-[var(--radius-lg)] bg-[var(--bg-card)]',
         isHero
           ? 'border border-[var(--border-subtle)] border-l-2 border-l-[var(--accent-blue)]/40 p-6 print-card-hero'
-          : 'border border-white/[0.04] p-5',
+          : 'border border-[var(--border-glass)] p-5',
       )}
     >
       <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider mb-3 flex items-center gap-1.5">

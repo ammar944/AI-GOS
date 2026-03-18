@@ -245,7 +245,7 @@ function CompleteCard({
   return (
     <div className="glass-surface p-6 rounded-[24px] relative overflow-hidden">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-mono text-white/40 uppercase tracking-tighter">
+        <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-tighter">
           Module {meta.moduleNumber}
         </span>
         {/* Green completed dot */}
@@ -253,11 +253,11 @@ function CompleteCard({
       </div>
       <h3 className="text-lg font-medium mb-2">{meta.label}</h3>
       {description && (
-        <p className="text-sm text-white/50 leading-relaxed mb-4">{description}</p>
+        <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">{description}</p>
       )}
       {/* Metrics */}
       {metrics.length > 0 && (
-        <div className="space-y-1 text-[11px] font-mono text-white/30">
+        <div className="space-y-1 text-[11px] font-mono text-[var(--text-quaternary)]">
           {metrics.map((m) => (
             <div key={m.key} className="flex justify-between">
               <span>{m.key}:</span>
@@ -315,7 +315,7 @@ function ErrorCard({ meta, error }: { meta: SectionMeta; error?: string }) {
       </div>
       <h3 className="text-lg font-medium mb-2 text-red-400">{meta.label} — Failed</h3>
       {error && (
-        <p className="text-sm text-white/40 leading-relaxed">{error}</p>
+        <p className="text-sm text-[var(--text-tertiary)] leading-relaxed">{error}</p>
       )}
     </div>
   );

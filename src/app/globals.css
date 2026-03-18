@@ -95,12 +95,12 @@
   --shadow-v2-elevated: var(--shadow-elevated);
   --shadow-glow-blue: var(--shadow-glow-blue);
 
-  /* V2 Command Center — Brand Colors */
-  --color-brand-background: #050505;
-  --color-brand-accent: #3c83f6;
-  --color-brand-success: #10B981;
-  --color-brand-surface: rgba(255, 255, 255, 0.03);
-  --color-brand-border: rgba(255, 255, 255, 0.06);
+  /* V2 Command Center — Brand Colors (resolved via CSS vars) */
+  --color-brand-background: var(--bg-base);
+  --color-brand-accent: var(--accent-blue);
+  --color-brand-success: var(--accent-green);
+  --color-brand-surface: var(--bg-glass);
+  --color-brand-border: var(--border-default);
 
   /* V2 Command Center — Border Radius Scale */
   --radius-module: 24px;
@@ -120,7 +120,7 @@
 :root {
   --radius: 0.625rem;
 
-  /* SaaSLaunch Brand Colors */
+  /* SaaSLaunch Brand Colors (shared across themes) */
   --brand-navy: oklch(0.15 0.04 265);          /* #0a0e27 deep navy */
   --brand-navy-light: oklch(0.20 0.04 265);    /* Slightly lighter navy */
   --brand-blue: oklch(0.62 0.19 255);          /* #3b82f6 electric blue */
@@ -128,38 +128,205 @@
   --brand-sky: oklch(0.80 0.12 240);           /* #93c5fd sky blue */
   --brand-periwinkle: oklch(0.75 0.10 270);    /* #a5b4fc periwinkle */
 
-  /* Light mode fallback (rarely used - dark is primary) */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.15 0.04 265);
-  --card: oklch(1 0 0);
+  /* ── Light Theme (Default for :root) ──────────────────────────── */
+
+  /* shadcn/ui primitives */
+  --background: oklch(0.985 0.002 265);        /* #f8f9fc — cool blue-white */
+  --foreground: oklch(0.15 0.04 265);          /* #0a0e27 — deep navy text */
+  --card: oklch(1 0 0);                        /* Pure white cards */
   --card-foreground: oklch(0.15 0.04 265);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.15 0.04 265);
-  --primary: oklch(0.62 0.19 255);
+  --primary: oklch(0.55 0.20 255);             /* #2563eb — slightly deeper blue for light bg contrast */
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.01 265);
-  --secondary-foreground: oklch(0.15 0.04 265);
-  --muted: oklch(0.95 0.01 265);
-  --muted-foreground: oklch(0.50 0.03 265);
-  --accent: oklch(0.95 0.02 255);
-  --accent-foreground: oklch(0.15 0.04 265);
+  --secondary: oklch(0.955 0.008 265);         /* #eef1f8 — blue-tinted light gray */
+  --secondary-foreground: oklch(0.25 0.04 265);
+  --muted: oklch(0.955 0.008 265);
+  --muted-foreground: oklch(0.45 0.03 265);    /* #64748b — slate-500 */
+  --accent: oklch(0.945 0.015 255);            /* #eef2ff — indigo-50 */
+  --accent-foreground: oklch(0.25 0.06 260);
   --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.90 0.01 265);
-  --input: oklch(0.90 0.01 265);
-  --ring: oklch(0.62 0.19 255);
-  --chart-1: oklch(0.62 0.19 255);
-  --chart-2: oklch(0.70 0.15 180);
-  --chart-3: oklch(0.75 0.10 270);
-  --chart-4: oklch(0.80 0.15 85);
-  --chart-5: oklch(0.65 0.20 25);
-  --sidebar: oklch(0.98 0 0);
+  --border: oklch(0.915 0.008 265);            /* #e2e8f0 — slate-200 */
+  --input: oklch(0.915 0.008 265);
+  --ring: oklch(0.55 0.20 255);
+  --chart-1: oklch(0.55 0.20 255);             /* Deeper blue for light bg */
+  --chart-2: oklch(0.55 0.15 180);
+  --chart-3: oklch(0.55 0.12 270);
+  --chart-4: oklch(0.55 0.18 145);
+  --chart-5: oklch(0.55 0.20 25);
+  --sidebar: oklch(0.975 0.005 265);           /* #f1f5f9 — slate-100 */
   --sidebar-foreground: oklch(0.15 0.04 265);
-  --sidebar-primary: oklch(0.62 0.19 255);
+  --sidebar-primary: oklch(0.55 0.20 255);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.02 255);
-  --sidebar-accent-foreground: oklch(0.15 0.04 265);
-  --sidebar-border: oklch(0.90 0.01 265);
-  --sidebar-ring: oklch(0.62 0.19 255);
+  --sidebar-accent: oklch(0.945 0.015 255);
+  --sidebar-accent-foreground: oklch(0.25 0.06 260);
+  --sidebar-border: oklch(0.915 0.008 265);
+  --sidebar-ring: oklch(0.55 0.20 255);
+
+  /* ── Light Theme Design Tokens ────────────────────────────────── */
+
+  /* Background Hierarchy — Blue-tinted whites */
+  --bg-base: rgb(248, 249, 252);         /* Main page background */
+  --bg-elevated: rgba(255, 255, 255, 0.85); /* Elevated surfaces */
+  --bg-surface: rgba(255, 255, 255, 0.7);   /* Component backgrounds */
+  --bg-chat: rgb(245, 247, 250);         /* Chat panel background */
+  --bg-input: rgb(241, 243, 248);        /* Input field background */
+  --bg-hover: rgb(235, 238, 245);        /* Interactive hover */
+  --bg-active: rgb(225, 228, 238);       /* Active/pressed */
+  --bg-card: rgb(255, 255, 255);         /* Card surfaces */
+  --bg-card-blue: rgba(54, 94, 255, 0.04); /* Cards with blue tint */
+  --bg-black: rgb(255, 255, 255);        /* Inverted (white in light) */
+
+  /* Layout */
+  --chat-width: 340px;
+
+  /* Border System — Dark on light */
+  --border-line: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-hover: rgb(203, 213, 225);       /* slate-300 */
+  --border-focus: rgb(54, 94, 255);         /* Same brand blue */
+  --border-strong: rgb(148, 163, 184);      /* slate-400 */
+
+  /* Shadow elevation — Softer for light mode */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.09);
+  --shadow-glow: 0 0 20px rgba(54, 94, 255, 0.12);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-glow-blue: 0 0 20px rgba(54, 94, 255, 0.15);
+
+  /* Text Hierarchy — Navy on white */
+  --text-primary: rgb(15, 23, 42);          /* slate-900 — headings */
+  --text-heading: rgb(15, 23, 42);
+  --text-white: rgb(15, 23, 42);            /* Inverted for light mode */
+  --text-secondary: rgb(71, 85, 105);       /* slate-600 — body text */
+  --text-tertiary: rgb(148, 163, 184);      /* slate-400 — labels */
+  --text-quaternary: rgb(203, 213, 225);    /* slate-300 — muted */
+  --text-muted: rgb(226, 232, 240);         /* slate-200 — very muted */
+
+  /* Accent Colors — Same brand, adjusted for light contrast */
+  --accent-blue: rgb(54, 94, 255);
+  --sl-primary: rgb(54, 94, 255);
+  --accent-blue-hover: rgb(37, 99, 235);    /* Slightly deeper for light bg */
+  --accent-blue-secondary: rgb(29, 78, 216);
+  --accent-blue-subtle: rgba(54, 94, 255, 0.06);
+  --accent-blue-glow: rgba(54, 94, 255, 0.10);
+  --accent-cyan: rgb(6, 182, 212);          /* Darker cyan for light bg */
+  --accent-green: rgb(22, 163, 74);         /* green-600 */
+  --accent-amber: rgb(217, 119, 6);         /* amber-600 */
+  --accent-purple: rgb(124, 58, 237);       /* violet-600 */
+  --accent-pink: rgb(219, 39, 119);         /* pink-600 */
+  --accent-red: rgb(220, 38, 38);           /* red-600 */
+
+  /* Shader/Gradient Colors — Softer for light mode */
+  --shader-1: rgba(54, 94, 255, 0.08);
+  --shader-2: rgba(20, 68, 215, 0.05);
+  --shader-3: rgba(112, 234, 255, 0.06);
+  --shader-4: rgba(248, 249, 252, 1);
+
+  /* Semantic */
+  --success: rgb(22, 163, 74);
+  --success-subtle: rgba(22, 163, 74, 0.08);
+  --warning: rgb(217, 119, 6);
+  --error: rgb(220, 38, 38);
+
+  /* Gradients — Adapted for light */
+  --gradient-primary: linear-gradient(135deg, rgb(54, 94, 255) 0%, rgb(37, 99, 235) 100%);
+  --gradient-accent: linear-gradient(135deg, rgb(54, 94, 255), rgb(37, 99, 235));
+  --gradient-text: linear-gradient(180deg, rgb(15, 23, 42) 0%, rgb(71, 85, 105) 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 249, 252, 0.4) 100%);
+  --gradient-mesh: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(54, 94, 255, 0.08) 0%, rgba(20, 68, 215, 0.04) 40%, transparent 70%), radial-gradient(ellipse 60% 40% at 70% 20%, rgba(112, 234, 255, 0.05) 0%, transparent 50%);
+
+  /* Spacing — Same across themes */
+  --space-0: 0;
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 56px;
+  --space-8: 64px;
+
+  /* Section Padding */
+  --section-padding: 30px 64px;
+  --section-padding-lg: 100px 64px;
+  --section-padding-xl: 120px 64px;
+  --section-padding-mobile: 30px 24px;
+
+  /* Max Widths */
+  --max-content: 1200px;
+  --max-wide: 1400px;
+  --max-text: 800px;
+  --max-narrow: 700px;
+
+  /* Border Radius — Same across themes */
+  --radius-none: 0px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 32px;
+  --radius-full: 999px;
+
+  /* Glass surfaces — Light mode glass */
+  --bg-glass: rgba(255, 255, 255, 0.65);
+  --bg-glass-hover: rgba(255, 255, 255, 0.80);
+  --bg-glass-panel: rgba(248, 249, 252, 0.90);
+  --border-glass: rgba(0, 0, 0, 0.06);
+
+  /* Code blocks */
+  --bg-code-inline: rgba(0, 0, 0, 0.04);
+  --bg-code-block: rgba(248, 250, 252, 0.95);
+
+  /* Status background/border pairs */
+  --status-error-bg: rgba(220, 38, 38, 0.06);
+  --status-error-border: rgba(220, 38, 38, 0.15);
+  --status-success-bg: rgba(22, 163, 74, 0.06);
+  --status-success-border: rgba(22, 163, 74, 0.15);
+
+  /* Chip / Tag states */
+  --bg-chip: rgba(54, 94, 255, 0.06);
+  --bg-chip-hover: rgba(54, 94, 255, 0.10);
+  --bg-chip-selected: rgba(54, 94, 255, 0.14);
+  --border-chip-selected: rgba(54, 94, 255, 0.30);
+
+  /* Status colors */
+  --status-success: rgb(22, 163, 74);
+  --status-success-glow: rgba(22, 163, 74, 0.2);
+  --status-active: rgb(54, 94, 255);
+  --status-active-glow: rgba(54, 94, 255, 0.2);
+  --status-pending: rgb(148, 163, 184);
+  --status-error: rgb(220, 38, 38);
+
+  /* Logo gradient — Darker for light mode */
+  --logo-gradient: linear-gradient(135deg, #0f172a 30%, #2563eb 100%);
+
+  /* Overlay layers */
+  --bg-overlay-subtle: rgba(255, 255, 255, 0.6);
+  --bg-overlay-light: rgba(255, 255, 255, 0.8);
+
+  /* Transition speeds — Same across themes */
+  --transition-fast: 100ms ease;
+  --transition-normal: 150ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Section Accent Colors — Slightly deeper for light bg contrast */
+  --section-market: #2563eb;
+  --section-market-text: #1d4ed8;
+  --section-icp: #059669;
+  --section-icp-text: #047857;
+  --section-offer: #7c3aed;
+  --section-offer-text: #6d28d9;
+  --section-competitor: #d97706;
+  --section-competitor-text: #b45309;
+  --section-synthesis: #db2777;
+  --section-synthesis-text: #be185d;
+  --section-keyword: #0891b2;
+  --section-keyword-text: #0e7490;
 }
 
 /* ============================================
@@ -428,13 +595,13 @@
   background:
     radial-gradient(
       ellipse 80% 50% at 50% 0%,
-      rgba(54, 94, 255, 0.4) 0%,
-      rgba(20, 68, 215, 0.2) 40%,
+      var(--shader-1) 0%,
+      var(--shader-2) 40%,
       transparent 70%
     ),
     radial-gradient(
       ellipse 60% 40% at 70% 20%,
-      rgba(112, 234, 255, 0.15) 0%,
+      var(--shader-3) 0%,
       transparent 50%
     );
   animation: shaderPulse 8s ease-in-out infinite;
@@ -446,8 +613,8 @@
   inset: 0;
   opacity: 0.02;
   background-image:
-    linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+    linear-gradient(var(--border-default) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-default) 1px, transparent 1px);
   background-size: 50px 50px;
   pointer-events: none;
   z-index: 0;
@@ -469,10 +636,10 @@
 
 /* SaaSLaunch Glass Navigation */
 .sl-nav-glass {
-  background: rgba(7, 9, 14, 0.8);
+  background: var(--bg-glass-panel);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgb(31, 31, 31);
+  border: 1px solid var(--border-default);
 }
 
 /* ============================================
@@ -506,8 +673,8 @@
   padding: 12px 20px;
   border-radius: 999px;
   background: transparent;
-  color: rgb(252, 252, 250);
-  border: 1px solid rgb(31, 31, 31);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   font-weight: 500;
   transition: all 0.2s ease;
 }
@@ -532,7 +699,7 @@
 
 /* Card */
 .sl-card {
-  background: rgb(12, 14, 19);
+  background: var(--bg-card);
   border-radius: 8px;
   overflow: hidden;
   transition: transform 0.3s ease;
@@ -572,7 +739,7 @@
 /* Divider */
 .sl-divider {
   height: 1px;
-  background: rgb(31, 31, 31);
+  background: var(--border-default);
 }
 
 /* ============================================
@@ -592,22 +759,22 @@
     scroll-behavior: smooth;
   }
 
-  /* Custom scrollbar for dark theme */
-  .dark ::-webkit-scrollbar {
+  /* Custom scrollbar — theme-aware */
+  ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
-  .dark ::-webkit-scrollbar-track {
-    background: var(--brand-navy-light);
+  ::-webkit-scrollbar-track {
+    background: var(--bg-base);
   }
 
-  .dark ::-webkit-scrollbar-thumb {
-    background: var(--border);
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
     border-radius: 4px;
   }
 
-  .dark ::-webkit-scrollbar-thumb:hover {
+  ::-webkit-scrollbar-thumb:hover {
     background: var(--border-hover);
   }
 }
@@ -846,23 +1013,23 @@
    ============================================ */
 
 /* Enhanced focus states for inputs */
-.dark input:focus-visible,
-.dark textarea:focus-visible,
-.dark select:focus-visible {
-  border-color: var(--brand-blue);
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--border-focus);
   box-shadow:
     0 0 0 3px var(--accent-blue-glow),
-    0 0 20px oklch(from var(--brand-blue) l c h / 0.1);
+    0 0 20px var(--accent-blue-glow);
 }
 
 /* Enhanced button hover states */
-.dark button[data-variant="default"]:hover {
-  box-shadow: 0 0 20px oklch(from var(--brand-blue) l c h / 0.4);
+button[data-variant="default"]:hover {
+  box-shadow: var(--shadow-glow);
 }
 
 /* Card hover enhancement */
-.dark [data-slot="card"]:hover {
-  border-color: oklch(from var(--brand-blue) l c h / 0.3);
+[data-slot="card"]:hover {
+  border-color: var(--accent-blue-glow);
 }
 
 /* ============================================
@@ -900,9 +1067,9 @@
 .dashboard-skeleton .skeleton-block {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(255,255,255,0.08) 40%,
-    rgba(255,255,255,0.04) 80%
+    var(--bg-hover) 0%,
+    var(--bg-active) 40%,
+    var(--bg-hover) 80%
   );
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
@@ -911,9 +1078,9 @@
 .dashboard-skeleton .skeleton-block-subtle {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.025) 0%,
-    rgba(255,255,255,0.05) 40%,
-    rgba(255,255,255,0.025) 80%
+    var(--bg-surface) 0%,
+    var(--bg-hover) 40%,
+    var(--bg-surface) 80%
   );
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
@@ -922,9 +1089,9 @@
 .dashboard-skeleton .skeleton-block-accent {
   background: linear-gradient(
     90deg,
-    rgba(54,94,255,0.08) 0%,
-    rgba(54,94,255,0.14) 40%,
-    rgba(54,94,255,0.08) 80%
+    var(--accent-blue-subtle) 0%,
+    var(--accent-blue-glow) 40%,
+    var(--accent-blue-subtle) 80%
   );
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
@@ -1211,18 +1378,16 @@
    V2 Command Center — Glass Surface Utility
    ============================================ */
 .glass-surface {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-glass);
 }
 
 .paper-surface {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(17, 16, 13, 0.08);
-  box-shadow:
-    0 16px 40px rgba(17, 16, 13, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: var(--bg-glass-panel);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-card);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -1235,17 +1400,17 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-subtle);
   border-radius: 2px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--border-hover);
 }
 
 /* V2 Right panel glass */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.015);
-  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--bg-glass-panel);
+  border-left: 1px solid var(--border-glass);
 }
 
 /* Prefill stream field fade-in */

@@ -271,7 +271,7 @@ export function DocumentTabs({
         {/* Tab bar + controls */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           {/* Underline tabs */}
-          <div className="flex items-center gap-6 border-b border-white/[0.06]">
+          <div className="flex items-center gap-6 border-b border-[var(--border-default)]">
             {tabs.map((tab) => (
               <button
                 key={tab.value}
@@ -287,7 +287,7 @@ export function DocumentTabs({
                 {tabCounts[tab.value] > 0 && (
                   <span className={cn(
                     "ml-1.5 text-[11px] tabular-nums transition-colors",
-                    activeTab === tab.value ? "text-white/40" : "text-white/20"
+                    activeTab === tab.value ? "text-[var(--text-tertiary)]" : "text-[var(--text-quaternary)]"
                   )}>
                     {tabCounts[tab.value]}
                   </span>
@@ -312,12 +312,12 @@ export function DocumentTabs({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-white/[0.03] border-white/[0.07] placeholder:text-white/25 focus:border-primary/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_var(--accent-blue-glow)] transition-all"
+                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-white/[0.07] placeholder:text-[var(--text-quaternary)] focus:border-primary/40 focus:bg-[var(--bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-blue-glow)] transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={clearSearch}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-quaternary)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -325,8 +325,8 @@ export function DocumentTabs({
             </div>
 
             <Select value={sortValue} onValueChange={(v) => setSortValue(v as SortValue)}>
-              <SelectTrigger size="sm" className="h-9 text-[13px] rounded-lg bg-white/[0.03] border-white/[0.07] text-[var(--text-tertiary)] gap-1.5 pl-2.5 pr-2 w-auto min-w-[100px]">
-                <ArrowUpDown className="size-3.5 text-white/30 shrink-0" />
+              <SelectTrigger size="sm" className="h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-white/[0.07] text-[var(--text-tertiary)] gap-1.5 pl-2.5 pr-2 w-auto min-w-[100px]">
+                <ArrowUpDown className="size-3.5 text-[var(--text-quaternary)] shrink-0" />
                 <SelectValue>{sortLabels[sortValue]}</SelectValue>
               </SelectTrigger>
               <SelectContent>

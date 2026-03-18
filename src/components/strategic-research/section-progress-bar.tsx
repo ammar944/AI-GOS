@@ -38,12 +38,12 @@ export function SectionProgressBar({
       </span>
 
       {/* Section name */}
-      <span className="text-[11px] font-medium truncate text-white/60">
+      <span className="text-[11px] font-medium truncate text-[var(--text-secondary)]">
         {SECTION_LABELS[currentSection]}
       </span>
 
       {/* Thin progress bar */}
-      <div className="flex-1 h-[3px] rounded-full overflow-hidden bg-white/[0.06]">
+      <div className="flex-1 h-[3px] rounded-full overflow-hidden bg-[var(--bg-hover)]">
         <motion.div
           className="h-full rounded-full bg-gradient-to-r from-[var(--brand-blue)] to-[var(--brand-blue-light)]"
           animate={{ width: `${progressPercent}%` }}
@@ -53,7 +53,7 @@ export function SectionProgressBar({
 
       {/* Review count — hidden in read-only mode */}
       {showReviewedCount && (
-        <span className="text-[11px] tabular-nums shrink-0 text-white/20 font-[family-name:var(--font-mono)]">
+        <span className="text-[11px] tabular-nums shrink-0 text-[var(--text-quaternary)] font-[family-name:var(--font-mono)]">
           {reviewedCount}/{total}
         </span>
       )}

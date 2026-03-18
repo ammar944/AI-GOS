@@ -59,8 +59,8 @@ export function ArtifactFooter({
               href={`/research/${sessionId}`}
               className={cn(
                 'rounded-[var(--radius-md)] px-5 py-2.5',
-                'text-sm font-semibold text-white/70',
-                'border border-white/[0.08] hover:border-white/[0.15] transition-colors',
+                'text-sm font-semibold text-[var(--text-secondary)]',
+                'border border-[var(--border-default)] hover:border-white/[0.15] transition-colors',
               )}
             >
               View Document

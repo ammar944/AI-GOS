@@ -115,7 +115,7 @@ function CompactStage({ stage, index, isLast, isExpanded, onToggle }: CompactSta
         onClick={onToggle}
         className={cn(
           'flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-all duration-200 focus-ring',
-          'hover:bg-white/[0.04] cursor-pointer select-none',
+          'hover:bg-[var(--bg-hover)] cursor-pointer select-none',
           stage.status === 'pending' && 'opacity-50',
         )}
         style={{ border: 'none', background: 'transparent' }}

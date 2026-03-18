@@ -58,12 +58,12 @@ function LoadingSkeleton() {
     <div className="space-y-8">
       {[1, 2, 3, 4].map((group) => (
         <div key={group}>
-          <div className="h-4 w-40 bg-white/[0.06] rounded mb-4 animate-pulse" />
+          <div className="h-4 w-40 bg-[var(--bg-hover)] rounded mb-4 animate-pulse" />
           <div className="space-y-3">
             {[1, 2, 3].map((card) => (
               <div
                 key={card}
-                className="h-20 bg-white/[0.03] border border-white/[0.06] rounded-xl animate-pulse"
+                className="h-20 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl animate-pulse"
               />
             ))}
           </div>
@@ -137,7 +137,7 @@ export function IntegrationsDashboard() {
 
         <div className="flex items-center gap-3 ml-auto">
           {data?.timestamp && (
-            <span className="text-xs text-white/30 font-mono hidden sm:block">
+            <span className="text-xs text-[var(--text-quaternary)] font-mono hidden sm:block">
               Last check:{" "}
               {new Date(data.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -151,7 +151,7 @@ export function IntegrationsDashboard() {
             disabled={loading}
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
-              "bg-white/[0.06] border border-white/[0.08] text-white/70",
+              "bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-secondary)]",
               "hover:bg-white/[0.09] hover:text-white transition-colors duration-150",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
@@ -185,7 +185,7 @@ export function IntegrationsDashboard() {
         <div className="space-y-8">
           {TIER_ORDER.filter((tier) => grouped[tier]).map((tier) => (
             <section key={tier}>
-              <h2 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">
+              <h2 className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-widest mb-3">
                 {TIER_LABELS[tier]}
               </h2>
               <div className="space-y-3">

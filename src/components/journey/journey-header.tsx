@@ -36,13 +36,13 @@ export function JourneyHeader({
           AI
         </div>
         <span className="text-sm font-medium tracking-tight">
-          AIGOS <span className="text-white/40">V2.0</span>
+          AIGOS <span className="text-[var(--text-tertiary)]">V2.0</span>
         </span>
       </div>
 
       {/* Right: Documentation + New Journey */}
       <div className="flex items-center gap-6">
-        <button className="text-xs text-white/50 hover:text-white transition-colors">
+        <button className="text-xs text-[var(--text-secondary)] hover:text-white transition-colors">
           Documentation
         </button>
         <button

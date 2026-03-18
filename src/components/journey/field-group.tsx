@@ -99,7 +99,7 @@ export function FieldGroup({
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-heading font-medium text-white/90">
+                <span className="text-[13px] font-heading font-medium text-[var(--text-primary)]">
                   {group.label}
                 </span>
                 <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">
@@ -107,13 +107,13 @@ export function FieldGroup({
                 </span>
               </div>
               {summaryPreview && (
-                <p className="text-[11px] mt-0.5 truncate text-white/30">
+                <p className="text-[11px] mt-0.5 truncate text-[var(--text-quaternary)]">
                   {summaryPreview}
                 </p>
               )}
             </div>
 
-            <span className="text-[10px] text-white/20 opacity-0 group-hover/completed:opacity-100 transition-opacity shrink-0">
+            <span className="text-[10px] text-[var(--text-quaternary)] opacity-0 group-hover/completed:opacity-100 transition-opacity shrink-0">
               Edit
             </span>
           </motion.div>
@@ -126,19 +126,19 @@ export function FieldGroup({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.18 }}
-            className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] opacity-40"
+            className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-[var(--border-glass)] opacity-40"
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-dashed border-white/10">
-              <span className="text-[10px] font-mono text-white/25">
+              <span className="text-[10px] font-mono text-[var(--text-quaternary)]">
                 {groupIndex + 1}
               </span>
             </div>
 
-            <span className="text-[13px] font-heading text-white/40">
+            <span className="text-[13px] font-heading text-[var(--text-tertiary)]">
               {group.label}
             </span>
 
-            <span className="text-[10px] font-mono ml-auto text-white/20">
+            <span className="text-[10px] font-mono ml-auto text-[var(--text-quaternary)]">
               {totalCount} fields
             </span>
           </motion.div>

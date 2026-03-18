@@ -39,7 +39,7 @@ function getStatusClasses(status: JourneyResearchSandboxSmokeStatus): string {
     return 'border-[rgba(255,120,120,0.24)] bg-[rgba(255,120,120,0.08)] text-[rgb(255,198,198)]';
   }
 
-  return 'border-white/10 bg-white/[0.04] text-text-secondary';
+  return 'border-white/10 bg-[var(--bg-hover)] text-text-secondary';
 }
 
 function getStatusLabel(status: JourneyResearchSandboxSmokeStatus): string {
@@ -140,7 +140,7 @@ export function JourneyResearchSandboxChecklist({
             {checklist.manualChecks.map((check) => (
               <div
                 key={check.key}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3"
               >
                 <div className="text-sm font-medium text-text-primary">{check.title}</div>
                 <p className="mt-2 text-xs leading-5 text-text-secondary">{check.detail}</p>

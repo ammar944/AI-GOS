@@ -32,7 +32,7 @@ export function FormatSpecCard({ specs }: FormatSpecCardProps) {
               </span>
             )}
             {spec.format && (
-              <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
+              <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
                 {spec.format}
               </span>
             )}

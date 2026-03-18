@@ -16,16 +16,16 @@ export default async function IntegrationsPage() {
     <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
       <DashboardBackground />
 
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl bg-[var(--bg-base)]/80">
+      <header className="sticky top-0 z-50 border-b border-[var(--border-default)] backdrop-blur-xl bg-[var(--bg-base)]/80">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <Link href="/" className="transition-opacity hover:opacity-80">
               <Logo size="sm" />
             </Link>
-            <span className="text-white/20 select-none">|</span>
+            <span className="text-[var(--text-quaternary)] select-none">|</span>
             <Link
               href="/dashboard"
-              className="text-sm text-white/40 hover:text-white/70 transition-colors duration-150"
+              className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors duration-150"
             >
               &larr; Dashboard
             </Link>
@@ -40,7 +40,7 @@ export default async function IntegrationsPage() {
             <h1 className="text-2xl font-semibold text-white">
               API Integrations
             </h1>
-            <p className="mt-1 text-sm text-white/50">
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Health status for all external services and API keys.
             </p>
           </div>
