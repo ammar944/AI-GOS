@@ -241,10 +241,30 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 </div>
               )}
 
+              {/* Offer refinement card — score breakdown at TOP, before other cards */}
+              {state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && (
+                <div className="mb-4">
+                  <OfferRefinementCard
+                    overallScore={offerScoreData.overall}
+                    dimensions={offerScoreData.dimensions}
+                    priorityFixes={offerScoreData.priorityFixes}
+                    actionPlan={offerScoreData.actionPlan}
+                    onRerun={handleOfferRerun}
+                    onApproveAsIs={approveSection}
+                    isRerunning={offerRerunning}
+                    round={offerScoreData.round}
+                    prevScore={offerScoreData.prevScore}
+                  />
+                </div>
+              )}
+
               {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && (
                 <CardGrid>
-                  {sectionCards.map((card, i) => (
+                  {sectionCards
+                    // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
+                    .filter((card) => !(state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && card.label === 'Offer Score' && card.cardType === 'stat-grid'))
+                    .map((card, i) => (
                     <motion.div
                       key={card.id}
                       initial={{ opacity: 0, y: 8 }}
@@ -276,23 +296,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                       No data received for this section
                     </p>
                   </div>
-                </div>
-              )}
-
-              {/* Offer refinement card — visual score breakdown with re-run/approve CTAs */}
-              {state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && (
-                <div className="mt-6">
-                  <OfferRefinementCard
-                    overallScore={offerScoreData.overall}
-                    dimensions={offerScoreData.dimensions}
-                    priorityFixes={offerScoreData.priorityFixes}
-                    actionPlan={offerScoreData.actionPlan}
-                    onRerun={handleOfferRerun}
-                    onApproveAsIs={approveSection}
-                    isRerunning={offerRerunning}
-                    round={offerScoreData.round}
-                    prevScore={offerScoreData.prevScore}
-                  />
                 </div>
               )}
 
