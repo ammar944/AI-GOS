@@ -362,9 +362,10 @@ function deriveProgressItems(
 function JourneyPageContent() {
   const searchParams = useSearchParams();
 
-  // Deep-link support: ?session=X&mediaPlan=1 jumps to workspace with that session
+  // Deep-link support: ?session=X&section=offerAnalysis jumps to workspace with that section
   const deepLinkSession = searchParams.get('session');
   const deepLinkMediaPlan = searchParams.get('mediaPlan') === '1';
+  const deepLinkSection = searchParams.get('section');
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
@@ -378,9 +379,9 @@ function JourneyPageContent() {
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
 
   // Journey phase: controls which view renders
-  // Deep-link: ?session=X jumps straight to workspace
+  // Deep-link: ?session=X or ?section=X jumps straight to workspace
   const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>(
-    deepLinkSession ? 'workspace' : 'welcome',
+    deepLinkSession || deepLinkSection ? 'workspace' : 'welcome',
   );
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [isResuming, setIsResuming] = useState(false);
@@ -2059,7 +2060,7 @@ function JourneyPageContent() {
         <div className="flex flex-1 min-h-0">
           <AppSidebar />
           <div className="flex flex-1 flex-col min-h-0 min-w-0">
-            <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace initialSection={deepLinkMediaPlan ? 'mediaPlan' : undefined}>
+            <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace initialSection={(deepLinkSection as SectionKey | undefined) ?? (deepLinkMediaPlan ? 'mediaPlan' : undefined)}>
               <WorkspacePage
                 userId={user?.id}
                 activeRunId={activeRunId}
