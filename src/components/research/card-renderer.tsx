@@ -17,6 +17,7 @@ import { StrategyCard } from '@/components/workspace/cards/strategy-card';
 import { InsightCard } from '@/components/workspace/cards/insight-card';
 import { PlatformCard } from '@/components/workspace/cards/platform-card';
 import { AngleCard } from '@/components/workspace/cards/angle-card';
+import { ReviewCard } from '@/components/workspace/cards/review-card';
 import { ChartCard } from '@/components/workspace/cards/chart-card';
 import { StrategySnapshotCard } from '@/components/workspace/cards/strategy-snapshot-card';
 import { BudgetSummaryCard } from '@/components/workspace/cards/budget-summary-card';
@@ -127,6 +128,16 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           recommendedAction={card.content.recommendedAction as string | undefined}
         />
       );
+    case 'review-card': {
+      const rc = card.content;
+      return (
+        <ReviewCard
+          competitorName={rc.competitorName as string}
+          trustpilot={rc.trustpilot as { rating?: number | null; reviewCount?: number | null; themes?: string[]; url?: string | null } | null | undefined}
+          g2={rc.g2 as { rating?: number | null; reviewCount?: number | null; themes?: string[]; url?: string | null } | null | undefined}
+        />
+      );
+    }
     case 'verdict-card':
       return <VerdictCard status={card.content.status as string} reasoning={card.content.reasoning as string | undefined} />;
     case 'pricing-card':

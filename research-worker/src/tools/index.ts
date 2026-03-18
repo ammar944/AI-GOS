@@ -7,3 +7,4 @@ export { pagespeedTool } from './pagespeed';
 export { googleAdsTool } from './google-ads';
 export { metaAdsTool } from './meta-ads';
 export { ga4Tool } from './ga4';
+export { fetchReviews, type ReviewResult } from './reviews';

@@ -121,6 +121,20 @@ const competitorIntelDataSchema = z.object({
         threatAssessment: threatAssessmentSchema.optional(),
         adCreatives: z.array(competitorAdCreativeSchema).default([]),
         libraryLinks: competitorLibraryLinksSchema.optional(),
+        reviews: z.object({
+          trustpilot: z.object({
+            rating: z.number().min(0).max(5).optional(),
+            reviewCount: z.number().nonnegative().optional(),
+            recentThemes: z.array(z.string()).optional(),
+            url: z.string().optional(),
+          }).optional(),
+          g2: z.object({
+            rating: z.number().min(0).max(5).optional(),
+            reviewCount: z.number().nonnegative().optional(),
+            categories: z.array(z.string()).optional(),
+            url: z.string().optional(),
+          }).optional(),
+        }).optional(),
       }),
     )
     .min(1),

@@ -6,6 +6,7 @@ import type { BetaToolResultContentBlockParam } from '@anthropic-ai/sdk/resource
 import { firecrawlTool } from '../tools/firecrawl';
 import { spyfuTool } from '../tools/spyfu';
 import { fetchCompetitorAds } from '../tools/apify-ads';
+import { fetchReviews, type ReviewResult } from '../tools/reviews';
 import type { WorkerAdInsight } from '../tools/adlibrary-types';
 import type { CompetitorEntry } from './parse-context';
 
@@ -43,6 +44,7 @@ export interface ParallelFetchResults {
   pricing: PricingResult[];
   spyfu: SpyfuResult[];
   adLibrary: AdLibraryResult[];
+  reviews: ReviewResult[];
   durationMs: number;
 }
 
@@ -272,6 +274,23 @@ export async function fetchAllCompetitorData(
     };
   }
 
+  function extractReviews(
+    settled: PromiseSettledResult<ReviewResult>,
+    index: number,
+  ): ReviewResult {
+    if (settled.status === 'fulfilled') return settled.value;
+    return {
+      competitorName: capped[index]?.name ?? 'Unknown',
+      domain: capped[index]?.domain ?? '',
+      trustpilot: null,
+      g2: null,
+      error:
+        settled.reason instanceof Error
+          ? settled.reason.message
+          : String(settled.reason),
+    };
+  }
+
   // Fallback results used when the global timeout fires
   function buildTimeoutResults(reason: string): ParallelFetchResults {
     const empty = capped.map((c) => ({
@@ -296,16 +315,23 @@ export async function fetchAllCompetitorData(
         adInsight: null,
         error: reason,
       })),
+      reviews: empty.map((e) => ({
+        ...e,
+        trustpilot: null,
+        g2: null,
+        error: reason,
+      })),
       durationMs: Date.now() - startTime,
     };
   }
 
   try {
-    const [pricingSettled, spyfuSettled, adLibrarySettled] = await Promise.race([
+    const [pricingSettled, spyfuSettled, adLibrarySettled, reviewsSettled] = await Promise.race([
       Promise.all([
         Promise.allSettled(capped.map(fetchPricing)),
         Promise.allSettled(capped.map(fetchSpyfu)),
         Promise.allSettled(capped.map(fetchAdLibrary)),
+        Promise.allSettled(capped.map(fetchReviews)),
       ]),
       new Promise<never>((_, reject) =>
         setTimeout(
@@ -322,6 +348,7 @@ export async function fetchAllCompetitorData(
       pricing: pricingSettled.map(extractPricing),
       spyfu: spyfuSettled.map(extractSpyfu),
       adLibrary: adLibrarySettled.map(extractAdLibrary),
+      reviews: reviewsSettled.map(extractReviews),
       durationMs: Date.now() - startTime,
     };
   } catch (error) {

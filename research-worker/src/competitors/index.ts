@@ -75,10 +75,11 @@ async function runParallelCollection(
   const pricingHits = fetchResults.pricing.filter(p => p.success).length;
   const spyfuHits = fetchResults.spyfu.filter(s => !s.error).length;
   const adHits = fetchResults.adLibrary.filter(a => !a.error).length;
+  const reviewHits = fetchResults.reviews.filter(r => r.trustpilot || r.g2).length;
   const sonarHits = sonarResults.competitorInsights.length;
 
   await emitRunnerProgress(onProgress, 'tool',
-    `gathered data for ${parsed.competitors.length} competitors — ${pricingHits} pricing pages, ${adHits} ad profiles, ${sonarHits} market insights`,
+    `gathered data for ${parsed.competitors.length} competitors — ${pricingHits} pricing pages, ${adHits} ad profiles, ${reviewHits} review profiles, ${sonarHits} market insights`,
   );
 
   return { parsed, fetchResults, sonarResults };

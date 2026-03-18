@@ -75,6 +75,7 @@ const OUTPUT_SCHEMA = `{
       },
       "adCreatives": "ALWAYS set to empty array [] — post-processing injects real data",
       "libraryLinks": "OMIT — post-processing injects real links",
+      "reviews": "OMIT — post-processing injects real review data",
       "threatAssessment": {
         "threatFactors": {
           "marketShareRecognition": 1,
@@ -166,7 +167,39 @@ Top keywords: ${kw}${sf.error ? `\nError: ${sf.error}` : ''}`);
 ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
   }
 
-  // 6. Sonar Pro review intelligence
+  // 6. Review Intelligence (Trustpilot + G2)
+  sections.push('## Review Intelligence (Trustpilot + G2)');
+  for (const rev of fetchResults.reviews) {
+    const parts: string[] = [`### ${rev.competitorName} (${rev.domain})`];
+
+    if (rev.trustpilot) {
+      const tp = rev.trustpilot;
+      const ratingStr = tp.rating !== null ? `${tp.rating}/5` : 'N/A';
+      const countStr = tp.reviewCount !== null ? `${tp.reviewCount.toLocaleString()} reviews` : 'count unknown';
+      const themesStr = tp.recentThemes.length > 0 ? ` — themes: ${tp.recentThemes.join(', ')}` : '';
+      parts.push(`Trustpilot: ${ratingStr} (${countStr})${themesStr}`);
+    } else {
+      parts.push('Trustpilot: No data available');
+    }
+
+    if (rev.g2) {
+      const g2 = rev.g2;
+      const ratingStr = g2.rating !== null ? `${g2.rating}/5` : 'N/A';
+      const countStr = g2.reviewCount !== null ? `${g2.reviewCount.toLocaleString()} reviews` : 'count unknown';
+      const catsStr = g2.categories.length > 0 ? ` — categories: ${g2.categories.join(', ')}` : '';
+      parts.push(`G2: ${ratingStr} (${countStr})${catsStr}`);
+    } else {
+      parts.push('G2: No data available');
+    }
+
+    if (rev.error) {
+      parts.push(`Error: ${rev.error}`);
+    }
+
+    sections.push(parts.join('\n'));
+  }
+
+  // 7. Sonar Pro review intelligence
   sections.push('## Sonar Pro Review Intelligence');
   if (sonarResults.competitorInsights.length > 0) {
     for (const insight of sonarResults.competitorInsights) {
@@ -187,7 +220,7 @@ Market Perception: ${insight.marketPerception ?? 'N/A'}`);
     sections.push('No review intelligence available. Rely on other evidence sources.');
   }
 
-  // 7. Citations from Sonar
+  // 8. Citations from Sonar
   if (sonarResults.citations.length > 0) {
     sections.push(`## Citations from Sonar Pro
 ${sonarResults.citations.map(c => `- ${c.title}: ${c.url}`).join('\n')}`);
@@ -278,14 +311,68 @@ export async function synthesizeCompetitorIntel(
 }
 
 /**
+ * Inject scraped review data (Trustpilot + G2) into each competitor object.
+ * Matches by competitor name (case-insensitive).
+ */
+function injectReviews(
+  parsed: Record<string, unknown>,
+  input: SynthesisInput,
+): void {
+  const competitors = parsed.competitors;
+  if (!Array.isArray(competitors)) return;
+
+  for (const comp of competitors) {
+    if (!comp || typeof comp !== 'object') continue;
+    const c = comp as Record<string, unknown>;
+    const name = typeof c.name === 'string' ? c.name : '';
+
+    const reviewResult = input.fetchResults.reviews.find(
+      r => r.competitorName.toLowerCase() === name.toLowerCase(),
+    );
+
+    if (!reviewResult) continue;
+
+    const reviews: Record<string, unknown> = {};
+
+    if (reviewResult.trustpilot) {
+      reviews.trustpilot = {
+        rating: reviewResult.trustpilot.rating ?? undefined,
+        reviewCount: reviewResult.trustpilot.reviewCount ?? undefined,
+        recentThemes: reviewResult.trustpilot.recentThemes.length > 0
+          ? reviewResult.trustpilot.recentThemes
+          : undefined,
+        url: reviewResult.trustpilot.url,
+      };
+    }
+
+    if (reviewResult.g2) {
+      reviews.g2 = {
+        rating: reviewResult.g2.rating ?? undefined,
+        reviewCount: reviewResult.g2.reviewCount ?? undefined,
+        categories: reviewResult.g2.categories.length > 0
+          ? reviewResult.g2.categories
+          : undefined,
+        url: reviewResult.g2.url,
+      };
+    }
+
+    // Only inject if we actually have data from at least one source
+    if (reviews.trustpilot || reviews.g2) {
+      c.reviews = reviews;
+    }
+  }
+}
+
+/**
  * Post-process the synthesis output: inject library links, ad creatives,
- * and validate pricing confidence.
+ * reviews, and validate pricing confidence.
  */
 export function postProcessSynthesis(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
 ): void {
   injectLibraryLinks(parsed, input);
+  injectReviews(parsed, input);
 
   // Validate pricing confidence matches Firecrawl data
   const competitors = parsed.competitors;
