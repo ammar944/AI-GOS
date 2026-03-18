@@ -240,28 +240,33 @@ CRITICAL RULES — read carefully:
       return null;
     }
 
-    // Reject if Perplexity claims 0 reviews
-    if (obj.reviewCount !== undefined && obj.reviewCount === 0) {
-      console.log(`[reviews] G2 ${companyName}: Perplexity returned 0 reviews — skipping`);
-      return null;
-    }
+    console.log(`[reviews] G2 ${companyName} (unverified): rating=${obj.rating}, count=${obj.reviewCount}, category=${obj.productCategory}, url=${obj.url}`);
 
-    console.log(`[reviews] G2 ${companyName} (unverified): rating=${obj.rating}, count=${obj.reviewCount}, category=${obj.productCategory}`);
+    // Validate rating/count — G2 ratings are 1-5 stars, never 0
+    const validRating = obj.rating !== undefined && obj.rating >= 1 && obj.rating <= 5 ? obj.rating : null;
+    const validCount = obj.reviewCount !== undefined && obj.reviewCount > 0 ? obj.reviewCount : null;
 
-    // Ground-truth verification: scrape the actual G2 URL to confirm reviews exist
-    if (obj.url) {
+    // Ground-truth verification when we have a URL and rating data
+    if (obj.url && (validRating !== null || validCount !== null)) {
       const verified = await verifyG2Page(obj.url, companyName);
       if (!verified) {
-        console.log(`[reviews] G2 ${companyName}: REJECTED by Firecrawl verification — Perplexity data was hallucinated`);
-        return null;
+        console.log(`[reviews] G2 ${companyName}: rating/count REJECTED by verification — keeping URL only`);
+        // Return URL-only result (profile exists but data unverified)
+        return {
+          rating: null,
+          reviewCount: null,
+          categories: obj.productCategory ? [obj.productCategory] : [],
+          url: obj.url,
+        };
       }
     }
 
-    console.log(`[reviews] G2 ${companyName} (verified): rating=${obj.rating}, count=${obj.reviewCount}`);
+    console.log(`[reviews] G2 ${companyName} (final): rating=${validRating}, count=${validCount}, url=${obj.url}`);
 
+    // Return with URL even if rating/count are null — frontend shows "View on G2" link
     return {
-      rating: obj.rating ?? null,
-      reviewCount: obj.reviewCount ?? null,
+      rating: validRating,
+      reviewCount: validCount,
       categories: obj.productCategory ? [obj.productCategory] : [],
       url: obj.url ?? null,
     };
@@ -306,16 +311,18 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       searchG2(competitor.name),
     ]);
 
+    // Keep results that have rating/count data OR just a verified URL
     const hasTrustpilot = trustpilot && (trustpilot.rating !== null || trustpilot.reviewCount !== null);
-    const hasG2 = g2 && (g2.rating !== null || g2.reviewCount !== null);
+    const hasG2Data = g2 && (g2.rating !== null || g2.reviewCount !== null);
+    const hasG2Link = g2 && g2.url !== null;
 
-    console.log(`[reviews] ${competitor.name}: trustpilot=${hasTrustpilot ? 'data' : 'none'}, g2=${hasG2 ? 'data' : 'none'}`);
+    console.log(`[reviews] ${competitor.name}: trustpilot=${hasTrustpilot ? 'data' : 'none'}, g2=${hasG2Data ? 'data' : hasG2Link ? 'link-only' : 'none'}`);
 
     return {
       competitorName: competitor.name,
       domain,
       trustpilot: hasTrustpilot ? trustpilot : null,
-      g2: hasG2 ? g2 : null,
+      g2: (hasG2Data || hasG2Link) ? g2 : null,
     };
   } catch (error) {
     console.error(`[reviews] ${competitor.name} failed:`, error instanceof Error ? error.message : error);

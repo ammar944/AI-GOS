@@ -196,25 +196,27 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
       counterPositioning: asString(threat?.counterPositioning),
     }));
 
-    // Review card — emit if competitor has review data from Trustpilot or G2
+    // Review card — emit if competitor has review data OR a verified profile link
     const reviews = asRecord(competitor.reviews);
     if (reviews) {
       const trustpilot = asRecord(reviews.trustpilot);
       const g2 = asRecord(reviews.g2);
 
-      const hasTrustpilot = trustpilot && (asNumber(trustpilot.rating) != null || asNumber(trustpilot.reviewCount) != null);
-      const hasG2 = g2 && (asNumber(g2.rating) != null || asNumber(g2.reviewCount) != null);
+      const hasTrustpilotData = trustpilot && (asNumber(trustpilot.rating) != null || asNumber(trustpilot.reviewCount) != null);
+      const hasTrustpilotLink = trustpilot && asString(trustpilot.url) != null;
+      const hasG2Data = g2 && (asNumber(g2.rating) != null || asNumber(g2.reviewCount) != null);
+      const hasG2Link = g2 && asString(g2.url) != null;
 
-      if (hasTrustpilot || hasG2) {
+      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link) {
         cards.push(makeCard(section, 'review-card', `${name} Reviews`, {
           competitorName: name,
-          trustpilot: hasTrustpilot ? {
+          trustpilot: (hasTrustpilotData || hasTrustpilotLink) ? {
             rating: asNumber(trustpilot!.rating),
             reviewCount: asNumber(trustpilot!.reviewCount),
             themes: asStringArray(trustpilot!.recentThemes),
             url: asString(trustpilot!.url),
           } : null,
-          g2: hasG2 ? {
+          g2: (hasG2Data || hasG2Link) ? {
             rating: asNumber(g2!.rating),
             reviewCount: asNumber(g2!.reviewCount),
             themes: asStringArray(g2!.categories),
