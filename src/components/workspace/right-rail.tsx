@@ -280,7 +280,7 @@ export function RightRail({ className }: RightRailProps) {
               <div
                 key={msg.id}
                 className={cn(
-                  'text-sm leading-relaxed',
+                  'text-sm leading-relaxed whitespace-pre-wrap',
                   msg.role === 'user'
                     ? 'text-[var(--text-primary)]'
                     : 'text-[var(--text-secondary)]',

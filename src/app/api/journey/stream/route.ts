@@ -552,8 +552,8 @@ YOUR RESPONSE MUST:
         return (
           typed.type === 'text' &&
           typeof typed.text === 'string' &&
-          typed.text.includes('Score:') &&
-          typed.text.includes('/10')
+          typed.text.includes('/10') &&
+          (typed.text.includes('scored') || typed.text.includes('Score:') || typed.text.includes('Breakdown:'))
         );
       }),
   );

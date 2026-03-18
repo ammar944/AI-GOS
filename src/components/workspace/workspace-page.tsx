@@ -227,8 +227,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
         />
         {(() => {
           const currentPhase = state.sectionStates[state.currentSection];
-          const isCurrentSectionActive = currentPhase === 'review' || currentPhase === 'researching';
-          const showChat = !hasActiveResearch || isCurrentSectionActive;
+          const showChat = !hasActiveResearch || currentPhase === 'review';
           return showChat ? (
             <RightRail className="hidden md:flex w-[380px] shrink-0" />
           ) : null;
