@@ -1,11 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import { StatGrid, type StatItem } from './stat-grid';
 import { BulletList } from './bullet-list';
-import { AdCreativeCarousel } from '@/components/strategic-research/ad-carousel/ad-creative-carousel';
 import { CompetitorAdEvidence } from '@/components/journey/competitor-ad-evidence';
-import type { EnrichedAdCreative } from '@/lib/foreplay/types';
 
 interface CompetitorCardProps {
   name: string;
@@ -68,17 +66,6 @@ export function CompetitorCard({
     ...(pricingConfidence ? [{ label: 'Pricing Confidence', value: pricingConfidence }] : []),
   ];
 
-  // Convert workspace ad creatives (simple type) to EnrichedAdCreative for the
-  // AdCreativeCarousel which provides platform/format filter UI.
-  // rawData is required by AdCreative but unused by the carousel's filter logic.
-  const enrichedCreatives = useMemo<EnrichedAdCreative[]>(() => {
-    if (!adCreatives || adCreatives.length === 0) return [];
-    return adCreatives.map((ad) => ({
-      ...ad,
-      rawData: null,
-    }));
-  }, [adCreatives]);
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -140,19 +127,12 @@ export function CompetitorCard({
         </div>
       )}
 
-      {/* Ad Creatives — full carousel with platform/format filters */}
-      {enrichedCreatives.length > 0 && (
-        <AdCreativeCarousel ads={enrichedCreatives} className="max-w-full" />
-      )}
-
-      {/* Library Links (shown when no creatives or as supplementary links) */}
-      {(libraryLinks?.metaLibraryUrl || libraryLinks?.linkedInLibraryUrl || libraryLinks?.googleAdvertiserUrl) && (
-        <CompetitorAdEvidence
-          adActivity={enrichedCreatives.length === 0 ? adActivity : undefined}
-          adCreatives={[]}
-          libraryLinks={libraryLinks}
-        />
-      )}
+      {/* Ad Creatives + Library Links */}
+      <CompetitorAdEvidence
+        adActivity={adActivity}
+        adCreatives={adCreatives}
+        libraryLinks={libraryLinks}
+      />
 
       {/* Counter Positioning */}
       {counterPositioning && (
