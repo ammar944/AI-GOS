@@ -3,10 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { ResearchJobActivity, CollapsedResearchJobUpdate } from '@/lib/journey/research-job-activity';
+import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 import { collapseResearchJobUpdates } from '@/lib/journey/research-job-activity';
-import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
-import type { SectionKey } from '@/lib/workspace/types';
 
 // Fallback simulated messages (shown when worker hasn't reported yet)
 const SECTION_ACTIVITIES: Record<string, string[]> = {
@@ -81,82 +79,11 @@ const PHASE_COLORS: Record<string, string> = {
   error: 'rgb(239, 68, 68)', // red
 };
 
-// Pipeline step labels for the progress tracker
-const PIPELINE_STEP_LABELS: Record<string, string> = {
-  industryMarket: 'Market',
-  icpValidation: 'ICP',
-  offerAnalysis: 'Offer',
-  competitors: 'Competitors',
-  keywordIntel: 'Keywords',
-  crossAnalysis: 'Synthesis',
-  mediaPlan: 'Media Plan',
-};
-
-interface PipelineProgressProps {
-  currentSection: string;
-  completedSections: Set<string>;
-}
-
-function PipelineProgress({ currentSection, completedSections }: PipelineProgressProps) {
-  const currentIndex = SECTION_PIPELINE.indexOf(currentSection as SectionKey);
-
-  return (
-    <div className="flex items-center gap-1 w-full">
-      {SECTION_PIPELINE.map((step, index) => {
-        const isCompleted = completedSections.has(step);
-        const isCurrent = step === currentSection;
-        const isFuture = index > currentIndex;
-
-        return (
-          <div key={step} className="flex items-center gap-1 flex-1">
-            {/* Step indicator */}
-            <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-              <div className="relative flex items-center w-full">
-                {/* Track line */}
-                <div
-                  className="h-[3px] w-full rounded-full transition-colors duration-500"
-                  style={{
-                    background: isCompleted
-                      ? 'rgb(52, 211, 153)'
-                      : isCurrent
-                        ? 'var(--accent-blue)'
-                        : 'var(--bg-hover)',
-                  }}
-                />
-                {/* Active glow */}
-                {isCurrent && (
-                  <motion.div
-                    className="absolute inset-0 h-[3px] rounded-full"
-                    style={{ background: 'var(--accent-blue)' }}
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                )}
-              </div>
-              <span
-                className={cn(
-                  'text-[9px] font-mono uppercase tracking-wider truncate w-full text-center transition-colors duration-300',
-                  isCompleted && 'text-emerald-400/70',
-                  isCurrent && 'text-[var(--accent-blue)]',
-                  isFuture && 'text-[var(--text-quaternary)]',
-                )}
-              >
-                {PIPELINE_STEP_LABELS[step] ?? step}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 interface ResearchActivityLogProps {
   section: string;
   sectionLabel: string;
   phase: 'researching' | 'streaming';
   activity?: ResearchJobActivity;
-  completedSections?: Set<string>;
 }
 
 interface ActivityEntry {
@@ -166,7 +93,7 @@ interface ActivityEntry {
   isLive: boolean;
 }
 
-export function ResearchActivityLog({ section, sectionLabel, phase, activity, completedSections }: ResearchActivityLogProps) {
+export function ResearchActivityLog({ section, sectionLabel, phase, activity }: ResearchActivityLogProps) {
   const fallbackActivities = SECTION_ACTIVITIES[section] ?? DEFAULT_ACTIVITIES;
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -227,12 +154,6 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity, co
   return (
     <div className="flex flex-1 flex-col items-center justify-center min-h-[400px] px-6">
       <div className="w-full max-w-md flex flex-col gap-6">
-        {/* Pipeline progress tracker */}
-        <PipelineProgress
-          currentSection={section}
-          completedSections={completedSections ?? new Set()}
-        />
-
         {/* Status header */}
         <div className="flex items-center gap-3">
           <motion.div

@@ -199,11 +199,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                   sectionLabel={SECTION_LABELS[state.currentSection] ?? state.currentSection}
                   phase={phase as 'researching' | 'streaming'}
                   activity={jobActivity?.[state.currentSection]}
-                  completedSections={new Set(
-                    SECTION_PIPELINE.filter(
-                      (key) => state.sectionStates[key] === 'approved' || state.sectionStates[key] === 'review',
-                    ),
-                  )}
                 />
               )}
 
