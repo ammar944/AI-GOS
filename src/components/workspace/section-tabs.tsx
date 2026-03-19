@@ -56,7 +56,7 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
               mode === 'workspace' && !isActive && isApproved && 'border-[var(--accent-green)]/20 bg-[var(--accent-green)]/8 text-[var(--accent-green)] hover:bg-[var(--accent-green)]/12 cursor-pointer',
               mode === 'workspace' && !isActive && (isReview || isResearching) && 'border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/8 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/12 cursor-pointer',
               mode === 'workspace' && !isActive && isError && 'border-[var(--accent-red)]/20 bg-[var(--accent-red)]/8 text-[var(--accent-red)] hover:bg-[var(--accent-red)]/12 cursor-pointer',
-              mode === 'workspace' && isQueued && 'border-[var(--border-subtle)] bg-transparent text-[var(--text-quaternary)] cursor-not-allowed opacity-50',
+              mode === 'workspace' && isQueued && 'border-[var(--border-subtle)] bg-transparent text-[var(--text-tertiary)] cursor-not-allowed opacity-70',
             )}
           >
             {/* Status indicator */}
@@ -74,10 +74,10 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
               <span className="text-[10px]">!</span>
             )}
             {mode === 'workspace' && isQueued && (
-              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-30 shrink-0" />
+              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50 shrink-0" />
             )}
 
-            <span className={cn(isActive && 'font-semibold', mode === 'workspace' && isQueued && 'opacity-60')}>{meta.label}</span>
+            <span className={cn(isActive && 'font-semibold')}>{meta.label}</span>
           </motion.button>
         );
       })}
