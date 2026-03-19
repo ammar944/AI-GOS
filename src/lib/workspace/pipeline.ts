@@ -2,9 +2,9 @@ import type { SectionKey, SectionPhase } from './types';
 
 export const SECTION_PIPELINE: SectionKey[] = [
   'industryMarket',
-  'competitors',
   'icpValidation',
   'offerAnalysis',
+  'competitors',
   'keywordIntel',
   'crossAnalysis',
   'mediaPlan',
@@ -13,9 +13,9 @@ export const SECTION_PIPELINE: SectionKey[] = [
 /** Research sections shown in workspace tabs — excludes Media Plan */
 export const RESEARCH_SECTIONS: SectionKey[] = [
   'industryMarket',
-  'competitors',
   'icpValidation',
   'offerAnalysis',
+  'competitors',
   'keywordIntel',
   'crossAnalysis',
 ];

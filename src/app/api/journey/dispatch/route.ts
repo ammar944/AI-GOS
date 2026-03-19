@@ -64,11 +64,28 @@ export async function POST(req: Request) {
     });
   }
 
-  // For mediaPlan: inject prior research results so the model synthesizes
-  // from real data instead of hallucinating evidence. The 6 research sections
-  // are already in Supabase — fetch and append them to the context string.
+  // Intelligence chain: inject prior research results into the context so each
+  // runner builds on what came before. The pipeline order determines which
+  // sections are "upstream" of the current one. industryMarket (first step)
+  // gets no prior results; every subsequent step gets all completed sections
+  // that precede it in the pipeline.
+  //
+  // Pipeline order: industryMarket → icpValidation → offerAnalysis → competitors → keywordIntel → crossAnalysis → mediaPlan
+  const PIPELINE_ORDER = [
+    'industryMarket',
+    'icpValidation',
+    'offerAnalysis',
+    'competitors',
+    'keywordIntel',
+    'crossAnalysis',
+    'mediaPlan',
+  ];
+
   let enrichedContext = context;
-  if (section === 'mediaPlan' && runId) {
+  const sectionIndex = PIPELINE_ORDER.indexOf(section);
+
+  // Only enrich if this section has upstream sections AND we have a runId
+  if (sectionIndex > 0 && runId) {
     try {
       const supabase = createAdminClient();
       const { data: sessionData } = await supabase
@@ -80,20 +97,23 @@ export async function POST(req: Request) {
 
       const research = sessionData?.research_results as Record<string, unknown> | null;
       if (research && Object.keys(research).length > 0) {
+        // Only include sections that come BEFORE this one in the pipeline
+        const upstreamSections = PIPELINE_ORDER.slice(0, sectionIndex);
         const researchSections: string[] = [];
-        for (const [key, value] of Object.entries(research)) {
-          if (key === 'mediaPlan' || !value) continue;
+        for (const key of upstreamSections) {
+          const value = research[key];
+          if (!value) continue;
           // Extract the data payload — research results wrap data in { status, data, ... }
           const payload = (value as Record<string, unknown>)?.data ?? value;
           researchSections.push(`## ${key}\n${JSON.stringify(payload, null, 1)}`);
         }
         if (researchSections.length > 0) {
-          enrichedContext = `${context}\n\n# Approved Research Results\n\n${researchSections.join('\n\n')}`;
+          enrichedContext = `${context}\n\n# Prior Research Results (use these to inform your analysis)\n\n${researchSections.join('\n\n')}`;
         }
       }
     } catch (err) {
       // Non-fatal: proceed with original context if research fetch fails
-      console.warn('[dispatch] Failed to fetch research results for mediaPlan:', err);
+      console.warn(`[dispatch] Failed to fetch prior research for ${section}:`, err);
     }
   }
 
