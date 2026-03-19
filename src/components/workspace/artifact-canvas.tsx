@@ -13,7 +13,6 @@ import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
 import { MediaPlanCta } from './media-plan-cta';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
-import { CompetitorNav } from './competitor-nav';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
@@ -46,7 +45,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   const isApproved = phase === 'approved';
   const isLoading = phase === 'researching' || phase === 'streaming';
   const [isExiting, setIsExiting] = useState(false);
-  const [selectedCompetitor, setSelectedCompetitor] = useState<string>('');
   const offerPrevScoreRef = useRef<number | null>(null);
 
   // Extract offer score data for the refinement card
@@ -143,38 +141,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     return Object.values(state.cards)
       .filter((card) => card.sectionKey === state.currentSection);
   }, [state.cards, state.currentSection]);
-
-  // Extract unique competitor names from competitor-card types in the competitors section
-  const competitorNames = useMemo(() => {
-    if (state.currentSection !== 'competitors') return [];
-    const names = [
-      ...new Set(
-        sectionCards
-          .filter((c) => c.cardType === 'competitor-card')
-          .map((c) => c.label),
-      ),
-    ];
-    return names;
-  }, [state.currentSection, sectionCards]);
-
-  // Auto-select the first competitor whenever the list changes
-  useEffect(() => {
-    if (competitorNames.length > 0 && !competitorNames.includes(selectedCompetitor)) {
-      setSelectedCompetitor(competitorNames[0]);
-    }
-  }, [competitorNames, selectedCompetitor]);
-
-  // Filtered cards for the competitors section — show only cards belonging to the selected competitor
-  // plus section-level cards (gap-card etc.) that have no competitor association
-  const displayCards = useMemo(() => {
-    if (state.currentSection !== 'competitors' || competitorNames.length <= 1) return sectionCards;
-    return sectionCards.filter((card) => {
-      if (card.cardType === 'competitor-card') return card.label === selectedCompetitor;
-      if (card.cardType === 'review-card') return (card.content.competitorName as string | undefined) === selectedCompetitor;
-      // Section-level cards (gap-card, prose-card, verdict-card, etc.) — always show
-      return true;
-    });
-  }, [state.currentSection, competitorNames.length, sectionCards, selectedCompetitor]);
 
   const handleRetry = useCallback(() => {
     onRetrySection?.(state.currentSection);
@@ -277,37 +243,27 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
               {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && (
-                <>
-                  {/* Competitor nav pills — shown when there are multiple competitors */}
-                  {state.currentSection === 'competitors' && competitorNames.length > 1 && (
-                    <CompetitorNav
-                      competitors={competitorNames}
-                      selected={selectedCompetitor}
-                      onSelect={setSelectedCompetitor}
-                    />
-                  )}
-                  <CardGrid>
-                    {displayCards
-                      // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
-                      .filter((card) => !(state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && card.label === 'Offer Score' && card.cardType === 'stat-grid'))
-                      .map((card, i) => (
-                      <motion.div
-                        key={card.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{
-                          duration: CARD_DURATION,
-                          delay: i * CARD_STAGGER,
-                        }}
-                      >
-                        <ArtifactCard card={card} index={i}>
-                          <CardContentSwitch card={card} />
-                        </ArtifactCard>
-                      </motion.div>
-                    ))}
-                  </CardGrid>
-                </>
+                <CardGrid>
+                  {sectionCards
+                    // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
+                    .filter((card) => !(state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && card.label === 'Offer Score' && card.cardType === 'stat-grid'))
+                    .map((card, i) => (
+                    <motion.div
+                      key={card.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{
+                        duration: CARD_DURATION,
+                        delay: i * CARD_STAGGER,
+                      }}
+                    >
+                      <ArtifactCard card={card} index={i}>
+                        <CardContentSwitch card={card} />
+                      </ArtifactCard>
+                    </motion.div>
+                  ))}
+                </CardGrid>
               )}
 
               {/* Empty state — no cards but should have them */}
