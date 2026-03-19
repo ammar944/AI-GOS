@@ -172,7 +172,16 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Read(//private/tmp/claude-501/-Users-ammar-Dev-Projects-AI-GOS-main/f47ceb3a-0d88-42d9-9fbf-a10f0858d281/tasks/**)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\(''''message'''',{}\\).get\\(''''content'''',[{}]\\)[-1].get\\(''''text'''',''''''''\\)[:200] if isinstance\\(d.get\\(''''message'''',{}\\).get\\(''''content''''\\),list\\) else ''''running...''''\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\(''''message'''',{}\\).get\\(''''content'''',[{}]\\)[-1].get\\(''''text'''',''''''''\\)[:200] if isinstance\\(d.get\\(''''message'''',{}\\).get\\(''''content''''\\),list\\) else ''''running...''''\\)\")",
+      "Bash(find src/ -name '*.tsx' -exec sed -i '' \"s/shadow-\\\\[0_4px_16px_rgba\\(255,255,255,0.06\\)\\\\]/shadow-md/g\" {} +)",
+      "Bash(find src/ -name '*.tsx' -exec sed -i '' \"s/shadow-\\\\[0_0_0_1px_rgba\\(255,255,255,0.1\\)\\\\]/shadow-sm/g\" {} +)",
+      "Bash(find src/ -name '*.tsx' -exec sed -i '' 's/group-hover:text-white/group-hover:text-[var\\(--text-primary\\)]/g' {} +)",
+      "Bash(find src/ -name '*.tsx' -exec sed -i '' 's/hover:text-white/hover:text-[var\\(--text-primary\\)]/g' {} +)",
+      "Bash(find src/ -name '*.tsx' -exec sed -i '' 's/hover:border-white\\\\/\\\\[0\\\\.15\\\\]/hover:border-[var\\(--border-hover\\)]/g' {} +)",
+      "Bash(find src/ -name '*.tsx' -exec sed -i '' 's/hover:bg-white\\\\/\\\\[0\\\\.09\\\\]/hover:bg-[var\\(--bg-hover\\)]/g' {} +)",
+      "WebFetch(domain:www.spyfu.com)",
+      "WebFetch(domain:www.g2.com)",
+      "Skill(office-hours)"
     ]
   },
   "enableAllProjectMcpServers": true,

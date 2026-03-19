@@ -14,6 +14,54 @@ npm run test:run -- src/lib/ai/__tests__/research.test.ts  # Single test file
 npm run test:coverage  # Coverage report (V8 provider)
 ```
 
+## gstack Workflow
+
+This project now uses **gstack** as a workflow operating layer on top of the project-specific architecture rules in this file.
+
+Available gstack skills:
+- `/office-hours`
+- `/plan-ceo-review`
+- `/plan-eng-review`
+- `/plan-design-review`
+- `/design-consultation`
+- `/review`
+- `/ship`
+- `/browse`
+- `/qa`
+- `/qa-only`
+- `/design-review`
+- `/setup-browser-cookies`
+- `/retro`
+- `/investigate`
+- `/document-release`
+- `/codex`
+- `/careful`
+- `/freeze`
+- `/guard`
+- `/unfreeze`
+- `/gstack-upgrade`
+
+Rules:
+- Use `/browse` for web browsing workflows when appropriate.
+- Use `/plan-ceo-review` before major feature work or product direction changes.
+- Use `/plan-eng-review` before non-trivial implementation.
+- Use `/review` before calling work done.
+- Use `/qa` or `/qa-only` for real UI/browser validation.
+- Use `/ship` for final release/merge flow.
+- If gstack skills stop working, run: `cd .claude/skills/gstack && ./setup`
+
+## Session State
+
+This repo uses `PRIMER.md` as the current working-state handoff file.
+
+Rules:
+- Read `PRIMER.md` at the start of every meaningful session.
+- Treat it as current execution state, not permanent documentation.
+- At the end of a meaningful work session, rewrite `PRIMER.md` with the newest correct state.
+- Keep it short, current, and action-oriented.
+- Include: current focus, what was just done, exact next step, active files, blockers, and what to verify next.
+- Do not let multiple agents overwrite it casually; the primary implementation agent should consolidate shared state there.
+
 ## Research Worker (Local Dev)
 
 The research pipeline requires the Railway worker running locally:
