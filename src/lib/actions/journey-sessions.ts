@@ -17,11 +17,22 @@ export interface JourneySessionRecord {
 /**
  * Save compiled research document (all approved cards) to Supabase.
  * Called when all 6 research sections are approved in the workspace.
+ *
+ * Resilience notes:
+ * - Guards against placeholder sessionId ('default') that indicates no real session
+ * - Retries once after 1s for transient network/DB errors
+ * - Treats missing column errors as non-fatal (migration not yet applied) and logs to console
  */
 export async function saveResearchDocument(
   sessionId: string,
   cardsBySection: Record<string, CardState[]>,
 ): Promise<{ success: boolean; error?: string }> {
+  // Guard: skip save if sessionId is a placeholder (no real session exists yet)
+  if (!sessionId || sessionId === 'default') {
+    console.warn('[saveResearchDocument] Skipping save — no valid session ID')
+    return { success: true }
+  }
+
   const { userId } = await auth()
   if (!userId) return { success: false, error: 'Unauthorized' }
 
@@ -36,19 +47,43 @@ export async function saveResearchDocument(
     .single()
 
   if (fetchError || !session) {
+    console.warn('[saveResearchDocument] Session not found:', fetchError?.message)
     return { success: false, error: 'Session not found' }
   }
 
-  const { error } = await supabase
-    .from('journey_sessions')
-    .update({
-      research_document: cardsBySection,
-      document_saved_at: new Date().toISOString(),
-    })
-    .eq('id', sessionId)
+  const attemptUpdate = async (): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase
+      .from('journey_sessions')
+      .update({
+        research_document: cardsBySection,
+        document_saved_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
 
-  if (error) return { success: false, error: error.message }
-  return { success: true }
+    if (error) {
+      // Column not found means the migration hasn't been applied to this environment.
+      // Treat as a non-fatal soft failure — data is still in research_results.
+      if (error.message.includes('column') && error.message.includes('does not exist')) {
+        console.warn(
+          '[saveResearchDocument] research_document column missing — run migration 20260315_add_research_document_to_journey_sessions.sql',
+        )
+        return { success: true }
+      }
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  }
+
+  const first = await attemptUpdate()
+  if (first.success) return first
+
+  // Retry once after 1s for transient errors (network glitch, cold DB connection)
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const second = await attemptUpdate()
+  if (!second.success) {
+    console.warn('[saveResearchDocument] Save failed after retry:', second.error)
+  }
+  return second
 }
 
 export async function getCompletedJourneySessions(): Promise<{
