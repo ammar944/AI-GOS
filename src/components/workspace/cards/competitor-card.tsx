@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { cn } from '@/lib/utils';
 import { StatGrid, type StatItem } from './stat-grid';
 import { BulletList } from './bullet-list';
 import { AdCreativeCarousel } from '@/components/strategic-research/ad-carousel/ad-creative-carousel';
