@@ -140,9 +140,11 @@ export function CompetitorCard({
         </div>
       )}
 
-      {/* Ad Creatives — full carousel with platform/format filters */}
+      {/* Ad Creatives — full carousel with platform/format filters, capped height */}
       {enrichedCreatives.length > 0 && (
-        <AdCreativeCarousel ads={enrichedCreatives} className="max-w-full" />
+        <div className="max-h-[340px] overflow-y-auto">
+          <AdCreativeCarousel ads={enrichedCreatives} className="max-w-full" />
+        </div>
       )}
 
       {/* Library Links (shown when no creatives or as supplementary links) */}
