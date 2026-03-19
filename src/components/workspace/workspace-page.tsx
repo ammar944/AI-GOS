@@ -211,7 +211,10 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     }
 
     setSectionPhase('mediaPlan', 'researching');
-    navigateToSection('mediaPlan');
+    // Use requestAnimationFrame to ensure the state flush happens before navigation.
+    // The navigation guard in workspace-provider blocks navigation to 'queued' sections,
+    // and setState is async — stateRef.current still reflects 'queued' synchronously.
+    requestAnimationFrame(() => navigateToSection('mediaPlan'));
 
     const result = await dispatchResearchSection('mediaPlan', activeRunId, context);
     if (result.status === 'error') {
