@@ -203,9 +203,9 @@
   --text-heading: rgb(15, 23, 42);
   --text-white: rgb(15, 23, 42);            /* Inverted for light mode */
   --text-secondary: rgb(71, 85, 105);       /* slate-600 — body text */
-  --text-tertiary: rgb(148, 163, 184);      /* slate-400 — labels */
-  --text-quaternary: rgb(203, 213, 225);    /* slate-300 — muted */
-  --text-muted: rgb(226, 232, 240);         /* slate-200 — very muted */
+  --text-tertiary: rgb(100, 116, 139);      /* slate-500 — labels */
+  --text-quaternary: rgb(148, 163, 184);    /* slate-400 — muted */
+  --text-muted: rgb(203, 213, 225);         /* slate-300 — very muted */
 
   /* Accent Colors — Same brand, adjusted for light contrast */
   --accent-blue: rgb(54, 94, 255);
@@ -1377,6 +1377,16 @@ button[data-variant="default"]:hover {
 /* ============================================
    V2 Command Center — Glass Surface Utility
    ============================================ */
+/* Logo adaptive filter — inverts white text to dark in light mode */
+.logo-adaptive {
+  filter: none;
+}
+
+:root:not(.dark) .logo-adaptive,
+html:not(.dark) .logo-adaptive {
+  filter: invert(0.85) hue-rotate(180deg);
+}
+
 .glass-surface {
   background: var(--bg-glass);
   backdrop-filter: blur(12px);

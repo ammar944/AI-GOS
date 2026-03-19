@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Compass, FileText, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
-import { LogoMark } from '@/components/ui/logo';
+import { Logo, LogoMark } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 import { useOptionalShell } from '@/components/shell/shell-provider';
@@ -67,11 +67,28 @@ export function AppSidebar() {
         expanded ? 'w-48' : 'w-14',
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center justify-center px-2 mb-6">
-        <Link href="/dashboard" className="transition-opacity hover:opacity-80">
-          <LogoMark size="md" className="shadow-none" />
-        </Link>
+      {/* Top: Collapse toggle + Logo */}
+      <div className="flex flex-col px-2 mb-4">
+        {/* Collapse/expand toggle — top right corner */}
+        {shell && (
+          <div className={cn('flex', expanded ? 'justify-end px-1' : 'justify-center')}>
+            <button
+              type="button"
+              onClick={shell.toggleSidebar}
+              title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
+            >
+              {expanded ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+            </button>
+          </div>
+        )}
+
+        {/* Logo — centered, bigger */}
+        <div className="flex items-center justify-center py-2">
+          <Link href="/dashboard" className="transition-opacity hover:opacity-80">
+            <Logo size={expanded ? 'md' : 'sm'} className="shadow-none" />
+          </Link>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -81,33 +98,10 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* Theme toggle + Collapse + User — bottom */}
-      <div className="mt-auto flex flex-col gap-2 px-2">
-        {/* Theme toggle */}
-        <div className={cn('flex items-center', expanded ? 'px-4' : 'justify-center')}>
-          <ThemeToggle />
-        </div>
-
-        {shell && (
-          <button
-            type="button"
-            onClick={shell.toggleSidebar}
-            title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
-          >
-            {expanded ? (
-              <PanelLeftClose size={18} className="shrink-0" />
-            ) : (
-              <PanelLeft size={18} className="shrink-0" />
-            )}
-            {expanded && (
-              <span className="text-[13px] font-medium whitespace-nowrap">
-                Collapse
-              </span>
-            )}
-          </button>
-        )}
-        <div className="flex items-center justify-center">
+      {/* Bottom: Theme toggle + User */}
+      <div className="mt-auto flex flex-col gap-1 px-2">
+        <ThemeToggle expanded={expanded} />
+        <div className={cn('flex items-center h-10', expanded ? 'px-4' : 'justify-center')}>
           <UserButton
             afterSignOutUrl="/"
             appearance={{

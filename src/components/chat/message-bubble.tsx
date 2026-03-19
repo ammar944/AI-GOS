@@ -65,7 +65,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
           key={index}
           className="px-1.5 py-0.5 rounded text-xs font-mono"
           style={{
-            background: "rgba(255, 255, 255, 0.1)",
+            background: "var(--bg-hover)",
             color: "#f472b6",
           }}
         >
@@ -444,7 +444,7 @@ function SourceIndicator({
           )}
 
           {sortedSources.length > 0 && (
-            <div className="space-y-1 pt-1 border-t border-white/5">
+            <div className="space-y-1 pt-1 border-t border-[var(--border-glass)]">
               <div
                 className="text-xs font-medium mb-1"
                 style={{ color: "var(--text-tertiary, #666666)" }}
@@ -610,7 +610,7 @@ export function MessageBubble({
 
             {/* Source and confidence indicators */}
             {!isEditProposal && (confidence || sourceQuality || sources?.length) && (
-              <div className="mt-3 pt-2 border-t border-white/5 flex flex-wrap items-center gap-2">
+              <div className="mt-3 pt-2 border-t border-[var(--border-glass)] flex flex-wrap items-center gap-2">
                 <SourceIndicator sourceQuality={sourceQuality} sources={sources} />
                 {confidence && (
                   <ConfidenceBadge

@@ -75,7 +75,7 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
 function RecommendationCard({ dimension, score, fix }: { dimension: string; score: number; fix: string }) {
   return (
     <div
-      className="rounded-xl border border-[var(--border-default)] p-4 transition-colors hover:border-white/[0.1]"
+      className="rounded-xl border border-[var(--border-default)] p-4 transition-colors hover:border-[var(--border-default)]"
       style={{ background: 'var(--bg-card)' }}
     >
       <div className="flex items-center gap-2 mb-2">

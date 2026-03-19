@@ -23,7 +23,7 @@ export function JourneyHeader({
       )}
     >
       {/* Top Progress Bar */}
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-white/5">
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-[var(--bg-hover)]">
         <div
           className="header-progress"
           style={{ width: `${clamped}%` }}
@@ -42,7 +42,7 @@ export function JourneyHeader({
 
       {/* Right: Documentation + New Journey */}
       <div className="flex items-center gap-6">
-        <button className="text-xs text-[var(--text-secondary)] hover:text-white transition-colors">
+        <button className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
           Documentation
         </button>
         <button

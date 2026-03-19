@@ -60,7 +60,7 @@ export function ArtifactFooter({
               className={cn(
                 'rounded-[var(--radius-md)] px-5 py-2.5',
                 'text-sm font-semibold text-[var(--text-secondary)]',
-                'border border-[var(--border-default)] hover:border-white/[0.15] transition-colors',
+                'border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors',
               )}
             >
               View Document

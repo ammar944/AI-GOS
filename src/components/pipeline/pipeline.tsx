@@ -16,7 +16,7 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
       className={cn("flex flex-wrap items-center justify-center gap-3", className)}
       style={{
         padding: "20px 24px",
-        background: "rgba(255,255,255,0.02)",
+        background: "var(--bg-surface)",
         borderRadius: 12,
         border: "1px solid var(--border-default)",
       }}
@@ -119,7 +119,7 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
 
             {/* Connection line - only on large screens, hidden on wrap */}
             {i < stages.length - 1 && (
-              <div className="hidden lg:block relative w-8 h-0.5 overflow-hidden rounded-full bg-white/5">
+              <div className="hidden lg:block relative w-8 h-0.5 overflow-hidden rounded-full bg-[var(--bg-hover)]">
                 <motion.div
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: isComplete ? 1 : 0 }}

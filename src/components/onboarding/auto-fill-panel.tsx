@@ -507,7 +507,7 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
                   {/* Progress bar */}
                   <div
                     className="h-1 rounded-full overflow-hidden"
-                    style={{ background: "rgb(20, 23, 30)" }}
+                    style={{ background: "var(--bg-hover)" }}
                   >
                     {fieldsFound === 0 ? (
                       <motion.div

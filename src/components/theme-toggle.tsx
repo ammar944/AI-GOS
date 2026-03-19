@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
   className?: string;
+  /** When true, shows a text label next to the icon (sidebar expanded state) */
+  expanded?: boolean;
 }
 
-export function ThemeToggle({ className }: ThemeToggleProps) {
+export function ThemeToggle({ className, expanded }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -21,14 +23,13 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     return (
       <button
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full",
-          "bg-[var(--bg-surface)] border border-[var(--border-default)]",
+          "flex items-center gap-3 h-10 px-4 rounded-lg",
           "transition-colors duration-150",
           className
         )}
         aria-label="Toggle theme"
       >
-        <span className="h-4 w-4" />
+        <span className="h-[18px] w-[18px] shrink-0" />
       </button>
     );
   }
@@ -39,9 +40,8 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-full cursor-pointer",
-        "bg-[var(--bg-surface)] border border-[var(--border-default)]",
-        "hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]",
+        "flex items-center gap-3 h-10 px-4 rounded-lg cursor-pointer",
+        "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
         "transition-colors duration-150",
         "focus-visible:outline-2 focus-visible:outline-[var(--accent-blue)] focus-visible:outline-offset-2",
         className
@@ -49,9 +49,14 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
       {isDark ? (
-        <Sun className="h-4 w-4 text-[var(--text-secondary)]" />
+        <Sun size={18} className="shrink-0" />
       ) : (
-        <Moon className="h-4 w-4 text-[var(--text-secondary)]" />
+        <Moon size={18} className="shrink-0" />
+      )}
+      {expanded && (
+        <span className="text-[13px] font-medium whitespace-nowrap">
+          {isDark ? "Light mode" : "Dark mode"}
+        </span>
       )}
     </button>
   );

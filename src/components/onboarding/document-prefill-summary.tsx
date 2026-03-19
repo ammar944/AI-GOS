@@ -204,7 +204,7 @@ function FieldRow({
           <span className="text-[12px] font-medium" style={{ color: "rgb(155, 160, 170)" }}>
             {FIELD_LABELS[fieldKey] ?? fieldKey}
           </span>
-          <p className="text-[13px] mt-0.5" style={{ color: "rgb(252, 252, 250)" }}>
+          <p className="text-[13px] mt-0.5" style={{ color: "var(--text-primary)" }}>
             {truncateValue(fieldKey === 'pricingTiers' ? formatPricingTiers(value) : value)}
           </p>
         </div>
@@ -282,7 +282,7 @@ export function DocumentPrefillSummary({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h4 className="text-[14px] font-medium" style={{ color: "rgb(252, 252, 250)" }}>
+            <h4 className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
               Document Extraction Complete
             </h4>
             <span

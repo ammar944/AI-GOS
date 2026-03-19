@@ -97,7 +97,7 @@ export function FieldSuggestion({
             {/* Suggested value */}
             <p
               className="text-[14px] leading-relaxed"
-              style={{ color: "rgb(252, 252, 250)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               &ldquo;{displayValue}&rdquo;
               {isTruncated && (

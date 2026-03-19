@@ -25,6 +25,7 @@ import {
   researchKeywords,
 } from '@/lib/ai/tools/research';
 import { updateFieldInputSchema } from '@/lib/ai/tools/update-field';
+import { editCard } from '@/lib/ai/tools/edit-card';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
 import { validateWorkerUrl } from '@/lib/env';
@@ -54,10 +55,23 @@ if (!workerValidation.configured) {
 
 export const maxDuration = 300;
 
+interface SectionCardContext {
+  id: string;
+  cardType: string;
+  label: string;
+  content: Record<string, unknown>;
+}
+
 interface JourneyStreamRequest {
   activeRunId?: string | null;
   messages: UIMessage[];
   resumeState?: Record<string, unknown>;
+  /** Current section key for workspace chat context */
+  currentSection?: string;
+  /** Cards visible in the current section — injected into system prompt */
+  sectionCards?: SectionCardContext[];
+  /** Deep Research mode — extended thinking + thorough analysis */
+  deepResearch?: boolean;
 }
 
 function hasResearchToolActivity(
@@ -571,6 +585,54 @@ Rules:
 6. If the user says "re-run" or "re-analyze", call researchOffer to re-dispatch the offer analysis`;
   }
 
+  // ── Deep Research mode ─────────────────────────────────────────────────
+  const isDeepResearch = body.deepResearch === true;
+  if (isDeepResearch) {
+    systemPrompt += `\n\n## Deep Research Mode (active)
+
+The user has enabled Deep Research mode. You MUST:
+- Think deeply and thoroughly before responding — use extended reasoning
+- Provide comprehensive, analytical responses with specific evidence
+- Cross-reference data points across sections when available
+- Surface non-obvious insights, patterns, and strategic implications
+- Structure responses with clear headers and organized thinking
+- When proposing changes, explain the strategic rationale in detail
+- Challenge assumptions and flag risks the user may not have considered
+
+Do NOT give surface-level or generic responses. Every response should demonstrate senior strategist-level depth.`;
+  }
+
+  // ── Workspace card context injection ───────────────────────────────────
+  // When the right-rail chat sends sectionCards, inject them so Claude can
+  // reference and edit specific card data.
+  const sectionCards = body.sectionCards;
+  const currentSectionKey = body.currentSection;
+  if (
+    Array.isArray(sectionCards) &&
+    sectionCards.length > 0 &&
+    currentSectionKey
+  ) {
+    const sectionLabel =
+      SECTION_META[currentSectionKey]?.label ?? currentSectionKey;
+
+    // Serialize card data compactly — only include fields the AI needs
+    const cardSummaries = sectionCards.map((card) => {
+      const contentStr = JSON.stringify(card.content, null, 0);
+      // Cap individual card content at 2000 chars to keep prompt manageable
+      const truncated =
+        contentStr.length > 2000
+          ? contentStr.slice(0, 2000) + '...(truncated)'
+          : contentStr;
+      return `### ${card.label} [id=${card.id}, type=${card.cardType}]\n${truncated}`;
+    });
+
+    systemPrompt += `\n\n## Current Section Artifacts — ${sectionLabel}
+
+The user is viewing the following research cards in the artifact panel. Use this data to answer questions accurately. When the user asks to change something, use the \`editCard\` tool with the card's \`id\` and the specific \`field\` to update.
+
+${cardSummaries.join('\n\n')}`;
+  }
+
   // ── Stream ──────────────────────────────────────────────────────────────
   const result = streamText({
     model: anthropic(MODELS.CLAUDE_OPUS),
@@ -590,6 +652,7 @@ Rules:
       researchOffer,
       synthesizeResearch,
       researchKeywords,
+      editCard,
       updateField: {
         description:
           'Update a specific onboarding field in the user\'s session. Call this when the user approves a recommended improvement to their business data (value prop, pricing, ICP description, etc.). Only call after the user explicitly confirms the change.',
@@ -610,7 +673,10 @@ Rules:
     stopWhen: stepCountIs(25),
     providerOptions: {
       anthropic: {
-        thinking: { type: 'enabled', budgetTokens: 5000 },
+        thinking: {
+          type: 'enabled',
+          budgetTokens: isDeepResearch ? 16000 : 5000,
+        },
       },
     },
     onFinish: async ({ usage, steps }) => {

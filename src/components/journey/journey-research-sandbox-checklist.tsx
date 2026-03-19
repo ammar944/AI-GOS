@@ -39,7 +39,7 @@ function getStatusClasses(status: JourneyResearchSandboxSmokeStatus): string {
     return 'border-[rgba(255,120,120,0.24)] bg-[rgba(255,120,120,0.08)] text-[rgb(255,198,198)]';
   }
 
-  return 'border-white/10 bg-[var(--bg-hover)] text-text-secondary';
+  return 'border-[var(--border-default)] bg-[var(--bg-hover)] text-text-secondary';
 }
 
 function getStatusLabel(status: JourneyResearchSandboxSmokeStatus): string {
@@ -90,7 +90,7 @@ export function JourneyResearchSandboxChecklist({
   });
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[rgba(8,12,20,0.82)] p-5">
+    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">
@@ -140,7 +140,7 @@ export function JourneyResearchSandboxChecklist({
             {checklist.manualChecks.map((check) => (
               <div
                 key={check.key}
-                className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3"
+                className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
               >
                 <div className="text-sm font-medium text-text-primary">{check.title}</div>
                 <p className="mt-2 text-xs leading-5 text-text-secondary">{check.detail}</p>

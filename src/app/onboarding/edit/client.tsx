@@ -106,7 +106,7 @@ export function EditOnboardingClient({ initialData }: Props) {
           <motion.h1
             className="text-3xl font-bold tracking-tight md:text-4xl"
             style={{
-              color: 'rgb(252, 252, 250)',
+              color: 'var(--text-primary)',
               fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
               letterSpacing: '-0.02em',
             }}

@@ -83,7 +83,7 @@ export function BlueprintCard({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="size-7 text-[var(--text-tertiary)] show-on-card-hover hover:text-white hover:bg-[var(--bg-hover)]"
+                      className="size-7 text-[var(--text-tertiary)] show-on-card-hover hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                       onClick={(e) => e.preventDefault()}
                     >
                       <MoreHorizontal className="size-4" />

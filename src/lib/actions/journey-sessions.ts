@@ -107,6 +107,28 @@ export async function getCompletedJourneySessions(): Promise<{
 }
 
 /**
+ * Delete a journey session from Supabase.
+ * Only the owning user can delete their sessions.
+ */
+export async function deleteJourneySession(
+  sessionId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { userId } = await auth()
+  if (!userId) return { success: false, error: 'Unauthorized' }
+
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('journey_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+/**
  * Dispatch media plan generation for a completed research session.
  * Builds context from the session's onboarding metadata and dispatches
  * to the worker — no need to go through the journey flow again.

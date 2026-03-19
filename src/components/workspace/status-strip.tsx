@@ -71,7 +71,7 @@ export function StatusStrip() {
           'rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider',
           isActive
             ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
-            : 'bg-white/5 text-[var(--text-tertiary)]',
+            : 'bg-[var(--bg-hover)] text-[var(--text-tertiary)]',
         )}
       >
         {isActive ? 'Working' : 'Idle'}

@@ -2245,7 +2245,7 @@ function PrefillReviewView({
       <div className="max-w-2xl mx-auto flex flex-col pt-10 sm:pt-14 gap-8">
         {/* Header */}
         <div className="space-y-3">
-          <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-white">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-[var(--text-primary)]">
             Found {fieldsFound} details from your site
           </h2>
           <p className="text-sm text-[var(--text-tertiary)] leading-relaxed">
@@ -2263,7 +2263,7 @@ function PrefillReviewView({
             return (
               <div
                 key={key}
-                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 flex items-start gap-3 group cursor-pointer transition-colors hover:border-white/[0.1]"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 flex items-start gap-3 group cursor-pointer transition-colors hover:border-[var(--border-default)]"
                 onClick={() => {
                   if (!isEditing) {
                     if (!hasEditedValue) setEditedFields((prev) => ({ ...prev, [key]: value }));
@@ -2281,7 +2281,7 @@ function PrefillReviewView({
                   {isEditing ? (
                     <input
                       autoFocus
-                      className="w-full mt-1.5 bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[var(--text-quaternary)] outline-none focus:border-[var(--accent-blue)]/40"
+                      className="w-full mt-1.5 bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none focus:border-[var(--accent-blue)]/40"
                       value={displayValue}
                       onChange={(e) => setEditedFields((prev) => ({ ...prev, [key]: e.target.value }))}
                       onBlur={() => setEditingKey(null)}
@@ -2303,7 +2303,7 @@ function PrefillReviewView({
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1.5">
-              <h3 className="font-heading text-lg font-semibold text-white">
+              <h3 className="font-heading text-lg font-semibold text-[var(--text-primary)]">
                 Fill what the web can&apos;t know
               </h3>
               <p className="text-sm text-[var(--text-tertiary)]">
@@ -2380,7 +2380,7 @@ function PrefillReviewView({
                         setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
                       }
                       className={cn(
-                        'mt-3 w-full resize-none rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-white placeholder-[var(--text-quaternary)] outline-none transition-colors',
+                        'mt-3 w-full resize-none rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none transition-colors',
                         isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--accent-blue)]/40',
                       )}
                       placeholder={field.placeholder}
@@ -2392,7 +2392,7 @@ function PrefillReviewView({
                         setManualFields((prev) => ({ ...prev, [field.key]: event.target.value }))
                       }
                       className={cn(
-                        'mt-3 w-full rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-white placeholder-[var(--text-quaternary)] outline-none transition-colors',
+                        'mt-3 w-full rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none transition-colors',
                         isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--accent-blue)]/40',
                       )}
                       placeholder={field.placeholder}
@@ -2421,7 +2421,7 @@ function PrefillReviewView({
             className={cn(
               'w-full h-12 rounded-full font-semibold text-[15px] transition-all duration-200 cursor-pointer',
               canStartResearch
-                ? 'bg-white text-black hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]'
+                ? 'bg-foreground text-background hover:bg-foreground/90 hover:shadow-lg'
                 : 'bg-[var(--bg-hover)] text-[var(--text-quaternary)] cursor-not-allowed',
             )}
           >
@@ -2471,7 +2471,7 @@ function WelcomeForm({
           animate="animate"
           transition={{ ...gentleTransition, delay: 0 }}
         >
-          <h1 className="font-heading text-4xl md:text-5xl font-bold tracking-[-0.04em] text-white">
+          <h1 className="font-heading text-4xl md:text-5xl font-bold tracking-[-0.04em] text-[var(--text-primary)]">
             Seed your strategy.
           </h1>
           <p className="text-[16px] text-[var(--text-tertiary)] max-w-sm mx-auto leading-[1.7]">
@@ -2577,8 +2577,8 @@ function WelcomeForm({
             }}
             disabled={!websiteUrl.trim()}
             className={cn(
-              'cursor-pointer h-12 rounded-full bg-white text-black font-semibold text-[15px] px-8 transition-all duration-200',
-              'hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]',
+              'cursor-pointer h-12 rounded-full bg-foreground text-background font-semibold text-[15px] px-8 transition-all duration-200',
+              'hover:bg-foreground/90 hover:shadow-lg',
               'disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none',
             )}
             whileHover={websiteUrl.trim() ? { scale: 1.01 } : {}}

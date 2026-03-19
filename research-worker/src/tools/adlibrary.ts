@@ -577,7 +577,20 @@ export function buildAdInsight(
   const metaCreatives = normalizeSearchApiToCreatives(
     metaAds, 'meta', companyName, domain,
   );
-  const adCreatives = [...googleCreatives, ...linkedInCreatives, ...metaCreatives];
+  // Deduplicate ads — same id, or same headline+body+platform combo
+  const seen = new Set<string>();
+  const adCreatives = [...googleCreatives, ...linkedInCreatives, ...metaCreatives].filter((ad) => {
+    // Primary key: ad id (if non-fallback)
+    if (ad.id && !ad.id.includes('-')) {
+      if (seen.has(ad.id)) return false;
+      seen.add(ad.id);
+    }
+    // Secondary key: content fingerprint (catches cross-platform dupes + fallback id collisions)
+    const fingerprint = `${ad.platform}|${(ad.headline ?? '').slice(0, 80)}|${(ad.body ?? '').slice(0, 80)}|${ad.imageUrl ?? ''}`;
+    if (seen.has(fingerprint)) return false;
+    seen.add(fingerprint);
+    return true;
+  });
 
   // Build summary from all sources
   const allRawAds = [

@@ -592,7 +592,7 @@ export function JourneyResearchSandbox({
       <div className="relative z-10 mx-auto max-w-[1600px] px-6 py-10 lg:px-8">
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[var(--bg-hover)] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.22em] text-[var(--accent-cyan)]">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.22em] text-[var(--accent-cyan)]">
               <FlaskConical className="h-3.5 w-3.5" />
               Journey Research Sandbox
             </div>
@@ -612,7 +612,7 @@ export function JourneyResearchSandbox({
               onClick={() => {
                 void navigator.clipboard?.writeText(sandboxUserId);
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-text-primary"
             >
               <Copy className="h-4 w-4" />
               Copy sandbox user id
@@ -628,7 +628,7 @@ export function JourneyResearchSandbox({
                   );
                 });
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-text-primary"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh snapshot
@@ -638,7 +638,7 @@ export function JourneyResearchSandbox({
 
         <div className="grid gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
           <section className="space-y-6">
-            <div className="rounded-[28px] border border-white/10 bg-[rgba(8,12,20,0.82)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
+            <div className="rounded-[28px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
@@ -665,7 +665,7 @@ export function JourneyResearchSandbox({
                   <input
                     value={sandboxKey}
                     onChange={(event) => setSandboxKey(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
                     placeholder="default"
                   />
                 </label>
@@ -679,7 +679,7 @@ export function JourneyResearchSandbox({
                     onChange={(event) =>
                       setSection(event.target.value as JourneyResearchSandboxSection)
                     }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
                   >
                     {JOURNEY_RESEARCH_SANDBOX_SECTIONS.map((config) => (
                       <option key={config.section} value={config.section}>
@@ -702,7 +702,7 @@ export function JourneyResearchSandbox({
                       'rounded-xl border px-4 py-3 text-left transition-colors',
                       contextSource === 'live'
                         ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]/10'
-                        : 'border-white/10 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
+                        : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
                     )}
                   >
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
@@ -729,7 +729,7 @@ export function JourneyResearchSandbox({
                       'rounded-xl border px-4 py-3 text-left transition-colors',
                       contextSource === 'sandbox'
                         ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10'
-                        : 'border-white/10 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
+                        : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
                     )}
                   >
                     <div className="text-xs font-semibold uppercase tracking-[0.12em] text-text-tertiary">
@@ -753,7 +753,7 @@ export function JourneyResearchSandbox({
                     value={context}
                     onChange={(event) => setContext(event.target.value)}
                     rows={18}
-                    className="min-h-[340px] w-full rounded-2xl border border-white/10 bg-[#06101c] px-4 py-4 font-mono text-xs leading-6 text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="min-h-[340px] w-full rounded-2xl border border-[var(--border-default)] bg-[#06101c] px-4 py-4 font-mono text-xs leading-6 text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
                     placeholder="Paste the exact research context you want to send to the worker."
                   />
                 </label>
@@ -772,7 +772,7 @@ export function JourneyResearchSandbox({
                         },
                       )
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-text-primary"
                   >
                     <Database className="h-4 w-4" />
                     Seed sandbox from live
@@ -787,7 +787,7 @@ export function JourneyResearchSandbox({
                         { resetRealtime: true, clearSelectedSection: true },
                       )
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-text-primary"
                   >
                     <Trash2 className="h-4 w-4" />
                     Clear selected section
@@ -807,7 +807,7 @@ export function JourneyResearchSandbox({
                       'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white transition-colors',
                       context.trim()
                         ? 'bg-[linear-gradient(135deg,rgb(32,97,255),rgb(0,173,181))] hover:opacity-90'
-                        : 'cursor-not-allowed bg-white/[0.08] text-text-tertiary',
+                        : 'cursor-not-allowed bg-[var(--bg-hover)] text-text-tertiary',
                     )}
                   >
                     <Play className="h-4 w-4" />
@@ -939,7 +939,7 @@ export function JourneyResearchSandbox({
             ) : null}
 
             <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(380px,0.85fr)]">
-              <div className="rounded-[30px] border border-white/10 bg-[rgba(8,12,20,0.84)] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
+              <div className="rounded-[30px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.84)] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">
@@ -956,7 +956,7 @@ export function JourneyResearchSandbox({
 
                 {canUseJourneyArtifactRenderer(section) ? (
                   hasSelectedArtifact ? (
-                    <div className="h-[760px] overflow-hidden rounded-[24px] border border-white/8">
+                    <div className="h-[760px] overflow-hidden rounded-[24px] border border-[var(--border-default)]">
                       <ArtifactPanel
                         section={section}
                         status={selectedStatus}
@@ -1021,7 +1021,7 @@ function MetricCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[rgba(8,12,20,0.82)] px-5 py-4">
+    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] px-5 py-4">
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">
         {label}
       </div>
@@ -1041,7 +1041,7 @@ function InfoCard({
   onRowClick?: (label: string) => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[rgba(8,12,20,0.82)] p-5">
+    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-tertiary">
         {title}
       </h3>
@@ -1097,7 +1097,7 @@ function JsonCard({
   body: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[rgba(8,12,20,0.82)] p-4">
+    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-4">
       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
         {title}
       </h3>
@@ -1127,7 +1127,7 @@ function BackendStatusCard({
   ];
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[rgba(8,12,20,0.82)] p-5">
+    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-text-tertiary">
         <Server className="h-4 w-4 text-[var(--accent-cyan)]" />
         Backend readiness
@@ -1241,7 +1241,7 @@ function InlineSectionPreview({
 
   if (status === 'idle') {
     return (
-      <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-6">
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6">
         <div className="text-sm font-semibold text-text-primary">
           {getSectionLabel(section)}
         </div>
@@ -1255,7 +1255,7 @@ function InlineSectionPreview({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <ResearchInlineCard
           section={section}
           status={status}
@@ -1274,7 +1274,7 @@ function InlineSectionPreview({
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
+      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
           Activity feed
         </div>

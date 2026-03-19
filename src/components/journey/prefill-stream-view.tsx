@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import type { UseJourneyPrefillReturn } from '@/hooks/use-journey-prefill';
 import { JOURNEY_PREFILL_REVIEW_FIELDS } from '@/lib/journey/field-catalog';
@@ -64,14 +64,9 @@ export function PrefillStreamView({
   const isComplete = !isPrefilling && fieldsFound > 0 && !error;
   const isFailed = !isPrefilling && fieldsFound === 0 && !error;
   const visibleFields = resolveVisibleFields(partialResult);
-  const [editedFields, setEditedFields] = useState<Record<string, string>>({});
-
-  const getFieldValue = (field: PrefillStreamField): string =>
-    editedFields[field.key] ?? field.value;
-
-  const getEditedFieldPayload = (): Record<string, string> =>
+  const getFieldPayload = (): Record<string, string> =>
     Object.fromEntries(
-      visibleFields.map((field) => [field.key, getFieldValue(field)]),
+      visibleFields.map((field) => [field.key, field.value]),
     );
 
   return (
@@ -126,13 +121,13 @@ export function PrefillStreamView({
           </div>
 
           {/* Headline */}
-          <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-white">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-foreground">
             {isComplete ? 'Context extracted' : isFailed ? 'No data found' : 'Analyzing your footprint'}
           </h2>
 
           {/* URL + counter */}
           <div className="flex items-baseline gap-3 flex-wrap">
-            <p className="text-[12px] font-mono text-[var(--text-quaternary)] break-all">
+            <p className="text-[12px] font-mono text-[var(--text-tertiary)] break-all">
               {websiteUrl}
             </p>
             <span
@@ -193,7 +188,7 @@ export function PrefillStreamView({
               </div>
               <button
                 onClick={onRetry}
-                className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90 mt-2"
+                className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90 mt-2"
               >
                 <RotateCcw className="size-3.5" />
                 Try another URL
@@ -211,7 +206,7 @@ export function PrefillStreamView({
                   style={{ animationDelay: `${index * 200}ms` }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full shrink-0 mt-1 bg-white/[0.08]" />
+                    <div className="w-2 h-2 rounded-full shrink-0 mt-1 bg-[var(--bg-hover)]" />
                     <div className="flex-1 space-y-2.5">
                       <div className="h-2.5 w-24 rounded bg-[var(--bg-hover)]" />
                       <div
@@ -240,38 +235,9 @@ export function PrefillStreamView({
                     <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-quaternary)]">
                       {field.label}
                     </span>
-                    {isComplete ? (
-                      field.value.length > 80 || field.value.includes('\n') ? (
-                        <textarea
-                          data-testid={`prefill-input-${field.key}`}
-                          value={getFieldValue(field)}
-                          onChange={(event) => {
-                            setEditedFields((currentFields) => ({
-                              ...currentFields,
-                              [field.key]: event.target.value,
-                            }));
-                          }}
-                          rows={Math.min(6, Math.max(2, getFieldValue(field).split('\n').length))}
-                          className="mt-2 w-full resize-y rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)] leading-relaxed focus:outline-none focus:border-[var(--accent-blue)]/40"
-                        />
-                      ) : (
-                        <input
-                          data-testid={`prefill-input-${field.key}`}
-                          value={getFieldValue(field)}
-                          onChange={(event) => {
-                            setEditedFields((currentFields) => ({
-                              ...currentFields,
-                              [field.key]: event.target.value,
-                            }));
-                          }}
-                          className="mt-2 w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]/40"
-                        />
-                      )
-                    ) : (
-                      <p className="text-sm mt-0.5 break-words leading-relaxed text-white/80">
-                        {field.value}
-                      </p>
-                    )}
+                    <p className="text-sm mt-0.5 break-words whitespace-pre-wrap leading-relaxed text-[var(--text-secondary)]">
+                      {field.value}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -290,8 +256,8 @@ export function PrefillStreamView({
             <button
               type="button"
               data-testid="prefill-review-button"
-              onClick={() => onComplete(getEditedFieldPayload())}
-              className="cursor-pointer h-11 rounded-full bg-white text-black font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]"
+              onClick={() => onComplete(getFieldPayload())}
+              className="cursor-pointer h-11 rounded-full bg-foreground text-background font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"
             >
               Review extracted fields
             </button>
@@ -309,8 +275,8 @@ export function PrefillStreamView({
             <button
               type="button"
               data-testid="prefill-continue-early-button"
-              onClick={() => onComplete(getEditedFieldPayload())}
-              className="cursor-pointer h-11 rounded-full bg-white text-black font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]"
+              onClick={() => onComplete(getFieldPayload())}
+              className="cursor-pointer h-11 rounded-full bg-foreground text-background font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"
             >
               Continue with {fieldsFound} fields
             </button>

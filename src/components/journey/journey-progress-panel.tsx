@@ -43,7 +43,7 @@ export function JourneyProgressPanel({
         className={cn(
           'text-xs font-mono uppercase tracking-widest',
           variant === 'studio'
-            ? 'mb-8 text-white/42'
+            ? 'mb-8 text-[var(--text-tertiary)]'
             : 'mb-10 text-[var(--text-quaternary)]',
         )}
       >
@@ -70,7 +70,7 @@ export function JourneyProgressPanel({
                   'relative z-10 w-3.5 h-3.5 rounded-full border-4 border-[#050505]',
                   item.status === 'complete' && 'bg-brand-success',
                   item.status === 'active' && 'bg-brand-accent animate-pulse',
-                  item.status === 'queued' && 'bg-white/20',
+                  item.status === 'queued' && 'bg-[var(--bg-hover)]',
                 )}
               />
 
@@ -108,7 +108,7 @@ export function JourneyProgressPanel({
           'mt-auto rounded-xl border p-4',
           variant === 'studio'
             ? 'border-[var(--border-default)] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
-            : 'glass-surface border-white/5',
+            : 'glass-surface border-[var(--border-glass)]',
         )}
       >
         <div className="flex items-center justify-between mb-2">
@@ -122,7 +122,7 @@ export function JourneyProgressPanel({
             {computeStatus.charAt(0).toUpperCase() + computeStatus.slice(1)}
           </span>
         </div>
-        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+        <div className="h-1 w-full bg-[var(--bg-hover)] rounded-full overflow-hidden">
           <div
             className="bg-brand-success h-full"
             style={{ width: `${computePercent}%` }}

@@ -62,7 +62,7 @@ export function WelcomeStrip({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         {/* Left: Greeting + business context + metrics */}
         <div className="min-w-0 space-y-1.5">
-          <h1 className="text-[32px] font-light tracking-tight text-white">
+          <h1 className="text-[32px] font-light tracking-tight text-[var(--text-primary)]">
             Hey {firstName}
           </h1>
 
@@ -71,11 +71,11 @@ export function WelcomeStrip({
             <div className="flex items-center gap-3 pt-0.5">
               <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                 <Building2 className="size-3.5 text-[var(--text-tertiary)]" />
-                <span className="font-medium text-white">{businessName}</span>
+                <span className="font-medium text-[var(--text-primary)]">{businessName}</span>
               </div>
               {displayUrl && (
                 <>
-                  <span className="text-white/[0.12]">/</span>
+                  <span className="text-[var(--text-quaternary)]">/</span>
                   <a
                     href={websiteUrl?.startsWith("http") ? websiteUrl : `https://${websiteUrl}`}
                     target="_blank"
@@ -89,7 +89,7 @@ export function WelcomeStrip({
               )}
               <Link
                 href="/onboarding/edit"
-                className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] hover:text-white transition-colors ml-1 opacity-0 group-hover/welcome:opacity-100"
+                className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors ml-1 opacity-0 group-hover/welcome:opacity-100"
               >
                 <Pencil className="size-3" />
               </Link>
@@ -107,7 +107,7 @@ export function WelcomeStrip({
             <div className="flex items-center gap-2 pt-1.5">
               {totalBlueprints > 0 && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-hover)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
-                  <span className="font-medium text-white tabular-nums">
+                  <span className="font-medium text-[var(--text-primary)] tabular-nums">
                     {totalBlueprints}
                   </span>
                   {totalBlueprints === 1 ? "blueprint" : "blueprints"}
@@ -115,7 +115,7 @@ export function WelcomeStrip({
               )}
               {totalMediaPlans > 0 && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-hover)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]">
-                  <span className="font-medium text-white tabular-nums">
+                  <span className="font-medium text-[var(--text-primary)] tabular-nums">
                     {totalMediaPlans}
                   </span>
                   {totalMediaPlans === 1 ? "plan" : "plans"}
@@ -152,7 +152,7 @@ export function WelcomeStrip({
                 <Button
                   variant="outline"
                   size="default"
-                  className="text-[var(--text-secondary)] border-[var(--border-default)] hover:border-white/[0.15] hover:text-white"
+                  className="text-[var(--text-secondary)] border-[var(--border-default)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]"
                 >
                   <Pencil className="size-3.5" />
                   Edit Profile

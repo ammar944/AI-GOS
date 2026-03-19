@@ -5,6 +5,7 @@ import { FileText, ArrowRight, Plus } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { getCompletedJourneySessions } from '@/lib/actions/journey-sessions';
 import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
+import { DeleteSessionButton } from '@/components/research/delete-session-button';
 
 function formatDate(dateString: string): string {
   try {
@@ -33,7 +34,7 @@ export default async function ResearchListPage() {
           {/* Page header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="font-heading text-2xl font-bold tracking-[-0.03em] text-white">
+              <h1 className="font-heading text-2xl font-bold tracking-[-0.03em] text-[var(--text-primary)]">
                 Research
               </h1>
               <p className="mt-1 text-sm text-[var(--text-tertiary)]">
@@ -41,7 +42,7 @@ export default async function ResearchListPage() {
               </p>
             </div>
             <Link href="/journey">
-              <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90">
+              <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90">
                 <Plus className="size-3.5" />
                 New Research
               </button>
@@ -59,7 +60,7 @@ export default async function ResearchListPage() {
                 Start a journey to generate your first research document.
               </p>
               <Link href="/journey" className="mt-6">
-                <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90">
+                <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90">
                   Start Journey
                   <ArrowRight className="size-3.5" />
                 </button>
@@ -73,24 +74,26 @@ export default async function ResearchListPage() {
                 const isComplete = completedCount >= totalCount;
 
                 return (
-                  <Link
+                  <div
                     key={session.id}
-                    href={`/research/${session.id}`}
-                    className="group flex items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 transition-all hover:border-white/[0.1] hover:bg-[var(--bg-surface)] cursor-pointer"
+                    className="group flex items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[var(--border-default)] hover:bg-[var(--bg-surface)]"
                   >
-                    <div className="flex items-center gap-4">
+                    <Link
+                      href={`/research/${session.id}`}
+                      className="flex flex-1 items-center gap-4 cursor-pointer"
+                    >
                       <div className="w-10 h-10 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center shrink-0">
                         <FileText className="size-4 text-[var(--text-quaternary)]" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">
+                        <h3 className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                           {session.title}
                         </h3>
                         <p className="text-[11px] text-[var(--text-quaternary)] mt-0.5 font-mono">
                           {formatDate(session.created_at)}
                         </p>
                       </div>
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-3">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[10px] font-mono ${
@@ -101,9 +104,12 @@ export default async function ResearchListPage() {
                       >
                         {completedCount}/{totalCount} sections
                       </span>
-                      <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--text-secondary)] transition-colors" />
+                      <DeleteSessionButton sessionId={session.id} sessionTitle={session.title} />
+                      <Link href={`/research/${session.id}`}>
+                        <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--text-secondary)] transition-colors" />
+                      </Link>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

@@ -17,7 +17,7 @@ export function TrendCard({ trend, direction, evidence }: TrendCardProps) {
             'text-[10px] font-mono uppercase px-1.5 py-0.5 rounded',
             direction === 'rising' && 'bg-[var(--accent-green)]/10 text-[var(--accent-green)]',
             direction === 'declining' && 'bg-[var(--accent-red)]/10 text-[var(--accent-red)]',
-            direction === 'stable' && 'bg-white/5 text-[var(--text-tertiary)]',
+            direction === 'stable' && 'bg-[var(--bg-hover)] text-[var(--text-tertiary)]',
           )}
         >
           {direction}

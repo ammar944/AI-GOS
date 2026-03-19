@@ -279,7 +279,7 @@ export function DocumentTabs({
                 className={cn(
                   "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer",
                   activeTab === tab.value
-                    ? "text-white"
+                    ? "text-[var(--text-primary)]"
                     : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
                 )}
               >
@@ -312,7 +312,7 @@ export function DocumentTabs({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-white/[0.07] placeholder:text-[var(--text-quaternary)] focus:border-primary/40 focus:bg-[var(--bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-blue-glow)] transition-all"
+                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-[var(--border-default)] placeholder:text-[var(--text-quaternary)] focus:border-primary/40 focus:bg-[var(--bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-blue-glow)] transition-all"
               />
               {searchQuery && (
                 <button
@@ -325,7 +325,7 @@ export function DocumentTabs({
             </div>
 
             <Select value={sortValue} onValueChange={(v) => setSortValue(v as SortValue)}>
-              <SelectTrigger size="sm" className="h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-white/[0.07] text-[var(--text-tertiary)] gap-1.5 pl-2.5 pr-2 w-auto min-w-[100px]">
+              <SelectTrigger size="sm" className="h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-tertiary)] gap-1.5 pl-2.5 pr-2 w-auto min-w-[100px]">
                 <ArrowUpDown className="size-3.5 text-[var(--text-quaternary)] shrink-0" />
                 <SelectValue>{sortLabels[sortValue]}</SelectValue>
               </SelectTrigger>

@@ -19,7 +19,7 @@ export function JourneyStudioPreviewDock({
     <aside
       data-testid="journey-studio-dock"
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/[0.07]',
+        'flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[var(--border-default)]',
         'bg-[linear-gradient(180deg,rgba(17,16,13,0.96),rgba(9,9,8,0.94))]',
         'shadow-[0_24px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.04)]',
         className,
@@ -28,11 +28,11 @@ export function JourneyStudioPreviewDock({
       <div className="border-b border-[var(--border-default)] px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-white/38">
+            <p className="text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--text-tertiary)]">
               {eyebrow}
             </p>
             {title ? (
-              <h2 className="font-heading text-base text-white/88">{title}</h2>
+              <h2 className="font-heading text-base text-[var(--text-primary)]">{title}</h2>
             ) : null}
           </div>
 
@@ -41,7 +41,7 @@ export function JourneyStudioPreviewDock({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
-        <div className="h-full min-h-0 overflow-hidden rounded-[24px] border border-white/[0.05] bg-white/[0.025]">
+        <div className="h-full min-h-0 overflow-hidden rounded-[24px] border border-[var(--border-glass)] bg-[var(--bg-surface)]">
           {children}
         </div>
       </div>

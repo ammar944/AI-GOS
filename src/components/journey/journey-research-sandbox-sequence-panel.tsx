@@ -85,7 +85,7 @@ export function JourneyResearchSandboxSequencePanel({
   const now = useNow();
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[rgba(8,12,20,0.82)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
+    <div className="rounded-[28px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">
@@ -106,7 +106,7 @@ export function JourneyResearchSandboxSequencePanel({
           className={cn(
             'inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium text-white transition-colors',
             isRunning
-              ? 'cursor-wait bg-white/[0.08] text-text-tertiary'
+              ? 'cursor-wait bg-[var(--bg-hover)] text-text-tertiary'
               : 'bg-[linear-gradient(135deg,rgb(32,97,255),rgb(0,173,181))] hover:opacity-90',
           )}
         >
@@ -160,7 +160,7 @@ export function JourneyResearchSandboxSequencePanel({
                 'w-full rounded-2xl border px-4 py-4 text-left transition-colors',
                 isActive
                   ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10'
-                  : 'border-white/10 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
+                  : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
               )}
               aria-label={section.label}
             >
@@ -191,7 +191,7 @@ export function JourneyResearchSandboxSequencePanel({
                     {latestMessage}
                   </p>
                   {section.logs.length > 0 ? (
-                    <div className="mt-3 space-y-1 rounded-xl border border-white/8 bg-[#06101c] px-3 py-3">
+                    <div className="mt-3 space-y-1 rounded-xl border border-[var(--border-default)] bg-[#06101c] px-3 py-3">
                       {section.logs.map((log) => (
                         <div
                           key={log.id}
@@ -229,7 +229,7 @@ export function JourneyResearchSandboxSequencePanel({
         })}
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
+      <div className="mt-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
@@ -243,7 +243,7 @@ export function JourneyResearchSandboxSequencePanel({
           <button
             type="button"
             onClick={onCopyUnifiedOutput}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[var(--bg-hover)] px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-white/[0.08] hover:text-text-primary"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-[var(--bg-hover)] hover:text-text-primary"
           >
             <Copy className="h-3.5 w-3.5" />
             Copy all outputs
@@ -265,7 +265,7 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-white/10 bg-[var(--bg-surface)] px-4 py-3">
+    <div className="rounded-[20px] border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3">
       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
         {label}
       </div>

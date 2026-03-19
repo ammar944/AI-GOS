@@ -43,7 +43,7 @@ export function DeleteConfirmationDialog({
               </AlertDialogTitle>
               <AlertDialogDescription className="mt-2 text-[13px] leading-relaxed text-[var(--text-tertiary)]">
                 This will permanently delete{" "}
-                <span className="text-white font-medium">&ldquo;{title}&rdquo;</span>.
+                <span className="text-[var(--text-primary)] font-medium">&ldquo;{title}&rdquo;</span>.
                 This action cannot be undone.
                 {type === "blueprint" && linkedMediaPlanCount > 0 && (
                   <span className="block mt-2.5 text-amber-400/80 text-[12px] leading-relaxed">
@@ -56,7 +56,7 @@ export function DeleteConfirmationDialog({
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-2 gap-2.5">
-          <AlertDialogCancel className="text-[13px] font-medium border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:border-white/[0.12]">
+          <AlertDialogCancel className="text-[13px] font-medium border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-default)]">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction

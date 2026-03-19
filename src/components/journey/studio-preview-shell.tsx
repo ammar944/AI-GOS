@@ -43,18 +43,18 @@ export function JourneyStudioPreviewShell({
         <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-[var(--bg-surface)] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.24em] text-white/42">
+              <span className="inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.24em] text-[var(--text-tertiary)]">
                 {eyebrow}
               </span>
               <span className="h-px w-12 bg-gradient-to-r from-brand-accent/50 to-transparent" />
             </div>
 
             <div className="space-y-2">
-              <h1 className="font-heading text-2xl leading-tight text-white/94 sm:text-[2rem]">
+              <h1 className="font-heading text-2xl leading-tight text-[var(--text-primary)] sm:text-[2rem]">
                 {title}
               </h1>
               {description ? (
-                <p className="max-w-2xl text-sm leading-6 text-white/56 sm:text-[15px]">
+                <p className="max-w-2xl text-sm leading-6 text-[var(--text-secondary)] sm:text-[15px]">
                   {description}
                 </p>
               ) : null}
@@ -62,14 +62,14 @@ export function JourneyStudioPreviewShell({
           </div>
 
           {(statusLabel || statusDetail) ? (
-            <div className="min-w-[13rem] rounded-[22px] border border-white/8 bg-black/20 px-4 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="min-w-[13rem] rounded-[22px] border border-[var(--border-default)] bg-black/20 px-4 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               {statusLabel ? (
                 <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-brand-success/80">
                   {statusLabel}
                 </p>
               ) : null}
               {statusDetail ? (
-                <p className="mt-1 text-sm text-white/72">{statusDetail}</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">{statusDetail}</p>
               ) : null}
             </div>
           ) : null}
@@ -86,7 +86,7 @@ export function JourneyStudioPreviewShell({
       >
         <div
           className={cn(
-            'min-h-0 overflow-hidden rounded-[30px] border border-white/[0.07]',
+            'min-h-0 overflow-hidden rounded-[30px] border border-[var(--border-default)]',
             'bg-[linear-gradient(180deg,rgba(18,17,14,0.94),rgba(10,10,8,0.92))]',
             'shadow-[0_24px_60px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.04)]',
           )}

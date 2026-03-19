@@ -221,7 +221,7 @@ function StatTile({
   value: string;
 }): React.JSX.Element {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
         <Icon className="h-3.5 w-3.5 text-[var(--accent-cyan)]" />
         {label}
@@ -239,7 +239,7 @@ function SectionCard({
   children: ReactNode;
 }): React.JSX.Element {
   return (
-    <section className="rounded-2xl border border-white/10 bg-[var(--bg-surface)] p-4">
+    <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
       <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
         {title}
       </h4>
@@ -257,7 +257,7 @@ function DifficultyPill({ difficulty }: { difficulty?: string }): React.JSX.Elem
         ? 'border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.12)] text-[rgb(255,222,158)]'
         : normalized === 'high'
           ? 'border-[rgba(248,113,113,0.24)] bg-[rgba(248,113,113,0.12)] text-[rgb(255,198,198)]'
-          : 'border-white/10 bg-[var(--bg-hover)] text-text-secondary';
+          : 'border-[var(--border-default)] bg-[var(--bg-hover)] text-text-secondary';
 
   return (
     <span
@@ -285,8 +285,8 @@ function OpportunityTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10">
-      <div className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px] gap-3 border-b border-white/10 bg-[var(--bg-hover)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+    <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
+      <div className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px] gap-3 border-b border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
         <span>Keyword</span>
         <span className="text-right">Volume</span>
         <span className="text-right">CPC</span>
@@ -361,7 +361,7 @@ export function JourneyKeywordIntelDetail({
             {data.campaignGroups.map((group) => (
               <div
                 key={group.campaign}
-                className="rounded-xl border border-white/10 bg-[var(--bg-surface)] p-4"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -383,7 +383,7 @@ export function JourneyKeywordIntelDetail({
                   {group.adGroups.map((adGroup) => (
                     <div
                       key={adGroup.name}
-                      className="rounded-xl border border-white/10 bg-black/20 p-3"
+                      className="rounded-xl border border-[var(--border-default)] bg-black/20 p-3"
                     >
                       <div className="text-sm font-medium text-text-primary">
                         {adGroup.name}
@@ -436,7 +436,7 @@ export function JourneyKeywordIntelDetail({
               {data.recommendedStartingSet.map((keyword) => (
                 <div
                   key={`${keyword.keyword}-${keyword.adGroup}`}
-                  className="rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -470,7 +470,7 @@ export function JourneyKeywordIntelDetail({
               {data.competitorGaps.map((gap) => (
                 <div
                   key={`${gap.keyword}-${gap.competitorName}`}
-                  className="rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
                 >
                   <div className="text-sm font-medium text-text-primary">
                     {gap.keyword}
@@ -502,7 +502,7 @@ export function JourneyKeywordIntelDetail({
               {data.negativeKeywords.map((keyword) => (
                 <div
                   key={keyword.keyword}
-                  className="rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
                 >
                   <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
                     <ShieldBan className="h-4 w-4 text-[var(--accent-cyan)]" />
@@ -527,7 +527,7 @@ export function JourneyKeywordIntelDetail({
               {data.confidenceNotes.map((note) => (
                 <li
                   key={note}
-                  className="rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
                 >
                   {note}
                 </li>
@@ -547,7 +547,7 @@ export function JourneyKeywordIntelDetail({
             {data.quickWins.map((quickWin) => (
               <li
                 key={quickWin}
-                className="rounded-xl border border-white/10 bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
               >
                 {quickWin}
               </li>

@@ -37,7 +37,7 @@ export default async function IntegrationsPage() {
       <main className="flex-1 relative z-10">
         <div className="mx-auto max-w-5xl px-6 py-10">
           <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-white">
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
               API Integrations
             </h1>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">

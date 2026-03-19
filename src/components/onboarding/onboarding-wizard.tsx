@@ -384,7 +384,7 @@ export function OnboardingWizard({
         {/* Step Counter & Progress Bar - SaaSLaunch Style */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-[14px]">
-            <span className="font-medium" style={{ color: "rgb(252, 252, 250)" }}>
+            <span className="font-medium" style={{ color: "var(--text-primary)" }}>
               Step {currentStep + 1} of {STEPS.length}
             </span>
             <span style={{ color: "rgb(100, 105, 115)" }}>
@@ -394,7 +394,7 @@ export function OnboardingWizard({
           {/* Animated Progress Bar - SaaSLaunch primary blue */}
           <div
             className="h-1.5 rounded-full overflow-hidden"
-            style={{ background: "rgb(20, 23, 30)" }}
+            style={{ background: "var(--bg-hover)" }}
           >
             <motion.div
               className="h-full rounded-full"

@@ -142,8 +142,13 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
   const section: SectionKey = 'competitors';
 
   const competitors = asRecordArray(data.competitors);
+  const seenCompetitorNames = new Set<string>();
   for (const competitor of competitors) {
     const name = asString(competitor.name) ?? 'Unknown Competitor';
+    // Skip duplicate competitor entries (case-insensitive)
+    const nameKey = name.toLowerCase().trim();
+    if (seenCompetitorNames.has(nameKey)) continue;
+    seenCompetitorNames.add(nameKey);
     const adActivity = asRecord(competitor.adActivity);
     const threat = asRecord(competitor.threatAssessment);
     const libraryLinks = asRecord(competitor.libraryLinks);
@@ -168,22 +173,31 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
           }
         : undefined,
       adCreatives: Array.isArray(competitor.adCreatives)
-        ? (competitor.adCreatives as Array<Record<string, unknown>>)
-            .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
-            .map((c) => ({
-              platform: (asString(c.platform) ?? 'meta') as 'linkedin' | 'meta' | 'google',
-              id: asString(c.id) ?? '',
-              advertiser: asString(c.advertiser) ?? '',
-              headline: asString(c.headline),
-              body: asString(c.body),
-              imageUrl: asString(c.imageUrl),
-              videoUrl: asString(c.videoUrl),
-              format: (asString(c.format) ?? 'unknown') as 'video' | 'image' | 'carousel' | 'text' | 'message' | 'unknown',
-              isActive: c.isActive === true,
-              detailsUrl: asString(c.detailsUrl),
-              firstSeen: asString(c.firstSeen),
-              lastSeen: asString(c.lastSeen),
-            }))
+        ? (() => {
+            const deduped = new Set<string>();
+            return (competitor.adCreatives as Array<Record<string, unknown>>)
+              .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+              .map((c) => ({
+                platform: (asString(c.platform) ?? 'meta') as 'linkedin' | 'meta' | 'google',
+                id: asString(c.id) ?? '',
+                advertiser: asString(c.advertiser) ?? '',
+                headline: asString(c.headline),
+                body: asString(c.body),
+                imageUrl: asString(c.imageUrl),
+                videoUrl: asString(c.videoUrl),
+                format: (asString(c.format) ?? 'unknown') as 'video' | 'image' | 'carousel' | 'text' | 'message' | 'unknown',
+                isActive: c.isActive === true,
+                detailsUrl: asString(c.detailsUrl),
+                firstSeen: asString(c.firstSeen),
+                lastSeen: asString(c.lastSeen),
+              }))
+              .filter((ad) => {
+                const key = ad.id || `${ad.platform}|${(ad.headline ?? '').slice(0, 80)}|${(ad.body ?? '').slice(0, 80)}|${ad.imageUrl ?? ''}`;
+                if (deduped.has(key)) return false;
+                deduped.add(key);
+                return true;
+              });
+          })()
         : undefined,
       libraryLinks: libraryLinks
         ? {

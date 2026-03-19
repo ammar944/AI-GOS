@@ -5,6 +5,7 @@ import { Compass, FileText, ArrowRight, Plus, Sparkles } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { getCompletedJourneySessions } from '@/lib/actions/journey-sessions';
 import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
+import { DeleteSessionButton } from '@/components/research/delete-session-button';
 
 function formatDate(dateString: string): string {
   try {
@@ -33,7 +34,7 @@ export default async function DashboardPage() {
         <div className="mx-auto max-w-4xl w-full px-8 py-10">
           {/* Welcome header */}
           <div className="mb-10">
-            <h1 className="font-heading text-2xl font-bold tracking-[-0.03em] text-white">
+            <h1 className="font-heading text-2xl font-bold tracking-[-0.03em] text-[var(--text-primary)]">
               Command Center
             </h1>
             <p className="mt-1 text-sm text-[var(--text-tertiary)]">
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
                 <Compass className="size-5 text-[var(--accent-blue)]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-white group-hover:text-white transition-colors">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--text-primary)] transition-colors">
                   New Research
                 </h3>
                 <p className="text-[11px] text-[var(--text-quaternary)] mt-0.5">
@@ -63,13 +64,13 @@ export default async function DashboardPage() {
 
             <Link
               href="/research"
-              className="group flex items-center gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 transition-all hover:border-white/[0.1] hover:bg-[var(--bg-hover)] cursor-pointer"
+              className="group flex items-center gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)] cursor-pointer"
             >
               <div className="w-10 h-10 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center shrink-0">
                 <FileText className="size-5 text-[var(--text-tertiary)]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-white/80 group-hover:text-white transition-colors">
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                   View Research
                 </h3>
                 <p className="text-[11px] text-[var(--text-quaternary)] mt-0.5">
@@ -97,7 +98,7 @@ export default async function DashboardPage() {
             </div>
 
             {recentSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-[var(--border-glass)] bg-white/[0.01]">
+              <div className="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-[var(--border-glass)] bg-[var(--bg-glass-panel)]">
                 <div className="w-12 h-12 rounded-xl bg-[var(--bg-hover)] flex items-center justify-center mb-4">
                   <Sparkles className="size-5 text-[var(--text-quaternary)]" />
                 </div>
@@ -106,7 +107,7 @@ export default async function DashboardPage() {
                   Start your first journey to generate a strategic research document.
                 </p>
                 <Link href="/journey" className="mt-5">
-                  <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90">
+                  <button className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90">
                     <Plus className="size-3.5" />
                     Start Journey
                   </button>
@@ -120,24 +121,26 @@ export default async function DashboardPage() {
                   const isComplete = completedCount >= totalCount;
 
                   return (
-                    <Link
+                    <div
                       key={session.id}
-                      href={`/research/${session.id}`}
-                      className="group flex items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 transition-all hover:border-white/[0.1] hover:bg-[var(--bg-surface)] cursor-pointer"
+                      className="group flex items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 transition-all hover:border-[var(--border-default)] hover:bg-[var(--bg-surface)]"
                     >
-                      <div className="flex items-center gap-3">
+                      <Link
+                        href={`/research/${session.id}`}
+                        className="flex flex-1 items-center gap-3 cursor-pointer"
+                      >
                         <div className="w-8 h-8 rounded-lg bg-[var(--bg-hover)] flex items-center justify-center shrink-0">
                           <FileText className="size-3.5 text-[var(--text-quaternary)]" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">
+                          <h3 className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                             {session.title}
                           </h3>
                           <p className="text-[10px] text-[var(--text-quaternary)] mt-0.5 font-mono">
                             {formatDate(session.created_at)}
                           </p>
                         </div>
-                      </div>
+                      </Link>
                       <div className="flex items-center gap-3">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-mono ${
@@ -148,9 +151,12 @@ export default async function DashboardPage() {
                         >
                           {completedCount}/{totalCount}
                         </span>
-                        <ArrowRight className="size-3.5 text-[var(--text-quaternary)] group-hover:text-[var(--text-tertiary)] transition-colors" />
+                        <DeleteSessionButton sessionId={session.id} sessionTitle={session.title} />
+                        <Link href={`/research/${session.id}`}>
+                          <ArrowRight className="size-3.5 text-[var(--text-quaternary)] group-hover:text-[var(--text-tertiary)] transition-colors" />
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>

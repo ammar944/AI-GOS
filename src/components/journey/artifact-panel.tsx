@@ -269,7 +269,7 @@ function IndustryMarketDocument({ data }: { data: Record<string, unknown> }) {
                     'text-[10px] font-mono uppercase px-1.5 py-0.5 rounded',
                     trend.direction === 'rising' && 'bg-accent-green/10 text-accent-green',
                     trend.direction === 'declining' && 'bg-accent-red/10 text-accent-red',
-                    trend.direction === 'stable' && 'bg-white/5 text-text-tertiary',
+                    trend.direction === 'stable' && 'bg-[var(--bg-hover)] text-text-tertiary',
                   )}>
                     {String(trend.direction)}
                   </span>
@@ -910,7 +910,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
                     <img
                       src={imageUrl}
                       alt={title}
-                      className="w-full rounded-[var(--radius-control)] border border-white/10 bg-[var(--bg-surface)] object-cover"
+                      className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--bg-surface)] object-cover"
                     />
                   )}
                 </div>
@@ -1277,7 +1277,7 @@ export function ArtifactPanel({
                   className={cn(
                     'rounded-[var(--radius-control)] border px-4 py-2.5 text-sm font-medium transition-colors duration-200',
                     isComplete
-                      ? 'border-white/10 text-white/72 hover:bg-[var(--bg-hover)] hover:text-white'
+                      ? 'border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
                       : 'border-[var(--border-glass)] text-text-tertiary cursor-not-allowed',
                   )}
                 >

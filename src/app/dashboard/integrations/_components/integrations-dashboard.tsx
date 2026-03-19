@@ -152,7 +152,7 @@ export function IntegrationsDashboard() {
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
               "bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-secondary)]",
-              "hover:bg-white/[0.09] hover:text-white transition-colors duration-150",
+              "hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors duration-150",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >

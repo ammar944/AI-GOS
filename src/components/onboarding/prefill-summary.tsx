@@ -178,7 +178,7 @@ function FieldRow({
               </a>
             )}
           </div>
-          <p className="text-[13px] mt-0.5" style={{ color: "rgb(252, 252, 250)" }}>
+          <p className="text-[13px] mt-0.5" style={{ color: "var(--text-primary)" }}>
             {truncateValue(field.value)}
           </p>
 
@@ -291,7 +291,7 @@ export function PrefillSummary({ result, onAcceptSelected, onDismiss }: PrefillS
           <CheckCircle className="h-4 w-4" style={{ color: "rgb(34, 197, 94)" }} />
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="text-[14px] font-medium" style={{ color: "rgb(252, 252, 250)" }}>
+          <h4 className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
             AI Research Complete
           </h4>
           <p className="text-[13px] mt-0.5" style={{ color: "rgb(155, 160, 170)" }}>

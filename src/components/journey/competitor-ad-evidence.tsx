@@ -196,7 +196,7 @@ function AdCreativeCard({ creative }: { creative: AdCreative }) {
     <div
       className={cn(
         'flex min-w-[280px] max-w-[320px] flex-none snap-start flex-col overflow-hidden transition-all duration-200',
-        'rounded-[var(--radius-lg)] border border-white/10 bg-[var(--bg-surface)] hover:border-white/20',
+        'rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-white/20',
       )}
     >
       {/* Media section — always rendered */}
@@ -312,7 +312,7 @@ function LibraryLink({ href, label }: { href: string; label: string }) {
       rel="noopener noreferrer"
       className={cn(
         'inline-flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all duration-200',
-        'rounded-[var(--radius-md)] border border-white/10 bg-[var(--bg-surface)] hover:border-white/20 hover:bg-[var(--bg-hover)]',
+        'rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-white/20 hover:bg-[var(--bg-hover)]',
       )}
       style={{ color: 'var(--text-secondary)' }}
       data-testid={`library-link-${label.toLowerCase().replace(/\s+/g, '-')}`}

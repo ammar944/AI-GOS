@@ -67,7 +67,7 @@ export function IntegrationCard({
         aria-expanded={expanded}
       >
         <div className="flex flex-col gap-0.5 min-w-0">
-          <span className="text-sm font-semibold text-white truncate">
+          <span className="text-sm font-semibold text-[var(--text-primary)] truncate">
             {name}
           </span>
           <span className="text-xs text-[var(--text-tertiary)] truncate">{purpose}</span>

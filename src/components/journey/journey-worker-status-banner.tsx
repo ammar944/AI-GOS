@@ -48,13 +48,13 @@ export function JourneyWorkerStatusBanner({
     <div
       data-testid="journey-worker-status-banner"
       className={cn(
-        'rounded-2xl border border-white/10 bg-[var(--bg-surface)] px-4 py-4',
+        'rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-4',
         className,
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/45">
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-secondary)]">
             Research Operations
           </p>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -78,7 +78,7 @@ export function JourneyWorkerStatusBanner({
               <p className={cn('text-[11px] font-mono uppercase tracking-[0.16em]', tone.badge)}>
                 {item.title}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-white/72">
+              <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                 {item.detail}
               </p>
             </div>

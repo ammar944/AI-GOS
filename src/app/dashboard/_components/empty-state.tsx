@@ -69,7 +69,7 @@ export function EmptyState({
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center py-20 px-6 text-center rounded-xl border border-white/[0.05] bg-white/[0.01]"
+      className="flex flex-col items-center justify-center py-20 px-6 text-center rounded-xl border border-[var(--border-glass)] bg-[var(--bg-glass-panel)]"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springs.gentle}
@@ -79,7 +79,7 @@ export function EmptyState({
         <Icon className="size-7 text-blue-400/60" />
       </div>
 
-      <h3 className="font-heading font-semibold text-lg text-white">{title}</h3>
+      <h3 className="font-heading font-semibold text-lg text-[var(--text-primary)]">{title}</h3>
 
       {variant === "search" && searchQuery && (
         <p className="mt-2 text-[13px] text-[var(--text-tertiary)]">
@@ -108,7 +108,7 @@ export function EmptyState({
           <Button
             variant="outline"
             size="default"
-            className="border-[var(--border-default)] hover:border-white/[0.15] text-[var(--text-secondary)] hover:text-white"
+            className="border-[var(--border-default)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             onClick={() => onSwitchTab("blueprints")}
           >
             View Blueprints
@@ -128,7 +128,7 @@ export function EmptyState({
           <Button
             variant="outline"
             size="default"
-            className="border-[var(--border-default)] hover:border-white/[0.15] text-[var(--text-secondary)] hover:text-white"
+            className="border-[var(--border-default)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             onClick={onClearSearch}
           >
             Clear Search

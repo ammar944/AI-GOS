@@ -123,7 +123,7 @@ export function UnifiedFieldReview({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.21, 0.45, 0.27, 0.9] }}
           >
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-white">
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-foreground">
               Review your data
             </h2>
             <p className="mt-2 text-sm text-[var(--text-tertiary)]">
@@ -139,7 +139,7 @@ export function UnifiedFieldReview({
             transition={{ delay: 0.15, duration: 0.4 }}
           >
             <div className="flex items-center gap-2 text-[13px]">
-              <span className="font-medium text-white/80">
+              <span className="font-medium text-[var(--text-secondary)]">
                 Step {activeGroupIndex + 1} of {JOURNEY_FIELD_GROUPS.length}
               </span>
               <span className="text-[var(--text-quaternary)]">&middot;</span>
@@ -195,7 +195,7 @@ export function UnifiedFieldReview({
                       onClick={() => setActiveGroupIndex(index)}
                       className={cn(
                         'relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-200 cursor-pointer',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(54,94,255)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(7,9,14)]',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]',
                         'hover:scale-110',
                       )}
                       style={{
@@ -252,7 +252,7 @@ export function UnifiedFieldReview({
                     </span>
 
                     {/* Fill count */}
-                    <span className="text-[9px] font-mono tabular-nums" style={{ color: 'rgba(255, 255, 255, 0.3)' }}>
+                    <span className="text-[9px] font-mono tabular-nums" style={{ color: 'var(--text-quaternary)' }}>
                       {gp.filled}/{gp.total}
                     </span>
                   </div>
@@ -275,10 +275,10 @@ export function UnifiedFieldReview({
                     className={cn(
                       'flex items-center gap-1.5 px-3 py-2 rounded-full text-[12px] font-medium whitespace-nowrap transition-all shrink-0 cursor-pointer',
                       isActive
-                        ? 'bg-white text-black'
+                        ? 'bg-foreground text-background'
                         : isComplete
                           ? 'bg-[rgb(54,94,255)]/15 text-[rgb(54,94,255)] border border-[rgb(54,94,255)]/20'
-                          : 'bg-white/5 text-[var(--text-secondary)] border border-[var(--border-default)]',
+                          : 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-default)]',
                     )}
                   >
                     {isComplete && !isActive && (
@@ -388,7 +388,7 @@ export function UnifiedFieldReview({
             {activeGroupIndex > 0 && (
               <button
                 onClick={() => setActiveGroupIndex((prev) => prev - 1)}
-                className="cursor-pointer h-10 rounded-full border border-white/10 text-[var(--text-secondary)] font-medium text-[13px] px-5 transition-all hover:border-white/20 hover:text-white/80"
+                className="cursor-pointer h-10 rounded-full border border-[var(--border-default)] text-[var(--text-secondary)] font-medium text-[13px] px-5 transition-all hover:border-white/20 hover:text-[var(--text-secondary)]"
               >
                 Back
               </button>
@@ -397,7 +397,7 @@ export function UnifiedFieldReview({
             {activeGroupIndex < JOURNEY_FIELD_GROUPS.length - 1 ? (
               <button
                 onClick={() => setActiveGroupIndex((prev) => prev + 1)}
-                className="cursor-pointer h-10 rounded-full bg-white text-black font-semibold text-[13px] px-6 transition-all hover:bg-white/90"
+                className="cursor-pointer h-10 rounded-full bg-foreground text-background font-semibold text-[13px] px-6 transition-all hover:bg-foreground/90"
               >
                 Next Section
               </button>
@@ -408,7 +408,7 @@ export function UnifiedFieldReview({
                 className={cn(
                   'cursor-pointer h-10 rounded-full font-semibold text-[13px] px-6 transition-all',
                   gateStatus.ready && !isStarting
-                    ? 'bg-white text-black hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]'
+                    ? 'bg-foreground text-background hover:bg-foreground/90 hover:shadow-lg'
                     : 'bg-[var(--bg-hover)] text-[var(--text-quaternary)] cursor-not-allowed',
                 )}
               >

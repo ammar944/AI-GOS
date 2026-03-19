@@ -208,7 +208,7 @@ function LoadingCard({
         </div>
       </div>
       <h3 className="text-lg font-medium mb-2 text-brand-accent">{meta.label}</h3>
-      <div className="space-y-2 text-xs font-mono text-white/55 leading-relaxed">
+      <div className="space-y-2 text-xs font-mono text-[var(--text-secondary)] leading-relaxed">
         <p>[LIVE] Research dispatched from Journey.</p>
         <p>{activity?.startedAt ? `[RUN] Started ${startedAgo ?? 'just now'} ago.` : '[WAIT] Waiting for worker pickup.'}</p>
         {latestUpdate && (
@@ -287,7 +287,7 @@ function CompleteCard({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="mt-3 pt-3 border-t border-white/5">
+            <div className="mt-3 pt-3 border-t border-[var(--border-glass)]">
               <button
                 onClick={onViewFull}
                 className="w-full py-2 text-[11px] text-brand-accent border border-brand-accent/20 rounded-lg hover:bg-brand-accent/5 transition-colors"

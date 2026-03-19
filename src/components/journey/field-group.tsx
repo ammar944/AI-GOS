@@ -128,7 +128,7 @@ export function FieldGroup({
             transition={{ duration: 0.18 }}
             className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-[var(--border-glass)] opacity-40"
           >
-            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-dashed border-white/10">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-dashed border-[var(--border-default)]">
               <span className="text-[10px] font-mono text-[var(--text-quaternary)]">
                 {groupIndex + 1}
               </span>

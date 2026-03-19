@@ -43,7 +43,7 @@ export default function Home() {
           <Link href="/sign-in">
             <Button
               size="sm"
-              className="cursor-pointer rounded-full bg-white text-black text-[13px] font-semibold px-5 h-9 transition-all hover:bg-white/90 hover:shadow-[0_4px_16px_rgba(255,255,255,0.06)]"
+              className="cursor-pointer rounded-full bg-foreground text-background text-[13px] font-semibold px-5 h-9 transition-all hover:bg-foreground/90 hover:shadow-md"
             >
               Sign In
             </Button>
@@ -66,7 +66,7 @@ export default function Home() {
           </div>
 
           {/* Headline */}
-          <h1 className="font-heading text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl md:text-6xl lg:text-7xl animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 fill-mode-backwards">
+          <h1 className="font-heading text-4xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-5xl md:text-6xl lg:text-7xl animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 fill-mode-backwards">
             Your paid media
             <br />
             <span className="text-[var(--accent-blue)]">command center.</span>
@@ -83,7 +83,7 @@ export default function Home() {
             <Link href="/journey">
               <Button
                 size="lg"
-                className="cursor-pointer group h-12 rounded-full bg-white text-black font-semibold text-[15px] px-8 shadow-[0_0_0_1px_rgba(255,255,255,0.1)] transition-all duration-200 hover:bg-white/90 hover:shadow-[0_8px_30px_rgba(255,255,255,0.08)]"
+                className="cursor-pointer group h-12 rounded-full bg-foreground text-background font-semibold text-[15px] px-8 shadow-sm transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"
               >
                 Start Journey
                 <ArrowRight className="ml-1.5 size-4 transition-transform group-hover:translate-x-0.5" />

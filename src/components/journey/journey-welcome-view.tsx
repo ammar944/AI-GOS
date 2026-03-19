@@ -76,7 +76,7 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
             </div>
             <h3 className="text-lg font-medium mb-2 text-brand-accent">Competitor Intel</h3>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">Scraping G2 reviews and pricing pages for direct competitors...</p>
-            <div className="mt-4 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+            <div className="mt-4 h-1.5 w-full bg-[var(--bg-hover)] rounded-full overflow-hidden">
               <div className="bg-brand-accent h-full w-[45%]" />
             </div>
           </div>
@@ -95,7 +95,7 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
 
         {/* AI Response (Chat Style) */}
         <div className="max-w-3xl mx-auto pl-6 border-l-2 border-brand-accent/40 py-2" data-purpose="ai-response">
-          <p className="text-white/80 leading-relaxed font-light text-lg">
+          <p className="text-[var(--text-secondary)] leading-relaxed font-light text-lg">
             &ldquo;I&rsquo;ve identified a significant gap in mid-market serverless monitoring. While Enterprise tools exist, Series A startups are currently overpaying for features they don&rsquo;t use. I recommend focusing our first blueprint on &lsquo;Lean Infrastructure Observability&rsquo;.&rdquo;
           </p>
         </div>

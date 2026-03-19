@@ -23,7 +23,7 @@ const PALETTE = ['#6366f1', '#22d3ee', '#f59e0b', '#10b981', '#ef4444'];
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'rgba(0,0,0,0.75)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  border: '1px solid var(--border-default)',
   borderRadius: '6px',
   color: 'var(--text-primary)',
   fontSize: 12,

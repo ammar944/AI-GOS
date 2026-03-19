@@ -104,7 +104,7 @@ export function ComparisonTableCard({ data }: ComparisonTableCardProps) {
                   <tr
                     key={rowIdx}
                     style={{
-                      background: rowIdx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                      background: rowIdx % 2 === 0 ? 'transparent' : 'var(--bg-surface)',
                     }}
                   >
                     {headers.map((header, colIdx) => {
