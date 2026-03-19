@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Compass, FileText, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
-import { Logo, LogoMark } from '@/components/ui/logo';
+import { Logo } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 import { useOptionalShell } from '@/components/shell/shell-provider';
@@ -67,28 +67,38 @@ export function AppSidebar() {
         expanded ? 'w-48' : 'w-14',
       )}
     >
-      {/* Top: Collapse toggle + Logo */}
-      <div className="flex flex-col px-2 mb-4">
-        {/* Collapse/expand toggle — top right corner */}
-        {shell && (
-          <div className={cn('flex', expanded ? 'justify-end px-1' : 'justify-center')}>
-            <button
-              type="button"
-              onClick={shell.toggleSidebar}
-              title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
-            >
-              {expanded ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
-            </button>
-          </div>
-        )}
+      {/* Header row: Logo + Collapse toggle inline (Linear/Notion pattern) */}
+      <div className={cn('flex items-center px-3 mb-4 h-10', expanded ? 'justify-between' : 'justify-center')}>
+        {expanded ? (
+          <>
+            {/* Full logo when expanded */}
+            <Link href="/dashboard" className="transition-opacity hover:opacity-80 flex items-center min-w-0">
+              <Logo size="md" className="shadow-none" />
+            </Link>
 
-        {/* Logo — centered, bigger */}
-        <div className="flex items-center justify-center py-2">
-          <Link href="/dashboard" className="transition-opacity hover:opacity-80">
-            <Logo size={expanded ? 'md' : 'sm'} className="shadow-none" />
-          </Link>
-        </div>
+            {/* Collapse button — right side of header row */}
+            {shell && (
+              <button
+                type="button"
+                onClick={shell.toggleSidebar}
+                title="Collapse sidebar"
+                className="flex items-center justify-center w-7 h-7 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150 shrink-0 ml-1"
+              >
+                <PanelLeftClose size={15} />
+              </button>
+            )}
+          </>
+        ) : (
+          /* Collapsed: logomark as expand trigger */
+          <button
+            type="button"
+            onClick={shell?.toggleSidebar}
+            title="Expand sidebar"
+            className="flex items-center justify-center w-8 h-8 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
+          >
+            <PanelLeft size={16} />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
