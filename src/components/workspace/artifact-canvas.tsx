@@ -295,8 +295,9 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         </AnimatePresence>
       </div>
 
-      {/* Show "Looks good" for research sections in review phase (not media plan — handled below) */}
-      {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && state.currentSection !== 'mediaPlan' && (
+      {/* Show approve footer for research sections in review phase.
+          Excludes mediaPlan (handled below) and crossAnalysis (auto-approved by "Generate Media Plan"). */}
+      {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && state.currentSection !== 'mediaPlan' && state.currentSection !== 'crossAnalysis' && (
         <ArtifactFooter variant="approve" onApprove={approveSection} />
       )}
 
@@ -310,9 +311,9 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         />
       )}
 
-      {/* Media plan in review — show approve only if not already all done */}
+      {/* Media plan in review — show save & finish only if not already all done */}
       {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && !allDone && (
-        <ArtifactFooter variant="approve" onApprove={approveSection} />
+        <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Save & Finish →" />
       )}
 
       {/* All 7 sections done — single completion footer */}

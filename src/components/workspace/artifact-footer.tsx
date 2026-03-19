@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface ArtifactFooterProps {
   variant?: 'approve' | 'complete';
   onApprove?: () => void;
+  approveLabel?: string;
   onGenerateMediaPlan?: () => void;
   mediaPlanGenerating?: boolean;
   disabled?: boolean;
@@ -16,6 +17,7 @@ interface ArtifactFooterProps {
 export function ArtifactFooter({
   variant = 'approve',
   onApprove,
+  approveLabel = 'Looks good \u2192',
   onGenerateMediaPlan,
   mediaPlanGenerating,
   disabled,
@@ -84,7 +86,7 @@ export function ArtifactFooter({
           'disabled:opacity-50 disabled:cursor-not-allowed',
         )}
       >
-        Looks good &rarr;
+        {approveLabel}
       </button>
     </div>
   );

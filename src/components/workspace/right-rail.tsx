@@ -99,9 +99,8 @@ interface RightRailProps {
 }
 
 export function RightRail({ className }: RightRailProps) {
-  const { state, approveSection, updateCard } = useWorkspace();
+  const { state, updateCard } = useWorkspace();
   const meta = SECTION_META[state.currentSection] ?? DEFAULT_SECTION_META;
-  const isReviewable = state.sectionStates[state.currentSection] === 'review';
 
   const [input, setInput] = useState('');
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
@@ -247,22 +246,10 @@ export function RightRail({ className }: RightRailProps) {
       const trimmed = input.trim();
       if (!trimmed || isStreaming) return;
 
-      // "Looks good" shortcut
-      if (trimmed.toLowerCase() === 'looks good') {
-        approveSection();
-        setLocalMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), role: 'user', text: trimmed },
-          { id: crypto.randomUUID(), role: 'assistant', text: 'Section approved \u2713' },
-        ]);
-        setInput('');
-        return;
-      }
-
       sendMessage({ text: trimmed });
       setInput('');
     },
-    [input, isStreaming, approveSection, sendMessage],
+    [input, isStreaming, sendMessage],
   );
 
   const handleKeyDown = useCallback(
@@ -526,21 +513,6 @@ export function RightRail({ className }: RightRailProps) {
 
       {/* Input area */}
       <div className="border-t border-[var(--border-subtle)] p-3 space-y-2">
-        {/* Approve button — only when section is reviewable */}
-        {isReviewable && (
-          <button
-            type="button"
-            onClick={approveSection}
-            className={cn(
-              'w-full rounded-xl bg-[var(--accent-blue)] px-4 py-2',
-              'text-[13px] font-semibold text-white',
-              'transition-all hover:bg-[var(--accent-blue)]/90 hover:shadow-md',
-            )}
-          >
-            Looks good &rarr;
-          </button>
-        )}
-
         {/* Chat input */}
         <form onSubmit={handleSubmit} className="relative">
           <div
