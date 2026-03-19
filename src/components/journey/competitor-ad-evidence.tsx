@@ -337,6 +337,20 @@ export function CompetitorAdEvidence({
       libraryLinks.linkedInLibraryUrl ||
       libraryLinks.googleAdvertiserUrl);
 
+  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
+  const [formatFilter, setFormatFilter] = useState<string | null>(null);
+
+  // Derive available platforms and formats from the actual creatives
+  const platforms = [...new Set(displayedCreatives.map((c) => c.platform))];
+  const formats = [...new Set(displayedCreatives.map((c) => c.format).filter((f) => f && f !== 'unknown'))];
+
+  // Apply filters
+  const filteredCreatives = displayedCreatives.filter((c) => {
+    if (platformFilter && c.platform !== platformFilter) return false;
+    if (formatFilter && c.format !== formatFilter) return false;
+    return true;
+  });
+
   if (!hasCreatives && !hasLinks) {
     return null;
   }
@@ -360,6 +374,75 @@ export function CompetitorAdEvidence({
         </div>
       )}
 
+      {/* Filter pills */}
+      {hasCreatives && (platforms.length > 1 || formats.length > 1) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* "All" pill */}
+          <button
+            type="button"
+            onClick={() => { setPlatformFilter(null); setFormatFilter(null); }}
+            className={cn(
+              'rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150 cursor-pointer border',
+              !platformFilter && !formatFilter
+                ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] border-[var(--accent-blue)]/30'
+                : 'bg-transparent text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-[var(--text-secondary)] hover:border-[var(--border-default)]',
+            )}
+          >
+            All ({displayedCreatives.length})
+          </button>
+
+          {/* Platform pills */}
+          {platforms.map((p) => {
+            const color = PLATFORM_COLORS[p] ?? 'rgba(255,255,255,0.4)';
+            const label = PLATFORM_LABELS[p] ?? p;
+            const count = displayedCreatives.filter((c) => c.platform === p).length;
+            const isActive = platformFilter === p;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => { setPlatformFilter(isActive ? null : p); setFormatFilter(null); }}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150 cursor-pointer border',
+                  isActive
+                    ? 'border-opacity-30'
+                    : 'bg-transparent text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-[var(--text-secondary)] hover:border-[var(--border-default)]',
+                )}
+                style={isActive ? { background: `${color}18`, color, borderColor: `${color}40` } : undefined}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+
+          {/* Divider */}
+          {formats.length > 1 && platforms.length > 1 && (
+            <span className="h-3 w-px mx-0.5" style={{ background: 'var(--border-subtle)' }} />
+          )}
+
+          {/* Format pills */}
+          {formats.length > 1 && formats.map((f) => {
+            const count = displayedCreatives.filter((c) => c.format === f).length;
+            const isActive = formatFilter === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => { setFormatFilter(isActive ? null : f); setPlatformFilter(null); }}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[11px] font-medium capitalize transition-all duration-150 cursor-pointer border',
+                  isActive
+                    ? 'bg-white/10 text-[var(--text-primary)] border-white/20'
+                    : 'bg-transparent text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-[var(--text-secondary)] hover:border-[var(--border-default)]',
+                )}
+              >
+                {f} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Horizontal scroll carousel */}
       {hasCreatives && (
         <div
@@ -369,7 +452,7 @@ export function CompetitorAdEvidence({
             scrollPaddingLeft: '0px',
           }}
         >
-          {displayedCreatives.map((creative) => (
+          {filteredCreatives.map((creative) => (
             <AdCreativeCard key={creative.id} creative={creative} />
           ))}
         </div>
