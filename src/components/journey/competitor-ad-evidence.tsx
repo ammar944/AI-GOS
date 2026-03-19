@@ -329,7 +329,17 @@ export function CompetitorAdEvidence({
   adCreatives,
   libraryLinks,
 }: CompetitorAdEvidenceProps) {
-  const displayedCreatives = adCreatives ? adCreatives.slice(0, 20) : [];
+  // Deduplicate ads by id, then by headline+platform combo for ads without unique IDs
+  const displayedCreatives = (() => {
+    if (!adCreatives) return [];
+    const seen = new Set<string>();
+    return adCreatives.filter((c) => {
+      const key = c.id || `${c.platform}-${c.headline ?? ''}-${c.imageUrl ?? ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 20);
+  })();
   const hasCreatives = displayedCreatives.length > 0;
   const hasLinks =
     libraryLinks &&
