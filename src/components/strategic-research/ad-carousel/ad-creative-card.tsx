@@ -20,6 +20,18 @@ interface AdCreativeCardProps {
   ad: EnrichedAdCreative;
 }
 
+/**
+ * Resolves template variables in ad text (e.g., {{product.name}}, {{product.brand}})
+ * by replacing them with the advertiser name.
+ */
+function resolveAdTemplateVars(text: string | undefined, advertiser: string): string | undefined {
+  if (!text) return text;
+  return text
+    .replace(/\{\{product\.name\}\}/gi, advertiser)
+    .replace(/\{\{product\.brand\}\}/gi, advertiser)
+    .replace(/\{\{product\.[^}]+\}\}/gi, advertiser);
+}
+
 export function AdCreativeCard({ ad }: AdCreativeCardProps) {
   const platformColor = PLATFORM_COLORS[ad.platform];
   const platformLabel = PLATFORM_LABELS[ad.platform];
@@ -98,12 +110,12 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
               {/* Message content preview */}
               {ad.headline && (
                 <p className="text-base font-medium leading-relaxed" style={{ color: 'var(--text-heading)' }}>
-                  {ad.headline}
+                  {resolveAdTemplateVars(ad.headline, ad.advertiser)}
                 </p>
               )}
               {ad.body && (
                 <p className="text-sm leading-relaxed line-clamp-6" style={{ color: 'var(--text-secondary)' }}>
-                  {ad.body}
+                  {resolveAdTemplateVars(ad.body, ad.advertiser)}
                 </p>
               )}
 
@@ -240,14 +252,14 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
         {/* Headline - don't repeat for text/message ads since it's in the preview */}
         {ad.headline && ad.format !== 'text' && ad.format !== 'message' && (
           <h3 className="text-lg font-semibold leading-snug line-clamp-2" style={{ color: 'var(--text-heading)' }}>
-            {ad.headline}
+            {resolveAdTemplateVars(ad.headline, ad.advertiser)}
           </h3>
         )}
 
         {/* Body Text - don't repeat for text/message ads since it's in the preview */}
         {ad.body && ad.format !== 'text' && ad.format !== 'message' && (
           <p className="text-sm leading-relaxed line-clamp-3" style={{ color: 'var(--text-secondary)' }}>
-            {ad.body}
+            {resolveAdTemplateVars(ad.body, ad.advertiser)}
           </p>
         )}
 
