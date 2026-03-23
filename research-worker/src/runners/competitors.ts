@@ -21,7 +21,7 @@ const COMPETITORS_REPAIR_MODEL =
   'claude-sonnet-4-6';
 const COMPETITORS_RESCUE_MODEL =
   process.env.RESEARCH_COMPETITORS_RESCUE_MODEL ?? COMPETITORS_REPAIR_MODEL;
-const COMPETITORS_PRIMARY_MAX_TOKENS = 5600;
+const COMPETITORS_PRIMARY_MAX_TOKENS = 4200;
 const COMPETITORS_REPAIR_MAX_TOKENS = 4200;
 const COMPETITORS_RESCUE_MAX_TOKENS = 4200;
 const COMPETITORS_PRIMARY_TIMEOUT_MS = 180_000;
@@ -635,6 +635,7 @@ async function runCompetitorToolAttempt(
         runStreamedToolRunner(runner, {
           onProgress,
           synthesisMessage: config.synthesisMessage,
+          maxToolIterations: 4,
         }),
         new Promise<never>((_, reject) =>
           setTimeout(

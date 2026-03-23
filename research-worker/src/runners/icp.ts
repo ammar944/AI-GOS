@@ -12,7 +12,7 @@ import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
 
 const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? 'claude-sonnet-4-6';
-const ICP_MAX_TOKENS = 5200;
+const ICP_MAX_TOKENS = 3800;
 const ICP_TIMEOUT_MS = 120_000;
 
 const ICP_SYSTEM_PROMPT = `You are an expert ICP analyst validating whether a target audience is viable for paid media.
@@ -106,6 +106,7 @@ export async function runResearchICP(
           runStreamedToolRunner(runner, {
             onProgress,
             synthesisMessage: 'synthesizing ICP validation',
+            maxToolIterations: 3,
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Sub-agent timed out after ${ICP_TIMEOUT_MS / 1000}s`)), ICP_TIMEOUT_MS)),
         ]);

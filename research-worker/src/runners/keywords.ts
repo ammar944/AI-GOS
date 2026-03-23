@@ -21,7 +21,7 @@ const KEYWORDS_HEURISTIC_MODEL =
   process.env.RESEARCH_KEYWORDS_HEURISTIC_MODEL ?? KEYWORDS_REPAIR_MODEL;
 const KEYWORDS_RESCUE_MODEL =
   process.env.RESEARCH_KEYWORDS_RESCUE_MODEL ?? KEYWORDS_REPAIR_MODEL;
-const KEYWORDS_PRIMARY_MAX_TOKENS = 6000;
+const KEYWORDS_PRIMARY_MAX_TOKENS = 4500;
 const KEYWORDS_REPAIR_MAX_TOKENS = 4500;
 const KEYWORDS_HEURISTIC_MAX_TOKENS = 3500;
 const KEYWORDS_RESCUE_MAX_TOKENS = 2800;
@@ -110,10 +110,10 @@ const KEYWORDS_PRIMARY_SYSTEM_PROMPT = `You are a paid search keyword intelligen
 TASK: Find the highest-value paid search keyword opportunities for this business.
 
 RESEARCH FOCUS:
-1. Competitor alternative terms ("[competitor] alternative", "[competitor] pricing")
-2. Category-intent terms ("b2b saas demand generation agency", "saas paid media agency")
-3. Pain-point terms tied to buyer language ("lower CAC", "pipeline attribution", "stop MQLs")
-4. Long-tail terms with clear commercial intent
+1. Competitor alternative terms ("[competitor] alternative", "[competitor] vs [client]", "[competitor] pricing")
+2. Category-intent terms that match the business's actual industry and offer (e.g., "[industry] [service/product] near me", "[category] [solution] for [audience]")
+3. Pain-point terms tied to the specific buyer language found in the research context (use the ICP and offer analysis to identify real pain points, not generic ones)
+4. Long-tail terms with clear commercial intent relevant to this business type
 
 TOOL USAGE:
 - Use the spyfu tool once when it can add live keyword or competitor evidence
@@ -1097,6 +1097,7 @@ async function runKeywordToolAttempt(
         runStreamedToolRunner(runner, {
           onProgress,
           synthesisMessage: config.synthesisMessage,
+          maxToolIterations: 3,
         }),
         new Promise<never>((_, reject) =>
           setTimeout(

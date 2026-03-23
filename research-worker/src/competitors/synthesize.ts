@@ -176,7 +176,7 @@ ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
       const tp = rev.trustpilot;
       const ratingStr = tp.rating !== null ? `${tp.rating}/5` : 'N/A';
       const countStr = tp.reviewCount !== null ? `${tp.reviewCount.toLocaleString()} reviews` : 'count unknown';
-      const themesStr = tp.recentThemes.length > 0 ? ` — themes: ${tp.recentThemes.join(', ')}` : '';
+      const themesStr = Array.isArray(tp.recentThemes) && tp.recentThemes.length > 0 ? ` — themes: ${tp.recentThemes.join(', ')}` : '';
       parts.push(`Trustpilot: ${ratingStr} (${countStr})${themesStr}`);
     } else {
       parts.push('Trustpilot: No data available');
@@ -186,7 +186,7 @@ ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
       const g2 = rev.g2;
       const ratingStr = g2.rating !== null ? `${g2.rating}/5` : 'N/A';
       const countStr = g2.reviewCount !== null ? `${g2.reviewCount.toLocaleString()} reviews` : 'count unknown';
-      const catsStr = g2.categories.length > 0 ? ` — categories: ${g2.categories.join(', ')}` : '';
+      const catsStr = Array.isArray(g2.categories) && g2.categories.length > 0 ? ` — categories: ${g2.categories.join(', ')}` : '';
       parts.push(`G2: ${ratingStr} (${countStr})${catsStr}`);
     } else {
       parts.push('G2: No data available');
@@ -201,19 +201,19 @@ ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
 
   // 7. Sonar Pro review intelligence
   sections.push('## Sonar Pro Review Intelligence');
-  if (sonarResults.competitorInsights.length > 0) {
+  if (Array.isArray(sonarResults.competitorInsights) && sonarResults.competitorInsights.length > 0) {
     for (const insight of sonarResults.competitorInsights) {
       sections.push(`### ${insight.name}
 Positioning: ${insight.positioning ?? 'N/A'}
-Review Strengths: ${(insight.reviewStrengths ?? []).join(', ') || 'N/A'}
-Review Weaknesses: ${(insight.reviewWeaknesses ?? []).join(', ') || 'N/A'}
-Switching Triggers: ${(insight.switchingTriggers ?? []).join(', ') || 'N/A'}
+Review Strengths: ${Array.isArray(insight.reviewStrengths) ? insight.reviewStrengths.join(', ') : 'N/A'}
+Review Weaknesses: ${Array.isArray(insight.reviewWeaknesses) ? insight.reviewWeaknesses.join(', ') : 'N/A'}
+Switching Triggers: ${Array.isArray(insight.switchingTriggers) ? insight.switchingTriggers.join(', ') : 'N/A'}
 Market Perception: ${insight.marketPerception ?? 'N/A'}`);
     }
-    if (sonarResults.marketPatterns?.length > 0) {
+    if (Array.isArray(sonarResults.marketPatterns) && sonarResults.marketPatterns.length > 0) {
       sections.push(`Market Patterns: ${sonarResults.marketPatterns.join('; ')}`);
     }
-    if (sonarResults.whiteSpaceOpportunities?.length > 0) {
+    if (Array.isArray(sonarResults.whiteSpaceOpportunities) && sonarResults.whiteSpaceOpportunities.length > 0) {
       sections.push(`White Space: ${sonarResults.whiteSpaceOpportunities.join('; ')}`);
     }
   } else {
@@ -221,9 +221,9 @@ Market Perception: ${insight.marketPerception ?? 'N/A'}`);
   }
 
   // 8. Citations from Sonar
-  if (sonarResults.citations.length > 0) {
+  if (Array.isArray(sonarResults.citations) && sonarResults.citations.length > 0) {
     sections.push(`## Citations from Sonar Pro
-${sonarResults.citations.map(c => `- ${c.title}: ${c.url}`).join('\n')}`);
+${sonarResults.citations.map(c => `- ${c?.title ?? 'Untitled'}: ${c?.url ?? 'N/A'}`).join('\n')}`);
   }
 
   return sections.join('\n\n');

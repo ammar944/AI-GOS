@@ -109,7 +109,7 @@ function stripNumericConstraints<T extends z.ZodType>(schema: T): T {
 }
 
 const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 8000;
+const MAX_TOKENS = 5000;
 
 const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data and research results. Do not infer unsupported facts. All benchmark numbers must be labeled as 'industry benchmark'.`;
 
@@ -178,134 +178,178 @@ export async function runMediaPlan(
 
   console.log(`[media-plan] Starting 6-block generation for industry: ${industry}`);
 
+  // Block generation helper — generates, validates, and stores a single block
+  const generateBlock = async (
+    block: BlockConfig,
+    blockNum: number,
+  ): Promise<void> => {
+    await emitRunnerProgress(onProgress, 'runner', `generating block ${blockNum}/6: ${block.label}`);
+    const blockDescriptions: Record<string, string[]> = {
+      channelMixBudget: ['Allocating budget across paid channels', 'Calculating channel-level CPM and CPC benchmarks'],
+      audienceCampaign: ['Designing audience segments and targeting layers', 'Structuring campaign hierarchy and naming conventions'],
+      creativeSystem: ['Defining ad format matrix and creative variants', 'Setting copy frameworks and CTA sequences'],
+      measurementGuardrails: ['Building KPI framework and CAC model', 'Setting performance guardrails and alert thresholds'],
+      rolloutRoadmap: ['Planning phased launch timeline', 'Allocating budget across rollout phases'],
+      strategySnapshot: ['Compiling executive strategy summary', 'Generating strategic recommendations'],
+    };
+    for (const desc of blockDescriptions[block.name] ?? []) {
+      await emitRunnerProgress(onProgress, 'tool', desc);
+    }
+    console.log(`[media-plan] Block ${blockNum}/6: ${block.label}`);
+
+    const refs = loadBlockRefs(block.name);
+    const systemParts = [
+      block.skill,
+      refs ? `\n\n## Reference Data\n\n${refs}` : '',
+      industryTemplate ? `\n\n## Industry Template (${industry})\n\n${industryTemplate}` : '',
+      ANTI_HALLUCINATION,
+    ];
+
+    const previousBlocksContext = completedBlocks.length > 0
+      ? `\n\n## Previous Block Results\n\n${completedBlocks
+          .map((name) => `### ${name}\n${JSON.stringify(blockResults[name], null, 2)}`)
+          .join('\n\n')}`
+      : '';
+
+    const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
+
+    let object: unknown;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const blockAbort = AbortSignal.timeout(180_000);
+        const result = await generateObject({
+          model: anthropic(MODEL),
+          schema: stripNumericConstraints(block.schema),
+          maxOutputTokens: MAX_TOKENS,
+          system: systemParts.filter(Boolean).join('\n'),
+          prompt: userPrompt,
+          abortSignal: blockAbort,
+        });
+        object = result.object;
+        break;
+      } catch (err) {
+        const isTimeout = err instanceof DOMException && err.name === 'TimeoutError';
+        if (isTimeout && attempt === 1) {
+          console.warn(`[media-plan] Block ${blockNum} timed out — retrying (attempt 2)`);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    // Validate
+    await emitRunnerProgress(onProgress, 'analysis', `validating ${block.label}`);
+    let validatedData = object;
+    let blockWarnings: string[] = [];
+
+    switch (block.name) {
+      case 'channelMixBudget': {
+        await emitRunnerProgress(onProgress, 'tool', 'checking budget math and channel allocation');
+        const result = validateBudgetMath(validatedData as z.infer<typeof channelMixBudgetSchema>);
+        validatedData = result.data;
+        blockWarnings = result.warnings;
+        break;
+      }
+      case 'audienceCampaign': {
+        await emitRunnerProgress(onProgress, 'tool', 'verifying audience targeting heuristics');
+        const result = validateTargetingHeuristics(validatedData as z.infer<typeof audienceCampaignSchema>);
+        validatedData = result.data;
+        blockWarnings = result.warnings;
+        break;
+      }
+      case 'creativeSystem': {
+        await emitRunnerProgress(onProgress, 'tool', 'validating creative format specifications');
+        const result = validateFormatSpecs(validatedData as z.infer<typeof creativeSystemSchema>);
+        validatedData = result.data;
+        blockWarnings = result.warnings;
+        break;
+      }
+      case 'measurementGuardrails': {
+        await emitRunnerProgress(onProgress, 'tool', 'validating CAC model and KPI framework');
+        const cacResult = validateCACModel(validatedData as z.infer<typeof measurementGuardrailsSchema>);
+        const kpiResult = reconcileKPIs(cacResult.data);
+        validatedData = kpiResult.data;
+        blockWarnings = [...cacResult.warnings, ...kpiResult.warnings];
+        break;
+      }
+      case 'rolloutRoadmap': {
+        await emitRunnerProgress(onProgress, 'tool', 'reconciling phase budgets with channel mix');
+        const totalMonthly = (blockResults.channelMixBudget as z.infer<typeof channelMixBudgetSchema>)
+          ?.budgetSummary?.totalMonthly ?? 0;
+        const result = validatePhaseBudgets(
+          validatedData as z.infer<typeof rolloutRoadmapSchema>,
+          totalMonthly,
+        );
+        validatedData = result.data;
+        blockWarnings = result.warnings;
+        break;
+      }
+    }
+
+    if (blockWarnings.length > 0) {
+      console.log(`[media-plan] Block ${blockNum} warnings:`, blockWarnings);
+      allWarnings.push(...blockWarnings.map((w) => `[${block.label}] ${w}`));
+    }
+
+    blockResults[block.name] = validatedData;
+    completedBlocks.push(block.name);
+
+    // Write partial result to Supabase
+    if (userId) {
+      try {
+        await writeResearchResult(userId, 'mediaPlan', {
+          status: 'partial',
+          section: 'mediaPlan',
+          durationMs: Date.now() - startTime,
+          data: { ...blockResults, completedBlocks: [...completedBlocks] },
+        });
+      } catch (writeErr) {
+        console.error(`[media-plan] Failed to write partial result after block ${blockNum}:`, writeErr);
+      }
+    }
+
+    await emitRunnerProgress(onProgress, 'output', `completed block ${blockNum}/6: ${block.label}`);
+  };
+
   try {
-    for (let i = 0; i < BLOCK_SEQUENCE.length; i++) {
-      const block = BLOCK_SEQUENCE[i];
-      const blockNum = i + 1;
+    // Wave 1: Blocks 1-3 in parallel (independent — no cross-block dependencies)
+    await emitRunnerProgress(onProgress, 'runner', 'generating blocks 1-3 in parallel: channel mix, audience, creative');
+    const wave1Blocks = BLOCK_SEQUENCE.slice(0, 3); // channelMixBudget, audienceCampaign, creativeSystem
+    const wave1Results = await Promise.allSettled(
+      wave1Blocks.map((block, i) => generateBlock(block, i + 1)),
+    );
 
-      await emitRunnerProgress(onProgress, 'runner', `generating block ${blockNum}/6: ${block.label}`);
-      console.log(`[media-plan] Block ${blockNum}/6: ${block.label}`);
-
-      // Build system prompt: skill + refs + industry template + anti-hallucination
-      const refs = loadBlockRefs(block.name);
-      const systemParts = [
-        block.skill,
-        refs ? `\n\n## Reference Data\n\n${refs}` : '',
-        industryTemplate ? `\n\n## Industry Template (${industry})\n\n${industryTemplate}` : '',
-        ANTI_HALLUCINATION,
-      ];
-
-      // Build user prompt: context + previous block outputs
-      const previousBlocksContext = completedBlocks.length > 0
-        ? `\n\n## Previous Block Results\n\n${completedBlocks
-            .map((name) => `### ${name}\n${JSON.stringify(blockResults[name], null, 2)}`)
-            .join('\n\n')}`
-        : '';
-
-      const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
-
-      // Try with 3-min timeout, retry once on timeout
-      let object: unknown;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const blockAbort = AbortSignal.timeout(180_000); // 3 min per block
-          const result = await generateObject({
-            model: anthropic(MODEL),
-            schema: stripNumericConstraints(block.schema),
-            maxOutputTokens: MAX_TOKENS,
-            system: systemParts.filter(Boolean).join('\n'),
-            prompt: userPrompt,
-            abortSignal: blockAbort,
-          });
-          object = result.object;
-          break;
-        } catch (err) {
-          const isTimeout = err instanceof DOMException && err.name === 'TimeoutError';
-          if (isTimeout && attempt === 1) {
-            console.warn(`[media-plan] Block ${i + 1} timed out — retrying (attempt 2)`);
-            continue;
-          }
-          throw err;
-        }
+    // Check for Wave 1 failures — retry failed blocks individually
+    for (let i = 0; i < wave1Results.length; i++) {
+      if (wave1Results[i].status === 'rejected') {
+        const failedBlock = wave1Blocks[i];
+        console.warn(`[media-plan] Wave 1 block ${failedBlock.name} failed — retrying individually`);
+        await emitRunnerProgress(onProgress, 'runner', `retrying ${failedBlock.label} after parallel failure`);
+        await generateBlock(failedBlock, i + 1);
       }
+    }
 
-      // Validate the block
-      let validatedData = object;
-      let blockWarnings: string[] = [];
+    // Wave 2-4: Blocks 4-6 sequential (depend on prior blocks)
+    for (let i = 3; i < BLOCK_SEQUENCE.length; i++) {
+      await generateBlock(BLOCK_SEQUENCE[i], i + 1);
+    }
 
-      switch (block.name) {
-        case 'channelMixBudget': {
-          const result = validateBudgetMath(validatedData as z.infer<typeof channelMixBudgetSchema>);
-          validatedData = result.data;
-          blockWarnings = result.warnings;
-          break;
-        }
-        case 'audienceCampaign': {
-          const result = validateTargetingHeuristics(validatedData as z.infer<typeof audienceCampaignSchema>);
-          validatedData = result.data;
-          blockWarnings = result.warnings;
-          break;
-        }
-        case 'creativeSystem': {
-          const result = validateFormatSpecs(validatedData as z.infer<typeof creativeSystemSchema>);
-          validatedData = result.data;
-          blockWarnings = result.warnings;
-          break;
-        }
-        case 'measurementGuardrails': {
-          const cacResult = validateCACModel(validatedData as z.infer<typeof measurementGuardrailsSchema>);
-          const kpiResult = reconcileKPIs(cacResult.data);
-          validatedData = kpiResult.data;
-          blockWarnings = [...cacResult.warnings, ...kpiResult.warnings];
-          break;
-        }
-        case 'rolloutRoadmap': {
-          const totalMonthly = (blockResults.channelMixBudget as z.infer<typeof channelMixBudgetSchema>)
-            ?.budgetSummary?.totalMonthly ?? 0;
-          const result = validatePhaseBudgets(
-            validatedData as z.infer<typeof rolloutRoadmapSchema>,
-            totalMonthly,
-          );
-          validatedData = result.data;
-          blockWarnings = result.warnings;
-          break;
-        }
-        // strategySnapshot — no per-block validator (cross-block handles it)
+    // Final Supabase write with complete status
+    if (userId) {
+      try {
+        await writeResearchResult(userId, 'mediaPlan', {
+          status: 'complete',
+          section: 'mediaPlan',
+          durationMs: Date.now() - startTime,
+          data: {
+            ...blockResults,
+            completedBlocks: [...completedBlocks],
+            ...(allWarnings.length > 0 ? { validationWarnings: allWarnings } : {}),
+          },
+        });
+      } catch (writeErr) {
+        console.error('[media-plan] Failed to write final result:', writeErr);
       }
-
-      if (blockWarnings.length > 0) {
-        console.log(`[media-plan] Block ${blockNum} warnings:`, blockWarnings);
-        allWarnings.push(...blockWarnings.map((w) => `[${block.label}] ${w}`));
-      }
-
-      // Store validated result
-      blockResults[block.name] = validatedData;
-      completedBlocks.push(block.name);
-
-      // Write partial result to Supabase
-      const isLast = blockNum === BLOCK_SEQUENCE.length;
-      if (userId) {
-        try {
-          await writeResearchResult(userId, 'mediaPlan', {
-            status: isLast ? 'complete' : 'partial',
-            section: 'mediaPlan',
-            durationMs: Date.now() - startTime,
-            data: {
-              ...blockResults,
-              completedBlocks: [...completedBlocks],
-              ...(isLast ? { validationWarnings: allWarnings.length > 0 ? allWarnings : undefined } : {}),
-            },
-          });
-        } catch (writeErr) {
-          console.error(`[media-plan] Failed to write partial result after block ${blockNum}:`, writeErr);
-        }
-      }
-
-      await emitRunnerProgress(
-        onProgress,
-        'output',
-        `completed block ${blockNum}/6: ${block.label}`,
-      );
     }
 
     // Cross-block validation

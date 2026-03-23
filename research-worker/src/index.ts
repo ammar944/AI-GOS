@@ -11,7 +11,7 @@ import {
 } from './runners';
 import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
 import { writeDeadLetter } from './dead-letter';
-import type { RunnerProgressReporter } from './runner';
+import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
 import { authorizeWorkerRequest } from './auth';
 
@@ -177,7 +177,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     // Without this, models default to their training cutoff and return stale data.
     const now = new Date();
     const dateContext = `Current date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${now.getFullYear()}). Always search for and prioritize the most recent data available. Do not use outdated statistics or market data from prior years when current data exists.\n\n`;
-    const contextWithDate = dateContext + context;
+    const contextWithDate = sanitizeForJson(dateContext + context);
     let statusWriteChain = Promise.resolve();
     let lastProgressSignature: string | null = null;
     let jobFinalized = false;
@@ -211,6 +211,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
             id: update.id ?? crypto.randomUUID(),
             message: update.message,
             phase: update.phase,
+            ...(update.meta ? { meta: update.meta } : {}),
           },
         ],
       });
@@ -236,7 +237,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         message: 'launching research analysis',
         phase: 'runner',
       });
+      const runnerStartMs = Date.now();
       const result = await runner(contextWithDate, emitProgress);
+      const runnerDurationMs = Date.now() - runnerStartMs;
+      console.log(`[timing] ${tool} runner completed in ${(runnerDurationMs / 1000).toFixed(1)}s`);
 
       // Compression disabled — raw runner data flows through to Supabase
       // so artifact-panel.tsx and research-inline-card.tsx can render

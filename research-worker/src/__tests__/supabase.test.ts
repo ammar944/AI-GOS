@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mergeJobUpdates, type JobStatusUpdate } from '../supabase';
 
 const mockMaybeSingle = vi.fn();
 const mockRpc = vi.fn();
@@ -113,5 +114,75 @@ describe('worker supabase writers', () => {
       },
       p_user_id: 'user-1',
     });
+  });
+});
+
+describe('mergeJobUpdates', () => {
+  function makeUpdate(index: number, timestamp?: string): JobStatusUpdate {
+    return {
+      at: timestamp ?? `2026-03-10T12:00:${String(index).padStart(2, '0')}.000Z`,
+      id: `update-${index}`,
+      message: `message ${index}`,
+      phase: 'tool',
+    };
+  }
+
+  it('returns undefined when both existing and incoming are empty', () => {
+    expect(mergeJobUpdates(undefined, undefined)).toBeUndefined();
+    expect(mergeJobUpdates([], [])).toBeUndefined();
+  });
+
+  it('merges and deduplicates updates by id', () => {
+    const existing = [makeUpdate(1), makeUpdate(2)];
+    const incoming = [makeUpdate(2), makeUpdate(3)];
+    const result = mergeJobUpdates(existing, incoming);
+    expect(result).toHaveLength(3);
+    expect(result?.map((u) => u.id)).toEqual(['update-1', 'update-2', 'update-3']);
+  });
+
+  it('sorts merged updates by timestamp', () => {
+    const existing = [makeUpdate(3, '2026-03-10T12:00:30.000Z')];
+    const incoming = [makeUpdate(1, '2026-03-10T12:00:10.000Z')];
+    const result = mergeJobUpdates(existing, incoming);
+    expect(result?.map((u) => u.id)).toEqual(['update-1', 'update-3']);
+  });
+
+  it('caps updates at 50, keeping the newest', () => {
+    const updates: JobStatusUpdate[] = [];
+    for (let i = 0; i < 60; i++) {
+      updates.push(makeUpdate(i, `2026-03-10T12:${String(i).padStart(2, '0')}:00.000Z`));
+    }
+    const result = mergeJobUpdates(updates, undefined);
+    expect(result).toHaveLength(50);
+    // Should keep updates 10-59 (newest 50), drop 0-9 (oldest 10)
+    expect(result?.[0].id).toBe('update-10');
+    expect(result?.[49].id).toBe('update-59');
+  });
+
+  it('caps at 50 after merging existing + incoming', () => {
+    const existing: JobStatusUpdate[] = [];
+    for (let i = 0; i < 30; i++) {
+      existing.push(makeUpdate(i, `2026-03-10T12:${String(i).padStart(2, '0')}:00.000Z`));
+    }
+    const incoming: JobStatusUpdate[] = [];
+    for (let i = 30; i < 55; i++) {
+      incoming.push(makeUpdate(i, `2026-03-10T12:${String(i).padStart(2, '0')}:00.000Z`));
+    }
+    const result = mergeJobUpdates(existing, incoming);
+    expect(result).toHaveLength(50);
+    expect(result?.[0].id).toBe('update-5');
+    expect(result?.[49].id).toBe('update-54');
+  });
+
+  it('preserves meta field through merge', () => {
+    const existing: JobStatusUpdate[] = [
+      {
+        ...makeUpdate(1),
+        meta: { url: 'https://example.com', toolName: 'firecrawl' },
+      },
+    ];
+    const result = mergeJobUpdates(existing, undefined);
+    expect(result?.[0].meta?.url).toBe('https://example.com');
+    expect(result?.[0].meta?.toolName).toBe('firecrawl');
   });
 });

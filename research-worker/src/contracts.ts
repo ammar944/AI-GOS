@@ -218,7 +218,7 @@ const offerAnalysisDataSchema = z.object({
         evidence: nonEmptyStringSchema.optional(),
       }),
     )
-    .min(1),
+    .default([]),
   pricingAnalysis: z.object({
     currentPricing: nonEmptyStringSchema,
     marketBenchmark: nonEmptyStringSchema,

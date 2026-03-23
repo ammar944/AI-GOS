@@ -286,13 +286,26 @@ function normalizeLinkedInAds(
 
 function guessTheme(message: string): string {
   const n = message.toLowerCase();
-  if (n.includes('free') || n.includes('trial')) return 'Free trial / offer';
-  if (n.includes('demo') || n.includes('book')) return 'Demo / conversion CTA';
-  if (n.includes('pipeline') || n.includes('revenue')) return 'Revenue accountability';
-  if (n.includes('faster') || n.includes('speed')) return 'Speed to value';
-  if (n.includes('cost') || n.includes('reduce')) return 'Efficiency / savings';
-  if (n.includes('case stud') || n.includes('testimoni')) return 'Social proof';
-  if (n.includes('webinar') || n.includes('report') || n.includes('guide')) return 'Lead magnet';
+  // Universal offer / CTA patterns
+  if (n.includes('free') || n.includes('trial') || n.includes('sample')) return 'Free offer / trial';
+  if (n.includes('discount') || n.includes('% off') || n.includes('sale') || n.includes('deal')) return 'Discount / promotion';
+  if (n.includes('limited') || n.includes('hurry') || n.includes('expires') || n.includes('last chance')) return 'Urgency / scarcity';
+  if (n.includes('shop') || n.includes('buy now') || n.includes('order') || n.includes('add to cart')) return 'Direct purchase CTA';
+  if (n.includes('shipping') || n.includes('delivery')) return 'Shipping / fulfillment';
+  // B2B / service patterns
+  if (n.includes('demo') || n.includes('book') || n.includes('schedule') || n.includes('appointment')) return 'Booking / demo CTA';
+  if (n.includes('quote') || n.includes('estimate') || n.includes('consultation')) return 'Quote / consultation';
+  if (n.includes('pipeline') || n.includes('revenue') || n.includes('roi')) return 'Revenue / ROI';
+  if (n.includes('faster') || n.includes('speed') || n.includes('quick') || n.includes('instant')) return 'Speed to value';
+  if (n.includes('cost') || n.includes('reduce') || n.includes('save') || n.includes('affordable')) return 'Savings / value';
+  // Trust / social proof
+  if (n.includes('case stud') || n.includes('testimoni') || n.includes('review') || n.includes('rated') || n.includes('trusted')) return 'Social proof';
+  if (n.includes('webinar') || n.includes('report') || n.includes('guide') || n.includes('download') || n.includes('learn')) return 'Education / content';
+  if (n.includes('guarantee') || n.includes('warranty') || n.includes('risk-free') || n.includes('money back')) return 'Trust / guarantee';
+  // Local service patterns
+  if (n.includes('near') || n.includes('local') || n.includes('serving') || n.includes('area')) return 'Local targeting';
+  if (n.includes('licensed') || n.includes('certified') || n.includes('insured')) return 'Credentials / trust';
+  if (n.includes('call') || n.includes('contact') || n.includes('reach')) return 'Contact CTA';
   return message.length > 90 ? `${message.slice(0, 87)}...` : message;
 }
 

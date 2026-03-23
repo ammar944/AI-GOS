@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import Firecrawl from '@mendable/firecrawl-js';
 import type {
   BetaContentBlock,
   BetaMCPToolUseBlock,
@@ -15,7 +16,22 @@ export {
 } from './telemetry';
 
 export function createClient() {
-  return new Anthropic({ maxRetries: 0 });
+  return new Anthropic({
+    maxRetries: 0,
+    defaultHeaders: {
+      'anthropic-beta': 'prompt-caching-2024-07-31',
+    },
+  });
+}
+
+export interface ProgressMeta {
+  url?: string;
+  screenshotUrl?: string;
+  favicon?: string;
+  pageTitle?: string;
+  dataPoints?: Array<{ label: string; value: string }>;
+  toolName?: string;
+  resultCount?: number;
 }
 
 export interface RunnerProgressUpdate {
@@ -23,6 +39,7 @@ export interface RunnerProgressUpdate {
   id?: string;
   message: string;
   phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+  meta?: ProgressMeta;
 }
 
 export type RunnerProgressReporter = (
@@ -35,15 +52,27 @@ interface ToolRunnerStream {
   on(event: 'text', listener: (textDelta: string, textSnapshot: string) => void): unknown;
 }
 
+function sanitizeMeta(meta: ProgressMeta): ProgressMeta {
+  const clean: ProgressMeta = { ...meta };
+  if (clean.url) clean.url = sanitizeForJson(clean.url);
+  if (clean.pageTitle) clean.pageTitle = sanitizeForJson(clean.pageTitle);
+  if (clean.favicon) clean.favicon = sanitizeForJson(clean.favicon);
+  if (clean.screenshotUrl) clean.screenshotUrl = sanitizeForJson(clean.screenshotUrl);
+  if (clean.toolName) clean.toolName = sanitizeForJson(clean.toolName);
+  return clean;
+}
+
 function createProgressUpdate(
   phase: RunnerProgressUpdate['phase'],
   message: string,
+  meta?: ProgressMeta,
 ): RunnerProgressUpdate {
   return {
     at: new Date().toISOString(),
     id: crypto.randomUUID(),
-    message,
+    message: sanitizeForJson(message),
     phase,
+    ...(meta ? { meta: sanitizeMeta(meta) } : {}),
   };
 }
 
@@ -51,12 +80,13 @@ export async function emitRunnerProgress(
   onProgress: RunnerProgressReporter | undefined,
   phase: RunnerProgressUpdate['phase'],
   message: string,
+  meta?: ProgressMeta,
 ): Promise<void> {
   if (!onProgress) {
     return;
   }
 
-  await onProgress(createProgressUpdate(phase, message));
+  await onProgress(createProgressUpdate(phase, message, meta));
 }
 
 type ToolUseBlock = BetaServerToolUseBlock | BetaToolUseBlock | BetaMCPToolUseBlock;
@@ -205,6 +235,7 @@ function unescapeQuotedJsonValue(value: string): string {
 }
 
 const DRAFT_FACT_KEYS = new Map<string, string>([
+  // Industry / Market
   ['category', 'category'],
   ['marketSize', 'market size'],
   ['marketMaturity', 'maturity'],
@@ -213,33 +244,164 @@ const DRAFT_FACT_KEYS = new Map<string, string>([
   ['buyingBehavior', 'buying behavior'],
   ['trend', 'trend'],
   ['evidence', 'evidence'],
+  // ICP
+  ['validatedPersona', 'persona'],
+  ['audienceSize', 'audience size'],
+  ['confidenceScore', 'confidence'],
+  ['finalVerdict', 'verdict'],
+  // Offer
+  ['recommendation', 'recommendation'],
+  ['marketFitAssessment', 'market fit'],
+  // Competitors
+  ['overallLandscape', 'landscape'],
+  ['positioning', 'positioning'],
+  ['ourAdvantage', 'our advantage'],
+  // Keywords
+  ['totalKeywordsFound', 'keywords found'],
+  ['competitorGapCount', 'competitor gaps'],
+  // Synthesis
+  ['positioningStrategy', 'positioning'],
+  ['strategicNarrative', 'narrative'],
+  // Offer scoring dimensions
+  ['painRelevance', 'pain relevance'],
+  ['urgency', 'urgency'],
+  ['differentiation', 'differentiation'],
+  ['tangibility', 'tangibility'],
+  ['pricingLogic', 'pricing logic'],
 ]);
 
+// Build regex patterns from all keys — match string values AND numeric values
+const DRAFT_FACT_KEY_PATTERN = [...DRAFT_FACT_KEYS.keys()].join('|');
+const DRAFT_FACT_STRING_REGEX = new RegExp(
+  `"(?<key>${DRAFT_FACT_KEY_PATTERN})"\\s*:\\s*"(?<value>(?:[^"\\\\]|\\\\.)*)"`,
+  'g',
+);
+const DRAFT_FACT_NUMBER_REGEX = new RegExp(
+  `"(?<key>${DRAFT_FACT_KEY_PATTERN})"\\s*:\\s*(?<value>\\d+(?:\\.\\d+)?)`,
+  'g',
+);
+
 export function extractDraftFactMessages(snapshot: string): string[] {
-  const matches = snapshot.matchAll(
-    /"(?<key>category|marketSize|marketMaturity|awarenessLevel|averageSalesCycle|buyingBehavior|trend|evidence)"\s*:\s*"(?<value>(?:[^"\\]|\\.)*)"/g,
-  );
   const messages: string[] = [];
   const seenKeys = new Set<string>();
 
-  for (const match of matches) {
+  // Pass 1: string values ("key": "value")
+  for (const match of snapshot.matchAll(DRAFT_FACT_STRING_REGEX)) {
     const key = match.groups?.key;
     const rawValue = match.groups?.value;
-    if (!key || !rawValue || seenKeys.has(key)) {
-      continue;
-    }
+    if (!key || !rawValue || seenKeys.has(key)) continue;
 
     const label = DRAFT_FACT_KEYS.get(key);
     const value = truncate(normalizeWhitespace(unescapeQuotedJsonValue(rawValue)), 140);
-    if (!label || value.length === 0) {
-      continue;
-    }
+    if (!label || value.length === 0) continue;
 
     messages.push(`${label}: ${value}`);
     seenKeys.add(key);
   }
 
+  // Pass 2: numeric values ("key": 42)
+  for (const match of snapshot.matchAll(DRAFT_FACT_NUMBER_REGEX)) {
+    const key = match.groups?.key;
+    const rawValue = match.groups?.value;
+    if (!key || !rawValue || seenKeys.has(key)) continue;
+
+    const label = DRAFT_FACT_KEYS.get(key);
+    if (!label) continue;
+
+    messages.push(`${label}: ${rawValue}`);
+    seenKeys.add(key);
+  }
+
   return messages;
+}
+
+const FIRECRAWL_TOOL_NAMES = new Set([
+  'firecrawl',
+  'firecrawl_scrape',
+  'firecrawl_scrape_url',
+  'firecrawlExtract',
+]);
+
+const SCREENSHOT_TIMEOUT_MS = 8_000;
+
+/**
+ * Strip lone surrogates from a string. Lone surrogates (unpaired U+D800–U+DFFF)
+ * cause JSON.stringify to produce bytes that are not valid UTF-8, which makes
+ * Anthropic's API reject the request with "no low surrogate in string".
+ *
+ * The approach: iterate code units and replace any high surrogate not followed
+ * by a low surrogate (or any low surrogate not preceded by a high surrogate)
+ * with U+FFFD (replacement character). This is more reliable than regex
+ * lookbehind which can behave inconsistently with surrogate code units.
+ */
+export function sanitizeForJson(value: string): string {
+  let result = '';
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code >= 0xD800 && code <= 0xDBFF) {
+      // High surrogate — check if next is a valid low surrogate
+      const next = i + 1 < value.length ? value.charCodeAt(i + 1) : 0;
+      if (next >= 0xDC00 && next <= 0xDFFF) {
+        // Valid pair — keep both
+        result += value[i] + value[i + 1];
+        i++; // skip the low surrogate
+      } else {
+        // Lone high surrogate — replace
+        result += '\uFFFD';
+      }
+    } else if (code >= 0xDC00 && code <= 0xDFFF) {
+      // Lone low surrogate (not preceded by high) — replace
+      result += '\uFFFD';
+    } else {
+      result += value[i];
+    }
+  }
+  return result;
+}
+
+function extractToolUrl(input: unknown): string | null {
+  if (!input || typeof input !== 'object') return null;
+  const record = input as Record<string, unknown>;
+  if (typeof record.url === 'string') return record.url;
+  if (Array.isArray(record.urls) && typeof record.urls[0] === 'string') return record.urls[0];
+  return null;
+}
+
+function buildFaviconUrl(url: string): string | null {
+  try {
+    const { origin } = new URL(url);
+    return `${origin}/favicon.ico`;
+  } catch {
+    return null;
+  }
+}
+
+function extractToolMetaFromBlock(block: ToolUseBlock): ProgressMeta | undefined {
+  const url = extractToolUrl(block.input);
+  if (!url) return undefined;
+  return {
+    url,
+    toolName: block.name,
+    favicon: buildFaviconUrl(url) ?? undefined,
+  };
+}
+
+function captureFirecrawlScreenshot(url: string): Promise<string | null> {
+  const apiKey = process.env.FIRECRAWL_API_KEY;
+  if (!apiKey) return Promise.resolve(null);
+
+  const client = new Firecrawl({ apiKey });
+  return Promise.race([
+    (client.scrape(url, { formats: ['screenshot'] }) as Promise<{
+      success: boolean;
+      screenshot?: string;
+    }>).then(result =>
+      result.success && typeof result.screenshot === 'string' ? result.screenshot : null,
+    ).catch(() => null),
+    new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), SCREENSHOT_TIMEOUT_MS),
+    ),
+  ]);
 }
 
 export async function runStreamedToolRunner(
@@ -247,10 +409,15 @@ export async function runStreamedToolRunner(
   options: {
     onProgress?: RunnerProgressReporter;
     synthesisMessage?: string;
+    maxToolIterations?: number;
   },
 ): Promise<Anthropic.Beta.BetaMessage> {
+  const MAX_SOURCE_SCREENSHOTS = 3;
   let finalMessage: Anthropic.Beta.BetaMessage | null = null;
   let sawAnalysisText = false;
+  let sourceScreenshotCount = 0;
+  let iterationCount = 0;
+  const screenshotUrlsSeen = new Set<string>();
   const seenToolUseIds = new Set<string>();
   const seenWebSearchResultIds = new Set<string>();
   const seenDraftFacts = new Set<string>();
@@ -267,20 +434,71 @@ export async function runStreamedToolRunner(
         }
 
         seenToolUseIds.add(block.id);
-        void emitRunnerProgress(options.onProgress, 'tool', describeToolUseBlock(block));
+        const meta = extractToolMetaFromBlock(block);
+        void emitRunnerProgress(options.onProgress, 'tool', describeToolUseBlock(block), meta);
+
+        // Fire parallel screenshot for Firecrawl tools (non-blocking)
+        if (FIRECRAWL_TOOL_NAMES.has(block.name) && meta?.url && !screenshotUrlsSeen.has(meta.url)) {
+          screenshotUrlsSeen.add(meta.url);
+          const screenshotUrl = meta.url;
+          void captureFirecrawlScreenshot(screenshotUrl).then((ssUrl) => {
+            if (ssUrl) {
+              void emitRunnerProgress(
+                options.onProgress,
+                'tool',
+                `screenshot captured: ${formatUrlHost(screenshotUrl)}`,
+                { ...meta, screenshotUrl: ssUrl },
+              );
+            }
+          });
+        }
         return;
       }
 
       if (block.type === 'web_search_tool_result') {
         const resultBlock = block as BetaWebSearchToolResultBlock;
-        const signature = `${resultBlock.tool_use_id}:${Array.isArray(resultBlock.content) ? resultBlock.content.map((result) => `${result.title}|${result.url}`).join('|') : 'error'}`;
+        const signature = sanitizeForJson(`${resultBlock.tool_use_id}:${Array.isArray(resultBlock.content) ? resultBlock.content.map((result) => `${result.title}|${result.url}`).join('|') : 'error'}`);
         if (seenWebSearchResultIds.has(signature)) {
           return;
         }
 
         seenWebSearchResultIds.add(signature);
+        const results = Array.isArray(resultBlock.content) ? resultBlock.content : [];
+        const resultCount = results.length;
         for (const message of describeWebSearchResultBlock(resultBlock)) {
-          void emitRunnerProgress(options.onProgress, 'tool', message);
+          const sourceMeta: ProgressMeta = { toolName: 'web_search', resultCount };
+          // Extract URL from source messages (format: "source: title (host)")
+          const sourceResult = results.find(
+            (r) => message.includes(formatUrlHost(r.url)),
+          );
+          if (sourceResult) {
+            sourceMeta.url = sourceResult.url;
+            sourceMeta.pageTitle = sanitizeForJson(sourceResult.title);
+            sourceMeta.favicon = buildFaviconUrl(sourceResult.url) ?? undefined;
+          }
+          void emitRunnerProgress(options.onProgress, 'tool', message, sourceMeta);
+
+          // Fire parallel screenshot for first source URL per search (non-blocking, capped)
+          if (
+            sourceResult?.url &&
+            sourceScreenshotCount < MAX_SOURCE_SCREENSHOTS &&
+            !screenshotUrlsSeen.has(sourceResult.url)
+          ) {
+            sourceScreenshotCount++;
+            screenshotUrlsSeen.add(sourceResult.url);
+            const ssSourceUrl = sourceResult.url;
+            const ssSourceMeta = { ...sourceMeta };
+            void captureFirecrawlScreenshot(ssSourceUrl).then((ssUrl) => {
+              if (ssUrl) {
+                void emitRunnerProgress(
+                  options.onProgress,
+                  'tool',
+                  `screenshot captured: ${formatUrlHost(ssSourceUrl)}`,
+                  { ...ssSourceMeta, screenshotUrl: ssUrl },
+                );
+              }
+            });
+          }
         }
       }
     });
@@ -310,6 +528,12 @@ export async function runStreamedToolRunner(
     });
 
     finalMessage = await stream.finalMessage();
+    iterationCount++;
+
+    // Enforce tool iteration cap — stop after N rounds of tool use
+    if (options.maxToolIterations && iterationCount >= options.maxToolIterations) {
+      break;
+    }
   }
 
   if (!finalMessage) {

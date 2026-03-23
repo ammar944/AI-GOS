@@ -161,11 +161,22 @@ export async function writeResearchResult(
 
 export type JobStatus = 'running' | 'complete' | 'error';
 
+export interface JobStatusUpdateMeta {
+  url?: string;
+  screenshotUrl?: string;
+  favicon?: string;
+  pageTitle?: string;
+  dataPoints?: Array<{ label: string; value: string }>;
+  toolName?: string;
+  resultCount?: number;
+}
+
 export interface JobStatusUpdate {
   at: string;
   id: string;
   message: string;
   phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+  meta?: JobStatusUpdateMeta;
 }
 
 export interface JobStatusRow {
@@ -180,7 +191,9 @@ export interface JobStatusRow {
   telemetry?: RunnerTelemetry;
 }
 
-function mergeJobUpdates(
+const MAX_UPDATES_PER_SECTION = 50;
+
+export function mergeJobUpdates(
   existing: JobStatusUpdate[] | undefined,
   incoming: JobStatusUpdate[] | undefined,
 ): JobStatusUpdate[] | undefined {
@@ -198,9 +211,16 @@ function mergeJobUpdates(
     deduped.set(update.id, update);
   }
 
-  return [...deduped.values()].sort((left, right) =>
+  const sorted = [...deduped.values()].sort((left, right) =>
     left.at.localeCompare(right.at),
   );
+
+  if (sorted.length <= MAX_UPDATES_PER_SECTION) {
+    return sorted;
+  }
+
+  // Keep the newest updates, drop oldest
+  return sorted.slice(sorted.length - MAX_UPDATES_PER_SECTION);
 }
 
 function mergeJobStatusRow(

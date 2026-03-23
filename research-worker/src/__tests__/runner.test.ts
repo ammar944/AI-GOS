@@ -3,6 +3,7 @@ import {
   describeToolUseBlock,
   describeWebSearchResultBlock,
   extractDraftFactMessages,
+  sanitizeForJson,
 } from '../runner';
 
 describe('describeToolUseBlock', () => {
@@ -63,7 +64,7 @@ describe('describeWebSearchResultBlock', () => {
 });
 
 describe('extractDraftFactMessages', () => {
-  it('extracts complete draft facts from partial JSON snapshots', () => {
+  it('extracts industry runner draft facts', () => {
     expect(
       extractDraftFactMessages(
         '{"categorySnapshot":{"category":"B2B SaaS Marketing Agency Services","marketSize":"$492.34B (2026)","marketMaturity":"mature","buyingBehavior":"Multi-stakeholder evaluation"}}',
@@ -74,5 +75,87 @@ describe('extractDraftFactMessages', () => {
       'maturity: mature',
       'buying behavior: Multi-stakeholder evaluation',
     ]);
+  });
+
+  it('extracts ICP runner draft facts', () => {
+    expect(
+      extractDraftFactMessages(
+        '{"validatedPersona":"VP Marketing at B2B SaaS ($5M-$50M ARR)","confidenceScore":8,"audienceSize":"~12,000 decision-makers","finalVerdict":"Strong fit for paid media"}',
+      ),
+    ).toEqual([
+      'persona: VP Marketing at B2B SaaS ($5M-$50M ARR)',
+      'audience size: ~12,000 decision-makers',
+      'verdict: Strong fit for paid media',
+      'confidence: 8',
+    ]);
+  });
+
+  it('extracts competitor runner draft facts', () => {
+    expect(
+      extractDraftFactMessages(
+        '{"competitors":[{"positioning":"Enterprise scheduling","ourAdvantage":"Self-serve onboarding"}],"overallLandscape":"Fragmented market with 3 major players"}',
+      ),
+    ).toEqual([
+      'positioning: Enterprise scheduling',
+      'our advantage: Self-serve onboarding',
+      'landscape: Fragmented market with 3 major players',
+    ]);
+  });
+
+  it('extracts offer runner draft facts', () => {
+    expect(
+      extractDraftFactMessages(
+        '{"offerStrength":{"painRelevance":8,"urgency":6,"differentiation":7},"recommendation":"Strong offer with clear positioning"}',
+      ),
+    ).toEqual([
+      'recommendation: Strong offer with clear positioning',
+      'pain relevance: 8',
+      'urgency: 6',
+      'differentiation: 7',
+    ]);
+  });
+});
+
+describe('sanitizeForJson', () => {
+  it('passes through normal ASCII text', () => {
+    expect(sanitizeForJson('hello world')).toBe('hello world');
+  });
+
+  it('passes through valid surrogate pairs (emoji)', () => {
+    const emoji = '😀🎉';
+    expect(sanitizeForJson(emoji)).toBe(emoji);
+  });
+
+  it('replaces a lone high surrogate', () => {
+    const withLoneHigh = 'before\uD800after';
+    expect(sanitizeForJson(withLoneHigh)).toBe('before\uFFFDafter');
+  });
+
+  it('replaces a lone low surrogate', () => {
+    const withLoneLow = 'before\uDC00after';
+    expect(sanitizeForJson(withLoneLow)).toBe('before\uFFFDafter');
+  });
+
+  it('replaces multiple lone surrogates', () => {
+    const multiple = '\uD800x\uDC00y\uD83D';
+    expect(sanitizeForJson(multiple)).toBe('\uFFFDx\uFFFDy\uFFFD');
+  });
+
+  it('keeps valid pair but replaces adjacent lone surrogate', () => {
+    // Valid pair \uD83D\uDE00 = 😀, followed by lone \uD800
+    const mixed = '\uD83D\uDE00\uD800';
+    expect(sanitizeForJson(mixed)).toBe('😀\uFFFD');
+  });
+
+  it('produces valid JSON after sanitization', () => {
+    const withLoneSurrogate = 'test\uD800value';
+    const sanitized = sanitizeForJson(withLoneSurrogate);
+    // JSON.stringify should not throw on the sanitized string
+    const json = JSON.stringify({ text: sanitized });
+    expect(JSON.parse(json).text).toBe('test\uFFFDvalue');
+  });
+
+  it('handles empty string', () => {
+    expect(sanitizeForJson('')).toBe('');
   });
 });

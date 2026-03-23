@@ -20,6 +20,16 @@ const TOOL_TO_SECTION: Record<string, string> = Object.fromEntries(
   ]),
 );
 
+export interface ResearchUpdateMeta {
+  url?: string;
+  screenshotUrl?: string;
+  favicon?: string;
+  pageTitle?: string;
+  dataPoints?: Array<{ label: string; value: string }>;
+  toolName?: string;
+  resultCount?: number;
+}
+
 export interface ResearchJobStatusRow {
   status: 'running' | 'complete' | 'error';
   tool: string;
@@ -32,6 +42,7 @@ export interface ResearchJobStatusRow {
     id: string;
     message: string;
     phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+    meta?: ResearchUpdateMeta;
   }>;
   telemetry?: ResearchTelemetry;
 }
@@ -41,6 +52,7 @@ export interface ResearchJobUpdate {
   id: string;
   message: string;
   phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+  meta?: ResearchUpdateMeta;
 }
 
 export interface ResearchJobActivity extends ResearchJobStatusRow {
@@ -50,6 +62,7 @@ export interface ResearchJobActivity extends ResearchJobStatusRow {
 
 export interface CollapsedResearchJobUpdate extends ResearchJobUpdate {
   count: number;
+  meta?: ResearchUpdateMeta;
 }
 
 function isResearchJobActivityFresh(
