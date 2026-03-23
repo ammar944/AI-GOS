@@ -109,7 +109,7 @@ function stripNumericConstraints<T extends z.ZodType>(schema: T): T {
 }
 
 const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 5000;
+const MAX_TOKENS = 8000;
 
 const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data and research results. Do not infer unsupported facts. All benchmark numbers must be labeled as 'industry benchmark'.`;
 
