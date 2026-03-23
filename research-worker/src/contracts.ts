@@ -247,7 +247,7 @@ const strategicSynthesisDataSchema = z.object({
     .array(
       z.object({
         platform: nonEmptyStringSchema,
-        role: z.enum(['primary', 'secondary', 'testing', 'retargeting']),
+        role: z.string().min(1),
         budgetAllocation: nonEmptyStringSchema,
         rationale: nonEmptyStringSchema,
         priority: z.number().int().positive(),
@@ -258,9 +258,9 @@ const strategicSynthesisDataSchema = z.object({
     .array(
       z.object({
         angle: nonEmptyStringSchema,
-        targetEmotion: nonEmptyStringSchema,
-        exampleHook: nonEmptyStringSchema,
-        evidence: nonEmptyStringSchema,
+        targetEmotion: z.string().default(''),
+        exampleHook: z.string().default(''),
+        evidence: z.string().default(''),
       }),
     )
     .min(1),
