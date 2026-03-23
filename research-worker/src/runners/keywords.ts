@@ -21,7 +21,7 @@ const KEYWORDS_HEURISTIC_MODEL =
   process.env.RESEARCH_KEYWORDS_HEURISTIC_MODEL ?? KEYWORDS_REPAIR_MODEL;
 const KEYWORDS_RESCUE_MODEL =
   process.env.RESEARCH_KEYWORDS_RESCUE_MODEL ?? KEYWORDS_REPAIR_MODEL;
-const KEYWORDS_PRIMARY_MAX_TOKENS = 4500;
+const KEYWORDS_PRIMARY_MAX_TOKENS = 6000;
 const KEYWORDS_REPAIR_MAX_TOKENS = 4500;
 const KEYWORDS_HEURISTIC_MAX_TOKENS = 3500;
 const KEYWORDS_RESCUE_MAX_TOKENS = 2800;
@@ -1097,7 +1097,7 @@ async function runKeywordToolAttempt(
         runStreamedToolRunner(runner, {
           onProgress,
           synthesisMessage: config.synthesisMessage,
-          maxToolIterations: 3,
+          maxToolIterations: undefined,
         }),
         new Promise<never>((_, reject) =>
           setTimeout(
