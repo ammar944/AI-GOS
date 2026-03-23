@@ -31,11 +31,9 @@ const industryResearchDataSchema = z.object({
   categorySnapshot: z.object({
     category: nonEmptyStringSchema,
     marketSize: nonEmptyStringSchema.optional(),
-    marketMaturity: z.enum(['early', 'growing', 'saturated']).optional(),
-    buyingBehavior: z
-      .enum(['impulsive', 'committee_driven', 'roi_based', 'mixed'])
-      .optional(),
-    awarenessLevel: z.enum(['low', 'medium', 'high']).optional(),
+    marketMaturity: z.string().optional(),
+    buyingBehavior: z.string().optional(),
+    awarenessLevel: z.string().optional(),
     averageSalesCycle: nonEmptyStringSchema.optional(),
   }),
   painPoints: z.object({
@@ -52,7 +50,7 @@ const industryResearchDataSchema = z.object({
     .array(
       z.object({
         trend: nonEmptyStringSchema,
-        direction: z.enum(['rising', 'stable', 'declining']),
+        direction: z.string().min(1),
         evidence: nonEmptyStringSchema,
       }),
     )
@@ -77,14 +75,14 @@ const threatAssessmentSchema = z.object({
 });
 
 const competitorAdCreativeSchema = z.object({
-  platform: z.enum(['linkedin', 'meta', 'google']),
+  platform: z.string().min(1),
   id: nonEmptyStringSchema,
   advertiser: nonEmptyStringSchema,
   headline: nonEmptyStringSchema.optional(),
   body: nonEmptyStringSchema.optional(),
   imageUrl: nonEmptyStringSchema.optional(),
   videoUrl: nonEmptyStringSchema.optional(),
-  format: z.enum(['video', 'image', 'carousel', 'text', 'message', 'unknown']),
+  format: z.string().min(1),
   isActive: z.boolean(),
   firstSeen: nonEmptyStringSchema.optional(),
   lastSeen: nonEmptyStringSchema.optional(),
@@ -106,7 +104,7 @@ const competitorIntelDataSchema = z.object({
         website: nonEmptyStringSchema,
         positioning: nonEmptyStringSchema,
         price: nonEmptyStringSchema.optional(),
-        pricingConfidence: z.enum(['high', 'medium', 'low', 'unknown']).optional(),
+        pricingConfidence: z.string().optional(),
         strengths: nonEmptyStringArraySchema,
         weaknesses: nonEmptyStringArraySchema,
         opportunities: nonEmptyStringArraySchema,
@@ -116,7 +114,7 @@ const competitorIntelDataSchema = z.object({
           platforms: nonEmptyStringArraySchema,
           themes: nonEmptyStringArraySchema,
           evidence: nonEmptyStringSchema,
-          sourceConfidence: z.enum(['high', 'medium', 'low']),
+          sourceConfidence: z.string().min(1),
         }),
         threatAssessment: threatAssessmentSchema.optional(),
         adCreatives: z.array(competitorAdCreativeSchema).default([]),
@@ -145,14 +143,14 @@ const competitorIntelDataSchema = z.object({
     .array(
       z.object({
         gap: nonEmptyStringSchema,
-        type: z.enum(['messaging', 'feature', 'audience', 'channel']),
+        type: z.string().min(1),
         evidence: nonEmptyStringSchema,
         exploitability: z.number().min(1).max(10),
         impact: z.number().min(1).max(10),
         recommendedAction: nonEmptyStringSchema,
       }),
     )
-    .min(1),
+    .default([]),
   overallLandscape: nonEmptyStringSchema.optional(),
 });
 
@@ -175,7 +173,7 @@ const icpValidationDataSchema = z.object({
   decisionProcess: nonEmptyStringSchema,
   finalVerdict: z
     .object({
-      status: z.enum(['validated', 'workable', 'invalid']),
+      status: z.string().min(1),
       reasoning: nonEmptyStringSchema,
       recommendations: z.array(z.string()).optional(),
     })
@@ -193,15 +191,7 @@ const offerAnalysisDataSchema = z.object({
     overallScore: z.number().min(1).max(10),
   }),
   recommendation: z.object({
-    status: z.enum([
-      'proceed',
-      'needs-work',
-      'adjust-messaging',
-      'adjust-pricing',
-      'icp-refinement-needed',
-      'major-offer-rebuild',
-      'do-not-launch',
-    ]),
+    status: z.string().min(1),
     summary: nonEmptyStringSchema,
     topStrengths: nonEmptyStringArraySchema,
     priorityFixes: nonEmptyStringArraySchema,
@@ -211,7 +201,7 @@ const offerAnalysisDataSchema = z.object({
     .array(
       z.object({
         issue: nonEmptyStringSchema,
-        severity: z.enum(['high', 'medium', 'low']),
+        severity: z.string().min(1),
         priority: z.number().int().positive(),
         recommendedAction: nonEmptyStringSchema,
         launchBlocker: z.boolean(),
@@ -222,7 +212,7 @@ const offerAnalysisDataSchema = z.object({
   pricingAnalysis: z.object({
     currentPricing: nonEmptyStringSchema,
     marketBenchmark: nonEmptyStringSchema,
-    pricingPosition: z.enum(['premium', 'mid-market', 'budget', 'unclear']),
+    pricingPosition: z.string().min(1),
     coldTrafficViability: nonEmptyStringSchema,
   }),
   marketFitAssessment: nonEmptyStringSchema,
