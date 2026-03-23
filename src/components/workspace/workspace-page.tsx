@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionTabs } from './section-tabs';
 import { ArtifactCanvas } from './artifact-canvas';
-import { UnifiedChat } from '@/components/chat/unified-chat';
-import type { CardContext } from '@/components/chat/unified-chat';
+import { RightRail } from './right-rail';
 import { BottomSheet } from './bottom-sheet';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
@@ -239,29 +238,9 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
         {(() => {
           const currentPhase = state.sectionStates[state.currentSection];
           const showChat = !hasActiveResearch || currentPhase === 'review';
-          if (!showChat) return null;
-
-          // Build card summaries for AI context injection
-          const sectionCards = Object.values(state.cards).filter(
-            (c) => c.sectionKey === state.currentSection,
-          );
-          const cardCtx: CardContext[] = sectionCards.slice(0, 10).map((card) => ({
-            id: card.id,
-            title: card.label ?? card.cardType,
-            firstParagraph:
-              card.content && 'text' in card.content && typeof card.content.text === 'string'
-                ? card.content.text.slice(0, 200)
-                : '',
-          }));
-
-          return (
-            <UnifiedChat
-              section={state.currentSection}
-              activeRunId={activeRunId ?? ''}
-              cardContext={cardCtx}
-              className="hidden md:flex w-[380px] shrink-0"
-            />
-          );
+          return showChat ? (
+            <RightRail className="hidden md:flex w-[380px] shrink-0" />
+          ) : null;
         })()}
       </div>
       <div className="md:hidden">
