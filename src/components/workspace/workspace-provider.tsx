@@ -183,10 +183,18 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
   const navigateToSection = useCallback((section: SectionKey) => {
     const currentStates = stateRef.current.sectionStates;
     if (currentStates[section] === 'queued') return; // guard: can't navigate to queued sections
-    setState((prev) => ({
-      ...prev,
-      currentSection: section,
-    }));
+    setState((prev) => {
+      // Auto-approve the current section if leaving a reviewed section
+      const currentPhase = prev.sectionStates[prev.currentSection];
+      const autoApprove = currentPhase === 'review';
+      return {
+        ...prev,
+        currentSection: section,
+        sectionStates: autoApprove
+          ? { ...prev.sectionStates, [prev.currentSection]: 'approved' }
+          : prev.sectionStates,
+      };
+    });
   }, []);
 
   const actions: WorkspaceActions = {

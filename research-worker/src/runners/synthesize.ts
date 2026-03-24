@@ -144,6 +144,20 @@ export async function runSynthesizeResearch(
     let object: z.infer<typeof synthesisGenerateSchema> | undefined;
     let usage: GenerateObjectUsage | undefined;
 
+    // Emit simulated progress during generation (hyper-agent view needs activity)
+    const progressInterval = setInterval(async () => {
+      const progressMessages = [
+        'draft positioning: mapping competitive differentiation angles',
+        'draft messaging: generating ad hook frameworks',
+        'draft strategy: aligning ICP pain points with offer strengths',
+        'draft insights: scoring cross-section confidence levels',
+        'draft channels: evaluating platform-audience fit',
+        'draft objections: building objection-handler matrix',
+      ];
+      const msg = progressMessages[Math.floor(Math.random() * progressMessages.length)];
+      await emitRunnerProgress(onProgress, 'analysis', msg);
+    }, 4000);
+
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const abort = AbortSignal.timeout(SYNTHESIS_TIMEOUT_MS);
@@ -157,6 +171,7 @@ export async function runSynthesizeResearch(
         });
         object = result.object;
         usage = result.usage;
+        clearInterval(progressInterval);
         break;
       } catch (err) {
         const isTimeout = err instanceof DOMException && err.name === 'TimeoutError';
@@ -168,9 +183,12 @@ export async function runSynthesizeResearch(
           );
           continue;
         }
+        clearInterval(progressInterval);
         throw err;
       }
     }
+
+    clearInterval(progressInterval);
 
     if (!object || !usage) {
       throw new Error('Strategic synthesis failed after 2 attempts');

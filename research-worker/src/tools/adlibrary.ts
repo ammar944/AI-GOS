@@ -582,18 +582,19 @@ export function buildAdInsight(
   const metaCreatives = normalizeSearchApiToCreatives(
     metaAds, 'meta', companyName, domain,
   );
-  // Deduplicate ads — same id, or same headline+body+platform combo
-  const seen = new Set<string>();
+  // Deduplicate ads — check BOTH id AND content fingerprint
+  const seenIds = new Set<string>();
+  const seenFingerprints = new Set<string>();
   const adCreatives = [...googleCreatives, ...linkedInCreatives, ...metaCreatives].filter((ad) => {
     // Primary key: ad id (if non-fallback)
     if (ad.id && !ad.id.includes('-')) {
-      if (seen.has(ad.id)) return false;
-      seen.add(ad.id);
+      if (seenIds.has(ad.id)) return false;
+      seenIds.add(ad.id);
     }
-    // Secondary key: content fingerprint (catches cross-platform dupes + fallback id collisions)
-    const fingerprint = `${ad.platform}|${(ad.headline ?? '').slice(0, 80)}|${(ad.body ?? '').slice(0, 80)}|${ad.imageUrl ?? ''}`;
-    if (seen.has(fingerprint)) return false;
-    seen.add(fingerprint);
+    // Secondary key: content fingerprint — ALWAYS checked (catches same content with different IDs)
+    const fingerprint = `${ad.platform}|${(ad.headline ?? '').slice(0, 80).toLowerCase().trim()}|${(ad.body ?? '').slice(0, 80).toLowerCase().trim()}|${ad.imageUrl ?? ''}`;
+    if (seenFingerprints.has(fingerprint)) return false;
+    seenFingerprints.add(fingerprint);
     return true;
   });
 

@@ -295,11 +295,8 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
         </AnimatePresence>
       </div>
 
-      {/* Show approve footer for research sections in review phase.
-          Excludes mediaPlan (handled below) and crossAnalysis (auto-approved by "Generate Media Plan"). */}
-      {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && state.currentSection !== 'mediaPlan' && state.currentSection !== 'crossAnalysis' && (
-        <ArtifactFooter variant="approve" onApprove={approveSection} />
-      )}
+      {/* Research sections auto-approve — no explicit "Looks Good" button.
+          Sections get approved when the user navigates away or when media plan is triggered. */}
 
       {/* Show completion footer when all 6 research sections approved (media plan not yet generated).
           The generate button is intentionally omitted here — the in-canvas MediaPlanCta card handles it. */}

@@ -213,6 +213,23 @@ export async function runMediaPlan(
 
     const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
 
+    // Emit progress during generation so hyper-agent view stays active
+    const blockProgressMessages: Record<string, string[]> = {
+      channelMixBudget: ['draft budget: modeling channel-level spend allocation', 'draft CPM: benchmarking cost-per-impression by platform'],
+      audienceCampaign: ['draft audiences: building lookalike and interest segments', 'draft campaigns: structuring ad set hierarchy'],
+      creativeSystem: ['draft formats: defining ad creative matrix', 'draft copy: generating headline and CTA variants'],
+      measurementGuardrails: ['draft KPIs: calculating target ROAS and CAC thresholds', 'draft alerts: setting performance guardrail triggers'],
+      rolloutRoadmap: ['draft phases: planning budget ramp schedule', 'draft timeline: mapping launch milestones'],
+      strategySnapshot: ['draft summary: compiling executive strategy overview', 'draft recommendations: prioritizing action items'],
+    };
+    let progressIdx = 0;
+    const msgs = blockProgressMessages[block.name] ?? ['draft analysis: generating section data'];
+    const blockProgressInterval = setInterval(async () => {
+      const msg = msgs[progressIdx % msgs.length];
+      await emitRunnerProgress(onProgress, 'analysis', msg);
+      progressIdx++;
+    }, 5000);
+
     let object: unknown;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
@@ -226,6 +243,7 @@ export async function runMediaPlan(
           abortSignal: blockAbort,
         });
         object = result.object;
+        clearInterval(blockProgressInterval);
         break;
       } catch (err) {
         const isTimeout = err instanceof DOMException && err.name === 'TimeoutError';
@@ -233,9 +251,12 @@ export async function runMediaPlan(
           console.warn(`[media-plan] Block ${blockNum} timed out — retrying (attempt 2)`);
           continue;
         }
+        clearInterval(blockProgressInterval);
         throw err;
       }
     }
+
+    clearInterval(blockProgressInterval);
 
     // Validate
     await emitRunnerProgress(onProgress, 'analysis', `validating ${block.label}`);
