@@ -1,58 +1,50 @@
 # PRIMER.md
 
 ## Current Focus
-Sprint C: Fix-Then-Wow — all sprints COMPLETE.
+Post-deployment bug fixes and polish — hyper-agent, ads, CTA, generation time.
 
-## What Was Just Done (2026-03-19 session)
+## What Was Just Done (2026-03-24 session)
 
-### Sprint C.1: Protect + Verify ✅
-- Committed 59 uncommitted files in 2 logical commits
-- gstack tooling setup (`592b8c61`)
-- UI/design elevation pass — sidebar, right-rail chat, artifact cards, theme system (`f10c7d35`)
+### Fixes Shipped (commit `21d9c677`)
+1. **"Looks Good" CTA removed** — Approval button removed from all research sections. Sections now auto-approve when user navigates to another section.
+2. **Duplicate ads fixed** — Dedup logic in `adlibrary.ts` split into separate ID and fingerprint sets. Real IDs no longer skip fingerprint check. Case-normalized matching.
+3. **Hyper-agent progress for synthesis + media plan** — Both runners use `generateObject()` (no streaming). Added periodic progress emissions every 4-5s so the hyper-agent view stays alive during generation.
 
-### Sprint C.2: Pipeline Reorder + Intelligence Chain ✅
-- **Reordered pipeline**: Market → ICP → Offer → Competitors → Keywords → Synthesis → Media Plan (`fe9d66eb`)
-- **Intelligence chain**: Generalized enrichment in dispatch route — every runner now gets prior research results from Supabase (not just mediaPlan). Each step is informed by all completed upstream sections.
-- Updated system prompt: trigger conditions, execution order, prefill exception
-- Required field enforcement (geography, budget) verified already working
-- TypeScript passes (only pre-existing test errors)
+### Deployed
+- **Vercel**: Auto-deploy on push to `redesign/v2-command-center`
+- **Railway**: `railway up` from research-worker/
 
-### Sprint C.3: Hyper-Agent Visual ✅
-- **Pipeline progress tracker**: Visual bar showing all 7 steps with active step glowing, completed steps in emerald (`8d14417b`)
-- **Enriched activity messages**: Fallback messages now reference the intelligence chain (e.g., "Loading ICP, offer, and market context" for competitors)
-- Display-only — zero impact on research generation speed
+### Previous Session (2026-03-22)
+- Unified Chat System planned (design doc APPROVED, eng review done)
+- Full pipeline optimization: token budgets, tool iteration caps, wave parallelism
+- 3 hotfixes deployed: z.enum relaxation, empty string defaults, token budget reverts
 
-## Architecture Changes
+## Known Issues (Not Fixed This Session)
 
-### Intelligence Chain (NEW — dispatch route)
-Each research runner now receives all completed upstream research results via the dispatch route. Pipeline order determines what's "upstream":
-```
-industryMarket (gets: nothing — first step)
-icpValidation  (gets: market results)
-offerAnalysis  (gets: market + ICP results)
-competitors    (gets: market + ICP + offer results)
-keywordIntel   (gets: all above)
-crossAnalysis  (gets: all above)
-mediaPlan      (gets: all above — was already enriched)
-```
+### Chat Edit Verification
+The `editBlueprint` tool exists in `AgentChat` component but isn't wired into the workspace/journey flow. The workspace uses `RightRail` (simple chat without tool calling). Full edit capability requires the unified chat implementation (Phase 1-2 from previous PRIMER).
 
-### Pipeline Order (CHANGED)
-Old: Market → Competitors → ICP → Offer → Keywords → Synthesis → Media Plan
-New: Market → ICP → Offer → Competitors → Keywords → Synthesis → Media Plan
+### Firecrawl API Key Swap
+No code changes needed. Swap `FIRECRAWL_API_KEY` env var in:
+- Vercel dashboard → Environment Variables
+- Railway dashboard → Variables
+User needs to provide the SaaSLaunch account API key.
 
-## Next Steps
-1. **Test with real client** — run a non-SaaS-Launch client through the full journey to verify intelligence chain improves competitor accuracy
-2. **Verify pipeline order in practice** — confirm ICP/Offer runners receive and use prior market data
-3. **Consider further hyper-agent enhancements** — worker could emit richer progress events (URLs being crawled, data point counts) to replace fallback messages with real data
-4. **Light mode / color palette** — lower priority Gilles feedback item
-5. **Creatives, campaigns, reporting** — Phase 2 (future sprints, not now)
+### Generation Time
+Token budgets and tool iteration caps already optimized in previous session. Further gains require `streamObject` migration for synthesis + media plan (blocked on `stripNumericConstraints` compatibility spike).
 
 ## Active Files
-- `src/lib/workspace/pipeline.ts` — pipeline order
-- `src/app/api/journey/dispatch/route.ts` — intelligence chain
-- `src/lib/ai/prompts/lead-agent-system.ts` — system prompt
-- `src/components/workspace/research-activity-log.tsx` — pipeline progress tracker
-- `src/components/workspace/artifact-canvas.tsx` — activity log integration
 
-## Design Doc
-`~/.gstack/projects/ammar944-AI-GOS/ammar-redesign-v2-command-center-design-20260319-203617.md`
+| File | Change |
+|------|--------|
+| `src/components/workspace/artifact-canvas.tsx` | Removed approve footer for research sections |
+| `src/components/workspace/workspace-provider.tsx` | Auto-approve on navigate away |
+| `research-worker/src/tools/adlibrary.ts` | Fixed dedup logic |
+| `research-worker/src/runners/synthesize.ts` | Added progress interval |
+| `research-worker/src/runners/media-plan.ts` | Added per-block progress interval |
+
+## Next Steps
+1. Swap Firecrawl API key (user action — env vars)
+2. Run 1 full pipeline test to verify all 7 sections complete cleanly
+3. Unified Chat implementation (Phase 0-4 from design doc)
+4. `streamObject` spike for synthesis + media plan (generation time)
