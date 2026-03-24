@@ -635,7 +635,7 @@ async function runCompetitorToolAttempt(
         runStreamedToolRunner(runner, {
           onProgress,
           synthesisMessage: config.synthesisMessage,
-          maxToolIterations: 4,
+          maxToolIterations: 3,
         }),
         new Promise<never>((_, reject) =>
           setTimeout(
