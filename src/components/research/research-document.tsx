@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Printer, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Printer, Copy, Check, Share2, Loader2, Link2 } from 'lucide-react';
 import Link from 'next/link';
 import { SectionTabs } from '@/components/workspace/section-tabs';
 import { SectionHeader } from '@/components/workspace/section-header';
@@ -11,6 +11,7 @@ import { CardGrid } from '@/components/workspace/card-grid';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
 import { MediaPlanButton } from '@/components/research/media-plan-button';
+import { useSessionShare } from '@/hooks/use-session-share';
 
 interface ResearchDocumentProps {
   cardsBySection: Record<string, CardState[]>;
@@ -47,6 +48,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
   );
 
   const [copied, setCopied] = useState(false);
+  const { isSharing, shareUrl, copied: shareCopied, error: shareError, handleShare, handleCopyLink } = useSessionShare();
 
   const handlePrint = useCallback(() => {
     window.print();
@@ -142,6 +144,30 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
           />
         </div>
         <div className="flex items-center gap-1 px-3 shrink-0 border-l border-[var(--border-subtle)]">
+          {runId && (
+            shareUrl ? (
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs transition-colors bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                title="Copy share link"
+              >
+                {shareCopied ? <Check className="size-3.5" /> : <Link2 className="size-3.5" />}
+                <span className="hidden sm:inline">{shareCopied ? 'Copied!' : 'Copy Link'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleShare(runId, title)}
+                disabled={isSharing}
+                title={shareError ?? 'Share research with a public link'}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 transition-colors disabled:opacity-50"
+              >
+                {isSharing ? <Loader2 className="size-3.5 animate-spin" /> : <Share2 className="size-3.5" />}
+                <span className="hidden sm:inline">Share</span>
+              </button>
+            )
+          )}
           <button
             type="button"
             onClick={handleCopyAll}
