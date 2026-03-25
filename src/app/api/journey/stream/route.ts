@@ -187,6 +187,8 @@ export async function POST(request: Request) {
   const isFirstRequest = userMessages.length === 1;
   const PREFILL_PREFIX = "Here's what I found about the company:";
   const isPrefillMessage = isFirstRequest && lastUserText.startsWith(PREFILL_PREFIX);
+  const ND_UPLOAD_PREFIX = "I've uploaded a niche & demographics document. Here's what was extracted:";
+  const isNdUploadMessage = lastUserText.startsWith(ND_UPLOAD_PREFIX);
 
   // ── Derive per-request state snapshot ──────────────────────────────────────
   const journeySnap = parseCollectedFields(requestMessages);
@@ -338,11 +340,23 @@ The user will review research results in an artifact panel and click "Looks Good
     }
   }
 
+  // N&D document upload: treat extracted fields as confirmed context, skip website requirement
+  if (isNdUploadMessage) {
+    systemPrompt += `\n\n## N&D Document Upload Directive (this request only)
+
+The user has uploaded a Niche & Demographics document. The extracted fields in their message are confirmed — do NOT re-ask or re-confirm any of them.
+
+IMPORTANT: This user does NOT have a website. The \`websiteUrl\` field is NOT required. Do NOT ask for a website URL. Do NOT call \`scrapeClientSite\`. The extracted document data replaces website-derived context.
+
+ACTION: Acknowledge the uploaded data briefly, then continue collecting any REMAINING required fields that were NOT extracted. If enough required fields are present (businessModel + primaryIcpDescription at minimum), proceed to research dispatch.`;
+  }
+
   if (
     pendingReviewSection &&
     !isApprovalMessage &&
     !isSectionFeedbackMessage &&
     !isPrefillMessage &&
+    !isNdUploadMessage &&
     !journeySnap.strategistModeReady
   ) {
     const sectionLabel = SECTION_META[pendingReviewSection]?.label ?? pendingReviewSection;

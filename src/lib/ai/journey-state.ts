@@ -38,6 +38,7 @@ export interface JourneyStateSnapshot {
 }
 
 const PREFILL_PREFIX = "Here's what I found about the company:";
+const ND_UPLOAD_PREFIX = "I've uploaded a niche & demographics document. Here's what was extracted:";
 
 const PREFILL_LABEL_TO_FIELD: Record<string, string> = {
   'Company Name': 'companyName',
@@ -144,7 +145,10 @@ function detectCompetitorFastHitsCalled(messages: UIMessage[]): Set<string> {
   return called;
 }
 
-function extractAcceptedPrefillFields(messages: UIMessage[]): Record<string, unknown> {
+function extractFieldsFromPrefixedMessage(
+  messages: UIMessage[],
+  prefix: string,
+): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
 
   for (const msg of messages) {
@@ -159,13 +163,13 @@ function extractAcceptedPrefillFields(messages: UIMessage[]): Record<string, unk
       .join('\n')
       .trim();
 
-    if (!text.startsWith(PREFILL_PREFIX)) {
+    if (!text.startsWith(prefix)) {
       continue;
     }
 
     for (const line of text.split('\n')) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed === PREFILL_PREFIX || !trimmed.includes(':')) {
+      if (!trimmed || trimmed === prefix || !trimmed.includes(':')) {
         continue;
       }
 
@@ -184,6 +188,14 @@ function extractAcceptedPrefillFields(messages: UIMessage[]): Record<string, unk
   return fields;
 }
 
+function extractAcceptedPrefillFields(messages: UIMessage[]): Record<string, unknown> {
+  return extractFieldsFromPrefixedMessage(messages, PREFILL_PREFIX);
+}
+
+function extractNdUploadFields(messages: UIMessage[]): Record<string, unknown> {
+  return extractFieldsFromPrefixedMessage(messages, ND_UPLOAD_PREFIX);
+}
+
 /**
  * Derive a typed snapshot of onboarding progress from the full message history.
  *
@@ -193,6 +205,7 @@ function extractAcceptedPrefillFields(messages: UIMessage[]): Record<string, unk
 export function parseCollectedFields(messages: UIMessage[]): JourneyStateSnapshot {
   const collectedFields = {
     ...extractAcceptedPrefillFields(messages),
+    ...extractNdUploadFields(messages),
     ...extractAskUserResults(messages),
   };
 

@@ -11,6 +11,46 @@ import { NextResponse } from 'next/server';
 import { dispatchResearchForUser } from '@/lib/ai/tools/research/dispatch';
 import { createAdminClient } from '@/lib/supabase/server';
 
+/** Extract key summary fields from upstream research for synthesis context.
+ *  Reduces ~15K tokens of full JSON to ~5-7K of essential data. */
+function summarizeForSynthesis(key: string, payload: unknown): string {
+  const d = payload as Record<string, unknown>;
+  try {
+    switch (key) {
+      case 'industryMarket':
+        return JSON.stringify(
+          { marketSize: d.marketSize, trends: d.trends, topOpportunities: d.topOpportunities },
+          null, 1,
+        );
+      case 'icpValidation':
+        return JSON.stringify(
+          { segments: d.segments, buyingTriggers: d.buyingTriggers, finalVerdict: d.finalVerdict },
+          null, 1,
+        );
+      case 'offerAnalysis':
+        return JSON.stringify({
+          overallScore: (d.offerStrength as Record<string, unknown>)?.overallScore,
+          status: (d.recommendation as Record<string, unknown>)?.status,
+          pricingPosition: (d.pricingAnalysis as Record<string, unknown>)?.pricingPosition,
+          redFlags: d.redFlags,
+        }, null, 1);
+      case 'competitors': {
+        const comps = Array.isArray(d.competitors) ? d.competitors.slice(0, 3) : [];
+        return JSON.stringify(
+          comps.map((c: Record<string, unknown>) => ({
+            name: c.name, positioning: c.positioningAngle, weaknesses: c.weaknesses,
+          })),
+          null, 1,
+        );
+      }
+      default:
+        return JSON.stringify(payload, null, 1);
+    }
+  } catch {
+    return JSON.stringify(payload, null, 1);
+  }
+}
+
 const SECTION_TO_TOOL: Record<string, string> = {
   industryMarket: 'researchIndustry',
   competitors: 'researchCompetitors',
@@ -105,7 +145,11 @@ export async function POST(req: Request) {
           if (!value) continue;
           // Extract the data payload — research results wrap data in { status, data, ... }
           const payload = (value as Record<string, unknown>)?.data ?? value;
-          researchSections.push(`## ${key}\n${JSON.stringify(payload, null, 1)}`);
+          // Pass trimmed summaries for synthesis to reduce context (~15K → ~5-7K tokens)
+          const content = section === 'crossAnalysis'
+            ? summarizeForSynthesis(key, payload)
+            : JSON.stringify(payload, null, 1);
+          researchSections.push(`## ${key}\n${content}`);
         }
         if (researchSections.length > 0) {
           enrichedContext = `${context}\n\n# Prior Research Results (use these to inform your analysis)\n\n${researchSections.join('\n\n')}`;

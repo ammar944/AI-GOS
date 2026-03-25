@@ -55,6 +55,7 @@ import { WorkspaceProvider } from '@/components/workspace/workspace-provider';
 import { WorkspacePage } from '@/components/workspace/workspace-page';
 import { JourneyWorkerStatusBanner } from '@/components/journey/journey-worker-status-banner';
 import { AnimatePresence, motion } from 'framer-motion';
+import { FileUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   createJourneyGuardedFetch,
@@ -1278,6 +1279,110 @@ function JourneyPageContent() {
     ]
   );
 
+  // N&D document upload handler — extracts fields then feeds into the same Review phase as URL prefill
+  const [isDocUploading, setIsDocUploading] = useState(false);
+  const [ndExtractedFields, setNdExtractedFields] = useState<Record<string, string> | null>(null);
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (isDocUploading) return;
+    setIsDocUploading(true);
+
+    try {
+      // Read file as base64
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
+      );
+
+      // Derive MIME from extension when browser reports empty or generic type
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      const extMimeMap: Record<string, string> = {
+        pdf: 'application/pdf',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        doc: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        txt: 'text/plain',
+        md: 'text/markdown',
+      };
+      const mimeType = file.type && file.type !== 'application/octet-stream'
+        ? file.type
+        : extMimeMap[ext ?? ''] ?? 'application/octet-stream';
+
+      // Call extraction API
+      const res = await fetch('/api/onboarding/extract-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileBase64: base64,
+          fileName: file.name,
+          mimeType,
+          documentType: 'niche_demographic',
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = res.statusText;
+        try {
+          const errBody = await res.json();
+          errMsg = errBody.error || errMsg;
+        } catch { /* use statusText */ }
+        addLog('err', `Document extraction failed: ${errMsg}`);
+        return;
+      }
+
+      // Parse streaming response — API sends raw JSON text deltas
+      const reader = res.body?.getReader();
+      if (!reader) return;
+
+      let accumulated = '';
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+      }
+
+      // Parse the complete JSON object
+      let extractedFields: Record<string, string> = {};
+      try {
+        const parsed = JSON.parse(accumulated);
+        if (typeof parsed === 'object' && parsed !== null) {
+          extractedFields = parsed as Record<string, string>;
+        }
+      } catch {
+        addLog('err', 'Failed to parse extraction results');
+        return;
+      }
+
+      // Map extraction schema field names to journey field catalog names
+      const EXTRACTION_TO_JOURNEY: Record<string, string> = {
+        businessName: 'companyName',
+      };
+
+      // Filter to non-empty string values and store for the Review phase
+      const flat: Record<string, string> = {};
+      for (const [key, val] of Object.entries(extractedFields)) {
+        if (typeof val === 'string' && val.trim()) {
+          const journeyKey = EXTRACTION_TO_JOURNEY[key] ?? key;
+          flat[journeyKey] = val.trim();
+        }
+      }
+      // Remove meta field that isn't an onboarding field
+      delete flat.confidenceNotes;
+
+      if (Object.keys(flat).length === 0) {
+        addLog('err', 'Could not extract useful fields from the document');
+        return;
+      }
+
+      addLog('run', `Extracted ${Object.keys(flat).length} fields — review before starting research`);
+      setNdExtractedFields(flat);
+      setJourneyPhase('review');
+    } catch (err) {
+      addLog('err', `Document upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsDocUploading(false);
+    }
+  }, [isDocUploading, addLog]);
+
   // Resume handlers
   const handleResumeContinue = useCallback(() => {
     if (!savedSession) {
@@ -1380,6 +1485,13 @@ function JourneyPageContent() {
           activeRunId: nextRunId,
         }),
       }).then(() => {
+        // Save business profile from onboarding data (fire-and-forget)
+        fetch('/api/profiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: nextRunId }),
+        }).catch(() => { /* non-critical */ });
+
         addLog('run', `Dispatching ${SECTION_META['industryMarket'] ?? 'Market Overview'}...`);
         return dispatchResearchSection('industryMarket', nextRunId, context);
       }).then((result) => {
@@ -1460,6 +1572,13 @@ function JourneyPageContent() {
           activeRunId: nextRunId,
         }),
       }).then(() => {
+        // Save business profile from onboarding data (fire-and-forget)
+        fetch('/api/profiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: nextRunId }),
+        }).catch(() => { /* non-critical */ });
+
         addLog('run', `Dispatching ${SECTION_META['industryMarket'] ?? 'Market Overview'}...`);
         return dispatchResearchSection('industryMarket', nextRunId, context);
       }).then((result) => {
@@ -1921,6 +2040,8 @@ function JourneyPageContent() {
                             : 'Ask AIGOS to refine the strategy...'
                     }
                     variant={showStudioPreview ? 'studio' : 'default'}
+                    onFileUpload={handleFileUpload}
+                    isUploading={isDocUploading}
                   />
                 </div>
               </motion.div>
@@ -1976,9 +2097,12 @@ function JourneyPageContent() {
     />
   );
 
+  // Use N&D extracted fields when available, otherwise URL prefill fields
+  const reviewFields = ndExtractedFields ?? extractedFieldsFlat;
+
   const reviewWorkspace = (
     <UnifiedFieldReview
-      extractedFields={extractedFieldsFlat}
+      extractedFields={reviewFields}
       onStart={handleStartFromUnifiedReview}
     />
   );
@@ -1992,6 +2116,11 @@ function JourneyPageContent() {
         setJourneyPhase('prefilling');
         addLog('run', `Analyzing ${websiteUrl}`);
       }}
+      onFileUpload={(file) => {
+        addLog('run', `Extracting fields from ${file.name}`);
+        handleFileUpload(file);
+      }}
+      isUploading={isDocUploading}
     />
   );
 
@@ -2438,13 +2567,18 @@ function PrefillReviewView({
 // ---------------------------------------------------------------------------
 function WelcomeForm({
   onAnalyze,
+  onFileUpload,
+  isUploading,
 }: {
   onAnalyze: (websiteUrl: string, linkedinUrl: string) => void;
+  onFileUpload?: (file: File) => void;
+  isUploading?: boolean;
 }) {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [urlFocused, setUrlFocused] = useState(false);
   const [linkedinFocused, setLinkedinFocused] = useState(false);
+  const ndFileInputRef = useRef<HTMLInputElement>(null);
 
   // Shared motion config — mirrors fadeUp + springs.gentle
   const fadeUpVariants = {
@@ -2575,7 +2709,7 @@ function WelcomeForm({
             onClick={() => {
               if (websiteUrl.trim()) onAnalyze(websiteUrl.trim(), linkedinUrl.trim());
             }}
-            disabled={!websiteUrl.trim()}
+            disabled={!websiteUrl.trim() || isUploading}
             className={cn(
               'cursor-pointer h-12 rounded-full bg-foreground text-background font-semibold text-[15px] px-8 transition-all duration-200',
               'hover:bg-foreground/90 hover:shadow-lg',
@@ -2587,6 +2721,53 @@ function WelcomeForm({
           >
             Begin Analysis
           </motion.button>
+
+          {/* N&D document upload — alternate path for pre-rev users */}
+          {onFileUpload && (
+            <>
+              <div className="flex items-center gap-3 w-full max-w-[240px]">
+                <div className="flex-1 h-px bg-[var(--border-default)]" />
+                <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-[var(--text-quaternary)]">or</span>
+                <div className="flex-1 h-px bg-[var(--border-default)]" />
+              </div>
+              <input
+                ref={ndFileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc,.txt,.md"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && file.size <= 3 * 1024 * 1024) onFileUpload(file);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+              <motion.button
+                onClick={() => ndFileInputRef.current?.click()}
+                disabled={isUploading}
+                className={cn(
+                  'cursor-pointer h-10 rounded-full border border-[var(--border-default)] text-[var(--text-tertiary)] font-medium text-[13px] px-6 transition-all duration-200',
+                  'hover:border-[var(--accent-blue)]/30 hover:text-[var(--text-secondary)]',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                )}
+                whileHover={!isUploading ? { scale: 1.01 } : {}}
+                whileTap={!isUploading ? { scale: 0.98 } : {}}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              >
+                {isUploading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" />
+                    Extracting...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <FileUp size={14} />
+                    Upload niche document instead
+                  </span>
+                )}
+              </motion.button>
+            </>
+          )}
+
           <p className="text-[11px] text-[var(--text-quaternary)] tracking-wide">
             Takes ~3 minutes. No credit card required.
           </p>

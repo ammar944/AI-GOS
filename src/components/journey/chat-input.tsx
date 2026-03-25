@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Send } from 'lucide-react';
+import { Send, FileUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SlashCommandPalette, type SlashCommand } from '@/components/chat/slash-command-palette';
 
@@ -13,6 +13,9 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'visualize', description: 'Generate visual breakdowns', icon: 'Eye', color: 'var(--accent-green)' },
 ];
 
+const ACCEPTED_DOC_TYPES = '.pdf,.docx,.doc,.txt,.md';
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
+
 interface JourneyChatInputProps {
   onSubmit: (message: string) => void;
   isLoading: boolean;
@@ -20,6 +23,10 @@ interface JourneyChatInputProps {
   placeholder?: string;
   variant?: 'default' | 'studio' | 'paper' | 'premium';
   className?: string;
+  /** Called when user selects a file for N&D upload */
+  onFileUpload?: (file: File) => void;
+  /** True while document extraction is in progress */
+  isUploading?: boolean;
 }
 
 export function JourneyChatInput({
@@ -29,7 +36,22 @@ export function JourneyChatInput({
   placeholder = 'Ask AIGOS to refine the strategy...',
   variant = 'default',
   className,
+  onFileUpload,
+  isUploading = false,
 }: JourneyChatInputProps): React.JSX.Element {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onFileUpload) return;
+    if (file.size > MAX_FILE_SIZE) {
+      // Reset file input
+      e.target.value = '';
+      return;
+    }
+    onFileUpload(file);
+    e.target.value = '';
+  }, [onFileUpload]);
   const [input, setInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isSlashPaletteOpen, setIsSlashPaletteOpen] = useState(false);
@@ -267,6 +289,34 @@ export function JourneyChatInput({
               )}
               style={{ minHeight: '20px', maxHeight: '120px' }}
             />
+
+            {/* Document upload */}
+            {onFileUpload && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_DOC_TYPES}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  aria-label="Upload niche document"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading || isLoading}
+                  title={isUploading ? 'Extracting...' : 'Upload niche & demographics document'}
+                  className={cn(
+                    'mr-1 rounded-lg p-2 transition-all',
+                    isUploading
+                      ? 'text-[var(--accent-blue)] animate-pulse'
+                      : 'text-[var(--text-quaternary)] hover:text-[var(--text-secondary)] hover:bg-white/5',
+                  )}
+                >
+                  {isUploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
+                </button>
+              </>
+            )}
 
             {/* Send button */}
             <button

@@ -10,7 +10,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/journey/(.*)", // Route handlers do their own auth; avoid Clerk HTML rewrites on stream/prefill failures
   "/api/blueprints/(.*)",
   "/api/webhooks/(.*)", // Clerk webhooks - verified via svix signature
-
+  "/api/chat/(.*)", // Chat routes handle their own auth
+  "/api/profiles(.*)", // Profile routes handle their own auth
+  "/api/share/(.*)", // Share token lookup is public
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
