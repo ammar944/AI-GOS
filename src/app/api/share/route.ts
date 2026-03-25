@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { generateShareToken } from '@/lib/blueprints/share-token';
+import { parseResearchToCards, resetCardIdCounter } from '@/lib/workspace/card-taxonomy';
+import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections';
+import type { SectionKey, CardState } from '@/lib/workspace/types';
 
 export const maxDuration = 30;
 
@@ -50,8 +54,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const researchSnapshot = session.research_document ?? null;
-  const mediaPlanSnapshot = session.research_results?.mediaPlan ?? null;
+  // Prefer curated research_document; fall back to parsing raw research_results
+  let researchSnapshot: Record<string, CardState[]> | null =
+    session.research_document as Record<string, CardState[]> | null;
+
+  const rawResults = session.research_results as Record<
+    string,
+    { status?: string; data?: Record<string, unknown> }
+  > | null;
+
+  if (!researchSnapshot && rawResults) {
+    // Build cards from raw research_results (same logic as /research/[sessionId] page)
+    const canonicalToBoundary = CANONICAL_TO_BOUNDARY_SECTION_MAP as Record<string, string>;
+    resetCardIdCounter();
+    const built: Record<string, CardState[]> = {};
+
+    for (const section of SECTION_PIPELINE) {
+      let result = rawResults[section];
+      if (!result) {
+        for (const [canonical, boundary] of Object.entries(canonicalToBoundary)) {
+          if (boundary === section && rawResults[canonical]) {
+            result = rawResults[canonical];
+            break;
+          }
+        }
+      }
+      if (result?.status === 'complete' && result.data) {
+        const cards = parseResearchToCards(section as SectionKey, result.data);
+        if (cards.length > 0) built[section] = cards;
+      }
+    }
+
+    if (Object.keys(built).length > 0) researchSnapshot = built;
+  }
+
+  // Media plan snapshot — extract from raw results
+  const mediaPlanRaw = rawResults?.mediaPlan;
+  let mediaPlanSnapshot: CardState[] | null = null;
+  if (mediaPlanRaw?.status === 'complete' && mediaPlanRaw.data) {
+    resetCardIdCounter();
+    mediaPlanSnapshot = parseResearchToCards('mediaPlan', mediaPlanRaw.data);
+  }
 
   // Derive title from metadata if not provided
   const snapshotTitle =
