@@ -1,18 +1,15 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { dispatchMediaPlanForSession } from '@/lib/actions/journey-sessions';
 
 interface MediaPlanButtonProps {
   sessionId: string;
-  runId: string;
   hasMediaPlan: boolean;
 }
 
-export function MediaPlanButton({ sessionId, runId, hasMediaPlan }: MediaPlanButtonProps) {
-  const router = useRouter();
+export function MediaPlanButton({ sessionId, hasMediaPlan }: MediaPlanButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dispatched, setDispatched] = useState(false);
@@ -41,8 +38,6 @@ export function MediaPlanButton({ sessionId, runId, hasMediaPlan }: MediaPlanBut
       const result = await dispatchMediaPlanForSession(sessionId);
       if (result.success) {
         setDispatched(true);
-        // Redirect to workspace where they can see the activity log + cards streaming
-        router.push(`/journey?session=${encodeURIComponent(runId)}&mediaPlan=1`);
       } else {
         setError(result.error ?? 'Failed to generate media plan');
       }

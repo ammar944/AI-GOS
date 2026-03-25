@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Share2, Check, Loader2, Link2 } from 'lucide-react';
 import { SectionTabs } from './section-tabs';
 import { ArtifactCanvas } from './artifact-canvas';
-import { RightRail } from './right-rail';
+import { UnifiedChat } from '@/components/chat/unified-chat';
+import type { CardContext } from '@/components/chat/unified-chat';
 import { BottomSheet } from './bottom-sheet';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
@@ -13,6 +15,7 @@ import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
 import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
 import { getJourneySession } from '@/lib/storage/local-storage';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
+import { useSessionShare } from '@/hooks/use-session-share';
 import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 
@@ -105,6 +108,45 @@ function WorkspaceApprovalBridge({ onSectionApproved }: { onSectionApproved?: (s
   return null;
 }
 
+function ShareButton() {
+  const { state } = useWorkspace();
+  const { isSharing, shareUrl, copied, error, handleShare, handleCopyLink } = useSessionShare();
+
+  // Only show when crossAnalysis is complete (review or approved)
+  const crossAnalysisPhase = state.sectionStates.crossAnalysis;
+  const isShareable = crossAnalysisPhase === 'review' || crossAnalysisPhase === 'approved';
+
+  if (!isShareable) return null;
+
+  if (shareUrl) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={handleCopyLink}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+          {copied ? 'Copied!' : 'Copy Link'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => handleShare(state.sessionId)}
+      disabled={isSharing}
+      title={error ?? 'Share this session'}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/20 disabled:opacity-50"
+    >
+      {isSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+      Share
+    </button>
+  );
+}
+
 function WorkspaceNavBar() {
   const { state, navigateToSection } = useWorkspace();
 
@@ -117,19 +159,63 @@ function WorkspaceNavBar() {
   }, [state.sectionStates.mediaPlan]);
 
   return (
-    <SectionTabs
-      sections={visibleSections}
-      currentSection={state.currentSection}
-      sectionStates={state.sectionStates}
-      onNavigate={navigateToSection}
-      mode="workspace"
-    />
+    <div className="flex items-center">
+      <div className="flex-1 min-w-0">
+        <SectionTabs
+          sections={visibleSections}
+          currentSection={state.currentSection}
+          sectionStates={state.sectionStates}
+          onNavigate={navigateToSection}
+          mode="workspace"
+        />
+      </div>
+      <div className="shrink-0 pr-4">
+        <ShareButton />
+      </div>
+    </div>
   );
 }
+
+const CHAT_MIN_W = 320;
+const CHAT_MAX_W = 640;
+const CHAT_DEFAULT_W = 400;
 
 export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
   const { state, setSectionPhase, navigateToSection } = useWorkspace();
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
+
+  // Resizable chat panel
+  const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_W);
+  const resizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(CHAT_DEFAULT_W);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = chatWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = startXRef.current - ev.clientX; // dragging left = wider
+      const next = Math.min(CHAT_MAX_W, Math.max(CHAT_MIN_W, startWidthRef.current + delta));
+      setChatWidth(next);
+    };
+
+    const onUp = () => {
+      resizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [chatWidth]);
 
   // Hide chat rail when any section is actively generating
   const hasActiveResearch = useMemo(() => {
@@ -238,9 +324,81 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
         {(() => {
           const currentPhase = state.sectionStates[state.currentSection];
           const showChat = !hasActiveResearch || currentPhase === 'review';
-          return showChat ? (
-            <RightRail className="hidden md:flex w-[380px] shrink-0" />
-          ) : null;
+          if (!showChat) return null;
+
+          // Build card summaries for AI context injection
+          const sectionCards = Object.values(state.cards).filter(
+            (c) => c.sectionKey === state.currentSection,
+          );
+          const cardCtx: CardContext[] = sectionCards.slice(0, 10).map((card) => {
+            // Build a readable summary of card content for the AI
+            let summary = '';
+            const content = card.content;
+            if (content) {
+              if ('text' in content && typeof content.text === 'string') {
+                summary = content.text.slice(0, 300);
+              } else if ('stats' in content && Array.isArray(content.stats)) {
+                // Stat grid cards: [{ label, value }]
+                summary = (content.stats as Array<{ label?: string; value?: string }>)
+                  .map(s => `${s.label}: ${s.value}`)
+                  .join(', ')
+                  .slice(0, 300);
+              } else if ('items' in content && Array.isArray(content.items)) {
+                // List cards
+                summary = (content.items as Array<{ title?: string; text?: string }>)
+                  .map(item => item.title || item.text || '')
+                  .filter(Boolean)
+                  .join('; ')
+                  .slice(0, 300);
+              } else {
+                // Fallback: JSON preview of top-level keys
+                summary = JSON.stringify(content).slice(0, 300);
+              }
+            }
+            // Build field list — for stat grids, expose dot-notation paths like "stats.Category"
+            let fields: string[] = [];
+            if (content && typeof content === 'object') {
+              for (const key of Object.keys(content)) {
+                if (key === 'stats' && Array.isArray(content.stats)) {
+                  const statLabels = (content.stats as Array<{ label?: string }>)
+                    .map(s => s.label)
+                    .filter(Boolean);
+                  fields.push(...statLabels.map(l => `stats.${l}`));
+                } else {
+                  fields.push(key);
+                }
+              }
+            }
+
+            return {
+              id: card.id,
+              title: card.label ?? card.cardType,
+              firstParagraph: summary,
+              fields: fields.slice(0, 15),
+            };
+          });
+
+          return (
+            <div
+              className="hidden md:flex shrink-0 relative"
+              style={{ width: chatWidth }}
+            >
+              {/* Resize handle — left edge */}
+              <div
+                onMouseDown={handleResizeStart}
+                className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-10 group"
+              >
+                <div className="absolute inset-y-0 -left-0.5 w-2 transition-colors group-hover:bg-[var(--accent-blue,#365eff)]/20 group-active:bg-[var(--accent-blue,#365eff)]/30" />
+                <div className="absolute top-1/2 -translate-y-1/2 -left-[3px] w-[7px] h-8 rounded-full bg-zinc-700/60 group-hover:bg-[var(--accent-blue,#365eff)]/60 transition-all opacity-0 group-hover:opacity-100" />
+              </div>
+              <UnifiedChat
+                section={state.currentSection}
+                activeRunId={activeRunId ?? ''}
+                cardContext={cardCtx}
+                className="flex-1 border-l border-zinc-800/40"
+              />
+            </div>
+          );
         })()}
       </div>
       <div className="md:hidden">

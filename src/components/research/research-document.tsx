@@ -178,9 +178,9 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               <span className="text-[var(--text-quaternary)]">&middot;</span>
               <span>{totalCards} insights</span>
             </div>
-            {sessionId && runId && (
+            {sessionId && (
               <div className="mt-4">
-                <MediaPlanButton sessionId={sessionId} runId={runId} hasMediaPlan={hasMediaPlan ?? false} />
+                <MediaPlanButton sessionId={sessionId} hasMediaPlan={hasMediaPlan ?? false} />
               </div>
             )}
             <div className="h-px bg-gradient-to-r from-[var(--accent-blue)]/20 to-transparent mt-4" />

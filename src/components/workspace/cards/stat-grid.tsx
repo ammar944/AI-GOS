@@ -18,10 +18,19 @@ interface StatGridProps {
 }
 
 export function StatGrid({ stats, columns = 3, isEditing = false, onStatsChange }: StatGridProps) {
-  const [editedStats, setEditedStats] = useState<StatItem[]>(stats);
+  // Defensive: ensure stats is always an array of { label, value } objects.
+  // AI edits can accidentally replace the array with a string or malformed data.
+  const safeStats = Array.isArray(stats)
+    ? stats.filter((s): s is StatItem =>
+        typeof s === 'object' && s !== null && typeof s.label === 'string' && typeof s.value === 'string'
+      )
+    : [];
+
+  const [editedStats, setEditedStats] = useState<StatItem[]>(safeStats);
 
   useEffect(() => {
-    setEditedStats(stats);
+    setEditedStats(safeStats);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats]);
 
   function handleValueChange(index: number, value: string) {

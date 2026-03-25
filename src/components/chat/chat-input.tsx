@@ -57,12 +57,12 @@ export function ChatInput({
     [isSlashPaletteOpen, slashFilter]
   );
 
-  // Auto-resize textarea: min 20px (1 row), max 100px (~5 rows)
+  // Auto-resize textarea: min 36px (2 rows), max 160px (~7 rows)
   const autoResize = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
   useEffect(() => {
@@ -138,7 +138,7 @@ export function ChatInput({
         const el = inputRef.current;
         if (el) {
           el.style.height = 'auto';
-          el.style.height = '20px';
+          el.style.height = '36px';
         }
       });
     },
@@ -269,11 +269,11 @@ export function ChatInput({
           }
           disabled={isInputDisabled && !isVoiceRecording}
           rows={1}
-          className="w-full px-3 pt-2.5 pb-1 text-[13px] outline-none resize-none overflow-y-auto leading-[1.5] bg-transparent scrollbar-hide"
+          className="w-full px-3.5 pt-3 pb-1.5 text-sm outline-none resize-none overflow-y-auto leading-[1.55] bg-transparent scrollbar-hide"
           style={{
             color: 'var(--text-primary)',
-            minHeight: '20px',
-            maxHeight: '100px',
+            minHeight: '36px',
+            maxHeight: '160px',
           }}
         />
 
@@ -313,7 +313,7 @@ export function ChatInput({
                 color: 'var(--text-tertiary)',
               }}
             >
-              Groq 70B
+              Claude Opus
               <ChevronDown size={10} style={{ opacity: 0.6 }} />
             </button>
 

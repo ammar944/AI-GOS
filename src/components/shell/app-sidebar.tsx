@@ -1,8 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, FileText, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Home, Compass, FileText, Building2, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -19,6 +20,7 @@ const NAV_ITEMS: NavEntry[] = [
   { icon: Home, label: 'Home', href: '/dashboard' },
   { icon: Compass, label: 'Journey', href: '/journey' },
   { icon: FileText, label: 'Research', href: '/research' },
+  { icon: Building2, label: 'Profiles', href: '/profiles' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 
@@ -57,8 +59,12 @@ function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) 
 
 export function AppSidebar() {
   const shell = useOptionalShell();
-  const collapsed = shell?.sidebarCollapsed ?? false;
+  const [localCollapsed, setLocalCollapsed] = useState(false);
+
+  // Use shell context when available, otherwise fall back to local state
+  const collapsed = shell?.sidebarCollapsed ?? localCollapsed;
   const expanded = !collapsed;
+  const toggleSidebar = shell?.toggleSidebar ?? (() => setLocalCollapsed((c) => !c));
 
   return (
     <aside
@@ -77,22 +83,20 @@ export function AppSidebar() {
             </Link>
 
             {/* Collapse button — right side of header row */}
-            {shell && (
-              <button
-                type="button"
-                onClick={shell.toggleSidebar}
-                title="Collapse sidebar"
-                className="flex items-center justify-center w-7 h-7 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150 shrink-0 ml-1"
-              >
-                <PanelLeftClose size={15} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Collapse sidebar"
+              className="flex items-center justify-center w-7 h-7 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150 shrink-0 ml-1"
+            >
+              <PanelLeftClose size={15} />
+            </button>
           </>
         ) : (
           /* Collapsed: logomark as expand trigger */
           <button
             type="button"
-            onClick={shell?.toggleSidebar}
+            onClick={toggleSidebar}
             title="Expand sidebar"
             className="flex items-center justify-center w-8 h-8 rounded-md cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors duration-150"
           >
