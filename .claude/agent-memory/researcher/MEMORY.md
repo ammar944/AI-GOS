@@ -364,3 +364,32 @@ See `OLD-ONBOARDING-WIZARD.md` for complete documentation of the 9-step structur
 - Entry route: `/onboarding/edit` (with resume capability via `currentStep`)
 - Persistence: Supabase `user_profiles.onboarding_data` + localStorage
 - Fully replaced by conversational chat agent (`/journey`) on V2 branch
+
+---
+
+## Chat Code Reusability Audit — NEW
+
+Complete audit of existing chat components and what can be reused for a unified chat system.
+
+See: `audit_chat_code_reusability.md`
+
+**Quick verdict:**
+- ~40% reusable as-is (ChatInput, ThinkingBlock, voice, shortcuts)
+- ~40% needs modification (MessageBubble, useChatPersistence)
+- ~20% must rebuild (RightRail, chat tools, API routes)
+
+**Key reusables:**
+- `ChatInput` + slash commands (src/components/chat/chat-input.tsx)
+- `ThinkingBlock` (src/components/chat/thinking-block.tsx)
+- `useChatShortcuts` (src/hooks/use-chat-shortcuts.ts)
+- `VoiceInputButton` (src/components/chat/voice-input-button.tsx)
+- Markdown rendering functions (from MessageBubble, extract to utility)
+- `providers.ts` (Model config — Perplexity, Anthropic, costs)
+
+**Patterns to reuse:**
+- Tool factory pattern (createXTool returning betaZodTool)
+- System prompt injection via transport body
+- Edit approval state machine
+- Debounced persistence (useChatPersistence)
+- Streaming state tracking
+

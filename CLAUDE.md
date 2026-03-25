@@ -50,6 +50,24 @@ Rules:
 - Use `/ship` for final release/merge flow.
 - If gstack skills stop working, run: `cd .claude/skills/gstack && ./setup`
 
+## Dream Memory Consolidation
+
+This project also includes the **dream** skill for Claude Code memory consolidation.
+
+Use `/dream` when:
+- session memory feels noisy or stale
+- project state has drifted across many sessions
+- PRIMER/state/docs contain contradictions or outdated assumptions
+- you want to consolidate recent work into cleaner memory
+
+Dream should support the current memory stack, not replace it:
+- `CLAUDE.md` = permanent rules
+- `PRIMER.md` = current execution handoff
+- `.planning/STATE.md` = strategic project state
+
+Use Dream to keep these layers cleaner over time.
+If dream needs reinstall/setup later, repo-local files live at `.claude/skills/dream`.
+
 ## Session State
 
 This repo uses `PRIMER.md` as the current working-state handoff file.
