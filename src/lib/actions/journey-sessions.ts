@@ -2,7 +2,7 @@
 
 import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { SECTION_PIPELINE } from '@/lib/workspace/pipeline'
+import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline'
 import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections'
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog'
 import type { SectionKey, CardState } from '@/lib/workspace/types'
@@ -38,11 +38,11 @@ export async function saveResearchDocument(
 
   const supabase = createAdminClient()
 
-  // Verify ownership
+  // Verify ownership — sessionId is the client-generated run_id, not the DB primary key
   const { data: session, error: fetchError } = await supabase
     .from('journey_sessions')
     .select('id')
-    .eq('id', sessionId)
+    .eq('run_id', sessionId)
     .eq('user_id', userId)
     .single()
 
@@ -58,7 +58,7 @@ export async function saveResearchDocument(
         research_document: cardsBySection,
         document_saved_at: new Date().toISOString(),
       })
-      .eq('id', sessionId)
+      .eq('id', session.id)
 
     if (error) {
       // Column not found means the migration hasn't been applied to this environment.
@@ -124,7 +124,7 @@ export async function getCompletedJourneySessions(): Promise<{
       'Untitled Research'
 
     // Check both boundary IDs (industryMarket) and canonical IDs (industryResearch)
-    const completedSections = SECTION_PIPELINE.filter((key) => {
+    const completedSections = RESEARCH_SECTIONS.filter((key) => {
       if (results?.[key]?.status === 'complete') return true
       const canonicalKeys = boundaryToCanonical.get(key) ?? []
       return canonicalKeys.some((ck) => results?.[ck]?.status === 'complete')

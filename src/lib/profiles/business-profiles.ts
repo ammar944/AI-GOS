@@ -1,0 +1,235 @@
+// Business Profile management — extract onboarding data into persistent profiles.
+// Profiles are injected into the unified chat system prompt so the AI knows
+// who it's talking to (company name, industry, ICP, budget, etc.).
+
+import { createAdminClient } from '@/lib/supabase/server';
+
+function getSupabase() {
+  return createAdminClient();
+}
+
+// Field mapping: journey metadata key → business_profiles column
+const FIELD_MAP: Record<string, string> = {
+  companyName: 'company_name',
+  websiteUrl: 'website_url',
+  headquartersLocation: 'headquarters',
+  businessModel: 'business_model',
+  industryVertical: 'industry_vertical',
+  productDescription: 'product_description',
+  coreDeliverables: 'core_deliverables',
+  valueProp: 'value_prop',
+  uniqueEdge: 'unique_edge',
+  pricingTiers: 'pricing_tiers',
+  monthlyAdBudget: 'monthly_ad_budget',
+  primaryIcpDescription: 'primary_icp',
+  jobTitles: 'job_titles',
+  companySize: 'company_size',
+  geography: 'geography',
+  buyingTriggers: 'buying_triggers',
+  topCompetitors: 'top_competitors',
+  marketProblem: 'market_problem',
+  goals: 'goals',
+  targetCpl: 'target_cpl',
+  targetCac: 'target_cac',
+  campaignDuration: 'campaign_duration',
+};
+
+export interface BusinessProfile {
+  id: string;
+  userId: string;
+  sessionId: string | null;
+  companyName: string | null;
+  websiteUrl: string | null;
+  headquarters: string | null;
+  businessModel: string | null;
+  industryVertical: string | null;
+  productDescription: string | null;
+  valueProp: string | null;
+  uniqueEdge: string | null;
+  pricingTiers: string | null;
+  monthlyAdBudget: string | null;
+  primaryIcp: string | null;
+  jobTitles: string | null;
+  companySize: string | null;
+  geography: string | null;
+  topCompetitors: string | null;
+  goals: string | null;
+  allFields: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Extract onboarding fields from journey_sessions.metadata
+ * and upsert into business_profiles.
+ */
+export async function saveBusinessProfile(
+  userId: string,
+  sessionId: string,
+  metadata: Record<string, unknown>,
+): Promise<{ id: string } | null> {
+  // Map metadata fields to profile columns
+  const profileData: Record<string, unknown> = {
+    user_id: userId,
+    session_id: sessionId,
+    all_fields: metadata,
+  };
+
+  for (const [metaKey, colName] of Object.entries(FIELD_MAP)) {
+    const value = metadata[metaKey];
+    if (typeof value === 'string' && value.trim()) {
+      profileData[colName] = value.trim();
+    }
+  }
+
+  // Upsert on (user_id, company_name) — if same company, update fields
+  const companyName = profileData.company_name as string | undefined;
+  if (!companyName) {
+    // No company name — can't create a meaningful profile
+    return null;
+  }
+
+  const { data, error } = await getSupabase()
+    .from('business_profiles')
+    .upsert(profileData, {
+      onConflict: 'user_id,company_name',
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('[business-profiles] upsert error:', error.message);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Get all profiles for a user.
+ */
+export async function getUserProfiles(userId: string): Promise<BusinessProfile[]> {
+  const { data, error } = await getSupabase()
+    .from('business_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    console.error('[business-profiles] list error:', error.message);
+    return [];
+  }
+
+  return (data ?? []).map(mapRow);
+}
+
+/**
+ * Get a specific profile by ID.
+ */
+export async function getProfileById(
+  userId: string,
+  profileId: string,
+): Promise<BusinessProfile | null> {
+  const { data, error } = await getSupabase()
+    .from('business_profiles')
+    .select('*')
+    .eq('id', profileId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error) return null;
+  return mapRow(data);
+}
+
+/**
+ * Get the most recent profile for a user (active profile).
+ */
+export async function getActiveProfile(userId: string): Promise<BusinessProfile | null> {
+  const { data, error } = await getSupabase()
+    .from('business_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) return null;
+  return mapRow(data);
+}
+
+/**
+ * Get profile for a specific session (if one was saved from that run).
+ */
+export async function getProfileBySession(
+  userId: string,
+  sessionId: string,
+): Promise<BusinessProfile | null> {
+  const { data, error } = await getSupabase()
+    .from('business_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('session_id', sessionId)
+    .single();
+
+  if (error) return null;
+  return mapRow(data);
+}
+
+/**
+ * Build a system prompt fragment from a profile.
+ * Injected into the unified chat so the AI knows the user's context.
+ */
+export function buildProfileContext(
+  profile: BusinessProfile,
+  userName?: string,
+): string {
+  const lines: string[] = ['## Business Profile'];
+
+  if (userName) lines.push(`User: ${userName}`);
+  if (profile.companyName) lines.push(`Company: ${profile.companyName}`);
+  if (profile.websiteUrl) lines.push(`Website: ${profile.websiteUrl}`);
+  if (profile.headquarters) lines.push(`HQ: ${profile.headquarters}`);
+  if (profile.businessModel) lines.push(`Business Model: ${profile.businessModel}`);
+  if (profile.industryVertical) lines.push(`Industry: ${profile.industryVertical}`);
+  if (profile.productDescription) lines.push(`Product: ${profile.productDescription}`);
+  if (profile.valueProp) lines.push(`Value Prop: ${profile.valueProp}`);
+  if (profile.uniqueEdge) lines.push(`Unique Edge: ${profile.uniqueEdge}`);
+  if (profile.pricingTiers) lines.push(`Pricing: ${profile.pricingTiers}`);
+  if (profile.monthlyAdBudget) lines.push(`Monthly Ad Budget: ${profile.monthlyAdBudget}`);
+  if (profile.primaryIcp) lines.push(`ICP: ${profile.primaryIcp}`);
+  if (profile.jobTitles) lines.push(`Target Titles: ${profile.jobTitles}`);
+  if (profile.companySize) lines.push(`Target Company Size: ${profile.companySize}`);
+  if (profile.geography) lines.push(`Geography: ${profile.geography}`);
+  if (profile.topCompetitors) lines.push(`Competitors: ${profile.topCompetitors}`);
+  if (profile.goals) lines.push(`Goals: ${profile.goals}`);
+
+  return lines.join('\n');
+}
+
+// Map Supabase snake_case row to camelCase interface
+function mapRow(row: Record<string, unknown>): BusinessProfile {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    sessionId: row.session_id as string | null,
+    companyName: row.company_name as string | null,
+    websiteUrl: row.website_url as string | null,
+    headquarters: row.headquarters as string | null,
+    businessModel: row.business_model as string | null,
+    industryVertical: row.industry_vertical as string | null,
+    productDescription: row.product_description as string | null,
+    valueProp: row.value_prop as string | null,
+    uniqueEdge: row.unique_edge as string | null,
+    pricingTiers: row.pricing_tiers as string | null,
+    monthlyAdBudget: row.monthly_ad_budget as string | null,
+    primaryIcp: row.primary_icp as string | null,
+    jobTitles: row.job_titles as string | null,
+    companySize: row.company_size as string | null,
+    geography: row.geography as string | null,
+    topCompetitors: row.top_competitors as string | null,
+    goals: row.goals as string | null,
+    allFields: (row.all_fields as Record<string, unknown>) ?? {},
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}

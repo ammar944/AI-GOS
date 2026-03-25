@@ -2,7 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/server';
 import { parseResearchToCards, resetCardIdCounter } from '@/lib/workspace/card-taxonomy';
-import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections';
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { ResearchDocument } from '@/components/research/research-document';
@@ -18,10 +18,11 @@ export default async function ResearchPage({ params }: PageProps) {
   if (!userId) redirect('/sign-in');
 
   const supabase = createAdminClient();
+  // sessionId may be the DB primary key (from dashboard list) or run_id (from workspace "View Document")
   const { data, error } = await supabase
     .from('journey_sessions')
     .select('id, research_results, created_at, metadata')
-    .eq('id', sessionId)
+    .or(`id.eq.${sessionId},run_id.eq.${sessionId}`)
     .eq('user_id', userId)
     .single();
 
@@ -79,6 +80,11 @@ export default async function ResearchPage({ params }: PageProps) {
   // Run ID for workspace deep-linking (used by MediaPlanButton)
   const runId = (meta?.activeJourneyRunId as string) ?? sessionId;
 
+  // Only show media plan button when all 6 research sections are complete
+  const allResearchComplete = RESEARCH_SECTIONS.every(
+    (s) => availableSections.includes(s),
+  );
+
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-base)' }}>
       <div className="no-print">
@@ -90,8 +96,8 @@ export default async function ResearchPage({ params }: PageProps) {
           availableSections={availableSections}
           title={title}
           createdAt={data.created_at}
-          sessionId={sessionId}
-          runId={runId}
+          sessionId={allResearchComplete ? sessionId : undefined}
+          runId={allResearchComplete ? runId : undefined}
           hasMediaPlan={hasMediaPlan}
         />
       </main>
