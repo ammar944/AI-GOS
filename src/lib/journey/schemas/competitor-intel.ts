@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
+import { flexibleEnum, nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const threatFactorsSchema = z.object({
-  marketShareRecognition: z.number().min(1).max(10),
-  adSpendIntensity: z.number().min(1).max(10),
-  productOverlap: z.number().min(1).max(10),
-  priceCompetitiveness: z.number().min(1).max(10),
-  growthTrajectory: z.number().min(1).max(10),
+  marketShareRecognition: z.coerce.number().min(0).max(10),
+  adSpendIntensity: z.coerce.number().min(0).max(10),
+  productOverlap: z.coerce.number().min(0).max(10),
+  priceCompetitiveness: z.coerce.number().min(0).max(10),
+  growthTrajectory: z.coerce.number().min(0).max(10),
 });
 
 export const threatAssessmentSchema = z.object({
@@ -18,21 +18,21 @@ export const threatAssessmentSchema = z.object({
 
 export const competitorAdActivitySchema = z.object({
   activeAdCount: z.number().int().nonnegative(),
-  platforms: nonEmptyStringArraySchema,
-  themes: nonEmptyStringArraySchema,
+  platforms: z.array(z.string()).default([]),
+  themes: z.array(z.string()).default([]),
   evidence: nonEmptyStringSchema,
-  sourceConfidence: z.enum(['high', 'medium', 'low']),
+  sourceConfidence: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
 });
 
 export const competitorAdCreativeSchema = z.object({
-  platform: z.enum(['linkedin', 'meta', 'google']),
+  platform: flexibleEnum(['linkedin', 'meta', 'google'] as const, 'google'),
   id: nonEmptyStringSchema,
   advertiser: nonEmptyStringSchema,
   headline: nonEmptyStringSchema.optional(),
   body: nonEmptyStringSchema.optional(),
   imageUrl: nonEmptyStringSchema.optional(),
   videoUrl: nonEmptyStringSchema.optional(),
-  format: z.enum(['video', 'image', 'carousel', 'text', 'message', 'unknown']),
+  format: flexibleEnum(['video', 'image', 'carousel', 'text', 'message', 'unknown'] as const, 'unknown'),
   isActive: z.boolean(),
   firstSeen: nonEmptyStringSchema.optional(),
   lastSeen: nonEmptyStringSchema.optional(),
@@ -51,10 +51,10 @@ export const competitorRecordSchema = z.object({
   website: nonEmptyStringSchema,
   positioning: nonEmptyStringSchema,
   price: nonEmptyStringSchema.optional(),
-  pricingConfidence: z.enum(['high', 'medium', 'low', 'unknown']).optional(),
-  strengths: nonEmptyStringArraySchema,
-  weaknesses: nonEmptyStringArraySchema,
-  opportunities: nonEmptyStringArraySchema,
+  pricingConfidence: flexibleEnum(['high', 'medium', 'low', 'unknown'] as const, 'unknown').optional(),
+  strengths: z.array(z.string()).default([]),
+  weaknesses: z.array(z.string()).default([]),
+  opportunities: z.array(z.string()).default([]),
   ourAdvantage: nonEmptyStringSchema,
   adActivity: competitorAdActivitySchema,
   adPlatforms: nonEmptyStringArraySchema.optional(),
@@ -67,10 +67,10 @@ export const competitorRecordSchema = z.object({
 
 export const whiteSpaceGapSchema = z.object({
   gap: nonEmptyStringSchema,
-  type: z.enum(['messaging', 'feature', 'audience', 'channel']),
+  type: flexibleEnum(['messaging', 'feature', 'audience', 'channel'] as const, 'messaging'),
   evidence: nonEmptyStringSchema,
-  exploitability: z.number().min(1).max(10),
-  impact: z.number().min(1).max(10),
+  exploitability: z.coerce.number().min(0).max(10),
+  impact: z.coerce.number().min(0).max(10),
   recommendedAction: nonEmptyStringSchema,
 });
 
@@ -79,7 +79,7 @@ export const competitorIntelDataSchema = z.object({
   marketPatterns: nonEmptyStringArraySchema.optional(),
   marketStrengths: nonEmptyStringArraySchema.optional(),
   marketWeaknesses: nonEmptyStringArraySchema.optional(),
-  whiteSpaceGaps: z.array(whiteSpaceGapSchema).min(1),
+  whiteSpaceGaps: z.array(whiteSpaceGapSchema).default([]),
   overallLandscape: nonEmptyStringSchema.optional(),
 });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  flexibleEnum,
   nonEmptyStringArraySchema,
   nonEmptyStringSchema,
   scoreBreakdownSchema,
@@ -33,7 +34,7 @@ export const icpValidationDataSchema = z.object({
     .object({
       primaryPain: nonEmptyStringSchema,
       offerComponentSolvingIt: nonEmptyStringSchema,
-      fitAssessment: z.enum(['strong', 'moderate', 'weak']),
+      fitAssessment: flexibleEnum(['strong', 'moderate', 'weak'] as const, 'moderate'),
       notes: nonEmptyStringSchema,
     })
     .optional(),
@@ -72,7 +73,7 @@ export const icpValidationDataSchema = z.object({
       z.object({
         event: nonEmptyStringSchema,
         annualFrequencyEstimate: nonEmptyStringSchema,
-        urgencyLevel: z.enum(['immediate', 'near-term', 'planning-cycle']),
+        urgencyLevel: flexibleEnum(['immediate', 'near-term', 'planning-cycle'] as const, 'near-term'),
         detectionMethod: nonEmptyStringSchema,
         recommendedHook: nonEmptyStringSchema,
       }),
@@ -88,10 +89,10 @@ export const icpValidationDataSchema = z.object({
         priorityTier: z.number(),
         recommendedBudgetWeight: z.number(),
         priorityFactors: z.object({
-          painSeverity: z.number().min(1).max(10),
-          budgetAuthority: z.number().min(1).max(10),
-          reachability: z.number().min(1).max(10),
-          triggerFrequency: z.number().min(1).max(10),
+          painSeverity: z.coerce.number().min(0).max(10),
+          budgetAuthority: z.coerce.number().min(0).max(10),
+          reachability: z.coerce.number().min(0).max(10),
+          triggerFrequency: z.coerce.number().min(0).max(10),
         }),
       }),
     )
@@ -109,7 +110,7 @@ export const icpValidationDataSchema = z.object({
       ),
       estimatedSAMCompanies: z.number(),
       estimatedAnnualContractValue: z.number(),
-      confidence: z.enum(['high', 'medium', 'low']),
+      confidence: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
       dataSources: nonEmptyStringArraySchema,
     })
     .optional(),
@@ -148,7 +149,7 @@ export const icpValidationDataSchema = z.object({
     .array(
       z.object({
         risk: nonEmptyStringSchema,
-        category: z.enum([
+        category: flexibleEnum([
           'audience_reachability',
           'budget_adequacy',
           'pain_strength',
@@ -157,7 +158,7 @@ export const icpValidationDataSchema = z.object({
           'platform_policy',
           'seasonality',
           'data_quality',
-        ]),
+        ] as const, 'pain_strength'),
         probability: z.number().min(1).max(5),
         impact: z.number().min(1).max(5),
         earlyWarningIndicator: nonEmptyStringSchema.optional(),
@@ -170,7 +171,7 @@ export const icpValidationDataSchema = z.object({
 
   finalVerdict: z
     .object({
-      status: z.enum(['validated', 'workable', 'invalid']),
+      status: flexibleEnum(['validated', 'workable', 'invalid'] as const, 'workable'),
       reasoning: nonEmptyStringSchema,
       recommendations: nonEmptyStringArraySchema,
     })
@@ -182,7 +183,7 @@ export const icpValidationDataSchema = z.object({
     .array(
       z.object({
         role: nonEmptyStringSchema,
-        influence: z.enum(['decision-maker', 'influencer', 'gatekeeper']),
+        influence: flexibleEnum(['decision-maker', 'influencer', 'gatekeeper'] as const, 'influencer'),
         messagingAngle: nonEmptyStringSchema,
       }),
     )

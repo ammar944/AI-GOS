@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
+import { flexibleEnum, nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const mediaPlanDataSchema = z.object({
   // ── 6-block worker output (from media-plan.ts generateObject) ────
@@ -166,21 +166,21 @@ export const mediaPlanDataSchema = z.object({
         campaignTypes: nonEmptyStringArraySchema,
         targetingApproach: nonEmptyStringSchema,
         expectedCplRange: z.object({ min: z.number(), max: z.number() }),
-        priority: z.enum(['primary', 'secondary', 'testing']),
+        priority: flexibleEnum(['primary', 'secondary', 'testing'] as const, 'primary'),
         adFormats: nonEmptyStringArraySchema,
         placements: nonEmptyStringArraySchema,
         synergiesWithOtherPlatforms: nonEmptyStringSchema,
-        competitiveDensity: z.number().min(1).max(10).optional(),
-        audienceSaturation: z.enum(['low', 'medium', 'high']).optional(),
+        competitiveDensity: z.coerce.number().min(0).max(10).optional(),
+        audienceSaturation: flexibleEnum(['low', 'medium', 'high'] as const, 'medium').optional(),
         platformRiskFactors: z.array(z.string()).optional(),
         qvcScore: z.number().min(0).max(10).optional(),
         qvcBreakdown: z
           .object({
-            targetingPrecision: z.number().min(1).max(10),
-            leadQuality: z.number().min(1).max(10),
-            costEfficiency: z.number().min(1).max(10),
-            competitorPresence: z.number().min(1).max(10),
-            creativeFormatFit: z.number().min(1).max(10),
+            targetingPrecision: z.coerce.number().min(0).max(10),
+            leadQuality: z.coerce.number().min(0).max(10),
+            costEfficiency: z.coerce.number().min(0).max(10),
+            competitorPresence: z.coerce.number().min(0).max(10),
+            creativeFormatFit: z.coerce.number().min(0).max(10),
           })
           .optional(),
       }),
@@ -195,7 +195,7 @@ export const mediaPlanDataSchema = z.object({
           description: nonEmptyStringSchema,
           targetingParameters: nonEmptyStringArraySchema,
           estimatedReach: nonEmptyStringSchema,
-          funnelPosition: z.enum(['cold', 'warm', 'hot']),
+          funnelPosition: flexibleEnum(['cold', 'warm', 'hot'] as const, 'cold'),
         }),
       ),
       platformTargeting: z.array(
@@ -220,7 +220,7 @@ export const mediaPlanDataSchema = z.object({
           name: nonEmptyStringSchema,
           objective: nonEmptyStringSchema,
           platform: nonEmptyStringSchema,
-          funnelStage: z.enum(['cold', 'warm', 'hot']),
+          funnelStage: flexibleEnum(['cold', 'warm', 'hot'] as const, 'cold'),
           dailyBudget: z.number(),
           adSets: z.array(
             z.object({
@@ -254,7 +254,7 @@ export const mediaPlanDataSchema = z.object({
       negativeKeywords: z.array(
         z.object({
           keyword: nonEmptyStringSchema,
-          matchType: z.enum(['exact', 'phrase', 'broad']),
+          matchType: flexibleEnum(['exact', 'phrase', 'broad'] as const, 'broad'),
           reason: nonEmptyStringSchema,
         }),
       ),
@@ -314,7 +314,7 @@ export const mediaPlanDataSchema = z.object({
       rampUpStrategy: nonEmptyStringSchema,
       funnelSplit: z.array(
         z.object({
-          stage: z.enum(['cold', 'warm', 'hot']),
+          stage: flexibleEnum(['cold', 'warm', 'hot'] as const, 'cold'),
           percentage: z.number(),
           rationale: nonEmptyStringSchema,
         }),
@@ -352,7 +352,7 @@ export const mediaPlanDataSchema = z.object({
         target: nonEmptyStringSchema,
         timeframe: nonEmptyStringSchema,
         measurementMethod: nonEmptyStringSchema,
-        type: z.enum(['primary', 'secondary']),
+        type: flexibleEnum(['primary', 'secondary'] as const, 'primary'),
         benchmark: nonEmptyStringSchema,
         scenarioThresholds: z
           .object({
@@ -391,16 +391,17 @@ export const mediaPlanDataSchema = z.object({
       risks: z.array(
         z.object({
           risk: nonEmptyStringSchema,
-          category: z.enum([
+          category: flexibleEnum([
             'budget',
             'creative',
             'audience',
             'platform',
             'compliance',
             'market',
-          ]),
-          severity: z.enum(['low', 'medium', 'high']),
-          likelihood: z.enum(['low', 'medium', 'high']),
+            'competitive',
+          ] as const, 'competitive'),
+          severity: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+          likelihood: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
           mitigation: nonEmptyStringSchema,
           contingency: nonEmptyStringSchema,
           earlyWarningIndicator: nonEmptyStringSchema.optional(),

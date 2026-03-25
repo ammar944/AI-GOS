@@ -1,26 +1,21 @@
 import { z } from 'zod';
-import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
+import { flexibleEnum, nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const offerStrengthSchema = z.object({
-  painRelevance: z.number().min(1).max(10),
-  urgency: z.number().min(1).max(10),
-  differentiation: z.number().min(1).max(10),
-  tangibility: z.number().min(1).max(10),
-  proof: z.number().min(1).max(10),
-  pricingLogic: z.number().min(1).max(10),
-  overallScore: z.number().min(1).max(10),
+  painRelevance: z.coerce.number().min(0).max(10),
+  urgency: z.coerce.number().min(0).max(10),
+  differentiation: z.coerce.number().min(0).max(10),
+  tangibility: z.coerce.number().min(0).max(10),
+  proof: z.coerce.number().min(0).max(10),
+  pricingLogic: z.coerce.number().min(0).max(10),
+  overallScore: z.coerce.number().min(0).max(10),
 });
 
 export const offerRecommendationSchema = z.object({
-  status: z.enum([
-    'proceed',
+  status: flexibleEnum(
+    ['proceed', 'needs-work', 'adjust-messaging', 'adjust-pricing', 'icp-refinement-needed', 'major-offer-rebuild', 'do-not-launch'] as const,
     'needs-work',
-    'adjust-messaging',
-    'adjust-pricing',
-    'icp-refinement-needed',
-    'major-offer-rebuild',
-    'do-not-launch',
-  ]),
+  ),
   summary: nonEmptyStringSchema,
   topStrengths: nonEmptyStringArraySchema,
   priorityFixes: nonEmptyStringArraySchema,
@@ -29,24 +24,39 @@ export const offerRecommendationSchema = z.object({
 
 export const offerRedFlagSchema = z.object({
   issue: nonEmptyStringSchema,
-  severity: z.enum(['high', 'medium', 'low']),
+  severity: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
   priority: z.number().int().positive(),
   recommendedAction: nonEmptyStringSchema,
   launchBlocker: z.boolean(),
   evidence: nonEmptyStringSchema.optional(),
 });
 
+const PRICING_POSITION_VALUES = ['premium', 'mid-market', 'budget', 'unclear'] as const;
+type PricingPosition = (typeof PRICING_POSITION_VALUES)[number];
+
+const pricingPositionSchema = z
+  .string()
+  .transform((val): PricingPosition => {
+    const lower = val.toLowerCase().trim();
+    if (lower.includes('premium')) return 'premium';
+    if (lower.includes('mid') && lower.includes('market')) return 'mid-market';
+    if (lower.includes('budget') || lower.includes('low') || lower.includes('cheap')) return 'budget';
+    if ((PRICING_POSITION_VALUES as readonly string[]).includes(lower))
+      return lower as PricingPosition;
+    return 'unclear';
+  });
+
 export const pricingAnalysisSchema = z.object({
   currentPricing: nonEmptyStringSchema,
   marketBenchmark: nonEmptyStringSchema,
-  pricingPosition: z.enum(['premium', 'mid-market', 'budget', 'unclear']),
+  pricingPosition: pricingPositionSchema,
   coldTrafficViability: nonEmptyStringSchema,
 });
 
 export const offerAnalysisDataSchema = z.object({
   offerStrength: offerStrengthSchema,
   recommendation: offerRecommendationSchema,
-  redFlags: z.array(offerRedFlagSchema).min(1),
+  redFlags: z.array(offerRedFlagSchema).default([]),
   pricingAnalysis: pricingAnalysisSchema,
   marketFitAssessment: nonEmptyStringSchema,
   messagingRecommendations: nonEmptyStringArraySchema,

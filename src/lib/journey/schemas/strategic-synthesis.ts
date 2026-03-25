@@ -1,18 +1,14 @@
 import { z } from 'zod';
-import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
+import { flexibleEnum, nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const strategicInsightSchema = z.object({
   insight: nonEmptyStringSchema,
-  source: z
-    .enum([
-      'industryResearch',
-      'competitorIntel',
-      'icpValidation',
-      'offerAnalysis',
-    ])
-    .optional(),
+  source: flexibleEnum(
+    ['industryResearch', 'competitorIntel', 'icpValidation', 'offerAnalysis'] as const,
+    'industryResearch',
+  ).optional(),
   implication: nonEmptyStringSchema,
-  priority: z.enum(['high', 'medium', 'low']),
+  priority: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
 });
 
 export const positioningStrategySchema = z.object({
@@ -24,7 +20,7 @@ export const positioningStrategySchema = z.object({
 
 export const platformRecommendationSchema = z.object({
   platform: nonEmptyStringSchema,
-  role: z.enum(['primary', 'secondary', 'testing', 'retargeting']),
+  role: flexibleEnum(['primary', 'secondary', 'testing', 'retargeting'] as const, 'primary'),
   budgetAllocation: nonEmptyStringSchema,
   rationale: nonEmptyStringSchema,
   priority: z.number().int().positive(),
@@ -45,7 +41,7 @@ export const planningContextSchema = z.object({
 });
 
 export const synthesisChartSchema = z.object({
-  chartType: z.enum(['pie', 'radar', 'bar', 'funnel', 'word_cloud']),
+  chartType: flexibleEnum(['pie', 'radar', 'bar', 'funnel', 'word_cloud'] as const, 'bar'),
   title: nonEmptyStringSchema,
   imageUrl: nonEmptyStringSchema,
   description: nonEmptyStringSchema,

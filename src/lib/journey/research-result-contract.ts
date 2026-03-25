@@ -80,12 +80,13 @@ const WRAPPER_KEYS = new Set([
 const ROOT_METADATA_KEYS = new Set(['citations', 'sources', 'provenance']);
 
 const FALLBACK_LANGUAGE_PATTERNS = [
-  /\btimed out\b/i,
-  /\btimeout\b/i,
-  /\bfallback\b/i,
-  /\bplaceholder\b/i,
+  /\b(?:request|research|analysis|data)\s+timed?\s*out\b/i,
+  /\bfallback (?:response|output|result|data|artifact)\b/i,
+  /\bplaceholder (?:response|output|result|data|text|content)\b/i,
   /\bbenchmark-only\b/i,
-  /\busing fallback\b/i,
+  /\busing fallback (?:data|mode|response)\b/i,
+  /\bunable to (?:complete|generate|produce|retrieve)\b/i,
+  /\bno (?:data|results?) (?:available|found|returned)\b/i,
 ] as const;
 
 const USER_FACING_FALLBACK_SECTIONS = new Set<CanonicalResearchSectionId>([

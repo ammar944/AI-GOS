@@ -1,15 +1,16 @@
 import { z } from 'zod';
-import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
+import { flexibleEnum, nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
 export const industryResearchDataSchema = z.object({
   categorySnapshot: z.object({
     category: nonEmptyStringSchema,
     marketSize: nonEmptyStringSchema.optional(),
-    marketMaturity: z.enum(['early', 'growing', 'saturated']).optional(),
-    awarenessLevel: z.enum(['low', 'medium', 'high']).optional(),
-    buyingBehavior: z
-      .enum(['impulsive', 'committee_driven', 'roi_based', 'mixed'])
-      .optional(),
+    marketMaturity: flexibleEnum(['early', 'growing', 'saturated'] as const, 'growing').optional(),
+    awarenessLevel: flexibleEnum(['low', 'medium', 'high'] as const, 'medium').optional(),
+    buyingBehavior: flexibleEnum(
+      ['impulsive', 'committee_driven', 'roi_based', 'mixed'] as const,
+      'mixed',
+    ).optional(),
     averageSalesCycle: nonEmptyStringSchema.optional(),
     seasonality: nonEmptyStringSchema.optional(),
   }),
@@ -60,7 +61,7 @@ export const industryResearchDataSchema = z.object({
     .array(
       z.object({
         trend: nonEmptyStringSchema,
-        direction: z.enum(['rising', 'declining', 'stable']),
+        direction: flexibleEnum(['rising', 'declining', 'stable'] as const, 'stable'),
         evidence: nonEmptyStringSchema,
       })
     )
@@ -69,7 +70,7 @@ export const industryResearchDataSchema = z.object({
     .array(
       z.object({
         month: z.number().min(1).max(12),
-        intensity: z.number().min(1).max(10),
+        intensity: z.coerce.number().min(0).max(10),
         notes: nonEmptyStringSchema,
       })
     )

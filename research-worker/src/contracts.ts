@@ -4,7 +4,23 @@ import type { ResearchResult } from './supabase';
 import type { RunnerChartTelemetry, RunnerTelemetry } from './telemetry';
 
 const nonEmptyStringSchema = z.string().trim().min(1);
-const nonEmptyStringArraySchema = z.array(nonEmptyStringSchema).min(1);
+// Relaxed: accept empty arrays — AI may not always have data for every field.
+const nonEmptyStringArraySchema = z.array(z.string().trim()).default([]);
+
+/** Flexible enum — normalizes AI output (casing, phrasing) with safe fallback. */
+function flexibleEnum<const T extends readonly [string, ...string[]]>(
+  values: T,
+  fallback: T[number],
+): z.ZodType<T[number]> {
+  return z.string().transform((val): T[number] => {
+    const lower = val.toLowerCase().trim();
+    if ((values as readonly string[]).includes(lower)) return lower as T[number];
+    for (const v of values) {
+      if (lower.includes(v)) return v;
+    }
+    return fallback;
+  }) as unknown as z.ZodType<T[number]>;
+}
 const TREND_DIRECTION_ALIASES = new Map<
   string,
   'rising' | 'stable' | 'declining'
@@ -63,11 +79,11 @@ const industryResearchDataSchema = z.object({
 
 const threatAssessmentSchema = z.object({
   threatFactors: z.object({
-    marketShareRecognition: z.number().min(1).max(10),
-    adSpendIntensity: z.number().min(1).max(10),
-    productOverlap: z.number().min(1).max(10),
-    priceCompetitiveness: z.number().min(1).max(10),
-    growthTrajectory: z.number().min(1).max(10),
+    marketShareRecognition: z.coerce.number().min(0).max(10),
+    adSpendIntensity: z.coerce.number().min(0).max(10),
+    productOverlap: z.coerce.number().min(0).max(10),
+    priceCompetitiveness: z.coerce.number().min(0).max(10),
+    growthTrajectory: z.coerce.number().min(0).max(10),
   }),
   topAdHooks: z.array(z.string()).optional(),
   likelyResponse: nonEmptyStringSchema.optional(),
@@ -145,8 +161,8 @@ const competitorIntelDataSchema = z.object({
         gap: nonEmptyStringSchema,
         type: z.string().min(1),
         evidence: nonEmptyStringSchema,
-        exploitability: z.number().min(1).max(10),
-        impact: z.number().min(1).max(10),
+        exploitability: z.coerce.number().min(0).max(10),
+        impact: z.coerce.number().min(0).max(10),
         recommendedAction: nonEmptyStringSchema,
       }),
     )
@@ -182,13 +198,13 @@ const icpValidationDataSchema = z.object({
 
 const offerAnalysisDataSchema = z.object({
   offerStrength: z.object({
-    painRelevance: z.number().min(1).max(10),
-    urgency: z.number().min(1).max(10),
-    differentiation: z.number().min(1).max(10),
-    tangibility: z.number().min(1).max(10),
-    proof: z.number().min(1).max(10),
-    pricingLogic: z.number().min(1).max(10),
-    overallScore: z.number().min(1).max(10),
+    painRelevance: z.coerce.number().min(0).max(10),
+    urgency: z.coerce.number().min(0).max(10),
+    differentiation: z.coerce.number().min(0).max(10),
+    tangibility: z.coerce.number().min(0).max(10),
+    proof: z.coerce.number().min(0).max(10),
+    pricingLogic: z.coerce.number().min(0).max(10),
+    overallScore: z.coerce.number().min(0).max(10),
   }),
   recommendation: z.object({
     status: z.string().min(1),
@@ -233,7 +249,7 @@ const strategicSynthesisDataSchema = z.object({
           ])
           .optional(),
         implication: nonEmptyStringSchema,
-        priority: z.enum(['high', 'medium', 'low']),
+        priority: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
       }),
     )
     .min(1),
@@ -268,7 +284,7 @@ const strategicSynthesisDataSchema = z.object({
     monthlyBudget: nonEmptyStringSchema.optional(),
     targetCpl: nonEmptyStringSchema.optional(),
     targetCac: nonEmptyStringSchema.optional(),
-    downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).min(1),
+    downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).default(['keywordIntel', 'mediaPlan']),
   }),
   criticalSuccessFactors: nonEmptyStringArraySchema,
   nextSteps: nonEmptyStringArraySchema,
@@ -276,7 +292,7 @@ const strategicSynthesisDataSchema = z.object({
   charts: z
     .array(
       z.object({
-        chartType: z.enum(['pie', 'radar', 'bar', 'funnel', 'word_cloud']),
+        chartType: flexibleEnum(['pie', 'radar', 'bar', 'funnel', 'word_cloud'] as const, 'bar'),
         title: nonEmptyStringSchema,
         imageUrl: nonEmptyStringSchema,
         description: nonEmptyStringSchema,
@@ -289,9 +305,9 @@ const keywordOpportunitySchema = z.object({
   keyword: nonEmptyStringSchema,
   searchVolume: z.number().nonnegative(),
   estimatedCpc: nonEmptyStringSchema,
-  difficulty: z.enum(['low', 'medium', 'high']),
+  difficulty: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
   priorityScore: z.number().int().min(0).max(100),
-  confidence: z.enum(['high', 'medium', 'low']),
+  confidence: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
 });
 
 const keywordIntelDataSchema = z.object({
@@ -354,7 +370,7 @@ const keywordIntelDataSchema = z.object({
 export const channelMixBudgetSchema = z.object({
   platforms: z.array(z.object({
     name: z.string(),
-    role: z.enum(['primary-acquisition', 'retargeting', 'awareness', 'testing']),
+    role: flexibleEnum(['primary-acquisition', 'retargeting', 'awareness', 'testing'] as const, 'primary-acquisition'),
     monthlySpend: z.number().min(0),
     percentage: z.number().min(0).max(100),
     expectedCPL: z.object({ low: z.number().min(0), high: z.number().min(0) }),
@@ -382,7 +398,7 @@ export const audienceCampaignSchema = z.object({
     description: z.string(),
     targetingParams: z.record(z.string(), z.unknown()),
     estimatedReach: z.string(),
-    funnelPosition: z.enum(['top', 'mid', 'bottom']),
+    funnelPosition: flexibleEnum(['top', 'mid', 'bottom'] as const, 'top'),
     priority: z.number().int().min(1).max(10),
   })),
   campaigns: z.array(z.object({
@@ -453,16 +469,16 @@ export const measurementGuardrailsSchema = z.object({
   }),
   risks: z.array(z.object({
     risk: z.string(),
-    category: z.enum(['budget', 'creative', 'targeting', 'tracking', 'compliance', 'competitive', 'seasonal']),
-    severity: z.enum(['high', 'medium', 'low']),
-    likelihood: z.enum(['high', 'medium', 'low']),
+    category: flexibleEnum(['budget', 'creative', 'targeting', 'tracking', 'compliance', 'competitive', 'seasonal'] as const, 'competitive'),
+    severity: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
+    likelihood: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
     mitigation: z.string(),
     earlyWarning: z.string(),
   })),
   trackingRequirements: z.array(z.object({
     platform: z.string(),
     requirement: z.string(),
-    status: z.enum(['required', 'recommended', 'optional']),
+    status: flexibleEnum(['required', 'recommended', 'optional'] as const, 'recommended'),
   })),
 });
 
@@ -655,6 +671,26 @@ function normalizeCompetitorIntelPayload(
       return competitor;
     }
 
+    // Fill missing required strings with safe defaults
+    const website =
+      typeof competitor.website === 'string' && competitor.website.trim().length > 0
+        ? competitor.website
+        : typeof competitor.domain === 'string' && competitor.domain.trim().length > 0
+          ? competitor.domain
+          : typeof competitor.url === 'string' && competitor.url.trim().length > 0
+            ? competitor.url
+            : 'Not available';
+    const positioning =
+      typeof competitor.positioning === 'string' && competitor.positioning.trim().length > 0
+        ? competitor.positioning
+        : 'Positioning data not available';
+    const ourAdvantage =
+      typeof competitor.ourAdvantage === 'string' && competitor.ourAdvantage.trim().length > 0
+        ? competitor.ourAdvantage
+        : typeof competitor.advantage === 'string' && competitor.advantage.trim().length > 0
+          ? competitor.advantage
+          : 'Advantage analysis pending';
+
     // Fill missing required arrays with safe defaults
     const strengths = ensureStringArray(competitor.strengths, 'Data not available');
     const weaknesses = ensureStringArray(competitor.weaknesses, 'Data not available');
@@ -670,6 +706,17 @@ function normalizeCompetitorIntelPayload(
           evidence: 'Limited coverage: ad data not collected.',
           sourceConfidence: 'low',
         };
+
+    // Patch missing adActivity fields even when the object exists
+    if (typeof adActivity.activeAdCount !== 'number') {
+      adActivity.activeAdCount = 0;
+    }
+    if (typeof adActivity.sourceConfidence !== 'string' || !adActivity.sourceConfidence) {
+      adActivity.sourceConfidence = 'low';
+    }
+    if (typeof adActivity.evidence !== 'string' || !adActivity.evidence.toString().trim()) {
+      adActivity.evidence = 'Limited coverage: ad data not collected.';
+    }
 
     const sourceConfidence =
       typeof adActivity.sourceConfidence === 'string'
@@ -697,6 +744,9 @@ function normalizeCompetitorIntelPayload(
 
     return {
       ...competitor,
+      website,
+      positioning,
+      ourAdvantage,
       strengths,
       weaknesses,
       opportunities,
@@ -951,11 +1001,14 @@ function hasFallbackLanguage(section: SectionId, data: unknown): boolean {
       ? data
       : JSON.stringify(data);
 
+  // Only flag phrases that indicate the model is admitting to a failure/placeholder,
+  // NOT legitimate strategy terms like "fallback channel" or "placeholder creative".
   return (
-    /\btimed out\b/i.test(serialized) ||
-    /\btimeout\b/i.test(serialized) ||
-    /\bfallback\b/i.test(serialized) ||
-    /\bplaceholder\b/i.test(serialized)
+    /\b(?:request|research|analysis|data)\s+timed?\s*out\b/i.test(serialized) ||
+    /\bfallback (?:response|output|result|data|artifact)\b/i.test(serialized) ||
+    /\bplaceholder (?:response|output|result|data|text|content)\b/i.test(serialized) ||
+    /\bunable to (?:complete|generate|produce|retrieve)\b/i.test(serialized) ||
+    /\bno (?:data|results?) (?:available|found|returned)\b/i.test(serialized)
   );
 }
 

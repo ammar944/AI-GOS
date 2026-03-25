@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
+import { flexibleEnum, nonEmptyStringArraySchema, nonEmptyStringSchema } from './base';
 
-export const keywordDifficultySchema = z.enum(['low', 'medium', 'high']);
-export const keywordConfidenceSchema = z.enum(['high', 'medium', 'low']);
+export const keywordDifficultySchema = flexibleEnum(['low', 'medium', 'high'] as const, 'medium');
+export const keywordConfidenceSchema = flexibleEnum(['high', 'medium', 'low'] as const, 'medium');
 
 export const keywordOpportunitySchema = z.object({
   keyword: nonEmptyStringSchema,
