@@ -8,6 +8,7 @@ import { SectionTabs } from '@/components/workspace/section-tabs';
 import { SectionHeader } from '@/components/workspace/section-header';
 import { CardRenderer } from '@/components/research/card-renderer';
 import { CardGrid } from '@/components/workspace/card-grid';
+import { CompetitorTabs } from '@/components/workspace/competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
 import { MediaPlanButton } from '@/components/research/media-plan-button';
@@ -224,7 +225,9 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               >
                 <SectionHeader section={currentSection} mode="document" />
 
-                {sectionCards.length > 0 ? (
+                {sectionCards.length > 0 && currentSection === 'competitors' ? (
+                  <CompetitorTabs cards={sectionCards} />
+                ) : sectionCards.length > 0 ? (
                   <CardGrid>
                     {sectionCards.map((card, i) => (
                       <CardRenderer key={card.id} card={card} mode="document" index={i} />

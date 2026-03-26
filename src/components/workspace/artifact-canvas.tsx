@@ -244,7 +244,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
               {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && state.currentSection === 'competitors' && (
-                <CompetitorTabs cards={sectionCards} />
+                <CompetitorTabs cards={sectionCards} mode="workspace" />
               )}
               {showCards && sectionCards.length > 0 && state.currentSection !== 'competitors' && (
                 <CardGrid>

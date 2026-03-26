@@ -3,14 +3,14 @@
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { CardState } from '@/lib/workspace/types';
-import { ArtifactCard } from './artifact-card';
-import { CardContentSwitch } from '@/components/research/card-renderer';
+import { CardRenderer } from '@/components/research/card-renderer';
 
 interface CompetitorTabsProps {
   cards: CardState[];
+  mode?: 'workspace' | 'document';
 }
 
-export function CompetitorTabs({ cards }: CompetitorTabsProps) {
+export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps) {
   const competitorCards = useMemo(
     () => cards.filter((c) => c.cardType === 'competitor-card'),
     [cards],
@@ -146,9 +146,7 @@ export function CompetitorTabs({ cards }: CompetitorTabsProps) {
           {competitorCards
             .filter((card) => card.label === activeTab)
             .map((card, i) => (
-              <ArtifactCard key={card.id} card={card} index={i}>
-                <CardContentSwitch card={card} />
-              </ArtifactCard>
+              <CardRenderer key={card.id} card={card} mode={mode} index={i} />
             ))}
         </div>
       )}
@@ -157,9 +155,7 @@ export function CompetitorTabs({ cards }: CompetitorTabsProps) {
       {otherCards.length > 0 && (
         <div className="mt-4 space-y-3">
           {otherCards.map((card, i) => (
-            <ArtifactCard key={card.id} card={card} index={i}>
-              <CardContentSwitch card={card} />
-            </ArtifactCard>
+            <CardRenderer key={card.id} card={card} mode={mode} index={i} />
           ))}
         </div>
       )}
