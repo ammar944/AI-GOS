@@ -20,12 +20,12 @@ export function PricingCard({ currentPricing, marketBenchmark, pricingPosition, 
 
   return (
     <div className="py-1 space-y-3">
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+      <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
         Pricing Analysis
       </h4>
       {stats.length > 0 && <StatGrid stats={stats} columns={3} />}
       {coldTrafficViability && (
-        <p className="text-sm text-[var(--text-secondary)]">{coldTrafficViability}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{coldTrafficViability}</p>
       )}
     </div>
   );

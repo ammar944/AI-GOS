@@ -38,12 +38,12 @@ export function CheckList({
 
   return (
     <div>
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-3">
+      <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
         {title}
       </h4>
       <ul className="space-y-2">
         {editedItems.map((item, i) => (
-          <li key={i} className="flex gap-2 text-sm text-[var(--text-secondary)] leading-relaxed">
+          <li key={i} className="flex gap-2 text-[13px] text-[var(--text-secondary)] leading-snug">
             <span className="mt-1.5 shrink-0" style={{ color: accent }}>&#x2713;</span>
             {isEditing ? (
               <span
@@ -51,7 +51,7 @@ export function CheckList({
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={() => handleBlur(i)}
-                className="outline-none border-b border-dashed border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] leading-relaxed min-w-0 flex-1"
+                className="outline-none border-b border-dashed border-[var(--border-subtle)] text-[13px] text-[var(--text-secondary)] leading-snug min-w-0 flex-1"
               >
                 {item}
               </span>

@@ -53,7 +53,7 @@ export function StrategySnapshotCard({
   return (
     <div className="space-y-4">
       {headline && (
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">{headline}</h3>
+        <h3 className="text-[16px] font-semibold leading-[1.55] text-[var(--text-primary)]">{headline}</h3>
       )}
       {budgetStats.length > 0 && <StatGrid stats={budgetStats} columns={3} />}
       {outcomeStats.length > 0 && <StatGrid stats={outcomeStats} columns={3} />}

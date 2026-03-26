@@ -23,25 +23,25 @@ export function KpiGridCard({ kpis }: KpiGridCardProps) {
           key={i}
           className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 py-2"
         >
-          <span className="text-sm text-[var(--text-primary)] truncate">
+          <span className="text-[13px] leading-snug text-[var(--text-primary)] truncate">
             {kpi.metric ?? '—'}
           </span>
           {kpi.target !== undefined ? (
-            <span className="text-sm font-semibold text-[var(--text-primary)] tabular-nums">
+            <span className="font-mono tabular-nums text-[var(--text-primary)]">
               {kpi.target}
             </span>
           ) : (
-            <span className="text-sm text-[var(--text-tertiary)]">—</span>
+            <span className="text-[13px] text-[var(--text-quaternary)]">—</span>
           )}
           {kpi.platform ? (
-            <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
+            <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)]">
               {kpi.platform}
             </span>
           ) : (
             <span />
           )}
           {kpi.frequency ? (
-            <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
+            <span className="text-[11px] font-mono text-[var(--text-quaternary)]">
               {kpi.frequency}
             </span>
           ) : (

@@ -59,7 +59,7 @@ function ReviewSource({
 
   return (
     <div className="space-y-2">
-      <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+      <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
         {platform}
       </span>
 
@@ -73,7 +73,7 @@ function ReviewSource({
       )}
 
       {hasCount && (
-        <p className="text-xs text-[var(--text-tertiary)]">
+        <p className="text-[11px] font-mono text-[var(--text-quaternary)]">
           {source.reviewCount!.toLocaleString()} reviews
         </p>
       )}
@@ -83,7 +83,7 @@ function ReviewSource({
           {themes.map((theme) => (
             <span
               key={theme}
-              className="bg-[var(--bg-hover)] rounded-full px-2 py-0.5 text-xs text-[var(--text-secondary)]"
+              className="bg-[var(--bg-hover)] rounded-full px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
             >
               {theme}
             </span>
@@ -96,7 +96,7 @@ function ReviewSource({
           href={source.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[var(--accent-blue)] hover:underline"
+          className="inline-flex items-center gap-1 text-[11px] text-[var(--accent-blue)] hover:underline"
         >
           <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none">
             <path

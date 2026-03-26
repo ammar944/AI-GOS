@@ -22,9 +22,9 @@ export function TrendCard({ trend, direction, evidence }: TrendCardProps) {
         >
           {direction}
         </span>
-        <span className="text-sm font-medium text-[var(--text-primary)]">{trend}</span>
+        <span className="text-[13px] font-medium text-[var(--text-primary)]">{trend}</span>
       </div>
-      <p className="text-xs text-[var(--text-tertiary)]">{evidence}</p>
+      <p className="text-[11px] font-mono text-[var(--text-tertiary)]">{evidence}</p>
     </div>
   );
 }

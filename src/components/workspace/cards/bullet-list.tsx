@@ -45,7 +45,7 @@ export function BulletList({
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={(e) => handleBlur(i, e.currentTarget.textContent ?? '')}
-                className="outline-none border-b border-dashed border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] leading-relaxed"
+                className="outline-none border-b border-dashed border-[var(--border-subtle)] text-[13px] text-[var(--text-secondary)] leading-snug"
               >
                 {item}
               </span>

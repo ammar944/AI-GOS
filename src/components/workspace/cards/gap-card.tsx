@@ -20,19 +20,19 @@ export function GapCard({ gap, type, evidence, exploitability, impact, recommend
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <p className="text-sm font-medium text-[var(--text-primary)]">{gap}</p>
+        <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{gap}</p>
         {type && (
-          <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
+          <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)]">
             {type}
           </span>
         )}
       </div>
       {evidence && (
-        <p className="text-sm text-[var(--text-secondary)]">{evidence}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{evidence}</p>
       )}
       {stats.length > 0 && <StatGrid stats={stats} columns={2} />}
       {recommendedAction && (
-        <p className="text-sm text-[var(--text-secondary)]">{recommendedAction}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{recommendedAction}</p>
       )}
     </div>
   );

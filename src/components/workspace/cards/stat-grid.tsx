@@ -46,37 +46,52 @@ export function StatGrid({ stats, columns = 3, isEditing = false, onStatsChange 
 
   return (
     <div className={cn('grid gap-3', columns === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3')}>
-      {editedStats.map((stat, index) => (
-        <div
-          key={stat.label}
-          className="py-1"
-        >
-          <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] block mb-0.5">
-            {stat.label}
-          </span>
-          {isEditing ? (
-            <input
-              type="text"
-              value={stat.value}
-              onChange={(e) => handleValueChange(index, e.target.value)}
-              onBlur={handleBlur}
-              className="text-base font-semibold text-[var(--text-primary)] capitalize w-full bg-transparent border-b border-[var(--text-tertiary)] outline-none font-mono tabular-nums"
-            />
-          ) : (
-            <span className="text-base font-semibold text-[var(--text-primary)] capitalize font-mono tabular-nums">
-              {stat.value}
+      {editedStats.map((stat, index) => {
+        // Short values (numbers, brief text) get big mono treatment.
+        // Long values (paragraphs) fall back to body text size.
+        const isShort = stat.value.length <= 40;
+
+        return (
+          <div
+            key={stat.label}
+            className="py-1"
+          >
+            <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] block mb-0.5">
+              {stat.label}
             </span>
-          )}
-          {stat.badge && (
-            <span
-              className="mt-1 block text-[10px] font-mono"
-              style={{ color: stat.badgeColor ?? 'var(--accent-blue)' }}
-            >
-              {stat.badge}
-            </span>
-          )}
-        </div>
-      ))}
+            {isEditing ? (
+              <input
+                type="text"
+                value={stat.value}
+                onChange={(e) => handleValueChange(index, e.target.value)}
+                onBlur={handleBlur}
+                className={cn(
+                  'w-full bg-transparent border-b border-[var(--text-tertiary)] outline-none',
+                  isShort
+                    ? 'text-[20px] font-semibold text-[var(--text-primary)] font-mono tabular-nums'
+                    : 'text-[13px] leading-snug text-[var(--text-primary)]'
+                )}
+              />
+            ) : (
+              <span className={cn(
+                isShort
+                  ? 'text-[20px] font-semibold text-[var(--text-primary)] font-mono tabular-nums'
+                  : 'text-[13px] leading-snug text-[var(--text-secondary)]'
+              )}>
+                {stat.value}
+              </span>
+            )}
+            {stat.badge && (
+              <span
+                className="mt-1 block text-[10px] font-mono"
+                style={{ color: stat.badgeColor ?? 'var(--accent-blue)' }}
+              >
+                {stat.badge}
+              </span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

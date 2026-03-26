@@ -19,9 +19,9 @@ export function SegmentCard({ name, description, estimatedReach, funnelPosition,
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-[var(--text-primary)]">{name}</p>
+      <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{name}</p>
       {description && (
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{description}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{description}</p>
       )}
       {stats.length > 0 && <StatGrid stats={stats} columns={3} />}
     </div>

@@ -10,15 +10,15 @@ export function StrategyCard({ recommendedAngle, leadRecommendation, keyDifferen
   if (!recommendedAngle && !leadRecommendation && !keyDifferentiator) return null;
 
   return (
-    <div className="border-l-2 border-l-[var(--accent-blue)] py-2.5 pl-4 pr-2 space-y-2">
-      <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--text-quaternary)]">
+    <div className="border-l-2 border-l-[var(--accent-blue)] py-3 pl-4 pr-2 space-y-2">
+      <p className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[var(--text-quaternary)]">
         Positioning Strategy
       </p>
       {recommendedAngle && (
-        <p className="text-sm font-medium text-[var(--text-primary)]">{recommendedAngle}</p>
+        <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{recommendedAngle}</p>
       )}
       {leadRecommendation && (
-        <p className="text-[13px] leading-relaxed text-[var(--text-secondary)]">{leadRecommendation}</p>
+        <p className="text-[14px] leading-[1.55] text-[var(--text-secondary)]">{leadRecommendation}</p>
       )}
       {keyDifferentiator && (
         <p className="text-[13px] text-[var(--text-secondary)]">

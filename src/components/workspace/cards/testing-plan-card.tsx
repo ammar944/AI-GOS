@@ -19,7 +19,7 @@ export function TestingPlanCard({ firstTests, methodology, minBudgetPerTest }: T
   return (
     <div className="space-y-3">
       {methodology && (
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{methodology}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{methodology}</p>
       )}
       {firstTests && firstTests.length > 0 && (
         <BulletList title="First Tests" items={firstTests} />

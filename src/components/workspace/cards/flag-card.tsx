@@ -19,7 +19,7 @@ export function FlagCard({ issue, severity, priority, evidence, recommendedActio
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-[var(--text-primary)]">{issue}</p>
+        <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{issue}</p>
         {stats.length > 0 && (
           <div className="shrink-0">
             <StatGrid stats={stats} columns={2} />
@@ -27,10 +27,10 @@ export function FlagCard({ issue, severity, priority, evidence, recommendedActio
         )}
       </div>
       {evidence && (
-        <p className="text-sm text-[var(--text-secondary)]">{evidence}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{evidence}</p>
       )}
       {recommendedAction && (
-        <p className="text-sm text-[var(--text-secondary)]">{recommendedAction}</p>
+        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{recommendedAction}</p>
       )}
     </div>
   );

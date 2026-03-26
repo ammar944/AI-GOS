@@ -89,13 +89,13 @@ export function CompetitorCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
+          <h3 className="text-[16px] font-semibold leading-[1.55] text-[var(--text-primary)]">{name}</h3>
           {website && (
             <a
               href={website.startsWith('http') ? website : `https://${website}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-xs font-mono hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-[11px] font-mono hover:underline"
               style={{ color: 'var(--accent-blue)' }}
             >
               {website}
@@ -105,7 +105,7 @@ export function CompetitorCard({
             </a>
           )}
           {positioning && (
-            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{positioning}</p>
+            <p className="mt-1 text-[13px] leading-snug text-[var(--text-secondary)]">{positioning}</p>
           )}
         </div>
         {(priceStats.length > 0 || confidenceBadge) && (
@@ -141,17 +141,17 @@ export function CompetitorCard({
       {/* Our Advantage */}
       {ourAdvantage && (
         <div>
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-2">
+          <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             {`Our Advantage vs ${name}`}
           </h4>
-          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{ourAdvantage}</p>
+          <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{ourAdvantage}</p>
         </div>
       )}
 
       {/* Ad Activity */}
       {adActivity && (
         <div className="py-1 space-y-2">
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+          <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
             Ad Activity
           </h4>
           <div className="grid grid-cols-2 gap-3">
@@ -166,7 +166,7 @@ export function CompetitorCard({
           <BulletList title="Platforms" items={adActivity.platforms} accent="var(--accent-blue)" />
           <BulletList title="Themes" items={adActivity.themes} accent="var(--accent-blue)" />
           {adActivity.evidence && (
-            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+            <p className="text-[13px] leading-snug text-[var(--text-secondary)]">
               {adActivity.evidence}
             </p>
           )}
@@ -183,10 +183,10 @@ export function CompetitorCard({
       {/* Counter Positioning */}
       {counterPositioning && (
         <div>
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-2">
+          <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Counter Positioning
           </h4>
-          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{counterPositioning}</p>
+          <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{counterPositioning}</p>
         </div>
       )}
     </div>
