@@ -87,6 +87,7 @@ import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-sta
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
 import { getNextSection } from '@/lib/workspace/pipeline';
+import { ProfilePicker } from '@/components/journey/profile-picker';
 import type { SectionKey } from '@/lib/workspace/types';
 
 // Demo progress items matching the mockup's right panel
@@ -962,6 +963,19 @@ function JourneyPageContent() {
         );
       } else {
         addLog('ok', `${sectionLabel} research complete`);
+      }
+
+      // Save AI insights to business profile when key sections complete (fire-and-forget)
+      if (result.status === 'complete' && result.data && (section === 'crossAnalysis' || section === 'offerAnalysis')) {
+        fetch('/api/profiles/insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: activeRunId,
+            section,
+            data: result.data,
+          }),
+        }).catch(() => {/* fire-and-forget */});
       }
 
       if (result.status !== 'complete') {
@@ -2612,6 +2626,17 @@ function WelcomeForm({
             Drop your website URL. AIGOS pulls context, runs research, and builds your media blueprint.
           </p>
         </motion.div>
+
+        {/* Saved profile picker */}
+        <ProfilePicker
+          onSelect={(profile) => {
+            if (profile.websiteUrl) {
+              setWebsiteUrl(profile.websiteUrl);
+              onAnalyze(profile.websiteUrl, '');
+            }
+          }}
+          onSkip={() => {}}
+        />
 
         {/* URL input card */}
         <motion.div
