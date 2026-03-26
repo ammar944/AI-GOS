@@ -206,6 +206,41 @@ export function buildProfileContext(
   return lines.join('\n');
 }
 
+/**
+ * Save AI-generated insights back into the business profile.
+ * Called after research completes — enriches the profile with intelligence data.
+ * Uses nullable JSONB columns so this works even before the migration (columns are silently ignored).
+ */
+export async function saveProfileInsights(
+  userId: string,
+  companyName: string,
+  insights: {
+    offerScore?: Record<string, unknown>;
+    positioningStrategy?: Record<string, unknown>;
+    keyInsights?: unknown[];
+  },
+): Promise<boolean> {
+  const updateData: Record<string, unknown> = {
+    ai_insights: insights,
+    last_research_at: new Date().toISOString(),
+  };
+  if (insights.offerScore) updateData.offer_score = insights.offerScore;
+  if (insights.positioningStrategy) updateData.positioning_strategy = insights.positioningStrategy;
+
+  const { error } = await getSupabase()
+    .from('business_profiles')
+    .update(updateData)
+    .eq('user_id', userId)
+    .eq('company_name', companyName);
+
+  if (error) {
+    // Columns may not exist yet — that's fine, the migration will add them
+    console.warn('[business-profiles] saveInsights warning:', error.message);
+    return false;
+  }
+  return true;
+}
+
 // Map Supabase snake_case row to camelCase interface
 function mapRow(row: Record<string, unknown>): BusinessProfile {
   return {
