@@ -10,20 +10,26 @@ export function StrategyCard({ recommendedAngle, leadRecommendation, keyDifferen
   if (!recommendedAngle && !leadRecommendation && !keyDifferentiator) return null;
 
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-4 space-y-3">
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+    <div className="border-l-2 border-l-[var(--accent-blue)] py-2.5 pl-4 pr-2 space-y-2">
+      <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--text-quaternary)]">
         Positioning Strategy
-      </h4>
+      </p>
       {recommendedAngle && (
-        <p className="text-base font-semibold text-[var(--text-primary)]">{recommendedAngle}</p>
+        <p className="text-sm font-medium text-[var(--text-primary)]">{recommendedAngle}</p>
       )}
       {leadRecommendation && (
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{leadRecommendation}</p>
+        <p className="text-[13px] leading-relaxed text-[var(--text-secondary)]">{leadRecommendation}</p>
       )}
       {keyDifferentiator && (
-        <div className="rounded-[var(--radius-md)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-          <span className="font-medium text-[var(--text-primary)]">Differentiator:</span> {keyDifferentiator}
-        </div>
+        <p className="text-[13px] text-[var(--text-secondary)]">
+          <span
+            className="mr-1.5 rounded-[3px] px-1.5 py-px font-mono text-[10px] font-medium"
+            style={{ color: 'var(--accent-blue)', background: 'rgba(54,94,255,0.08)' }}
+          >
+            Differentiator
+          </span>
+          {keyDifferentiator}
+        </p>
       )}
     </div>
   );

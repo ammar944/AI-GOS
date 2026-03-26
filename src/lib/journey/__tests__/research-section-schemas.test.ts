@@ -142,6 +142,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
           summary: 'The offer is credible, but it needs stronger proof and a clearer launch plan.',
           topStrengths: ['Clear operational pain solved', 'Pricing is in-market'],
           priorityFixes: ['Add quantified proof to the landing page'],
+          iceScoredFixes: [],
           recommendedActionPlan: [
             'Rewrite the hero section around a measurable before/after outcome.',
           ],

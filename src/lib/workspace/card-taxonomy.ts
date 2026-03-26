@@ -159,6 +159,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
       positioning: asString(competitor.positioning),
       price: asString(competitor.price),
       pricingConfidence: asString(competitor.pricingConfidence),
+      pricingSourceUrl: asString(competitor.pricingSourceUrl),
       strengths: asStringArray(competitor.strengths),
       weaknesses: asStringArray(competitor.weaknesses),
       opportunities: asStringArray(competitor.opportunities),
@@ -443,6 +444,35 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
         recommendedAction: asString(flag.recommendedAction),
       }));
     }
+  }
+
+  // Generated Offer Statements (intelligence feature)
+  const offerStatements = asRecordArray(data.generatedOfferStatements);
+  if (offerStatements.length > 0) {
+    cards.push(makeCard(section, 'offer-statement-list', 'Generated Offer Statements', {
+      statements: offerStatements.map((s) => ({
+        type: asString(s.type) || 'headline',
+        statement: asString(s.statement),
+        rationale: asString(s.rationale),
+        targetEmotion: asString(s.targetEmotion),
+      })).filter((s) => s.statement),
+    }));
+  }
+
+  // ICE-scored fixes (intelligence feature)
+  const rec = data.recommendation as Record<string, unknown> | undefined;
+  const iceFixes = rec ? asRecordArray(rec.iceScoredFixes) : [];
+  if (iceFixes.length > 0) {
+    cards.push(makeCard(section, 'ice-table', 'Prioritized Improvements (ICE)', {
+      fixes: iceFixes.map((f) => ({
+        issue: asString(f.issue),
+        fix: asString(f.fix),
+        impact: asNumber(f.impact),
+        confidence: asNumber(f.confidence),
+        ease: asNumber(f.ease),
+        iceScore: asNumber(f.iceScore),
+      })).filter((f) => f.issue || f.fix),
+    }));
   }
 
   return cards;

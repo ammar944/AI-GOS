@@ -52,6 +52,7 @@ export const competitorRecordSchema = z.object({
   positioning: nonEmptyStringSchema,
   price: nonEmptyStringSchema.optional(),
   pricingConfidence: flexibleEnum(['high', 'medium', 'low', 'unknown'] as const, 'unknown').optional(),
+  pricingSourceUrl: z.string().optional(),
   strengths: z.array(z.string()).default([]),
   weaknesses: z.array(z.string()).default([]),
   opportunities: z.array(z.string()).default([]),

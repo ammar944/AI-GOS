@@ -11,6 +11,15 @@ export const offerStrengthSchema = z.object({
   overallScore: z.coerce.number().min(0).max(10),
 });
 
+export const iceScoredFixSchema = z.object({
+  issue: nonEmptyStringSchema,
+  fix: nonEmptyStringSchema,
+  impact: z.coerce.number().min(0).max(10),
+  confidence: z.coerce.number().min(0).max(10),
+  ease: z.coerce.number().min(0).max(10),
+  iceScore: z.coerce.number().min(0),
+});
+
 export const offerRecommendationSchema = z.object({
   status: flexibleEnum(
     ['proceed', 'needs-work', 'adjust-messaging', 'adjust-pricing', 'icp-refinement-needed', 'major-offer-rebuild', 'do-not-launch'] as const,
@@ -19,6 +28,7 @@ export const offerRecommendationSchema = z.object({
   summary: nonEmptyStringSchema,
   topStrengths: nonEmptyStringArraySchema,
   priorityFixes: nonEmptyStringArraySchema,
+  iceScoredFixes: z.array(iceScoredFixSchema).optional().default([]),
   recommendedActionPlan: nonEmptyStringArraySchema,
 });
 
@@ -80,6 +90,12 @@ export const offerAnalysisDataSchema = z.object({
     .optional(),
   strengths: nonEmptyStringArraySchema.optional(),
   weaknesses: nonEmptyStringArraySchema.optional(),
+  generatedOfferStatements: z.array(z.object({
+    type: flexibleEnum(['headline', 'guarantee', 'usp', 'value-prop', 'risk-reversal'] as const, 'headline'),
+    statement: nonEmptyStringSchema,
+    rationale: nonEmptyStringSchema,
+    targetEmotion: nonEmptyStringSchema,
+  })).optional().default([]),
 });
 
 export type OfferAnalysisData = z.infer<typeof offerAnalysisDataSchema>;
@@ -87,3 +103,4 @@ export type OfferStrength = z.infer<typeof offerStrengthSchema>;
 export type OfferRecommendation = z.infer<typeof offerRecommendationSchema>;
 export type OfferRedFlag = z.infer<typeof offerRedFlagSchema>;
 export type PricingAnalysis = z.infer<typeof pricingAnalysisSchema>;
+export type IceScoredFix = z.infer<typeof iceScoredFixSchema>;

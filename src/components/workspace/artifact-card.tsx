@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock } from 'lucide-react';
+import { Check, Clock, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { CardEditingContext } from '@/lib/workspace/card-editing-context';
@@ -34,17 +34,42 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
-/** Static (non-editing) context — cards always render in read-only mode.
- *  AI-driven edits go through updateCard() from workspace context. */
-const STATIC_EDITING_CONTEXT = {
-  isEditing: false,
-  draftContent: {},
-  updateDraft: () => {},
-};
+// Card types that support inline contentEditable editing
+const EDITABLE_CARD_TYPES = new Set(['prose-card', 'bullet-list', 'check-list']);
 
 export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
-  const { restoreCardVersion } = useWorkspace();
+  const { restoreCardVersion, updateCard } = useWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftContent, setDraftContent] = useState<Record<string, unknown>>({});
+  const [showSaved, setShowSaved] = useState(false);
+
+  const canEdit = EDITABLE_CARD_TYPES.has(card.cardType);
+
+  const handleSave = useCallback(() => {
+    if (Object.keys(draftContent).length > 0) {
+      updateCard(card.id, { ...card.content, ...draftContent }, 'user');
+    }
+    setIsEditing(false);
+    setDraftContent({});
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 1500);
+  }, [card.id, card.content, draftContent, updateCard]);
+
+  const handleCancel = useCallback(() => {
+    setIsEditing(false);
+    setDraftContent({});
+  }, []);
+
+  const updateDraft = useCallback((patch: Record<string, unknown>) => {
+    setDraftContent((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const editingContext = useMemo(() => ({
+    isEditing,
+    draftContent,
+    updateDraft,
+  }), [isEditing, draftContent, updateDraft]);
 
   const handleRestore = useCallback(
     (versionIndex: number) => {
@@ -67,12 +92,55 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
       )}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider">
-          {card.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider">
+            {card.label}
+          </span>
+          {showSaved && (
+            <span className="text-[10px] font-mono text-[var(--accent-green,#22c55e)] animate-pulse">
+              Saved
+            </span>
+          )}
+        </div>
 
-        {/* Version history — visible on hover only */}
-        {hasVersions && (
+        <div className="flex items-center gap-1">
+          {/* Inline edit controls */}
+          {canEdit && !isEditing && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className={cn(
+                'rounded p-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-white/5 transition-all cursor-pointer',
+                menuOpen ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100',
+              )}
+              aria-label="Edit card"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          )}
+          {isEditing && (
+            <>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="rounded p-1 text-[var(--text-tertiary)] hover:text-[var(--accent-red,#ef4444)] hover:bg-white/5 transition-colors cursor-pointer"
+                aria-label="Cancel edit"
+              >
+                <X className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded p-1 text-[var(--text-tertiary)] hover:text-[var(--accent-green,#22c55e)] hover:bg-white/5 transition-colors cursor-pointer"
+                aria-label="Save edit"
+              >
+                <Check className="size-3.5" />
+              </button>
+            </>
+          )}
+
+          {/* Version history — visible on hover only */}
+          {hasVersions && (
           <div
             className={cn(
               'transition-opacity duration-150',
@@ -122,9 +190,10 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
             </DropdownMenu>
           </div>
         )}
+        </div>
       </div>
 
-      <CardEditingContext value={STATIC_EDITING_CONTEXT}>
+      <CardEditingContext value={editingContext}>
         {children}
       </CardEditingContext>
     </motion.div>

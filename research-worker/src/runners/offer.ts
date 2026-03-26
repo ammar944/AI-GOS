@@ -66,7 +66,8 @@ RED FLAGS FOR PAID ADS:
 
 COMPRESSION RULES:
 - topStrengths: 2-3 items
-- priorityFixes: 2-3 items
+- priorityFixes: 2-3 items (keep as plain strings)
+- iceScoredFixes: one entry per priorityFix, scored with the ICE framework (Impact 1-10, Confidence 1-10, Ease 1-10). Compute iceScore as impact * confidence * ease. Sort by iceScore descending.
 - recommendedActionPlan: 3 items max
 - redFlags: 3 items max
 - messagingRecommendations: 3 items max
@@ -92,6 +93,16 @@ After completing your research, respond with a JSON object. Structure:
     "summary": "string — concise assessment",
     "topStrengths": ["string — 2-3 strongest elements"],
     "priorityFixes": ["string — 2-3 most important improvements needed"],
+    "iceScoredFixes": [
+      {
+        "issue": "string — description of the issue",
+        "fix": "string — recommended fix",
+        "impact": "number 1-10 — potential improvement to conversion/results",
+        "confidence": "number 1-10 — how confident are you this fix will work",
+        "ease": "number 1-10 — how easy is this to implement",
+        "iceScore": "number — impact * confidence * ease"
+      }
+    ],
     "recommendedActionPlan": ["string — prescriptive next actions the team should take before launch"]
   },
   "redFlags": [
@@ -117,8 +128,18 @@ After completing your research, respond with a JSON object. Structure:
       "url": "https://example.com/source",
       "title": "Source title"
     }
+  ],
+  "generatedOfferStatements": [
+    {
+      "type": "headline | guarantee | usp | value-prop | risk-reversal",
+      "statement": "The actual offer statement copy",
+      "rationale": "Why this statement works for this client",
+      "targetEmotion": "The emotion this targets (e.g., loss aversion, aspiration, trust)"
+    }
   ]
-}`;
+}
+
+After your analysis, generate 3-5 concrete offer statements the client could use in their ads. Include at least one guarantee or risk-reversal. Each statement should be specific to this client's product and market position — not generic.`;
 
 interface OfferAttemptConfig {
   model: string;

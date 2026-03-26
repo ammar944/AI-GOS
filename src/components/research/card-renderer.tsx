@@ -41,6 +41,8 @@ import {
   JourneyKeywordIntelDetail,
   getJourneyKeywordIntelDetailData,
 } from '@/components/journey/journey-keyword-intel-detail';
+import { OfferStatementList } from '@/components/workspace/cards/offer-statement-list';
+import { IceTable } from '@/components/workspace/cards/ice-table';
 import { cn } from '@/lib/utils';
 import type { CardState } from '@/lib/workspace/types';
 
@@ -105,6 +107,7 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           positioning={c.positioning as string | undefined}
           price={c.price as string | undefined}
           pricingConfidence={c.pricingConfidence as string | undefined}
+          pricingSourceUrl={c.pricingSourceUrl as string | undefined}
           strengths={(c.strengths ?? []) as string[]}
           weaknesses={(c.weaknesses ?? []) as string[]}
           opportunities={(c.opportunities ?? []) as string[]}
@@ -331,6 +334,10 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           goNoGo={card.content.goNoGo as string | undefined}
         />
       );
+    case 'offer-statement-list':
+      return <OfferStatementList statements={(card.content as Record<string, unknown>).statements as Array<{ type: string; statement: string; rationale: string; targetEmotion: string }>} />;
+    case 'ice-table':
+      return <IceTable fixes={(card.content as Record<string, unknown>).fixes as Array<{ issue: string; fix: string; impact: number; confidence: number; ease: number; iceScore: number }>} />;
     default:
       return <p className="text-xs text-[var(--text-tertiary)]">Unknown card type: {card.cardType}</p>;
   }

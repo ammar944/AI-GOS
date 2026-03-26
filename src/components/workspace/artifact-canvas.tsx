@@ -13,6 +13,7 @@ import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
 import { MediaPlanCta } from './media-plan-cta';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
+import { CompetitorTabs } from './competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
@@ -242,7 +243,10 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
               )}
 
               {/* Cards — shown for review, approved, or browsing */}
-              {showCards && sectionCards.length > 0 && (
+              {showCards && sectionCards.length > 0 && state.currentSection === 'competitors' && (
+                <CompetitorTabs cards={sectionCards} />
+              )}
+              {showCards && sectionCards.length > 0 && state.currentSection !== 'competitors' && (
                 <CardGrid>
                   {sectionCards
                     // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)

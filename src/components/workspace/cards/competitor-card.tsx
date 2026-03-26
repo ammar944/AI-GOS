@@ -11,6 +11,7 @@ interface CompetitorCardProps {
   positioning?: string;
   price?: string;
   pricingConfidence?: string;
+  pricingSourceUrl?: string;
   strengths: string[];
   weaknesses: string[];
   opportunities: string[];
@@ -51,6 +52,7 @@ export function CompetitorCard({
   positioning,
   price,
   pricingConfidence,
+  pricingSourceUrl,
   strengths,
   weaknesses,
   opportunities,
@@ -63,8 +65,24 @@ export function CompetitorCard({
 }: CompetitorCardProps) {
   const priceStats: StatItem[] = [
     ...(price ? [{ label: 'Price', value: price }] : []),
-    ...(pricingConfidence ? [{ label: 'Pricing Confidence', value: pricingConfidence }] : []),
   ];
+
+  const confidenceBadge = pricingConfidence ? (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-px font-mono text-[10px] font-medium"
+      style={{
+        color: pricingConfidence === 'high' ? 'var(--accent-green, #22c55e)'
+          : pricingConfidence === 'unknown' ? 'var(--accent-amber, #eab308)'
+          : 'var(--text-secondary)',
+        background: pricingConfidence === 'high' ? 'rgba(34,197,94,0.1)'
+          : pricingConfidence === 'unknown' ? 'rgba(234,179,8,0.1)'
+          : 'transparent',
+      }}
+    >
+      {pricingConfidence === 'unknown' && '⚠ '}
+      {pricingConfidence}
+    </span>
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -73,15 +91,43 @@ export function CompetitorCard({
         <div>
           <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
           {website && (
-            <p className="mt-1 text-xs font-mono text-[var(--text-tertiary)]">{website}</p>
+            <a
+              href={website.startsWith('http') ? website : `https://${website}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-xs font-mono hover:underline"
+              style={{ color: 'var(--accent-blue)' }}
+            >
+              {website}
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            </a>
           )}
           {positioning && (
             <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{positioning}</p>
           )}
         </div>
-        {priceStats.length > 0 && (
-          <div className="shrink-0">
-            <StatGrid stats={priceStats} columns={2} />
+        {(priceStats.length > 0 || confidenceBadge) && (
+          <div className="shrink-0 flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              {priceStats.length > 0 && (<StatGrid stats={priceStats} columns={2} />)}
+              {confidenceBadge}
+            </div>
+            {pricingSourceUrl && (
+              <a
+                href={pricingSourceUrl.startsWith('http') ? pricingSourceUrl : `https://${pricingSourceUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-mono text-[10px] hover:underline"
+                style={{ color: 'var(--accent-blue)' }}
+              >
+                View pricing source
+                <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </a>
+            )}
           </div>
         )}
       </div>
