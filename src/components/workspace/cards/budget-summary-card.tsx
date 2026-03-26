@@ -38,7 +38,7 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
           </h4>
           <div className="grid grid-cols-3 gap-3">
             {funnelSplit?.awareness !== undefined && (
-              <div className="glass-surface rounded-[var(--radius-md)] p-3 text-center">
+              <div className="py-1 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
                   Awareness
                 </span>
@@ -48,7 +48,7 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
               </div>
             )}
             {funnelSplit?.consideration !== undefined && (
-              <div className="glass-surface rounded-[var(--radius-md)] p-3 text-center">
+              <div className="py-1 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
                   Consider.
                 </span>
@@ -58,7 +58,7 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
               </div>
             )}
             {funnelSplit?.conversion !== undefined && (
-              <div className="glass-surface rounded-[var(--radius-md)] p-3 text-center">
+              <div className="py-1 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
                   Conversion
                 </span>

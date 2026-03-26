@@ -133,10 +133,10 @@ export function CompetitorCard({
       </div>
 
       {/* S/W/O Lists */}
-      <BulletList title="Strengths" items={strengths} accent="var(--accent-green)" />
-      <BulletList title="Weaknesses" items={weaknesses} accent="var(--accent-red)" />
+      <BulletList title="Strengths" items={strengths} accent="var(--accent-blue)" />
+      <BulletList title="Weaknesses" items={weaknesses} accent="var(--accent-blue)" />
       <BulletList title="Opportunities" items={opportunities} accent="var(--accent-blue)" />
-      <BulletList title="Top Ad Hooks" items={topAdHooks} accent="var(--accent-cyan)" />
+      <BulletList title="Top Ad Hooks" items={topAdHooks} accent="var(--accent-blue)" />
 
       {/* Our Advantage */}
       {ourAdvantage && (
@@ -150,7 +150,7 @@ export function CompetitorCard({
 
       {/* Ad Activity */}
       {adActivity && (
-        <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-2">
+        <div className="py-1 space-y-2">
           <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
             Ad Activity
           </h4>
@@ -163,7 +163,7 @@ export function CompetitorCard({
               columns={2}
             />
           </div>
-          <BulletList title="Platforms" items={adActivity.platforms} accent="var(--accent-cyan)" />
+          <BulletList title="Platforms" items={adActivity.platforms} accent="var(--accent-blue)" />
           <BulletList title="Themes" items={adActivity.themes} accent="var(--accent-blue)" />
           {adActivity.evidence && (
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">

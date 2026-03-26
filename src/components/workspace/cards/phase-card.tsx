@@ -43,7 +43,7 @@ export function PhaseCard({
         <BulletList
           title="Objectives"
           items={objectives}
-          accent="var(--accent-green)"
+          accent="var(--accent-blue)"
         />
       )}
       {activities && activities.length > 0 && (

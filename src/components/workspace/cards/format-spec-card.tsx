@@ -23,7 +23,7 @@ export function FormatSpecCard({ specs }: FormatSpecCardProps) {
       {typed.map((spec, i) => (
         <div
           key={i}
-          className="glass-surface rounded-[var(--radius-md)] p-3 space-y-1"
+          className="py-1 space-y-1"
         >
           <div className="flex items-center gap-3">
             {spec.platform && (

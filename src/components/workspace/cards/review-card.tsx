@@ -123,7 +123,7 @@ export function ReviewCard({ competitorName, trustpilot, g2 }: ReviewCardProps) 
   if (!hasTrustpilot && !hasG2) return null;
 
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-3">
+    <div className="py-1 space-y-3">
       <div
         className={cn(
           'grid gap-4',

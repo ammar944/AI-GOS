@@ -10,7 +10,7 @@ interface TrendCardProps {
 
 export function TrendCard({ trend, direction, evidence }: TrendCardProps) {
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-3">
+    <div className="py-1">
       <div className="flex items-center gap-2 mb-1">
         <span
           className={cn(

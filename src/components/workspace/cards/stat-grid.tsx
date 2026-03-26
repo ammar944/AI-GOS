@@ -49,7 +49,7 @@ export function StatGrid({ stats, columns = 3, isEditing = false, onStatsChange 
       {editedStats.map((stat, index) => (
         <div
           key={stat.label}
-          className="glass-surface rounded-[var(--radius-md)] p-3"
+          className="py-1"
         >
           <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
             {stat.label}

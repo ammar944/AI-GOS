@@ -9,7 +9,7 @@ interface PlatformCardProps {
 
 export function PlatformCard({ platform, role, budgetAllocation, rationale }: PlatformCardProps) {
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-2">
+    <div className="py-1 space-y-2">
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm font-medium text-[var(--text-primary)]">{platform}</p>
         {role && (

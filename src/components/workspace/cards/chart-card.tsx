@@ -8,7 +8,7 @@ interface ChartCardProps {
 
 export function ChartCard({ title, description, imageUrl }: ChartCardProps) {
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-4 space-y-3">
+    <div className="py-1 space-y-3">
       <div>
         <h4 className="text-sm font-medium text-[var(--text-primary)]">{title}</h4>
         {description && (
