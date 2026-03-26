@@ -51,7 +51,7 @@ export function StatGrid({ stats, columns = 3, isEditing = false, onStatsChange 
           key={stat.label}
           className="py-1"
         >
-          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
+          <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] block mb-0.5">
             {stat.label}
           </span>
           {isEditing ? (
@@ -60,10 +60,10 @@ export function StatGrid({ stats, columns = 3, isEditing = false, onStatsChange 
               value={stat.value}
               onChange={(e) => handleValueChange(index, e.target.value)}
               onBlur={handleBlur}
-              className="text-sm font-medium text-[var(--text-primary)] capitalize w-full bg-transparent border-b border-[var(--text-tertiary)] outline-none"
+              className="text-base font-semibold text-[var(--text-primary)] capitalize w-full bg-transparent border-b border-[var(--text-tertiary)] outline-none font-mono tabular-nums"
             />
           ) : (
-            <span className="text-sm font-medium text-[var(--text-primary)] capitalize">
+            <span className="text-base font-semibold text-[var(--text-primary)] capitalize font-mono tabular-nums">
               {stat.value}
             </span>
           )}
