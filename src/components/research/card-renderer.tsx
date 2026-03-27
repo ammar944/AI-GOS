@@ -43,11 +43,17 @@ import {
 } from '@/components/journey/journey-keyword-intel-detail';
 import { OfferStatementList } from '@/components/workspace/cards/offer-statement-list';
 import { IceTable } from '@/components/workspace/cards/ice-table';
+import { OpportunityCard } from '@/components/workspace/cards/opportunity-card';
+import { RefinementCard } from '@/components/workspace/cards/refinement-card';
+import { PositioningMoveCard } from '@/components/workspace/cards/positioning-move-card';
+import { KeywordGapCard } from '@/components/workspace/cards/keyword-gap-card';
+import { ReadinessScorecard } from '@/components/workspace/cards/readiness-scorecard';
+import { PriorityActions } from '@/components/workspace/cards/priority-actions';
 import { cn } from '@/lib/utils';
 import type { CardState } from '@/lib/workspace/types';
 
 /** Card types that get "hero" visual treatment in document mode */
-const HERO_CARD_TYPES = new Set(['stat-grid', 'strategy-card', 'competitor-card', 'pricing-card']);
+const HERO_CARD_TYPES = new Set(['stat-grid', 'strategy-card', 'competitor-card', 'pricing-card', 'readiness-scorecard']);
 
 /**
  * Pure switch statement mapping card.cardType to component.
@@ -338,6 +344,18 @@ export function CardContentSwitch({ card }: { card: CardState }) {
       return <OfferStatementList statements={(card.content as Record<string, unknown>).statements as Array<{ type: string; statement: string; rationale: string; targetEmotion: string }>} />;
     case 'ice-table':
       return <IceTable fixes={(card.content as Record<string, unknown>).fixes as Array<{ issue: string; fix: string; impact: number; confidence: number; ease: number; iceScore: number }>} />;
+    case 'opportunity-card':
+      return <OpportunityCard opportunities={card.content.opportunities as Array<{opportunity: string; size: string; timing: string; difficulty: string; evidence: string}>} />;
+    case 'refinement-card':
+      return <RefinementCard refinements={card.content.refinements as Array<{refinement: string; segment: string; expectedLift: string; testMethod: string; risk: string}>} />;
+    case 'positioning-move-card':
+      return <PositioningMoveCard moves={card.content.moves as Array<{move: string; targetCompetitor: string; risk: string; reward: string; playbook: string}>} />;
+    case 'keyword-gap-card':
+      return <KeywordGapCard gaps={card.content.gaps as Array<{gapCluster: string; estimatedVolume: number; competition: string; suggestedKeywords: string[]; priority: string}>} />;
+    case 'readiness-scorecard':
+      return <ReadinessScorecard overallScore={card.content.overallScore as number} verdict={card.content.verdict as string} verdictLabel={card.content.verdictLabel as string} dimensions={card.content.dimensions as Array<{name: string; score: number; summary: string}>} />;
+    case 'priority-actions':
+      return <PriorityActions actions={card.content.actions as Array<{action: string; source: string; priority: string}>} />;
     default:
       return <p className="text-xs text-[var(--text-tertiary)]">Unknown card type: {card.cardType}</p>;
   }

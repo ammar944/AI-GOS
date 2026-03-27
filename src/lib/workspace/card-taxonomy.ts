@@ -54,6 +54,20 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'industryMarket';
 
+  // Intelligence: Market Opportunities
+  const opportunities = asRecordArray(data.marketOpportunities);
+  if (opportunities.length > 0) {
+    cards.push(makeCard(section, 'opportunity-card', 'Opportunities to Exploit', {
+      opportunities: opportunities.map((o) => ({
+        opportunity: asString(o.opportunity) ?? '',
+        size: asString(o.size) ?? 'medium',
+        timing: asString(o.timing) ?? 'now',
+        difficulty: asString(o.difficulty) ?? 'medium',
+        evidence: asString(o.evidence) ?? '',
+      })).filter((o) => o.opportunity),
+    }));
+  }
+
   // Category Snapshot StatGrid
   const snapshot = asRecord(data.categorySnapshot);
   if (snapshot) {
@@ -140,6 +154,20 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
 function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'competitors';
+
+  // Intelligence: Positioning Moves
+  const moves = asRecordArray(data.positioningMoves);
+  if (moves.length > 0) {
+    cards.push(makeCard(section, 'positioning-move-card', 'Positioning Moves to Make', {
+      moves: moves.map((m) => ({
+        move: asString(m.move) ?? '',
+        targetCompetitor: asString(m.targetCompetitor) ?? '',
+        risk: asString(m.risk) ?? 'medium',
+        reward: asString(m.reward) ?? 'medium',
+        playbook: asString(m.playbook) ?? '',
+      })).filter((m) => m.move),
+    }));
+  }
 
   const competitors = asRecordArray(data.competitors);
   const seenCompetitorNames = new Set<string>();
@@ -278,6 +306,20 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
 function parseICPValidation(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'icpValidation';
+
+  // Intelligence: Audience Refinements
+  const refinements = asRecordArray(data.audienceRefinements);
+  if (refinements.length > 0) {
+    cards.push(makeCard(section, 'refinement-card', 'Audience Refinements to Test', {
+      refinements: refinements.map((r) => ({
+        refinement: asString(r.refinement) ?? '',
+        segment: asString(r.segment) ?? '',
+        expectedLift: asString(r.expectedLift) ?? 'moderate',
+        testMethod: asString(r.testMethod) ?? '',
+        risk: asString(r.risk) ?? '',
+      })).filter((r) => r.refinement),
+    }));
+  }
 
   // Persona stats
   const stats = [
@@ -484,11 +526,55 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
 // -- Keyword Intel -------------------------------------------------------------
 
 function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
-  // Keyword intel wraps the existing JourneyKeywordIntelDetail component
-  // A single card passes raw data through
   if (Object.keys(data).length === 0) return [];
+  const cards: CardState[] = [];
 
-  return [makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', { rawData: data })];
+  // Intelligence: Keyword Gaps (derived from existing competitorGaps + topOpportunities)
+  const competitorGaps = asRecordArray(data.competitorGaps);
+  const topOpportunities = asRecordArray(data.topOpportunities);
+
+  if (competitorGaps.length > 0 || topOpportunities.length > 0) {
+    const gaps: Array<{gapCluster: string; estimatedVolume: number; competition: string; suggestedKeywords: string[]; priority: string}> = [];
+
+    // Group competitor gaps by competitor name
+    const byCompetitor = new Map<string, typeof competitorGaps>();
+    for (const g of competitorGaps) {
+      const name = asString(g.competitorName) ?? 'Unknown';
+      if (!byCompetitor.has(name)) byCompetitor.set(name, []);
+      byCompetitor.get(name)!.push(g);
+    }
+    for (const [competitor, items] of byCompetitor) {
+      gaps.push({
+        gapCluster: `${competitor} competitor terms`,
+        estimatedVolume: items.reduce((sum, g) => sum + (typeof g.searchVolume === 'number' ? g.searchVolume : 0), 0),
+        competition: 'medium',
+        suggestedKeywords: items.slice(0, 5).map((g) => asString(g.keyword) ?? '').filter(Boolean),
+        priority: 'high',
+      });
+    }
+
+    // Top opportunities as a cluster
+    if (topOpportunities.length > 0) {
+      const highPriority = topOpportunities.filter((o) => (typeof o.priorityScore === 'number' ? o.priorityScore : 0) >= 60);
+      if (highPriority.length > 0) {
+        gaps.push({
+          gapCluster: 'High-intent opportunities',
+          estimatedVolume: highPriority.reduce((sum, o) => sum + (typeof o.searchVolume === 'number' ? o.searchVolume : 0), 0),
+          competition: asString(highPriority[0]?.difficulty) ?? 'medium',
+          suggestedKeywords: highPriority.slice(0, 5).map((o) => asString(o.keyword) ?? '').filter(Boolean),
+          priority: 'high',
+        });
+      }
+    }
+
+    if (gaps.length > 0) {
+      cards.push(makeCard('keywordIntel', 'keyword-gap-card', 'Keyword Gaps to Fill', { gaps: gaps.slice(0, 3) }));
+    }
+  }
+
+  // Existing passthrough
+  cards.push(makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', { rawData: data }));
+  return cards;
 }
 
 // -- Cross Analysis (Strategic Synthesis) --------------------------------------
@@ -496,6 +582,39 @@ function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
 function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'crossAnalysis';
+
+  // Intelligence: Readiness Scorecard
+  const scorecard = asRecord(data.readinessScorecard);
+  if (scorecard) {
+    const dims = asRecordArray(scorecard.dimensions);
+    if (dims.length > 0) {
+      cards.push(makeCard(section, 'readiness-scorecard', 'Media Launch Readiness', {
+        overallScore: asNumber(scorecard.overallScore) ?? 0,
+        verdict: asString(scorecard.verdict) ?? 'needs-work',
+        verdictLabel: asString(scorecard.verdictLabel) ?? 'Needs assessment',
+        dimensions: dims.map((d) => ({
+          name: asString(d.name) ?? '',
+          score: asNumber(d.score) ?? 0,
+          summary: asString(d.summary) ?? '',
+        })).filter((d) => d.name),
+      }));
+    }
+  }
+
+  // Intelligence: Top Actions
+  const topActions = asRecord(data.topActions);
+  if (topActions) {
+    const actions = asRecordArray(topActions.actions);
+    if (actions.length > 0) {
+      cards.push(makeCard(section, 'priority-actions', 'Top Actions', {
+        actions: actions.map((a) => ({
+          action: asString(a.action) ?? '',
+          source: asString(a.source) ?? '',
+          priority: asString(a.priority) ?? 'medium',
+        })).filter((a) => a.action),
+      }));
+    }
+  }
 
   // Positioning Strategy
   const positioningStrategy = asRecord(data.positioningStrategy);
