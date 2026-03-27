@@ -8,7 +8,7 @@ const nonEmptyStringSchema = z.string().trim().min(1);
 const nonEmptyStringArraySchema = z.array(z.string().trim()).default([]);
 
 /** Flexible enum — normalizes AI output (casing, phrasing) with safe fallback. */
-function flexibleEnum<const T extends readonly [string, ...string[]]>(
+export function flexibleEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   fallback: T[number],
 ): z.ZodType<T[number]> {
@@ -1156,3 +1156,6 @@ export function finalizeRunnerResult(
     telemetry,
   };
 }
+
+export { adScriptGenerateSchema, awarenessLevelOutputSchema } from './schemas/ad-scripts';
+export type { AdScriptGenerate } from './schemas/ad-scripts';
