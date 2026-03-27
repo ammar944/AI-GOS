@@ -6,7 +6,7 @@ import type { RunnerTelemetry } from './telemetry';
 
 const ACTIVE_RUN_ID_KEY = 'activeJourneyRunId';
 
-function getClient() {
+export function getClient() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
@@ -278,4 +278,19 @@ export async function writeJobStatus(
     () => writeJobStatusInner(userId, jobId, row),
     `writeJobStatus(job=${jobId}, user=${userId})`,
   );
+}
+
+/** Write progressive script pack updates to the script_packs table. */
+export async function writeScriptPackUpdate(
+  packId: string,
+  update: { scripts?: unknown; status?: string; error_message?: string },
+): Promise<void> {
+  await withSupabaseRetry(async () => {
+    const client = getClient();
+    const { error } = await client
+      .from('script_packs')
+      .update(update)
+      .eq('id', packId);
+    if (error) throw error;
+  }, `writeScriptPackUpdate(${packId})`);
 }

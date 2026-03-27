@@ -9,7 +9,8 @@ import {
   runResearchKeywords,
   runMediaPlan,
 } from './runners';
-import { writeResearchResult, writeJobStatus, type ResearchResult } from './supabase';
+import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, type ResearchResult } from './supabase';
+import { runAdScripts, type AdScriptsInput } from './runners/ad-scripts';
 import { writeDeadLetter } from './dead-letter';
 import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
@@ -338,6 +339,62 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     } finally {
       clearInterval(heartbeatInterval);
       activeJobs.delete(jobId);
+    }
+  })();
+});
+
+// -- Ad Scripts ---------------------------------------------------------------
+app.post('/api/scripts', async (req: express.Request, res: express.Response) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${process.env.RAILWAY_API_KEY}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { packId, profileId, sessionId, userId, companyName, researchContext, styleReferences } = req.body;
+
+  if (!packId || !profileId || !userId || !researchContext) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+
+  res.status(202).json({ status: 'accepted', packId });
+
+  // Detached async execution (same pattern as /run)
+  const input: AdScriptsInput = {
+    companyName: companyName ?? 'Unknown Company',
+    researchContext,
+    styleReferences: styleReferences ?? [],
+    targetAudience: researchContext.targetAudience ?? 'target audience',
+  };
+
+  void (async () => {
+    try {
+      const result = await runAdScripts(
+        input,
+        async (update) => {
+          console.log(`[ad-scripts] ${update.phase}: ${update.message}`);
+        },
+        async (scripts, completedLevels) => {
+          const status = completedLevels >= 5 ? 'complete' : 'partial';
+          await writeScriptPackUpdate(packId, {
+            scripts: JSON.stringify(scripts),
+            status,
+          });
+        },
+      );
+
+      await writeScriptPackUpdate(packId, {
+        scripts: JSON.stringify(result.scripts),
+        status: 'complete',
+      });
+      console.log(`[ad-scripts] Completed: ${result.summary.totalScripts} scripts for pack ${packId}`);
+    } catch (err) {
+      console.error(`[ad-scripts] Failed for pack ${packId}:`, err);
+      await writeScriptPackUpdate(packId, {
+        status: 'error',
+        error_message: err instanceof Error ? err.message : String(err),
+      });
     }
   })();
 });
