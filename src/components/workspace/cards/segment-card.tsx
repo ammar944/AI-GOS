@@ -18,8 +18,8 @@ export function SegmentCard({ name, description, estimatedReach, funnelPosition,
   ];
 
   return (
-    <div className="space-y-3">
-      <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{name}</p>
+    <div className="space-y-1.5">
+      <p className="text-[13px] font-medium leading-snug text-[var(--text-primary)]">{name}</p>
       {description && (
         <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{description}</p>
       )}

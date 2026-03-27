@@ -10,8 +10,7 @@ interface SignalBoardShellProps {
 
 /**
  * Signal Board shell — used by Market Overview, ICP Validation, Offer Analysis.
- * Layout: stats at top (inline row) → tables/lists in middle → callouts → prose at bottom.
- * Stat-grid cards render as inline stat rows, not boxed cards.
+ * Layout: stats at top (inline row) → callouts → tables → lists → prose at bottom.
  */
 export function SignalBoardShell({ cards, renderCard }: SignalBoardShellProps) {
   const stats = cards.filter(c => SIGNAL_BOARD_ZONES.stats.has(c.cardType));
@@ -23,7 +22,7 @@ export function SignalBoardShell({ cards, renderCard }: SignalBoardShellProps) {
   let idx = 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Stats — inline row at top, big mono numbers */}
       {stats.length > 0 && (
         <section>

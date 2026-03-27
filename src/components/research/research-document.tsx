@@ -196,7 +196,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-[800px] mx-auto px-6 py-8">
+        <div className="max-w-[960px] mx-auto px-6 py-8">
           {/* Document title */}
           <div className="mb-8">
             <h1 className="text-xl font-heading font-semibold text-[var(--text-primary)] truncate">
@@ -230,10 +230,12 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
                 <SectionHeader section={currentSection} mode="document" />
 
                 {sectionCards.length > 0 ? (
-                  <SectionContent
-                    sectionKey={currentSection}
-                    cards={sectionCards}
-                  />
+                  <div className="rounded-lg bg-[var(--bg-card)] p-5 px-6">
+                    <SectionContent
+                      sectionKey={currentSection}
+                      cards={sectionCards}
+                    />
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center min-h-[300px]">
                     <p className="text-sm text-[var(--text-tertiary)] font-mono">

@@ -49,6 +49,12 @@ import type { CardState } from '@/lib/workspace/types';
 /** Card types that get "hero" visual treatment in document mode */
 const HERO_CARD_TYPES = new Set(['stat-grid', 'strategy-card', 'competitor-card', 'pricing-card']);
 
+/** Card types that render their own title/label internally — skip the wrapper label to avoid duplication */
+const SELF_LABELED_CARD_TYPES = new Set([
+  'bullet-list', 'check-list', 'prose-card', 'pricing-card',
+  'strategy-card', 'insight-card', 'verdict-card',
+]);
+
 /**
  * Pure switch statement mapping card.cardType to component.
  * Consumes CardEditingContext for editable cards (stat-grid, bullet-list, check-list, prose-card).
@@ -362,7 +368,7 @@ interface CardRendererProps {
 export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
   if (mode === 'workspace') {
     return (
-      <ArtifactCard card={card} index={index}>
+      <ArtifactCard card={card} index={index} hideLabel={SELF_LABELED_CARD_TYPES.has(card.cardType)}>
         <CardContentSwitch card={card} />
       </ArtifactCard>
     );
@@ -375,6 +381,7 @@ export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
   };
 
   const isHero = HERO_CARD_TYPES.has(card.cardType);
+  const hasSelfLabel = SELF_LABELED_CARD_TYPES.has(card.cardType);
 
   return (
     <div
@@ -383,9 +390,11 @@ export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
         isHero && 'border-l-2 border-l-[var(--accent-blue)] pl-4 print-card-hero',
       )}
     >
-      <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2 block">
-        {card.label}
-      </span>
+      {!hasSelfLabel && (
+        <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2 block">
+          {card.label}
+        </span>
+      )}
       <CardEditingContext value={readOnlyContext}>
         <CardContentSwitch card={card} />
       </CardEditingContext>

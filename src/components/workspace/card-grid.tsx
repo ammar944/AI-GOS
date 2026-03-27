@@ -6,7 +6,7 @@ interface CardGridProps {
 
 export function CardGrid({ children }: CardGridProps) {
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-3 pb-6">
       {children}
     </div>
   );

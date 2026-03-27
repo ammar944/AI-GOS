@@ -29,14 +29,14 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
       funnelSplit.conversion !== undefined);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {topStats.length > 0 && <StatGrid stats={topStats} columns={2} />}
       {hasFunnelSplit && (
         <div>
-          <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-1.5">
             Funnel Split
           </h4>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {funnelSplit?.awareness !== undefined && (
               <div className="py-1 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] block mb-1">

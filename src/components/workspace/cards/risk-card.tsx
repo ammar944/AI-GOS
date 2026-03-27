@@ -28,7 +28,7 @@ export function RiskCard({ risk, category, severity, likelihood, mitigation, ear
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <p className="text-[14px] leading-[1.55] font-medium" style={{ color: severityColor }}>
         {risk}
       </p>
@@ -37,11 +37,11 @@ export function RiskCard({ risk, category, severity, likelihood, mitigation, ear
         <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{mitigation}</p>
       )}
       {earlyWarning && (
-        <div className="rounded-[var(--radius-md)] border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2">
-          <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-amber-400/70 block mb-1">
+        <div className="border-l-2 border-l-[var(--accent-amber)] py-2 pl-3 pr-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)] block mb-0.5">
             Early Warning
           </span>
-          <p className="text-[13px] leading-snug text-amber-300/80">{earlyWarning}</p>
+          <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{earlyWarning}</p>
         </div>
       )}
     </div>

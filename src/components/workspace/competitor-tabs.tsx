@@ -31,7 +31,7 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
   return (
     <div>
       {/* Tab bar */}
-      <div className="mb-5 inline-flex gap-0.5 rounded-[5px] p-0.5" style={{ background: 'var(--bg-surface, #0e1018)' }}>
+      <div className="mb-4 inline-flex gap-0.5 rounded-[5px] p-0.5" style={{ background: 'var(--bg-surface, #0e1018)' }}>
         {showOverview && (
           <button
             type="button"
@@ -71,11 +71,11 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Competitor</th>
-                <th className="px-2.5 py-1.5 text-right font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Price</th>
-                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Confidence</th>
-                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Strengths</th>
-                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Weaknesses</th>
+                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Competitor</th>
+                <th className="px-2.5 py-1.5 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Price</th>
+                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Confidence</th>
+                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Strengths</th>
+                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Weaknesses</th>
               </tr>
             </thead>
             <tbody>
@@ -89,12 +89,12 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
                   <tr
                     key={card.id}
                     className="cursor-pointer transition-colors"
-                    style={{ background: 'transparent' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                    style={{ background: 'transparent', borderBottom: '1px solid transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                     onClick={() => setActiveTab(card.label)}
                   >
-                    <td className="px-2.5 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>
+                    <td className="px-2.5 py-2 font-medium text-[13px]" style={{ color: 'var(--text-primary)' }}>
                       {website ? (
                         <a
                           href={website.startsWith('http') ? website : `https://${website}`}

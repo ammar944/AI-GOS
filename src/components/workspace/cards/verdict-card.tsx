@@ -13,8 +13,8 @@ export function VerdictCard({ status, reasoning }: VerdictCardProps) {
   const isNegative = /rejected|failed|weak/.test(normalized);
 
   return (
-    <div className="py-1">
-      <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
+    <div className="border-l-2 py-3 pl-4 pr-2" style={{ borderColor: isPositive ? 'var(--accent-green)' : isNegative ? 'var(--accent-red)' : 'var(--accent-blue)' }}>
+      <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-1">
         Final Verdict
       </h4>
       <p
@@ -28,7 +28,7 @@ export function VerdictCard({ status, reasoning }: VerdictCardProps) {
         {normalized}
       </p>
       {reasoning && (
-        <p className="mt-2 text-[13px] leading-snug text-[var(--text-secondary)]">{reasoning}</p>
+        <p className="mt-1.5 text-[13px] leading-snug text-[var(--text-secondary)]">{reasoning}</p>
       )}
     </div>
   );

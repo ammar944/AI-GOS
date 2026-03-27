@@ -10,7 +10,7 @@ interface CampaignCardProps {
 
 export function CampaignCard({ platform, name, objective, adSets, namingConvention }: CampaignCardProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <div className="flex items-center gap-2">
         <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{name}</p>
         {platform && (

@@ -19,6 +19,7 @@ interface ArtifactCardProps {
   card: CardState;
   children: React.ReactNode;
   index?: number;
+  hideLabel?: boolean;
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -36,7 +37,7 @@ function formatRelativeTime(timestamp: number): string {
 // Card types that support inline contentEditable editing
 const EDITABLE_CARD_TYPES = new Set(['prose-card', 'bullet-list', 'check-list']);
 
-export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
+export function ArtifactCard({ card, children, index = 0, hideLabel = false }: ArtifactCardProps) {
   const { restoreCardVersion, updateCard } = useWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -80,12 +81,14 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
   const hasVersions = card.versions.length > 0;
 
   return (
-    <div className="group/card py-3">
-      <div className="flex items-center justify-between mb-3">
+    <div className="group/card py-2">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
-            {card.label}
-          </span>
+          {!hideLabel && (
+            <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
+              {card.label}
+            </span>
+          )}
           {showSaved && (
             <span className="text-[10px] font-mono text-[var(--accent-green,#22c55e)] animate-pulse">
               Saved

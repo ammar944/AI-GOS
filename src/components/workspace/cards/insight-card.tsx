@@ -1,5 +1,7 @@
 'use client';
 
+import { InlineText } from './inline-text';
+
 interface InsightCardProps {
   insight: string;
   source?: string;
@@ -14,9 +16,13 @@ export function InsightCard({ insight, source, implication }: InsightCardProps) 
           Key Insight &mdash; {source}
         </p>
       )}
-      <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{insight}</p>
+      <p className="text-[14px] leading-relaxed text-[var(--text-primary)]">
+        <InlineText text={insight} />
+      </p>
       {implication && (
-        <p className="mt-1.5 font-mono text-[11px] text-[var(--text-tertiary)]">{implication}</p>
+        <p className="mt-1.5 font-mono text-[11px] text-[var(--text-tertiary)] leading-relaxed">
+          <InlineText text={implication} />
+        </p>
       )}
     </div>
   );

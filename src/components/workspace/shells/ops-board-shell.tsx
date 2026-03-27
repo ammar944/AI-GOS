@@ -27,7 +27,7 @@ export function OpsBoardShell({ cards, renderCard }: OpsBoardShellProps) {
   let idx = 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Hero — strategy snapshot, most prominent */}
       {hero.length > 0 && (
         <section>
@@ -45,7 +45,7 @@ export function OpsBoardShell({ cards, renderCard }: OpsBoardShellProps) {
       {/* Charts — visual data, 2-column grid where possible */}
       {charts.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Budget & Performance
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -61,7 +61,7 @@ export function OpsBoardShell({ cards, renderCard }: OpsBoardShellProps) {
       {/* Platform breakdown */}
       {platforms.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Platform Strategy
           </h3>
           <div className="space-y-2">
@@ -73,7 +73,7 @@ export function OpsBoardShell({ cards, renderCard }: OpsBoardShellProps) {
       {/* Campaigns & segments */}
       {campaigns.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Campaigns & Targeting
           </h3>
           <div className="space-y-2">
@@ -85,7 +85,7 @@ export function OpsBoardShell({ cards, renderCard }: OpsBoardShellProps) {
       {/* Execution — phases, format specs, testing plan */}
       {execution.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Execution Plan
           </h3>
           <div className="space-y-2">
@@ -97,7 +97,7 @@ export function OpsBoardShell({ cards, renderCard }: OpsBoardShellProps) {
       {/* Risks */}
       {risks.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Risk Assessment
           </h3>
           <div className="space-y-2">

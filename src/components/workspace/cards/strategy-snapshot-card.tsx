@@ -51,7 +51,7 @@ export function StrategySnapshotCard({
     .filter(Boolean) as string[];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {headline && (
         <h3 className="text-[16px] font-semibold leading-[1.55] text-[var(--text-primary)]">{headline}</h3>
       )}

@@ -29,7 +29,7 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
   return (
     <div className="flex items-center gap-3">
       <span
-        className="w-28 shrink-0 text-[12px] font-mono truncate"
+        className="w-24 shrink-0 text-[11px] font-mono truncate"
         style={{ color: isWeak ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
       >
         {label}
@@ -75,12 +75,12 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
 function RecommendationCard({ dimension, score, fix }: { dimension: string; score: number; fix: string }) {
   return (
     <div
-      className="rounded-xl border border-[var(--border-default)] p-4 transition-colors hover:border-[var(--border-default)]"
+      className="rounded-lg border border-[var(--border-default)] p-3 transition-colors hover:border-[var(--border-hover)]"
       style={{ background: 'var(--bg-card)' }}
     >
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-1">
         <span
-          className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md tabular-nums"
+          className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded tabular-nums"
           style={{
             color: score < 5 ? 'var(--accent-red)' : 'var(--accent-amber)',
             background: score < 5 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
@@ -117,12 +117,12 @@ export function OfferRefinementCard({
     <div className="space-y-4">
       {/* Score breakdown */}
       <div
-        className="rounded-2xl border border-[var(--border-default)] p-5"
+        className="rounded-lg border border-[var(--border-default)] p-4"
         style={{ background: 'var(--bg-card)' }}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-3">
           <h3
-            className="text-[15px] font-semibold tracking-[-0.01em]"
+            className="text-[13px] font-semibold tracking-[-0.01em]"
             style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
           >
             Offer Score

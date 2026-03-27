@@ -21,7 +21,7 @@ export function KpiGridCard({ kpis }: KpiGridCardProps) {
       {typed.map((kpi, i) => (
         <div
           key={i}
-          className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 py-2"
+          className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2.5 py-1.5"
         >
           <span className="text-[13px] leading-snug text-[var(--text-primary)] truncate">
             {kpi.metric ?? '—'}

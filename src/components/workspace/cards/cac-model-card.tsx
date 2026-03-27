@@ -67,7 +67,7 @@ export function CacModelCard({
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {topStats.length > 0 && <StatGrid stats={topStats} columns={2} />}
       {midStats.length > 0 && <StatGrid stats={midStats} columns={2} />}
       {bottomStats.length > 0 && <StatGrid stats={bottomStats} columns={2} />}

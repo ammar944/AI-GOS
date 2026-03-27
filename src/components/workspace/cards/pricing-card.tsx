@@ -19,7 +19,7 @@ export function PricingCard({ currentPricing, marketBenchmark, pricingPosition, 
   if (stats.length === 0 && !coldTrafficViability) return null;
 
   return (
-    <div className="py-1 space-y-3">
+    <div className="py-1 space-y-2">
       <h4 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
         Pricing Analysis
       </h4>

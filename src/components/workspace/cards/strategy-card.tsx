@@ -10,7 +10,7 @@ export function StrategyCard({ recommendedAngle, leadRecommendation, keyDifferen
   if (!recommendedAngle && !leadRecommendation && !keyDifferentiator) return null;
 
   return (
-    <div className="border-l-2 border-l-[var(--accent-blue)] py-3 pl-4 pr-2 space-y-2">
+    <div className="border-l-2 border-l-[var(--accent-blue)] py-3 pl-4 pr-2 space-y-1.5">
       <p className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[var(--text-quaternary)]">
         Positioning Strategy
       </p>
@@ -18,18 +18,18 @@ export function StrategyCard({ recommendedAngle, leadRecommendation, keyDifferen
         <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{recommendedAngle}</p>
       )}
       {leadRecommendation && (
-        <p className="text-[14px] leading-[1.55] text-[var(--text-secondary)]">{leadRecommendation}</p>
+        <p className="text-[13px] leading-[1.5] text-[var(--text-secondary)]">{leadRecommendation}</p>
       )}
       {keyDifferentiator && (
-        <p className="text-[13px] text-[var(--text-secondary)]">
+        <div className="flex items-start gap-2 mt-1">
           <span
-            className="mr-1.5 rounded-[3px] px-1.5 py-px font-mono text-[10px] font-medium"
+            className="mt-0.5 shrink-0 rounded-[3px] px-1.5 py-px font-mono text-[9px] font-medium uppercase tracking-[0.04em]"
             style={{ color: 'var(--accent-blue)', background: 'rgba(54,94,255,0.08)' }}
           >
             Differentiator
           </span>
-          {keyDifferentiator}
-        </p>
+          <span className="text-[13px] leading-[1.5] text-[var(--text-secondary)]">{keyDifferentiator}</span>
+        </div>
       )}
     </div>
   );

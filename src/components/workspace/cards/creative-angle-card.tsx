@@ -9,9 +9,9 @@ interface CreativeAngleCardProps {
 
 export function CreativeAngleCard({ theme, hook, messagingApproach, targetSegment }: CreativeAngleCardProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[14px] leading-[1.55] text-[var(--text-primary)]">{theme}</p>
+        <p className="text-[13px] font-medium leading-snug text-[var(--text-primary)]">{theme}</p>
         {targetSegment && (
           <span className="shrink-0 rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)]">
             {targetSegment}

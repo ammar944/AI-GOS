@@ -25,11 +25,11 @@ export function SynthesisCockpitShell({ cards, renderCard }: SynthesisCockpitShe
   let idx = 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Strategy — primary recommendation, most prominent */}
       {strategy.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Strategic Direction
           </h3>
           <div className="space-y-3">
@@ -41,7 +41,7 @@ export function SynthesisCockpitShell({ cards, renderCard }: SynthesisCockpitShe
       {/* Key Insights — callout blocks with source attribution */}
       {insights.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Key Insights
           </h3>
           <div className="space-y-2">
@@ -53,7 +53,7 @@ export function SynthesisCockpitShell({ cards, renderCard }: SynthesisCockpitShe
       {/* Messaging Angles — compact list */}
       {angles.length > 0 && (
         <section>
-          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-3">
+          <h3 className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2">
             Messaging Angles
           </h3>
           <div className="space-y-1">
