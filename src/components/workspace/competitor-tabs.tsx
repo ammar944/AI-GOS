@@ -72,8 +72,6 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Competitor</th>
-                <th className="px-2.5 py-1.5 text-right font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Price</th>
-                <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Confidence</th>
                 <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Strengths</th>
                 <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-quaternary)' }}>Weaknesses</th>
               </tr>
@@ -84,7 +82,6 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
                 const strengths = (d.strengths as string[]) ?? [];
                 const weaknesses = (d.weaknesses as string[]) ?? [];
                 const website = d.website as string | undefined;
-                const confidence = d.pricingConfidence as string | undefined;
                 return (
                   <tr
                     key={card.id}
@@ -108,22 +105,6 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
                         </a>
                       ) : (
                         card.label
-                      )}
-                    </td>
-                    <td className="px-2.5 py-2 text-right font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                      {(d.price as string) || '—'}
-                    </td>
-                    <td className="px-2.5 py-2">
-                      {confidence && (
-                        <span
-                          className="inline-flex rounded-full px-1.5 py-px font-mono text-[10px] font-medium"
-                          style={{
-                            color: confidence === 'high' ? 'var(--accent-green, #22c55e)' : confidence === 'unknown' ? 'var(--accent-amber, #eab308)' : 'var(--text-secondary)',
-                            background: confidence === 'high' ? 'rgba(34,197,94,0.1)' : confidence === 'unknown' ? 'rgba(234,179,8,0.1)' : 'transparent',
-                          }}
-                        >
-                          {confidence}
-                        </span>
                       )}
                     </td>
                     <td className="px-2.5 py-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>

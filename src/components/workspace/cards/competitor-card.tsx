@@ -63,26 +63,9 @@ export function CompetitorCard({
   topAdHooks,
   counterPositioning,
 }: CompetitorCardProps) {
-  const priceStats: StatItem[] = [
-    ...(price ? [{ label: 'Price', value: price }] : []),
-  ];
-
-  const confidenceBadge = pricingConfidence ? (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-px font-mono text-[10px] font-medium"
-      style={{
-        color: pricingConfidence === 'high' ? 'var(--accent-green, #22c55e)'
-          : pricingConfidence === 'unknown' ? 'var(--accent-amber, #eab308)'
-          : 'var(--text-secondary)',
-        background: pricingConfidence === 'high' ? 'rgba(34,197,94,0.1)'
-          : pricingConfidence === 'unknown' ? 'rgba(234,179,8,0.1)'
-          : 'transparent',
-      }}
-    >
-      {pricingConfidence === 'unknown' && '⚠ '}
-      {pricingConfidence}
-    </span>
-  ) : null;
+  // Only show pricing if we have a real source URL (crawled data, not "See pricing page" placeholders)
+  const hasCrawledPricing = !!pricingSourceUrl && !!price && !price.toLowerCase().includes('see pricing');
+  const priceStats: StatItem[] = hasCrawledPricing ? [{ label: 'Price', value: price! }] : [];
 
   return (
     <div className="space-y-4">
@@ -108,12 +91,9 @@ export function CompetitorCard({
             <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{positioning}</p>
           )}
         </div>
-        {(priceStats.length > 0 || confidenceBadge) && (
+        {priceStats.length > 0 && (
           <div className="shrink-0 flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2">
-              {priceStats.length > 0 && (<StatGrid stats={priceStats} columns={2} />)}
-              {confidenceBadge}
-            </div>
+            <StatGrid stats={priceStats} columns={2} />
             {pricingSourceUrl && (
               <a
                 href={pricingSourceUrl.startsWith('http') ? pricingSourceUrl : `https://${pricingSourceUrl}`}
