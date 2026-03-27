@@ -394,7 +394,7 @@ describe('persistToSupabase', () => {
         }),
         user_id: 'user-9',
       }),
-      { onConflict: 'user_id' },
+      { onConflict: 'user_id,run_id' },
     );
   });
 });
@@ -482,6 +482,7 @@ describe('persistPipelineState', () => {
 
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_metadata_keys', {
       p_user_id: 'user-13',
+      p_run_id: samplePipelineState.runId,
       p_keys: expect.objectContaining({
         researchPipeline: samplePipelineState,
         activeJourneyRunId: samplePipelineState.runId,
@@ -502,6 +503,7 @@ describe('persistPipelineState', () => {
 
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_metadata_keys', {
       p_user_id: 'user-14',
+      p_run_id: samplePipelineState.runId,
       p_keys: expect.objectContaining({
         researchPipeline: samplePipelineState,
         activeJourneyRunId: samplePipelineState.runId,

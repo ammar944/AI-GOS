@@ -206,8 +206,19 @@ export async function saveProfileInsights(
     keyInsights?: unknown[];
   },
 ): Promise<boolean> {
+  // Read existing insights to merge (not overwrite)
+  const { data: existing } = await getSupabase()
+    .from('business_profiles')
+    .select('ai_insights')
+    .eq('user_id', userId)
+    .eq('company_name', companyName)
+    .maybeSingle();
+
+  const existingInsights = (existing?.ai_insights as Record<string, unknown>) ?? {};
+  const mergedInsights = { ...existingInsights, ...insights };
+
   const updateData: Record<string, unknown> = {
-    ai_insights: insights,
+    ai_insights: mergedInsights,
     last_research_at: new Date().toISOString(),
   };
   if (insights.offerScore) updateData.offer_score = insights.offerScore;

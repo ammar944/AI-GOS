@@ -237,17 +237,19 @@ async function ensureSandboxRow(
   });
 
   if (!sandboxRow) {
+    const sandboxRunId = `sandbox-${Date.now()}`;
     const supabase = createAdminClient();
     await supabase.from('journey_sessions').upsert(
       {
         user_id: sandboxUserId,
+        run_id: sandboxRunId,
         phase: 'sandbox',
         metadata: nextMetadata,
         research_results: null,
         job_status: null,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id' },
+      { onConflict: 'user_id,run_id' },
     );
   } else if (nextMetadata !== sandboxRow.metadata) {
     const supabase = createAdminClient();
@@ -345,17 +347,19 @@ export async function POST(request: Request) {
       },
     );
 
+    const sandboxRunId = `sandbox-${Date.now()}`;
     const supabase = createAdminClient();
     await supabase.from('journey_sessions').upsert(
       {
         user_id: sandboxUserId,
+        run_id: sandboxRunId,
         phase: 'sandbox',
         metadata: mergedMetadata,
         research_results: liveRow.research_results ?? null,
         job_status: null,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id' },
+      { onConflict: 'user_id,run_id' },
     );
 
     return Response.json({

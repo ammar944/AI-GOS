@@ -132,6 +132,7 @@ async function writeResearchResultInner(
   const supabase = getClient();
   const { error } = await supabase.rpc('merge_journey_session_research_result', {
     p_user_id: userId,
+    p_run_id: result.runId ?? '',
     p_section: section,
     p_result: result,
   });
@@ -251,6 +252,7 @@ async function writeJobStatusInner(
   const supabase = getClient();
   const { error } = await supabase.rpc('merge_journey_session_job_status', {
     p_user_id: userId,
+    p_run_id: row.runId ?? '',
     p_job_id: jobId,
     p_row: row,
   });

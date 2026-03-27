@@ -130,6 +130,7 @@ export async function persistPipelineState(
   const supabase = createAdminClient();
   const { error } = await supabase.rpc('merge_journey_session_metadata_keys', {
     p_user_id: userId,
+    p_run_id: pipelineState.runId ?? '',
     p_keys: {
       ...extraMetadata,
       researchPipeline: pipelineState,

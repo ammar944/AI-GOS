@@ -110,6 +110,7 @@ export async function POST(req: Request) {
     const supabase = createAdminClient();
     await supabase.rpc('merge_journey_session_metadata_keys', {
       p_user_id: userId,
+      p_run_id: runId,
       p_keys: {
         activeJourneyRunId: runId,
         lastUpdated: new Date().toISOString(),
