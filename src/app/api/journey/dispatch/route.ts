@@ -18,13 +18,25 @@ function summarizeForSynthesis(key: string, payload: unknown): string {
   try {
     switch (key) {
       case 'industryMarket':
+        // categorySnapshot and trendSignals are the actual top-level fields
         return JSON.stringify(
-          { marketSize: d.marketSize, trends: d.trends, topOpportunities: d.topOpportunities },
+          {
+            categorySnapshot: d.categorySnapshot,
+            trendSignals: d.trendSignals,
+            messagingOpportunities: (d.messagingOpportunities as Record<string, unknown>)?.summaryRecommendations,
+            marketOpportunities: d.marketOpportunities,
+          },
           null, 1,
         );
       case 'icpValidation':
+        // validatedPersona and triggers are the actual top-level fields
         return JSON.stringify(
-          { segments: d.segments, buyingTriggers: d.buyingTriggers, finalVerdict: d.finalVerdict },
+          {
+            validatedPersona: d.validatedPersona,
+            triggers: d.triggers,
+            finalVerdict: d.finalVerdict,
+            audienceRefinements: d.audienceRefinements,
+          },
           null, 1,
         );
       case 'offerAnalysis':
@@ -36,12 +48,13 @@ function summarizeForSynthesis(key: string, payload: unknown): string {
         }, null, 1);
       case 'competitors': {
         const comps = Array.isArray(d.competitors) ? d.competitors.slice(0, 3) : [];
-        return JSON.stringify(
-          comps.map((c: Record<string, unknown>) => ({
-            name: c.name, positioning: c.positioning, weaknesses: c.weaknesses,
-          })),
-          null, 1,
-        );
+        const compSummary = comps.map((c: Record<string, unknown>) => ({
+          name: c.name, positioning: c.positioning, weaknesses: c.weaknesses,
+        }));
+        return JSON.stringify({
+          competitors: compSummary,
+          positioningMoves: d.positioningMoves,
+        }, null, 1);
       }
       default:
         return JSON.stringify(payload, null, 1);
