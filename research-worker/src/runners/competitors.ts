@@ -12,6 +12,7 @@ import {
 import { finalizeRunnerResult } from '../contracts';
 import { adLibraryTool, spyfuTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
+import { COMPETITORS_INTELLIGENCE_SKILL, COMPETITORS_INTELLIGENCE_SKILL_COMPACT } from '../skills/intelligence-skill';
 
 const COMPETITORS_PRIMARY_MODEL =
   process.env.RESEARCH_COMPETITORS_MODEL ?? 'claude-sonnet-4-6';
@@ -197,7 +198,9 @@ COMPRESSION RULES:
 - Limit citations to the 4 most relevant sources
 - If ad tools are sparse, keep the structured field and explain the evidence briefly instead of writing long prose
 
-${COMPETITORS_OUTPUT_FORMAT}`;
+${COMPETITORS_OUTPUT_FORMAT}
+
+${COMPETITORS_INTELLIGENCE_SKILL}`;
 
 const COMPETITORS_REPAIR_SYSTEM_PROMPT = `You are an expert competitive analyst producing a fast first-pass competitor artifact for a paid media strategist.
 
@@ -224,7 +227,9 @@ RULES:
 - Limit whiteSpaceGaps to the 3 highest-impact gaps
 - Limit citations to the 6 most relevant sources
 
-${COMPETITORS_OUTPUT_FORMAT}`;
+${COMPETITORS_OUTPUT_FORMAT}
+
+${COMPETITORS_INTELLIGENCE_SKILL_COMPACT}`;
 
 const COMPETITORS_RESCUE_SYSTEM_PROMPT = `You are an expert competitive analyst producing an ultra-compact competitor artifact when prior attempts exceeded the output budget.
 
@@ -251,7 +256,9 @@ MANDATORY COMPRESSION RULES:
 - Use short plain-language summaries only
 - Start the response with { and end it with }
 
-${COMPETITORS_OUTPUT_FORMAT}`;
+${COMPETITORS_OUTPUT_FORMAT}
+
+${COMPETITORS_INTELLIGENCE_SKILL_COMPACT}`;
 
 type CompetitorAttemptMode = 'primary' | 'repair' | 'rescue';
 type CompetitorTimeoutSource = 'worker_timeout' | 'request_timeout' | 'network_timeout';
