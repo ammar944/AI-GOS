@@ -10,6 +10,7 @@ import {
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
+import { ICP_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 
 const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? 'claude-sonnet-4-6';
 const ICP_MAX_TOKENS = 5200;
@@ -82,7 +83,9 @@ After completing your research, respond with a JSON object. Structure:
       "title": "Source title"
     }
   ]
-}`;
+}
+
+${ICP_INTELLIGENCE_SKILL}`;
 
 export async function runResearchICP(
   context: string,
