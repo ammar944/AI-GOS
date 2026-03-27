@@ -16,9 +16,9 @@ export function InlineText({ text, className }: { text: string; className?: stri
       {parts.map((part, i) => {
         if (part.startsWith('**') && part.endsWith('**')) {
           return (
-            <strong key={i} className="font-semibold text-[var(--text-primary)]">
+            <span key={i} className="font-medium">
               {part.slice(2, -2)}
-            </strong>
+            </span>
           );
         }
         return <span key={i}>{part}</span>;
