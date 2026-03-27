@@ -146,24 +146,6 @@ export async function getUserProfiles(userId: string): Promise<BusinessProfile[]
 }
 
 /**
- * Get a specific profile by ID.
- */
-export async function getProfileById(
-  userId: string,
-  profileId: string,
-): Promise<BusinessProfile | null> {
-  const { data, error } = await getSupabase()
-    .from('business_profiles')
-    .select('*')
-    .eq('id', profileId)
-    .eq('user_id', userId)
-    .single();
-
-  if (error) return null;
-  return mapRow(data);
-}
-
-/**
  * Get the most recent profile for a user (active profile).
  */
 export async function getActiveProfile(userId: string): Promise<BusinessProfile | null> {
@@ -173,24 +155,6 @@ export async function getActiveProfile(userId: string): Promise<BusinessProfile 
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(1)
-    .single();
-
-  if (error) return null;
-  return mapRow(data);
-}
-
-/**
- * Get profile for a specific session (if one was saved from that run).
- */
-export async function getProfileBySession(
-  userId: string,
-  sessionId: string,
-): Promise<BusinessProfile | null> {
-  const { data, error } = await getSupabase()
-    .from('business_profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('session_id', sessionId)
     .single();
 
   if (error) return null;

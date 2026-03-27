@@ -213,12 +213,6 @@ async function spyfuFetch<T>(
 
       const data = await response.json();
 
-      // Debug logging for domain stats to diagnose response shape
-      if (endpoint.includes('DomainStats')) {
-        console.log(`[SpyFu DEBUG] ${endpoint} raw response keys:`, Object.keys(data), 'resultCount:', data.resultCount);
-        if (data.results?.[0]) console.log(`[SpyFu DEBUG] First result keys:`, Object.keys(data.results[0]));
-      }
-
       return data as T;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));

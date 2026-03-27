@@ -22,8 +22,6 @@ export const EMPTY_STATE_SUGGESTIONS = [
  */
 export function generateFollowUpSuggestions(
   lastToolName?: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _lastToolOutput?: Record<string, unknown>
 ): string[] {
   switch (lastToolName ?? '_none') {
     case 'deepResearch':

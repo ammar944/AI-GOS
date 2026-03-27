@@ -47,6 +47,7 @@ nul
 
 # Playwright MCP logs
 .playwright-mcp/
+.playwright-cli/
 
 # Claude local state
 .claude-flow/
