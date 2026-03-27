@@ -3,6 +3,7 @@
 // who it's talking to (company name, industry, ICP, budget, etc.).
 
 import { createAdminClient } from '@/lib/supabase/server';
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 
 function getSupabase() {
   return createAdminClient();
@@ -62,17 +63,43 @@ export interface BusinessProfile {
 /**
  * Extract onboarding fields from journey_sessions.metadata
  * and upsert into business_profiles.
+ *
+ * Merge-aware: if a profile already exists for this company, new non-empty
+ * values are merged on top of existing all_fields so manually-edited fields
+ * are preserved when research saves don't include them.
  */
 export async function saveBusinessProfile(
   userId: string,
   sessionId: string,
   metadata: Record<string, unknown>,
 ): Promise<{ id: string } | null> {
+  const companyName =
+    typeof metadata.companyName === 'string' ? metadata.companyName.trim() : '';
+  if (!companyName) return null;
+
+  // Check if profile already exists — if so, merge all_fields
+  const { data: existing } = await getSupabase()
+    .from('business_profiles')
+    .select('all_fields')
+    .eq('user_id', userId)
+    .eq('company_name', companyName)
+    .maybeSingle();
+
+  const existingAllFields = (existing?.all_fields as Record<string, unknown>) ?? {};
+
+  // Merge: existing values as base, new non-empty values on top
+  const mergedAllFields: Record<string, unknown> = { ...existingAllFields };
+  for (const [key, value] of Object.entries(metadata)) {
+    if (value !== null && value !== undefined && value !== '') {
+      mergedAllFields[key] = value;
+    }
+  }
+
   // Map metadata fields to profile columns
   const profileData: Record<string, unknown> = {
     user_id: userId,
     session_id: sessionId,
-    all_fields: metadata,
+    all_fields: mergedAllFields,
   };
 
   for (const [metaKey, colName] of Object.entries(FIELD_MAP)) {
@@ -82,12 +109,7 @@ export async function saveBusinessProfile(
     }
   }
 
-  // Upsert on (user_id, company_name) — if same company, update fields
-  const companyName = profileData.company_name as string | undefined;
-  if (!companyName) {
-    // No company name — can't create a meaningful profile
-    return null;
-  }
+  profileData.company_name = companyName;
 
   const { data, error } = await getSupabase()
     .from('business_profiles')
@@ -236,6 +258,54 @@ export async function saveProfileInsights(
   if (error) {
     // Columns may not exist yet — that's fine, the migration will add them
     console.warn('[business-profiles] saveInsights warning:', error.message);
+    return false;
+  }
+  return true;
+}
+
+// Re-export normalizeProfileFields from client-safe module
+export { normalizeProfileFields } from './normalize-fields';
+
+/**
+ * Update a profile's fields via partial update.
+ * Merges into all_fields JSONB and updates individual columns where mapped.
+ */
+export async function updateProfile(
+  userId: string,
+  profileId: string,
+  fields: Record<string, string>,
+): Promise<boolean> {
+  // Read current all_fields
+  const { data: existing, error: readError } = await getSupabase()
+    .from('business_profiles')
+    .select('all_fields')
+    .eq('id', profileId)
+    .eq('user_id', userId)
+    .single();
+
+  if (readError || !existing) return false;
+
+  const existingAllFields = (existing.all_fields as Record<string, unknown>) ?? {};
+  const mergedAllFields = { ...existingAllFields, ...fields };
+
+  // Build column updates from FIELD_MAP
+  const columnUpdates: Record<string, unknown> = {
+    all_fields: mergedAllFields,
+  };
+  for (const [metaKey, colName] of Object.entries(FIELD_MAP)) {
+    if (metaKey in fields) {
+      columnUpdates[colName] = fields[metaKey] || null;
+    }
+  }
+
+  const { error: writeError } = await getSupabase()
+    .from('business_profiles')
+    .update(columnUpdates)
+    .eq('id', profileId)
+    .eq('user_id', userId);
+
+  if (writeError) {
+    console.error('[business-profiles] update error:', writeError.message);
     return false;
   }
   return true;

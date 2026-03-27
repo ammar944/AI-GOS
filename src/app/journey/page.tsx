@@ -87,7 +87,9 @@ import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-sta
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
 import { getNextSection } from '@/lib/workspace/pipeline';
-import { ProfilePicker } from '@/components/journey/profile-picker';
+import { ProfileDropdown } from '@/components/journey/profile-dropdown';
+import { normalizeProfileFields } from '@/lib/profiles/normalize-fields';
+import type { BusinessProfile } from '@/lib/profiles/business-profiles';
 import type { SectionKey } from '@/lib/workspace/types';
 
 // Demo progress items matching the mockup's right panel
@@ -2130,6 +2132,17 @@ function JourneyPageContent() {
         setJourneyPhase('prefilling');
         addLog('run', `Analyzing ${websiteUrl}`);
       }}
+      onProfileSelect={(profile) => {
+        // Skip AI scrape — inject saved profile fields directly into review
+        const normalized = normalizeProfileFields(profile.allFields);
+        if (profile.websiteUrl) {
+          normalized.websiteUrl = profile.websiteUrl;
+          setPrefillWebsiteUrl(profile.websiteUrl);
+        }
+        setNdExtractedFields(normalized);
+        setJourneyPhase('review');
+        addLog('run', `Loaded profile: ${profile.companyName ?? 'Unknown'}`);
+      }}
       onFileUpload={(file) => {
         addLog('run', `Extracting fields from ${file.name}`);
         handleFileUpload(file);
@@ -2587,10 +2600,12 @@ function PrefillReviewView({
 // ---------------------------------------------------------------------------
 function WelcomeForm({
   onAnalyze,
+  onProfileSelect,
   onFileUpload,
   isUploading,
 }: {
   onAnalyze: (websiteUrl: string, linkedinUrl: string) => void;
+  onProfileSelect: (profile: BusinessProfile) => void;
   onFileUpload?: (file: File) => void;
   isUploading?: boolean;
 }) {
@@ -2629,19 +2644,18 @@ function WelcomeForm({
             Seed your strategy.
           </h1>
           <p className="text-[16px] text-[var(--text-tertiary)] max-w-sm mx-auto leading-[1.7]">
-            Drop your website URL. AIGOS pulls context, runs research, and builds your media blueprint.
+            Select a saved profile or enter a new company URL.
           </p>
         </motion.div>
 
-        {/* Saved profile picker */}
-        <ProfilePicker
+        {/* Saved profile dropdown */}
+        <ProfileDropdown
           onSelect={(profile) => {
             if (profile.websiteUrl) {
               setWebsiteUrl(profile.websiteUrl);
-              onAnalyze(profile.websiteUrl, '');
             }
+            onProfileSelect(profile);
           }}
-          onSkip={() => {}}
         />
 
         {/* URL input card */}
