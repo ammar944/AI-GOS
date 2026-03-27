@@ -35,6 +35,12 @@ const FIELD_MAP: Record<string, string> = {
   campaignDuration: 'campaign_duration',
 };
 
+export interface StyleReference {
+  name: string;
+  content: string;
+  source: string;
+}
+
 export interface BusinessProfile {
   id: string;
   userId: string;
@@ -59,6 +65,7 @@ export interface BusinessProfile {
   aiInsights: Record<string, unknown> | null;
   offerScore: Record<string, unknown> | null;
   positioningStrategy: Record<string, unknown> | null;
+  styleReferences: StyleReference[] | null;
   lastResearchAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -377,6 +384,7 @@ function mapRow(row: Record<string, unknown>): BusinessProfile {
     aiInsights: (row.ai_insights as Record<string, unknown>) ?? null,
     offerScore: (row.offer_score as Record<string, unknown>) ?? null,
     positioningStrategy: (row.positioning_strategy as Record<string, unknown>) ?? null,
+    styleReferences: (row.style_references as StyleReference[]) ?? null,
     lastResearchAt: (row.last_research_at as string) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
