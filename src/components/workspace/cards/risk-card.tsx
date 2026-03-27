@@ -28,20 +28,20 @@ export function RiskCard({ risk, category, severity, likelihood, mitigation, ear
   ];
 
   return (
-    <div className="space-y-2">
-      <p className="text-[14px] leading-[1.55] font-medium" style={{ color: severityColor }}>
+    <div className="space-y-3">
+      <p className="text-sm font-medium" style={{ color: severityColor }}>
         {risk}
       </p>
       {stats.length > 0 && <StatGrid stats={stats} columns={3} />}
       {mitigation && (
-        <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{mitigation}</p>
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{mitigation}</p>
       )}
       {earlyWarning && (
-        <div className="border-l-2 border-l-[var(--accent-amber)] py-2 pl-3 pr-2">
-          <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)] block mb-0.5">
+        <div className="rounded-[var(--radius-md)] border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 block mb-1">
             Early Warning
           </span>
-          <p className="text-[13px] leading-snug text-[var(--text-secondary)]">{earlyWarning}</p>
+          <p className="text-sm leading-relaxed text-amber-300/80">{earlyWarning}</p>
         </div>
       )}
     </div>

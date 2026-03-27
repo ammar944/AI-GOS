@@ -30,11 +30,11 @@ export function PhaseCard({
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <p className="text-[14px] leading-[1.55] font-semibold text-[var(--text-primary)]">{name}</p>
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{name}</p>
         {duration && (
-          <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)]">
+          <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
             {duration}
           </span>
         )}
@@ -43,7 +43,7 @@ export function PhaseCard({
         <BulletList
           title="Objectives"
           items={objectives}
-          accent="var(--accent-blue)"
+          accent="var(--accent-green)"
         />
       )}
       {activities && activities.length > 0 && (

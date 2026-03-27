@@ -49,12 +49,6 @@ import type { CardState } from '@/lib/workspace/types';
 /** Card types that get "hero" visual treatment in document mode */
 const HERO_CARD_TYPES = new Set(['stat-grid', 'strategy-card', 'competitor-card', 'pricing-card']);
 
-/** Card types that render their own title/label internally — skip the wrapper label to avoid duplication */
-const SELF_LABELED_CARD_TYPES = new Set([
-  'bullet-list', 'check-list', 'prose-card', 'pricing-card',
-  'strategy-card', 'insight-card', 'verdict-card',
-]);
-
 /**
  * Pure switch statement mapping card.cardType to component.
  * Consumes CardEditingContext for editable cards (stat-grid, bullet-list, check-list, prose-card).
@@ -368,7 +362,7 @@ interface CardRendererProps {
 export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
   if (mode === 'workspace') {
     return (
-      <ArtifactCard card={card} index={index} hideLabel={SELF_LABELED_CARD_TYPES.has(card.cardType)}>
+      <ArtifactCard card={card} index={index}>
         <CardContentSwitch card={card} />
       </ArtifactCard>
     );
@@ -381,23 +375,26 @@ export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
   };
 
   const isHero = HERO_CARD_TYPES.has(card.cardType);
-  const hasSelfLabel = SELF_LABELED_CARD_TYPES.has(card.cardType);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.05 }}
       className={cn(
-        'py-3',
-        isHero && 'border-l-2 border-l-[var(--accent-blue)] pl-4 print-card-hero',
+        'rounded-[var(--radius-lg)] bg-[var(--bg-card)]',
+        isHero
+          ? 'border border-[var(--border-subtle)] border-l-2 border-l-[var(--accent-blue)]/40 p-6 print-card-hero'
+          : 'border border-[var(--border-glass)] p-5',
       )}
     >
-      {!hasSelfLabel && (
-        <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] mb-2 block">
-          {card.label}
-        </span>
-      )}
+      <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <span className="w-1 h-1 rounded-full bg-[var(--accent-blue)] shrink-0" />
+        {card.label}
+      </span>
       <CardEditingContext value={readOnlyContext}>
         <CardContentSwitch card={card} />
       </CardEditingContext>
-    </div>
+    </motion.div>
   );
 }

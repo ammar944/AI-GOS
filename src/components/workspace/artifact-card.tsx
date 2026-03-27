@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Check, Clock, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
@@ -19,7 +20,6 @@ interface ArtifactCardProps {
   card: CardState;
   children: React.ReactNode;
   index?: number;
-  hideLabel?: boolean;
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -37,7 +37,7 @@ function formatRelativeTime(timestamp: number): string {
 // Card types that support inline contentEditable editing
 const EDITABLE_CARD_TYPES = new Set(['prose-card', 'bullet-list', 'check-list']);
 
-export function ArtifactCard({ card, children, index = 0, hideLabel = false }: ArtifactCardProps) {
+export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
   const { restoreCardVersion, updateCard } = useWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -81,14 +81,21 @@ export function ArtifactCard({ card, children, index = 0, hideLabel = false }: A
   const hasVersions = card.versions.length > 0;
 
   return (
-    <div className="group/card py-2">
-      <div className="flex items-center justify-between mb-2">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.05 }}
+      className={cn(
+        'group/card rounded-[var(--radius-lg)] border p-5',
+        'transition-colors duration-200',
+        'border-[var(--border-subtle)] bg-[var(--bg-card)]',
+      )}
+    >
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          {!hideLabel && (
-            <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em]">
-              {card.label}
-            </span>
-          )}
+          <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider">
+            {card.label}
+          </span>
           {showSaved && (
             <span className="text-[10px] font-mono text-[var(--accent-green,#22c55e)] animate-pulse">
               Saved
@@ -189,6 +196,6 @@ export function ArtifactCard({ card, children, index = 0, hideLabel = false }: A
       <CardEditingContext value={editingContext}>
         {children}
       </CardEditingContext>
-    </div>
+    </motion.div>
   );
 }

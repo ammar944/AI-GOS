@@ -77,7 +77,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   if (painItems.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Pain Points', {
       items: painItems,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--section-market)',
     }));
   }
 
@@ -87,7 +87,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   if (drivers.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Demand Drivers', {
       items: drivers,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--section-market)',
     }));
   }
 
@@ -96,7 +96,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   if (triggers.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Buying Triggers', {
       items: triggers,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--section-market)',
     }));
   }
 
@@ -105,7 +105,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   if (barriers.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Barriers to Purchase', {
       items: barriers,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--section-market)',
     }));
   }
 
@@ -128,7 +128,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   if (recs.length > 0) {
     cards.push(makeCard(section, 'check-list', 'Messaging Opportunities', {
       items: recs,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-green)',
     }));
   }
 
@@ -247,7 +247,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
   if (marketPatterns.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Market Patterns', {
       items: marketPatterns,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-cyan)',
     }));
   }
 
@@ -308,7 +308,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   if (channels.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Best Channels', {
       items: channels,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-cyan)',
     }));
   }
 
@@ -324,7 +324,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   if (objections.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Core Objections', {
       items: objections,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-red)',
     }));
   }
 
@@ -333,7 +333,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   if (recommendations.length > 0) {
     cards.push(makeCard(section, 'check-list', 'Recommendations', {
       items: recommendations,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-green)',
     }));
   }
 
@@ -397,7 +397,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   if (strengths.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Strengths', {
       items: strengths,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-green)',
     }));
   }
 
@@ -405,7 +405,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   if (weaknesses.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Weaknesses', {
       items: weaknesses,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-red)',
     }));
   }
 
@@ -421,7 +421,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   if (messagingRecs.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Messaging Recommendations', {
       items: messagingRecs,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-cyan)',
     }));
   }
 
@@ -593,7 +593,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
   if (successFactors.length > 0) {
     cards.push(makeCard(section, 'check-list', 'Critical Success Factors', {
       items: successFactors,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-green)',
     }));
   }
 
@@ -856,7 +856,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   if (warnings.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Validation Notes', {
       items: warnings,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--accent-amber)',
     }));
   }
 

@@ -14,14 +14,12 @@ import { ResearchActivityLog } from './research-activity-log';
 import { MediaPlanCta } from './media-plan-cta';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
 import { CompetitorTabs } from './competitor-tabs';
-import { SignalBoardShell } from './shells/signal-board-shell';
-import { SynthesisCockpitShell } from './shells/synthesis-cockpit-shell';
-import { OpsBoardShell } from './shells/ops-board-shell';
-import { getShellType } from '@/lib/workspace/section-shells';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
-// Section transition timing
+// Stagger timing constants (spec Section 14)
+const CARD_STAGGER = 0.05; // seconds between each card
+const CARD_DURATION = 0.2; // seconds per card animation
 const SECTION_PAUSE = 0.1; // seconds pause between exit and enter
 
 const SECTION_LABELS: Record<string, string> = {
@@ -39,41 +37,6 @@ interface ArtifactCanvasProps {
   onGenerateMediaPlan?: () => void;
   mediaPlanGenerating?: boolean;
   onRetrySection?: (section: SectionKey) => void;
-}
-
-/**
- * Routes workspace cards through section shells.
- * Wraps each card in ArtifactCard for edit controls.
- */
-function WorkspaceSectionContent({ sectionKey, cards }: { sectionKey: string; cards: CardState[] }) {
-  const renderCard = useCallback(
-    (card: CardState, index: number) => (
-      <ArtifactCard key={card.id} card={card} index={index}>
-        <CardContentSwitch card={card} />
-      </ArtifactCard>
-    ),
-    [],
-  );
-
-  const shellType = getShellType(sectionKey);
-
-  switch (shellType) {
-    case 'entity-compare':
-      return <CompetitorTabs cards={cards} mode="workspace" />;
-    case 'signal-board':
-      return <SignalBoardShell cards={cards} renderCard={renderCard} />;
-    case 'synthesis-cockpit':
-      return <SynthesisCockpitShell cards={cards} renderCard={renderCard} />;
-    case 'ops-board':
-      return <OpsBoardShell cards={cards} renderCard={renderCard} />;
-    case 'keyword-table':
-    default:
-      return (
-        <CardGrid>
-          {cards.map((card, i) => renderCard(card, i))}
-        </CardGrid>
-      );
-  }
 }
 
 export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection }: ArtifactCanvasProps) {
@@ -279,15 +242,32 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 </div>
               )}
 
-              {/* Cards — routed through section shells */}
-              {showCards && sectionCards.length > 0 && (
-                <WorkspaceSectionContent
-                  sectionKey={state.currentSection}
-                  cards={sectionCards.filter((card) =>
-                    // Filter out the stat-grid "Offer Score" card when refinement card is showing
-                    !(state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && card.label === 'Offer Score' && card.cardType === 'stat-grid')
-                  )}
-                />
+              {/* Cards — shown for review, approved, or browsing */}
+              {showCards && sectionCards.length > 0 && state.currentSection === 'competitors' && (
+                <CompetitorTabs cards={sectionCards} mode="workspace" />
+              )}
+              {showCards && sectionCards.length > 0 && state.currentSection !== 'competitors' && (
+                <CardGrid>
+                  {sectionCards
+                    // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
+                    .filter((card) => !(state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && card.label === 'Offer Score' && card.cardType === 'stat-grid'))
+                    .map((card, i) => (
+                    <motion.div
+                      key={card.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{
+                        duration: CARD_DURATION,
+                        delay: i * CARD_STAGGER,
+                      }}
+                    >
+                      <ArtifactCard card={card} index={i}>
+                        <CardContentSwitch card={card} />
+                      </ArtifactCard>
+                    </motion.div>
+                  ))}
+                </CardGrid>
               )}
 
               {/* Empty state — no cards but should have them */}

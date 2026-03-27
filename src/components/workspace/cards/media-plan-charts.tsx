@@ -40,8 +40,8 @@ const CURSOR_STYLE = { fill: 'rgba(255,255,255,0.04)' };
 
 function ChartShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="py-1 space-y-3">
-      <h4 className="text-[14px] leading-[1.55] font-medium text-[var(--text-primary)]">{title}</h4>
+    <div className="glass-surface rounded-[var(--radius-md)] p-4 space-y-3">
+      <h4 className="text-sm font-medium text-[var(--text-primary)]">{title}</h4>
       {children}
     </div>
   );

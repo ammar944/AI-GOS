@@ -212,6 +212,7 @@ function formatNumber(value: number | undefined): string {
 }
 
 function StatTile({
+  icon: Icon,
   label,
   value,
 }: {
@@ -220,13 +221,12 @@ function StatTile({
   value: string;
 }): React.JSX.Element {
   return (
-    <div className="py-0.5">
-      <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-[0.06em] block mb-0.5">
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
+        <Icon className="h-3.5 w-3.5 text-[var(--accent-cyan)]" />
         {label}
-      </span>
-      <span className="text-[20px] font-semibold text-[var(--text-primary)] font-mono tabular-nums leading-tight">
-        {value}
-      </span>
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-text-primary">{value}</div>
     </div>
   );
 }
@@ -239,32 +239,32 @@ function SectionCard({
   children: ReactNode;
 }): React.JSX.Element {
   return (
-    <section>
-      <h4 className="text-[10px] font-mono font-medium uppercase tracking-[0.06em] text-[var(--text-quaternary)] mb-2">
+    <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
         {title}
       </h4>
-      <div>{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
 
 function DifficultyPill({ difficulty }: { difficulty?: string }): React.JSX.Element {
   const normalized = difficulty?.toLowerCase() ?? '';
-  const color =
-    normalized === 'low' ? 'var(--accent-green)'
-    : normalized === 'medium' ? 'var(--accent-amber)'
-    : normalized === 'high' ? 'var(--accent-red)'
-    : 'var(--text-tertiary)';
-  const bg =
-    normalized === 'low' ? 'rgba(34,197,94,0.1)'
-    : normalized === 'medium' ? 'rgba(234,179,8,0.1)'
-    : normalized === 'high' ? 'rgba(239,68,68,0.1)'
-    : 'var(--bg-hover)';
+  const tone =
+    normalized === 'low'
+      ? 'border-[rgba(34,197,94,0.24)] bg-[rgba(34,197,94,0.12)] text-[rgb(170,255,203)]'
+      : normalized === 'medium'
+        ? 'border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.12)] text-[rgb(255,222,158)]'
+        : normalized === 'high'
+          ? 'border-[rgba(248,113,113,0.24)] bg-[rgba(248,113,113,0.12)] text-[rgb(255,198,198)]'
+          : 'border-[var(--border-default)] bg-[var(--bg-hover)] text-text-secondary';
 
   return (
     <span
-      className="inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-mono font-medium"
-      style={{ color, background: bg }}
+      className={cn(
+        'inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
+        tone,
+      )}
     >
       {difficulty ?? 'Unknown'}
     </span>
@@ -278,51 +278,46 @@ function OpportunityTable({
 }): React.JSX.Element {
   if (opportunities.length === 0) {
     return (
-      <p className="text-[13px] text-[var(--text-secondary)]">
+      <p className="text-sm text-text-secondary">
         No keyword opportunities were returned.
       </p>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            <th className="px-2.5 py-1.5 text-left font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Keyword</th>
-            <th className="px-2.5 py-1.5 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Volume</th>
-            <th className="px-2.5 py-1.5 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>CPC</th>
-            <th className="px-2.5 py-1.5 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em]" style={{ color: 'var(--text-quaternary)' }}>Difficulty</th>
-          </tr>
-        </thead>
-        <tbody>
-          {opportunities.map((opportunity) => (
-            <tr
-              key={opportunity.keyword}
-              className="transition-colors"
-              style={{ borderBottom: '1px solid transparent' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              <td className="px-2.5 py-2" style={{ color: 'var(--text-primary)' }}>
-                <div className="font-medium">{opportunity.keyword}</div>
-                <div className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                  Priority {formatNumber(opportunity.priorityScore)} · {opportunity.confidence ?? 'Unknown'}
-                </div>
-              </td>
-              <td className="px-2.5 py-2 text-right font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                {formatNumber(opportunity.searchVolume)}
-              </td>
-              <td className="px-2.5 py-2 text-right font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                {opportunity.estimatedCpc ?? 'N/A'}
-              </td>
-              <td className="px-2.5 py-2 text-right">
-                <DifficultyPill difficulty={opportunity.difficulty} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
+      <div className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px] gap-3 border-b border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+        <span>Keyword</span>
+        <span className="text-right">Volume</span>
+        <span className="text-right">CPC</span>
+        <span className="text-right">Difficulty</span>
+      </div>
+      <div className="divide-y divide-white/10">
+        {opportunities.map((opportunity) => (
+          <div
+            key={opportunity.keyword}
+            className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px] gap-3 px-4 py-3"
+          >
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-text-primary">
+                {opportunity.keyword}
+              </div>
+              <div className="mt-1 text-xs text-text-secondary">
+                Priority {formatNumber(opportunity.priorityScore)} · {opportunity.confidence ?? 'Unknown'} confidence
+              </div>
+            </div>
+            <div className="text-right font-mono text-xs text-text-secondary">
+              {formatNumber(opportunity.searchVolume)}
+            </div>
+            <div className="text-right font-mono text-xs text-text-secondary">
+              {opportunity.estimatedCpc ?? 'N/A'}
+            </div>
+            <div className="flex justify-end">
+              <DifficultyPill difficulty={opportunity.difficulty} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -333,7 +328,7 @@ export function JourneyKeywordIntelDetail({
 }: JourneyKeywordIntelDetailProps): React.JSX.Element {
   return (
     <div className={cn('space-y-4', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+      <div className="grid gap-3 md:grid-cols-4">
         <StatTile
           icon={KeyRound}
           label="Keyword opportunities"
@@ -362,22 +357,22 @@ export function JourneyKeywordIntelDetail({
 
       <SectionCard title="Campaign groups">
         {data.campaignGroups.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {data.campaignGroups.map((group) => (
               <div
                 key={group.campaign}
-                className="border-l-2 border-l-[var(--accent-blue)] py-2 pl-3 pr-2"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-[13px] font-medium text-[var(--text-primary)]">
+                    <div className="text-sm font-medium text-text-primary">
                       {group.campaign}
                     </div>
-                    <div className="mt-1 text-[11px] font-mono text-[var(--text-tertiary)]">
+                    <div className="mt-1 text-xs text-text-secondary">
                       {group.intent}
                     </div>
                   </div>
-                  <div className="text-[11px] font-mono text-[var(--text-secondary)]">
+                  <div className="text-xs font-mono text-text-secondary">
                     {typeof group.recommendedMonthlyBudget === 'number'
                       ? `$${group.recommendedMonthlyBudget.toLocaleString()}/mo`
                       : 'Budget TBD'}
@@ -388,13 +383,13 @@ export function JourneyKeywordIntelDetail({
                   {group.adGroups.map((adGroup) => (
                     <div
                       key={adGroup.name}
-                      className="py-1.5 pl-3 border-l border-l-[var(--border-subtle)]"
+                      className="rounded-xl border border-[var(--border-default)] bg-black/20 p-3"
                     >
-                      <div className="text-[13px] font-medium text-[var(--text-primary)]">
+                      <div className="text-sm font-medium text-text-primary">
                         {adGroup.name}
                       </div>
                       {adGroup.recommendedMatchTypes.length > 0 && (
-                        <div className="mt-1 text-[11px] font-mono text-[var(--text-tertiary)]">
+                        <div className="mt-1 text-xs text-text-secondary">
                           Match types: {adGroup.recommendedMatchTypes.join(', ')}
                         </div>
                       )}
@@ -402,13 +397,13 @@ export function JourneyKeywordIntelDetail({
                         {adGroup.keywords.map((keyword) => (
                           <div
                             key={`${adGroup.name}-${keyword.keyword}`}
-                            className="flex items-center justify-between gap-3 py-1.5"
+                            className="flex items-center justify-between gap-3 rounded-lg bg-[var(--bg-surface)] px-3 py-2"
                           >
                             <div className="min-w-0">
-                              <div className="truncate text-sm text-[var(--text-primary)]">
+                              <div className="truncate text-sm text-text-primary">
                                 {keyword.keyword}
                               </div>
-                              <div className="text-[11px] font-mono text-[var(--text-tertiary)]">
+                              <div className="text-xs text-text-secondary">
                                 {keyword.estimatedCpc ?? 'N/A'} · {formatNumber(keyword.searchVolume)}/mo
                               </div>
                             </div>
@@ -417,7 +412,7 @@ export function JourneyKeywordIntelDetail({
                         ))}
                       </div>
                       {adGroup.negativeKeywords.length > 0 && (
-                        <div className="mt-3 text-[11px] font-mono text-[var(--text-tertiary)]">
+                        <div className="mt-3 text-xs text-text-secondary">
                           Negatives: {adGroup.negativeKeywords.join(', ')}
                         </div>
                       )}
@@ -428,7 +423,7 @@ export function JourneyKeywordIntelDetail({
             ))}
           </div>
         ) : (
-          <p className="text-[13px] text-[var(--text-secondary)]">
+          <p className="text-sm text-text-secondary">
             No campaign groups were returned.
           </p>
         )}
@@ -441,29 +436,29 @@ export function JourneyKeywordIntelDetail({
               {data.recommendedStartingSet.map((keyword) => (
                 <div
                   key={`${keyword.keyword}-${keyword.adGroup}`}
-                  className="py-2 border-b border-[var(--border-subtle)]"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-[13px] font-medium text-[var(--text-primary)]">
+                      <div className="text-sm font-medium text-text-primary">
                         {keyword.keyword}
                       </div>
-                      <div className="mt-1 text-[11px] font-mono text-[var(--text-tertiary)]">
+                      <div className="mt-1 text-xs text-text-secondary">
                         {keyword.campaign} · {keyword.adGroup}
                       </div>
                     </div>
-                    <div className="text-[11px] font-mono text-[var(--text-secondary)]">
+                    <div className="text-xs font-mono text-text-secondary">
                       {typeof keyword.recommendedMonthlyBudget === 'number'
                         ? `$${keyword.recommendedMonthlyBudget.toLocaleString()}/mo`
                         : 'Budget TBD'}
                     </div>
                   </div>
-                  <p className="mt-3 text-[13px] text-[var(--text-secondary)]">{keyword.reason}</p>
+                  <p className="mt-3 text-sm text-text-secondary">{keyword.reason}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-[13px] text-[var(--text-secondary)]">
+            <p className="text-sm text-text-secondary">
               No recommended starting set was returned.
             </p>
           )}
@@ -475,25 +470,25 @@ export function JourneyKeywordIntelDetail({
               {data.competitorGaps.map((gap) => (
                 <div
                   key={`${gap.keyword}-${gap.competitorName}`}
-                  className="py-2 border-b border-[var(--border-subtle)]"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
                 >
-                  <div className="text-[13px] font-medium text-[var(--text-primary)]">
+                  <div className="text-sm font-medium text-text-primary">
                     {gap.keyword}
                   </div>
-                  <div className="mt-1 text-[11px] font-mono text-[var(--text-tertiary)]">
+                  <div className="mt-1 text-xs text-text-secondary">
                     {gap.competitorName}
                   </div>
-                  <div className="mt-1 text-[11px] font-mono text-[var(--text-tertiary)]">
+                  <div className="mt-1 text-xs text-text-secondary">
                     {gap.competitorName} ranks, you don't
                   </div>
-                  <div className="mt-2 text-[11px] font-mono text-[var(--text-tertiary)]">
+                  <div className="mt-2 text-xs text-text-secondary">
                     {formatNumber(gap.searchVolume)}/mo · {gap.estimatedCpc ?? 'N/A'} · Priority {formatNumber(gap.priorityScore)}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-[13px] text-[var(--text-secondary)]">
+            <p className="text-sm text-text-secondary">
               No competitor gaps were returned.
             </p>
           )}
@@ -507,20 +502,20 @@ export function JourneyKeywordIntelDetail({
               {data.negativeKeywords.map((keyword) => (
                 <div
                   key={keyword.keyword}
-                  className="py-2 border-b border-[var(--border-subtle)]"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
                 >
-                  <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-primary)]">
+                  <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
                     <ShieldBan className="h-4 w-4 text-[var(--accent-cyan)]" />
                     {keyword.keyword}
                   </div>
-                  <div className="mt-2 text-[13px] text-[var(--text-secondary)]">
+                  <div className="mt-2 text-sm text-text-secondary">
                     {keyword.reason}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-[13px] text-[var(--text-secondary)]">
+            <p className="text-sm text-text-secondary">
               No negative keywords were returned.
             </p>
           )}
@@ -532,14 +527,14 @@ export function JourneyKeywordIntelDetail({
               {data.confidenceNotes.map((note) => (
                 <li
                   key={note}
-                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-[13px] text-[var(--text-secondary)]"
+                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
                 >
                   {note}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-[13px] text-[var(--text-secondary)]">
+            <p className="text-sm text-text-secondary">
               No confidence notes were returned.
             </p>
           )}
@@ -552,14 +547,14 @@ export function JourneyKeywordIntelDetail({
             {data.quickWins.map((quickWin) => (
               <li
                 key={quickWin}
-                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-[13px] text-[var(--text-secondary)]"
+                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
               >
                 {quickWin}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-[13px] text-[var(--text-secondary)]">
+          <p className="text-sm text-text-secondary">
             No quick wins were returned.
           </p>
         )}

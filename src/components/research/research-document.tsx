@@ -9,10 +9,6 @@ import { SectionHeader } from '@/components/workspace/section-header';
 import { CardRenderer } from '@/components/research/card-renderer';
 import { CardGrid } from '@/components/workspace/card-grid';
 import { CompetitorTabs } from '@/components/workspace/competitor-tabs';
-import { SignalBoardShell } from '@/components/workspace/shells/signal-board-shell';
-import { SynthesisCockpitShell } from '@/components/workspace/shells/synthesis-cockpit-shell';
-import { OpsBoardShell } from '@/components/workspace/shells/ops-board-shell';
-import { getShellType } from '@/lib/workspace/section-shells';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
 import { MediaPlanButton } from '@/components/research/media-plan-button';
@@ -196,7 +192,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-[960px] mx-auto px-6 py-8">
+        <div className="max-w-[800px] mx-auto px-6 py-8">
           {/* Document title */}
           <div className="mb-8">
             <h1 className="text-xl font-heading font-semibold text-[var(--text-primary)] truncate">
@@ -229,13 +225,14 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               >
                 <SectionHeader section={currentSection} mode="document" />
 
-                {sectionCards.length > 0 ? (
-                  <div className="rounded-lg bg-[var(--bg-card)] p-5 px-6">
-                    <SectionContent
-                      sectionKey={currentSection}
-                      cards={sectionCards}
-                    />
-                  </div>
+                {sectionCards.length > 0 && currentSection === 'competitors' ? (
+                  <CompetitorTabs cards={sectionCards} />
+                ) : sectionCards.length > 0 ? (
+                  <CardGrid>
+                    {sectionCards.map((card, i) => (
+                      <CardRenderer key={card.id} card={card} mode="document" index={i} />
+                    ))}
+                  </CardGrid>
                 ) : (
                   <div className="flex items-center justify-center min-h-[300px]">
                     <p className="text-sm text-[var(--text-tertiary)] font-mono">
@@ -288,42 +285,6 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
       </div>
     </div>
   );
-}
-
-/**
- * Routes section cards through the appropriate shell layout.
- * Uses SECTION_SHELL_MAP as single source of truth for section-to-shell mapping.
- */
-function SectionContent({ sectionKey, cards }: { sectionKey: string; cards: CardState[] }) {
-  const renderCard = useCallback(
-    (card: CardState, index: number) => (
-      <CardRenderer key={card.id} card={card} mode="document" index={index} />
-    ),
-    [],
-  );
-
-  const shellType = getShellType(sectionKey);
-
-  switch (shellType) {
-    case 'entity-compare':
-      return <CompetitorTabs cards={cards} />;
-    case 'signal-board':
-      return <SignalBoardShell cards={cards} renderCard={renderCard} />;
-    case 'synthesis-cockpit':
-      return <SynthesisCockpitShell cards={cards} renderCard={renderCard} />;
-    case 'ops-board':
-      return <OpsBoardShell cards={cards} renderCard={renderCard} />;
-    case 'keyword-table':
-    default:
-      // Keyword table and unknown sections fall through to flat CardGrid
-      return (
-        <CardGrid>
-          {cards.map((card, i) => (
-            <CardRenderer key={card.id} card={card} mode="document" index={i} />
-          ))}
-        </CardGrid>
-      );
-  }
 }
 
 /**
