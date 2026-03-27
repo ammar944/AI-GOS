@@ -10,7 +10,7 @@ import {
   type RunnerProgressReporter,
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
-import { adLibraryTool, spyfuTool } from '../tools';
+import { adLibraryTool, spyfuTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
 const COMPETITORS_PRIMARY_MODEL =
@@ -31,7 +31,7 @@ const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
   name: 'web_search',
 } as const;
-type CompetitorTool = typeof WEB_SEARCH_TOOL | typeof adLibraryTool | typeof spyfuTool;
+type CompetitorTool = typeof WEB_SEARCH_TOOL | typeof adLibraryTool | typeof spyfuTool | typeof firecrawlExtractTool;
 
 const COMPETITOR_ANALYSIS_SKILL = `
 ## Competitive Analysis Domain Knowledge
@@ -71,9 +71,9 @@ After completing your research, respond with a JSON object. Structure:
       "name": "string",
       "website": "string — official URL",
       "positioning": "string — their core value proposition",
-      "price": "string — actual pricing if found, otherwise 'See pricing page'",
-      "pricingConfidence": "high | medium | low | unknown — set to 'unknown' if you did not verify pricing from an official source",
-      "pricingSourceUrl": "string | null — URL of the pricing page you verified (null if unverified)",
+      "price": "string | null — ONLY from firecrawlExtract crawl of their /pricing page. null if not crawled or no pricing found.",
+      "pricingConfidence": "high | unknown — 'high' only if firecrawlExtract returned real tier data. 'unknown' otherwise.",
+      "pricingSourceUrl": "string | null — the URL you crawled with firecrawlExtract (null if not crawled)",
       "strengths": ["string"],
       "weaknesses": ["string"],
       "opportunities": ["string — exploitable gaps against this competitor"],
@@ -208,7 +208,7 @@ RULES:
 - Use only the evidence package provided in the user message
 - Identify exactly 5 direct competitors with official URLs when evidence supports it
 - Prioritize positioning, weaknesses, and review-backed signals already present in the evidence package
-- If a specific data point is unavailable, use a conservative fallback such as "See pricing page"
+- If a specific data point is unavailable, use null. Never use placeholder text like "See pricing page"
 - adActivity.platforms must never be empty; if a platform is not verified, use ["Not verified"] and state that in adActivity.evidence
 - Treat adActivity.activeAdCount as observed ad records, not verified active live ads, unless the evidence explicitly says coverage is current and verified
 - Make the white-space gaps concrete and actionable for paid media messaging
@@ -446,8 +446,9 @@ function buildCompetitorRecoveryContext(input: {
     'RULES:',
     '- Use only the evidence below.',
     '- Do not invent unsupported competitors, pricing, or ad-activity claims.',
-    '- NEVER guess pricing. If you cannot find official pricing from a verified source, set price to "See pricing page", pricingConfidence to "unknown", and pricingSourceUrl to null.',
-    '- When you DO find pricing, set pricingSourceUrl to the URL where you found it.',
+    '- PRICING RULE: For each competitor, use firecrawlExtract on their /pricing page (e.g. https://competitor.com/pricing) to get real tier data. If the crawl returns pricing tiers, set price to a summary (e.g. "$5K-$15K/mo"), pricingConfidence to "high", and pricingSourceUrl to the crawled URL.',
+    '- If firecrawlExtract fails or returns no pricing data, set price to null, pricingConfidence to "unknown", and pricingSourceUrl to null. NEVER guess or infer pricing from training data.',
+    '- Limit firecrawlExtract to at most 3 calls total (one per top competitor) to avoid timeout.',
     '- If direct ad evidence is weak, keep the field but explain the weak evidence briefly.',
     '',
     searches.length > 0 ? `SEARCH QUERIES:\n- ${searches.join('\n- ')}` : null,
@@ -520,7 +521,7 @@ function getCompetitorAttemptConfig(
     model: COMPETITORS_PRIMARY_MODEL,
     maxTokens: COMPETITORS_PRIMARY_MAX_TOKENS,
     timeoutMs: COMPETITORS_PRIMARY_TIMEOUT_MS,
-    tools: [WEB_SEARCH_TOOL, adLibraryTool, spyfuTool],
+    tools: [WEB_SEARCH_TOOL, adLibraryTool, spyfuTool, firecrawlExtractTool],
     system: `${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`,
     synthesisMessage: 'synthesizing competitor landscape',
   };
