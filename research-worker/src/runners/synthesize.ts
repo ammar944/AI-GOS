@@ -9,6 +9,7 @@ import {
   emitRunnerProgress,
   type RunnerProgressReporter,
 } from '../runner';
+import { SYNTHESIS_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
 import type { RunnerTelemetry } from '../telemetry';
@@ -69,6 +70,23 @@ const synthesisGenerateSchema = z.object({
   criticalSuccessFactors: z.array(z.string()),
   nextSteps: z.array(z.string()),
   strategicNarrative: z.string(),
+  readinessScorecard: z.object({
+    overallScore: z.number(),
+    verdict: z.string(),
+    verdictLabel: z.string(),
+    dimensions: z.array(z.object({
+      name: z.string(),
+      score: z.number(),
+      summary: z.string(),
+    })),
+  }).optional(),
+  topActions: z.object({
+    actions: z.array(z.object({
+      action: z.string(),
+      source: z.string(),
+      priority: z.string(),
+    })),
+  }).optional(),
 });
 
 const SYNTHESIS_SYSTEM = `You are synthesizing research into an actionable paid media strategy.
@@ -94,7 +112,9 @@ MESSAGING ANGLES:
 - Map at least 2 angles as objection → counter-angle → proof
 - Use real buyer-language from ICP validation when available
 - exampleHook must directly answer the objection
-- evidence must name both the objection and proof signal`;
+- evidence must name both the objection and proof signal
+
+${SYNTHESIS_INTELLIGENCE_SKILL}`;
 
 interface GenerateObjectUsage {
   inputTokens: number | undefined;
