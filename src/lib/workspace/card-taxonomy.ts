@@ -157,9 +157,12 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
       name,
       website: asString(competitor.website),
       positioning: asString(competitor.positioning),
-      price: asString(competitor.price),
-      pricingConfidence: asString(competitor.pricingConfidence),
-      pricingSourceUrl: asString(competitor.pricingSourceUrl),
+      // Only pass pricing if it came from a real crawled source (pricingSourceUrl exists)
+      ...(asString(competitor.pricingSourceUrl) ? {
+        price: asString(competitor.price),
+        pricingConfidence: asString(competitor.pricingConfidence),
+        pricingSourceUrl: asString(competitor.pricingSourceUrl),
+      } : {}),
       strengths: asStringArray(competitor.strengths),
       weaknesses: asStringArray(competitor.weaknesses),
       opportunities: asStringArray(competitor.opportunities),

@@ -63,8 +63,8 @@ export function CompetitorCard({
   topAdHooks,
   counterPositioning,
 }: CompetitorCardProps) {
-  // Only show pricing if we have a real source URL (crawled data, not "See pricing page" placeholders)
-  const hasCrawledPricing = !!pricingSourceUrl && !!price && !price.toLowerCase().includes('see pricing');
+  // Only show pricing when Firecrawl actually crawled the pricing page (sourceUrl exists + real price)
+  const hasCrawledPricing = !!pricingSourceUrl && !!price && price !== 'null' && !price.toLowerCase().includes('see pricing');
   const priceStats: StatItem[] = hasCrawledPricing ? [{ label: 'Price', value: price! }] : [];
 
   return (
