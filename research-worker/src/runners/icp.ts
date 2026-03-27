@@ -77,6 +77,15 @@ After completing your research, respond with a JSON object. Structure:
     "reasoning": "string — why this verdict was reached",
     "recommendations": ["string — how to target or de-risk this ICP"]
   }
+  "audienceRefinements": [
+    {
+      "refinement": "string — 1 sentence: what to change about targeting or messaging",
+      "segment": "string — which audience slice this applies to",
+      "expectedLift": "low | moderate | high",
+      "testMethod": "string — 1 sentence: how to validate this refinement",
+      "risk": "string — 1 sentence: what happens if wrong"
+    }
+  ],
   "citations": [
     {
       "url": "https://example.com/source",

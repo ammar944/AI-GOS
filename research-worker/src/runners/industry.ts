@@ -101,6 +101,15 @@ After completing your research, respond with a JSON object containing your findi
     "angles": ["string — strong messaging angles for paid ads"],
     "summaryRecommendations": ["string — actionable recommendations for paid media strategy"]
   },
+  "marketOpportunities": [
+    {
+      "opportunity": "string — 1 sentence: market gap or opening for paid media",
+      "size": "small | medium | large",
+      "timing": "now | 3-6 months | 6-12 months",
+      "difficulty": "low | medium | high",
+      "evidence": "string — 1 sentence: which research finding supports this"
+    }
+  ],
   "citations": [
     {
       "url": "https://example.com/source",

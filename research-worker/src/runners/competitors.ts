@@ -129,6 +129,15 @@ After completing your research, respond with a JSON object. Structure:
     }
   ],
   "overallLandscape": "string — summary of competitive landscape",
+  "positioningMoves": [
+    {
+      "move": "string — 1 sentence: the positioning action to take",
+      "targetCompetitor": "string — name of the competitor you're countering",
+      "risk": "low | medium | high",
+      "reward": "low | medium | high",
+      "playbook": "string — 1 sentence: execution hint for ad creative or messaging"
+    }
+  ],
   "citations": [
     {
       "url": "https://example.com/source",
