@@ -75,6 +75,13 @@ const industryResearchDataSchema = z.object({
     angles: z.array(z.string()).optional(),
     summaryRecommendations: nonEmptyStringArraySchema,
   }),
+  marketOpportunities: z.array(z.object({
+    opportunity: nonEmptyStringSchema,
+    size: flexibleEnum(['small', 'medium', 'large'] as const, 'medium'),
+    timing: flexibleEnum(['now', '3-6 months', '6-12 months'] as const, 'now'),
+    difficulty: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+    evidence: nonEmptyStringSchema,
+  })).default([]),
 });
 
 const threatAssessmentSchema = z.object({
@@ -168,6 +175,13 @@ const competitorIntelDataSchema = z.object({
     )
     .default([]),
   overallLandscape: nonEmptyStringSchema.optional(),
+  positioningMoves: z.array(z.object({
+    move: nonEmptyStringSchema,
+    targetCompetitor: nonEmptyStringSchema,
+    risk: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+    reward: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+    playbook: nonEmptyStringSchema,
+  })).default([]),
 });
 
 const icpValidationDataSchema = z.object({
@@ -194,6 +208,13 @@ const icpValidationDataSchema = z.object({
       recommendations: z.array(z.string()).optional(),
     })
     .optional(),
+  audienceRefinements: z.array(z.object({
+    refinement: nonEmptyStringSchema,
+    segment: nonEmptyStringSchema,
+    expectedLift: flexibleEnum(['low', 'moderate', 'high'] as const, 'moderate'),
+    testMethod: nonEmptyStringSchema,
+    risk: nonEmptyStringSchema,
+  })).default([]),
 });
 
 const offerAnalysisDataSchema = z.object({
