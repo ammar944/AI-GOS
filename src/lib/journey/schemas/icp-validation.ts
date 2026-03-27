@@ -196,6 +196,15 @@ export const icpValidationDataSchema = z.object({
       google: z.number().optional(),
     })
     .optional(),
+
+  // ── Intelligence: Audience Refinements ──────────────────────────────
+  audienceRefinements: z.array(z.object({
+    refinement: nonEmptyStringSchema,
+    segment: nonEmptyStringSchema,
+    expectedLift: flexibleEnum(['low', 'moderate', 'high'] as const, 'moderate'),
+    testMethod: nonEmptyStringSchema,
+    risk: nonEmptyStringSchema,
+  })).default([]),
 });
 
 export type IcpValidationData = z.infer<typeof icpValidationDataSchema>;

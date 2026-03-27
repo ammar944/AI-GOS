@@ -57,6 +57,25 @@ export const strategicSynthesisDataSchema = z.object({
   nextSteps: nonEmptyStringArraySchema,
   strategicNarrative: nonEmptyStringSchema,
   charts: z.array(synthesisChartSchema).optional(),
+
+  // ── Intelligence: Readiness Scorecard + Top Actions ─────────────────
+  readinessScorecard: z.object({
+    overallScore: z.coerce.number().min(0).max(10),
+    verdict: flexibleEnum(['ready', 'fix-gaps-first', 'needs-work'] as const, 'needs-work'),
+    verdictLabel: nonEmptyStringSchema,
+    dimensions: z.array(z.object({
+      name: nonEmptyStringSchema,
+      score: z.coerce.number().min(0).max(10),
+      summary: nonEmptyStringSchema,
+    })),
+  }).optional(),
+  topActions: z.object({
+    actions: z.array(z.object({
+      action: nonEmptyStringSchema,
+      source: flexibleEnum(['industry', 'icp', 'competitors', 'offer', 'keywords'] as const, 'industry'),
+      priority: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
+    })),
+  }).optional(),
 });
 
 export type StrategicSynthesisData = z.infer<

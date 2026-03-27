@@ -82,6 +82,15 @@ export const competitorIntelDataSchema = z.object({
   marketWeaknesses: nonEmptyStringArraySchema.optional(),
   whiteSpaceGaps: z.array(whiteSpaceGapSchema).default([]),
   overallLandscape: nonEmptyStringSchema.optional(),
+
+  // ── Intelligence: Positioning Moves ─────────────────────────────────
+  positioningMoves: z.array(z.object({
+    move: nonEmptyStringSchema,
+    targetCompetitor: nonEmptyStringSchema,
+    risk: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+    reward: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+    playbook: nonEmptyStringSchema,
+  })).default([]),
 });
 
 export type CompetitorIntelData = z.infer<typeof competitorIntelDataSchema>;

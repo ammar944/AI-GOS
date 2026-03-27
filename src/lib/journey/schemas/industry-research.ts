@@ -75,6 +75,15 @@ export const industryResearchDataSchema = z.object({
       })
     )
     .optional(),
+
+  // ── Intelligence: Market Opportunities ──────────────────────────────
+  marketOpportunities: z.array(z.object({
+    opportunity: nonEmptyStringSchema,
+    size: flexibleEnum(['small', 'medium', 'large'] as const, 'medium'),
+    timing: flexibleEnum(['now', '3-6 months', '6-12 months'] as const, 'now'),
+    difficulty: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
+    evidence: nonEmptyStringSchema,
+  })).default([]),
 });
 
 export type IndustryResearchData = z.infer<typeof industryResearchDataSchema>;
