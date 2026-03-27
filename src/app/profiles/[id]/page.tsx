@@ -12,16 +12,23 @@ import {
   TrendingUp,
   Target,
   Lightbulb,
+  Sparkles,
+  Palette,
 } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { JOURNEY_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile, ProfileSession } from '@/lib/profiles/business-profiles';
+import { ScriptPackViewer } from '@/components/scripts/script-pack-viewer';
+import { StyleRefsTab } from '@/components/scripts/style-refs-tab';
+import type { AdScript } from '@/lib/scripts/schemas';
 
-type TabId = 'overview' | 'research';
+type TabId = 'overview' | 'research' | 'scripts' | 'style-refs';
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'OVERVIEW', icon: FileText },
   { id: 'research', label: 'RESEARCH', icon: FlaskConical },
+  { id: 'scripts', label: 'SCRIPTS', icon: Sparkles },
+  { id: 'style-refs', label: 'STYLE REFS', icon: Palette },
 ];
 
 function formatDate(dateString: string): string {
@@ -46,6 +53,8 @@ export default function ProfileDetailPage() {
   const [sessions, setSessions] = useState<ProfileSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [latestSessionRunId, setLatestSessionRunId] = useState<string | null>(null);
+  const [latestPack, setLatestPack] = useState<{ id: string; scripts: AdScript[] } | null>(null);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -87,10 +96,32 @@ export default function ProfileDetailPage() {
   }, [fetchProfile]);
 
   useEffect(() => {
-    if (activeTab === 'research') {
+    if (activeTab === 'research' || activeTab === 'scripts') {
       fetchSessions();
     }
   }, [activeTab, fetchSessions]);
+
+  // Fetch session run_id + latest script pack when Scripts tab is active
+  useEffect(() => {
+    if (activeTab !== 'scripts' || !profile?.id) return;
+
+    if (sessions.length > 0 && !latestSessionRunId) {
+      setLatestSessionRunId(sessions[0].runId);
+    }
+
+    fetch(`/api/profiles/${profile.id}/script-packs`)
+      .then((res) => res.json())
+      .then(({ packs }) => {
+        if (packs?.length > 0) {
+          const p = packs[0];
+          setLatestPack({
+            id: p.id,
+            scripts: typeof p.scripts === 'string' ? JSON.parse(p.scripts) : p.scripts,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [activeTab, profile?.id, sessions, latestSessionRunId]);
 
   function switchTab(tab: TabId) {
     const params = new URLSearchParams(searchParams.toString());
@@ -172,13 +203,35 @@ export default function ProfileDetailPage() {
           </div>
 
           {/* Tab content */}
-          {activeTab === 'overview' ? (
-            <OverviewTab profile={profile} />
-          ) : (
+          {activeTab === 'overview' && <OverviewTab profile={profile} />}
+
+          {activeTab === 'research' && (
             <ResearchTab
               sessions={sessions}
               loading={sessionsLoading}
               profileName={profile.companyName}
+            />
+          )}
+
+          {activeTab === 'scripts' && (
+            latestSessionRunId ? (
+              <ScriptPackViewer
+                profileId={profile.id}
+                sessionId={latestSessionRunId}
+                initialScripts={latestPack?.scripts}
+                initialPackId={latestPack?.id}
+              />
+            ) : (
+              <div className="text-center py-12 text-[var(--text-quaternary)] text-sm">
+                Run research for this profile first to generate scripts.
+              </div>
+            )
+          )}
+
+          {activeTab === 'style-refs' && (
+            <StyleRefsTab
+              profileId={profile.id}
+              initialRefs={profile.styleReferences}
             />
           )}
         </div>
