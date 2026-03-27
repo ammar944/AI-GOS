@@ -11,12 +11,13 @@ import {
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
+import { INDUSTRY_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 
 const INDUSTRY_PRIMARY_MODEL =
   process.env.RESEARCH_INDUSTRY_MODEL ?? 'claude-haiku-4-5-20251001';
 const INDUSTRY_REPAIR_MODEL =
   process.env.RESEARCH_INDUSTRY_REPAIR_MODEL ?? 'claude-sonnet-4-6';
-const INDUSTRY_PRIMARY_MAX_TOKENS = 4500;
+const INDUSTRY_PRIMARY_MAX_TOKENS = 5000;
 const INDUSTRY_REPAIR_MAX_TOKENS = 4000;
 const INDUSTRY_PRIMARY_TIMEOUT_MS = 120_000;
 const INDUSTRY_REPAIR_TIMEOUT_MS = 60_000;
@@ -106,7 +107,9 @@ After completing your research, respond with a JSON object containing your findi
       "title": "Source title"
     }
   ]
-}`;
+}
+
+${INDUSTRY_INTELLIGENCE_SKILL}`;
 
 const INDUSTRY_REPAIR_SYSTEM_PROMPT = `You are an expert market researcher repairing an incomplete market-overview artifact from captured evidence.
 
@@ -128,7 +131,9 @@ RULES:
 
 ${INDUSTRY_PRIMARY_SYSTEM_PROMPT.slice(
   INDUSTRY_PRIMARY_SYSTEM_PROMPT.indexOf('After completing your research'),
-)}`;
+)}
+
+${INDUSTRY_INTELLIGENCE_SKILL}`;
 
 type IndustryAttemptMode = 'primary' | 'repair';
 
