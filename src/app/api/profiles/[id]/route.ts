@@ -1,10 +1,28 @@
+// GET /api/profiles/:id — fetch single profile with insights
 // PATCH /api/profiles/:id — update business profile fields
-// Merges into all_fields JSONB and updates individual columns where mapped.
-// company_name is read-only to protect the upsert key.
 
 import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
-import { updateProfile } from '@/lib/profiles/business-profiles';
+import { getProfile, updateProfile } from '@/lib/profiles/business-profiles';
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const profile = await getProfile(userId, id);
+
+  if (!profile) {
+    return Response.json({ error: 'Profile not found' }, { status: 404 });
+  }
+
+  return Response.json({ profile });
+}
 
 const PatchSchema = z.object({
   fields: z.record(z.string(), z.string()),

@@ -56,6 +56,10 @@ export interface BusinessProfile {
   topCompetitors: string | null;
   goals: string | null;
   allFields: Record<string, unknown>;
+  aiInsights: Record<string, unknown> | null;
+  offerScore: Record<string, unknown> | null;
+  positioningStrategy: Record<string, unknown> | null;
+  lastResearchAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -286,6 +290,67 @@ export async function updateProfile(
   return true;
 }
 
+/**
+ * Get a single profile by ID for an authenticated user.
+ */
+export async function getProfile(
+  userId: string,
+  profileId: string,
+): Promise<BusinessProfile | null> {
+  const { data, error } = await getSupabase()
+    .from('business_profiles')
+    .select('*')
+    .eq('id', profileId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) return null;
+  return mapRow(data);
+}
+
+/**
+ * Get all journey sessions linked to a profile via profile_id FK.
+ */
+export async function getProfileSessions(
+  userId: string,
+  profileId: string,
+): Promise<ProfileSession[]> {
+  const { data, error } = await getSupabase()
+    .from('journey_sessions')
+    .select('id, run_id, research_results, metadata, created_at, updated_at')
+    .eq('profile_id', profileId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data.map(mapSessionRow);
+}
+
+export interface ProfileSession {
+  id: string;
+  runId: string;
+  sectionCount: number;
+  totalSections: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function mapSessionRow(row: Record<string, unknown>): ProfileSession {
+  const results = (row.research_results as Record<string, unknown>) ?? {};
+  const completedSections = Object.values(results).filter(
+    (r) => r && typeof r === 'object' && (r as Record<string, unknown>).status === 'complete',
+  ).length;
+
+  return {
+    id: row.id as string,
+    runId: row.run_id as string,
+    sectionCount: completedSections,
+    totalSections: 7,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
 // Map Supabase snake_case row to camelCase interface
 function mapRow(row: Record<string, unknown>): BusinessProfile {
   return {
@@ -309,6 +374,10 @@ function mapRow(row: Record<string, unknown>): BusinessProfile {
     topCompetitors: row.top_competitors as string | null,
     goals: row.goals as string | null,
     allFields: (row.all_fields as Record<string, unknown>) ?? {},
+    aiInsights: (row.ai_insights as Record<string, unknown>) ?? null,
+    offerScore: (row.offer_score as Record<string, unknown>) ?? null,
+    positioningStrategy: (row.positioning_strategy as Record<string, unknown>) ?? null,
+    lastResearchAt: (row.last_research_at as string) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

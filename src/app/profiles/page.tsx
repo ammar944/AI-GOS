@@ -161,7 +161,12 @@ export default function ProfilesPage() {
                 return (
                   <div
                     key={profile.id}
-                    className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 transition-colors hover:border-[var(--border-hover)]"
+                    className={`rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 transition-colors hover:border-[var(--border-hover)] ${
+                      isEditing ? '' : 'cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (!isEditing) router.push(`/profiles/${profile.id}`);
+                    }}
                   >
                     {/* Top row: company name + edit/date */}
                     <div className="flex items-start justify-between mb-4">
@@ -182,7 +187,7 @@ export default function ProfilesPage() {
                       </div>
                       {isEditing ? (
                         <button
-                          onClick={cancelEdit}
+                          onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
                           className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer transition-colors"
                         >
                           <X className="size-3.5" />
@@ -194,7 +199,7 @@ export default function ProfilesPage() {
                             {formatDate(profile.updatedAt)}
                           </span>
                           <button
-                            onClick={() => startEdit(profile)}
+                            onClick={(e) => { e.stopPropagation(); startEdit(profile); }}
                             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--accent-blue)] bg-[rgba(54,94,255,0.08)] hover:bg-[rgba(54,94,255,0.15)] cursor-pointer transition-colors"
                           >
                             <Pencil className="size-3" />
@@ -206,7 +211,7 @@ export default function ProfilesPage() {
 
                     {isEditing ? (
                       /* Edit mode — grouped fields */
-                      <div className="space-y-5">
+                      <div className="space-y-5" onClick={(e) => e.stopPropagation()}>
                         {JOURNEY_FIELD_GROUPS.map((group) => (
                           <div key={group.id}>
                             <p className="text-[10px] uppercase tracking-wider text-[var(--text-quaternary)] mb-2 font-medium">
@@ -249,13 +254,13 @@ export default function ProfilesPage() {
 
                         <div className="flex justify-end gap-2 pt-2">
                           <button
-                            onClick={cancelEdit}
+                            onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
                             className="rounded-md border border-[var(--border-default)] px-4 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer transition-colors"
                           >
                             Cancel
                           </button>
                           <button
-                            onClick={() => saveEdit(profile.id)}
+                            onClick={(e) => { e.stopPropagation(); saveEdit(profile.id); }}
                             disabled={saving}
                             className="rounded-md bg-[var(--accent-blue)] px-4 py-1.5 text-xs text-white font-medium hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-50"
                           >

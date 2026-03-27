@@ -57,5 +57,11 @@ export async function POST(req: Request) {
     );
   }
 
+  // Link session to profile via profile_id FK
+  await supabase
+    .from('journey_sessions')
+    .update({ profile_id: result.id })
+    .eq('id', session.id);
+
   return Response.json({ profileId: result.id });
 }
