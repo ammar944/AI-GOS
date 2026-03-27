@@ -38,7 +38,7 @@ function summarizeForSynthesis(key: string, payload: unknown): string {
         const comps = Array.isArray(d.competitors) ? d.competitors.slice(0, 3) : [];
         return JSON.stringify(
           comps.map((c: Record<string, unknown>) => ({
-            name: c.name, positioning: c.positioningAngle, weaknesses: c.weaknesses,
+            name: c.name, positioning: c.positioning, weaknesses: c.weaknesses,
           })),
           null, 1,
         );

@@ -56,7 +56,7 @@ const HERO_CARD_TYPES = new Set(['stat-grid', 'strategy-card', 'competitor-card'
  */
 export function CardContentSwitch({ card }: { card: CardState }) {
   const { isEditing, draftContent, updateDraft } = useCardEditing();
-  const content = isEditing ? draftContent : card.content;
+  const content = isEditing ? { ...card.content, ...draftContent } : card.content;
 
   switch (card.cardType) {
     case 'stat-grid':

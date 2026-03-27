@@ -66,6 +66,16 @@ export interface JourneyKeywordIntelDetailProps {
   className?: string;
 }
 
+function dedup<T>(items: T[], keyFn: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = keyFn(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -186,15 +196,24 @@ export function getJourneyKeywordIntelDetailData(
     campaignGroups: Array.isArray(data.campaignGroups)
       ? data.campaignGroups.map(parseCampaignGroup).filter(Boolean) as JourneyKeywordCampaignGroup[]
       : [],
-    topOpportunities: Array.isArray(data.topOpportunities)
-      ? data.topOpportunities.map(parseKeywordOpportunity).filter(Boolean) as JourneyKeywordOpportunity[]
-      : [],
-    recommendedStartingSet: Array.isArray(data.recommendedStartingSet)
-      ? data.recommendedStartingSet.map(parseStartingKeyword).filter(Boolean) as JourneyKeywordStartingKeyword[]
-      : [],
-    competitorGaps: Array.isArray(data.competitorGaps)
-      ? data.competitorGaps.map(parseCompetitorGap).filter(Boolean) as JourneyKeywordCompetitorGap[]
-      : [],
+    topOpportunities: dedup(
+      Array.isArray(data.topOpportunities)
+        ? data.topOpportunities.map(parseKeywordOpportunity).filter(Boolean) as JourneyKeywordOpportunity[]
+        : [],
+      (k) => k.keyword.toLowerCase(),
+    ),
+    recommendedStartingSet: dedup(
+      Array.isArray(data.recommendedStartingSet)
+        ? data.recommendedStartingSet.map(parseStartingKeyword).filter(Boolean) as JourneyKeywordStartingKeyword[]
+        : [],
+      (k) => k.keyword.toLowerCase(),
+    ),
+    competitorGaps: dedup(
+      Array.isArray(data.competitorGaps)
+        ? data.competitorGaps.map(parseCompetitorGap).filter(Boolean) as JourneyKeywordCompetitorGap[]
+        : [],
+      (k) => k.keyword.toLowerCase(),
+    ),
     negativeKeywords: Array.isArray(data.negativeKeywords)
       ? data.negativeKeywords.map(parseNegativeKeyword).filter(Boolean) as JourneyKeywordNegativeKeyword[]
       : [],

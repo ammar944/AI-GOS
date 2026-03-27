@@ -289,14 +289,14 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
 
     const context = await buildSectionContext('Generate media plan from approved research results');
 
-    // Auto-approve crossAnalysis (strategic synthesis) when generating media plan
-    // — it's the last research section before media plan, and clicking "Generate"
-    // signals the user is done reviewing it
+    // Set mediaPlan to 'researching' BEFORE approving crossAnalysis.
+    // This prevents WorkspaceApprovalBridge from re-dispatching mediaPlan
+    // when it detects the crossAnalysis → approved transition.
+    setSectionPhase('mediaPlan', 'researching');
+
     if (state.sectionStates.crossAnalysis === 'review') {
       setSectionPhase('crossAnalysis', 'approved');
     }
-
-    setSectionPhase('mediaPlan', 'researching');
     // Use requestAnimationFrame to ensure the state flush happens before navigation.
     // The navigation guard in workspace-provider blocks navigation to 'queued' sections,
     // and setState is async — stateRef.current still reflects 'queued' synchronously.

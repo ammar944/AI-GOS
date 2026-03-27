@@ -625,7 +625,7 @@ function JourneyPageContent() {
   }, [commitActiveRunId, resetConversationState, resetResearchState, user?.id]);
 
   const researchJobActivity = useResearchJobActivity({
-    userId: journeyPhase === 'chat' ? user?.id : null,
+    userId: (journeyPhase === 'chat' || journeyPhase === 'workspace') ? user?.id : null,
     activeRunId,
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
@@ -2154,9 +2154,15 @@ function JourneyPageContent() {
 
   // Workspace phase — replaces entire chat layout with artifact-first workspace
   if (journeyPhase === 'workspace') {
+    const dispatchedSectionsRef = { current: new Set<string>() };
     const handleWorkspaceSectionApproved = async (approvedSection: SectionKey) => {
       const nextSection = getNextSection(approvedSection);
       if (!nextSection || !activeRunId) return;
+
+      // Guard: skip if this section was already dispatched (prevents double dispatch
+      // when handleGenerateMediaPlan auto-approves crossAnalysis)
+      if (dispatchedSectionsRef.current.has(nextSection)) return;
+      dispatchedSectionsRef.current.add(nextSection);
 
       // Read context from Supabase metadata (where handleAcceptPrefill persisted the V2 fields).
       // getJourneySession() reads from localStorage which is never written with V2 data.

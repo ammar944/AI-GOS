@@ -15,7 +15,7 @@ import type { RunnerTelemetry } from '../telemetry';
 
 const SYNTHESIS_MODEL =
   process.env.RESEARCH_SYNTHESIS_MODEL ?? 'claude-sonnet-4-6';
-const SYNTHESIS_MAX_TOKENS = 5000;
+const SYNTHESIS_MAX_TOKENS = 8000;
 const SYNTHESIS_TIMEOUT_MS = 180_000;
 
 // Schema for generateObject — no .min()/.int()/.positive() constraints
