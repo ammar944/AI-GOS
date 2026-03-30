@@ -433,57 +433,36 @@ export async function fetchApifyAds(
  *
  * If APIFY_API_TOKEN is missing, falls back to SearchAPI for everything.
  */
+/**
+ * Fetch competitor ads from all 3 platforms using advertiser-first lookup.
+ * SearchAPI only (Apify removed — account maxed, actors too slow for parallel pipeline).
+ */
 export async function fetchCompetitorAds(
   companyName: string,
   domain?: string,
 ): Promise<WorkerAdInsight> {
-  // Apify actors take 30-60s per competitor — too slow for 5-competitor parallel fetch.
-  // Use SearchAPI (2-3s) for the parallel pipeline. Apify can be used for single-competitor
-  // deep-dive enrichment in a future "drill down" feature.
-  const hasApify = false;
   const startTime = Date.now();
 
-  // Always get LinkedIn from SearchAPI (only reliable source)
-  const { searchLinkedInAds, searchMetaAds, normalizeSearchApiToCreatives } = await import('./adlibrary');
-  const linkedInRawPromise = searchLinkedInAds(companyName).catch(() => []);
+  const { searchLinkedInAds, searchMetaAds, searchGoogleAds, normalizeSearchApiToCreatives } = await import('./adlibrary');
 
-  let metaCreatives: WorkerAdCreative[] = [];
-  let googleCreatives: WorkerAdCreative[] = [];
-  let linkedInCreatives: WorkerAdCreative[] = [];
-  let metaCount = 0;
-  let googleCount = 0;
-  let linkedInCount = 0;
+  // All 3 platforms in parallel — advertiser-first lookup
+  const [linkedInRaw, metaRaw, googleRaw] = await Promise.all([
+    searchLinkedInAds(companyName, domain).catch(() => []),
+    searchMetaAds(companyName, domain).catch(() => []),
+    searchGoogleAds(companyName, domain).catch(() => []),
+  ]);
 
-  if (hasApify) {
-    // Apify for Meta + Google (parallel with LinkedIn SearchAPI)
-    const [metaRaw, googleRaw, linkedInRaw] = await Promise.all([
-      fetchMetaAds(companyName, domain),
-      fetchGoogleAds(companyName, domain),
-      linkedInRawPromise,
-    ]);
+  const linkedInCreatives = normalizeSearchApiToCreatives(linkedInRaw, 'linkedin', companyName, domain);
+  const metaCreatives = normalizeSearchApiToCreatives(metaRaw, 'meta', companyName, domain);
+  const googleCreatives = normalizeSearchApiToCreatives(googleRaw, 'google', companyName, domain);
 
-    metaCreatives = normalizeMetaAds(metaRaw, companyName, domain);
-    googleCreatives = normalizeGoogleAds(googleRaw, companyName, domain);
-    metaCount = metaRaw.length;
-    googleCount = googleRaw.length;
-    linkedInCreatives = normalizeSearchApiToCreatives(linkedInRaw, 'linkedin', companyName, domain);
-    linkedInCount = linkedInRaw.length;
-  } else {
-    // No Apify — SearchAPI for everything
-    const [linkedInRaw, metaRaw] = await Promise.all([
-      linkedInRawPromise,
-      searchMetaAds(companyName).catch(() => []),
-    ]);
+  const linkedInCount = linkedInRaw.length;
+  const metaCount = metaRaw.length;
+  const googleCount = googleRaw.length;
 
-    metaCreatives = normalizeSearchApiToCreatives(metaRaw, 'meta', companyName, domain);
-    metaCount = metaRaw.length;
-    linkedInCreatives = normalizeSearchApiToCreatives(linkedInRaw, 'linkedin', companyName, domain);
-    linkedInCount = linkedInRaw.length;
-  }
-
-  // Filter out shell/irrelevant ads, then cap at 60 total (20 per platform × 3)
+  // Deduplicate, filter out shell/irrelevant ads, then cap at 60 total (20 per platform × 3)
   const allCreatives = filterRelevantAds(
-    [...metaCreatives, ...googleCreatives, ...linkedInCreatives],
+    deduplicateCreatives([...metaCreatives, ...googleCreatives, ...linkedInCreatives]),
     companyName,
     domain,
   ).slice(0, 60);
@@ -505,9 +484,7 @@ export async function fetchCompetitorAds(
         ? 'medium'
         : 'low';
 
-  const sources = hasApify
-    ? `Apify (Meta: ${metaCount}, Google: ${googleCount}) + SearchAPI (LinkedIn: ${linkedInCount})`
-    : `SearchAPI (Meta: ${metaCount}, LinkedIn: ${linkedInCount})`;
+  const sources = `SearchAPI (Meta: ${metaCount}, Google: ${googleCount}, LinkedIn: ${linkedInCount})`;
 
   const libraryLinks = buildLibraryLinks(companyName, domain, allCreatives);
 

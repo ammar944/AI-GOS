@@ -6,6 +6,11 @@ import type {
   WorkerAdPlatform,
   WorkerLibraryLinks,
 } from './adlibrary-types';
+import {
+  calculateSimilarity,
+  extractCompanyFromDomain,
+  isAdvertiserMatch as jaroWinklerMatch,
+} from '../utils/name-matcher';
 
 interface SearchApiAdRecord {
   // Flat fields (some platforms)
@@ -170,81 +175,189 @@ export async function fetchJson(
 
 // --- Advertiser name matching for false-positive protection ---
 
+/**
+ * Check if an advertiser name matches the searched company.
+ * Uses multi-layer validation:
+ * 1. Exact match (normalized)
+ * 2. Full containment (one name contains the other)
+ * 3. First-word match + Jaro-Winkler (the advertiser's FIRST word must match)
+ * 4. Domain-based fallback (advertiser starts with the domain base)
+ *
+ * Rejects: "Direct Metals" vs "Directive" (different first words, JW=0.82)
+ * Rejects: "TEPLOBAK Buffer Tanks" vs "Buffer" (buffer is not the first word)
+ * Passes:  "Buffer Inc" vs "Buffer" (first word matches exactly)
+ */
 export function isAdvertiserMatch(
   advertiserName: string | undefined,
   companyName: string,
   domain?: string,
 ): boolean {
-  if (!advertiserName) return true; // no name to filter on → keep
-  const advLower = advertiserName.toLowerCase().trim();
-  const compLower = companyName.toLowerCase().trim();
+  if (!advertiserName) return false;
 
-  // Exact match
-  if (advLower === compLower) return true;
+  const advNorm = advertiserName.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+  const compNorm = companyName.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
 
-  // Advertiser name starts with company name (e.g., "Hey Digital Inc." matches "Hey Digital")
-  // This intentionally rejects prefixed names like "AR Funnel.io" for query "Funnel.io"
-  if (advLower.startsWith(compLower)) return true;
+  // Layer 1: Exact match after normalization
+  if (advNorm === compNorm) return true;
 
-  // Company name starts with advertiser name (e.g., query "Hey Digital Agency" matches advertiser "Hey Digital")
-  if (compLower.startsWith(advLower)) return true;
+  // Layer 2: Full containment — the company name appears as a contiguous substring
+  // starting at a word boundary (beginning of string or after a space).
+  // "Buffer Inc" contains "buffer" at position 0 → pass
+  // "TEPLOBAK Buffer Tanks" contains "buffer" at position 9 → only if it's at a word boundary
+  if (advNorm.startsWith(compNorm + ' ') || advNorm.startsWith(compNorm)) {
+    // Company name is the leading part of the advertiser → strong match
+    return true;
+  }
+  if (compNorm.startsWith(advNorm + ' ') || compNorm.startsWith(advNorm)) {
+    // Advertiser name is the leading part of the company → strong match
+    return true;
+  }
 
-  // Domain-based match
+  // Layer 3: First-word agreement + Jaro-Winkler
+  // The advertiser's first meaningful word must exactly match the company's first word.
+  // This prevents "Direct Metals" from matching "Directive" (direct ≠ directive)
+  // and "TEPLOBAK Buffer" from matching "Buffer" (teplobak ≠ buffer).
+  const advWords = advNorm.split(' ').filter(w => w.length > 1);
+  const compWords = compNorm.split(' ').filter(w => w.length > 1);
+  const advFirst = advWords[0] ?? '';
+  const compFirst = compWords[0] ?? '';
+
+  if (advFirst === compFirst && advFirst.length > 0) {
+    // First words match — use Jaro-Winkler at standard threshold
+    if (jaroWinklerMatch(advertiserName, companyName, 0.8)) return true;
+  }
+
+  // Layer 4: Domain-based fallback — advertiser name starts with the domain base
   if (domain) {
     const domainBase = normalizeDomain(domain).split('.')[0] ?? '';
-    if (domainBase.length >= 3 && advLower.includes(domainBase)) return true;
+    if (domainBase.length >= 3) {
+      // Domain base must be at the START of the advertiser name (word boundary)
+      // "buffer" matches "Buffer Inc" but NOT "TEPLOBAK Buffer Tanks"
+      if (advNorm.startsWith(domainBase)) return true;
+    }
   }
 
   return false;
 }
 
+// --- Candidate matching with tiebreaker ---
+
+interface Candidate {
+  name: string;
+  id: string;
+  entity: Record<string, unknown>;
+}
+
+/**
+ * Pick the best candidate from a list using Jaro-Winkler matching.
+ * Tiebreaker: highest score → domain match → first result (API sort order).
+ * Returns null if no candidate scores >= 0.8.
+ */
+function pickBestCandidate(
+  candidates: Candidate[],
+  companyName: string,
+  domain?: string,
+): Candidate | null {
+  if (candidates.length === 0) return null;
+
+  const domainBase = domain ? extractCompanyFromDomain(domain) : undefined;
+  const scored = candidates
+    .map(c => {
+      const score = calculateSimilarity(c.name, companyName);
+      const domainMatch = domainBase
+        ? c.name.toLowerCase().includes(domainBase.toLowerCase())
+        : false;
+      return { candidate: c, score, domainMatch };
+    })
+    .filter(s => s.score >= 0.8)
+    .sort((a, b) => {
+      // Highest Jaro-Winkler first
+      if (b.score !== a.score) return b.score - a.score;
+      // Domain match wins ties
+      if (a.domainMatch !== b.domainMatch) return a.domainMatch ? -1 : 1;
+      // Otherwise preserve API order
+      return 0;
+    });
+
+  return scored.length > 0 ? scored[0].candidate : null;
+}
+
 // --- Platform-specific SearchAPI fetchers ---
 
+/**
+ * Google Ads: two-step advertiser-first lookup.
+ * 1. Search for advertiser by name → get advertiser_id
+ * 2. Fetch ads by advertiser_id
+ *
+ * Falls back to domain-based lookup via google_ads_advertiser_info if available.
+ */
 export async function searchGoogleAds(
   companyName: string,
+  domain?: string,
 ): Promise<SearchApiAdRecord[]> {
   const apiKey = process.env.SEARCHAPI_KEY;
   if (!apiKey) return [];
 
-  const params = new URLSearchParams({
-    engine: 'google_ads_transparency',
-    q: companyName,
-    api_key: apiKey,
-  });
+  const BASE = 'https://www.searchapi.io/api/v1/search';
 
   try {
-    const payload = await fetchJson(
-      `https://www.searchapi.io/api/v1/search?${params.toString()}`,
-    );
+    // Step 1: Find the advertiser
+    const searchParams = new URLSearchParams({
+      engine: 'google_ads_transparency_center_advertiser_search',
+      q: companyName,
+      api_key: apiKey,
+    });
+    const searchPayload = await fetchJson(`${BASE}?${searchParams.toString()}`);
 
-    // SearchAPI returns { error: "..." } if the engine isn't enabled
-    if (payload && typeof payload === 'object' && 'error' in payload) {
-      console.warn('[adlibrary] Google Ads Transparency engine not available:', (payload as { error: string }).error);
+    if (searchPayload && typeof searchPayload === 'object' && 'error' in searchPayload) {
+      console.warn('[adlibrary] Google advertiser search not available:', (searchPayload as { error: string }).error);
       return [];
     }
 
-    const ads = Array.isArray((payload as { ads?: unknown[] }).ads)
-      ? (payload as { ads: unknown[] }).ads
+    const advertisers = Array.isArray((searchPayload as { advertisers?: unknown[] }).advertisers)
+      ? (searchPayload as { advertisers: unknown[] }).advertisers as Array<{ name?: string; id?: string }>
       : [];
 
-    return ads.filter(
-      (ad): ad is SearchApiAdRecord =>
-        Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
+    // Pick best match using Jaro-Winkler with tiebreaker
+    const match = pickBestCandidate(
+      advertisers.map(a => ({ name: a.name ?? '', id: a.id ?? '', entity: a })),
+      companyName,
+      domain,
     );
+
+    if (!match) {
+      // Fallback: try domain-based advertiser info lookup
+      if (domain) {
+        const domainParams = new URLSearchParams({
+          engine: 'google_ads_advertiser_info',
+          q: domain,
+          api_key: apiKey,
+        });
+        try {
+          const domainPayload = await fetchJson(`${BASE}?${domainParams.toString()}`);
+          const domainId = (domainPayload as { advertiser_id?: string })?.advertiser_id;
+          if (domainId) {
+            return fetchGoogleAdsByAdvertiserId(domainId, apiKey);
+          }
+        } catch { /* domain lookup failed, return empty */ }
+      }
+      return [];
+    }
+
+    // Step 2: Fetch ads by advertiser_id
+    return fetchGoogleAdsByAdvertiserId(match.id, apiKey);
   } catch {
     return [];
   }
 }
 
-export async function searchLinkedInAds(
-  companyName: string,
+async function fetchGoogleAdsByAdvertiserId(
+  advertiserId: string,
+  apiKey: string,
 ): Promise<SearchApiAdRecord[]> {
-  const apiKey = process.env.SEARCHAPI_KEY;
-  if (!apiKey) return [];
-
   const params = new URLSearchParams({
-    engine: 'linkedin_ad_library',
-    q: companyName,
+    engine: 'google_ads_transparency_center',
+    advertiser_id: advertiserId,
     api_key: apiKey,
   });
 
@@ -261,15 +374,20 @@ export async function searchLinkedInAds(
   );
 }
 
-export async function searchMetaAds(
+/**
+ * LinkedIn Ads: advertiser-first lookup.
+ * Uses the `advertiser` param (NOT `q`) to search by company name.
+ */
+export async function searchLinkedInAds(
   companyName: string,
+  _domain?: string,
 ): Promise<SearchApiAdRecord[]> {
   const apiKey = process.env.SEARCHAPI_KEY;
   if (!apiKey) return [];
 
   const params = new URLSearchParams({
-    engine: 'meta_ad_library',
-    q: companyName,
+    engine: 'linkedin_ad_library',
+    advertiser: companyName,
     api_key: apiKey,
   });
 
@@ -286,7 +404,63 @@ export async function searchMetaAds(
         Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
     );
   } catch {
-    // Meta ad library endpoint may not be available
+    return [];
+  }
+}
+
+/**
+ * Meta Ads: two-step advertiser-first lookup.
+ * 1. Search for the company page via meta_ad_library_page_search → get page_id
+ * 2. Fetch ads from that page via meta_ad_library with page_id filter
+ */
+export async function searchMetaAds(
+  companyName: string,
+  domain?: string,
+): Promise<SearchApiAdRecord[]> {
+  const apiKey = process.env.SEARCHAPI_KEY;
+  if (!apiKey) return [];
+
+  const BASE = 'https://www.searchapi.io/api/v1/search';
+
+  try {
+    // Step 1: Find the page
+    const pageSearchParams = new URLSearchParams({
+      engine: 'meta_ad_library_page_search',
+      q: companyName,
+      api_key: apiKey,
+    });
+    const pagePayload = await fetchJson(`${BASE}?${pageSearchParams.toString()}`);
+
+    const pageResults = Array.isArray((pagePayload as { page_results?: unknown[] }).page_results)
+      ? (pagePayload as { page_results: unknown[] }).page_results as Array<{ name?: string; page_id?: string; likes?: number }>
+      : [];
+
+    // Pick best page match using Jaro-Winkler with tiebreaker
+    const match = pickBestCandidate(
+      pageResults.map(p => ({ name: p.name ?? '', id: p.page_id ?? '', entity: p })),
+      companyName,
+      domain,
+    );
+
+    if (!match) return [];
+
+    // Step 2: Fetch ads from the matched page
+    const adParams = new URLSearchParams({
+      engine: 'meta_ad_library',
+      page_id: match.id,
+      country: 'US',
+      api_key: apiKey,
+    });
+    const adPayload = await fetchJson(`${BASE}?${adParams.toString()}`);
+    const ads = Array.isArray((adPayload as { ads?: unknown[] }).ads)
+      ? (adPayload as { ads: unknown[] }).ads
+      : [];
+
+    return ads.filter(
+      (ad): ad is SearchApiAdRecord =>
+        Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
+    );
+  } catch {
     return [];
   }
 }
@@ -399,11 +573,8 @@ export function normalizeSearchApiToCreatives(
 ): WorkerAdCreative[] {
   return records
     .filter((record) => {
-      // LinkedIn SearchAPI returns keyword-matched ads (ads in the competitive space),
-      // NOT ads BY the company. Skip advertiser matching for LinkedIn.
-      if (sourcePlatform === 'linkedin') return true;
-
-      // For Meta/Google, verify the advertiser matches the target company
+      // With advertiser-first lookup, all platforms now return targeted results.
+      // Still apply advertiser matching as a safety net.
       const advertiserName =
         record.advertiser_name ??
         record.page_name ??                          // Meta top-level
@@ -453,6 +624,7 @@ export function normalizeSearchApiToCreatives(
         snap?.cards?.[0]?.original_image_url,
         snap?.videos?.[0]?.video_preview_image_url,
         content?.image,
+        record.advertiser?.thumbnail,
       ]);
 
       // Extract video URL
@@ -508,6 +680,23 @@ export function normalizeSearchApiToCreatives(
         lastSeen,
         detailsUrl,
       };
+    })
+    .filter((creative) => {
+      // Quality gate: reject ads with unresolved template variables or no content.
+      // Meta DCO ads contain {{product.name}}, {{product.brand}}, etc. — raw templates
+      // that were never rendered. These are useless to show.
+      const hasTemplate = /\{\{[^}]+\}\}/.test(creative.headline ?? '') ||
+        /\{\{[^}]+\}\}/.test(creative.body ?? '') ||
+        /\{\{[^}]+\}\}/.test(creative.advertiser ?? '');
+      if (hasTemplate) return false;
+
+      // Reject ads with no meaningful content — no headline AND no body AND no image
+      const hasText = (creative.headline && creative.headline.trim().length > 3) ||
+        (creative.body && creative.body.trim().length > 10);
+      const hasMedia = !!creative.imageUrl || !!creative.videoUrl;
+      if (!hasText && !hasMedia) return false;
+
+      return true;
     });
 }
 
@@ -674,11 +863,11 @@ export const adLibraryTool = betaZodTool({
   }),
   run: async ({ companyName, domain }) => {
     try {
-      // Fetch from all platforms in parallel
+      // Fetch from all platforms in parallel using advertiser-first lookup
       const [googleAds, linkedInAds, metaAds] = await Promise.all([
-        searchGoogleAds(companyName).catch(() => [] as SearchApiAdRecord[]),
-        searchLinkedInAds(companyName).catch(() => [] as SearchApiAdRecord[]),
-        searchMetaAds(companyName).catch(() => [] as SearchApiAdRecord[]),
+        searchGoogleAds(companyName, domain).catch(() => [] as SearchApiAdRecord[]),
+        searchLinkedInAds(companyName, domain).catch(() => [] as SearchApiAdRecord[]),
+        searchMetaAds(companyName, domain).catch(() => [] as SearchApiAdRecord[]),
       ]);
 
       const totalSearchApi = googleAds.length + linkedInAds.length + metaAds.length;

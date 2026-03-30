@@ -329,12 +329,12 @@ export function CompetitorAdEvidence({
   adCreatives,
   libraryLinks,
 }: CompetitorAdEvidenceProps) {
-  // Deduplicate ads by id, then by headline+platform combo for ads without unique IDs
+  // Deduplicate ads by content fingerprint (NOT by id — Meta assigns unique IDs to identical ads)
   const displayedCreatives = (() => {
     if (!adCreatives) return [];
     const seen = new Set<string>();
     return adCreatives.filter((c) => {
-      const key = c.id || `${c.platform}-${c.headline ?? ''}-${c.imageUrl ?? ''}`;
+      const key = `${c.platform}|${(c.headline ?? '').slice(0, 80).toLowerCase()}|${(c.body ?? '').slice(0, 50).toLowerCase()}|${c.imageUrl ?? ''}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

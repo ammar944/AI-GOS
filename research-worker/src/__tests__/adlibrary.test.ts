@@ -29,8 +29,8 @@ describe('isAdvertiserMatch', () => {
     expect(isAdvertiserMatch('AR Funnel.io', 'Funnel.io')).toBe(false);
   });
 
-  it('keeps records without advertiser name (no filter possible)', () => {
-    expect(isAdvertiserMatch(undefined, 'Funnel.io')).toBe(true);
+  it('rejects records without advertiser name (no name = not verified)', () => {
+    expect(isAdvertiserMatch(undefined, 'Funnel.io')).toBe(false);
   });
 });
 

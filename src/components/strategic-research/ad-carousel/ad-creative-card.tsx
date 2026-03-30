@@ -436,7 +436,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
             <Button
               variant="outline"
               size="lg"
-              onClick={() => window.open(ad.videoUrl, '_blank', 'noopener,noreferrer')}
+              onClick={() => ad.videoUrl && window.open(ad.videoUrl, '_blank', 'noopener,noreferrer')}
               className="h-11 w-11 p-0"
               style={{
                 backgroundColor: 'var(--bg-hover)',
@@ -452,7 +452,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
             <Button
               variant="outline"
               size="lg"
-              onClick={() => window.open(ad.imageUrl, '_blank', 'noopener,noreferrer')}
+              onClick={() => ad.imageUrl && window.open(ad.imageUrl, '_blank', 'noopener,noreferrer')}
               className="h-11 w-11 p-0"
               style={{
                 backgroundColor: 'var(--bg-hover)',
@@ -472,7 +472,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
             <Button
               variant="outline"
               size="lg"
-              onClick={() => window.open(ad.foreplay?.landing_page_url, '_blank', 'noopener,noreferrer')}
+              onClick={() => ad.foreplay?.landing_page_url && window.open(ad.foreplay.landing_page_url, '_blank', 'noopener,noreferrer')}
               className="h-11 w-11 p-0"
               style={{
                 backgroundColor: 'var(--bg-hover)',
