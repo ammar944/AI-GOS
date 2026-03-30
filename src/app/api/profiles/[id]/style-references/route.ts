@@ -18,20 +18,38 @@ export async function PUT(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { styleReferences } = body as { styleReferences?: unknown };
+  const { styleReferences, proofPoints } = body as {
+    styleReferences?: unknown;
+    proofPoints?: unknown;
+  };
 
-  if (!Array.isArray(styleReferences)) {
-    return NextResponse.json({ error: 'styleReferences must be an array' }, { status: 400 });
+  // Build update payload — only include fields that were sent
+  const update: Record<string, unknown> = {};
+  if (styleReferences !== undefined) {
+    if (!Array.isArray(styleReferences)) {
+      return NextResponse.json({ error: 'styleReferences must be an array' }, { status: 400 });
+    }
+    update.style_references = styleReferences;
+  }
+  if (proofPoints !== undefined) {
+    if (!Array.isArray(proofPoints)) {
+      return NextResponse.json({ error: 'proofPoints must be an array' }, { status: 400 });
+    }
+    update.proof_points = proofPoints;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
 
   const supabase = createAdminClient();
   const { error } = await supabase
     .from('business_profiles')
-    .update({ style_references: styleReferences })
+    .update(update)
     .eq('id', profileId)
     .eq('user_id', userId);
 
   if (error) return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
 
-  return NextResponse.json({ styleReferences });
+  return NextResponse.json({ styleReferences, proofPoints });
 }

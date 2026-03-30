@@ -41,6 +41,15 @@ export interface StyleReference {
   source: string;
 }
 
+export interface ProofPoint {
+  id: string;
+  type: 'case_study' | 'testimonial' | 'metric' | 'credential';
+  headline: string;
+  detail: string;
+  clientName?: string;
+  verified: boolean;
+}
+
 export interface BusinessProfile {
   id: string;
   userId: string;
@@ -66,6 +75,7 @@ export interface BusinessProfile {
   offerScore: Record<string, unknown> | null;
   positioningStrategy: Record<string, unknown> | null;
   styleReferences: StyleReference[] | null;
+  proofPoints: ProofPoint[];
   lastResearchAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -385,6 +395,7 @@ function mapRow(row: Record<string, unknown>): BusinessProfile {
     offerScore: (row.offer_score as Record<string, unknown>) ?? null,
     positioningStrategy: (row.positioning_strategy as Record<string, unknown>) ?? null,
     styleReferences: (row.style_references as StyleReference[]) ?? null,
+    proofPoints: (row.proof_points as ProofPoint[]) ?? [],
     lastResearchAt: (row.last_research_at as string) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,

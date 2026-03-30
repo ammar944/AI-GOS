@@ -344,14 +344,8 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
 });
 
 // -- Ad Scripts ---------------------------------------------------------------
-app.post('/api/scripts', async (req: express.Request, res: express.Response) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${process.env.RAILWAY_API_KEY}`) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
-  const { packId, profileId, sessionId, userId, companyName, researchContext, styleReferences } = req.body;
+app.post('/api/scripts', requireApiKey, async (req: express.Request, res: express.Response) => {
+  const { packId, profileId, sessionId, userId, companyName, researchContext, styleReferences, proofPoints } = req.body;
 
   if (!packId || !profileId || !userId || !researchContext) {
     res.status(400).json({ error: 'Missing required fields' });
@@ -366,6 +360,7 @@ app.post('/api/scripts', async (req: express.Request, res: express.Response) => 
     researchContext,
     styleReferences: styleReferences ?? [],
     targetAudience: researchContext.targetAudience ?? 'target audience',
+    proofPoints: proofPoints ?? [],
   };
 
   void (async () => {
@@ -387,8 +382,12 @@ app.post('/api/scripts', async (req: express.Request, res: express.Response) => 
       await writeScriptPackUpdate(packId, {
         scripts: JSON.stringify(result.scripts),
         status: 'complete',
+        ...(result.diversity ? {
+          diversity_score: result.diversity.diversityScore,
+          diversity_flags: JSON.stringify(result.diversity.flags),
+        } : {}),
       });
-      console.log(`[ad-scripts] Completed: ${result.summary.totalScripts} scripts for pack ${packId}`);
+      console.log(`[ad-scripts] Completed: ${result.summary.totalScripts} scripts for pack ${packId}${result.diversity ? ` (diversity: ${result.diversity.diversityScore}/10)` : ''}`);
     } catch (err) {
       console.error(`[ad-scripts] Failed for pack ${packId}:`, err);
       await writeScriptPackUpdate(packId, {

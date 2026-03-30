@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   // Fetch profile
   const { data: profile, error: profileErr } = await supabase
     .from('business_profiles')
-    .select('id, company_name, style_references')
+    .select('id, company_name, style_references, proof_points')
     .eq('id', profileId)
     .eq('user_id', userId)
     .single();
@@ -41,7 +41,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Research session not found' }, { status: 404 });
   }
 
-  const trimmed = trimResearchForScripts(session.research_results as Record<string, { data?: unknown }>);
+  // Only pass completed research sections — ignore in-progress or failed ones
+  const rawResults = session.research_results as Record<string, { data?: unknown; status?: string }>;
+  const completedResults: Record<string, { data?: unknown }> = {};
+  for (const [key, value] of Object.entries(rawResults)) {
+    if (value && value.status === 'complete' && value.data) {
+      completedResults[key] = value;
+    }
+  }
+
+  if (Object.keys(completedResults).length === 0) {
+    return NextResponse.json({ error: 'No completed research sections found' }, { status: 400 });
+  }
+
+  const trimmed = trimResearchForScripts(completedResults);
 
   // Create script_packs row
   const { data: pack, error: packErr } = await supabase
@@ -60,30 +73,45 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create script pack' }, { status: 500 });
   }
 
-  // Dispatch to Railway worker (fire-and-forget)
+  // Dispatch to worker — await acknowledgment so we can surface failures immediately
   const workerUrl = process.env.RAILWAY_WORKER_URL;
   if (!workerUrl) {
-    return NextResponse.json({ error: 'RAILWAY_WORKER_URL not configured' }, { status: 500 });
+    await supabase.from('script_packs').update({ status: 'error', error_message: 'RAILWAY_WORKER_URL not configured' }).eq('id', pack.id);
+    return NextResponse.json({ error: 'Worker not configured — check RAILWAY_WORKER_URL' }, { status: 500 });
   }
 
-  fetch(`${workerUrl}/api/scripts`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.RAILWAY_API_KEY}`,
-    },
-    body: JSON.stringify({
-      packId: pack.id,
-      profileId,
-      sessionId: session.id,
-      userId,
-      companyName: profile.company_name,
-      researchContext: trimmed,
-      styleReferences: profile.style_references ?? [],
-    }),
-  }).catch((err) => {
-    console.error('[scripts/generate] Dispatch failed:', err);
-  });
+  try {
+    const workerRes = await fetch(`${workerUrl}/api/scripts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.RAILWAY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        packId: pack.id,
+        profileId,
+        sessionId: session.id,
+        userId,
+        companyName: profile.company_name,
+        researchContext: trimmed,
+        styleReferences: profile.style_references ?? [],
+        proofPoints: profile.proof_points ?? [],
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!workerRes.ok) {
+      const errText = await workerRes.text().catch(() => 'Unknown error');
+      console.error(`[scripts/generate] Worker rejected: ${workerRes.status} ${errText}`);
+      await supabase.from('script_packs').update({ status: 'error', error_message: `Worker error: ${workerRes.status}` }).eq('id', pack.id);
+      return NextResponse.json({ error: `Worker rejected the request (${workerRes.status})` }, { status: 502 });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[scripts/generate] Dispatch failed:', msg);
+    await supabase.from('script_packs').update({ status: 'error', error_message: `Dispatch failed: ${msg}` }).eq('id', pack.id);
+    return NextResponse.json({ error: `Could not reach worker: ${msg}` }, { status: 502 });
+  }
 
   return NextResponse.json({ packId: pack.id, status: 'generating' });
 }

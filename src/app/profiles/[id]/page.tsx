@@ -28,7 +28,7 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: 'overview', label: 'OVERVIEW', icon: FileText },
   { id: 'research', label: 'RESEARCH', icon: FlaskConical },
   { id: 'scripts', label: 'SCRIPTS', icon: Sparkles },
-  { id: 'style-refs', label: 'STYLE REFS', icon: Palette },
+  { id: 'style-refs', label: 'ASSETS', icon: Palette },
 ];
 
 function formatDate(dateString: string): string {
@@ -106,7 +106,13 @@ export default function ProfileDetailPage() {
     if (activeTab !== 'scripts' || !profile?.id) return;
 
     if (sessions.length > 0 && !latestSessionRunId) {
-      setLatestSessionRunId(sessions[0].runId);
+      // Pick the most complete session (highest section count), breaking ties by most recent
+      const best = [...sessions].sort((a, b) =>
+        b.sectionCount !== a.sectionCount
+          ? b.sectionCount - a.sectionCount
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0];
+      setLatestSessionRunId(best.runId);
     }
 
     fetch(`/api/profiles/${profile.id}/script-packs`)
@@ -114,10 +120,17 @@ export default function ProfileDetailPage() {
       .then(({ packs }) => {
         if (packs?.length > 0) {
           const p = packs[0];
-          setLatestPack({
-            id: p.id,
-            scripts: typeof p.scripts === 'string' ? JSON.parse(p.scripts) : p.scripts,
-          });
+          // Skip stale packs stuck in 'generating' for over 5 minutes
+          const scripts = typeof p.scripts === 'string' ? JSON.parse(p.scripts) : p.scripts;
+          const isStale =
+            p.status === 'generating' &&
+            (!scripts || scripts.length === 0) &&
+            Date.now() - new Date(p.created_at).getTime() > 5 * 60 * 1000;
+          if (isStale) return;
+
+          if (p.status === 'complete' || (scripts && scripts.length > 0)) {
+            setLatestPack({ id: p.id, scripts });
+          }
         }
       })
       .catch(() => {});
@@ -216,6 +229,7 @@ export default function ProfileDetailPage() {
           {activeTab === 'scripts' && (
             latestSessionRunId ? (
               <ScriptPackViewer
+                key={latestPack?.id ?? 'no-pack'}
                 profileId={profile.id}
                 sessionId={latestSessionRunId}
                 initialScripts={latestPack?.scripts}
@@ -232,6 +246,7 @@ export default function ProfileDetailPage() {
             <StyleRefsTab
               profileId={profile.id}
               initialRefs={profile.styleReferences}
+              initialProofPoints={profile.proofPoints}
             />
           )}
         </div>

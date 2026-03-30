@@ -977,7 +977,10 @@ function JourneyPageContent() {
             section,
             data: result.data,
           }),
-        }).catch(() => {/* fire-and-forget */});
+        })
+          .then((r) => r.json())
+          .then((j) => console.log(`[insights] ${section}:`, j))
+          .catch((e) => console.warn(`[insights] ${section} failed:`, e));
       }
 
       if (result.status !== 'complete') {

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIGOS Ad Scripting Engine</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; color: #e5e5e5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 40px 20px; }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; color: #fff; }
+  .subtitle { font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; color: #666; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+  .header { margin-bottom: 40px; border-bottom: 1px solid #1a1a2e; padding-bottom: 24px; }
+
+  .section { margin-bottom: 16px; border: 1px solid #1a1a2e; border-radius: 10px; overflow: hidden; background: #0d0d14; }
+  .section-header { padding: 16px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; transition: background 0.15s; }
+  .section-header:hover { background: #12121c; }
+  .section-title { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 10px; }
+  .section-num { font-family: monospace; font-size: 11px; background: #3b82f6; color: #fff; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+  .chevron { transition: transform 0.25s; color: #555; font-size: 18px; }
+  .section.open .chevron { transform: rotate(90deg); }
+  .section-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+  .section.open .section-body { max-height: 3000px; }
+  .section-content { padding: 0 20px 20px; }
+
+  .flow { display: flex; flex-direction: column; gap: 0; align-items: center; }
+  .flow-step { background: #12121c; border: 1px solid #1e1e32; border-radius: 8px; padding: 12px 18px; width: 100%; max-width: 700px; }
+  .flow-step .label { font-size: 10px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.06em; color: #3b82f6; margin-bottom: 4px; }
+  .flow-step .desc { font-size: 13px; color: #ccc; }
+  .flow-step code { background: #1a1a2e; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: #8b9cf7; font-family: monospace; }
+  .flow-arrow { color: #333; font-size: 20px; line-height: 1; padding: 4px 0; }
+  .flow-step.hl { border-color: #3b82f6; background: #0f1629; }
+
+  .pipeline { display: flex; gap: 12px; margin: 16px 0; flex-wrap: wrap; }
+  .pass-card { flex: 1; min-width: 200px; background: #12121c; border: 1px solid #1e1e32; border-radius: 8px; padding: 14px; }
+  .pass-card h4 { font-size: 13px; font-weight: 700; color: #3b82f6; margin-bottom: 8px; font-family: monospace; }
+  .pass-card p, .pass-card li { font-size: 12px; color: #aaa; }
+  .pass-card ul { padding-left: 16px; margin-top: 6px; }
+  .pass-card li { margin-bottom: 3px; }
+  .pass-card.p1 { border-top: 3px solid #22c55e; }
+  .pass-card.p2 { border-top: 3px solid #f59e0b; }
+  .pass-card.p3 { border-top: 3px solid #8b5cf6; }
+
+  .levels { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+  .level { padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; font-family: monospace; background: #1a1a2e; color: #8b9cf7; border: 1px solid #252540; flex: 1; text-align: center; min-width: 100px; }
+  .level span { display: block; font-size: 10px; color: #666; font-weight: 400; margin-top: 2px; }
+
+  .data-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .data-table th { text-align: left; font-size: 10px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.06em; color: #3b82f6; padding: 8px 12px; border-bottom: 1px solid #1e1e32; }
+  .data-table td { padding: 8px 12px; font-size: 13px; color: #bbb; border-bottom: 1px solid #111; vertical-align: top; }
+  .data-table td:first-child { color: #8b9cf7; font-family: monospace; font-size: 12px; white-space: nowrap; }
+
+  .quality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+  .q-card { background: #12121c; border: 1px solid #1e1e32; border-radius: 8px; padding: 12px; }
+  .q-card h4 { font-size: 12px; font-weight: 700; color: #f59e0b; margin-bottom: 6px; }
+  .q-card p { font-size: 12px; color: #999; }
+  @media (max-width: 600px) { .quality-grid { grid-template-columns: 1fr; } }
+
+  .schema-table { background: #12121c; border: 1px solid #1e1e32; border-radius: 8px; padding: 14px; margin: 10px 0; }
+  .schema-table h4 { font-size: 13px; font-family: monospace; color: #22c55e; margin-bottom: 8px; }
+  .schema-table .col { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #111; font-size: 12px; }
+  .schema-table .col:last-child { border: none; }
+  .schema-table .col-name { font-family: monospace; color: #8b9cf7; }
+  .schema-table .col-type { font-family: monospace; color: #666; }
+
+  .tag { display: inline-block; font-size: 10px; font-family: monospace; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .tag-green { background: #22c55e20; color: #22c55e; }
+  .tag-amber { background: #f59e0b20; color: #f59e0b; }
+  .tag-purple { background: #8b5cf620; color: #8b5cf6; }
+
+  .note { font-size: 12px; color: #666; font-style: italic; margin-top: 10px; padding: 10px; background: #0a0a12; border-radius: 6px; border-left: 3px solid #3b82f6; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>AIGOS Ad Scripting Engine</h1>
+    <div class="subtitle">Architecture Overview &mdash; Internal Technical Reference</div>
+  </div>
+
+  <!-- 1 -->
+  <div class="section open" id="s1">
+    <div class="section-header" onclick="toggle('s1')">
+      <div class="section-title"><span class="section-num">1</span> High-Level Flow</div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="section-body"><div class="section-content">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="label">Frontend &mdash; Profile &gt; Scripts Tab</div>
+          <div class="desc">User clicks <strong>"Generate New Batch"</strong>. Frontend selects the <strong>most complete</strong> research session (highest section count, not just most recent).</div>
+        </div>
+        <div class="flow-arrow">&#x25BC;</div>
+        <div class="flow-step hl">
+          <div class="label">API &mdash; POST /api/scripts/generate</div>
+          <div class="desc">
+            Fetches profile (company, style refs, proof points) + research session.<br>
+            <strong>Filters to completed sections only</strong> (status === 'complete').<br>
+            Runs <code>trimResearchForScripts()</code> to extract priority data (~8k tokens).<br>
+            Creates <code>script_packs</code> row (status: generating).<br>
+            <strong>Awaits</strong> worker dispatch with 10s timeout. Returns error immediately if worker is down.
+          </div>
+        </div>
+        <div class="flow-arrow">&#x25BC;</div>
+        <div class="flow-step hl">
+          <div class="label">Worker &mdash; POST /api/scripts (Railway)</div>
+          <div class="desc">
+            Responds 202 immediately. Runs async:<br>
+            Loops <strong>5 awareness levels</strong> &times; (<strong>Pass 1</strong> draft + <strong>Pass 2</strong> humanize).<br>
+            <strong>Progressive Supabase writes</strong> after each level (3, 6, 9, 12, 15 scripts).<br>
+            After all levels: <strong>Pass 3</strong> batch diversity validator.<br>
+            Final write: status = complete + diversity_score + diversity_flags.
+          </div>
+        </div>
+        <div class="flow-arrow">&#x25BC;</div>
+        <div class="flow-step">
+          <div class="label">Frontend &mdash; Realtime Polling</div>
+          <div class="desc">
+            <code>useScriptPackRealtime</code> polls <code>GET /api/scripts/{packId}</code> every <strong>2 seconds</strong>.<br>
+            Scripts appear progressively as each awareness level completes.<br>
+            Stale detection: if generating with 0 scripts for &gt;5 min, shows timeout error.<br>
+            On complete: loads diversity flags + score into the UI.
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 2 -->
+  <div class="section" id="s2">
+    <div class="section-header" onclick="toggle('s2')">
+      <div class="section-title"><span class="section-num">2</span> 3-Pass Generation Pipeline</div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="section-body"><div class="section-content">
+      <p style="font-size:13px;color:#999;margin-bottom:12px;">Each awareness level runs Pass 1 + Pass 2 sequentially. Pass 3 runs once after all levels.</p>
+      <div class="levels">
+        <div class="level">Unaware <span>Long copy, story-driven</span></div>
+        <div class="level">Problem <span>Name the pain</span></div>
+        <div class="level">Solution <span>Position vs alternatives</span></div>
+        <div class="level">Product <span>Handle objections</span></div>
+        <div class="level">Most Aware <span>Offer-forward, short</span></div>
+      </div>
+      <div class="pipeline">
+        <div class="pass-card p1">
+          <h4>Pass 1: Draft <span class="tag tag-green">Sonnet 4.6</span></h4>
+          <p>Generate 3 scripts per level using:</p>
+          <ul>
+            <li>Trimmed research context (~8k tokens)</li>
+            <li>ICP monologue triggers (Collier framework)</li>
+            <li>Proof points (or "NO PROOF" directive)</li>
+            <li>Style references from winning ads</li>
+            <li>Platform specs (from platform-specs.md)</li>
+            <li>Ad copy templates (from ad-copy-templates.md)</li>
+            <li>6 DR frameworks (Schwartz, Hopkins, Ogilvy, Caples, Sugarman, Collier)</li>
+            <li>Angle dedup from previous levels</li>
+            <li>Kill list (17 phrases, 22 words, 8 structures)</li>
+          </ul>
+        </div>
+        <div class="pass-card p2">
+          <h4>Pass 2: Humanize <span class="tag tag-amber">43 Checks</span></h4>
+          <p>Ruthless AI-copy editor audit:</p>
+          <ul>
+            <li><strong>7</strong> Content checks (inflation, name-dropping, vague attributions...)</li>
+            <li><strong>7</strong> Language checks (AI vocab tiers, copula, template phrases...)</li>
+            <li><strong>11</strong> Structure checks (em dash audit, sentence rhythm, uniform paragraphs...)</li>
+            <li><strong>13</strong> Communication checks (chatbot closers, "let's" constructions...)</li>
+            <li><strong>5</strong> Ad-specific checks (weak hooks, feature-first, missing specificity...)</li>
+          </ul>
+          <p style="margin-top:8px;">Then a <strong>second pass</strong> catches survivors from the rewrite itself.</p>
+        </div>
+        <div class="pass-card p3">
+          <h4>Pass 3: Diversity <span class="tag tag-purple">Batch Review</span></h4>
+          <p>After all 15 scripts, AI creative director reviews:</p>
+          <ul>
+            <li>Angle diversity (duplicate angle pairs)</li>
+            <li>Hook diversity (similar language)</li>
+            <li>Format coverage (video, static, email)</li>
+            <li>Platform coverage (Meta, Google, LinkedIn)</li>
+            <li>CTA variety</li>
+          </ul>
+          <p style="margin-top:8px;">Outputs: <strong>diversity score</strong> (0-10) + <strong>flags</strong> shown in UI.</p>
+        </div>
+      </div>
+      <div class="note">Total per batch: 10 AI calls (5 levels &times; 2 passes) + 1 diversity call = <strong>11 Sonnet 4.6 calls</strong>. ~3 min timeout per call. Progressive writes after each level.</div>
+    </div></div>
+  </div>
+
+  <!-- 3 -->
+  <div class="section" id="s3">
+    <div class="section-header" onclick="toggle('s3')">
+      <div class="section-title"><span class="section-num">3</span> Research &rarr; Scripts Data Flow</div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="section-body"><div class="section-content">
+      <p style="font-size:13px;color:#999;margin-bottom:12px;"><code>trimResearchForScripts()</code> extracts priority data from completed research sections. Token budget: ~8,000 tokens.</p>
+      <table class="data-table">
+        <thead><tr><th>Priority</th><th>Data</th><th>Tokens</th></tr></thead>
+        <tbody>
+          <tr><td>P1 (full)</td><td>ICP Validation + Offer Analysis</td><td>~3,000</td></tr>
+          <tr><td>P2 (summary)</td><td>Top 3 competitors + Top 10 keywords</td><td>~2,000</td></tr>
+          <tr><td>P2b (intel)</td><td>Positioning moves (3), audience refinements (3), market opportunities (3), top actions (5)</td><td>~500</td></tr>
+          <tr><td>P3 (headlines)</td><td>Industry snapshot, key insights (5), media plan budget</td><td>~1,500</td></tr>
+          <tr><td>Monologue</td><td>ICP triggers (max 5) &mdash; Collier "conversation already in their head"</td><td>~200</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:13px;color:#999;margin:14px 0 6px;">Additional inputs (not from research_results):</p>
+      <table class="data-table">
+        <thead><tr><th>Source</th><th>Data</th><th>Location</th></tr></thead>
+        <tbody>
+          <tr><td>business_profiles</td><td>Style references (winning ad examples)</td><td>style_references JSONB</td></tr>
+          <tr><td>business_profiles</td><td>Proof points (case studies, testimonials, metrics)</td><td>proof_points JSONB</td></tr>
+          <tr><td>Ref files</td><td>Platform creative specifications (all platforms)</td><td>platform-specs.md</td></tr>
+          <tr><td>Ref files</td><td>Ad copy templates &amp; formulas (PAS, BAB, AIDA...)</td><td>ad-copy-templates.md</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><strong>Completeness filter:</strong> Only sections with <code>status === 'complete'</code> are passed. If zero sections are complete, generation returns a 400 error.</div>
+    </div></div>
+  </div>
+
+  <!-- 4 -->
+  <div class="section" id="s4">
+    <div class="section-header" onclick="toggle('s4')">
+      <div class="section-title"><span class="section-num">4</span> Assets Pipeline (Proof Points + Style Refs)</div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="section-body"><div class="section-content">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="label">User Input &mdash; Assets Tab</div>
+          <div class="desc"><strong>Style References:</strong> Paste winning ads, scripts, or hooks. Name + source URL + full copy text.<br><strong>Proof Points:</strong> Type (Case Study / Testimonial / Metric / Credential) + headline + detail + client name + verified toggle.</div>
+        </div>
+        <div class="flow-arrow">&#x25BC;</div>
+        <div class="flow-step">
+          <div class="label">Persistence &mdash; PUT /api/profiles/{id}/style-references</div>
+          <div class="desc">Saves to <code>business_profiles.style_references</code> and <code>business_profiles.proof_points</code> (both JSONB). Same endpoint handles both.</div>
+        </div>
+        <div class="flow-arrow">&#x25BC;</div>
+        <div class="flow-step">
+          <div class="label">Generation &mdash; Injected into Pass 1 Prompt</div>
+          <div class="desc">
+            <strong>Style refs:</strong> "STYLE REFERENCES" section &mdash; AI must match voice, cadence, rhythm.<br>
+            <strong>Proof points:</strong> "AVAILABLE PROOF" section with type, headline, detail, client name.<br>
+            <strong>No proof?</strong> <em>"NO VERIFIED PROOF AVAILABLE. Do not fabricate. Flag claims needing proof in flaggedClaims."</em>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 5 -->
+  <div class="section" id="s5">
+    <div class="section-header" onclick="toggle('s5')">
+      <div class="section-title"><span class="section-num">5</span> Quality Controls</div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="section-body"><div class="section-content">
+      <div class="quality-grid">
+        <div class="q-card">
+          <h4>43-Check Audit (Pass 2)</h4>
+          <p>7 content + 7 language + 11 structure + 13 communication + 5 ad-specific. Every script gets two sub-passes: fix, then catch survivors from the rewrite.</p>
+        </div>
+        <div class="q-card">
+          <h4>Em Dash Kill</h4>
+          <p>Target: <strong>zero em dashes</strong> per batch. The single most visible AI fingerprint in ad copy.</p>
+        </div>
+        <div class="q-card">
+          <h4>Sentence Rhythm</h4>
+          <p>Every script must have at least one sentence under 5 words AND one over 25 words. Flat rhythm = robotic.</p>
+        </div>
+        <div class="q-card">
+          <h4>Angle Dedup</h4>
+          <p>Tracks used angles + hooks across levels. Each new level must choose different angles. Min 2/3 unique per level.</p>
+        </div>
+        <div class="q-card">
+          <h4>Proof Grounding</h4>
+          <p>Every claim must cite a research section. Unverifiable claims go into <code>flaggedClaims</code>. No fabrication.</p>
+        </div>
+        <div class="q-card">
+          <h4>Diversity Score (Pass 3)</h4>
+          <p>AI creative director rates 0-10 for angle/hook/format/platform/CTA variety. Flags shown as "Batch Review Notes".</p>
+        </div>
+        <div class="q-card">
+          <h4>Kill List</h4>
+          <p>17 banned phrases, 22 word replacements (leverage&rarr;use, streamline&rarr;simplify...), 8 structural bans.</p>
+        </div>
+        <div class="q-card">
+          <h4>AI Vocabulary Tiers</h4>
+          <p><strong>Tier 1:</strong> Always replace (additionally, crucial, landscape, delve...). <strong>Tier 2:</strong> Replace if &gt;1/script. <strong>Tier 3:</strong> Replace if 3+ in one piece.</p>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 6 -->
+  <div class="section" id="s6">
+    <div class="section-header" onclick="toggle('s6')">
+      <div class="section-title"><span class="section-num">6</span> Database Schema</div>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="section-body"><div class="section-content">
+      <div class="schema-table">
+        <h4>script_packs</h4>
+        <div class="col"><span class="col-name">id</span><span class="col-type">UUID PK</span></div>
+        <div class="col"><span class="col-name">profile_id</span><span class="col-type">UUID FK &rarr; business_profiles</span></div>
+        <div class="col"><span class="col-name">session_id</span><span class="col-type">UUID FK &rarr; journey_sessions</span></div>
+        <div class="col"><span class="col-name">user_id</span><span class="col-type">TEXT</span></div>
+        <div class="col"><span class="col-name">status</span><span class="col-type">TEXT (generating | partial | complete | error)</span></div>
+        <div class="col"><span class="col-name">scripts</span><span class="col-type">JSONB &mdash; stringified AdScript[]</span></div>
+        <div class="col"><span class="col-name">style_references_snapshot</span><span class="col-type">JSONB &mdash; frozen at generation time</span></div>
+        <div class="col"><span class="col-name">diversity_score</span><span class="col-type">NUMERIC (0-10)</span></div>
+        <div class="col"><span class="col-name">diversity_flags</span><span class="col-type">JSONB &mdash; string[]</span></div>
+        <div class="col"><span class="col-name">error_message</span><span class="col-type">TEXT</span></div>
+      </div>
+      <div class="schema-table">
+        <h4>business_profiles <span style="color:#666;font-weight:400;">(relevant columns only)</span></h4>
+        <div class="col"><span class="col-name">style_references</span><span class="col-type">JSONB &mdash; {name, content, source}[]</span></div>
+        <div class="col"><span class="col-name">proof_points</span><span class="col-type">JSONB &mdash; {id, type, headline, detail, clientName?, verified}[]</span></div>
+      </div>
+      <div class="schema-table">
+        <h4>journey_sessions <span style="color:#666;font-weight:400;">(relevant columns only)</span></h4>
+        <div class="col"><span class="col-name">run_id</span><span class="col-type">TEXT &mdash; frontend uses this as sessionId</span></div>
+        <div class="col"><span class="col-name">profile_id</span><span class="col-type">UUID FK &rarr; business_profiles</span></div>
+        <div class="col"><span class="col-name">research_results</span><span class="col-type">JSONB &mdash; {sectionKey: {status, data}}. Only 'complete' sections used.</span></div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<script>
+function toggle(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+</script>
+</body>
+</html>

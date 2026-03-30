@@ -283,7 +283,7 @@ export async function writeJobStatus(
 /** Write progressive script pack updates to the script_packs table. */
 export async function writeScriptPackUpdate(
   packId: string,
-  update: { scripts?: unknown; status?: string; error_message?: string },
+  update: { scripts?: unknown; status?: string; error_message?: string; diversity_score?: number; diversity_flags?: string },
 ): Promise<void> {
   await withSupabaseRetry(async () => {
     const client = getClient();

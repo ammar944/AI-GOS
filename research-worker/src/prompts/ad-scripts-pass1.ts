@@ -5,7 +5,59 @@ export function buildPass1Prompt(opts: {
   trimmedResearchContext: string;
   styleReferences: string | null;
   targetAudience: string;
+  targetAudienceMonologue?: string[];
+  usedAnglesAndHooks?: { angle: string; hook: string }[];
+  platformSpecs?: string;
+  adCopyTemplates?: string;
+  proofPoints?: Array<{ type: string; headline: string; detail: string; clientName?: string; verified: boolean }>;
+  usedProofPoints?: Map<string, number>;
+  competitorAdIntel?: Array<{
+    advertiser: string;
+    topAdHooks: string[];
+    adCreatives: Array<{ platform: string; headline?: string; body?: string; format: string }>;
+  }>;
+  researchStatsSubset?: Array<{ stat: string; source: string }>;
 }): { system: string; prompt: string } {
+  const proofSection = opts.proofPoints && opts.proofPoints.length > 0
+    ? `
+## AVAILABLE PROOF FOR THIS LEVEL (use these — do not fabricate)
+${opts.proofPoints.map(p => `[${p.type}] ${p.headline}: ${p.detail}${p.clientName ? ` — ${p.clientName}` : ''}`).join('\n')}
+${opts.usedProofPoints && opts.usedProofPoints.size > 0 ? `
+## PROOF USAGE NOTES
+The following proof points have been used in previous awareness levels:
+${Array.from(opts.usedProofPoints.entries()).map(([h, c]) => `- "${h}" (used ${c}x)`).join('\n')}
+
+Prefer proof points not yet used. If only one proof point is available for this level, use it in at most 1 of 3 scripts. Write benefit-driven copy without proof for the other scripts.
+` : ''}
+`
+    : `
+## AVAILABLE PROOF
+NO VERIFIED PROOF AVAILABLE. Do not fabricate case studies, testimonials, or specific client outcomes. Use research-grounded claims only. Flag any claim that would benefit from proof in the flaggedClaims output.
+`;
+
+  const researchStatsSection = opts.researchStatsSubset && opts.researchStatsSubset.length > 0
+    ? `
+## RESEARCH STATS FOR THIS LEVEL (rotate across batch)
+These specific data points are assigned to this awareness level. Use them to ground claims. Do NOT use stats from the general research context that are not listed here. Each level gets different stats to ensure variety across the batch.
+
+${opts.researchStatsSubset.map(s => `- "${s.stat}" (source: ${s.source})`).join('\n')}
+
+If you need a stat not listed above, describe the claim qualitatively instead of citing a specific number. The same number appearing in every script across the batch is a quality failure.
+`
+    : '';
+
+  const anglesUsedSection = opts.usedAnglesAndHooks && opts.usedAnglesAndHooks.length > 0
+    ? `
+## ANGLES AND HOOKS ALREADY USED — DO NOT REPEAT
+The following angles and opening lines have been used in previous awareness levels.
+Choose DIFFERENT angles. Write hooks that sound NOTHING like these:
+
+${opts.usedAnglesAndHooks.map(a => `- [${a.angle}]: "${a.hook}"`).join('\n')}
+
+Minimum 2 of the 3 scripts in this level must use angles NOT in the list above.
+`
+    : '';
+
   const styleSection = opts.styleReferences
     ? `
 ## STYLE REFERENCES
@@ -27,10 +79,41 @@ Match their voice, cadence, and rhythm. Do NOT copy content — internalize the 
 Everything below is your source of truth — every claim MUST trace here. Do not invent statistics, testimonials, or outcomes. If the research doesn't support a claim, don't make it.
 
 ${opts.trimmedResearchContext}
+${opts.targetAudienceMonologue && opts.targetAudienceMonologue.length > 0
+    ? `
+## THE CONVERSATION ALREADY IN THEIR HEAD (Collier Framework)
+Your prospect is already having this internal conversation. Enter it, don't start a new one:
+${opts.targetAudienceMonologue.map(t => `- "${t}"`).join('\n')}
+
+Use these triggers as raw material for hooks and opening lines. The best hook mirrors what the founder is already thinking at 11pm on a Sunday.
+`
+    : ''}
+${proofSection}
+${researchStatsSection}
 ${styleSection}
+${opts.competitorAdIntel && opts.competitorAdIntel.length > 0
+    ? `
+## COMPETITOR AD INTELLIGENCE
+
+These are real ads your competitors are currently running. Study their hooks, angles, and messaging patterns. Your scripts must be BETTER than these, not similar. Use them to understand what the market is seeing, then differentiate.
+
+${opts.competitorAdIntel.map(c => `### ${c.advertiser}
+${c.topAdHooks.length > 0 ? `**Their top hooks:**\n${c.topAdHooks.map(h => `- "${h}"`).join('\n')}` : ''}
+${c.adCreatives.length > 0 ? `**Active ads:**\n${c.adCreatives.map(ad => `- [${ad.platform}/${ad.format}] ${ad.headline ? `"${ad.headline}"` : ''}${ad.body ? ` — ${ad.body.slice(0, 150)}` : ''}`).join('\n')}` : ''}`).join('\n\n')}
+
+RULES:
+- Do NOT copy competitor hooks or angles. Use them as counter-positioning intelligence.
+- If a competitor leads with price, lead with value. If they lead with features, lead with outcomes.
+- Reference competitor weaknesses found in the research when relevant (without naming them in the ad).
+`
+    : ''}
 ---
 
-## COPYWRITING FRAMEWORKS
+## COPYWRITING FRAMEWORKS REFERENCE
+${opts.adCopyTemplates ? `
+${opts.adCopyTemplates}
+` : ''}
+## DIRECT RESPONSE FRAMEWORKS (scripting-specific)
 
 Apply these frameworks. Do not reference them by name in the copy itself.
 
@@ -71,18 +154,18 @@ Each script uses ONE primary angle. Rotate across the batch — use 3 to 5 disti
 - **urgency**: Real scarcity or real deadlines only. Never manufactured. What actually changes if they wait?
 - **identity**: This is who we are, not what we do. Speaks to self-concept. "People like us do X."
 - **contrarian**: Challenge the dominant belief in the category. "Everyone tells you X. Here's why that's wrong."
-
+${anglesUsedSection}
 ---
 
-## PLATFORM CONSTRAINTS
+## PLATFORM SPECIFICATIONS (from platform-specs.md)
 
 Write to these specs exactly. Editors will paste directly into ad platforms.
 
-| Platform | Headline | Description | Primary / Body |
+${opts.platformSpecs || `| Platform | Headline | Description | Primary / Body |
 |----------|----------|-------------|----------------|
 | Meta | 40 characters max | 30 characters max | 125 characters visible before "See more" |
 | Google | 30 characters max per headline (up to 15 headlines) | 90 characters max per description (up to 4 descriptions) | Headlines and descriptions must work independently — any combination must make sense |
-| LinkedIn | 70 characters max | 100 characters max | 150 characters intro text |
+| LinkedIn | 70 characters max | 100 characters max | 150 characters intro text |`}
 
 ---
 
@@ -167,9 +250,21 @@ Never write any of the following. If you catch yourself reaching for them, stop 
 - Zero contractions: no human talks in perfect formal English — use contractions
 - Same paragraph length throughout: vary short and long intentionally
 - Answering questions the reader hasn't asked yet: let them wonder briefly, then close it
+- Em dashes: Never use em dashes (—). Use commas, periods, or start a new sentence. One em dash per 1000 words maximum. Zero is better. This is the single most visible AI fingerprint in copy.
+- Sentence length uniformity: Every script MUST contain at least one sentence under 5 words AND at least one sentence over 25 words. Vary deliberately. Three-word punch after a twenty-word build. Single-word paragraph when something lands. "Wild." is a sentence.
 `;
 
-  const prompt = `Generate ${opts.count} scripts for the ${opts.awarenessLevel} awareness level.
+  // Map short labels to the framework-consistent names used in the prompt
+  const AWARENESS_LABEL_MAP: Record<string, string> = {
+    unaware: 'unaware',
+    problem: 'problem-aware',
+    solution: 'solution-aware',
+    product: 'product-aware',
+    mostAware: 'most-aware',
+  };
+  const awarenessLabel = AWARENESS_LABEL_MAP[opts.awarenessLevel] ?? opts.awarenessLevel;
+
+  const prompt = `Generate ${opts.count} scripts for the ${awarenessLabel} awareness level.
 
 Requirements:
 - Use 3–5 distinct angles across the batch. Do not produce word-swapped variations of the same approach — each script must come from a genuinely different angle.

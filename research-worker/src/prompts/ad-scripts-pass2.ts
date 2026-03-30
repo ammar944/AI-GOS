@@ -32,7 +32,7 @@ ${styleSection}
 
 ## FIRST PASS — AUDIT & REWRITE
 
-Work through every script systematically. Apply all 41 checks below. Flag every violation. Then rewrite to fix it.
+Work through every script systematically. Apply all 42 checks below. Flag every violation. Then rewrite to fix it.
 
 ---
 
@@ -128,34 +128,37 @@ Excessive use of parentheses, em dashes, or bracketed asides to add caveats: "re
 
 ---
 
-### STRUCTURE PATTERNS (9 checks)
+### STRUCTURE PATTERNS (10 checks)
 
-**S1 — Em dash overuse**
-Maximum one em dash per script. Two em dashes in a sentence creates a nested clause that reads like AI trying to seem sophisticated. If you need the aside, make it its own sentence.
+**S1 — Sentence rigidity**
+Every sentence is roughly the same length. Real writing varies, a three-word punch after a twenty-word build-up. A single-word paragraph when something lands. Count the syllables per sentence across a paragraph. If they're all similar, break it up intentionally.
 
-**S2 — Sentence rigidity**
-Every sentence is roughly the same length. Real writing varies — a three-word punch after a twenty-word build-up. A single-word paragraph when something lands. Count the syllables per sentence across a paragraph. If they're all similar, break it up intentionally.
-
-**S3 — Uniform paragraph length**
+**S2 — Uniform paragraph length**
 Every paragraph is 2–3 sentences long. This is the default AI structure. Deliberately vary: one paragraph gets one sentence. Another gets five. The variation should feel motivated, not random.
 
-**S4 — Transition clustering**
+**S3 — Transition clustering**
 Multiple transitional words or phrases in close proximity: "Furthermore, it's also worth noting that, in addition, the product additionally provides..." One transition per paragraph maximum. Usually zero.
 
-**S5 — Inline headers with colons**
-"Efficiency: Our platform reduces..." — this is a resume or a pitch deck, not copy. Inline headers with colons fragment the flow. Delete the header and integrate the point into the prose.
+**S4 — Inline headers with colons**
+"Efficiency: Our platform reduces..." This is a resume or a pitch deck, not copy. Inline headers with colons fragment the flow. Delete the header and integrate the point into the prose.
 
-**S6 — Rule of three**
+**S5 — Rule of three**
 "Fast, reliable, and affordable." "We research, strategize, and execute." The rule of three is the most overused structure in marketing copy. If you catch a triplet, challenge it. Usually one of the three is the real point. Find it. Say it alone.
 
-**S7 — Numbered list inflation**
+**S6 — Numbered list inflation**
 Using numbered lists to pad structure: "3 reasons why..." or "5 things you need to know about..." The number creates an implied commitment that the copy then has to honor, even when some items are thin. Use lists only when the content is genuinely parallel and enumerable.
 
-**S8 — False concessions**
+**S7 — False concessions**
 "While [minor criticism], the [product] more than makes up for it by..." The fake balance makes the praise feel less credible. Either address a real objection with a real answer, or make the positive claim directly.
 
-**S9 — Rhetorical question openers**
+**S8 — Rhetorical question openers**
 "Have you ever wondered why...?" "What would it mean for your business if...?" Rhetorical questions as openers are so common they've become invisible. Lead with the answer instead. The answer is almost always more interesting than the question.
+
+**S9 — Sentence rhythm check**
+Measure sentence word counts across each script. If all sentences are within 5 words of each other in length, the rhythm is flat and robotic. Rewrite to vary: insert at least one sentence of 4 words or fewer AND at least one sentence of 25 words or more per script. The contrast is what makes copy feel human.
+
+**S10 — Em dash and en dash elimination (HARD GATE)**
+ZERO em dashes and ZERO en dashes in the final output. Count every instance of both characters. Replace each with a comma, period, or new sentence. If any em dash or en dash remains after your rewrite, the rewrite has failed. This is the single most visible AI fingerprint in ad copy. Do not skip this check. Do not leave "just one." Zero.
 
 ---
 
@@ -229,7 +232,7 @@ Any claim not grounded in the research context. "The fastest solution on the mar
 
 ## SPECIFICITY CHECK
 
-After applying all 41 checks, scan every script one more time for vague claims:
+After applying all 43 checks, scan every script one more time for vague claims:
 - Every number claim should cite the research section it comes from
 - Every outcome claim should be tied to a timeframe or condition
 - Every comparative claim ("faster than," "better than") should be grounded in a specific comparison point from the research
@@ -271,10 +274,10 @@ For each script, output:
 - confidenceScore: 0–10 (how confident you are this will perform)
 - flaggedClaims: array of any claims you could not fully ground in the research context (with the claim text and the reason it was flagged)
 - humanizedPass: true (confirms second pass was completed)
-- patternsFixed: count of distinct patterns from the 41-check list that were corrected in this script
+- patternsFixed: count of distinct patterns from the 43-check list that were corrected in this script
 `;
 
-  const prompt = `Review and rewrite all scripts from the first pass. Apply all 41 checks from FIRST PASS — AUDIT & REWRITE. Then complete the SECOND PASS — CATCH SURVIVORS on your own rewrites. Return all scripts in the structured output format specified above. Do not skip checks. Do not summarize what you changed — show the rewritten copy.`;
+  const prompt = `Review and rewrite all scripts from the first pass. Apply all 42 checks from FIRST PASS — AUDIT & REWRITE. Then complete the SECOND PASS — CATCH SURVIVORS on your own rewrites. Return all scripts in the structured output format specified above. Do not skip checks. Do not summarize what you changed — show the rewritten copy.`;
 
   return { system, prompt };
 }

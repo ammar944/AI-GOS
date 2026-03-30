@@ -15,6 +15,7 @@ export interface ScriptPackState {
 }
 
 const POLL_INTERVAL = 2000;
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 export function useScriptPackRealtime({
   packId,
@@ -24,6 +25,13 @@ export function useScriptPackRealtime({
   const [state, setState] = useState<ScriptPackState>({ status: 'idle', scripts: [] });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
   const poll = useCallback(async () => {
     if (!packId) return;
     try {
@@ -31,16 +39,28 @@ export function useScriptPackRealtime({
       if (!res.ok) return;
       const { pack } = await res.json();
       const scripts = typeof pack.scripts === 'string' ? JSON.parse(pack.scripts) : pack.scripts;
+
+      // Detect stale packs — if still 'generating' with no scripts after 5 minutes, treat as error
+      if (pack.status === 'generating' && (!scripts || scripts.length === 0)) {
+        const createdAt = new Date(pack.created_at).getTime();
+        if (Date.now() - createdAt > STALE_THRESHOLD_MS) {
+          setState({
+            status: 'error',
+            scripts: [],
+            errorMessage: 'Generation timed out — the worker may not have received the request. Try again.',
+          });
+          stopPolling();
+          return;
+        }
+      }
+
       setState({
         status: pack.status,
         scripts: scripts ?? [],
         errorMessage: pack.error_message ?? undefined,
       });
       if (pack.status === 'complete' || pack.status === 'error') {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
+        stopPolling();
         if (pack.status === 'complete' && onComplete) {
           onComplete({ status: pack.status, scripts });
         }
@@ -48,7 +68,7 @@ export function useScriptPackRealtime({
     } catch {
       /* silently retry */
     }
-  }, [packId, onComplete]);
+  }, [packId, onComplete, stopPolling]);
 
   useEffect(() => {
     if (!packId || !enabled) return;
@@ -56,12 +76,9 @@ export function useScriptPackRealtime({
     poll();
     intervalRef.current = setInterval(poll, POLL_INTERVAL);
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      stopPolling();
     };
-  }, [packId, enabled, poll]);
+  }, [packId, enabled, poll, stopPolling]);
 
   return state;
 }

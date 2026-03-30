@@ -57,6 +57,19 @@ export function loadBlockRefs(block: MediaPlanBlock): string {
 }
 
 /**
+ * Returns a single ref file by name (e.g., 'platform-specs.md').
+ * Returns empty string if not found.
+ */
+export function loadRefFile(filename: string): string {
+  const content = refCache.get(filename);
+  if (!content) {
+    console.warn(`[loader] Missing ref file: ${filename}`);
+    return '';
+  }
+  return content;
+}
+
+/**
  * Returns the industry-specific template for the given industry slug, falling
  * back to generic.md if no industry-specific template exists.
  * Returns empty string if neither is found.

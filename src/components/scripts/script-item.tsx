@@ -9,15 +9,15 @@ import { EvidenceChain } from './evidence-chain';
 import type { AdScript } from '@/lib/scripts/schemas';
 
 const TYPE_COLORS: Record<AdScript['type'], string> = {
-  video: 'text-blue-400',
-  static: 'text-amber-400',
-  email: 'text-green-400',
+  video: 'text-blue-500',
+  static: 'text-amber-500',
+  email: 'text-green-500',
 };
 
 const TYPE_BG: Record<AdScript['type'], string> = {
-  video: 'bg-blue-400/10',
-  static: 'bg-amber-400/10',
-  email: 'bg-green-400/10',
+  video: 'bg-blue-500/10',
+  static: 'bg-amber-500/10',
+  email: 'bg-green-500/10',
 };
 
 const PLATFORM_LABELS: Record<AdScript['platform'], string> = {
@@ -49,7 +49,6 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
   const [saving, setSaving] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
 
-  // Build copyable text
   function buildCopyText(): string {
     const parts: string[] = [];
     if (script.headline) parts.push(script.headline);
@@ -100,14 +99,14 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
   }
 
   return (
-    <div className="group rounded-lg border border-[var(--border)] bg-[var(--bg-2)] p-5 transition-colors hover:border-[var(--border-hover)]">
+    <div className="group rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-5 transition-colors hover:border-[var(--border-hover)]">
       {/* Header row */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Type tag */}
           <span
             className={cn(
-              'inline-flex items-center px-2 py-0.5 rounded-[3px] text-[10px] font-[family-name:var(--font-mono)] font-medium uppercase tracking-wide',
+              'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wide',
               TYPE_BG[script.type],
               TYPE_COLORS[script.type],
             )}
@@ -115,12 +114,12 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
             {script.type}
           </span>
           {/* Platform */}
-          <span className="text-[11px] font-[family-name:var(--font-mono)] text-[var(--text-3)] uppercase tracking-wide">
+          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wide">
             {PLATFORM_LABELS[script.platform]}
           </span>
           {/* Duration */}
           {script.duration && (
-            <span className="text-[11px] font-[family-name:var(--font-mono)] text-[var(--text-4)]">
+            <span className="text-[11px] font-mono text-[var(--text-quaternary)]">
               {script.duration}
             </span>
           )}
@@ -130,11 +129,11 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-[5px] text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--bg-3)] transition-colors"
+            className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
             title="Copy script"
           >
             {copied ? (
-              <Check className="size-3.5 text-[var(--green)]" />
+              <Check className="size-3.5 text-[var(--accent-green)]" />
             ) : (
               <Copy className="size-3.5" />
             )}
@@ -144,14 +143,14 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
               setEditBody(script.body);
               setEditing(true);
             }}
-            className="p-1.5 rounded-[5px] text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--bg-3)] transition-colors"
+            className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
             title="Edit script"
           >
             <Pencil className="size-3.5" />
           </button>
           <button
             onClick={handleRegen}
-            className="p-1.5 rounded-[5px] text-[var(--text-3)] hover:text-[var(--text-1)] hover:bg-[var(--bg-3)] transition-colors"
+            className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
             title="Regenerate script"
           >
             <RefreshCw className="size-3.5" />
@@ -161,35 +160,35 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
 
       {/* Title */}
       {script.title && (
-        <h3 className="text-[15px] font-semibold font-[family-name:var(--font-heading)] text-[var(--text-1)] mb-2 leading-snug">
+        <h3 className="text-[15px] font-semibold font-heading text-[var(--text-primary)] mb-2 leading-snug">
           {script.title}
         </h3>
       )}
 
       {/* Meta row: confidence + humanized + angle */}
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <span className="text-[11px] font-[family-name:var(--font-mono)] text-[var(--text-3)]">
+        <span className="text-[11px] font-mono text-[var(--text-tertiary)]">
           Confidence{' '}
-          <span className="text-[var(--text-1)] tabular-nums">{script.confidenceScore}/10</span>
+          <span className="text-[var(--text-primary)] tabular-nums">{script.confidenceScore}/10</span>
         </span>
         {script.humanizedPass && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-[9999px] bg-[var(--green)]/10 text-[var(--green)] text-[10px] font-[family-name:var(--font-mono)] font-medium uppercase tracking-wide">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[var(--accent-green)]/10 text-[var(--accent-green)] text-[10px] font-mono font-medium uppercase tracking-wide">
             Humanized
           </span>
         )}
         {script.angle && (
-          <span className="text-[11px] text-[var(--text-3)] font-[family-name:var(--font-mono)]">
+          <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
             {ANGLE_LABELS[script.angle]}
           </span>
         )}
       </div>
 
-      {/* Headline + Subheadline (static) */}
+      {/* Headline + Subheadline */}
       {script.headline && (
-        <p className="text-sm font-semibold text-[var(--text-1)] mb-1">{script.headline}</p>
+        <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">{script.headline}</p>
       )}
       {script.subheadline && (
-        <p className="text-sm text-[var(--text-2)] mb-3">{script.subheadline}</p>
+        <p className="text-sm text-[var(--text-secondary)] mb-3">{script.subheadline}</p>
       )}
 
       {/* Body */}
@@ -199,14 +198,14 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
             rows={8}
-            className="text-sm text-[var(--text-1)] bg-[var(--bg-1)] border-[var(--border)] resize-none"
+            className="text-sm text-[var(--text-primary)] bg-[var(--bg-base)] border-[var(--border-default)] resize-none"
           />
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               onClick={handleSave}
               disabled={saving}
-              className="text-xs px-3 py-1.5 rounded-[5px] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
+              className="text-xs px-3 py-1.5 rounded-md bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
             >
               {saving ? 'Saving...' : 'Save'}
             </Button>
@@ -214,34 +213,34 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
               size="sm"
               variant="ghost"
               onClick={() => setEditing(false)}
-              className="text-xs px-3 py-1.5 rounded-[5px] text-[var(--text-3)]"
+              className="text-xs px-3 py-1.5 rounded-md text-[var(--text-tertiary)]"
             >
               Cancel
             </Button>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-[var(--text-2)] whitespace-pre-wrap leading-relaxed mb-3">
+        <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed mb-3">
           {script.body}
         </p>
       )}
 
       {/* CTA */}
       {script.cta && (
-        <p className="text-sm font-medium text-[var(--accent)] mb-3">{script.cta}</p>
+        <p className="text-sm font-medium text-[var(--accent-blue)] mb-3">{script.cta}</p>
       )}
 
       {/* Hook variants (video) */}
       {script.type === 'video' && script.hookVariants && script.hookVariants.length > 0 && (
         <div className="mb-3">
-          <p className="text-[11px] uppercase tracking-[0.06em] font-[family-name:var(--font-mono)] font-medium text-[var(--text-3)] mb-2">
+          <p className="text-[11px] uppercase tracking-[0.06em] font-mono font-medium text-[var(--text-tertiary)] mb-2">
             Hook Variants
           </p>
           <ul className="space-y-1.5">
             {script.hookVariants.map((hook, i) => (
               <li
                 key={i}
-                className="border-l-2 border-[var(--border-hover)] pl-3 text-sm text-[var(--text-2)] leading-relaxed"
+                className="border-l-2 border-[var(--accent-blue)]/30 pl-3 text-sm text-[var(--text-secondary)] leading-relaxed"
               >
                 {hook}
               </li>
@@ -252,11 +251,11 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
 
       {/* Design direction (static) */}
       {script.type === 'static' && script.designDirection && (
-        <div className="mb-3 rounded-[5px] bg-[var(--bg-1)] px-3 py-2.5">
-          <p className="text-[11px] uppercase tracking-[0.06em] font-[family-name:var(--font-mono)] font-medium text-[var(--text-3)] mb-1">
+        <div className="mb-3 rounded-md bg-[var(--bg-base)] px-3 py-2.5">
+          <p className="text-[11px] uppercase tracking-[0.06em] font-mono font-medium text-[var(--text-tertiary)] mb-1">
             Design Direction
           </p>
-          <p className="text-xs text-[var(--text-2)] leading-relaxed">{script.designDirection}</p>
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{script.designDirection}</p>
         </div>
       )}
 
@@ -269,16 +268,16 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
 
       {/* Flagged claims */}
       {script.flaggedClaims && script.flaggedClaims.length > 0 && (
-        <div className="rounded-[5px] border border-[var(--amber)]/20 bg-[var(--amber)]/5 px-3 py-2.5">
+        <div className="rounded-md border border-[var(--accent-amber)]/20 bg-[var(--accent-amber)]/5 px-3 py-2.5">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <AlertTriangle className="size-3.5 text-[var(--amber)]" />
-            <p className="text-[11px] uppercase tracking-[0.06em] font-[family-name:var(--font-mono)] font-medium text-[var(--amber)]">
+            <AlertTriangle className="size-3.5 text-[var(--accent-amber)]" />
+            <p className="text-[11px] uppercase tracking-[0.06em] font-mono font-medium text-[var(--accent-amber)]">
               Review before use
             </p>
           </div>
           <ul className="space-y-1">
             {script.flaggedClaims.map((claim, i) => (
-              <li key={i} className="text-xs text-[var(--text-2)]">
+              <li key={i} className="text-xs text-[var(--text-secondary)]">
                 {claim}
               </li>
             ))}
@@ -288,7 +287,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
 
       {/* Regen error */}
       {regenError && (
-        <p className="text-xs text-[var(--amber)] mt-2 font-[family-name:var(--font-mono)]">
+        <p className="text-xs text-[var(--accent-amber)] mt-2 font-mono">
           {regenError}
         </p>
       )}

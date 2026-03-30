@@ -33,15 +33,15 @@ export function AwarenessTabs({ active, counts, total, onChange }: AwarenessTabs
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-100',
               isActive
-                ? 'bg-[var(--accent)] text-white'
-                : 'bg-[var(--bg-2)] text-[var(--text-3)] hover:text-[var(--text-2)] hover:bg-[var(--bg-3)]',
+                ? 'bg-[var(--accent-blue)] text-white'
+                : 'bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
             )}
           >
             {level.label}
             <span
               className={cn(
-                'text-[10px] font-[family-name:var(--font-mono)] tabular-nums',
-                isActive ? 'text-white/80' : 'text-[var(--text-4)]',
+                'text-[10px] font-mono tabular-nums',
+                isActive ? 'text-white/80' : 'text-[var(--text-quaternary)]',
               )}
             >
               {count}
