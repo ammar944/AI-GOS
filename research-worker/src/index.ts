@@ -375,6 +375,7 @@ app.post('/api/scripts', requireApiKey, async (req: express.Request, res: expres
           await writeScriptPackUpdate(packId, {
             scripts: JSON.stringify(scripts),
             status,
+            script_count: scripts.length,
           });
         },
       );
@@ -382,6 +383,7 @@ app.post('/api/scripts', requireApiKey, async (req: express.Request, res: expres
       await writeScriptPackUpdate(packId, {
         scripts: JSON.stringify(result.scripts),
         status: 'complete',
+        script_count: result.scripts.length,
         ...(result.diversity ? {
           diversity_score: result.diversity.diversityScore,
           diversity_flags: JSON.stringify(result.diversity.flags),

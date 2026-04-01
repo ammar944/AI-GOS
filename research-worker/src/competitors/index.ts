@@ -32,11 +32,17 @@ interface PipelineResult {
 }
 
 /**
- * Phase 1: Run all data collection in parallel.
- * Sonar Pro + Firecrawl + SpyFu + Ad Library — all at once.
- * Wall time = max(individual call time) ≈ 12-15s
+ * Phase 1: Validate competitors, then fetch data for verified ones.
+ *
+ * Pipeline (sequential, correct):
+ *   parseCompetitorContext()
+ *     → fetchSonarCompetitorResearch() [validates + corrects domains]
+ *     → fetchAllCompetitorData(verifiedEntries) [uses VERIFIED names + REAL domains]
+ *
+ * Sonar validation runs first so ad fetching uses verified domains, preventing
+ * false-positive ads for short/ambiguous competitor names (e.g. "Atlas VPN" for "Atlas").
  */
-async function runParallelCollection(
+async function runValidateThenFetch(
   context: string,
   onProgress?: RunnerProgressReporter,
 ): Promise<{
@@ -56,20 +62,34 @@ async function runParallelCollection(
     );
   }
 
-  // Fire ALL data collection in parallel
+  // Phase 1A: Validate competitors via Sonar (corrects domains via HEAD verification)
   await emitRunnerProgress(onProgress, 'tool',
-    `researching ${Math.min(parsed.competitors.length, 5)} competitors in parallel`,
+    `validating ${parsed.competitors.length} competitors via web search`,
   );
 
-  const [fetchResults, sonarResults] = await Promise.all([
-    fetchAllCompetitorData(parsed.competitors),
-    fetchSonarCompetitorResearch({
-      competitors: parsed.competitors,
-      companyName: parsed.companyName,
-      productDescription: parsed.productDescription,
-      icpDescription: parsed.icpDescription,
-    }),
-  ]);
+  const sonarResults = await fetchSonarCompetitorResearch({
+    competitors: parsed.competitors,
+    companyName: parsed.companyName,
+    productDescription: parsed.productDescription,
+    icpDescription: parsed.icpDescription,
+  });
+
+  // Use verified entries with corrected domains for all downstream fetches
+  const verifiedEntries = sonarResults.verifiedEntries ?? parsed.competitors;
+  const removedCount = sonarResults.removedCompetitors?.length ?? 0;
+
+  if (removedCount > 0) {
+    await emitRunnerProgress(onProgress, 'tool',
+      `${removedCount} competitor(s) removed by validation, ${verifiedEntries.length} verified`,
+    );
+  }
+
+  // Phase 1B: Fetch data for verified competitors only (with verified domains)
+  await emitRunnerProgress(onProgress, 'tool',
+    `researching ${Math.min(verifiedEntries.length, 5)} verified competitors in parallel`,
+  );
+
+  const fetchResults = await fetchAllCompetitorData(verifiedEntries);
 
   // Report what we got
   const pricingHits = fetchResults.pricing.filter(p => p.success).length;
@@ -79,7 +99,7 @@ async function runParallelCollection(
   const sonarHits = sonarResults.competitorInsights.length;
 
   await emitRunnerProgress(onProgress, 'tool',
-    `gathered data for ${parsed.competitors.length} competitors — ${pricingHits} pricing pages, ${adHits} ad profiles, ${reviewHits} review profiles, ${sonarHits} market insights`,
+    `gathered data for ${verifiedEntries.length} competitors — ${pricingHits} pricing, ${adHits} ads, ${reviewHits} reviews, ${sonarHits} insights`,
   );
 
   return { parsed, fetchResults, sonarResults };
@@ -104,15 +124,15 @@ async function runSynthesis(
 }
 
 /**
- * Full pipeline: parallel collection → synthesis → post-process.
+ * Full pipeline: validate → fetch → synthesis → post-process.
  */
 async function runPipeline(
   context: string,
   onProgress?: RunnerProgressReporter,
 ): Promise<PipelineResult> {
-  // Phase 1: Parallel data collection
+  // Phase 1: Validate competitors, then fetch data for verified ones
   const collectionStart = Date.now();
-  const { parsed, fetchResults, sonarResults } = await runParallelCollection(context, onProgress);
+  const { parsed, fetchResults, sonarResults } = await runValidateThenFetch(context, onProgress);
   const fetchDurationMs = Date.now() - collectionStart;
 
   // Phase 2: Synthesis

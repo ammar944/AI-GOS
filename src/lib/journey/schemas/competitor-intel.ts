@@ -46,6 +46,28 @@ export const competitorLibraryLinksSchema = z.object({
   googleAdvertiserUrl: nonEmptyStringSchema.optional(),
 });
 
+export const reviewSourceSchema = z.object({
+  rating: z.number().min(0).max(5).nullable().optional(),
+  reviewCount: z.number().nonnegative().nullable().optional(),
+  categories: z.array(z.string()).optional(),
+  url: z.string().nullable().optional(),
+  recentThemes: z.array(z.string()).optional(),
+});
+
+export const negativeReviewSchema = z.object({
+  text: z.string(),
+  rating: z.number().min(1).max(3),
+  date: z.string().optional(),
+  source: z.enum(['g2', 'capterra', 'trustpilot']),
+});
+
+export const competitorReviewsSchema = z.object({
+  trustpilot: reviewSourceSchema.optional(),
+  g2: reviewSourceSchema.optional(),
+  capterra: reviewSourceSchema.optional(),
+  negativeReviews: z.array(negativeReviewSchema).max(5).optional(),
+});
+
 export const competitorRecordSchema = z.object({
   name: nonEmptyStringSchema,
   website: nonEmptyStringSchema,
@@ -64,6 +86,7 @@ export const competitorRecordSchema = z.object({
   threatAssessment: threatAssessmentSchema.optional(),
   adCreatives: z.array(competitorAdCreativeSchema).default([]),
   libraryLinks: competitorLibraryLinksSchema.optional(),
+  reviews: competitorReviewsSchema.optional(),
 });
 
 export const whiteSpaceGapSchema = z.object({
@@ -101,3 +124,5 @@ export type ThreatFactors = z.infer<typeof threatFactorsSchema>;
 export type WhiteSpaceGap = z.infer<typeof whiteSpaceGapSchema>;
 export type CompetitorAdCreative = z.infer<typeof competitorAdCreativeSchema>;
 export type CompetitorLibraryLinks = z.infer<typeof competitorLibraryLinksSchema>;
+export type CompetitorReviews = z.infer<typeof competitorReviewsSchema>;
+export type NegativeReview = z.infer<typeof negativeReviewSchema>;

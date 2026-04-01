@@ -82,6 +82,7 @@ function makeSynthesisResult() {
       monthlyBudget: '$5,000',
       targetCpl: '$250',
       targetCac: '$2,000',
+      estimatedDemoPageCvr: undefined as number | undefined,
       downstreamSequence: ['keywordIntel' as const, 'mediaPlan' as const],
     },
     strategicNarrative:
@@ -178,5 +179,73 @@ describe('runSynthesizeResearch', () => {
       error: 'API key invalid',
     });
     expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps estimatedDemoPageCvr at 5 when AI hallucinates above benchmark', async () => {
+    const hallucinated = makeSynthesisResult();
+    hallucinated.planningContext = {
+      ...hallucinated.planningContext,
+      estimatedDemoPageCvr: 15,
+    };
+
+    mockGenerateObject.mockResolvedValueOnce({
+      object: hallucinated,
+      usage: { inputTokens: 800, outputTokens: 600 },
+    });
+
+    const result = await runSynthesizeResearch(SAMPLE_CONTEXT);
+
+    expect(result.status).toBe('complete');
+    const data = result.data as { planningContext?: { estimatedDemoPageCvr?: number } };
+    expect(data?.planningContext?.estimatedDemoPageCvr).toBe(5);
+  });
+
+  it('passes through estimatedDemoPageCvr unchanged when within 2-5% range', async () => {
+    const within = makeSynthesisResult();
+    within.planningContext = {
+      ...within.planningContext,
+      estimatedDemoPageCvr: 3.5,
+    };
+
+    mockGenerateObject.mockResolvedValueOnce({
+      object: within,
+      usage: { inputTokens: 800, outputTokens: 600 },
+    });
+
+    const result = await runSynthesizeResearch(SAMPLE_CONTEXT);
+
+    expect(result.status).toBe('complete');
+    const data = result.data as { planningContext?: { estimatedDemoPageCvr?: number } };
+    expect(data?.planningContext?.estimatedDemoPageCvr).toBe(3.5);
+  });
+
+  it('handles missing estimatedDemoPageCvr without error', async () => {
+    const nocvr = makeSynthesisResult();
+    // planningContext has no estimatedDemoPageCvr — default factory omits it
+
+    mockGenerateObject.mockResolvedValueOnce({
+      object: nocvr,
+      usage: { inputTokens: 800, outputTokens: 600 },
+    });
+
+    const result = await runSynthesizeResearch(SAMPLE_CONTEXT);
+
+    expect(result.status).toBe('complete');
+    const data = result.data as { planningContext?: { estimatedDemoPageCvr?: number } };
+    expect(data?.planningContext?.estimatedDemoPageCvr).toBeUndefined();
+  });
+
+  it('includes CONVERSION RATE BENCHMARKS section in system prompt', async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: makeSynthesisResult(),
+      usage: { inputTokens: 800, outputTokens: 600 },
+    });
+
+    await runSynthesizeResearch(SAMPLE_CONTEXT);
+
+    const callArgs = mockGenerateObject.mock.calls[0][0] as { system: string };
+    expect(callArgs.system).toContain('CONVERSION RATE BENCHMARKS');
+    expect(callArgs.system).toContain('2-5%');
+    expect(callArgs.system).toContain('B2B SaaS demo page');
   });
 });

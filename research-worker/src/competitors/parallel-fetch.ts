@@ -186,6 +186,7 @@ async function fetchAdLibrary(competitor: CompetitorEntry): Promise<AdLibraryRes
     const insight = await fetchCompetitorAds(
       competitor.name,
       competitor.domain ?? undefined,
+      !competitor.inferredDomain,
     );
 
     return {
@@ -284,6 +285,8 @@ export async function fetchAllCompetitorData(
       domain: capped[index]?.domain ?? '',
       trustpilot: null,
       g2: null,
+      capterra: null,
+      negativeReviews: [],
       error:
         settled.reason instanceof Error
           ? settled.reason.message
@@ -319,6 +322,8 @@ export async function fetchAllCompetitorData(
         ...e,
         trustpilot: null,
         g2: null,
+        capterra: null,
+        negativeReviews: [],
         error: reason,
       })),
       durationMs: Date.now() - startTime,

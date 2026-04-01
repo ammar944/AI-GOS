@@ -18,9 +18,8 @@ import {
 import { AppSidebar } from '@/components/shell/app-sidebar';
 import { JOURNEY_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile, ProfileSession } from '@/lib/profiles/business-profiles';
-import { ScriptPackViewer } from '@/components/scripts/script-pack-viewer';
+import { ScriptWorkbench } from '@/components/scripts/script-workbench';
 import { StyleRefsTab } from '@/components/scripts/style-refs-tab';
-import type { AdScript } from '@/lib/scripts/schemas';
 
 type TabId = 'overview' | 'research' | 'scripts' | 'style-refs';
 
@@ -53,8 +52,6 @@ export default function ProfileDetailPage() {
   const [sessions, setSessions] = useState<ProfileSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [latestSessionRunId, setLatestSessionRunId] = useState<string | null>(null);
-  const [latestPack, setLatestPack] = useState<{ id: string; scripts: AdScript[] } | null>(null);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -96,45 +93,10 @@ export default function ProfileDetailPage() {
   }, [fetchProfile]);
 
   useEffect(() => {
-    if (activeTab === 'research' || activeTab === 'scripts') {
+    if (activeTab === 'research') {
       fetchSessions();
     }
   }, [activeTab, fetchSessions]);
-
-  // Fetch session run_id + latest script pack when Scripts tab is active
-  useEffect(() => {
-    if (activeTab !== 'scripts' || !profile?.id) return;
-
-    if (sessions.length > 0 && !latestSessionRunId) {
-      // Pick the most complete session (highest section count), breaking ties by most recent
-      const best = [...sessions].sort((a, b) =>
-        b.sectionCount !== a.sectionCount
-          ? b.sectionCount - a.sectionCount
-          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )[0];
-      setLatestSessionRunId(best.runId);
-    }
-
-    fetch(`/api/profiles/${profile.id}/script-packs`)
-      .then((res) => res.json())
-      .then(({ packs }) => {
-        if (packs?.length > 0) {
-          const p = packs[0];
-          // Skip stale packs stuck in 'generating' for over 5 minutes
-          const scripts = typeof p.scripts === 'string' ? JSON.parse(p.scripts) : p.scripts;
-          const isStale =
-            p.status === 'generating' &&
-            (!scripts || scripts.length === 0) &&
-            Date.now() - new Date(p.created_at).getTime() > 5 * 60 * 1000;
-          if (isStale) return;
-
-          if (p.status === 'complete' || (scripts && scripts.length > 0)) {
-            setLatestPack({ id: p.id, scripts });
-          }
-        }
-      })
-      .catch(() => {});
-  }, [activeTab, profile?.id, sessions, latestSessionRunId]);
 
   function switchTab(tab: TabId) {
     const params = new URLSearchParams(searchParams.toString());
@@ -227,19 +189,7 @@ export default function ProfileDetailPage() {
           )}
 
           {activeTab === 'scripts' && (
-            latestSessionRunId ? (
-              <ScriptPackViewer
-                key={latestPack?.id ?? 'no-pack'}
-                profileId={profile.id}
-                sessionId={latestSessionRunId}
-                initialScripts={latestPack?.scripts}
-                initialPackId={latestPack?.id}
-              />
-            ) : (
-              <div className="text-center py-12 text-[var(--text-quaternary)] text-sm">
-                Run research for this profile first to generate scripts.
-              </div>
-            )
+            <ScriptWorkbench profileId={profile.id} />
           )}
 
           {activeTab === 'style-refs' && (

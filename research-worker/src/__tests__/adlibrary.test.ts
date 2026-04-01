@@ -4,6 +4,7 @@ import {
   buildLibraryLinks,
   isAdvertiserMatch,
   normalizeSearchApiToCreatives,
+  resolveBestCandidate,
 } from '../tools/adlibrary';
 
 describe('isAdvertiserMatch', () => {
@@ -192,5 +193,173 @@ describe('buildAdInsight', () => {
     );
 
     expect(insight.summary.sourceConfidence).toBe('high');
+  });
+});
+
+// --- Verdict Resolver Tests ---
+
+describe('resolveBestCandidate', () => {
+  const mkCandidate = (name: string, id: string = 'id-1') => ({
+    name, id, entity: {},
+  });
+
+  it('AMBIGUOUS — short name exact match but no domain info', () => {
+    // "Atlas" exact match exists, but with no domain passed, short names
+    // can't confirm WHICH "Atlas" this is. Correct: ambiguous.
+    const result = resolveBestCandidate(
+      [mkCandidate('Atlas'), mkCandidate('Atlas VPN')],
+      'Atlas',
+    );
+    expect(result.verdict).toBe('ambiguous');
+  });
+
+  it('ACCEPTED — short name exact match WITH verified domain corroboration', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Atlas'), mkCandidate('Atlas VPN')],
+      'Atlas',
+      'atlas.com',
+      true,
+    );
+    expect(result.verdict).toBe('accepted');
+    expect(result.candidate?.name).toBe('Atlas');
+  });
+
+  it('ACCEPTED — long name exact match needs no domain', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Directive'), mkCandidate('Something Else')],
+      'Directive',
+    );
+    expect(result.verdict).toBe('accepted');
+  });
+
+  it('ACCEPTED — domain corroboration with verified domain', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Atlas HQ', 'a1'), mkCandidate('Atlas VPN', 'a2')],
+      'Atlas HQ',
+      'atlashq.io',
+      true,
+    );
+    expect(result.verdict).toBe('accepted');
+    expect(result.candidate?.name).toBe('Atlas HQ');
+  });
+
+  it('REJECTED — no candidates above threshold', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Totally Different Company')],
+      'Atlas',
+    );
+    expect(result.verdict).toBe('rejected');
+  });
+
+  it('REJECTED — empty candidates', () => {
+    const result = resolveBestCandidate([], 'Atlas');
+    expect(result.verdict).toBe('rejected');
+  });
+
+  it('REJECTED — short name, candidates score below 0.8 after short-name fix', () => {
+    // "Atlas VPN" and "Atlas Copco" score ≤0.6 against "Atlas" (short-name boost killed).
+    // Since no candidate reaches 0.8, the resolver rejects.
+    const result = resolveBestCandidate(
+      [mkCandidate('Atlas VPN'), mkCandidate('Atlas Copco')],
+      'Atlas',
+      'atlas.com',
+      false,
+    );
+    expect(result.verdict).toBe('rejected');
+  });
+
+  it('REJECTED — short name with verified domain, candidates still below 0.8', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Atlas VPN'), mkCandidate('Atlas Copco')],
+      'Atlas',
+      'atlashq.io',
+      true,
+    );
+    expect(result.verdict).toBe('rejected');
+  });
+
+  it('ACCEPTED — long name with clear winner (HubSpot)', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('HubSpot'), mkCandidate('Hub City')],
+      'HubSpot',
+    );
+    expect(result.verdict).toBe('accepted');
+    expect(result.candidate?.name).toBe('HubSpot');
+  });
+
+  it('logs all candidates for observability', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Atlas VPN'), mkCandidate('Atlas Copco'), mkCandidate('Atlas Corp')],
+      'Atlas',
+    );
+    expect(result.candidates).toHaveLength(3);
+    expect(result.candidates![0]).toHaveProperty('name');
+    expect(result.candidates![0]).toHaveProperty('score');
+  });
+
+  // Adversarial: 5 candidates all containing "Atlas"
+  it('AMBIGUOUS — adversarial: "Atlas Corp" exact match but unverified domain', () => {
+    // "Atlas Corp" normalizes to "atlas" = exact match. But domain is unverified (false).
+    // Short name + unverified domain = ambiguous, even with exact match.
+    const result = resolveBestCandidate(
+      [
+        mkCandidate('Atlas VPN'),
+        mkCandidate('Atlas Copco'),
+        mkCandidate('Atlas Obscura'),
+        mkCandidate('Atlas Air'),
+        mkCandidate('Atlas Corp'),
+      ],
+      'Atlas',
+      'atlas.com',
+      false,
+    );
+    expect(result.verdict).toBe('ambiguous');
+  });
+
+  it('ACCEPTED — adversarial: "Atlas Corp" exact match WITH verified domain', () => {
+    // Same candidates but now domain is verified → Atlas Corp accepted
+    const result = resolveBestCandidate(
+      [
+        mkCandidate('Atlas VPN'),
+        mkCandidate('Atlas Copco'),
+        mkCandidate('Atlas Obscura'),
+        mkCandidate('Atlas Air'),
+        mkCandidate('Atlas Corp'),
+      ],
+      'Atlas',
+      'atlas.com',
+      true,
+    );
+    expect(result.verdict).toBe('accepted');
+    expect(result.candidate?.name).toBe('Atlas Corp');
+  });
+
+  it('REJECTED — adversarial: 5 Atlas candidates, NONE with corporate suffix', () => {
+    // When no candidate has a strippable suffix, all score ≤0.6 → rejected
+    const result = resolveBestCandidate(
+      [
+        mkCandidate('Atlas VPN'),
+        mkCandidate('Atlas Copco'),
+        mkCandidate('Atlas Obscura'),
+        mkCandidate('Atlas Air'),
+        mkCandidate('Atlas Pro'),
+      ],
+      'Atlas',
+      'atlas.com',
+      false,
+    );
+    expect(result.verdict).toBe('rejected');
+  });
+
+  // Adversarial: legitimate short name with verified domain
+  it('ACCEPTED — "Zoom" with verified domain and exact match in candidates', () => {
+    const result = resolveBestCandidate(
+      [mkCandidate('Zoom Video Communications'), mkCandidate('Zoom')],
+      'Zoom',
+      'zoom.us',
+      true,
+    );
+    expect(result.verdict).toBe('accepted');
+    expect(result.candidate?.name).toBe('Zoom');
   });
 });

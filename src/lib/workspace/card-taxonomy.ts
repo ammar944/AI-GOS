@@ -247,13 +247,27 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
     if (reviews) {
       const trustpilot = asRecord(reviews.trustpilot);
       const g2 = asRecord(reviews.g2);
+      const capterra = asRecord(reviews.capterra);
 
       const hasTrustpilotData = trustpilot && (asNumber(trustpilot.rating) != null || asNumber(trustpilot.reviewCount) != null);
       const hasTrustpilotLink = trustpilot && asString(trustpilot.url) != null;
       const hasG2Data = g2 && (asNumber(g2.rating) != null || asNumber(g2.reviewCount) != null);
       const hasG2Link = g2 && asString(g2.url) != null;
+      const hasCapterraData = capterra && (asNumber(capterra.rating) != null || asNumber(capterra.reviewCount) != null);
+      const hasCapterraLink = capterra && asString(capterra.url) != null;
 
-      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link) {
+      const rawNegativeReviews = Array.isArray(reviews.negativeReviews) ? reviews.negativeReviews : [];
+      const negativeReviews = rawNegativeReviews
+        .filter((r): r is Record<string, unknown> => r != null && typeof r === 'object')
+        .map(r => ({
+          text: asString(r.text) ?? '',
+          rating: asNumber(r.rating) ?? 1,
+          date: asString(r.date) ?? undefined,
+          source: (asString(r.source) ?? 'g2') as 'g2' | 'capterra' | 'trustpilot',
+        }))
+        .filter(r => r.text.length > 0);
+
+      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link || hasCapterraData || hasCapterraLink || negativeReviews.length > 0) {
         cards.push(makeCard(section, 'review-card', `${name} Reviews`, {
           competitorName: name,
           trustpilot: (hasTrustpilotData || hasTrustpilotLink) ? {
@@ -268,6 +282,13 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
             themes: asStringArray(g2!.categories),
             url: asString(g2!.url),
           } : null,
+          capterra: (hasCapterraData || hasCapterraLink) ? {
+            rating: asNumber(capterra!.rating),
+            reviewCount: asNumber(capterra!.reviewCount),
+            themes: asStringArray(capterra!.categories),
+            url: asString(capterra!.url),
+          } : null,
+          negativeReviews,
         }));
       }
     }

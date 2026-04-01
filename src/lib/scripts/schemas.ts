@@ -62,3 +62,25 @@ export const adScriptPackSchema = z.object({
 export type AdScript = z.infer<typeof adScriptSchema>;
 export type AdScriptPack = z.infer<typeof adScriptPackSchema>;
 export type GroundedIn = z.infer<typeof groundedInSchema>;
+
+export interface GenerationContext {
+  researchSessionId: string;
+  researchSessionRunId: string;
+  researchSessionDate: string;
+  researchSectionCount: number;
+  styleReferencesUsed: Array<{ name: string; source: string }>;
+  proofPointsUsed: Array<{ headline: string; type: string }>;
+  userNote?: string | null;
+  styleReferencesSnapshot?: Array<{ name: string; content: string; source: string }>;
+}
+
+export interface PackListItem {
+  id: string;
+  created_at: string;
+  status: 'generating' | 'partial' | 'complete' | 'error';
+  generation_context: GenerationContext | null;
+  style_references_snapshot: unknown;
+  diversity_score: number | null;
+  diversity_flags: unknown;
+  script_count: number;
+}

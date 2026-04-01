@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { profileId, sessionId } = body;
+  const { profileId, sessionId, userNote } = body;
 
   if (!profileId || !sessionId) {
     return NextResponse.json({ error: 'profileId and sessionId required' }, { status: 400 });
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   // Fetch research results (use run_id lookup — frontend passes run_id as sessionId)
   const { data: session, error: sessionErr } = await supabase
     .from('journey_sessions')
-    .select('id, research_results')
+    .select('id, research_results, created_at')
     .eq('run_id', sessionId)
     .single();
 
@@ -56,6 +56,17 @@ export async function POST(request: Request) {
 
   const trimmed = trimResearchForScripts(completedResults);
 
+  const generationContext = {
+    researchSessionId: session.id,
+    researchSessionRunId: sessionId,
+    researchSessionDate: session.created_at,
+    researchSectionCount: Object.keys(completedResults).length,
+    styleReferencesUsed: ((profile.style_references as Array<{name: string; source: string; content: string}>) ?? []).map((r: {name: string; source: string}) => ({ name: r.name, source: r.source })),
+    proofPointsUsed: ((profile.proof_points as Array<{headline: string; type: string}>) ?? []).map((p: {headline: string; type: string}) => ({ headline: p.headline, type: p.type })),
+    userNote: userNote ?? null,
+    styleReferencesSnapshot: profile.style_references ?? [],
+  };
+
   // Create script_packs row
   const { data: pack, error: packErr } = await supabase
     .from('script_packs')
@@ -65,6 +76,7 @@ export async function POST(request: Request) {
       user_id: userId,
       status: 'generating',
       style_references_snapshot: profile.style_references ?? [],
+      generation_context: generationContext,
     })
     .select('id')
     .single();

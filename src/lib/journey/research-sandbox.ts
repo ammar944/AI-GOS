@@ -262,6 +262,7 @@ const CONTEXT_FIELD_ORDER: Record<
     'marketProblem',
     'valueProp',
     'goals',
+    'salesCycleLength',
   ],
   competitors: [
     'companyName',

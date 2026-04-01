@@ -155,6 +155,18 @@ const competitorIntelDataSchema = z.object({
             categories: z.array(z.string()).optional(),
             url: z.string().optional(),
           }).optional(),
+          capterra: z.object({
+            rating: z.number().min(0).max(5).optional(),
+            reviewCount: z.number().nonnegative().optional(),
+            categories: z.array(z.string()).optional(),
+            url: z.string().optional(),
+          }).optional(),
+          negativeReviews: z.array(z.object({
+            text: z.string(),
+            rating: z.number().min(1).max(3),
+            date: z.string().optional(),
+            source: z.enum(['g2', 'capterra', 'trustpilot']),
+          })).max(5).optional(),
         }).optional(),
       }),
     )
@@ -215,6 +227,15 @@ const icpValidationDataSchema = z.object({
     testMethod: nonEmptyStringSchema,
     risk: nonEmptyStringSchema,
   })).default([]),
+  segments: z.array(z.object({
+    productLine: nonEmptyStringSchema,
+    validatedPersona: nonEmptyStringSchema,
+    audienceSize: nonEmptyStringSchema,
+    confidence: z.number().min(0).max(100),
+    channels: nonEmptyStringArraySchema,
+    triggers: nonEmptyStringArraySchema,
+    objections: nonEmptyStringArraySchema,
+  })).optional(),
 });
 
 const offerAnalysisDataSchema = z.object({
@@ -305,6 +326,7 @@ const strategicSynthesisDataSchema = z.object({
     monthlyBudget: nonEmptyStringSchema.optional(),
     targetCpl: nonEmptyStringSchema.optional(),
     targetCac: nonEmptyStringSchema.optional(),
+    estimatedDemoPageCvr: z.number().min(0).max(10).optional().describe('Estimated demo/trial page conversion rate as a percentage (e.g. 3.5 for 3.5%). Must be within industry benchmarks: 2-5% for B2B SaaS demo pages.'),
     downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).default(['keywordIntel', 'mediaPlan']),
   }),
   criticalSuccessFactors: nonEmptyStringArraySchema,
@@ -393,6 +415,23 @@ const keywordIntelDataSchema = z.object({
         priorityScore: z.number().int().min(0).max(100),
       }),
     ),
+  competitorKeywords: z
+    .array(
+      z.object({
+        competitorName: nonEmptyStringSchema,
+        competitorDomain: nonEmptyStringSchema,
+        topKeywords: z
+          .array(
+            z.object({
+              keyword: nonEmptyStringSchema,
+              searchVolume: z.number().nonnegative(),
+              estimatedCpc: nonEmptyStringSchema,
+            }),
+          )
+          .max(5),
+      }),
+    )
+    .optional(),
   negativeKeywords: z.array(
     z.object({
       keyword: nonEmptyStringSchema,

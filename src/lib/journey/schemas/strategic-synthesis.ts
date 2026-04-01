@@ -37,6 +37,7 @@ export const planningContextSchema = z.object({
   monthlyBudget: nonEmptyStringSchema.optional(),
   targetCpl: nonEmptyStringSchema.optional(),
   targetCac: nonEmptyStringSchema.optional(),
+  estimatedDemoPageCvr: z.number().min(0).max(10).optional().describe('Estimated demo/trial page conversion rate as a percentage (e.g. 3.5 for 3.5%). Must be within industry benchmarks: 2-5% for B2B SaaS demo pages.'),
   downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).min(1),
 });
 

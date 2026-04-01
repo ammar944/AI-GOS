@@ -322,17 +322,23 @@ function guessTheme(message: string): string {
  */
 function filterRelevantAds(
   creatives: WorkerAdCreative[],
-  _companyName: string,
-  _domain?: string,
+  companyName: string,
+  domain?: string,
 ): WorkerAdCreative[] {
-  // Only drop completely empty shell ads (no text and no media).
-  // Advertiser matching is handled upstream by normalizeSearchApiToCreatives
-  // which already filters on advertiser name. Don't double-filter here because
-  // SearchAPI keyword searches return ads mentioning the keyword, not ads BY the company.
   return creatives.filter((c) => {
+    // Drop completely empty shell ads (no text and no media)
     const hasText = Boolean(c.headline) || Boolean(c.body);
     const hasMedia = Boolean(c.imageUrl) || Boolean(c.videoUrl);
-    return hasText || hasMedia;
+    if (!hasText && !hasMedia) return false;
+
+    // Last line of defense: verify advertiser matches the expected company.
+    // Uses the tightened isAdvertiserMatch from adlibrary.ts (imported above).
+    if (!isAdvertiserMatch(c.advertiser, companyName, domain)) {
+      console.log(`[apify-ads] filterRelevantAds rejected: advertiser="${c.advertiser}" for company="${companyName}"`);
+      return false;
+    }
+
+    return true;
   });
 }
 
@@ -440,16 +446,17 @@ export async function fetchApifyAds(
 export async function fetchCompetitorAds(
   companyName: string,
   domain?: string,
+  isDomainVerified?: boolean,
 ): Promise<WorkerAdInsight> {
   const startTime = Date.now();
 
   const { searchLinkedInAds, searchMetaAds, searchGoogleAds, normalizeSearchApiToCreatives } = await import('./adlibrary');
 
-  // All 3 platforms in parallel — advertiser-first lookup
+  // All 3 platforms in parallel — advertiser-first lookup with verdict resolution
   const [linkedInRaw, metaRaw, googleRaw] = await Promise.all([
     searchLinkedInAds(companyName, domain).catch(() => []),
-    searchMetaAds(companyName, domain).catch(() => []),
-    searchGoogleAds(companyName, domain).catch(() => []),
+    searchMetaAds(companyName, domain, isDomainVerified).catch(() => []),
+    searchGoogleAds(companyName, domain, isDomainVerified).catch(() => []),
   ]);
 
   const linkedInCreatives = normalizeSearchApiToCreatives(linkedInRaw, 'linkedin', companyName, domain);

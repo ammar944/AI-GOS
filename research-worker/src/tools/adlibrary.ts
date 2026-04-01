@@ -9,7 +9,6 @@ import type {
 import {
   calculateSimilarity,
   extractCompanyFromDomain,
-  isAdvertiserMatch as jaroWinklerMatch,
 } from '../utils/name-matcher';
 
 interface SearchApiAdRecord {
@@ -200,17 +199,41 @@ export function isAdvertiserMatch(
   // Layer 1: Exact match after normalization
   if (advNorm === compNorm) return true;
 
-  // Layer 2: Full containment — the company name appears as a contiguous substring
-  // starting at a word boundary (beginning of string or after a space).
-  // "Buffer Inc" contains "buffer" at position 0 → pass
-  // "TEPLOBAK Buffer Tanks" contains "buffer" at position 9 → only if it's at a word boundary
-  if (advNorm.startsWith(compNorm + ' ') || advNorm.startsWith(compNorm)) {
-    // Company name is the leading part of the advertiser → strong match
-    return true;
+  // Layer 2: Full containment with short-name guard.
+  // For short names (≤6 chars), only allow containment if the extra words are
+  // corporate suffixes (Inc, LLC, Corp, etc.) — NOT meaningful words.
+  // "Atlas" must NOT match "Atlas VPN". "Buffer" must NOT match "Buffer Zone".
+  // "Atlas" DOES match "Atlas" and "Atlas Inc".
+  const isShortName = compNorm.replace(/\s+/g, '').length <= 6;
+  const corporateSuffixes = new Set(['inc', 'llc', 'corp', 'ltd', 'limited', 'co', 'company', 'group', 'international', 'intl', 'technologies', 'software', 'solutions', 'platform', 'hq']);
+
+  if (advNorm.startsWith(compNorm + ' ') || (advNorm.startsWith(compNorm) && advNorm.length === compNorm.length)) {
+    if (isShortName && advNorm !== compNorm) {
+      // Short name + extra words: only pass if all extra words are corporate suffixes
+      const extra = advNorm.substring(compNorm.length).trim();
+      const extraWords = extra.split(/\s+/).filter(w => w.length > 0);
+      if (extraWords.length > 0 && !extraWords.every(w => corporateSuffixes.has(w))) {
+        // Extra words are NOT suffixes — different entity (e.g. "Atlas VPN")
+        // Fall through to other layers
+      } else {
+        return true;
+      }
+    } else {
+      return true;
+    }
   }
-  if (compNorm.startsWith(advNorm + ' ') || compNorm.startsWith(advNorm)) {
-    // Advertiser name is the leading part of the company → strong match
-    return true;
+  if (compNorm.startsWith(advNorm + ' ') || (compNorm.startsWith(advNorm) && compNorm.length === advNorm.length)) {
+    if (isShortName && compNorm !== advNorm) {
+      const extra = compNorm.substring(advNorm.length).trim();
+      const extraWords = extra.split(/\s+/).filter(w => w.length > 0);
+      if (extraWords.length > 0 && !extraWords.every(w => corporateSuffixes.has(w))) {
+        // Fall through
+      } else {
+        return true;
+      }
+    } else {
+      return true;
+    }
   }
 
   // Layer 3: First-word agreement + Jaro-Winkler
@@ -224,23 +247,38 @@ export function isAdvertiserMatch(
 
   if (advFirst === compFirst && advFirst.length > 0) {
     // First words match — use Jaro-Winkler at standard threshold
-    if (jaroWinklerMatch(advertiserName, companyName, 0.8)) return true;
+    if (calculateSimilarity(advertiserName, companyName) >= 0.8) return true;
   }
 
   // Layer 4: Domain-based fallback — advertiser name starts with the domain base
   if (domain) {
     const domainBase = normalizeDomain(domain).split('.')[0] ?? '';
     if (domainBase.length >= 3) {
-      // Domain base must be at the START of the advertiser name (word boundary)
-      // "buffer" matches "Buffer Inc" but NOT "TEPLOBAK Buffer Tanks"
-      if (advNorm.startsWith(domainBase)) return true;
+      if (isShortName) {
+        // Short names: domain base must be an EXACT word match (not just prefix)
+        // "drift" matches "drift" and "Drift Inc" but NOT "DRIFTKLART" or "Driftscape"
+        const advWords = advNorm.split(' ');
+        if (advWords[0] === domainBase && (advWords.length === 1 || advWords.slice(1).every(w => corporateSuffixes.has(w)))) return true;
+      } else {
+        // Long names: startsWith is fine (more distinctive names)
+        if (advNorm.startsWith(domainBase)) return true;
+      }
     }
   }
 
   return false;
 }
 
-// --- Candidate matching with tiebreaker ---
+// --- Verdict-based candidate resolution ---
+//
+// Decision tree:
+//   resolveBestCandidate(candidates, name, domain, isDomainVerified)
+//     ├─ No candidates above 0.8 → REJECTED
+//     ├─ Exact normalized match → ACCEPTED
+//     ├─ isDomainVerified + candidate corroborates domain → ACCEPTED
+//     ├─ Single candidate ≥0.95 with ≥0.15 margin → ACCEPTED
+//     ├─ Short name (≤6) + no exact match + no domain corroboration → AMBIGUOUS
+//     └─ Multiple candidates, no corroboration → AMBIGUOUS
 
 interface Candidate {
   name: string;
@@ -248,38 +286,157 @@ interface Candidate {
   entity: Record<string, unknown>;
 }
 
+interface ResolverResult {
+  verdict: 'accepted' | 'ambiguous' | 'rejected';
+  candidate?: Candidate;
+  reason: string;
+  candidates?: Array<{ name: string; score: number; domainMatch: boolean }>;
+}
+
 /**
- * Pick the best candidate from a list using Jaro-Winkler matching.
- * Tiebreaker: highest score → domain match → first result (API sort order).
- * Returns null if no candidate scores >= 0.8.
+ * Resolve the best candidate from a list using identity verification.
+ * Returns a verdict (accepted/ambiguous/rejected) with the matched candidate.
+ *
+ * isDomainVerified = true when the domain came from Sonar validation (not inferred).
+ * When false (inferred domain like "atlas.com"), triggers exact-match-only mode
+ * for short names.
  */
-function pickBestCandidate(
+export function resolveBestCandidate(
   candidates: Candidate[],
   companyName: string,
   domain?: string,
-): Candidate | null {
-  if (candidates.length === 0) return null;
+  isDomainVerified?: boolean,
+): ResolverResult {
+  if (candidates.length === 0) {
+    return { verdict: 'rejected', reason: 'No candidates returned by API' };
+  }
 
+  const compNorm = companyName.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
   const domainBase = domain ? extractCompanyFromDomain(domain) : undefined;
-  const scored = candidates
-    .map(c => {
-      const score = calculateSimilarity(c.name, companyName);
-      const domainMatch = domainBase
-        ? c.name.toLowerCase().includes(domainBase.toLowerCase())
-        : false;
-      return { candidate: c, score, domainMatch };
-    })
-    .filter(s => s.score >= 0.8)
-    .sort((a, b) => {
-      // Highest Jaro-Winkler first
-      if (b.score !== a.score) return b.score - a.score;
-      // Domain match wins ties
-      if (a.domainMatch !== b.domainMatch) return a.domainMatch ? -1 : 1;
-      // Otherwise preserve API order
-      return 0;
-    });
+  const isShortName = compNorm.replace(/\s+/g, '').length <= 6;
 
-  return scored.length > 0 ? scored[0].candidate : null;
+  const scored = candidates.map(c => {
+    const score = calculateSimilarity(c.name, companyName);
+    // Use score of 1.0 as the exact match signal — this accounts for suffix stripping
+    // (e.g. "Atlas Corp" normalizes to "atlas" = 1.0 match with "Atlas")
+    const exactMatch = score >= 1.0;
+    const domainMatch = domainBase && isDomainVerified
+      ? c.name.toLowerCase().includes(domainBase.toLowerCase())
+      : false;
+    return { candidate: c, name: c.name, score, exactMatch, domainMatch };
+  });
+
+  // Sort: exact matches first, then by score, then domain match
+  scored.sort((a, b) => {
+    if (a.exactMatch !== b.exactMatch) return a.exactMatch ? -1 : 1;
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.domainMatch !== b.domainMatch) return a.domainMatch ? -1 : 1;
+    return 0;
+  });
+
+  const candidateLog = scored.map(s => ({
+    name: s.name, score: s.score, domainMatch: s.domainMatch,
+  }));
+
+  const top = scored[0];
+  const runnerUp = scored[1];
+
+  // Exact normalized match
+  if (top.exactMatch) {
+    // For short names: if there are multiple exact matches or other high-scoring
+    // candidates, we can't be sure WHICH "Atlas" or "Spot" this is. Require domain
+    // corroboration to disambiguate. Without it, ambiguous.
+    const exactCount = scored.filter(s => s.exactMatch).length;
+    if (isShortName && exactCount >= 1 && !top.domainMatch && isDomainVerified) {
+      // Have a verified domain but this exact-match candidate doesn't corroborate it
+      return {
+        verdict: 'ambiguous',
+        candidate: top.candidate,
+        reason: `Short name "${companyName}" has exact match "${top.name}" but no domain corroboration with "${domain}". Could be wrong entity.`,
+        candidates: candidateLog,
+      };
+    }
+    if (isShortName && !isDomainVerified) {
+      // Inferred domain, can't verify. Multiple "Atlas" pages exist. Ambiguous.
+      return {
+        verdict: 'ambiguous',
+        candidate: top.candidate,
+        reason: `Short name "${companyName}" has exact match "${top.name}" but domain is unverified. Cannot confirm identity.`,
+        candidates: candidateLog,
+      };
+    }
+    return {
+      verdict: 'accepted',
+      candidate: top.candidate,
+      reason: `Exact match: "${top.name}"`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Verified domain corroboration → accept
+  if (top.domainMatch && isDomainVerified) {
+    return {
+      verdict: 'accepted',
+      candidate: top.candidate,
+      reason: `Domain corroboration: "${top.name}" matches verified domain "${domain}"`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Single dominant candidate (≥0.95, margin ≥0.15 over runner-up)
+  const margin = runnerUp ? top.score - runnerUp.score : 1.0;
+  if (top.score >= 0.95 && margin >= 0.15) {
+    return {
+      verdict: 'accepted',
+      candidate: top.candidate,
+      reason: `Dominant candidate: "${top.name}" (score=${top.score.toFixed(2)}, margin=${margin.toFixed(2)})`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Below 0.8 → rejected
+  if (top.score < 0.8) {
+    return {
+      verdict: 'rejected',
+      reason: `Best candidate "${top.name}" scored ${top.score.toFixed(2)} (below 0.8 threshold)`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Short name with unverified domain → ambiguous (exact-match-only mode)
+  if (isShortName && !isDomainVerified) {
+    return {
+      verdict: 'ambiguous',
+      reason: `Short name "${companyName}" (≤6 chars) with unverified domain, no exact match. Top: "${top.name}" (${top.score.toFixed(2)})`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Short name with verified domain but no corroboration → ambiguous
+  if (isShortName && isDomainVerified && !top.domainMatch) {
+    return {
+      verdict: 'ambiguous',
+      reason: `Short name "${companyName}" with verified domain "${domain}" but no corroboration. Top: "${top.name}" (${top.score.toFixed(2)})`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Multiple candidates above 0.8 with insufficient margin → ambiguous
+  if (runnerUp && runnerUp.score >= 0.8 && margin < 0.15) {
+    return {
+      verdict: 'ambiguous',
+      reason: `Multiple candidates: "${top.name}" (${top.score.toFixed(2)}) vs "${runnerUp.name}" (${runnerUp.score.toFixed(2)}), margin=${margin.toFixed(2)}`,
+      candidates: candidateLog,
+    };
+  }
+
+  // Default: accept the top candidate (long name, clear winner, no red flags)
+  return {
+    verdict: 'accepted',
+    candidate: top.candidate,
+    reason: `Best match: "${top.name}" (score=${top.score.toFixed(2)})`,
+    candidates: candidateLog,
+  };
 }
 
 // --- Platform-specific SearchAPI fetchers ---
@@ -294,6 +451,7 @@ function pickBestCandidate(
 export async function searchGoogleAds(
   companyName: string,
   domain?: string,
+  isDomainVerified?: boolean,
 ): Promise<SearchApiAdRecord[]> {
   const apiKey = process.env.SEARCHAPI_KEY;
   if (!apiKey) return [];
@@ -318,16 +476,19 @@ export async function searchGoogleAds(
       ? (searchPayload as { advertisers: unknown[] }).advertisers as Array<{ name?: string; id?: string }>
       : [];
 
-    // Pick best match using Jaro-Winkler with tiebreaker
-    const match = pickBestCandidate(
+    // Resolve best match using verdict-based identity verification
+    const result = resolveBestCandidate(
       advertisers.map(a => ({ name: a.name ?? '', id: a.id ?? '', entity: a })),
       companyName,
       domain,
+      isDomainVerified,
     );
 
-    if (!match) {
-      // Fallback: try domain-based advertiser info lookup
-      if (domain) {
+    console.log(`[adlibrary] Google verdict for "${companyName}": ${result.verdict} — ${result.reason}`);
+
+    if (result.verdict !== 'accepted' || !result.candidate) {
+      // Fallback: try domain-based advertiser info lookup (only if domain is verified)
+      if (domain && isDomainVerified) {
         const domainParams = new URLSearchParams({
           engine: 'google_ads_advertiser_info',
           q: domain,
@@ -337,6 +498,7 @@ export async function searchGoogleAds(
           const domainPayload = await fetchJson(`${BASE}?${domainParams.toString()}`);
           const domainId = (domainPayload as { advertiser_id?: string })?.advertiser_id;
           if (domainId) {
+            console.log(`[adlibrary] Google domain fallback for "${companyName}": found advertiser via "${domain}"`);
             return fetchGoogleAdsByAdvertiserId(domainId, apiKey);
           }
         } catch { /* domain lookup failed, return empty */ }
@@ -345,7 +507,7 @@ export async function searchGoogleAds(
     }
 
     // Step 2: Fetch ads by advertiser_id
-    return fetchGoogleAdsByAdvertiserId(match.id, apiKey);
+    return fetchGoogleAdsByAdvertiserId(result.candidate.id, apiKey);
   } catch {
     return [];
   }
@@ -416,6 +578,7 @@ export async function searchLinkedInAds(
 export async function searchMetaAds(
   companyName: string,
   domain?: string,
+  isDomainVerified?: boolean,
 ): Promise<SearchApiAdRecord[]> {
   const apiKey = process.env.SEARCHAPI_KEY;
   if (!apiKey) return [];
@@ -435,19 +598,22 @@ export async function searchMetaAds(
       ? (pagePayload as { page_results: unknown[] }).page_results as Array<{ name?: string; page_id?: string; likes?: number }>
       : [];
 
-    // Pick best page match using Jaro-Winkler with tiebreaker
-    const match = pickBestCandidate(
+    // Resolve best page match using verdict-based identity verification
+    const result = resolveBestCandidate(
       pageResults.map(p => ({ name: p.name ?? '', id: p.page_id ?? '', entity: p })),
       companyName,
       domain,
+      isDomainVerified,
     );
 
-    if (!match) return [];
+    console.log(`[adlibrary] Meta verdict for "${companyName}": ${result.verdict} — ${result.reason}`);
+
+    if (result.verdict !== 'accepted' || !result.candidate) return [];
 
     // Step 2: Fetch ads from the matched page
     const adParams = new URLSearchParams({
       engine: 'meta_ad_library',
-      page_id: match.id,
+      page_id: result.candidate.id,
       country: 'US',
       api_key: apiKey,
     });

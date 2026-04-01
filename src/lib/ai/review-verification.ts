@@ -22,7 +22,7 @@ export interface CompetitorContext {
 }
 
 export interface ReviewSourceInfo {
-  source: 'g2' | 'trustpilot';
+  source: 'g2' | 'trustpilot' | 'capterra';
   url?: string;
   productName?: string;
   productCategory?: string;
@@ -63,6 +63,12 @@ function extractTrustpilotDomain(url: string): string | null {
   return match[1].replace(/^www\./, '').toLowerCase();
 }
 
+/** Detect whether a URL is a Capterra product page */
+function isCapterraUrl(url: string): boolean {
+  // Capterra product URLs follow: capterra.com/p/{id}/{slug}/ or capterra.com/software/{category}/{slug}/
+  return /capterra\.com\/(p\/\d+|software\/[^/?#]+\/[^/?#]+)/i.test(url);
+}
+
 // =============================================================================
 // Tier 1: Deterministic domain matching
 // =============================================================================
@@ -88,6 +94,20 @@ function tryTier1(
         tier: 1,
       };
     }
+  }
+
+  // Capterra URLs: verify the URL is on capterra.com — product match requires LLM
+  if (reviewInfo.source === 'capterra' && reviewInfo.url) {
+    if (!isCapterraUrl(reviewInfo.url)) {
+      return {
+        verified: false,
+        confidence: 'high',
+        reason: `URL does not match expected Capterra product page pattern: ${reviewInfo.url}`,
+        cost: 0,
+        tier: 1,
+      };
+    }
+    // URL looks like a valid Capterra page — fall through to LLM for product identity check
   }
 
   // G2 URLs are g2.com/products/{slug} — no competitor domain embedded, skip to Tier 2
@@ -132,7 +152,8 @@ async function runTier2(
 - Description: ${reviewInfo.productDescription || 'unknown'}
 - URL: ${reviewInfo.url || 'unknown'}
 
-Are these the same product/company? Consider name similarity, industry alignment, and product description. Companies with similar names but completely different industries are NOT matches.`,
+Are these the same product/company? Consider name similarity, industry alignment, and product description. Companies with similar names but completely different industries are NOT matches.
+Note: G2, Capterra, and Trustpilot listings may use slightly different product names — focus on whether the underlying company/product is the same.`,
     });
 
     const cost = estimateCost(

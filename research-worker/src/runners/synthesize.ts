@@ -65,6 +65,7 @@ const synthesisGenerateSchema = z.object({
     monthlyBudget: z.string().optional(),
     targetCpl: z.string().optional(),
     targetCac: z.string().optional(),
+    estimatedDemoPageCvr: z.number().optional().describe('Estimated demo/trial page conversion rate as a percentage (e.g. 3.5 for 3.5%). Must be within industry benchmarks: 2-5% for B2B SaaS demo pages.'),
     downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])),
   }),
   criticalSuccessFactors: z.array(z.string()),
@@ -99,6 +100,7 @@ RULES:
 - Mine competitor data — at least ONE insight must reference specific competitor weaknesses
 - Keep all strings concise and decision-useful
 - Do not fabricate data not present in the research
+- When citing statistics, distinguish between independent research (industry surveys, government data, academic studies) and competitor marketing claims. If a statistic originates from a competitor's website or promotional materials, label it as "per [Competitor] estimates" rather than presenting it as independent industry data.
 
 BUDGET ALLOCATION:
 - Under $2K/month: 1 primary platform (70-80%), 1 secondary for retargeting only
@@ -107,6 +109,13 @@ BUDGET ALLOCATION:
 - Over $15K: Aggressive multi-platform strategy
 - Show per-platform dollar amounts, not just percentages
 - Minimum viable: LinkedIn $500/mo, Google Search $500/mo, Meta $300/mo retargeting / $1K prospecting
+
+CONVERSION RATE BENCHMARKS:
+- B2B SaaS demo page: 2-5% landing page to demo request
+- B2B SaaS free trial: 5-15% landing page to trial signup
+- E-commerce: 2-4% average
+- Never estimate demo page CVR above 5% for B2B SaaS without explicit evidence from the research data
+- If you include conversion rate estimates in planningContext or strategicNarrative, they MUST fall within these ranges unless you cite a specific data source justifying a higher number
 
 MESSAGING ANGLES:
 - Map at least 2 angles as objection → counter-angle → proof
@@ -212,6 +221,20 @@ export async function runSynthesizeResearch(
 
     if (!object || !usage) {
       throw new Error('Strategic synthesis failed after 2 attempts');
+    }
+
+    // Cap CVR if hallucinated above B2B SaaS demo page benchmark (5%)
+    if (
+      object.planningContext?.estimatedDemoPageCvr !== undefined &&
+      object.planningContext.estimatedDemoPageCvr > 5
+    ) {
+      object = {
+        ...object,
+        planningContext: {
+          ...object.planningContext,
+          estimatedDemoPageCvr: 5,
+        },
+      };
     }
 
     await emitRunnerProgress(onProgress, 'runner', 'strategic synthesis complete');

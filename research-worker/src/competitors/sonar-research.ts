@@ -10,6 +10,28 @@ import type { CompetitorEntry } from './parse-context';
 const SONAR_TIMEOUT_MS = 25_000;
 // Validation runs in parallel per competitor — keep it tight.
 const VALIDATION_TIMEOUT_MS = 15_000;
+const DOMAIN_HEAD_TIMEOUT_MS = 3_000;
+
+/**
+ * Verify a domain resolves via HEAD request.
+ * Returns true if the domain responds with any 2xx/3xx status.
+ * Returns false on 4xx/5xx, network error, or timeout.
+ */
+async function verifyDomainResolves(domain: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://${domain}`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(DOMAIN_HEAD_TIMEOUT_MS),
+      redirect: 'follow',
+    });
+    const resolves = response.status < 400;
+    console.log(`[sonar-research] Domain HEAD verify "${domain}": ${response.status} (${resolves ? 'OK' : 'FAIL'})`);
+    return resolves;
+  } catch (error) {
+    console.log(`[sonar-research] Domain HEAD verify "${domain}": failed (${error instanceof Error ? error.message : 'unknown'})`);
+    return false;
+  }
+}
 
 export interface SonarCompetitorResult {
   competitorInsights: Array<{
@@ -26,12 +48,17 @@ export interface SonarCompetitorResult {
   // Populated by the validation step — callers may use this for observability.
   verifiedCompetitors?: string[];
   removedCompetitors?: Array<{ name: string; reason: string }>;
+  // Full CompetitorEntry[] with corrected domains from Sonar validation.
+  // Use these for downstream ad fetching (verified domains, not inferred).
+  verifiedEntries?: CompetitorEntry[];
 }
 
 interface ValidationResult {
   name: string;
   domain: string | null;
   verified: boolean;
+  /** Whether the domain was confirmed via HEAD request (not just Sonar output) */
+  domainVerified?: boolean;
   /** Confidence that this company exists and is in the same industry (0-100) */
   confidence: number;
   reason: string;
@@ -77,7 +104,8 @@ Search the web to verify. Return ONLY valid JSON, no other text:
 
 Rules:
 - Set exists: false if you cannot find any credible web presence for this company
-- Set industryMatch: false if the company exists but serves a completely different industry
+- Set industryMatch: false if the company exists but serves a completely different industry or market segment. Examples: a consumer data analytics tool is NOT a competitor to a restaurant AI platform, even if the names are similar.
+- If the candidate's domain resolves but belongs to a DIFFERENT business than expected (e.g. company is "Maitly" but maitly.com is not the AI company — the real site is maitly.ai), return the CORRECT domain in officialWebsite. Search for "[company name] [industry]" to find the right domain.
 - confidence should reflect how certain you are based on search results
 - NEVER make up company information — only use what you find in search results`;
 
@@ -115,15 +143,33 @@ Rules:
         parsed.currentlyInBusiness !== false &&
         parsed.industryMatch !== false;
 
+      // Extract and verify domain from Sonar's officialWebsite
+      let resolvedDomain = candidate.domain;
+      let domainVerified = false;
+
+      if (parsed.officialWebsite) {
+        const sonarDomain = parsed.officialWebsite
+          .replace(/^https?:\/\//, '')
+          .replace(/^www\./, '')
+          .split('/')[0];
+
+        // HEAD check: verify the domain actually resolves
+        const domainResolves = await verifyDomainResolves(sonarDomain);
+        if (domainResolves) {
+          resolvedDomain = sonarDomain;
+          domainVerified = true;
+          console.log(`[sonar-research] "${candidate.name}": Sonar domain "${sonarDomain}" verified via HEAD`);
+        } else {
+          // Sonar returned a domain that doesn't resolve — keep the original
+          console.warn(`[sonar-research] "${candidate.name}": Sonar domain "${sonarDomain}" failed HEAD check, keeping original "${candidate.domain}"`);
+        }
+      }
+
       return {
         name: candidate.name,
-        domain: parsed.officialWebsite
-          ? parsed.officialWebsite
-              .replace(/^https?:\/\//, '')
-              .replace(/^www\./, '')
-              .split('/')[0]
-          : candidate.domain,
+        domain: resolvedDomain,
         verified,
+        domainVerified,
         confidence: typeof parsed.confidence === 'number' ? parsed.confidence : (verified ? 70 : 20),
         reason: parsed.reason ?? (verified ? 'Verification passed' : 'Could not verify'),
       };
@@ -203,13 +249,14 @@ async function validateCompetitors(
     // cases where Sonar returns verified=true with very low confidence (e.g. 15).
     // Unverified competitors need 60+ confidence to pass through.
     if ((validation.verified && validation.confidence >= 30) || validation.confidence >= 60) {
-      // Update domain if Sonar found a better one
+      // Update domain if Sonar found a better one AND HEAD check confirmed it
       const updatedDomain = validation.domain ?? candidate.domain;
+      const domainWasUpgraded = updatedDomain !== candidate.domain && validation.domainVerified;
       verified.push({
         ...candidate,
         domain: updatedDomain,
-        // If the domain came from validation (not inferred), mark it as confirmed
-        inferredDomain: updatedDomain !== candidate.domain ? false : candidate.inferredDomain,
+        // Domain is NOT inferred if HEAD-verified by Sonar validation
+        inferredDomain: domainWasUpgraded ? false : candidate.inferredDomain,
       });
     } else {
       removed.push({ name: candidate.name, reason: validation.reason });
@@ -331,6 +378,7 @@ For EACH competitor, find:
 Then identify:
 - 2-3 patterns across the competitive landscape
 - 2-3 white space opportunities (messaging angles, audience segments, or channels that competitors are NOT addressing)
+- IMPORTANT: If your research reveals a major competitor in this market that is NOT in the list above (e.g. a market leader with significant market share, funding, or brand recognition), include them in competitorInsights anyway. The initial competitor list may be incomplete — do not omit well-known players just because they weren't listed.
 
 Return ONLY valid JSON, no other text:
 {
@@ -385,6 +433,7 @@ Return ONLY valid JSON, no other text:
       // Attach validation metadata for observability
       parsed.verifiedCompetitors = verifiedCompetitors.map(c => c.name);
       parsed.removedCompetitors = removedCompetitors;
+      parsed.verifiedEntries = verifiedCompetitors;
 
       return parsed;
     }
@@ -393,6 +442,7 @@ Return ONLY valid JSON, no other text:
     const fallback = JSON.parse(text) as SonarCompetitorResult;
     fallback.verifiedCompetitors = verifiedCompetitors.map(c => c.name);
     fallback.removedCompetitors = removedCompetitors;
+    fallback.verifiedEntries = verifiedCompetitors;
     return fallback;
   } catch (error) {
     console.error('[sonar-research] Sonar Pro competitor research failed:', error);
@@ -405,6 +455,7 @@ Return ONLY valid JSON, no other text:
       citations: [],
       verifiedCompetitors: verifiedCompetitors.map(c => c.name),
       removedCompetitors,
+      verifiedEntries: verifiedCompetitors,
     };
   }
 }

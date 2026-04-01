@@ -22,11 +22,27 @@ export interface G2Result {
   url: string | null;
 }
 
+export interface CapterraResult {
+  rating: number | null;
+  reviewCount: number | null;
+  categories: string[];
+  url: string | null;
+}
+
+export interface NegativeReview {
+  text: string;
+  rating: number;
+  date?: string;
+  source: 'g2' | 'capterra' | 'trustpilot';
+}
+
 export interface ReviewResult {
   competitorName: string;
   domain: string;
   trustpilot: TrustpilotResult | null;
   g2: G2Result | null;
+  capterra: CapterraResult | null;
+  negativeReviews: NegativeReview[];
   error?: string;
 }
 
@@ -276,6 +292,138 @@ CRITICAL RULES — read carefully:
   }
 }
 
+// ── Capterra (Perplexity search) ──
+
+const CAPTERRA_TIMEOUT_MS = 15_000;
+
+const capterraMetadataSchema = z.object({
+  found: z.boolean(),
+  url: z.string().optional(),
+  rating: z.number().optional().describe('Capterra star rating out of 5. Only the rating shown directly on the product page.'),
+  reviewCount: z.number().optional().describe('Total number of reviews shown on the Capterra product page.'),
+  productCategory: z.string().optional().describe('Capterra category for this product'),
+});
+
+async function searchCapterra(companyName: string, domain: string): Promise<CapterraResult | null> {
+  console.log(`[reviews] searching Capterra via Perplexity for: ${companyName}`);
+
+  if (!process.env.PERPLEXITY_API_KEY) {
+    console.log(`[reviews] Capterra skipped for ${companyName}: no PERPLEXITY_API_KEY`);
+    return null;
+  }
+
+  try {
+    const perplexity = createPerplexity({
+      apiKey: process.env.PERPLEXITY_API_KEY,
+    });
+
+    const result = await Promise.race([
+      generateObject({
+        model: perplexity('sonar-pro'),
+        schema: capterraMetadataSchema,
+        temperature: 0.1,
+        maxOutputTokens: 400,
+        system: `You look up Capterra.com product pages to find their aggregate rating and review count.
+
+CRITICAL RULES — read carefully:
+- ONLY report the star rating and review count shown directly on the Capterra product page for this exact company.
+- Do NOT report ratings from "Alternatives", "Sponsored" listings, or comparison widgets.
+- If you cannot find a dedicated Capterra product page for this exact company, set found: false.
+- Do NOT confuse similarly-named products. Verify the company domain matches.`,
+        prompt: `What is the Capterra rating and review count for "${companyName}" (website: ${domain})? Search: "${companyName} site:capterra.com reviews"`,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Capterra search timed out after ${CAPTERRA_TIMEOUT_MS / 1000}s`)),
+          CAPTERRA_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+
+    const obj = result.object;
+
+    if (!obj.found) {
+      console.log(`[reviews] Capterra ${companyName}: not found on Capterra`);
+      return null;
+    }
+
+    const validRating = obj.rating !== undefined && obj.rating >= 1 && obj.rating <= 5 ? obj.rating : null;
+    const validCount = obj.reviewCount !== undefined && obj.reviewCount > 0 ? obj.reviewCount : null;
+
+    console.log(`[reviews] Capterra ${companyName}: rating=${validRating}, count=${validCount}, url=${obj.url}`);
+
+    return {
+      rating: validRating,
+      reviewCount: validCount,
+      categories: obj.productCategory ? [obj.productCategory] : [],
+      url: obj.url ?? null,
+    };
+  } catch (error) {
+    console.error(`[reviews] Capterra error for ${companyName}:`, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+// ── Negative Review Extraction ──
+
+const NEGATIVE_REVIEWS_TIMEOUT_MS = 15_000;
+
+const negativeReviewsSchema = z.object({
+  reviews: z.array(z.object({
+    text: z.string().min(1),
+    rating: z.number().min(1).max(3),
+    date: z.string().optional(),
+    source: z.enum(['g2', 'capterra', 'trustpilot']),
+  })).max(5),
+});
+
+type ReviewSource = 'g2' | 'capterra' | 'trustpilot';
+
+async function fetchNegativeReviews(
+  companyName: string,
+  availableSources: ReviewSource[],
+): Promise<NegativeReview[]> {
+  if (!process.env.PERPLEXITY_API_KEY || availableSources.length === 0) {
+    return [];
+  }
+
+  const sourceList = availableSources.join(', ');
+  console.log(`[reviews] fetching negative reviews for ${companyName} from: ${sourceList}`);
+
+  try {
+    const perplexity = createPerplexity({
+      apiKey: process.env.PERPLEXITY_API_KEY,
+    });
+
+    const result = await Promise.race([
+      generateObject({
+        model: perplexity('sonar-pro'),
+        schema: negativeReviewsSchema,
+        temperature: 0.1,
+        maxOutputTokens: 800,
+        system: `You search for real negative customer reviews (1-3 stars) for software products.
+Return only genuine review text with accurate star ratings. Do not fabricate reviews.
+Only include reviews from the requested platforms.`,
+        prompt: `Find up to 5 negative reviews (1-3 stars) for "${companyName}" from ${sourceList}.
+Search queries to use: "1 star review ${companyName} site:g2.com" and "negative review ${companyName} capterra trustpilot".
+Return the actual review text, the star rating (must be 1-3), the date if visible, and which platform it came from.`,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Negative reviews search timed out after ${NEGATIVE_REVIEWS_TIMEOUT_MS / 1000}s`)),
+          NEGATIVE_REVIEWS_TIMEOUT_MS,
+        ),
+      ),
+    ]);
+
+    console.log(`[reviews] negative reviews for ${companyName}: found ${result.object.reviews.length}`);
+    return result.object.reviews;
+  } catch (error) {
+    console.error(`[reviews] negative reviews error for ${companyName}:`, error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
 // ── Public API ──
 
 interface ReviewInput {
@@ -284,10 +432,12 @@ interface ReviewInput {
 }
 
 /**
- * Fetch Trustpilot and G2 reviews for a single competitor.
+ * Fetch Trustpilot, G2, and Capterra reviews for a single competitor.
+ * Also fetches up to 5 negative review quotes from available sources.
  * Trustpilot: Firecrawl scrape (fast, ~5s)
- * G2: Perplexity Sonar Pro search (fast, ~3-5s)
- * Both run in parallel. Never throws.
+ * G2 + Capterra: Perplexity Sonar Pro search (fast, ~3-5s each)
+ * All aggregate fetches run in parallel. Negative reviews run after to know which sources found data.
+ * Never throws.
  */
 export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResult> {
   const domain = competitor.domain ?? '';
@@ -299,6 +449,8 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       domain: '',
       trustpilot: null,
       g2: null,
+      capterra: null,
+      negativeReviews: [],
       error: 'No domain available',
     };
   }
@@ -306,23 +458,40 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
   console.log(`[reviews] fetching reviews for ${competitor.name} (${domain})`);
 
   try {
-    const [trustpilot, g2] = await Promise.all([
+    const [trustpilot, g2, capterra] = await Promise.all([
       scrapeTrustpilot(domain),
       searchG2(competitor.name),
+      searchCapterra(competitor.name, domain),
     ]);
 
     // Keep results that have rating/count data OR just a verified URL
     const hasTrustpilot = trustpilot && (trustpilot.rating !== null || trustpilot.reviewCount !== null);
     const hasG2Data = g2 && (g2.rating !== null || g2.reviewCount !== null);
     const hasG2Link = g2 && g2.url !== null;
+    const hasCapterraData = capterra && (capterra.rating !== null || capterra.reviewCount !== null);
+    const hasCapterraLink = capterra && capterra.url !== null;
 
-    console.log(`[reviews] ${competitor.name}: trustpilot=${hasTrustpilot ? 'data' : 'none'}, g2=${hasG2Data ? 'data' : hasG2Link ? 'link-only' : 'none'}`);
+    console.log(
+      `[reviews] ${competitor.name}: trustpilot=${hasTrustpilot ? 'data' : 'none'}, ` +
+      `g2=${hasG2Data ? 'data' : hasG2Link ? 'link-only' : 'none'}, ` +
+      `capterra=${hasCapterraData ? 'data' : hasCapterraLink ? 'link-only' : 'none'}`,
+    );
+
+    // Determine which sources returned usable data for negative review search
+    const availableSources: Array<'g2' | 'capterra' | 'trustpilot'> = [];
+    if (hasG2Data || hasG2Link) availableSources.push('g2');
+    if (hasCapterraData || hasCapterraLink) availableSources.push('capterra');
+    if (hasTrustpilot) availableSources.push('trustpilot');
+
+    const negativeReviews = await fetchNegativeReviews(competitor.name, availableSources);
 
     return {
       competitorName: competitor.name,
       domain,
       trustpilot: hasTrustpilot ? trustpilot : null,
       g2: (hasG2Data || hasG2Link) ? g2 : null,
+      capterra: (hasCapterraData || hasCapterraLink) ? capterra : null,
+      negativeReviews,
     };
   } catch (error) {
     console.error(`[reviews] ${competitor.name} failed:`, error instanceof Error ? error.message : error);
@@ -331,6 +500,8 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       domain,
       trustpilot: null,
       g2: null,
+      capterra: null,
+      negativeReviews: [],
       error: error instanceof Error ? error.message : String(error),
     };
   }

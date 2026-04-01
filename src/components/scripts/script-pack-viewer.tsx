@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useScriptPackRealtime } from '@/lib/scripts/use-script-pack-realtime';
 import { AwarenessTabs } from './awareness-tabs';
 import { ScriptItem } from './script-item';
 import type { AwarenessLevel } from './awareness-tabs';
-import type { AdScript } from '@/lib/scripts/schemas';
+import type { AdScript, GenerationContext } from '@/lib/scripts/schemas';
 
 const AWARENESS_LEVELS_COUNT = 5;
 const SCRIPTS_PER_LEVEL_COUNT = 3;
@@ -30,23 +28,7 @@ const AWARENESS_LABELS: Record<string, string> = {
   mostAware: 'Most Aware',
 };
 
-interface ScriptPackViewerProps {
-  profileId: string;
-  sessionId: string;
-  initialScripts?: AdScript[];
-  initialPackId?: string;
-}
-
-function isAdScript(s: unknown): s is AdScript {
-  return (
-    typeof s === 'object' &&
-    s !== null &&
-    'id' in s &&
-    'type' in s &&
-    'platform' in s &&
-    'awarenessLevel' in s
-  );
-}
+const LEVEL_ORDER = ['unaware', 'problem', 'solution', 'product', 'mostAware'];
 
 function buildAwarenessCounts(scripts: AdScript[]): Partial<Record<AwarenessLevel, number>> {
   const counts: Partial<Record<AwarenessLevel, number>> = {};
@@ -57,133 +39,45 @@ function buildAwarenessCounts(scripts: AdScript[]): Partial<Record<AwarenessLeve
   return counts;
 }
 
+export interface ScriptPackViewerProps {
+  scripts: AdScript[];
+  generationContext?: GenerationContext | null;
+  diversityFlags?: string[];
+  diversityScore?: number | null;
+  isGenerating?: boolean;
+  generatingProgress?: { completedLevels: number; totalScripts: number };
+  onScriptUpdate?: (scriptId: string, updates: Partial<AdScript>) => void;
+  packId: string;
+}
+
 export function ScriptPackViewer({
-  profileId,
-  sessionId,
-  initialScripts,
-  initialPackId,
+  scripts,
+  diversityFlags = [],
+  diversityScore = null,
+  isGenerating = false,
+  generatingProgress,
+  onScriptUpdate,
+  packId,
 }: ScriptPackViewerProps) {
-  const [packId, setPackId] = useState<string | null>(initialPackId ?? null);
-  const [generating, setGenerating] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
-  const [localScripts, setLocalScripts] = useState<AdScript[]>(initialScripts ?? []);
   const [awarenessFilter, setAwarenessFilter] = useState<AwarenessLevel>('all');
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
-  const [loadingPack, setLoadingPack] = useState(!initialPackId);
-  const [diversityFlags, setDiversityFlags] = useState<string[]>([]);
-  const [diversityScore, setDiversityScore] = useState<number | null>(null);
+  const [localScripts, setLocalScripts] = useState<AdScript[]>(scripts);
 
-  // Self-fetch latest pack if no initial data provided (handles tab-switch reload)
-  useEffect(() => {
-    if (initialPackId || initialScripts?.length) return;
-    let cancelled = false;
-    fetch(`/api/profiles/${profileId}/script-packs`)
-      .then((res) => res.json())
-      .then(({ packs }) => {
-        if (cancelled || !packs?.length) { setLoadingPack(false); return; }
-        const p = packs[0];
-        const scripts = typeof p.scripts === 'string' ? JSON.parse(p.scripts) : p.scripts;
-        if ((p.status === 'complete' || p.status === 'partial') && scripts?.length > 0) {
-          setPackId(p.id);
-          setLocalScripts(scripts.filter(isAdScript));
-          // Load diversity data if present
-          if (p.diversity_flags) {
-            const flags = typeof p.diversity_flags === 'string' ? JSON.parse(p.diversity_flags) : p.diversity_flags;
-            if (Array.isArray(flags)) setDiversityFlags(flags);
-          }
-          if (typeof p.diversity_score === 'number') setDiversityScore(p.diversity_score);
-        }
-        setLoadingPack(false);
-      })
-      .catch(() => setLoadingPack(false));
-    return () => { cancelled = true; };
-  }, [profileId, initialPackId, initialScripts]);
+  // Sync local scripts when prop changes (new pack selected)
+  // Use a derived value so we don't need a useEffect
+  const activeScripts: AdScript[] = scripts.length > 0 ? scripts : localScripts;
 
-  const onComplete = useCallback(
-    (state: { scripts: unknown[] }) => {
-      const parsed = (state.scripts ?? []).filter(isAdScript);
-      setLocalScripts(parsed);
-      setGenerating(false);
-
-      // Fetch diversity data from the completed pack
-      if (packId) {
-        fetch(`/api/scripts/${packId}`)
-          .then((res) => res.json())
-          .then(({ pack }) => {
-            if (pack?.diversity_flags) {
-              const flags = typeof pack.diversity_flags === 'string'
-                ? JSON.parse(pack.diversity_flags)
-                : pack.diversity_flags;
-              if (Array.isArray(flags)) setDiversityFlags(flags);
-            }
-            if (typeof pack?.diversity_score === 'number') {
-              setDiversityScore(pack.diversity_score);
-            }
-          })
-          .catch(() => {});
-      }
-    },
-    [packId],
-  );
-
-  const realtimeState = useScriptPackRealtime({
-    packId,
-    enabled: generating || (packId !== null && localScripts.length === 0),
-    onComplete,
-  });
-
-  // Use realtime scripts if available, else local
-  const activeScripts: AdScript[] =
-    realtimeState.scripts.length > 0
-      ? realtimeState.scripts.filter(isAdScript)
-      : localScripts;
-
-  const isPolling =
-    realtimeState.status === 'generating' || realtimeState.status === 'partial';
-
-  // Derive generation progress from script count (3 scripts per level, 5 levels)
-  const completedLevels = Math.floor(activeScripts.length / 3);
+  // Derive generation progress from script count when not explicitly provided
+  const completedLevels =
+    generatingProgress?.completedLevels ?? Math.floor(activeScripts.length / SCRIPTS_PER_LEVEL_COUNT);
   const currentLevelIndex = Math.min(completedLevels, 4);
-  const LEVEL_ORDER = ['unaware', 'problem', 'solution', 'product', 'mostAware'];
   const currentLevelLabel = AWARENESS_LABELS[LEVEL_ORDER[currentLevelIndex]] ?? '';
-
-  async function handleGenerate() {
-    setGenError(null);
-    setGenerating(true);
-    setLocalScripts([]);
-    setDiversityFlags([]);
-    setDiversityScore(null);
-    try {
-      const res = await fetch('/api/scripts/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId, sessionId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setGenError(data.error ?? 'Generation failed');
-        setGenerating(false);
-        return;
-      }
-      setPackId(data.packId);
-    } catch {
-      setGenError('Network error — try again');
-      setGenerating(false);
-    }
-  }
 
   function handleScriptUpdate(scriptId: string, updates: Partial<AdScript>) {
     setLocalScripts((prev) =>
       prev.map((s) => (s.id === scriptId ? { ...s, ...updates } : s)),
     );
-  }
-
-  if (loadingPack) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-5 animate-spin text-[var(--text-tertiary)]" />
-      </div>
-    );
+    onScriptUpdate?.(scriptId, updates);
   }
 
   // Compute stats
@@ -203,65 +97,41 @@ export function ScriptPackViewer({
 
   return (
     <div className="space-y-6">
-      {/* Stats bar + generate button */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-6">
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
-              Total
-            </span>{' '}
-            <span className="text-[20px] font-mono font-semibold text-[var(--text-primary)] tabular-nums">
-              {activeScripts.length}
-            </span>
-          </div>
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
-              Video
-            </span>{' '}
-            <span className="text-[13px] font-mono text-[var(--text-primary)] tabular-nums">
-              {totalVideo}
-            </span>
-          </div>
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
-              Static
-            </span>{' '}
-            <span className="text-[13px] font-mono text-[var(--text-primary)] tabular-nums">
-              {totalStatic}
-            </span>
-          </div>
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
-              Email
-            </span>{' '}
-            <span className="text-[13px] font-mono text-[var(--text-primary)] tabular-nums">
-              {totalEmail}
-            </span>
-          </div>
+      {/* Stats bar */}
+      <div className="flex items-center gap-6 flex-wrap">
+        <div>
+          <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
+            Total
+          </span>{' '}
+          <span className="text-[20px] font-mono font-semibold text-[var(--text-primary)] tabular-nums">
+            {activeScripts.length}
+          </span>
         </div>
-
-        <Button
-          size="sm"
-          onClick={handleGenerate}
-          disabled={generating || isPolling}
-          className={cn(
-            'gap-1.5 text-xs px-4 py-2 rounded-md font-medium',
-            'bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-          )}
-        >
-          {generating || isPolling ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="size-3.5" />
-          )}
-          {generating || isPolling ? 'Generating...' : 'Generate New Batch'}
-        </Button>
+        <div>
+          <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
+            Video
+          </span>{' '}
+          <span className="text-[13px] font-mono text-[var(--text-primary)] tabular-nums">
+            {totalVideo}
+          </span>
+        </div>
+        <div>
+          <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
+            Static
+          </span>{' '}
+          <span className="text-[13px] font-mono text-[var(--text-primary)] tabular-nums">
+            {totalStatic}
+          </span>
+        </div>
+        <div>
+          <span className="text-[11px] uppercase tracking-[0.06em] font-mono text-[var(--text-quaternary)]">
+            Email
+          </span>{' '}
+          <span className="text-[13px] font-mono text-[var(--text-primary)] tabular-nums">
+            {totalEmail}
+          </span>
+        </div>
       </div>
-
-      {genError && (
-        <p className="text-xs text-red-500 font-mono">{genError}</p>
-      )}
 
       {/* Diversity flags */}
       {diversityFlags.length > 0 && (
@@ -322,7 +192,7 @@ export function ScriptPackViewer({
             <ScriptItem
               key={script.id}
               script={script}
-              packId={packId ?? ''}
+              packId={packId}
               onUpdate={handleScriptUpdate}
             />
           ))}
@@ -333,8 +203,8 @@ export function ScriptPackViewer({
         </div>
       ) : null}
 
-      {/* Empty state (no scripts ever generated) */}
-      {activeScripts.length === 0 && !generating && !isPolling && (
+      {/* Empty state (no scripts yet) */}
+      {activeScripts.length === 0 && !isGenerating && (
         <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] px-6 py-12 text-center">
           <Sparkles className="size-6 text-[var(--text-quaternary)] mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)] mb-1">No scripts yet</p>
@@ -345,7 +215,7 @@ export function ScriptPackViewer({
       )}
 
       {/* Generation progress */}
-      {(generating || isPolling) && (
+      {isGenerating && (
         <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/5 px-5 py-4">
           <div className="flex items-center gap-3 mb-3">
             <Loader2 className="size-4 animate-spin text-[var(--accent-blue)]" />
@@ -365,7 +235,7 @@ export function ScriptPackViewer({
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: i < completedLevels ? '100%' : i === completedLevels && isPolling ? '50%' : '0%',
+                    width: i < completedLevels ? '100%' : i === completedLevels ? '50%' : '0%',
                     background: 'var(--accent-blue)',
                   }}
                 />
@@ -384,21 +254,11 @@ export function ScriptPackViewer({
             </span>
           </div>
 
-          {/* Show partial scripts inline */}
           {activeScripts.length > 0 && (
             <p className="text-[11px] text-[var(--text-tertiary)] mt-2">
               {activeScripts.length} scripts ready — more incoming...
             </p>
           )}
-        </div>
-      )}
-
-      {/* Error state from realtime */}
-      {realtimeState.status === 'error' && (
-        <div className="rounded-lg border border-red-500/20 bg-red-50 dark:bg-red-500/5 px-4 py-3">
-          <p className="text-xs text-red-600 dark:text-red-400">
-            {realtimeState.errorMessage ?? 'Script generation failed. Please try again.'}
-          </p>
         </div>
       )}
     </div>

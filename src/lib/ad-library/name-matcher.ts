@@ -81,28 +81,26 @@ export function calculateSimilarity(str1: string, str2: string): number {
   if (s1 === s2) return 1;
   if (s1.length === 0 || s2.length === 0) return 0;
 
-  // For short queries (5 chars or less), require exact word match or starts-with
-  // This prevents "huel" matching "hula hoop" via Jaro-Winkler
+  // Short names (≤6 chars) get strict matching to prevent false positives.
+  // "Atlas" must NOT match "Atlas VPN". "Buffer" must NOT match "Buffer Zone".
+  // normalizeCompanyName already strips Inc/LLC/Corp/Ltd, so "Buffer Inc" → "buffer" = exact match.
   const shorter = s1.length <= s2.length ? s1 : s2;
   const longer = s1.length <= s2.length ? s2 : s1;
 
-  if (shorter.length <= 5) {
-    if (longer === shorter) {
-      return 1.0;
-    }
+  if (shorter.length <= 6) {
+    if (longer === shorter) return 1.0;
     if (longer.startsWith(shorter + ' ')) {
-      // Short name is prefix of longer — penalize based on extra words
       const extraPart = longer.substring(shorter.length + 1).trim();
-      const extraWordCount = extraPart.split(/\s+/).filter(w => w.length > 0).length;
-      return extraWordCount <= 1 ? 0.85 : 0.75;
+      const extraWords = extraPart.split(/\s+/).filter(w => w.length > 0);
+      const corporateSuffixes = new Set(['inc', 'llc', 'corp', 'ltd', 'limited', 'co', 'company', 'group', 'international', 'intl', 'technologies', 'software', 'solutions', 'platform', 'hq']);
+      const allSuffixes = extraWords.every(w => corporateSuffixes.has(w.toLowerCase()));
+      if (allSuffixes && extraWords.length <= 2) return 0.95;
+      return 0.5;
     }
     const words = longer.split(' ');
-    if (words.some(word => word === shorter)) {
-      return 0.80;
-    }
-    if (s1.substring(0, 2) !== s2.substring(0, 2)) {
-      return 0.3;
-    }
+    if (words.some(word => word === shorter) && words[0] !== shorter) return 0.4;
+    if (s1.substring(0, 2) !== s2.substring(0, 2)) return 0.3;
+    return 0.5;
   }
 
   // Check if one string contains the other (substring match)

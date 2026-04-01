@@ -12,13 +12,16 @@ export async function GET(
   const { id: profileId } = await params;
   const supabase = createAdminClient();
 
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
   const { data: packs, error } = await supabase
     .from('script_packs')
-    .select('*')
+    .select('id, created_at, status, generation_context, style_references_snapshot, diversity_score, diversity_flags, script_count')
     .eq('profile_id', profileId)
     .eq('user_id', userId)
+    .or(`status.neq.generating,created_at.gte.${fifteenMinAgo}`)
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(20);
 
   if (error) {
     return NextResponse.json({ error: 'Failed to fetch script packs' }, { status: 500 });

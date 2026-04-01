@@ -58,7 +58,7 @@ CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no exp
 
 After completing your research, respond with a JSON object. Structure:
 {
-  "validatedPersona": "string — the single best paid-media-ready ICP",
+  "validatedPersona": "string — the primary paid-media-ready ICP (always required — set to the primary segment's persona description)",
   "demographics": "string — firmographics / geography / team profile summary",
   "channels": ["string — the best paid channels to reach this ICP"],
   "triggers": ["string — the most reliable buying triggers"],
@@ -76,7 +76,7 @@ After completing your research, respond with a JSON object. Structure:
     "status": "validated | workable | invalid",
     "reasoning": "string — why this verdict was reached",
     "recommendations": ["string — how to target or de-risk this ICP"]
-  }
+  },
   "audienceRefinements": [
     {
       "refinement": "string — 1 sentence: what to change about targeting or messaging",
@@ -86,6 +86,17 @@ After completing your research, respond with a JSON object. Structure:
       "risk": "string — 1 sentence: what happens if wrong"
     }
   ],
+  "segments": [
+    {
+      "productLine": "string — the product or service line this segment targets",
+      "validatedPersona": "string — the paid-media-ready ICP for this product line",
+      "audienceSize": "Small | Medium | Large",
+      "confidence": 0-100,
+      "channels": ["string — top channels for this segment"],
+      "triggers": ["string — buying triggers for this segment"],
+      "objections": ["string — common objections from this segment"]
+    }
+  ],
   "citations": [
     {
       "url": "https://example.com/source",
@@ -93,6 +104,8 @@ After completing your research, respond with a JSON object. Structure:
     }
   ]
 }
+
+SEGMENTS GUIDANCE: If the business has distinct product lines targeting different audiences, identify and validate each as a separate ICP segment in the segments array. Most businesses have one primary ICP — only create multiple segments when the products target genuinely different buyer personas. Always set the top-level validatedPersona to the primary segment's persona description.
 
 ${ICP_INTELLIGENCE_SKILL}`;
 

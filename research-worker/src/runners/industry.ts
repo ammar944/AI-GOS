@@ -26,7 +26,7 @@ const WEB_SEARCH_TOOL = {
   name: 'web_search',
 } as const;
 
-const INDUSTRY_PRIMARY_SYSTEM_PROMPT = `You are an expert market researcher with real-time web search capabilities.
+export const INDUSTRY_PRIMARY_SYSTEM_PROMPT = `You are an expert market researcher with real-time web search capabilities.
 
 TASK: Research the industry and market landscape to inform a paid media strategy.
 
@@ -62,10 +62,14 @@ QUALITY STANDARDS:
   - If SAM is unavailable, use "Estimated SAM:" or "Proxy estimate:" with a brief derivation note.
   - Use "TAM context:" only when citing a broader parent market, and explicitly note that it is not the direct niche size.
   - Never serialize a parent-market TAM as the direct market size for the niche category.
+  - ARITHMETIC CHECK: After writing your market size derivation (e.g. "X establishments × $Y spend × Z% adoption"), multiply out each factor and confirm the final number matches. If the multiplication does not equal your stated figure, correct it before outputting.
 - Use these mappings:
   - marketMaturity: early = category education still required, growing = active demand with expanding competition, saturated = mature crowded category
   - buyingBehavior: impulsive = single-buyer / low-friction, committee_driven = multi-stakeholder consensus, roi_based = finance-led justification dominates, mixed = no single motion dominates
   - awarenessLevel: low = unaware or problem-aware, medium = solution-aware, high = product-aware or most-aware
+
+SALES CYCLE CROSS-REFERENCE:
+If the client has provided their sales cycle length in the context above, use it as a baseline. Your estimated sales cycle should not exceed 2x the client's stated length without explicit market evidence justifying the difference. If no client-stated sales cycle is provided, estimate based on market research only.
 
 OUTPUT FORMAT:
 CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.

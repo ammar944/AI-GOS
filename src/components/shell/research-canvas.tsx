@@ -330,7 +330,53 @@ function CompetitorsContent({ data }: { data: Record<string, unknown> }) {
 }
 
 // ICP tab content
+function ICPSegmentView({ segment }: { segment: Record<string, unknown> }) {
+  const channels = arr(get(segment, 'channels')).map(str).filter(Boolean);
+  const triggers = arr(get(segment, 'triggers')).map(str).filter(Boolean);
+  const objections = arr(get(segment, 'objections')).map(str).filter(Boolean);
+  const confidence = get<number>(segment, 'confidence');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {get<string>(segment, 'validatedPersona') && (
+        <div>
+          <SectionLabel>ICP Description</SectionLabel>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            {get<string>(segment, 'validatedPersona')}
+          </p>
+        </div>
+      )}
+      <DataRow label="Audience size" value={get<string>(segment, 'audienceSize')} />
+      {confidence !== undefined && (
+        <DataRow label="Confidence" value={`${confidence}%`} />
+      )}
+      {channels.length > 0 && (
+        <div>
+          <SectionLabel>Top Channels</SectionLabel>
+          <BulletList items={channels} color="var(--accent-cyan, #06b6d4)" />
+        </div>
+      )}
+      {triggers.length > 0 && (
+        <div>
+          <SectionLabel>Buying Triggers</SectionLabel>
+          <BulletList items={triggers} color="var(--accent-green, #22c55e)" />
+        </div>
+      )}
+      {objections.length > 0 && (
+        <div>
+          <SectionLabel>Key Objections</SectionLabel>
+          <BulletList items={objections} color="#f59e0b" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ICPContent({ data }: { data: Record<string, unknown> }) {
+  const segments = arr(get(data, 'segments')) as Record<string, unknown>[];
+  const hasMultipleSegments = segments.length > 1;
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
+
   const verdict = get<Record<string, unknown>>(data, 'finalVerdict');
   const verdictStatus = get<string>(verdict, 'status') ?? '';
   const verdictColor = verdictStatus === 'Validated' ? 'var(--accent-green, #22c55e)' : verdictStatus === 'Invalid' ? 'var(--status-error)' : '#f59e0b';
@@ -351,39 +397,76 @@ function ICPContent({ data }: { data: Record<string, unknown> }) {
           )}
         </div>
       )}
-      {fit && (
+
+      {hasMultipleSegments ? (
         <div>
-          <SectionLabel>Pain-Solution Fit</SectionLabel>
-          <DataRow label="Primary pain" value={get<string>(fit, 'primaryPain')} />
-          <DataRow label="Solution addresses" value={get<string>(fit, 'solutionAddresses')} />
-          <DataRow label="Fit score" value={get<number>(fit, 'fitScore')} />
+          <SectionLabel>ICP Segments ({segments.length})</SectionLabel>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+            {segments.map((seg, i) => {
+              const label = get<string>(seg, 'productLine') ?? `Segment ${i + 1}`;
+              const isActive = activeSegmentIndex === i;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setActiveSegmentIndex(i)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: isActive ? 600 : 400,
+                    border: `1px solid ${isActive ? 'var(--accent-cyan, #06b6d4)' : 'var(--border-subtle)'}`,
+                    background: isActive ? 'color-mix(in srgb, var(--accent-cyan, #06b6d4) 12%, transparent)' : 'transparent',
+                    color: isActive ? 'var(--accent-cyan, #06b6d4)' : 'var(--text-tertiary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {segments[activeSegmentIndex] && (
+            <ICPSegmentView segment={segments[activeSegmentIndex]} />
+          )}
         </div>
-      )}
-      {checklist && (
-        <div>
-          <SectionLabel>Coherence Checklist</SectionLabel>
-          {Object.entries(checklist).map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{k}</span>
-              <span style={{ fontSize: 12, fontWeight: 500, color: v ? 'var(--accent-green, #22c55e)' : 'var(--status-error)' }}>
-                {v ? 'Pass' : 'Fail'}
-              </span>
+      ) : (
+        <>
+          {fit && (
+            <div>
+              <SectionLabel>Pain-Solution Fit</SectionLabel>
+              <DataRow label="Primary pain" value={get<string>(fit, 'primaryPain')} />
+              <DataRow label="Solution addresses" value={get<string>(fit, 'solutionAddresses')} />
+              <DataRow label="Fit score" value={get<number>(fit, 'fitScore')} />
             </div>
-          ))}
-        </div>
-      )}
-      {targeting && (
-        <div>
-          <SectionLabel>Targeting Feasibility</SectionLabel>
-          <DataRow label="Platform reach" value={get<string>(targeting, 'platformReach')} />
-          <DataRow label="Audience size" value={get<string>(targeting, 'estimatedSize')} />
-        </div>
-      )}
-      {flags.length > 0 && (
-        <div>
-          <SectionLabel>Risk Flags</SectionLabel>
-          <BulletList items={flags} color="var(--status-error)" />
-        </div>
+          )}
+          {checklist && (
+            <div>
+              <SectionLabel>Coherence Checklist</SectionLabel>
+              {Object.entries(checklist).map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{k}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: v ? 'var(--accent-green, #22c55e)' : 'var(--status-error)' }}>
+                    {v ? 'Pass' : 'Fail'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {targeting && (
+            <div>
+              <SectionLabel>Targeting Feasibility</SectionLabel>
+              <DataRow label="Platform reach" value={get<string>(targeting, 'platformReach')} />
+              <DataRow label="Audience size" value={get<string>(targeting, 'estimatedSize')} />
+            </div>
+          )}
+          {flags.length > 0 && (
+            <div>
+              <SectionLabel>Risk Flags</SectionLabel>
+              <BulletList items={flags} color="var(--status-error)" />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

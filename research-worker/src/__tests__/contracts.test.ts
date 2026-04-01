@@ -1,5 +1,252 @@
 import { describe, expect, it } from 'vitest';
 import { finalizeRunnerResult } from '../contracts';
+import { z } from 'zod';
+
+// ── ICP segments schema ───────────────────────────────────────────────────────
+
+describe('icpValidation segments field', () => {
+  const baseIcpPayload = {
+    validatedPersona: 'B2B SaaS VP of Marketing at 50-500 employee companies',
+    demographics: 'US-based, mid-market SaaS, $5M-$50M ARR',
+    channels: ['LinkedIn', 'Google'],
+    triggers: ['New CMO hire', 'Series B funding'],
+    objections: ['Too expensive for our stage'],
+    decisionFactors: [{ factor: 'ROI proof', relevance: 90 }],
+    audienceSize: 'Medium',
+    confidenceScore: 75,
+    decisionProcess: 'Marketing lead evaluates, CFO approves budgets over $50k',
+  };
+
+  it('validates ICP data without segments (backward compat — old format)', () => {
+    const result = finalizeRunnerResult({
+      section: 'icpValidation',
+      durationMs: 1100,
+      parsed: baseIcpPayload,
+      rawText: JSON.stringify(baseIcpPayload),
+    });
+    expect(result.status).toBe('complete');
+    expect(result.section).toBe('icpValidation');
+    // segments should be absent on old data
+    expect((result as { data?: { segments?: unknown } }).data?.segments).toBeUndefined();
+  });
+
+  it('validates ICP data with a single segment', () => {
+    const payload = {
+      ...baseIcpPayload,
+      segments: [
+        {
+          productLine: 'Pipeline Analytics',
+          validatedPersona: 'VP Marketing at mid-market SaaS',
+          audienceSize: 'Medium',
+          confidence: 80,
+          channels: ['LinkedIn', 'Google'],
+          triggers: ['New CMO hire'],
+          objections: ['Too expensive'],
+        },
+      ],
+    };
+    const result = finalizeRunnerResult({
+      section: 'icpValidation',
+      durationMs: 1200,
+      parsed: payload,
+      rawText: JSON.stringify(payload),
+    });
+    expect(result.status).toBe('complete');
+    expect((result as { data?: { segments?: unknown[] } }).data?.segments).toHaveLength(1);
+  });
+
+  it('validates ICP data with multiple segments (multi-product business)', () => {
+    const payload = {
+      ...baseIcpPayload,
+      validatedPersona: 'B2B SaaS VP of Marketing (primary segment)',
+      segments: [
+        {
+          productLine: 'Pipeline Analytics',
+          validatedPersona: 'VP Marketing at mid-market SaaS companies ($5M-$50M ARR)',
+          audienceSize: 'Medium',
+          confidence: 82,
+          channels: ['LinkedIn', 'Google'],
+          triggers: ['New CMO hire', 'Series B funding'],
+          objections: ['Existing BI tools cover this'],
+        },
+        {
+          productLine: 'Ad Attribution',
+          validatedPersona: 'Performance marketing managers at D2C e-commerce brands',
+          audienceSize: 'Large',
+          confidence: 71,
+          channels: ['Meta', 'Google'],
+          triggers: ['iOS privacy changes', 'Rising CAC'],
+          objections: ['We already use Triple Whale'],
+        },
+      ],
+    };
+    const result = finalizeRunnerResult({
+      section: 'icpValidation',
+      durationMs: 1500,
+      parsed: payload,
+      rawText: JSON.stringify(payload),
+    });
+    expect(result.status).toBe('complete');
+    const segments = (result as { data?: { segments?: unknown[] } }).data?.segments;
+    expect(segments).toHaveLength(2);
+  });
+
+  it('rejects a segment missing required productLine field', () => {
+    const payload = {
+      ...baseIcpPayload,
+      segments: [
+        {
+          // productLine intentionally omitted
+          validatedPersona: 'VP Marketing at mid-market SaaS',
+          audienceSize: 'Medium',
+          confidence: 80,
+          channels: ['LinkedIn'],
+          triggers: ['New CMO hire'],
+          objections: ['Too expensive'],
+        },
+      ],
+    };
+    const result = finalizeRunnerResult({
+      section: 'icpValidation',
+      durationMs: 1000,
+      parsed: payload,
+      rawText: JSON.stringify(payload),
+    });
+    // Should fail validation due to missing productLine
+    expect(result.status).toBe('partial');
+  });
+
+  it('rejects a segment with confidence out of 0-100 range', () => {
+    const payload = {
+      ...baseIcpPayload,
+      segments: [
+        {
+          productLine: 'Pipeline Analytics',
+          validatedPersona: 'VP Marketing',
+          audienceSize: 'Medium',
+          confidence: 150, // invalid — over 100
+          channels: ['LinkedIn'],
+          triggers: ['New CMO'],
+          objections: ['Expensive'],
+        },
+      ],
+    };
+    const result = finalizeRunnerResult({
+      section: 'icpValidation',
+      durationMs: 1000,
+      parsed: payload,
+      rawText: JSON.stringify(payload),
+    });
+    expect(result.status).toBe('partial');
+  });
+});
+
+// ── Reviews schema ────────────────────────────────────────────────────────────
+
+const reviewsSchema = z.object({
+  trustpilot: z.object({
+    rating: z.number().min(0).max(5).optional(),
+    reviewCount: z.number().nonnegative().optional(),
+    recentThemes: z.array(z.string()).optional(),
+    url: z.string().optional(),
+  }).optional(),
+  g2: z.object({
+    rating: z.number().min(0).max(5).optional(),
+    reviewCount: z.number().nonnegative().optional(),
+    categories: z.array(z.string()).optional(),
+    url: z.string().optional(),
+  }).optional(),
+  capterra: z.object({
+    rating: z.number().min(0).max(5).optional(),
+    reviewCount: z.number().nonnegative().optional(),
+    categories: z.array(z.string()).optional(),
+    url: z.string().optional(),
+  }).optional(),
+  negativeReviews: z.array(z.object({
+    text: z.string(),
+    rating: z.number().min(1).max(3),
+    date: z.string().optional(),
+    source: z.enum(['g2', 'capterra', 'trustpilot']),
+  })).max(5).optional(),
+});
+
+describe('reviews schema', () => {
+  it('accepts capterra data alongside trustpilot and g2', () => {
+    const result = reviewsSchema.safeParse({
+      trustpilot: { rating: 4.2, reviewCount: 1200, url: 'https://www.trustpilot.com/review/example.com' },
+      g2: { rating: 4.5, reviewCount: 300, categories: ['CRM'], url: 'https://www.g2.com/products/example' },
+      capterra: { rating: 4.3, reviewCount: 500, categories: ['Sales Software'], url: 'https://www.capterra.com/p/12345/example/' },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts capterra without trustpilot or g2 (optional fields)', () => {
+    const result = reviewsSchema.safeParse({
+      capterra: { rating: 4.1, reviewCount: 250, url: 'https://www.capterra.com/p/99/tool/' },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('passes validation when negativeReviews is undefined (backward compat)', () => {
+    const result = reviewsSchema.safeParse({
+      g2: { rating: 4.0, reviewCount: 100 },
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.negativeReviews).toBeUndefined();
+  });
+
+  it('accepts negativeReviews with ratings 1-3', () => {
+    const result = reviewsSchema.safeParse({
+      negativeReviews: [
+        { text: 'Too expensive for what it offers.', rating: 2, source: 'g2' },
+        { text: 'Slow customer support.', rating: 1, date: '2024-11', source: 'capterra' },
+        { text: 'Limited integrations.', rating: 3, source: 'trustpilot' },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.negativeReviews).toHaveLength(3);
+  });
+
+  it('rejects negativeReviews with rating above 3', () => {
+    const result = reviewsSchema.safeParse({
+      negativeReviews: [
+        { text: 'Pretty good actually.', rating: 4, source: 'g2' },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects negativeReviews with rating below 1', () => {
+    const result = reviewsSchema.safeParse({
+      negativeReviews: [
+        { text: 'Zero stars.', rating: 0, source: 'capterra' },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects more than 5 negative reviews', () => {
+    const result = reviewsSchema.safeParse({
+      negativeReviews: [1, 2, 3, 4, 5, 6].map((i) => ({
+        text: `Review ${i}`,
+        rating: 2,
+        source: 'g2' as const,
+      })),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts exactly 5 negative reviews', () => {
+    const result = reviewsSchema.safeParse({
+      negativeReviews: [1, 2, 3, 4, 5].map((i) => ({
+        text: `Review ${i}`,
+        rating: 1 + ((i - 1) % 3),
+        source: (['g2', 'capterra', 'trustpilot', 'g2', 'capterra'] as const)[i - 1],
+      })),
+    });
+    expect(result.success).toBe(true);
+  });
+});
 
 describe('finalizeRunnerResult', () => {
   it('normalizes valid runner output to a canonical complete result', () => {

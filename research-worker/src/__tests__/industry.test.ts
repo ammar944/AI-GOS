@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runResearchIndustryWithDeps } from '../runners/industry';
+import { runResearchIndustryWithDeps, INDUSTRY_PRIMARY_SYSTEM_PROMPT } from '../runners/industry';
 import type { RunnerProgressUpdate } from '../runner';
 
 function createNow(values: number[]): () => number {
@@ -8,6 +8,13 @@ function createNow(values: number[]): () => number {
 }
 
 describe('runResearchIndustryWithDeps', () => {
+  it('system prompt contains sales cycle cross-reference instruction', () => {
+    expect(INDUSTRY_PRIMARY_SYSTEM_PROMPT).toContain('SALES CYCLE');
+    expect(INDUSTRY_PRIMARY_SYSTEM_PROMPT).toContain(
+      'Your estimated sales cycle should not exceed 2x the client\'s stated length',
+    );
+  });
+
   it('relables parent-market TAM as context instead of direct niche market size', async () => {
     const result = await runResearchIndustryWithDeps(
       [

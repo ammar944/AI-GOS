@@ -40,6 +40,11 @@ Adjust ratios based on offer type: high-intent search (SaaS trial, local service
 - Week 3: add secondary platform, bring primary to full budget
 - Week 4+: full allocation, add experimental if criteria met
 
+### Budget consistency contract
+- If the strategic synthesis input recommends specific platform allocation percentages, use those exact percentages. Do not invent different allocations that contradict the synthesis.
+- When stating a platform minimum spend threshold, verify the allocated budget actually meets or exceeds it. If $X is allocated and the stated minimum is $Y where X < Y, flag this as a budget constraint violation — do not claim it "meets the minimum marginally."
+- Platform budget allocations must sum to the total monthly budget exactly. Verify the sum before outputting.
+
 ### Anti-hallucination contract
 Use only the provided reference data and research results. Do not infer unsupported facts.
 All benchmark numbers must be labeled as "industry benchmark". If competitor spend data is not

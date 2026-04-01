@@ -44,6 +44,18 @@ export const competitorGapSchema = z.object({
   priorityScore: z.number().int().min(0).max(100),
 });
 
+export const competitorTopKeywordSchema = z.object({
+  keyword: nonEmptyStringSchema,
+  searchVolume: z.number().nonnegative(),
+  estimatedCpc: nonEmptyStringSchema,
+});
+
+export const competitorKeywordsEntrySchema = z.object({
+  competitorName: nonEmptyStringSchema,
+  competitorDomain: nonEmptyStringSchema,
+  topKeywords: z.array(competitorTopKeywordSchema).max(5),
+});
+
 export const negativeKeywordSchema = z.object({
   keyword: nonEmptyStringSchema,
   reason: nonEmptyStringSchema,

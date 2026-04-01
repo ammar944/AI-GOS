@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ReviewSourceData {
@@ -10,10 +10,19 @@ interface ReviewSourceData {
   url?: string | null;
 }
 
+interface NegativeReview {
+  text: string;
+  rating: number;
+  date?: string;
+  source: 'g2' | 'capterra' | 'trustpilot';
+}
+
 interface ReviewCardProps {
   competitorName: string;
   trustpilot?: ReviewSourceData | null;
   g2?: ReviewSourceData | null;
+  capterra?: ReviewSourceData | null;
+  negativeReviews?: NegativeReview[] | null;
 }
 
 function Stars({ rating, idPrefix }: { rating: number; idPrefix: string }) {
@@ -114,22 +123,113 @@ function ReviewSource({
   );
 }
 
-export function ReviewCard({ competitorName, trustpilot, g2 }: ReviewCardProps) {
+const SOURCE_LABEL: Record<'g2' | 'capterra' | 'trustpilot', string> = {
+  g2: 'G2',
+  capterra: 'Capterra',
+  trustpilot: 'Trustpilot',
+};
+
+function NegativeReviewsSection({ reviews }: { reviews: NegativeReview[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (reviews.length === 0) return null;
+
+  return (
+    <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors w-full text-left"
+        aria-expanded={expanded}
+      >
+        <svg
+          className={cn('w-3 h-3 transition-transform', expanded && 'rotate-90')}
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path
+            d="M6 4l4 4-4 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span>
+          {reviews.length} negative review{reviews.length !== 1 ? 's' : ''}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-2">
+          {reviews.map((review, idx) => (
+            <div
+              key={idx}
+              className="bg-[var(--bg-hover)] rounded-[var(--radius-sm)] p-2.5 space-y-1"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3].map((star) => (
+                    <svg
+                      key={star}
+                      className={cn(
+                        'w-3 h-3',
+                        star <= review.rating
+                          ? 'text-[var(--accent-amber)]'
+                          : 'text-[var(--text-tertiary)] opacity-30',
+                      )}
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-wide">
+                    {SOURCE_LABEL[review.source]}
+                  </span>
+                  {review.date && (
+                    <span className="text-xs text-[var(--text-tertiary)]">{review.date}</span>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-3">
+                &ldquo;{review.text}&rdquo;
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ReviewCard({
+  competitorName,
+  trustpilot,
+  g2,
+  capterra,
+  negativeReviews,
+}: ReviewCardProps) {
   const uniqueId = useId();
   const hasTrustpilot = Boolean(trustpilot);
   const hasG2 = Boolean(g2);
-  const bothSources = hasTrustpilot && hasG2;
+  const hasCapterra = Boolean(capterra);
+  const activeSourceCount = [hasTrustpilot, hasG2, hasCapterra].filter(Boolean).length;
+  const hasNegativeReviews = (negativeReviews ?? []).length > 0;
 
-  if (!hasTrustpilot && !hasG2) return null;
+  if (!hasTrustpilot && !hasG2 && !hasCapterra) return null;
+
+  const gridCols =
+    activeSourceCount === 3
+      ? 'grid-cols-3'
+      : activeSourceCount === 2
+        ? 'grid-cols-2'
+        : 'grid-cols-1';
 
   return (
     <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-3">
-      <div
-        className={cn(
-          'grid gap-4',
-          bothSources ? 'grid-cols-2' : 'grid-cols-1',
-        )}
-      >
+      <div className={cn('grid gap-4', gridCols)}>
         {trustpilot && (
           <ReviewSource
             platform="Trustpilot"
@@ -144,7 +244,18 @@ export function ReviewCard({ competitorName, trustpilot, g2 }: ReviewCardProps) 
             idPrefix={`${uniqueId}-g2`}
           />
         )}
+        {capterra && (
+          <ReviewSource
+            platform="Capterra"
+            source={capterra}
+            idPrefix={`${uniqueId}-cap`}
+          />
+        )}
       </div>
+
+      {hasNegativeReviews && (
+        <NegativeReviewsSection reviews={negativeReviews!} />
+      )}
     </div>
   );
 }

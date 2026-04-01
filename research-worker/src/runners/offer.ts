@@ -9,7 +9,7 @@ import {
   type RunnerProgressReporter,
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
-import { firecrawlTool, firecrawlExtractTool } from '../tools';
+import { adLibraryTool, firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
 const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? 'claude-sonnet-4-6';
@@ -19,7 +19,7 @@ const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
   name: 'web_search',
 } as const;
-type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool;
+type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool | typeof adLibraryTool;
 
 const OFFER_SYSTEM_PROMPT = `You are an expert offer analyst evaluating viability for paid media campaigns.
 
@@ -41,6 +41,11 @@ TOOL USAGE:
 3. Use at most 1 firecrawl/firecrawlExtract call on the highest-value first-party page only
 4. Never scrape competitor pages or second-order URLs in this pass
 5. Reuse persisted competitor context instead of re-running broad competitor discovery
+6. Use the adLibrary tool to check what ads the CLIENT already runs:
+   - Search by the client's company name and domain
+   - BEFORE flagging any creative or messaging weakness, check if the client already has active creatives covering that topic
+   - Do NOT flag weaknesses for topics the client already has active creatives about
+   - If the ad library search returns no results or no verified advertiser match, note: 'Unable to verify client's existing ad creative library — weakness claims are based on web presence only.'
 
 SCORING GUIDELINES:
 - Score based on competitive positioning
@@ -181,8 +186,8 @@ function getOfferAttemptConfig(context: string): OfferAttemptConfig {
     maxTokens: OFFER_MAX_TOKENS,
     timeoutMs: OFFER_TIMEOUT_MS,
     tools: shouldEnableOfferFirecrawl(context)
-      ? [WEB_SEARCH_TOOL, firecrawlExtractTool, firecrawlTool]
-      : [WEB_SEARCH_TOOL],
+      ? [WEB_SEARCH_TOOL, firecrawlExtractTool, firecrawlTool, adLibraryTool]
+      : [WEB_SEARCH_TOOL, adLibraryTool],
     system: OFFER_SYSTEM_PROMPT,
     synthesisMessage: 'synthesizing offer analysis',
   };

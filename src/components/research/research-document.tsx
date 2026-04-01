@@ -72,49 +72,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
 
       for (const card of cards) {
         lines.push(`### ${card.label}`);
-        const c = card.content;
-
-        if (card.cardType === 'stat-grid' && Array.isArray(c.stats)) {
-          for (const s of c.stats as { label: string; value: string }[]) {
-            lines.push(`- ${s.label}: ${s.value}`);
-          }
-        } else if ((card.cardType === 'bullet-list' || card.cardType === 'check-list') && Array.isArray(c.items)) {
-          for (const item of c.items as string[]) {
-            lines.push(`- ${item}`);
-          }
-        } else if (card.cardType === 'prose-card' && typeof c.text === 'string') {
-          lines.push(c.text);
-        } else if (card.cardType === 'competitor-card') {
-          lines.push(`**${c.name as string}**`);
-          if (c.positioning) lines.push(`Positioning: ${c.positioning as string}`);
-          if (c.price) lines.push(`Pricing: ${c.price as string}`);
-          if (Array.isArray(c.strengths)) lines.push(`Strengths: ${(c.strengths as string[]).join(', ')}`);
-          if (Array.isArray(c.weaknesses)) lines.push(`Weaknesses: ${(c.weaknesses as string[]).join(', ')}`);
-        } else if (card.cardType === 'insight-card') {
-          lines.push(c.insight as string);
-          if (c.implication) lines.push(`Implication: ${c.implication as string}`);
-        } else if (card.cardType === 'strategy-card') {
-          if (c.recommendedAngle) lines.push(c.recommendedAngle as string);
-          if (c.leadRecommendation) lines.push(c.leadRecommendation as string);
-          if (c.keyDifferentiator) lines.push(`Differentiator: ${c.keyDifferentiator as string}`);
-        } else if (card.cardType === 'trend-card') {
-          lines.push(`${c.trend as string} (${c.direction as string})`);
-          if (c.evidence) lines.push(c.evidence as string);
-        } else if (card.cardType === 'gap-card') {
-          lines.push(c.gap as string);
-          if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
-          if (c.recommendedAction) lines.push(`Action: ${c.recommendedAction as string}`);
-        } else {
-          // Fallback: dump all string values
-          for (const [key, val] of Object.entries(c)) {
-            if (typeof val === 'string' && val.trim()) {
-              lines.push(`${key}: ${val}`);
-            } else if (Array.isArray(val)) {
-              const strs = val.filter((v): v is string => typeof v === 'string');
-              if (strs.length > 0) lines.push(`${key}: ${strs.join(', ')}`);
-            }
-          }
-        }
+        lines.push(...cardToMarkdown(card));
         lines.push('');
       }
     }
@@ -285,6 +243,446 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
       </div>
     </div>
   );
+}
+
+/**
+ * Extracts card content as markdown lines for clipboard copy.
+ * Handles all card types produced by card-taxonomy.ts.
+ */
+function cardToMarkdown(card: CardState): string[] {
+  const lines: string[] = [];
+  const c = card.content;
+
+  switch (card.cardType) {
+    // -- Shared card types (used across multiple sections) --
+    case 'stat-grid': {
+      const stats = (c.stats ?? []) as { label: string; value: string }[];
+      for (const s of stats) lines.push(`- ${s.label}: ${s.value}`);
+      break;
+    }
+    case 'bullet-list':
+    case 'check-list': {
+      for (const item of (c.items ?? []) as string[]) lines.push(`- ${item}`);
+      break;
+    }
+    case 'prose-card': {
+      if (typeof c.text === 'string') lines.push(c.text);
+      break;
+    }
+
+    // -- Industry Market --
+    case 'opportunity-card': {
+      const opps = (c.opportunities ?? []) as Array<{ opportunity: string; size?: string; timing?: string; difficulty?: string; evidence?: string }>;
+      for (const o of opps) {
+        lines.push(`- **${o.opportunity}** (Size: ${o.size ?? 'N/A'}, Timing: ${o.timing ?? 'N/A'}, Difficulty: ${o.difficulty ?? 'N/A'})`);
+        if (o.evidence) lines.push(`  ${o.evidence}`);
+      }
+      break;
+    }
+    case 'trend-card': {
+      lines.push(`${c.trend as string} (${c.direction as string})`);
+      if (c.evidence) lines.push(c.evidence as string);
+      break;
+    }
+
+    // -- Competitors --
+    case 'competitor-card': {
+      lines.push(`**${c.name as string}**`);
+      if (c.positioning) lines.push(`Positioning: ${c.positioning as string}`);
+      if (c.price) lines.push(`Pricing: ${c.price as string}`);
+      if (Array.isArray(c.strengths) && c.strengths.length > 0) lines.push(`Strengths: ${(c.strengths as string[]).join(', ')}`);
+      if (Array.isArray(c.weaknesses) && c.weaknesses.length > 0) lines.push(`Weaknesses: ${(c.weaknesses as string[]).join(', ')}`);
+      if (Array.isArray(c.opportunities) && c.opportunities.length > 0) lines.push(`Opportunities: ${(c.opportunities as string[]).join(', ')}`);
+      if (c.ourAdvantage) lines.push(`Our Advantage: ${c.ourAdvantage as string}`);
+      if (c.counterPositioning) lines.push(`Counter-Positioning: ${c.counterPositioning as string}`);
+      if (Array.isArray(c.topAdHooks) && c.topAdHooks.length > 0) lines.push(`Top Ad Hooks: ${(c.topAdHooks as string[]).join(', ')}`);
+      const adActivity = c.adActivity as Record<string, unknown> | undefined;
+      if (adActivity) {
+        const parts: string[] = [];
+        if (typeof adActivity.activeAdCount === 'number') parts.push(`${adActivity.activeAdCount} active ads`);
+        if (Array.isArray(adActivity.platforms) && adActivity.platforms.length > 0) parts.push(`Platforms: ${(adActivity.platforms as string[]).join(', ')}`);
+        if (Array.isArray(adActivity.themes) && adActivity.themes.length > 0) parts.push(`Themes: ${(adActivity.themes as string[]).join(', ')}`);
+        if (typeof adActivity.evidence === 'string' && adActivity.evidence) parts.push(adActivity.evidence);
+        if (parts.length > 0) lines.push(`Ad Activity: ${parts.join(' | ')}`);
+      }
+      const adCreatives = c.adCreatives as Array<Record<string, unknown>> | undefined;
+      if (Array.isArray(adCreatives) && adCreatives.length > 0) {
+        lines.push(`Ad Creatives (${adCreatives.length}):`);
+        for (const ad of adCreatives.slice(0, 10)) {
+          const adParts: string[] = [];
+          if (ad.platform) adParts.push(`[${ad.platform as string}]`);
+          if (ad.headline) adParts.push(ad.headline as string);
+          if (ad.body) adParts.push(ad.body as string);
+          if (adParts.length > 0) lines.push(`  - ${adParts.join(' — ')}`);
+        }
+      }
+      break;
+    }
+    case 'positioning-move-card': {
+      const moves = (c.moves ?? []) as Array<{ move: string; targetCompetitor?: string; risk?: string; reward?: string; playbook?: string }>;
+      for (const m of moves) {
+        lines.push(`- **${m.move}** → ${m.targetCompetitor ?? 'N/A'} (Risk: ${m.risk ?? 'N/A'}, Reward: ${m.reward ?? 'N/A'})`);
+        if (m.playbook) lines.push(`  Playbook: ${m.playbook}`);
+      }
+      break;
+    }
+    case 'review-card': {
+      if (c.competitorName) lines.push(`**${c.competitorName as string}**`);
+      const tp = c.trustpilot as Record<string, unknown> | null;
+      if (tp) {
+        const parts: string[] = ['Trustpilot'];
+        if (tp.rating != null) parts.push(`${tp.rating}/5`);
+        if (tp.reviewCount != null) parts.push(`${tp.reviewCount} reviews`);
+        lines.push(`- ${parts.join(' — ')}`);
+        if (Array.isArray(tp.themes) && tp.themes.length > 0) lines.push(`  Themes: ${(tp.themes as string[]).join(', ')}`);
+      }
+      const g2 = c.g2 as Record<string, unknown> | null;
+      if (g2) {
+        const parts: string[] = ['G2'];
+        if (g2.rating != null) parts.push(`${g2.rating}/5`);
+        if (g2.reviewCount != null) parts.push(`${g2.reviewCount} reviews`);
+        lines.push(`- ${parts.join(' — ')}`);
+        if (Array.isArray(g2.themes) && g2.themes.length > 0) lines.push(`  Categories: ${(g2.themes as string[]).join(', ')}`);
+      }
+      break;
+    }
+    case 'gap-card': {
+      lines.push(c.gap as string);
+      if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
+      if (c.recommendedAction) lines.push(`Action: ${c.recommendedAction as string}`);
+      break;
+    }
+
+    // -- ICP Validation --
+    case 'refinement-card': {
+      const refs = (c.refinements ?? []) as Array<{ refinement: string; segment?: string; expectedLift?: string; testMethod?: string }>;
+      for (const r of refs) {
+        lines.push(`- **${r.refinement}** (Segment: ${r.segment ?? 'N/A'}, Expected Lift: ${r.expectedLift ?? 'N/A'})`);
+        if (r.testMethod) lines.push(`  Test: ${r.testMethod}`);
+      }
+      break;
+    }
+    case 'verdict-card': {
+      if (c.status) lines.push(`Status: ${c.status as string}`);
+      if (c.reasoning) lines.push(c.reasoning as string);
+      break;
+    }
+
+    // -- Offer Analysis --
+    case 'pricing-card': {
+      if (c.currentPricing) lines.push(`Current Pricing: ${c.currentPricing as string}`);
+      if (c.marketBenchmark) lines.push(`Market Benchmark: ${c.marketBenchmark as string}`);
+      if (c.pricingPosition) lines.push(`Position: ${c.pricingPosition as string}`);
+      if (c.coldTrafficViability) lines.push(`Cold Traffic Viability: ${c.coldTrafficViability as string}`);
+      break;
+    }
+    case 'flag-card': {
+      lines.push(c.issue as string);
+      if (c.severity) lines.push(`Severity: ${c.severity as string}`);
+      if (typeof c.priority === 'number') lines.push(`Priority: ${c.priority}`);
+      if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
+      if (c.recommendedAction) lines.push(`Action: ${c.recommendedAction as string}`);
+      break;
+    }
+    case 'offer-statement-list': {
+      const statements = (c.statements ?? []) as Array<{ type?: string; statement?: string; rationale?: string; targetEmotion?: string }>;
+      for (const s of statements) {
+        if (s.statement) {
+          lines.push(`- [${s.type ?? 'headline'}] ${s.statement}`);
+          if (s.rationale) lines.push(`  Rationale: ${s.rationale}`);
+          if (s.targetEmotion) lines.push(`  Target Emotion: ${s.targetEmotion}`);
+        }
+      }
+      break;
+    }
+    case 'ice-table': {
+      const fixes = (c.fixes ?? []) as Array<{ issue?: string; fix?: string; iceScore?: number }>;
+      for (const f of fixes) {
+        const score = f.iceScore != null ? ` (ICE: ${f.iceScore})` : '';
+        lines.push(`- ${f.issue ?? 'Issue'}${score}`);
+        if (f.fix) lines.push(`  Fix: ${f.fix}`);
+      }
+      break;
+    }
+
+    // -- Keyword Intel --
+    case 'keyword-gap-card': {
+      const gaps = (c.gaps ?? []) as Array<{ gapCluster: string; estimatedVolume?: number; competition?: string; suggestedKeywords?: string[]; priority?: string }>;
+      for (const g of gaps) {
+        lines.push(`- **${g.gapCluster}** (Volume: ${g.estimatedVolume ?? 'N/A'}, Competition: ${g.competition ?? 'N/A'}, Priority: ${g.priority ?? 'N/A'})`);
+        if (Array.isArray(g.suggestedKeywords) && g.suggestedKeywords.length > 0) {
+          lines.push(`  Keywords: ${g.suggestedKeywords.join(', ')}`);
+        }
+      }
+      break;
+    }
+    case 'keyword-grid': {
+      const raw = c.rawData as Record<string, unknown> | undefined;
+      if (raw) {
+        const topOpps = raw.topOpportunities as Array<Record<string, unknown>> | undefined;
+        if (Array.isArray(topOpps) && topOpps.length > 0) {
+          lines.push('Top Opportunities:');
+          for (const k of topOpps.slice(0, 15)) {
+            const parts: string[] = [k.keyword as string ?? ''];
+            if (typeof k.searchVolume === 'number') parts.push(`Vol: ${k.searchVolume}`);
+            if (k.difficulty) parts.push(`Difficulty: ${k.difficulty as string}`);
+            if (k.intent) parts.push(`Intent: ${k.intent as string}`);
+            lines.push(`- ${parts.join(' | ')}`);
+          }
+        }
+        const compGaps = raw.competitorGaps as Array<Record<string, unknown>> | undefined;
+        if (Array.isArray(compGaps) && compGaps.length > 0) {
+          lines.push('Competitor Gaps:');
+          for (const g of compGaps.slice(0, 10)) {
+            const parts: string[] = [g.keyword as string ?? ''];
+            if (g.competitorName) parts.push(`Competitor: ${g.competitorName as string}`);
+            if (typeof g.searchVolume === 'number') parts.push(`Vol: ${g.searchVolume}`);
+            lines.push(`- ${parts.join(' | ')}`);
+          }
+        }
+        const longTail = raw.longTailKeywords as Array<Record<string, unknown>> | undefined;
+        if (Array.isArray(longTail) && longTail.length > 0) {
+          lines.push('Long-Tail Keywords:');
+          for (const k of longTail.slice(0, 10)) {
+            const parts: string[] = [k.keyword as string ?? ''];
+            if (typeof k.searchVolume === 'number') parts.push(`Vol: ${k.searchVolume}`);
+            lines.push(`- ${parts.join(' | ')}`);
+          }
+        }
+        const strategy = raw.keywordStrategy as Record<string, unknown> | undefined;
+        if (strategy) {
+          if (typeof strategy.summary === 'string') lines.push(`Strategy: ${strategy.summary}`);
+          if (Array.isArray(strategy.focusAreas) && strategy.focusAreas.length > 0) {
+            lines.push(`Focus Areas: ${(strategy.focusAreas as string[]).join(', ')}`);
+          }
+        }
+      }
+      break;
+    }
+
+    // -- Cross Analysis --
+    case 'readiness-scorecard': {
+      if (c.overallScore != null) lines.push(`Overall Score: ${c.overallScore}/10`);
+      if (c.verdictLabel) lines.push(`Verdict: ${c.verdictLabel as string}`);
+      const dims = (c.dimensions ?? []) as Array<{ name: string; score: number; summary: string }>;
+      for (const d of dims) {
+        lines.push(`- ${d.name}: ${d.score}/10 — ${d.summary}`);
+      }
+      break;
+    }
+    case 'priority-actions': {
+      const actions = (c.actions ?? []) as Array<{ action: string; source?: string; priority?: string }>;
+      for (const a of actions) {
+        lines.push(`- [${a.priority ?? 'medium'}] ${a.action} (Source: ${a.source ?? 'N/A'})`);
+      }
+      break;
+    }
+    case 'strategy-card': {
+      if (c.recommendedAngle) lines.push(c.recommendedAngle as string);
+      if (c.leadRecommendation) lines.push(c.leadRecommendation as string);
+      if (c.keyDifferentiator) lines.push(`Differentiator: ${c.keyDifferentiator as string}`);
+      break;
+    }
+    case 'insight-card': {
+      lines.push(c.insight as string);
+      if (c.implication) lines.push(`Implication: ${c.implication as string}`);
+      break;
+    }
+    case 'chart-card': {
+      if (c.title) lines.push(c.title as string);
+      if (c.description) lines.push(c.description as string);
+      break;
+    }
+    case 'angle-card': {
+      if (c.angle) lines.push(`**${c.angle as string}**`);
+      if (c.exampleHook) lines.push(`Hook: ${c.exampleHook as string}`);
+      if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
+      break;
+    }
+
+    // -- Media Plan --
+    case 'strategy-snapshot': {
+      if (c.headline) lines.push(`**${c.headline as string}**`);
+      const priorities = (c.topPriorities ?? []) as Array<Record<string, unknown>>;
+      if (priorities.length > 0) {
+        lines.push('Top Priorities:');
+        for (const p of priorities) {
+          const label = (p.label ?? p.priority ?? '') as string;
+          if (label) lines.push(`- ${label}`);
+        }
+      }
+      const budget = c.budgetOverview as Record<string, unknown> | undefined;
+      if (budget) {
+        const parts: string[] = [];
+        if (budget.total != null) parts.push(`Total: $${budget.total}`);
+        if (budget.topPlatform) parts.push(`Top Platform: ${budget.topPlatform as string}`);
+        if (budget.timeToFirstResults) parts.push(`Time to Results: ${budget.timeToFirstResults as string}`);
+        if (parts.length > 0) lines.push(`Budget: ${parts.join(' | ')}`);
+      }
+      const outcomes = c.expectedOutcomes as Record<string, unknown> | undefined;
+      if (outcomes) {
+        const parts: string[] = [];
+        if (outcomes.leadsPerMonth != null) parts.push(`Leads/mo: ${outcomes.leadsPerMonth}`);
+        if (outcomes.estimatedCAC != null) parts.push(`CAC: $${outcomes.estimatedCAC}`);
+        if (outcomes.expectedROAS != null) parts.push(`ROAS: ${outcomes.expectedROAS}x`);
+        if (parts.length > 0) lines.push(`Expected Outcomes: ${parts.join(' | ')}`);
+      }
+      break;
+    }
+    case 'platform-card': {
+      const name = (c.name ?? c.platform) as string;
+      if (name) lines.push(`**${name}**`);
+      if (c.role) lines.push(`Role: ${c.role as string}`);
+      if (typeof c.monthlySpend === 'number') lines.push(`Monthly Spend: $${c.monthlySpend}`);
+      if (typeof c.percentage === 'number') lines.push(`Budget Share: ${c.percentage}%`);
+      const cpl = c.expectedCPL as Record<string, unknown> | undefined;
+      if (cpl && cpl.low != null && cpl.high != null) lines.push(`Expected CPL: $${cpl.low}–$${cpl.high}`);
+      if (typeof c.budgetAllocation === 'string') lines.push(`Budget Allocation: ${c.budgetAllocation}`);
+      if (c.rationale) lines.push(`Rationale: ${c.rationale as string}`);
+      break;
+    }
+    case 'budget-summary': {
+      if (typeof c.totalMonthly === 'number') lines.push(`Total Monthly: $${c.totalMonthly}`);
+      const funnel = c.funnelSplit as Record<string, unknown> | undefined;
+      if (funnel) {
+        lines.push(`Funnel Split: Awareness ${funnel.awareness}% | Consideration ${funnel.consideration}% | Conversion ${funnel.conversion}%`);
+      }
+      if (typeof c.rampUpWeeks === 'number') lines.push(`Ramp-Up: ${c.rampUpWeeks} weeks`);
+      break;
+    }
+    case 'segment-card': {
+      if (c.name) lines.push(`**${c.name as string}**`);
+      if (c.description) lines.push(c.description as string);
+      if (c.estimatedReach) lines.push(`Reach: ${c.estimatedReach as string}`);
+      if (c.funnelPosition) lines.push(`Funnel: ${c.funnelPosition as string}`);
+      if (typeof c.priority === 'number') lines.push(`Priority: ${c.priority}`);
+      break;
+    }
+    case 'campaign-card': {
+      if (c.name) lines.push(`**${c.name as string}**`);
+      if (c.platform) lines.push(`Platform: ${c.platform as string}`);
+      if (c.objective) lines.push(`Objective: ${c.objective as string}`);
+      if (c.namingConvention) lines.push(`Naming: ${c.namingConvention as string}`);
+      const adSets = (c.adSets ?? []) as Array<Record<string, unknown>>;
+      if (adSets.length > 0) {
+        lines.push('Ad Sets:');
+        for (const set of adSets) {
+          const setName = (set.name as string) ?? 'Ad Set';
+          lines.push(`  - ${setName}`);
+          if (set.targeting) lines.push(`    Targeting: ${set.targeting as string}`);
+          if (typeof set.budget === 'number') lines.push(`    Budget: $${set.budget}`);
+        }
+      }
+      break;
+    }
+    case 'creative-angle': {
+      if (c.theme) lines.push(`**${c.theme as string}**`);
+      if (c.hook) lines.push(`Hook: ${c.hook as string}`);
+      if (c.messagingApproach) lines.push(`Approach: ${c.messagingApproach as string}`);
+      if (c.targetSegment) lines.push(`Target: ${c.targetSegment as string}`);
+      break;
+    }
+    case 'format-spec': {
+      const specs = (c.specs ?? []) as Array<Record<string, unknown>>;
+      for (const spec of specs) {
+        const format = (spec.format ?? spec.name ?? 'Format') as string;
+        lines.push(`- ${format}`);
+        for (const [key, val] of Object.entries(spec)) {
+          if (key !== 'format' && key !== 'name' && val != null) {
+            lines.push(`  ${key}: ${val}`);
+          }
+        }
+      }
+      break;
+    }
+    case 'testing-plan': {
+      if (c.methodology) lines.push(`Methodology: ${c.methodology as string}`);
+      if (typeof c.minBudgetPerTest === 'number') lines.push(`Min Budget/Test: $${c.minBudgetPerTest}`);
+      const firstTests = (c.firstTests ?? []) as string[];
+      if (firstTests.length > 0) {
+        lines.push('First Tests:');
+        for (const t of firstTests) lines.push(`- ${t}`);
+      }
+      break;
+    }
+    case 'kpi-grid': {
+      const kpis = (c.kpis ?? []) as Array<Record<string, unknown>>;
+      for (const k of kpis) {
+        const parts: string[] = [(k.metric as string) ?? ''];
+        if (k.target != null) parts.push(`Target: ${k.target}`);
+        if (k.industryBenchmark != null) parts.push(`Benchmark: ${k.industryBenchmark}`);
+        lines.push(`- ${parts.join(' | ')}`);
+      }
+      break;
+    }
+    case 'cac-model': {
+      const fields: [string, string, string][] = [
+        ['targetCAC', 'Target CAC', '$'],
+        ['expectedCPL', 'Expected CPL', '$'],
+        ['leadToSqlRate', 'Lead→SQL Rate', '%'],
+        ['sqlToCustomerRate', 'SQL→Customer Rate', '%'],
+        ['expectedLeadsPerMonth', 'Leads/Month', ''],
+        ['expectedSQLsPerMonth', 'SQLs/Month', ''],
+        ['expectedCustomersPerMonth', 'Customers/Month', ''],
+        ['ltv', 'LTV', '$'],
+        ['ltvCacRatio', 'LTV:CAC Ratio', 'x'],
+      ];
+      for (const [key, label, unit] of fields) {
+        if (c[key] != null) {
+          const val = c[key] as number;
+          const formatted = unit === '$' ? `$${val}` : unit ? `${val}${unit}` : `${val}`;
+          lines.push(`- ${label}: ${formatted}`);
+        }
+      }
+      break;
+    }
+    case 'risk-card': {
+      if (c.risk) lines.push(c.risk as string);
+      if (c.category) lines.push(`Category: ${c.category as string}`);
+      if (c.severity) lines.push(`Severity: ${c.severity as string}`);
+      if (c.likelihood) lines.push(`Likelihood: ${c.likelihood as string}`);
+      if (c.mitigation) lines.push(`Mitigation: ${c.mitigation as string}`);
+      if (c.earlyWarning) lines.push(`Early Warning: ${c.earlyWarning as string}`);
+      break;
+    }
+    case 'phase-card': {
+      if (c.name) lines.push(`**${c.name as string}**`);
+      if (c.duration) lines.push(`Duration: ${c.duration as string}`);
+      if (typeof c.budgetAllocation === 'number') lines.push(`Budget: $${c.budgetAllocation}`);
+      if (c.goNoGo) lines.push(`Go/No-Go: ${c.goNoGo as string}`);
+      const objectives = (c.objectives ?? []) as string[];
+      if (objectives.length > 0) for (const o of objectives) lines.push(`- Objective: ${o}`);
+      const activities = (c.activities ?? []) as string[];
+      if (activities.length > 0) for (const a of activities) lines.push(`- Activity: ${a}`);
+      const criteria = (c.successCriteria ?? []) as string[];
+      if (criteria.length > 0) for (const s of criteria) lines.push(`- Success: ${s}`);
+      break;
+    }
+
+    // Chart cards — data is duplicated from structural cards above, skip for copy
+    case 'pie-chart':
+    case 'funnel-split-chart':
+    case 'cac-funnel-chart':
+    case 'kpi-benchmark-chart':
+    case 'phase-budget-chart':
+      break;
+
+    // Fallback: capture strings, numbers, and string arrays
+    default: {
+      for (const [key, val] of Object.entries(c)) {
+        if (typeof val === 'string' && val.trim()) {
+          lines.push(`${key}: ${val}`);
+        } else if (typeof val === 'number') {
+          lines.push(`${key}: ${val}`);
+        } else if (Array.isArray(val)) {
+          const strs = val.filter((v): v is string => typeof v === 'string');
+          if (strs.length > 0) lines.push(`${key}: ${strs.join(', ')}`);
+        }
+      }
+    }
+  }
+
+  return lines;
 }
 
 /**

@@ -205,6 +205,17 @@ export const icpValidationDataSchema = z.object({
     testMethod: nonEmptyStringSchema,
     risk: nonEmptyStringSchema,
   })).default([]),
+
+  // ── Multi-product ICP segments (optional — only when products target different audiences) ──
+  segments: z.array(z.object({
+    productLine: nonEmptyStringSchema,
+    validatedPersona: nonEmptyStringSchema,
+    audienceSize: nonEmptyStringSchema,
+    confidence: z.number().min(0).max(100),
+    channels: nonEmptyStringArraySchema,
+    triggers: nonEmptyStringArraySchema,
+    objections: nonEmptyStringArraySchema,
+  })).optional(),
 });
 
 export type IcpValidationData = z.infer<typeof icpValidationDataSchema>;

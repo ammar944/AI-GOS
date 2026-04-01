@@ -41,7 +41,7 @@ export function StrategySnapshotCard({
     ...(expectedOutcomes?.estimatedCAC !== undefined
       ? [{ label: 'Est. CAC', value: `$${expectedOutcomes.estimatedCAC.toLocaleString()}` }]
       : []),
-    ...(expectedOutcomes?.expectedROAS !== undefined
+    ...(expectedOutcomes?.expectedROAS != null
       ? [{ label: 'Expected ROAS', value: `${expectedOutcomes.expectedROAS}x` }]
       : []),
   ];
