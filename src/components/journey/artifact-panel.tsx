@@ -10,6 +10,7 @@ import {
 } from '@/components/journey/journey-keyword-intel-detail';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 import { CompetitorAdEvidence } from '@/components/journey/competitor-ad-evidence';
+import { PricingIntelligence, type PricingIntelligenceProps } from '@/components/workspace/cards/pricing-intelligence';
 import {
   collapseResearchJobUpdates,
   type ResearchJobActivity,
@@ -860,6 +861,13 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
             </p>
           )}
         </section>
+      )}
+
+      {/* Pricing Intelligence (elasticity assessment) */}
+      {!!pricingAnalysis?.elasticityAssessment && (
+        <PricingIntelligence
+          elasticityAssessment={asRecord(pricingAnalysis.elasticityAssessment) as unknown as PricingIntelligenceProps['elasticityAssessment']}
+        />
       )}
 
       <SimpleList title="Strengths" items={strengths} accent="var(--accent-green)" />

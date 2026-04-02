@@ -124,12 +124,14 @@ export async function POST(req: Request) {
   // gets no prior results; every subsequent step gets all completed sections
   // that precede it in the pipeline.
   //
-  // Pipeline order: industryMarket → icpValidation → offerAnalysis → competitors → keywordIntel → crossAnalysis → mediaPlan
+  // Pipeline order: industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan
+  // Competitors before offer so the offer runner gets Firecrawl-verified pricing tiers
+  // via the intelligence chain, enabling accurate market benchmarking.
   const PIPELINE_ORDER = [
     'industryMarket',
     'icpValidation',
-    'offerAnalysis',
     'competitors',
+    'offerAnalysis',
     'keywordIntel',
     'crossAnalysis',
     'mediaPlan',

@@ -287,6 +287,15 @@ const offerAnalysisDataSchema = z.object({
     marketBenchmark: nonEmptyStringSchema,
     pricingPosition: z.string().min(1),
     coldTrafficViability: nonEmptyStringSchema,
+    elasticityAssessment: z.object({
+      verdict: z.string(),
+      signals: z.array(z.object({
+        signal: z.string(),
+        source: z.string(),
+        direction: z.string(),
+      })).default([]),
+      reasoning: z.string(),
+    }).optional(),
   }),
   marketFitAssessment: nonEmptyStringSchema,
   messagingRecommendations: z.array(nonEmptyStringSchema).default([]),

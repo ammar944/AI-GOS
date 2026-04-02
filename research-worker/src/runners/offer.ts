@@ -13,8 +13,8 @@ import { firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
 const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? 'claude-sonnet-4-6';
-const OFFER_MAX_TOKENS = 5200;
-const OFFER_TIMEOUT_MS = 120_000;
+const OFFER_MAX_TOKENS = 6000;
+const OFFER_TIMEOUT_MS = 180_000;
 const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
   name: 'web_search',
@@ -72,6 +72,23 @@ RED FLAGS FOR PAID ADS:
 - No social proof or credibility signals
 - Long sales cycle for cold traffic
 
+PRICING INTELLIGENCE (output inside pricingAnalysis alongside existing fields):
+
+1. ELASTICITY ASSESSMENT
+Analyze pricing elasticity from evidence in the onboarding context AND the Prior Research Results (competitor data):
+- Few direct competitors found (< 5) → pricing power exists (inelastic)
+- Enterprise/high-ACV sales, long implementation → sticky, inelastic
+- Commodity market with many alternatives → elastic, careful raising prices
+- Self-serve/PLG motion with easy switching → more elastic
+- Strong referral/word-of-mouth indicators → inelastic demand
+- High close rate or waitlist mentioned → likely underpriced
+- Niche vertical with specialized needs → inelastic
+Output verdict: "likely-inelastic", "likely-elastic", or "insufficient-data".
+List each signal with its source and direction. If you have fewer than 2 clear signals, use "insufficient-data".
+
+2. MARKET BENCHMARK (use competitor data)
+For the marketBenchmark field, use VERIFIED competitor pricing from the Prior Research Results section (competitor intel data) rather than doing your own web search for competitor prices. The competitor pipeline already scraped and verified pricing via Firecrawl. Cite competitor names and their verified price points. Only supplement with web_search if the Prior Research Results contain no competitor pricing data.
+
 COMPRESSION RULES:
 - topStrengths: 2-3 items
 - priorityFixes: 2-3 items (keep as plain strings)
@@ -126,9 +143,14 @@ After completing your research, respond with a JSON object. Structure:
   "pricingAnalysis": {
     "currentPricing": "string — ONLY verified pricing from scraped sources. Include all tiers. If not found, state 'Pricing not found — unable to verify from public sources'",
     "pricingSource": "string | null — URL where pricing was found, or null if not found",
-    "marketBenchmark": "string — verified competitor pricing with named competitors. Only cite prices found in persisted context or web search results",
+    "marketBenchmark": "string — verified competitor pricing with named competitors. Use Prior Research Results competitor data when available. Only cite prices found in persisted context or web search results",
     "pricingPosition": "premium | mid-market | budget | unclear",
-    "coldTrafficViability": "string — assessment of converting cold traffic at this price point"
+    "coldTrafficViability": "string — assessment of converting cold traffic at this price point",
+    "elasticityAssessment": {
+      "verdict": "likely-inelastic | likely-elastic | insufficient-data",
+      "signals": [{ "signal": "string", "source": "string — where this signal came from", "direction": "inelastic | elastic" }],
+      "reasoning": "string — one paragraph explaining the overall assessment"
+    }
   },
   "marketFitAssessment": "string — does the market want this offer right now?",
   "messagingRecommendations": ["string — how to frame this offer in ads for maximum conversion"],

@@ -12,6 +12,7 @@ import { CompetitorCard } from '@/components/workspace/cards/competitor-card';
 import { GapCard } from '@/components/workspace/cards/gap-card';
 import { VerdictCard } from '@/components/workspace/cards/verdict-card';
 import { PricingCard } from '@/components/workspace/cards/pricing-card';
+import { PricingIntelligence, type PricingIntelligenceProps } from '@/components/workspace/cards/pricing-intelligence';
 import { FlagCard } from '@/components/workspace/cards/flag-card';
 import { StrategyCard } from '@/components/workspace/cards/strategy-card';
 import { InsightCard } from '@/components/workspace/cards/insight-card';
@@ -156,6 +157,12 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           marketBenchmark={card.content.marketBenchmark as string | undefined}
           pricingPosition={card.content.pricingPosition as string | undefined}
           coldTrafficViability={card.content.coldTrafficViability as string | undefined}
+        />
+      );
+    case 'pricing-intelligence':
+      return (
+        <PricingIntelligence
+          elasticityAssessment={card.content.elasticityAssessment as PricingIntelligenceProps['elasticityAssessment']}
         />
       );
     case 'flag-card':

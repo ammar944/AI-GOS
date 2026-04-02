@@ -13,7 +13,7 @@ import type { ResearchResult } from '../supabase';
 import { ICP_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 
 const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? 'claude-sonnet-4-6';
-const ICP_MAX_TOKENS = 8000;
+const ICP_MAX_TOKENS = 10000;
 const ICP_TIMEOUT_MS = 120_000;
 
 const ICP_SYSTEM_PROMPT = `You are an expert ICP analyst validating whether a target audience is viable for paid media.
@@ -44,14 +44,20 @@ BE CRITICAL:
 - Each objection must be specific, buyer-language, and tied to the proof or reassurance required before purchase
 - Avoid generic objections like "price" or "trust" without context
 
-COMPRESSION RULES:
+COMPRESSION RULES (STRICT — violating these causes JSON truncation failures):
+- validatedPersona: ONE sentence, under 40 words. No parenthetical elaboration.
+- demographics: 2 sentences max, under 50 words total
 - channels: max 3
-- triggers: max 4
-- objections: max 4
+- triggers: max 4, each under 15 words
+- objections: max 4, each under 20 words
 - decisionFactors: max 4
-- finalVerdict.recommendations: max 3
+- decisionProcess: 1-2 sentences, under 30 words
+- finalVerdict.reasoning: 2 sentences max, under 40 words
+- finalVerdict.recommendations: max 3, each under 15 words
+- audienceRefinements: max 3 entries. Each field (refinement, testMethod, risk) under 20 words.
+- segments: max 3 segments. Each segment's validatedPersona under 25 words.
 - citations: max 4
-- Keep demographics, decisionProcess, and finalVerdict.reasoning to 2-3 sentences each
+- DO NOT repeat the same information across validatedPersona, demographics, and segments[0].validatedPersona
 
 OUTPUT FORMAT:
 CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.

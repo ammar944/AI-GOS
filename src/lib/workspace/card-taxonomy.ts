@@ -464,6 +464,18 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
         coldTrafficViability: asString(pricingAnalysis.coldTrafficViability),
       }));
     }
+
+    // Pricing Intelligence (elasticity assessment)
+    const elasticity = asRecord(pricingAnalysis?.elasticityAssessment);
+    if (elasticity) {
+      cards.push(makeCard(section, 'pricing-intelligence', 'Pricing Intelligence', {
+        elasticityAssessment: {
+          verdict: asString(elasticity.verdict) ?? 'insufficient-data',
+          signals: Array.isArray(elasticity.signals) ? elasticity.signals : [],
+          reasoning: asString(elasticity.reasoning) ?? '',
+        },
+      }));
+    }
   }
 
   // Strengths, Weaknesses, Actions, Messaging

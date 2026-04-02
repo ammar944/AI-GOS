@@ -56,12 +56,23 @@ const pricingPositionSchema = z
     return 'unclear';
   });
 
+export const elasticityAssessmentSchema = z.object({
+  verdict: flexibleEnum(['likely-inelastic', 'likely-elastic', 'insufficient-data'] as const, 'insufficient-data'),
+  signals: z.array(z.object({
+    signal: nonEmptyStringSchema,
+    source: nonEmptyStringSchema,
+    direction: flexibleEnum(['inelastic', 'elastic'] as const, 'elastic'),
+  })).default([]),
+  reasoning: nonEmptyStringSchema,
+});
+
 export const pricingAnalysisSchema = z.object({
   currentPricing: nonEmptyStringSchema,
   pricingSource: z.string().nullable().default(null),
   marketBenchmark: nonEmptyStringSchema,
   pricingPosition: pricingPositionSchema,
   coldTrafficViability: nonEmptyStringSchema,
+  elasticityAssessment: elasticityAssessmentSchema.optional(),
 });
 
 export const offerAnalysisDataSchema = z.object({
@@ -104,4 +115,5 @@ export type OfferStrength = z.infer<typeof offerStrengthSchema>;
 export type OfferRecommendation = z.infer<typeof offerRecommendationSchema>;
 export type OfferRedFlag = z.infer<typeof offerRedFlagSchema>;
 export type PricingAnalysis = z.infer<typeof pricingAnalysisSchema>;
+export type ElasticityAssessment = z.infer<typeof elasticityAssessmentSchema>;
 export type IceScoredFix = z.infer<typeof iceScoredFixSchema>;

@@ -1,10 +1,12 @@
 import type { SectionKey, SectionPhase } from './types';
 
+// Pipeline order: competitors before offer so the offer runner gets
+// verified competitor pricing via the intelligence chain in dispatch/route.ts.
 export const SECTION_PIPELINE: SectionKey[] = [
   'industryMarket',
   'icpValidation',
-  'offerAnalysis',
   'competitors',
+  'offerAnalysis',
   'keywordIntel',
   'crossAnalysis',
   'mediaPlan',
@@ -14,8 +16,8 @@ export const SECTION_PIPELINE: SectionKey[] = [
 export const RESEARCH_SECTIONS: SectionKey[] = [
   'industryMarket',
   'icpValidation',
-  'offerAnalysis',
   'competitors',
+  'offerAnalysis',
   'keywordIntel',
   'crossAnalysis',
 ];
