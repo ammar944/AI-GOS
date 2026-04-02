@@ -32,8 +32,11 @@ TASK: Synthesize the pre-fetched evidence into the required JSON schema. All res
 
 CRITICAL RULES:
 - HALLUCINATION PREVENTION: NEVER invent competitors, data points, or claims not present in the evidence package. If a competitor has no evidence in the package, do not include them in the output.
+- ABSENCE OF DATA ≠ ABSENCE OF FEATURE: If the evidence package does not contain pricing, features, or capabilities for a competitor, that does NOT mean they lack those things. The scrape may have failed. NEVER list "no pricing transparency", "no visible pricing", "limited feature set", or similar claims as weaknesses unless you have POSITIVE EVIDENCE (e.g., a review complaint, a documented limitation) that the weakness exists. "I don't have data" is not evidence of a weakness.
+- WEAKNESSES MUST BE EVIDENCE-BACKED: Every weakness must cite what evidence supports it (review complaint, documented limitation, ad analysis finding). If you cannot point to specific evidence, do not include it as a weakness.
 - VERIFIED COMPETITORS ONLY: The evidence package includes a "Competitor Validation Results" section. Only include competitors listed under "VERIFIED". Do NOT include any competitor listed under "REMOVED (unverified or wrong industry)".
-- PRICING: Use ONLY the Firecrawl pricing data as ground truth. If Firecrawl found pricing, use those exact tiers. If Firecrawl did NOT find pricing, set price to "See pricing page" and pricingConfidence to "low". NEVER infer or hallucinate pricing.
+- PRICING EXTRACTION (CRITICAL): Extract actual pricing tiers ONLY from the Firecrawl Pricing Data section. If the Firecrawl section shows actual dollar amounts ($X/mo, $X/yr), populate the price field with a concise summary. If the Firecrawl section says "scrape failed", "no pricing data detected", or the scraped content has no dollar amounts, set price to "See pricing page" and pricingConfidence to "low". NEVER use your training data to fill in pricing — even if you "know" a competitor's pricing. The ONLY valid source is the Firecrawl section in this evidence package.
+- PRICING IS NEVER A WEAKNESS: Not having public pricing, having "opaque pricing", or requiring a demo to get pricing is a legitimate business strategy (CTA-driven sales). NEVER list pricing-related concerns as weaknesses. Pricing belongs in the price field only.
 - AD DATA: Use the Ad Library data as ground truth for ad counts, platforms, and creatives. If ad data is sparse, say so in the evidence field.
 - REVIEWS: Use the Sonar Pro review intelligence for strengths, weaknesses, and switching triggers. Attribute to source when possible.
 - SPYFU: Use SpyFu data for keyword intelligence and ad spend estimates. If SpyFu data is missing, keep adSpendIntensity conservative (4 or below).
@@ -60,10 +63,11 @@ const OUTPUT_SCHEMA = `{
       "name": "string",
       "website": "string — official URL",
       "positioning": "string — their core value proposition",
-      "price": "string — FROM FIRECRAWL DATA ONLY, or 'See pricing page'",
-      "pricingConfidence": "high | medium | low | unknown",
+      "price": "string — Summary like '$199-$599/mo (3 tiers)'. 'See pricing page' only if no Firecrawl data.",
+      "pricingConfidence": "high | medium | low | unknown — 'high' if Firecrawl found dollar amounts",
+      "pricingTiers": [{"name": "tier name", "price": "$X/mo", "description": "one-line summary"}],
       "strengths": ["string"],
-      "weaknesses": ["string"],
+      "weaknesses": ["string — NEVER include pricing-related items here"],
       "opportunities": ["string — exploitable gaps"],
       "ourAdvantage": "string — why the client wins against them",
       "adActivity": {
@@ -137,15 +141,19 @@ ${verifiedNames.map(n => `- ${n}`).join('\n') || '(none verified — use all fro
 REMOVED (unverified or wrong industry) — DO NOT include in output:
 ${removedList.map(r => `- ${r.name}: ${r.reason}`).join('\n') || '(none removed)'}`);
 
-  // 3. Firecrawl pricing data
-  sections.push('## Firecrawl Pricing Data (GROUND TRUTH for pricing)');
+  // 3. Firecrawl pricing data — ONLY entries with verified dollar amounts
+  sections.push('## Firecrawl Pricing Data (ONLY source for pricing — do NOT use training data)');
   for (const pr of fetchResults.pricing) {
     if (pr.success && pr.pricingMarkdown) {
-      sections.push(`### ${pr.competitorName} (${pr.domain})
-${truncate(pr.pricingMarkdown, 1000)}`);
+      console.log(`[evidence] ${pr.competitorName}: pricing VERIFIED — including in evidence`);
+      // Use 4000 chars — pricing tables often appear after nav/hero content.
+      // Hostie's first $ was at char 9601 of 16319 — 1000 was way too short.
+      sections.push(`### ${pr.competitorName} (${pr.domain}) — VERIFIED PRICING
+${truncate(pr.pricingMarkdown, 4000)}`);
     } else {
-      sections.push(`### ${pr.competitorName} (${pr.domain})
-Pricing scrape failed: ${pr.error ?? 'No data'}. Use "See pricing page" with pricingConfidence: "low".`);
+      console.log(`[evidence] ${pr.competitorName}: NO pricing — ${pr.error ?? 'no data'}`);
+      sections.push(`### ${pr.competitorName} (${pr.domain}) — NO PRICING FOUND
+No verified pricing data available. Set price to "See pricing page" and pricingConfidence to "low". Do NOT infer or guess pricing.`);
     }
   }
 
@@ -220,7 +228,22 @@ Market Perception: ${insight.marketPerception ?? 'N/A'}`);
     sections.push('No review intelligence available. Rely on other evidence sources.');
   }
 
-  // 8. Citations from Sonar
+  // 8. Client's own ad library data (for "Your Ads" section)
+  if (fetchResults.clientAdLibrary?.adInsight) {
+    const clientAds = fetchResults.clientAdLibrary.adInsight;
+    sections.push(`## Client Ad Library Data (YOUR ADS — include in output as clientAdInsight)
+Active ad count: ${clientAds.summary.activeAdCount}
+Platforms: ${clientAds.summary.platforms.join(', ')}
+Themes: ${clientAds.summary.themes.join(', ')}
+Evidence: ${clientAds.summary.evidence}
+Source confidence: ${clientAds.summary.sourceConfidence}
+Creatives: ${truncate(JSON.stringify(clientAds.adCreatives), 1200)}
+Library links: ${JSON.stringify(clientAds.libraryLinks)}`);
+  } else {
+    sections.push('## Client Ad Library Data\nNo client ads found or unable to fetch.');
+  }
+
+  // 9. Citations from Sonar
   if (Array.isArray(sonarResults.citations) && sonarResults.citations.length > 0) {
     sections.push(`## Citations from Sonar Pro
 ${sonarResults.citations.map(c => `- ${c?.title ?? 'Untitled'}: ${c?.url ?? 'N/A'}`).join('\n')}`);
@@ -381,6 +404,7 @@ export function postProcessSynthesis(
 ): void {
   injectLibraryLinks(parsed, input);
   injectReviews(parsed, input);
+  injectClientAds(parsed, input);
 
   // Validate pricing confidence matches Firecrawl data
   const competitors = parsed.competitors;
@@ -395,11 +419,53 @@ export function postProcessSynthesis(
       p => p.competitorName.toLowerCase() === name.toLowerCase(),
     );
 
-    // If Firecrawl didn't find pricing, force low confidence
+    // If Firecrawl didn't find verified pricing (dollar amounts), strip any
+    // fabricated pricing the model may have hallucinated from training data.
     if (!pricingResult?.success || !pricingResult.pricingMarkdown) {
-      if (c.pricingConfidence === 'high' || c.pricingConfidence === 'medium') {
-        c.pricingConfidence = 'low';
+      const currentPrice = typeof c.price === 'string' ? c.price : '';
+      if (currentPrice && currentPrice !== 'See pricing page') {
+        console.log(`[postProcess] STRIPPING fabricated price for "${name}": "${currentPrice}" — no Firecrawl pricing data`);
+        c.price = 'See pricing page';
       }
+      c.pricingConfidence = 'low';
+      c.pricingTiers = [];
     }
   }
+}
+
+/**
+ * Inject client's own ad data directly from the fetched results.
+ * This bypasses the synthesis model to ensure client ads are always accurate.
+ */
+function injectClientAds(
+  parsed: Record<string, unknown>,
+  input: SynthesisInput,
+): void {
+  const clientAd = input.fetchResults.clientAdLibrary;
+  if (!clientAd?.adInsight) {
+    // No client ads found — leave field absent so schema defaults apply
+    return;
+  }
+
+  const insight = clientAd.adInsight;
+  parsed.clientAdInsight = {
+    activeAdCount: insight.summary.activeAdCount,
+    platforms: insight.summary.platforms,
+    themes: insight.summary.themes,
+    evidence: insight.summary.evidence,
+    sourceConfidence: insight.summary.sourceConfidence,
+    adCreatives: insight.adCreatives.map(ad => ({
+      platform: ad.platform,
+      id: ad.id,
+      advertiser: ad.advertiser,
+      headline: ad.headline ?? '',
+      body: ad.body ?? '',
+      imageUrl: ad.imageUrl ?? '',
+      videoUrl: ad.videoUrl ?? '',
+      format: ad.format,
+      isActive: ad.isActive,
+      detailsUrl: ad.detailsUrl ?? '',
+    })),
+    libraryLinks: insight.libraryLinks,
+  };
 }

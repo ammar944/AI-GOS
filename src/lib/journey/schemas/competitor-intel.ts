@@ -75,6 +75,11 @@ export const competitorRecordSchema = z.object({
   price: z.string().nullable().optional(),
   pricingConfidence: flexibleEnum(['high', 'medium', 'low', 'unknown'] as const, 'unknown').optional(),
   pricingSourceUrl: z.string().nullable().optional(),
+  pricingTiers: z.array(z.object({
+    name: z.string(),
+    price: z.string(),
+    description: z.string().optional(),
+  })).default([]),
   strengths: z.array(z.string()).default([]),
   weaknesses: z.array(z.string()).default([]),
   opportunities: z.array(z.string()).default([]),
@@ -114,6 +119,17 @@ export const competitorIntelDataSchema = z.object({
     reward: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
     playbook: nonEmptyStringSchema,
   })).default([]),
+
+  // ── Client's Own Ads ──────────────────────────────────────────────
+  clientAdInsight: z.object({
+    activeAdCount: z.number().int().nonnegative(),
+    platforms: z.array(z.string()).default([]),
+    themes: z.array(z.string()).default([]),
+    evidence: z.string().default(''),
+    sourceConfidence: flexibleEnum(['high', 'medium', 'low'] as const, 'low'),
+    adCreatives: z.array(competitorAdCreativeSchema).default([]),
+    libraryLinks: competitorLibraryLinksSchema.optional(),
+  }).optional(),
 });
 
 export type CompetitorIntelData = z.infer<typeof competitorIntelDataSchema>;

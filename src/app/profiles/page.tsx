@@ -11,7 +11,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
-import { JOURNEY_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
+import { PROFILE_FIELD_GROUPS, PROFILE_MULTILINE_KEYS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile } from '@/lib/profiles/business-profiles';
 
 function formatDate(dateString: string): string {
@@ -60,7 +60,7 @@ export default function ProfilesPage() {
     setError(null);
     // Initialize edit fields from allFields, falling back to typed columns
     const fields: Record<string, string> = {};
-    for (const group of JOURNEY_FIELD_GROUPS) {
+    for (const group of PROFILE_FIELD_GROUPS) {
       for (const key of group.fieldKeys) {
         const fromAll = profile.allFields[key];
         const value =
@@ -212,7 +212,7 @@ export default function ProfilesPage() {
                     {isEditing ? (
                       /* Edit mode — grouped fields */
                       <div className="space-y-5" onClick={(e) => e.stopPropagation()}>
-                        {JOURNEY_FIELD_GROUPS.map((group) => (
+                        {PROFILE_FIELD_GROUPS.map((group) => (
                           <div key={group.id}>
                             <p className="text-[10px] uppercase tracking-wider text-[var(--text-quaternary)] mb-2 font-medium">
                               {group.label}
@@ -220,27 +220,43 @@ export default function ProfilesPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {group.fieldKeys.map((key) => {
                                 const isCompanyName = key === 'companyName';
+                                const isMultiline = PROFILE_MULTILINE_KEYS.has(key);
+                                const baseClasses = `w-full rounded-md border px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-base)] outline-none transition-colors ${
+                                  isCompanyName
+                                    ? 'border-transparent opacity-50 cursor-not-allowed'
+                                    : 'border-[var(--border-subtle)] focus:border-[var(--accent-blue)]'
+                                }`;
                                 return (
-                                  <div key={key}>
+                                  <div key={key} className={isMultiline ? 'sm:col-span-2' : ''}>
                                     <label className="block text-[10px] uppercase tracking-wider text-[var(--text-quaternary)] mb-1">
                                       {JOURNEY_FIELD_LABELS[key] ?? key}
                                     </label>
-                                    <input
-                                      type="text"
-                                      value={editFields[key] ?? ''}
-                                      readOnly={isCompanyName}
-                                      onChange={(e) =>
-                                        setEditFields((prev) => ({
-                                          ...prev,
-                                          [key]: e.target.value,
-                                        }))
-                                      }
-                                      className={`w-full rounded-md border px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-base)] outline-none transition-colors ${
-                                        isCompanyName
-                                          ? 'border-transparent opacity-50 cursor-not-allowed'
-                                          : 'border-[var(--border-subtle)] focus:border-[var(--accent-blue)]'
-                                      }`}
-                                    />
+                                    {isMultiline ? (
+                                      <textarea
+                                        value={editFields[key] ?? ''}
+                                        rows={3}
+                                        onChange={(e) =>
+                                          setEditFields((prev) => ({
+                                            ...prev,
+                                            [key]: e.target.value,
+                                          }))
+                                        }
+                                        className={`${baseClasses} resize-y`}
+                                      />
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={editFields[key] ?? ''}
+                                        readOnly={isCompanyName}
+                                        onChange={(e) =>
+                                          setEditFields((prev) => ({
+                                            ...prev,
+                                            [key]: e.target.value,
+                                          }))
+                                        }
+                                        className={baseClasses}
+                                      />
+                                    )}
                                   </div>
                                 );
                               })}
@@ -290,7 +306,7 @@ export default function ProfilesPage() {
 function ProfileSummaryGrid({ profile }: { profile: BusinessProfile }) {
   const summaryFields: { label: string; value: string | null }[] = [];
 
-  for (const group of JOURNEY_FIELD_GROUPS) {
+  for (const group of PROFILE_FIELD_GROUPS) {
     for (const key of group.fieldKeys) {
       if (key === 'companyName') continue;
       const raw = profile.allFields[key];

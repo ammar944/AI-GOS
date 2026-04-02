@@ -132,6 +132,11 @@ const competitorIntelDataSchema = z.object({
         weaknesses: nonEmptyStringArraySchema,
         opportunities: nonEmptyStringArraySchema,
         ourAdvantage: nonEmptyStringSchema,
+        pricingTiers: z.array(z.object({
+          name: z.string(),
+          price: z.string(),
+          description: z.string().optional(),
+        })).default([]),
         adActivity: z.object({
           activeAdCount: z.number().int().nonnegative(),
           platforms: nonEmptyStringArraySchema,
@@ -194,6 +199,15 @@ const competitorIntelDataSchema = z.object({
     reward: flexibleEnum(['low', 'medium', 'high'] as const, 'medium'),
     playbook: nonEmptyStringSchema,
   })).default([]),
+  clientAdInsight: z.object({
+    activeAdCount: z.number().int().nonnegative(),
+    platforms: z.array(z.string()).default([]),
+    themes: z.array(z.string()).default([]),
+    evidence: z.string().default(''),
+    sourceConfidence: z.string().default('low'),
+    adCreatives: z.array(competitorAdCreativeSchema).default([]),
+    libraryLinks: competitorLibraryLinksSchema.optional(),
+  }).optional(),
 });
 
 const icpValidationDataSchema = z.object({
@@ -269,6 +283,7 @@ const offerAnalysisDataSchema = z.object({
     .default([]),
   pricingAnalysis: z.object({
     currentPricing: nonEmptyStringSchema,
+    pricingSource: z.string().nullable().default(null),
     marketBenchmark: nonEmptyStringSchema,
     pricingPosition: z.string().min(1),
     coldTrafficViability: nonEmptyStringSchema,

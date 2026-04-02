@@ -3,6 +3,7 @@
 // Each call is independent — failures are isolated via Promise.allSettled.
 
 import type { BetaToolResultContentBlockParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import Firecrawl from '@mendable/firecrawl-js';
 import { firecrawlTool } from '../tools/firecrawl';
 import { spyfuTool } from '../tools/spyfu';
 import { fetchCompetitorAds } from '../tools/apify-ads';
@@ -12,7 +13,7 @@ import type { CompetitorEntry } from './parse-context';
 
 // SearchAPI calls complete in 2-5s. Firecrawl + SpyFu may take up to 20s.
 // 30s is generous for the SearchAPI-only ad path + Firecrawl + SpyFu.
-const PARALLEL_TIMEOUT_MS = 30_000;
+const PARALLEL_TIMEOUT_MS = 45_000;
 
 // Maximum competitors to process — keeps API rate limits sane
 const MAX_COMPETITORS = 5;
@@ -45,6 +46,7 @@ export interface ParallelFetchResults {
   spyfu: SpyfuResult[];
   adLibrary: AdLibraryResult[];
   reviews: ReviewResult[];
+  clientAdLibrary: AdLibraryResult | null;
   durationMs: number;
 }
 
@@ -72,6 +74,24 @@ function safeJsonParse(text: string): unknown {
 }
 
 /**
+ * Extract the pricing-relevant window from a large markdown page.
+ * Many pricing pages have 10k+ chars of nav/hero before the actual tiers.
+ * This finds where dollar amounts start and extracts a window around them.
+ */
+function extractPricingWindow(md: string, maxChars: number): string {
+  if (md.length <= maxChars) return md;
+
+  // Find the first dollar amount
+  const match = md.match(/\$\d+/);
+  if (!match || match.index === undefined) return md.slice(0, maxChars);
+
+  // Take a window: 500 chars before the first $ to capture tier names,
+  // then fill the rest of maxChars after it to capture all tiers
+  const start = Math.max(0, match.index - 500);
+  return md.slice(start, start + maxChars);
+}
+
+/**
  * Scrape a competitor's /pricing page with Firecrawl.
  * Tries /pricing first; falls back to the homepage if /pricing returns no
  * useful content (empty, too short, or a hard failure).
@@ -87,44 +107,78 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
     };
   }
 
-  const pricingUrl = `https://${competitor.domain}/pricing`;
-
-  try {
-    const resultStr = runResultToString(await firecrawlTool.run({ url: pricingUrl }));
-    const result = safeJsonParse(resultStr) as {
-      success?: boolean;
-      markdown?: string;
-      error?: unknown;
-    } | null;
-
-    if (result?.success && typeof result.markdown === 'string' && result.markdown.trim().length > 50) {
-      return {
-        competitorName: competitor.name,
-        domain: competitor.domain,
-        pricingMarkdown: result.markdown,
-        success: true,
-      };
-    }
-
-    // Pricing page returned nothing useful — fall back to the homepage for
-    // any pricing signals embedded there (e.g. "Starting at $X/mo").
-    const homepageStr = runResultToString(await firecrawlTool.run({ url: `https://${competitor.domain}` }));
-    const homepage = safeJsonParse(homepageStr) as {
-      success?: boolean;
-      markdown?: string;
-    } | null;
-
+  const apiKey = process.env.FIRECRAWL_API_KEY;
+  if (!apiKey) {
     return {
       competitorName: competitor.name,
       domain: competitor.domain,
-      pricingMarkdown:
-        homepage?.success && typeof homepage.markdown === 'string'
-          ? homepage.markdown
-          : null,
-      success: Boolean(homepage?.success),
-      error: result?.success
-        ? undefined
-        : 'Pricing page not found, used homepage',
+      pricingMarkdown: null,
+      success: false,
+      error: 'FIRECRAWL_API_KEY not configured',
+    };
+  }
+
+  const client = new Firecrawl({ apiKey });
+  const pricingPaths = ['/pricing', '/plans', '/packages'];
+
+  for (const path of pricingPaths) {
+    const url = `https://${competitor.domain}${path}`;
+    try {
+      console.log(`[pricing] scraping ${url} for ${competitor.name}...`);
+      const start = Date.now();
+      const result = await Promise.race([
+        client.scrape(url, {
+          formats: ['markdown'],
+          blockAds: true,
+        }) as Promise<{ success: boolean; markdown?: string; error?: unknown }>,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Pricing scrape timed out')), 20_000),
+        ),
+      ]);
+      const elapsed = Date.now() - start;
+
+      const md = typeof result?.markdown === 'string' ? result.markdown : '';
+      if (md.trim().length > 50) {
+        const hasPricing = /\$\d+|starting at|\d+\/mo/i.test(md);
+        console.log(`[pricing] ${competitor.name} ${path}: OK (${elapsed}ms, ${md.length} chars, pricing=${hasPricing})`);
+        if (hasPricing) {
+          return {
+            competitorName: competitor.name,
+            domain: competitor.domain,
+            pricingMarkdown: extractPricingWindow(md, 6000),
+            success: true,
+          };
+        }
+        // Page exists but no dollar amounts — try next path
+        console.log(`[pricing] ${competitor.name} ${path}: no dollar amounts, trying next path`);
+      } else {
+        console.log(`[pricing] ${competitor.name} ${path}: empty or failed (${elapsed}ms)`);
+      }
+    } catch (err) {
+      console.log(`[pricing] ${competitor.name} ${path}: error — ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // All pricing paths failed — try homepage for pricing signals
+  try {
+    const homepage = await Promise.race([
+      client.scrape(`https://${competitor.domain}`, {
+        formats: ['markdown'],
+        blockAds: true,
+      }) as Promise<{ success: boolean; markdown?: string }>,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Homepage scrape timed out')), 20_000),
+      ),
+    ]);
+
+    const homeMd = typeof homepage?.markdown === 'string' ? homepage.markdown : '';
+    const homeHasPricing = /\$\d+|starting at|\d+\/mo/i.test(homeMd);
+    return {
+      competitorName: competitor.name,
+      domain: competitor.domain,
+      pricingMarkdown: homeHasPricing && homeMd.trim().length > 50 ? extractPricingWindow(homeMd, 6000) : null,
+      success: homeHasPricing && homeMd.trim().length > 50,
+      error: 'Pricing page not found, used homepage',
     };
   } catch (error) {
     return {
@@ -220,6 +274,7 @@ async function fetchAdLibrary(competitor: CompetitorEntry): Promise<AdLibraryRes
  */
 export async function fetchAllCompetitorData(
   competitors: CompetitorEntry[],
+  clientInfo?: { name: string; domain: string | null },
 ): Promise<ParallelFetchResults> {
   const startTime = Date.now();
   const capped = competitors.slice(0, MAX_COMPETITORS);
@@ -326,17 +381,29 @@ export async function fetchAllCompetitorData(
         negativeReviews: [],
         error: reason,
       })),
+      clientAdLibrary: null,
       durationMs: Date.now() - startTime,
     };
   }
 
+  // Fetch client's own ads in parallel with competitor data
+  const clientAdPromise: Promise<AdLibraryResult | null> =
+    clientInfo?.name
+      ? fetchAdLibrary({
+          name: clientInfo.name,
+          domain: clientInfo.domain,
+          inferredDomain: !clientInfo.domain,
+        }).catch(() => null)
+      : Promise.resolve(null);
+
   try {
-    const [pricingSettled, spyfuSettled, adLibrarySettled, reviewsSettled] = await Promise.race([
+    const [pricingSettled, spyfuSettled, adLibrarySettled, reviewsSettled, clientAdResult] = await Promise.race([
       Promise.all([
         Promise.allSettled(capped.map(fetchPricing)),
         Promise.allSettled(capped.map(fetchSpyfu)),
         Promise.allSettled(capped.map(fetchAdLibrary)),
         Promise.allSettled(capped.map(fetchReviews)),
+        clientAdPromise,
       ]),
       new Promise<never>((_, reject) =>
         setTimeout(
@@ -354,6 +421,7 @@ export async function fetchAllCompetitorData(
       spyfu: spyfuSettled.map(extractSpyfu),
       adLibrary: adLibrarySettled.map(extractAdLibrary),
       reviews: reviewsSettled.map(extractReviews),
+      clientAdLibrary: clientAdResult,
       durationMs: Date.now() - startTime,
     };
   } catch (error) {

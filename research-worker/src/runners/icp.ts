@@ -13,7 +13,7 @@ import type { ResearchResult } from '../supabase';
 import { ICP_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 
 const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? 'claude-sonnet-4-6';
-const ICP_MAX_TOKENS = 5200;
+const ICP_MAX_TOKENS = 8000;
 const ICP_TIMEOUT_MS = 120_000;
 
 const ICP_SYSTEM_PROMPT = `You are an expert ICP analyst validating whether a target audience is viable for paid media.

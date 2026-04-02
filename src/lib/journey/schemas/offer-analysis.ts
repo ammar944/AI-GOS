@@ -58,6 +58,7 @@ const pricingPositionSchema = z
 
 export const pricingAnalysisSchema = z.object({
   currentPricing: nonEmptyStringSchema,
+  pricingSource: z.string().nullable().default(null),
   marketBenchmark: nonEmptyStringSchema,
   pricingPosition: pricingPositionSchema,
   coldTrafficViability: nonEmptyStringSchema,

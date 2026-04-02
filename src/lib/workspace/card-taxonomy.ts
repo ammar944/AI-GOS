@@ -185,12 +185,19 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
       name,
       website: asString(competitor.website),
       positioning: asString(competitor.positioning),
-      // Only pass pricing if it came from a real crawled source (pricingSourceUrl exists)
-      ...(asString(competitor.pricingSourceUrl) ? {
-        price: asString(competitor.price),
-        pricingConfidence: asString(competitor.pricingConfidence),
-        pricingSourceUrl: asString(competitor.pricingSourceUrl),
-      } : {}),
+      price: asString(competitor.price) ?? undefined,
+      pricingConfidence: asString(competitor.pricingConfidence) ?? undefined,
+      pricingSourceUrl: asString(competitor.pricingSourceUrl) ?? undefined,
+      pricingTiers: Array.isArray(competitor.pricingTiers)
+        ? (competitor.pricingTiers as Array<Record<string, unknown>>)
+            .filter((t): t is Record<string, unknown> => Boolean(t) && typeof t === 'object')
+            .map((t) => ({
+              name: asString(t.name) ?? '',
+              price: asString(t.price) ?? '',
+              description: asString(t.description) ?? undefined,
+            }))
+            .filter((t) => t.name && t.price)
+        : [],
       strengths: asStringArray(competitor.strengths),
       weaknesses: asStringArray(competitor.weaknesses),
       opportunities: asStringArray(competitor.opportunities),
@@ -451,6 +458,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     if (hasContent) {
       cards.push(makeCard(section, 'pricing-card', 'Pricing Analysis', {
         currentPricing: asString(pricingAnalysis.currentPricing),
+        pricingSource: asString(pricingAnalysis.pricingSource) || null,
         marketBenchmark: asString(pricingAnalysis.marketBenchmark),
         pricingPosition: asString(pricingAnalysis.pricingPosition),
         coldTrafficViability: asString(pricingAnalysis.coldTrafficViability),

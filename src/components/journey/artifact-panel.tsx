@@ -441,9 +441,60 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
         .filter((item): item is Record<string, unknown> => Boolean(item))
     : [];
   const marketPatterns = asStringArray(data.marketPatterns);
+  const clientAdInsight = asRecord(data.clientAdInsight);
 
   return (
     <div className="space-y-8 pb-8">
+      {/* Your Ads section — client's own ads */}
+      {clientAdInsight && (
+        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-4 border border-[var(--accent-blue)]/20">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-text-primary">Your Ads</h3>
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]">
+              {asNumber(clientAdInsight.activeAdCount) ?? 0} active
+            </span>
+          </div>
+          <CompetitorAdEvidence
+            adActivity={{
+              activeAdCount: asNumber(clientAdInsight.activeAdCount) ?? 0,
+              platforms: asStringArray(clientAdInsight.platforms),
+              themes: asStringArray(clientAdInsight.themes),
+              evidence: asString(clientAdInsight.evidence) ?? '',
+              sourceConfidence: (asString(clientAdInsight.sourceConfidence) as 'high' | 'medium' | 'low') ?? 'low',
+            }}
+            adCreatives={
+              Array.isArray(clientAdInsight.adCreatives)
+                ? (clientAdInsight.adCreatives as Array<Record<string, unknown>>)
+                    .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+                    .map((c) => ({
+                      platform: (asString(c.platform) ?? 'meta') as 'linkedin' | 'meta' | 'google',
+                      id: asString(c.id) ?? '',
+                      advertiser: asString(c.advertiser) ?? '',
+                      headline: asString(c.headline) ?? undefined,
+                      body: asString(c.body) ?? undefined,
+                      imageUrl: asString(c.imageUrl) ?? undefined,
+                      videoUrl: asString(c.videoUrl) ?? undefined,
+                      format: (asString(c.format) ?? 'unknown') as 'video' | 'image' | 'carousel' | 'text' | 'message' | 'unknown',
+                      isActive: c.isActive === true,
+                      detailsUrl: asString(c.detailsUrl) ?? undefined,
+                      firstSeen: asString(c.firstSeen) ?? undefined,
+                      lastSeen: asString(c.lastSeen) ?? undefined,
+                    }))
+                : undefined
+            }
+            libraryLinks={
+              asRecord(clientAdInsight.libraryLinks)
+                ? {
+                    metaLibraryUrl: asString(asRecord(clientAdInsight.libraryLinks)?.metaLibraryUrl) ?? undefined,
+                    linkedInLibraryUrl: asString(asRecord(clientAdInsight.libraryLinks)?.linkedInLibraryUrl) ?? undefined,
+                    googleAdvertiserUrl: asString(asRecord(clientAdInsight.libraryLinks)?.googleAdvertiserUrl) ?? undefined,
+                  }
+                : undefined
+            }
+          />
+        </section>
+      )}
+
       {competitors.map((competitor, index) => {
         const name = asString(competitor.name) ?? `Competitor ${index + 1}`;
         const website = asString(competitor.website);
@@ -454,6 +505,16 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
         const weaknesses = asStringArray(competitor.weaknesses);
         const opportunities = asStringArray(competitor.opportunities);
         const ourAdvantage = asString(competitor.ourAdvantage);
+        const pricingTiers = Array.isArray(competitor.pricingTiers)
+          ? (competitor.pricingTiers as Array<Record<string, unknown>>)
+              .filter((t): t is Record<string, unknown> => Boolean(t) && typeof t === 'object')
+              .map((t) => ({
+                name: asString(t.name) ?? '',
+                price: asString(t.price) ?? '',
+                description: asString(t.description) ?? undefined,
+              }))
+              .filter((t) => t.name && t.price)
+          : [];
         const adActivity = asRecord(competitor.adActivity);
         const threat = asRecord(competitor.threatAssessment);
         const hooks = asStringArray(threat?.topAdHooks);
@@ -461,22 +522,65 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
 
         return (
           <section key={name} className="glass-surface rounded-[var(--radius-control)] p-4 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-text-primary">{name}</h3>
-                {website && (
-                  <p className="mt-1 text-xs font-mono text-text-tertiary">{website}</p>
-                )}
-                {positioning && (
-                  <p className="mt-1 text-sm leading-relaxed text-text-secondary">{positioning}</p>
-                )}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-text-primary">{name}</h3>
+                  {website && (
+                    <p className="mt-1 text-xs font-mono text-text-tertiary">{website}</p>
+                  )}
+                  {positioning && (
+                    <p className="mt-1 text-sm leading-relaxed text-text-secondary">{positioning}</p>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {price && <StatBlock label="Price" value={price} />}
-                {pricingConfidence && (
-                  <StatBlock label="Pricing Confidence" value={pricingConfidence} />
-                )}
-              </div>
+
+              {/* Pricing Tiers */}
+              {pricingTiers.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-text-tertiary uppercase tracking-widest">Pricing</span>
+                    {pricingConfidence && (
+                      <span className={cn(
+                        'text-[10px] font-mono px-1.5 py-0.5 rounded-full',
+                        pricingConfidence === 'high' ? 'bg-emerald-500/10 text-emerald-400' :
+                        pricingConfidence === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+                        'bg-zinc-500/10 text-zinc-400'
+                      )}>
+                        {pricingConfidence}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {pricingTiers.map((tier) => (
+                      <div key={tier.name} className="glass-surface rounded-[var(--radius-control)] p-3 space-y-1">
+                        <p className="text-xs font-mono text-text-tertiary uppercase">{tier.name}</p>
+                        <p className="text-sm font-semibold text-text-primary">{tier.price}</p>
+                        {tier.description && (
+                          <p className="text-xs text-text-secondary leading-relaxed">{tier.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : price && /\$\d+/.test(price) ? (
+                <div className="glass-surface rounded-[var(--radius-control)] p-3 flex items-center gap-4">
+                  <div className="flex-1">
+                    <span className="text-xs font-mono text-text-tertiary uppercase tracking-widest">Pricing</span>
+                    <p className="text-sm font-medium text-text-primary mt-1">{price}</p>
+                  </div>
+                  {pricingConfidence && (
+                    <span className={cn(
+                      'text-xs font-mono px-2 py-0.5 rounded-full',
+                      pricingConfidence === 'high' ? 'bg-emerald-500/10 text-emerald-400' :
+                      pricingConfidence === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-zinc-500/10 text-zinc-400'
+                    )}>
+                      {pricingConfidence} confidence
+                    </span>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <SimpleList title="Strengths" items={strengths} accent="var(--accent-green)" />
@@ -742,6 +846,14 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
               <StatBlock label="Position" value={String(pricingAnalysis.pricingPosition)} />
             )}
           </div>
+          {asString(pricingAnalysis.pricingSource) && (
+            <p className="text-xs text-text-tertiary">
+              Source:{' '}
+              <a href={String(pricingAnalysis.pricingSource)} target="_blank" rel="noopener noreferrer" className="underline hover:text-text-secondary">
+                {String(pricingAnalysis.pricingSource)}
+              </a>
+            </p>
+          )}
           {asString(pricingAnalysis.coldTrafficViability) && (
             <p className="text-sm text-text-secondary">
               {String(pricingAnalysis.coldTrafficViability)}

@@ -56,23 +56,23 @@ function parseDiversityFlags(raw: unknown): string[] {
 function StatusBadge({ status }: { status: PackListItem['status'] }) {
   const styles: Record<PackListItem['status'], { bg: string; color: string; label: string }> = {
     complete: {
-      bg: 'rgba(34,197,94,0.10)',
-      color: 'var(--green, #22c55e)',
+      bg: 'rgba(22,163,74,0.12)',
+      color: 'var(--accent-green, #16a34a)',
       label: 'Complete',
     },
     generating: {
-      bg: 'rgba(54,94,255,0.10)',
-      color: 'var(--accent, #365eff)',
+      bg: 'rgba(54,94,255,0.12)',
+      color: 'var(--accent-blue, #365eff)',
       label: 'Generating',
     },
     partial: {
-      bg: 'rgba(54,94,255,0.10)',
-      color: 'var(--accent, #365eff)',
+      bg: 'rgba(245,158,11,0.12)',
+      color: 'var(--accent-amber, #d97706)',
       label: 'Partial',
     },
     error: {
-      bg: 'rgba(239,68,68,0.10)',
-      color: 'var(--red, #ef4444)',
+      bg: 'rgba(220,38,38,0.12)',
+      color: 'var(--accent-red, #dc2626)',
       label: 'Error',
     },
   };
@@ -421,14 +421,16 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
                   </span>
                   <StatusBadge status={pack.status} />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-[11px] font-mono tabular-nums"
-                    style={{ color: 'var(--text-tertiary)' }}
-                  >
-                    {scriptCount} script{scriptCount !== 1 ? 's' : ''}
-                  </span>
-                </div>
+                {scriptCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[11px] font-mono tabular-nums"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      {scriptCount} script{scriptCount !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
                 {note && (
                   <p
                     className="text-[12px] mt-0.5 truncate"
@@ -584,7 +586,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
               disabled={anyGenerating || !selectedSessionRunId}
               className={cn(
                 'text-[13px] font-medium px-[14px] py-[6px] rounded-[5px] text-white',
-                'bg-[var(--accent,#365eff)] hover:bg-[var(--accent-hover,#4a6fff)]',
+                'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
               )}
             >
@@ -596,7 +598,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
               ) : (
                 <>
                   <Sparkles className="size-3.5 mr-1.5 inline-block" />
-                  Generate
+                  Generate Scripts
                 </>
               )}
             </Button>
@@ -682,25 +684,19 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
   })();
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[calc(100vh-220px)] min-h-[400px] rounded-lg overflow-hidden border border-[var(--border-default,rgba(255,255,255,0.04))]">
       {/* Header bar */}
       <div
-        className="flex items-center justify-between px-4 py-3 shrink-0"
+        className="flex items-center justify-end px-4 py-3 shrink-0"
         style={{ borderBottom: '1px solid var(--border-default, rgba(255,255,255,0.04))' }}
       >
-        <span
-          className="text-[11px] font-mono font-medium uppercase tracking-[0.06em]"
-          style={{ color: 'var(--text-quaternary)' }}
-        >
-          Scripts
-        </span>
         <button
           type="button"
           onClick={() => setRightPaneView('generate')}
           disabled={anyGenerating}
           className={cn(
             'inline-flex items-center gap-1.5 text-[13px] font-medium px-[14px] py-[6px] rounded-[5px] text-white cursor-pointer',
-            'bg-[var(--accent,#365eff)] hover:bg-[var(--accent-hover,#4a6fff)]',
+            'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',
             'transition-colors duration-100',
             anyGenerating && 'opacity-50 cursor-not-allowed',
           )}
@@ -718,9 +714,9 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
         {/* Sidebar */}
         <div
           className={cn(
-            'shrink-0 overflow-hidden flex flex-col',
-            // Mobile: hidden when viewing a pack
-            mobileShowingPack ? 'hidden md:flex' : 'flex w-full md:w-[220px] lg:w-[260px]',
+            'shrink-0 overflow-hidden flex flex-col md:w-[220px] lg:w-[260px]',
+            // Mobile: hidden when viewing a pack, full-width when showing list
+            mobileShowingPack ? 'hidden md:flex' : 'flex w-full',
           )}
           style={{
             borderRight: '1px solid var(--border-default, rgba(255,255,255,0.04))',
@@ -766,7 +762,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
             disabled={anyGenerating}
             className={cn(
               'w-full inline-flex items-center justify-center gap-1.5 text-[13px] font-medium px-[14px] py-[10px] rounded-[5px] text-white',
-              'bg-[var(--accent,#365eff)] hover:bg-[var(--accent-hover,#4a6fff)]',
+              'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',
               'transition-colors duration-100',
               anyGenerating && 'opacity-50 cursor-not-allowed',
             )}

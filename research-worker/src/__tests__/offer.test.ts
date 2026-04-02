@@ -39,6 +39,7 @@ const MINIMAL_RESULT_TEXT = JSON.stringify({
   ],
   pricingAnalysis: {
     currentPricing: 'Custom proposal',
+    pricingSource: null,
     marketBenchmark: 'Mid-market agency retainers vary widely',
     pricingPosition: 'unclear',
     coldTrafficViability: 'Viable if proof and launch scope are explicit in the funnel.',
@@ -81,7 +82,7 @@ describe('runResearchOfferWithDeps', () => {
       },
     );
 
-    expect(toolsPerAttempt).toEqual([['web_search', 'adLibrary']]);
+    expect(toolsPerAttempt).toEqual([['web_search']]);
     expect(result).toMatchObject({
       status: 'complete',
       section: 'offerAnalysis',
@@ -111,7 +112,7 @@ describe('runResearchOfferWithDeps', () => {
       },
     );
 
-    expect(toolsPerAttempt).toEqual([['web_search', 'firecrawlExtract', 'firecrawl', 'adLibrary']]);
+    expect(toolsPerAttempt).toEqual([['web_search', 'firecrawlExtract', 'firecrawl']]);
     expect(result).toMatchObject({
       status: 'complete',
       section: 'offerAnalysis',
@@ -119,7 +120,7 @@ describe('runResearchOfferWithDeps', () => {
     });
   });
 
-  it('includes adLibraryTool in the tool array for both the no-URL and with-URL branches', async () => {
+  it('does not include adLibraryTool in the tool array (moved to competitor intel)', async () => {
     const noUrlTools: string[][] = [];
     const withUrlTools: string[][] = [];
 
@@ -149,20 +150,18 @@ describe('runResearchOfferWithDeps', () => {
       },
     );
 
-    // adLibrary must appear in both branches
-    expect(noUrlTools[0]).toContain('adLibrary');
-    expect(withUrlTools[0]).toContain('adLibrary');
+    // adLibrary must NOT appear in either branch — client ads are handled in competitor intel
+    expect(noUrlTools[0]).not.toContain('adLibrary');
+    expect(withUrlTools[0]).not.toContain('adLibrary');
 
     // firecrawl tools must only appear when a first-party URL is present
     expect(noUrlTools[0]).not.toContain('firecrawl');
     expect(withUrlTools[0]).toContain('firecrawl');
   });
 
-  it('system prompt instructs use of ad_library / adLibrary tool for the client', () => {
-    // Capture the system prompt by intercepting config.system
+  it('system prompt instructs NOT to analyze client ads (delegated to competitor intel)', () => {
     let capturedSystemPrompt = '';
 
-    // We can read the system prompt by running a dummy attempt and checking config.system
     const promise = runResearchOfferWithDeps(
       '- Company Name: AcmeCo',
       undefined,
@@ -177,11 +176,12 @@ describe('runResearchOfferWithDeps', () => {
     );
 
     return promise.then(() => {
-      // Verify ad library guidance appears in the prompt
       const promptLower = capturedSystemPrompt.toLowerCase();
-      expect(
-        promptLower.includes('ad library') || promptLower.includes('adlibrary'),
-      ).toBe(true);
+      // Verify the prompt tells the model NOT to analyze client ad creatives
+      expect(promptLower).toContain('do not analyze or reference the client');
+      // Verify the old ad library tool instructions are gone
+      expect(promptLower).not.toContain('use ad_library');
+      expect(promptLower).not.toContain('use adlibrary');
     });
   });
 });

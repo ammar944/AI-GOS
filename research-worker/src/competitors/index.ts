@@ -89,7 +89,15 @@ async function runValidateThenFetch(
     `researching ${Math.min(verifiedEntries.length, 5)} verified competitors in parallel`,
   );
 
-  const fetchResults = await fetchAllCompetitorData(verifiedEntries);
+  // Extract client domain from websiteUrl for ad fetching
+  const clientDomain = parsed.websiteUrl
+    ? parsed.websiteUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+    : null;
+
+  const fetchResults = await fetchAllCompetitorData(verifiedEntries, {
+    name: parsed.companyName ?? '',
+    domain: clientDomain,
+  });
 
   // Report what we got
   const pricingHits = fetchResults.pricing.filter(p => p.success).length;

@@ -12,6 +12,7 @@ interface CompetitorCardProps {
   price?: string;
   pricingConfidence?: string;
   pricingSourceUrl?: string;
+  pricingTiers?: Array<{ name: string; price: string; description?: string }>;
   strengths: string[];
   weaknesses: string[];
   opportunities: string[];
@@ -53,6 +54,7 @@ export function CompetitorCard({
   price,
   pricingConfidence,
   pricingSourceUrl,
+  pricingTiers,
   strengths,
   weaknesses,
   opportunities,
@@ -63,9 +65,9 @@ export function CompetitorCard({
   topAdHooks,
   counterPositioning,
 }: CompetitorCardProps) {
-  // Only show pricing when Firecrawl actually crawled the pricing page (sourceUrl exists + real price)
-  const hasCrawledPricing = !!pricingSourceUrl && !!price && price !== 'null' && !price.toLowerCase().includes('see pricing');
-  const priceStats: StatItem[] = hasCrawledPricing ? [{ label: 'Price', value: price! }] : [];
+  const hasTiers = Array.isArray(pricingTiers) && pricingTiers.length > 0;
+  const hasRealPricing = !hasTiers && !!price && price !== 'null' && !price.toLowerCase().includes('see pricing') && /\$\d+/.test(price);
+  const priceStats: StatItem[] = hasRealPricing ? [{ label: 'Price', value: price! }] : [];
 
   return (
     <div className="space-y-4">
@@ -111,6 +113,26 @@ export function CompetitorCard({
           </div>
         )}
       </div>
+
+      {/* Pricing Tiers */}
+      {hasTiers && (
+        <div className="space-y-2">
+          <span className="text-xs font-mono uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+            Pricing
+          </span>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {pricingTiers!.map((tier) => (
+              <div key={tier.name} className="rounded-[var(--radius-control)] p-3 space-y-1" style={{ background: 'var(--bg-secondary, rgba(255,255,255,0.03))' }}>
+                <p className="text-xs font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>{tier.name}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.price}</p>
+                {tier.description && (
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{tier.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* S/W/O Lists */}
       <BulletList title="Strengths" items={strengths} accent="var(--accent-green)" />

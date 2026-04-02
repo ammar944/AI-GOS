@@ -2,7 +2,7 @@ import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
 import Firecrawl from '@mendable/firecrawl-js';
 import { z } from 'zod';
 
-const FIRECRAWL_TIMEOUT_MS = 12_000;
+const FIRECRAWL_TIMEOUT_MS = 20_000;
 const FIRECRAWL_MAX_MARKDOWN_CHARS = 8_000;
 const PRICING_SIGNAL_PATTERN =
   /\b(price|pricing|plan|plans|package|packages|retainer|monthly|annual|yearly|per month|per seat|starting at|\$)\b/i;
@@ -38,7 +38,10 @@ export const firecrawlTool = betaZodTool({
       if (!apiKey) return JSON.stringify({ success: false, error: 'FIRECRAWL_API_KEY not configured' });
       const client = new Firecrawl({ apiKey });
       const result = await Promise.race([
-        client.scrape(url, { formats: ['markdown', 'summary'] }) as Promise<{
+        client.scrape(url, {
+          formats: ['markdown', 'summary'],
+          blockAds: true,
+        }) as Promise<{
           success: boolean;
           markdown?: string;
           summary?: string;

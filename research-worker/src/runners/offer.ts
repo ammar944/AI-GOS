@@ -9,7 +9,7 @@ import {
   type RunnerProgressReporter,
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
-import { adLibraryTool, firecrawlTool, firecrawlExtractTool } from '../tools';
+import { firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
 const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? 'claude-sonnet-4-6';
@@ -19,7 +19,7 @@ const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
   name: 'web_search',
 } as const;
-type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool | typeof adLibraryTool;
+type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool;
 
 const OFFER_SYSTEM_PROMPT = `You are an expert offer analyst evaluating viability for paid media campaigns.
 
@@ -41,11 +41,14 @@ TOOL USAGE:
 3. Use at most 1 firecrawl/firecrawlExtract call on the highest-value first-party page only
 4. Never scrape competitor pages or second-order URLs in this pass
 5. Reuse persisted competitor context instead of re-running broad competitor discovery
-6. Use the adLibrary tool to check what ads the CLIENT already runs:
-   - Search by the client's company name and domain
-   - BEFORE flagging any creative or messaging weakness, check if the client already has active creatives covering that topic
-   - Do NOT flag weaknesses for topics the client already has active creatives about
-   - If the ad library search returns no results or no verified advertiser match, note: 'Unable to verify client's existing ad creative library — weakness claims are based on web presence only.'
+6. Do NOT analyze or reference the client's ad creatives in this section — ad creative analysis is handled in the Competitor Intel module under "Your Ads". Focus this section purely on the offer itself (pricing, value prop, market fit, cold traffic viability).
+
+PRICING DATA INTEGRITY (CRITICAL):
+- NEVER fabricate, hallucinate, or guess pricing data — for the client OR competitors.
+- For currentPricing: ONLY report pricing you found from firecrawlExtract, firecrawl, or web_search results. Include ALL tiers/plans you found (e.g. "$50/mo website + $42/mo sync = $92/mo total").
+- If firecrawl/web_search returns pricing data, set pricingSource to the URL where you found it.
+- If you CANNOT find verified pricing from any source, set currentPricing to "Pricing not found — unable to verify from public sources" and pricingSource to null. Do NOT infer or assume pricing from training data.
+- For marketBenchmark: Only cite competitor pricing that was verified in the persisted competitor context or found via web_search. Attribute each price to a named competitor.
 
 SCORING GUIDELINES:
 - Score based on competitive positioning
@@ -121,8 +124,9 @@ After completing your research, respond with a JSON object. Structure:
     }
   ],
   "pricingAnalysis": {
-    "currentPricing": "string — what client charges",
-    "marketBenchmark": "string — what competitors charge",
+    "currentPricing": "string — ONLY verified pricing from scraped sources. Include all tiers. If not found, state 'Pricing not found — unable to verify from public sources'",
+    "pricingSource": "string | null — URL where pricing was found, or null if not found",
+    "marketBenchmark": "string — verified competitor pricing with named competitors. Only cite prices found in persisted context or web search results",
     "pricingPosition": "premium | mid-market | budget | unclear",
     "coldTrafficViability": "string — assessment of converting cold traffic at this price point"
   },
@@ -186,8 +190,8 @@ function getOfferAttemptConfig(context: string): OfferAttemptConfig {
     maxTokens: OFFER_MAX_TOKENS,
     timeoutMs: OFFER_TIMEOUT_MS,
     tools: shouldEnableOfferFirecrawl(context)
-      ? [WEB_SEARCH_TOOL, firecrawlExtractTool, firecrawlTool, adLibraryTool]
-      : [WEB_SEARCH_TOOL, adLibraryTool],
+      ? [WEB_SEARCH_TOOL, firecrawlExtractTool, firecrawlTool]
+      : [WEB_SEARCH_TOOL],
     system: OFFER_SYSTEM_PROMPT,
     synthesisMessage: 'synthesizing offer analysis',
   };

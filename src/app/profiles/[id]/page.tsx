@@ -16,7 +16,7 @@ import {
   Palette,
 } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
-import { JOURNEY_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
+import { PROFILE_FIELD_GROUPS, JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import type { BusinessProfile, ProfileSession } from '@/lib/profiles/business-profiles';
 import { ScriptWorkbench } from '@/components/scripts/script-workbench';
 import { StyleRefsTab } from '@/components/scripts/style-refs-tab';
@@ -127,7 +127,8 @@ export default function ProfileDetailPage() {
       <AppSidebar />
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl w-full px-8 py-10">
+        {/* Header + tabs — centered */}
+        <div className="mx-auto max-w-4xl w-full px-8 pt-10">
           {/* Back + header */}
           <div className="mb-8">
             <Link
@@ -156,7 +157,7 @@ export default function ProfileDetailPage() {
           </div>
 
           {/* Tab bar */}
-          <div className="flex gap-6 border-b border-[var(--border-default)] mb-8">
+          <div className="flex gap-6 border-b border-[var(--border-default)]">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -176,30 +177,34 @@ export default function ProfileDetailPage() {
               );
             })}
           </div>
-
-          {/* Tab content */}
-          {activeTab === 'overview' && <OverviewTab profile={profile} />}
-
-          {activeTab === 'research' && (
-            <ResearchTab
-              sessions={sessions}
-              loading={sessionsLoading}
-              profileName={profile.companyName}
-            />
-          )}
-
-          {activeTab === 'scripts' && (
-            <ScriptWorkbench profileId={profile.id} />
-          )}
-
-          {activeTab === 'style-refs' && (
-            <StyleRefsTab
-              profileId={profile.id}
-              initialRefs={profile.styleReferences}
-              initialProofPoints={profile.proofPoints}
-            />
-          )}
         </div>
+
+        {/* Tab content — scripts gets full width, others stay centered */}
+        {activeTab === 'scripts' ? (
+          <div className="px-6 py-6">
+            <ScriptWorkbench profileId={profile.id} />
+          </div>
+        ) : (
+          <div className="mx-auto max-w-4xl w-full px-8 py-8">
+            {activeTab === 'overview' && <OverviewTab profile={profile} />}
+
+            {activeTab === 'research' && (
+              <ResearchTab
+                sessions={sessions}
+                loading={sessionsLoading}
+                profileName={profile.companyName}
+              />
+            )}
+
+            {activeTab === 'style-refs' && (
+              <StyleRefsTab
+                profileId={profile.id}
+                initialRefs={profile.styleReferences}
+                initialProofPoints={profile.proofPoints}
+              />
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
@@ -214,7 +219,7 @@ function OverviewTab({ profile }: { profile: BusinessProfile }) {
       <InsightsSection profile={profile} />
 
       {/* Onboarding fields by group */}
-      {JOURNEY_FIELD_GROUPS.map((group) => {
+      {PROFILE_FIELD_GROUPS.map((group) => {
         const fields = group.fieldKeys
           .filter((key) => key !== 'companyName')
           .map((key) => {
