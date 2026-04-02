@@ -76,25 +76,6 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'testimonialsUrl', label: 'Testimonials URL', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
   { key: 'pricingUrl', label: 'Pricing URL', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
   { key: 'demoUrl', label: 'Demo URL', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
-  // Onboarding-only fields (not collected by journey scraper, but entered during onboarding)
-  { key: 'secondaryIcp', label: 'Secondary ICP', category: 'section-followup', section: 'icpValidation', collectionMode: 'manual' },
-  { key: 'systemsPlatforms', label: 'Systems & Platforms', category: 'section-followup', section: 'icpValidation', collectionMode: 'manual' },
-  { key: 'proprietaryTech', label: 'Proprietary Technology', category: 'section-followup', section: 'competitors', collectionMode: 'manual' },
-  { key: 'customerVoice', label: 'Customer Voice', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'salesDeckUrl', label: 'Sales Deck', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'productDemoUrl', label: 'Product Demo', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'landingPageUrl', label: 'Landing Page', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'existingAdsUrl', label: 'Existing Ads', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'brandGuidelinesUrl', label: 'Brand Guidelines', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'loomWalkthroughUrl', label: 'Loom Walkthrough', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'emailSequencesUrl', label: 'Email Sequences', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'productScreenshotsUrl', label: 'Product Screenshots', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'ugcVideosUrl', label: 'UGC Videos', category: 'research-enrichment', section: null, collectionMode: 'manual' },
-  { key: 'dailyBudgetCeiling', label: 'Daily Budget Ceiling', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'targetSqlsPerMonth', label: 'Target SQLs/Month', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'targetDemosPerMonth', label: 'Target Demos/Month', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'topicsToAvoid', label: 'Topics to Avoid', category: 'section-followup', section: null, collectionMode: 'manual' },
-  { key: 'claimRestrictions', label: 'Claim Restrictions', category: 'section-followup', section: null, collectionMode: 'manual' },
 ] as const;
 
 export const JOURNEY_FIELD_LABELS: Readonly<Record<string, string>> = Object.freeze(
@@ -282,9 +263,9 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   },
 ];
 
-// ── Profile-specific groups: all onboarding fields for profile view/edit ──
+// ── Profile field groups: all journey-collected fields for profile view/edit ──
 
-/** Complete field groups for profile pages — includes every onboarding field */
+/** Complete field groups for profile pages — includes every journey field */
 export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'business-basics',
@@ -294,7 +275,7 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'target-customer',
     label: 'Target Customer',
-    fieldKeys: ['primaryIcpDescription', 'industryVertical', 'jobTitles', 'companySize', 'geography', 'easiestToClose', 'buyingTriggers', 'bestClientSources', 'secondaryIcp', 'systemsPlatforms'],
+    fieldKeys: ['primaryIcpDescription', 'industryVertical', 'jobTitles', 'companySize', 'geography', 'easiestToClose', 'buyingTriggers', 'bestClientSources'],
   },
   {
     id: 'offer-pricing',
@@ -304,37 +285,12 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'competition',
     label: 'Competition',
-    fieldKeys: ['topCompetitors', 'uniqueEdge', 'competitorFrustrations', 'marketBottlenecks', 'proprietaryTech'],
-  },
-  {
-    id: 'customer-journey',
-    label: 'Customer Journey',
-    fieldKeys: ['situationBeforeBuying', 'desiredTransformation', 'commonObjections', 'salesCycleLength', 'salesProcessOverview'],
-  },
-  {
-    id: 'brand-positioning',
-    label: 'Brand & Positioning',
-    fieldKeys: ['brandPositioning', 'customerVoice'],
+    fieldKeys: ['topCompetitors', 'uniqueEdge', 'competitorFrustrations', 'marketBottlenecks'],
   },
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals'],
-  },
-  {
-    id: 'assets-proof',
-    label: 'Assets & Proof',
-    fieldKeys: ['salesDeckUrl', 'productDemoUrl', 'caseStudiesUrl', 'testimonialsUrl', 'landingPageUrl', 'existingAdsUrl', 'brandGuidelinesUrl', 'loomWalkthroughUrl', 'emailSequencesUrl', 'productScreenshotsUrl', 'ugcVideosUrl'],
-  },
-  {
-    id: 'budget-targets',
-    label: 'Budget & Targets',
-    fieldKeys: ['dailyBudgetCeiling', 'campaignDuration', 'targetCpl', 'targetCac', 'targetSqlsPerMonth', 'targetDemosPerMonth'],
-  },
-  {
-    id: 'compliance',
-    label: 'Compliance',
-    fieldKeys: ['topicsToAvoid', 'claimRestrictions'],
+    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'salesCycleLength', 'salesProcessOverview', 'campaignDuration', 'targetCpl', 'targetCac'],
   },
 ];
 
@@ -343,20 +299,15 @@ export const PROFILE_MULTILINE_KEYS: ReadonlySet<string> = new Set([
   'primaryIcpDescription',
   'easiestToClose',
   'buyingTriggers',
-  'secondaryIcp',
   'productDescription',
   'coreDeliverables',
   'valueProp',
   'guarantees',
   'competitorFrustrations',
   'marketBottlenecks',
-  'proprietaryTech',
   'situationBeforeBuying',
   'desiredTransformation',
   'commonObjections',
   'salesProcessOverview',
   'brandPositioning',
-  'customerVoice',
-  'topicsToAvoid',
-  'claimRestrictions',
 ]);
