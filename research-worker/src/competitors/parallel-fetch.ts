@@ -396,15 +396,25 @@ export async function fetchAllCompetitorData(
         }).catch(() => null)
       : Promise.resolve(null);
 
+  // Run all fetches in parallel. Each category uses Promise.allSettled so
+  // individual failures don't block others. We collect results into mutable
+  // arrays so that even if the global timeout fires, already-completed
+  // results are preserved instead of being thrown away.
+  let pricingSettled: PromiseSettledResult<PricingResult>[] = [];
+  let spyfuSettled: PromiseSettledResult<SpyfuResult>[] = [];
+  let adLibrarySettled: PromiseSettledResult<AdLibraryResult>[] = [];
+  let reviewsSettled: PromiseSettledResult<ReviewResult>[] = [];
+  let clientAdResult: AdLibraryResult | null = null;
+
+  const pricingPromise = Promise.allSettled(capped.map(fetchPricing)).then(r => { pricingSettled = r; });
+  const spyfuPromise = Promise.allSettled(capped.map(fetchSpyfu)).then(r => { spyfuSettled = r; });
+  const adLibraryPromise = Promise.allSettled(capped.map(fetchAdLibrary)).then(r => { adLibrarySettled = r; });
+  const reviewsPromise = Promise.allSettled(capped.map(fetchReviews)).then(r => { reviewsSettled = r; });
+  const clientAdCaptured = clientAdPromise.then(r => { clientAdResult = r; });
+
   try {
-    const [pricingSettled, spyfuSettled, adLibrarySettled, reviewsSettled, clientAdResult] = await Promise.race([
-      Promise.all([
-        Promise.allSettled(capped.map(fetchPricing)),
-        Promise.allSettled(capped.map(fetchSpyfu)),
-        Promise.allSettled(capped.map(fetchAdLibrary)),
-        Promise.allSettled(capped.map(fetchReviews)),
-        clientAdPromise,
-      ]),
+    await Promise.race([
+      Promise.all([pricingPromise, spyfuPromise, adLibraryPromise, reviewsPromise, clientAdCaptured]),
       new Promise<never>((_, reject) =>
         setTimeout(
           () =>
@@ -415,20 +425,18 @@ export async function fetchAllCompetitorData(
         ),
       ),
     ]);
-
-    return {
-      pricing: pricingSettled.map(extractPricing),
-      spyfu: spyfuSettled.map(extractSpyfu),
-      adLibrary: adLibrarySettled.map(extractAdLibrary),
-      reviews: reviewsSettled.map(extractReviews),
-      clientAdLibrary: clientAdResult,
-      durationMs: Date.now() - startTime,
-    };
   } catch (error) {
-    // Global timeout or unexpected failure — return empty results rather than
-    // propagating so the competitor runner can still proceed with Sonar data.
-    const reason =
-      error instanceof Error ? error.message : 'Parallel fetch failed';
-    return buildTimeoutResults(reason);
+    // Global timeout fired — but partial results are already captured above.
+    const reason = error instanceof Error ? error.message : 'Parallel fetch failed';
+    console.log(`[parallel-fetch] ${reason} — using ${reviewsSettled.length} reviews, ${adLibrarySettled.length} ads already collected`);
   }
+
+  return {
+    pricing: pricingSettled.length > 0 ? pricingSettled.map(extractPricing) : buildTimeoutResults('timeout').pricing,
+    spyfu: spyfuSettled.length > 0 ? spyfuSettled.map(extractSpyfu) : buildTimeoutResults('timeout').spyfu,
+    adLibrary: adLibrarySettled.length > 0 ? adLibrarySettled.map(extractAdLibrary) : buildTimeoutResults('timeout').adLibrary,
+    reviews: reviewsSettled.length > 0 ? reviewsSettled.map(extractReviews) : buildTimeoutResults('timeout').reviews,
+    clientAdLibrary: clientAdResult,
+    durationMs: Date.now() - startTime,
+  };
 }
