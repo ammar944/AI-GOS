@@ -20,7 +20,7 @@ const exploitAngleSchema = z.object({
 
 const competitorGapIntelligenceSchema = z.object({
   recurringComplaints: z.array(z.string()).describe('Top 3 complaint themes'),
-  exploitAngles: z.array(exploitAngleSchema).max(3).describe('2-3 actionable positioning angles'),
+  exploitAngles: z.array(exploitAngleSchema).describe('Return exactly 2-3 actionable positioning angles, no more than 3'),
 });
 
 // Use array of named objects instead of z.record() — Anthropic rejects propertyNames

@@ -22,7 +22,7 @@ import { analyzeReviewGaps } from './review-gap-intelligence';
 export { parseCompetitorContext } from './parse-context';
 export type { ParsedCompetitorContext, CompetitorEntry } from './parse-context';
 
-const PIPELINE_TIMEOUT_MS = 90_000; // Hard cap: 90s (fetch ~16s + synthesis ~60s + buffer)
+const PIPELINE_TIMEOUT_MS = 120_000; // Hard cap: 120s (fetch ~45s + synthesis ~60s + buffer for review scraping)
 
 interface PipelineResult {
   resultText: string;
