@@ -17,6 +17,7 @@ import { parseCompetitorContext } from './parse-context';
 import { fetchSonarCompetitorResearch, type SonarCompetitorResult } from './sonar-research';
 import { fetchAllCompetitorData, type ParallelFetchResults } from './parallel-fetch';
 import { synthesizeCompetitorIntel, postProcessSynthesis, type SynthesisInput } from './synthesize';
+import { analyzeReviewGaps } from './review-gap-intelligence';
 
 export { parseCompetitorContext } from './parse-context';
 export type { ParsedCompetitorContext, CompetitorEntry } from './parse-context';
@@ -29,6 +30,7 @@ interface PipelineResult {
   fetchDurationMs: number;
   synthesisDurationMs: number;
   synthInput: SynthesisInput;
+  gapIntelligence: Record<string, import('./review-gap-intelligence').CompetitorGapIntelligence> | null;
 }
 
 /**
@@ -143,13 +145,17 @@ async function runPipeline(
   const { parsed, fetchResults, sonarResults } = await runValidateThenFetch(context, onProgress);
   const fetchDurationMs = Date.now() - collectionStart;
 
-  // Phase 2: Synthesis
+  // Phase 2: Synthesis + gap intelligence in parallel
   const synthesisStart = Date.now();
   const synthInput: SynthesisInput = { parsed, fetchResults, sonarResults };
-  const { resultText, stopReason } = await runSynthesis(synthInput, onProgress);
+  const [synthesisResult, gapIntelligence] = await Promise.all([
+    runSynthesis(synthInput, onProgress),
+    analyzeReviewGaps(fetchResults.reviews, parsed.companyName ?? '').catch(() => null),
+  ]);
+  const { resultText, stopReason } = synthesisResult;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
-  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput };
+  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, gapIntelligence };
 }
 
 /**
@@ -190,11 +196,12 @@ export async function runResearchCompetitors(
       parseError = error;
     }
 
-    // Post-process: inject library links, validate pricing confidence
+    // Post-process: inject library links, validate pricing confidence, inject gap intelligence
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       postProcessSynthesis(
         parsed as Record<string, unknown>,
         pipelineResult.synthInput,
+        pipelineResult.gapIntelligence,
       );
     }
 

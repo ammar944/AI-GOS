@@ -274,7 +274,9 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
         }))
         .filter(r => r.text.length > 0);
 
-      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link || hasCapterraData || hasCapterraLink || negativeReviews.length > 0) {
+      const gapIntelligence = asRecord(reviews.gapIntelligence);
+
+      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link || hasCapterraData || hasCapterraLink || negativeReviews.length > 0 || gapIntelligence) {
         cards.push(makeCard(section, 'review-card', `${name} Reviews`, {
           competitorName: name,
           trustpilot: (hasTrustpilotData || hasTrustpilotLink) ? {
@@ -296,6 +298,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
             url: asString(capterra!.url),
           } : null,
           negativeReviews,
+          gapIntelligence: gapIntelligence ?? null,
         }));
       }
     }

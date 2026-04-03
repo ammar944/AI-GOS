@@ -145,6 +145,9 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           competitorName={rc.competitorName as string}
           trustpilot={rc.trustpilot as { rating?: number | null; reviewCount?: number | null; themes?: string[]; url?: string | null } | null | undefined}
           g2={rc.g2 as { rating?: number | null; reviewCount?: number | null; themes?: string[]; url?: string | null } | null | undefined}
+          capterra={rc.capterra as { rating?: number | null; reviewCount?: number | null; themes?: string[]; url?: string | null } | null | undefined}
+          negativeReviews={rc.negativeReviews as Array<{ text: string; rating: number; date?: string; source: 'g2' | 'capterra' | 'trustpilot' }> | null | undefined}
+          gapIntelligence={rc.gapIntelligence as { recurringComplaints: string[]; exploitAngles: Array<{ gap: string; whyItMatters: string; positioningAngle: string; adHook: string; confidence: 'high' | 'medium' | 'low'; evidenceQuotes: string[] }> } | null | undefined}
         />
       );
     }

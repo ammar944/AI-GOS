@@ -344,6 +344,36 @@ function cardToMarkdown(card: CardState): string[] {
         lines.push(`- ${parts.join(' — ')}`);
         if (Array.isArray(g2.themes) && g2.themes.length > 0) lines.push(`  Categories: ${(g2.themes as string[]).join(', ')}`);
       }
+      const cap = c.capterra as Record<string, unknown> | null;
+      if (cap) {
+        const parts: string[] = ['Capterra'];
+        if (cap.rating != null) parts.push(`${cap.rating}/5`);
+        if (cap.reviewCount != null) parts.push(`${cap.reviewCount} reviews`);
+        lines.push(`- ${parts.join(' — ')}`);
+        if (Array.isArray(cap.themes) && cap.themes.length > 0) lines.push(`  Categories: ${(cap.themes as string[]).join(', ')}`);
+      }
+      const negReviews = Array.isArray(c.negativeReviews) ? c.negativeReviews as Array<Record<string, unknown>> : [];
+      if (negReviews.length > 0) {
+        lines.push(`- Negative Reviews (${negReviews.length}):`);
+        for (const nr of negReviews) {
+          const stars = nr.rating != null ? `${'★'.repeat(nr.rating as number)}` : '';
+          const src = nr.source ? ` [${(nr.source as string).toUpperCase()}]` : '';
+          lines.push(`  ${stars}${src} "${nr.text as string}"`);
+        }
+      }
+      const gapIntel = c.gapIntelligence as Record<string, unknown> | null;
+      if (gapIntel) {
+        const angles = Array.isArray(gapIntel.exploitAngles) ? gapIntel.exploitAngles as Array<Record<string, unknown>> : [];
+        if (angles.length > 0) {
+          lines.push(`- Exploit Angles:`);
+          for (const angle of angles) {
+            const conf = angle.confidence ? ` [${(angle.confidence as string).toUpperCase()}]` : '';
+            lines.push(`  ${angle.gap as string}${conf}`);
+            lines.push(`    Position: ${angle.positioningAngle as string}`);
+            lines.push(`    Ad hook: "${angle.adHook as string}"`);
+          }
+        }
+      }
       break;
     }
     case 'gap-card': {

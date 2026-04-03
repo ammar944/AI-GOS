@@ -1,5 +1,15 @@
 # TODOS
 
+## Review Gap Intelligence — Future Improvements
+
+### Feed exploit angles into whiteSpaceGaps for strategy synthesis (from eng review + Codex 2026-04-02)
+**What:** Feed cross-competitor review gap patterns into `whiteSpaceGaps` so media-plan synthesis and ad-copy generation can use them.
+**Why:** Exploit angles are currently trapped in the ReviewCard. Downstream strategy generation reads `whiteSpaceGaps`, `opportunities`, not review cards. Media buyers need these angles in the strategy output too.
+**Pros:** Strategy pipeline becomes review-aware. Ad copy can directly reference competitor weaknesses with evidence.
+**Cons:** Requires touching synthesis prompts and potentially the media-plan context builders (`context-builder.ts`, `phase-context-builders.ts`, `ad-copy-context-builder.ts`).
+**Context:** Both Claude and Codex flagged this independently during office-hours and eng review. User chose to ship ReviewCard-only scope first, then expand. The gap intelligence data already exists in `competitors[].reviews.gapIntelligence` — just needs to be surfaced in a second location.
+**Depends on:** Review gap intelligence feature shipped first.
+
 ## Scripting Engine — Phase 2 Quality Improvements
 
 ### Prompt requirement overload (from Codex review 2026-03-30)

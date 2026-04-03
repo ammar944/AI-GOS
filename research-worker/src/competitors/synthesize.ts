@@ -340,6 +340,7 @@ export async function synthesizeCompetitorIntel(
 function injectReviews(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
+  gapIntelligence?: Record<string, unknown> | null,
 ): void {
   const competitors = parsed.competitors;
   if (!Array.isArray(competitors)) return;
@@ -358,7 +359,7 @@ function injectReviews(
       continue;
     }
 
-    console.log(`[injectReviews] matched "${name}" — tp=${reviewResult.trustpilot ? 'yes' : 'no'}, g2=${reviewResult.g2 ? 'yes' : 'no'}`);
+    console.log(`[injectReviews] matched "${name}" — tp=${reviewResult.trustpilot ? 'yes' : 'no'}, g2=${reviewResult.g2 ? 'yes' : 'no'}, cap=${reviewResult.capterra ? 'yes' : 'no'}, neg=${reviewResult.negativeReviews?.length ?? 0}`);
 
     const reviews: Record<string, unknown> = {};
 
@@ -384,12 +385,40 @@ function injectReviews(
       };
     }
 
+    if (reviewResult.capterra) {
+      reviews.capterra = {
+        rating: reviewResult.capterra.rating ?? undefined,
+        reviewCount: reviewResult.capterra.reviewCount ?? undefined,
+        categories: reviewResult.capterra.categories.length > 0
+          ? reviewResult.capterra.categories
+          : undefined,
+        url: reviewResult.capterra.url,
+      };
+    }
+
+    if (reviewResult.negativeReviews && reviewResult.negativeReviews.length > 0) {
+      reviews.negativeReviews = reviewResult.negativeReviews;
+    }
+
+    // Inject gap intelligence if available for this competitor
+    if (gapIntelligence) {
+      const gapKey = Object.keys(gapIntelligence).find(
+        k => k.toLowerCase() === name.toLowerCase(),
+      );
+      if (gapKey) {
+        reviews.gapIntelligence = gapIntelligence[gapKey];
+      }
+    }
+
     // Only inject if we actually have data from at least one source
-    if (reviews.trustpilot || reviews.g2) {
+    const hasAnyReviewData = reviews.trustpilot || reviews.g2 || reviews.capterra
+      || (reviewResult.negativeReviews?.length ?? 0) > 0
+      || reviews.gapIntelligence;
+    if (hasAnyReviewData) {
       c.reviews = reviews;
-      console.log(`[injectReviews] injected reviews for "${name}":`, JSON.stringify(reviews));
+      console.log(`[injectReviews] injected reviews for "${name}":`, JSON.stringify(reviews).slice(0, 500));
     } else {
-      console.log(`[injectReviews] skipped "${name}" — both sources empty`);
+      console.log(`[injectReviews] skipped "${name}" — all sources empty`);
     }
   }
 }
@@ -401,9 +430,10 @@ function injectReviews(
 export function postProcessSynthesis(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
+  gapIntelligence?: Record<string, unknown> | null,
 ): void {
   injectLibraryLinks(parsed, input);
-  injectReviews(parsed, input);
+  injectReviews(parsed, input, gapIntelligence);
   injectClientAds(parsed, input);
 
   // Validate pricing confidence matches Firecrawl data

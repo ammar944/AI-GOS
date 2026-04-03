@@ -172,6 +172,18 @@ const competitorIntelDataSchema = z.object({
             date: z.string().optional(),
             source: z.enum(['g2', 'capterra', 'trustpilot']),
           })).max(5).optional(),
+          // Output validation schema — .min()/.max() OK here (not API-facing)
+          gapIntelligence: z.object({
+            recurringComplaints: z.array(z.string()),
+            exploitAngles: z.array(z.object({
+              gap: z.string(),
+              whyItMatters: z.string(),
+              positioningAngle: z.string(),
+              adHook: z.string(),
+              confidence: z.enum(['high', 'medium', 'low']),
+              evidenceQuotes: z.array(z.string()),
+            })).max(3),
+          }).optional(),
         }).optional(),
       }),
     )

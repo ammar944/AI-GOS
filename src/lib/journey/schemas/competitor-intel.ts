@@ -61,11 +61,26 @@ export const negativeReviewSchema = z.object({
   source: z.enum(['g2', 'capterra', 'trustpilot']),
 });
 
+export const exploitAngleSchema = z.object({
+  gap: z.string(),
+  whyItMatters: z.string(),
+  positioningAngle: z.string(),
+  adHook: z.string(),
+  confidence: z.enum(['high', 'medium', 'low']),
+  evidenceQuotes: z.array(z.string()),
+});
+
+export const gapIntelligenceSchema = z.object({
+  recurringComplaints: z.array(z.string()),
+  exploitAngles: z.array(exploitAngleSchema).max(3),
+});
+
 export const competitorReviewsSchema = z.object({
   trustpilot: reviewSourceSchema.optional(),
   g2: reviewSourceSchema.optional(),
   capterra: reviewSourceSchema.optional(),
   negativeReviews: z.array(negativeReviewSchema).max(5).optional(),
+  gapIntelligence: gapIntelligenceSchema.optional(),
 });
 
 export const competitorRecordSchema = z.object({
