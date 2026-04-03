@@ -3,7 +3,7 @@ import { normalizeResearchSection } from './section-map';
 import type { ResearchResult } from './supabase';
 import type { RunnerChartTelemetry, RunnerTelemetry } from './telemetry';
 
-const nonEmptyStringSchema = z.string().trim().min(1);
+const nonEmptyStringSchema = z.string().trim();
 // Relaxed: accept empty arrays — AI may not always have data for every field.
 const nonEmptyStringArraySchema = z.array(z.string().trim()).default([]);
 
@@ -46,11 +46,11 @@ const TREND_DIRECTION_ALIASES = new Map<
 const industryResearchDataSchema = z.object({
   categorySnapshot: z.object({
     category: nonEmptyStringSchema,
-    marketSize: nonEmptyStringSchema.optional(),
+    marketSize: z.string().optional(),
     marketMaturity: z.string().optional(),
     buyingBehavior: z.string().optional(),
     awarenessLevel: z.string().optional(),
-    averageSalesCycle: nonEmptyStringSchema.optional(),
+    averageSalesCycle: z.string().optional(),
   }),
   painPoints: z.object({
     primary: nonEmptyStringArraySchema,
@@ -93,30 +93,30 @@ const threatAssessmentSchema = z.object({
     growthTrajectory: z.coerce.number().min(0).max(10),
   }),
   topAdHooks: z.array(z.string()).optional(),
-  likelyResponse: nonEmptyStringSchema.optional(),
-  counterPositioning: nonEmptyStringSchema.optional(),
+  likelyResponse: z.string().optional(),
+  counterPositioning: z.string().optional(),
 });
 
 const competitorAdCreativeSchema = z.object({
   platform: z.string().min(1),
   id: nonEmptyStringSchema,
   advertiser: nonEmptyStringSchema,
-  headline: nonEmptyStringSchema.optional(),
-  body: nonEmptyStringSchema.optional(),
-  imageUrl: nonEmptyStringSchema.optional(),
-  videoUrl: nonEmptyStringSchema.optional(),
+  headline: z.string().optional(),
+  body: z.string().optional(),
+  imageUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
   format: z.string().min(1),
   isActive: z.boolean(),
-  firstSeen: nonEmptyStringSchema.optional(),
-  lastSeen: nonEmptyStringSchema.optional(),
+  firstSeen: z.string().optional(),
+  lastSeen: z.string().optional(),
   platforms: z.array(z.string()).optional(),
-  detailsUrl: nonEmptyStringSchema.optional(),
+  detailsUrl: z.string().optional(),
 });
 
 const competitorLibraryLinksSchema = z.object({
-  metaLibraryUrl: nonEmptyStringSchema.optional(),
-  linkedInLibraryUrl: nonEmptyStringSchema.optional(),
-  googleAdvertiserUrl: nonEmptyStringSchema.optional(),
+  metaLibraryUrl: z.string().optional(),
+  linkedInLibraryUrl: z.string().optional(),
+  googleAdvertiserUrl: z.string().optional(),
 });
 
 const competitorIntelDataSchema = z.object({
@@ -126,7 +126,7 @@ const competitorIntelDataSchema = z.object({
         name: nonEmptyStringSchema,
         website: nonEmptyStringSchema,
         positioning: nonEmptyStringSchema,
-        price: nonEmptyStringSchema.optional(),
+        price: z.string().optional(),
         pricingConfidence: z.string().optional(),
         strengths: nonEmptyStringArraySchema,
         weaknesses: nonEmptyStringArraySchema,
@@ -203,7 +203,7 @@ const competitorIntelDataSchema = z.object({
       }),
     )
     .default([]),
-  overallLandscape: nonEmptyStringSchema.optional(),
+  overallLandscape: z.string().optional(),
   positioningMoves: z.array(z.object({
     move: nonEmptyStringSchema,
     targetCompetitor: nonEmptyStringSchema,
@@ -289,7 +289,7 @@ const offerAnalysisDataSchema = z.object({
         priority: z.number().int().positive(),
         recommendedAction: nonEmptyStringSchema,
         launchBlocker: z.boolean(),
-        evidence: nonEmptyStringSchema.optional(),
+        evidence: z.string().optional(),
       }),
     )
     .default([]),
@@ -359,9 +359,9 @@ const strategicSynthesisDataSchema = z.object({
     )
     .min(1),
   planningContext: z.object({
-    monthlyBudget: nonEmptyStringSchema.optional(),
-    targetCpl: nonEmptyStringSchema.optional(),
-    targetCac: nonEmptyStringSchema.optional(),
+    monthlyBudget: z.string().optional(),
+    targetCpl: z.string().optional(),
+    targetCac: z.string().optional(),
     estimatedDemoPageCvr: z.number().min(0).max(10).optional().describe('Estimated demo/trial page conversion rate as a percentage (e.g. 3.5 for 3.5%). Must be within industry benchmarks: 2-5% for B2B SaaS demo pages.'),
     downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).default(['keywordIntel', 'mediaPlan']),
   }),

@@ -175,7 +175,7 @@ SPEED RULES:
 
 RESEARCH FOCUS:
 - Competitor positioning and messaging
-- Strengths and weaknesses from G2, Capterra reviews
+- Strengths and weaknesses from G2, Capterra reviews — cite specific numbers (e.g., "3.5/5 on G2", "87% recommend on Capterra", "users cite slow onboarding in 12 of 47 reviews"). Never write vague claims like "has some UX issues" without data backing them
 - Market patterns and gaps (white space)
 - Ad strategies and creative angles
 - Counter-positioning: explicitly state our angle against each competitor

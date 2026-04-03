@@ -20,10 +20,11 @@ export function flexibleEnum<const T extends readonly [string, ...string[]]>(
   }) as unknown as z.ZodType<T[number]>;
 }
 
-export const nonEmptyStringSchema = z.string().trim().min(1);
+// Relaxed: accept empty strings — AI frequently returns "" for fields it cannot fill.
+// The .min(1) constraint caused widespread validation failures across all research sections.
+export const nonEmptyStringSchema = z.string().trim();
 
 // Relaxed: accept empty arrays — AI may not always have data for every field.
-// The .min(1) constraint caused widespread validation failures across all research sections.
 export const nonEmptyStringArraySchema = z.array(z.string()).default([]);
 
 export const stringOrNumberSchema = z.union([z.string(), z.number()]);

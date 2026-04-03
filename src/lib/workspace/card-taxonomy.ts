@@ -413,6 +413,45 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     }));
   }
 
+  // Multi-product ICP segments (when business has distinct product lines targeting different audiences)
+  const segments = asRecordArray(data.segments);
+  if (segments.length > 0) {
+    for (const segment of segments) {
+      const productLine = asString(segment.productLine);
+      if (!productLine) continue;
+
+      cards.push(makeCard(section, 'segment-card', productLine, {
+        name: productLine,
+        description: asString(segment.validatedPersona),
+        estimatedReach: asString(segment.audienceSize),
+      }));
+
+      const segChannels = asStringArray(segment.channels);
+      if (segChannels.length > 0) {
+        cards.push(makeCard(section, 'bullet-list', `${productLine} — Channels`, {
+          items: segChannels,
+          accent: 'var(--accent-cyan)',
+        }));
+      }
+
+      const segTriggers = asStringArray(segment.triggers);
+      if (segTriggers.length > 0) {
+        cards.push(makeCard(section, 'bullet-list', `${productLine} — Buying Triggers`, {
+          items: segTriggers,
+          accent: 'var(--accent-blue)',
+        }));
+      }
+
+      const segObjections = asStringArray(segment.objections);
+      if (segObjections.length > 0) {
+        cards.push(makeCard(section, 'bullet-list', `${productLine} — Objections`, {
+          items: segObjections,
+          accent: 'var(--accent-red)',
+        }));
+      }
+    }
+  }
+
   return cards;
 }
 

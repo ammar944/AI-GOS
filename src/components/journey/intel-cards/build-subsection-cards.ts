@@ -184,6 +184,25 @@ function buildICP(sectionKey: string, data: Record<string, unknown>): Subsection
   const fit = get<Record<string, unknown>>(data, 'painSolutionFit');
   const fitScore = get<number>(fit, 'fitScore');
 
+  const segments = arr(data.segments) as Record<string, unknown>[];
+  const segmentCards: (PartialCard | null)[] = segments.length > 1
+    ? [{
+        id: `${sectionKey}-segments`,
+        type: 'list' as const,
+        props: {
+          sectionKey,
+          title: 'Product Line Segments',
+          items: segments
+            .map((s) => {
+              const line = get<string>(s, 'productLine');
+              const persona = get<string>(s, 'validatedPersona');
+              return line ? `${line} — ${persona ?? ''}` : null;
+            })
+            .filter((v): v is string => v !== null),
+        },
+      }]
+    : [];
+
   return compact([
     {
       id: `${sectionKey}-verdict`,
@@ -202,6 +221,7 @@ function buildICP(sectionKey: string, data: Record<string, unknown>): Subsection
           props: { sectionKey, label: 'Fit Score', value: fitScore, max: 10 },
         }
       : null,
+    ...segmentCards,
   ]);
 }
 

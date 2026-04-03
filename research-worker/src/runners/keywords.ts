@@ -11,6 +11,7 @@ import {
 } from '../runner';
 import { finalizeRunnerResult } from '../contracts';
 import { spyfuTool } from '../tools';
+import { KEYWORD_CAMPAIGN_SKILL, KEYWORD_CAMPAIGN_SKILL_COMPACT } from '../skills/keyword-campaign-skill';
 import type { ResearchResult } from '../supabase';
 
 const KEYWORDS_PRIMARY_MODEL =
@@ -126,18 +127,20 @@ DATA HONESTY:
 - "competitorGaps" may be an empty array when no source-backed gap data exists
 
 SIZE RULES:
-- Return at most 2 campaignGroups
-- Each campaignGroup may have at most 2 adGroups
-- Each adGroup may have at most 4 keywords
+- Return exactly 3 campaignGroups (one per group type from the campaign group skill below)
+- Each campaignGroup may have at most 3 adGroups
+- Each adGroup may have at most 5 keywords
 - topOpportunities: max 6 entries
 - recommendedStartingSet: max 6 entries
 - competitorGaps: max 6 entries
-- negativeKeywords: max 8 entries
+- negativeKeywords: max 10 entries
 - confidenceNotes: 2-4 entries
 - quickWins: exactly 3 entries
 - Keep every reason concise and specific
 - totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
 - competitorGapCount must equal competitorGaps.length
+
+${KEYWORD_CAMPAIGN_SKILL}
 
 ${KEYWORDS_OUTPUT_FORMAT}`;
 
@@ -152,7 +155,8 @@ RULES:
 - If metrics are unavailable, set "searchVolume" to 0, set "estimatedCpc" to "Not verified", and set "confidence" to "low"
 - Prefer fewer high-intent terms over broad filler coverage
 - "competitorGaps" may be an empty array when source-backed gap data is unavailable
-- Return at most 2 campaignGroups, 1 adGroup per campaign, and 3 keywords per adGroup
+- Return exactly 3 campaignGroups (generic, branded/competitor, variable — see skill below)
+- 1 adGroup per campaign, and 3 keywords per adGroup
 - topOpportunities: max 4 entries
 - recommendedStartingSet: max 4 entries
 - competitorGaps: max 4 entries and may be [] when no empirical gap evidence exists
@@ -162,6 +166,8 @@ RULES:
 - totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
 - competitorGapCount must equal competitorGaps.length
 - Start the response with { and end it with }
+
+${KEYWORD_CAMPAIGN_SKILL_COMPACT}
 
 ${KEYWORDS_OUTPUT_FORMAT}`;
 
@@ -181,7 +187,7 @@ MANDATORY HEURISTIC RULES:
 - Set "searchVolume" to 0, set "estimatedCpc" to "Not verified", and set "confidence" to "low" for every keyword
 - competitorGaps may be []
 - Keep grouping strategic, not empirical
-- Return exactly 2 campaignGroups
+- Return exactly 3 campaignGroups (generic, branded/competitor, variable — see skill below)
 - Return exactly 1 adGroup per campaignGroup
 - Return exactly 2 keywords per adGroup
 - topOpportunities: exactly 2 entries
@@ -192,6 +198,8 @@ MANDATORY HEURISTIC RULES:
 - totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
 - competitorGapCount must equal competitorGaps.length
 - Start the response with { and end it with }
+
+${KEYWORD_CAMPAIGN_SKILL_COMPACT}
 
 ${KEYWORDS_OUTPUT_FORMAT}`;
 
@@ -206,7 +214,7 @@ MANDATORY COMPRESSION RULES:
 - If metrics are unavailable, set "searchVolume" to 0, set "estimatedCpc" to "Not verified", and set "confidence" to "low"
 - Prefer fewer high-intent terms over broad filler coverage
 - "competitorGaps" may be an empty array when source-backed gap data is unavailable
-- Return exactly 2 campaignGroups
+- Return exactly 3 campaignGroups (generic, branded/competitor, variable)
 - Return exactly 1 adGroup per campaignGroup
 - Return exactly 2 keywords per adGroup
 - topOpportunities: max 4 entries
@@ -219,6 +227,8 @@ MANDATORY COMPRESSION RULES:
 - totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
 - competitorGapCount must equal competitorGaps.length
 - Start the response with { and end it with }
+
+${KEYWORD_CAMPAIGN_SKILL_COMPACT}
 
 ${KEYWORDS_OUTPUT_FORMAT}`;
 
@@ -786,9 +796,13 @@ function isKeywordArtifactThin(parsed: unknown, context: string): boolean {
   const lacksCompetitorCoverage =
     requiresCompetitorCoverage && competitorKeywordCount < 1;
 
+  // Require 3 groups (generic/branded/variable) when competitors exist,
+  // 2 groups (generic/variable) when no competitors are known.
+  const minCampaignGroups = requiresCompetitorCoverage ? 3 : 2;
+
   return (
     keywordEntries.length < 4 ||
-    campaignGroups.length < 2 ||
+    campaignGroups.length < minCampaignGroups ||
     uniqueIntents.size < 2 ||
     topOpportunities.length < 2 ||
     lacksCompetitorCoverage
