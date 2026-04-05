@@ -95,8 +95,22 @@ async function validateCompetitor(
   const keywordsHint = identityCard?.coreKeywords?.length
     ? `\n  - Core keywords for this space: ${identityCard.coreKeywords.join(', ')}`
     : '';
-  const negativeHint = identityCard?.negativeKeywords?.length
-    ? `\n  - NOT in these categories (wrong matches): ${identityCard.negativeKeywords.join(', ')}`
+
+  // Build negative signal from BOTH negativeKeywords AND evidence.conflicts.
+  // Conflicts are more reliable than negativeKeywords (the resolver explicitly
+  // names wrong-category competitors and their actual categories).
+  const negativeTerms = [...(identityCard?.negativeKeywords ?? [])];
+  if (identityCard?.evidence?.conflicts?.length) {
+    for (const conflict of identityCard.evidence.conflicts) {
+      // Extract category terms from conflict text like "are knowledge management platforms"
+      const categoryMatch = conflict.match(/(?:are|is)\s+(?:primarily\s+)?([^,.]+?)(?:\s+(?:platforms?|tools?|apps?))/i);
+      if (categoryMatch?.[1]) {
+        negativeTerms.push(categoryMatch[1].trim());
+      }
+    }
+  }
+  const negativeHint = negativeTerms.length > 0
+    ? `\n  - NOT in these categories (wrong matches): ${[...new Set(negativeTerms)].join(', ')}`
     : '';
 
   const prompt = `Today is ${currentDate}. You are a business verification researcher.
@@ -250,16 +264,46 @@ async function validateCompetitors(
     return { verified: candidates, removed: [] };
   }
 
+  // Deterministic pre-filter: if the identity card's evidence.conflicts explicitly
+  // name a candidate as wrong-category, reject it BEFORE calling Sonar.
+  // This prevents non-deterministic Sonar responses from overriding a clear signal.
+  const preFilterRemoved: Array<{ name: string; reason: string }> = [];
+  let filteredCandidates = candidates;
+
+  if (clientContext.identityCard?.evidence?.conflicts?.length) {
+    const conflictText = clientContext.identityCard.evidence.conflicts.join(' ').toLowerCase();
+    filteredCandidates = [];
+    for (const candidate of candidates) {
+      const nameLower = candidate.name.toLowerCase();
+      // Check if this specific competitor is called out in conflicts
+      if (conflictText.includes(nameLower) &&
+          (conflictText.includes('not direct competitor') ||
+           conflictText.includes('not direct script') ||
+           conflictText.includes('knowledge management') ||
+           conflictText.includes('note-taking') ||
+           conflictText.includes('not in') ||
+           conflictText.includes('wrong'))) {
+        console.info(`[sonar-research] Pre-filtered "${candidate.name}" — identity card conflicts flag as wrong category`);
+        preFilterRemoved.push({
+          name: candidate.name,
+          reason: `Identity card conflicts explicitly flag as wrong-category competitor`,
+        });
+      } else {
+        filteredCandidates.push(candidate);
+      }
+    }
+  }
+
   const validationResults = await Promise.all(
-    candidates.map(c => validateCompetitor(c, clientContext, currentDate)),
+    filteredCandidates.map(c => validateCompetitor(c, clientContext, currentDate)),
   );
 
   const verified: CompetitorEntry[] = [];
-  const removed: Array<{ name: string; reason: string }> = [];
+  const removed: Array<{ name: string; reason: string }> = [...preFilterRemoved];
 
-  for (let i = 0; i < candidates.length; i++) {
+  for (let i = 0; i < filteredCandidates.length; i++) {
     const validation = validationResults[i];
-    const candidate = candidates[i];
+    const candidate = filteredCandidates[i];
 
     // Verified competitors still need a minimum confidence of 30 to guard against
     // cases where Sonar returns verified=true with very low confidence (e.g. 15).
@@ -280,34 +324,41 @@ async function validateCompetitors(
   }
 
   // Safety valve: if all competitors were removed, check WHY before re-adding.
-  // If removal was due to industryMatch:false (wrong category), do NOT re-add —
-  // instead, let the discovery step (below) find real competitors.
-  if (verified.length === 0 && candidates.length > 0) {
-    const best = validationResults.reduce((a, b) => (a.confidence >= b.confidence ? a : b));
-
-    // Check if ANY competitor was rejected specifically for wrong industry.
-    // If so, the user-provided list is fundamentally wrong — don't re-add.
-    const allRejectedForIndustry = validationResults.every(
-      v => !v.verified && v.reason?.toLowerCase().match(/different|not in|wrong|note.?taking|knowledge management/),
-    );
-
-    if (allRejectedForIndustry && clientContext.identityCard) {
+  // Pre-filtered competitors (identity card conflicts) are already gone — if ALL
+  // remaining candidates also failed, either discover replacements or use fallback.
+  if (verified.length === 0 && (filteredCandidates.length > 0 || preFilterRemoved.length > 0)) {
+    // If competitors were pre-filtered by identity card, skip fallback entirely
+    // and let discovery find real competitors.
+    if (preFilterRemoved.length > 0 && clientContext.identityCard) {
       console.warn(
-        `[sonar-research] All competitors rejected for wrong industry — skipping fallback, will discover replacements`,
+        `[sonar-research] ${preFilterRemoved.length} competitor(s) pre-filtered by identity card — skipping fallback, will discover replacements`,
       );
       // Don't re-add. Discovery step below will find real competitors.
-    } else {
-      // Original safety valve: keep highest-confidence as fallback
-      const bestIndex = validationResults.indexOf(best);
-      const bestCandidate = candidates[bestIndex];
-      const removedIndex = removed.findIndex(r => r.name === bestCandidate.name);
-      if (removedIndex >= 0) {
-        removed.splice(removedIndex, 1);
-      }
-      verified.push(bestCandidate);
-      console.warn(
-        `[sonar-research] All competitors failed validation — keeping "${bestCandidate.name}" as fallback (confidence: ${best.confidence})`,
+    } else if (filteredCandidates.length > 0) {
+      const best = validationResults.reduce((a, b) => (a.confidence >= b.confidence ? a : b));
+
+      // Check if remaining candidates were rejected for wrong industry
+      const allRejectedForIndustry = validationResults.every(
+        v => !v.verified && v.reason?.toLowerCase().match(/different|not in|wrong|note.?taking|knowledge management/),
       );
+
+      if (allRejectedForIndustry && clientContext.identityCard) {
+        console.warn(
+          `[sonar-research] All competitors rejected for wrong industry — skipping fallback, will discover replacements`,
+        );
+      } else {
+        // Original safety valve: keep highest-confidence as fallback
+        const bestIndex = validationResults.indexOf(best);
+        const bestCandidate = filteredCandidates[bestIndex];
+        const removedIndex = removed.findIndex(r => r.name === bestCandidate.name);
+        if (removedIndex >= 0) {
+          removed.splice(removedIndex, 1);
+        }
+        verified.push(bestCandidate);
+        console.warn(
+          `[sonar-research] All competitors failed validation — keeping "${bestCandidate.name}" as fallback (confidence: ${best.confidence})`,
+        );
+      }
     }
   }
 
