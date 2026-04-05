@@ -23,7 +23,7 @@ export const INTEGRATIONS: IntegrationDefinition[] = [
     name: "Anthropic Claude",
     slug: "anthropic",
     tier: "required",
-    purpose: "AI inference for lead agent and sub-agents",
+    purpose: "AI inference for journey chat and research runners",
     envVars: ["ANTHROPIC_API_KEY"],
     probeType: "env-only",
   },

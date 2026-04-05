@@ -1,6 +1,6 @@
 // research-worker/src/competitors/parse-context.ts
 // Extracts structured competitor and business data from the context string
-// passed by the lead agent when dispatching researchCompetitors.
+// passed by the dispatch route when dispatching researchCompetitors.
 
 export interface CompetitorEntry {
   name: string;

@@ -361,7 +361,7 @@ function isPhaseComplete(
  * Derive high-level onboarding progress from collected fields.
  *
  * Maps the flat field bag to the 6-phase conversation flow defined in
- * the lead agent prompt, returning the current phase, completed fields,
+ * the journey chat prompt, returning the current phase, completed fields,
  * and what to ask next.
  */
 export function getOnboardingProgress(

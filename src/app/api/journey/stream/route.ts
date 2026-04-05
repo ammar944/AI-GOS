@@ -7,9 +7,9 @@ import type { UIMessage } from 'ai';
 import { auth } from '@clerk/nextjs/server';
 import { anthropic, MODELS } from '@/lib/ai/providers';
 import {
-  LEAD_AGENT_SYSTEM_PROMPT,
+  JOURNEY_CHAT_SYSTEM_PROMPT,
   buildResumeContext,
-} from '@/lib/ai/prompts/lead-agent-system';
+} from '@/lib/ai/prompts/journey-chat-system';
 import {
   sanitizeJourneyMessages,
 } from '@/lib/ai/journey-stream-prep';
@@ -169,7 +169,7 @@ export async function POST(request: Request) {
   }
 
   // ── Build system prompt (augment with resume context if present) ────────
-  let systemPrompt = LEAD_AGENT_SYSTEM_PROMPT;
+  let systemPrompt = JOURNEY_CHAT_SYSTEM_PROMPT;
   if (
     body.resumeState &&
     typeof body.resumeState === 'object' &&

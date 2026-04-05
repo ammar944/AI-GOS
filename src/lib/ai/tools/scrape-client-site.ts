@@ -1,4 +1,4 @@
-// Lead Agent Tool: Scrape Client Site
+// Journey Chat Tool: Scrape Client Site
 // Scrapes the CLIENT'S OWN website to extract structured onboarding data.
 // Runs as the FIRST intelligence action when the user provides their website URL.
 // Uses toolRunner() with Haiku sub-agent + Firecrawl (same pattern as competitorFastHits).

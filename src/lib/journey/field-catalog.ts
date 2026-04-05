@@ -67,6 +67,8 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'salesProcessOverview', label: 'Sales Process', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'brandPositioning', label: 'Brand Positioning', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'monthlyAdBudget', label: 'Monthly Ad Budget', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either' },
+  { key: 'monthlyRevenueRange', label: 'Monthly Revenue Range', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
+  { key: 'payingCustomerCount', label: 'Paying Customer Count', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
   { key: 'campaignDuration', label: 'Campaign Duration', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'targetCpl', label: 'Target CPL', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'targetCac', label: 'Target CAC', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
@@ -165,6 +167,27 @@ export const JOURNEY_MANUAL_BLOCKER_FIELDS: readonly JourneyManualFieldDefinitio
   },
 ] as const;
 
+/**
+ * Metadata for enrichment/scoring fields (non-blocking, optional).
+ * Used by field-group rendering for placeholder + helper text.
+ */
+export const JOURNEY_ENRICHMENT_FIELD_METAS: readonly JourneyManualFieldDefinition[] = [
+  {
+    key: 'monthlyRevenueRange',
+    label: 'Monthly Revenue Range',
+    placeholder: 'Pre-revenue / $0-5K / $5K-20K / $20K-100K / $100K+',
+    helper: 'Approximate monthly recurring revenue. Used to assess ad readiness.',
+    rows: 1,
+  },
+  {
+    key: 'payingCustomerCount',
+    label: 'Paying Customers',
+    placeholder: '0 / 1-10 / 11-50 / 51-200 / 200+',
+    helper: 'How many paying customers or clients do you currently have?',
+    rows: 1,
+  },
+];
+
 export const JOURNEY_WAVE_TWO_REQUIREMENTS: readonly JourneyRequirementDefinition[] = [
   {
     key: 'topCompetitors',
@@ -231,7 +254,10 @@ export const JOURNEY_MULTILINE_FIELDS: ReadonlySet<string> = new Set(
 
 /** Get manual blocker metadata for a field key (placeholder, helper, rows) */
 export function getManualBlockerMeta(key: string): JourneyManualFieldDefinition | undefined {
-  return JOURNEY_MANUAL_BLOCKER_FIELDS.find((f) => f.key === key);
+  return (
+    JOURNEY_MANUAL_BLOCKER_FIELDS.find((f) => f.key === key) ??
+    JOURNEY_ENRICHMENT_FIELD_METAS.find((f) => f.key === key)
+  );
 }
 
 /** Logical field groupings for the review UI */
@@ -249,7 +275,7 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'offer-pricing',
     label: 'Offer & Pricing',
-    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees'],
+    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'monthlyRevenueRange', 'payingCustomerCount'],
   },
   {
     id: 'competition',
@@ -280,7 +306,7 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'offer-pricing',
     label: 'Offer & Pricing',
-    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'currentFunnelType'],
+    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'currentFunnelType', 'monthlyRevenueRange', 'payingCustomerCount'],
   },
   {
     id: 'competition',

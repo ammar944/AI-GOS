@@ -1,2 +1,2 @@
 export * from './copywriting-persona';
-export * from './lead-agent-system';
+export * from './journey-chat-system';

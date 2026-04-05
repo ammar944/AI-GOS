@@ -1,5 +1,5 @@
 // Client-side helper to dispatch research sections via /api/journey/dispatch.
-// Replaces the old pattern of sending messages to the lead agent.
+// Dispatches research sections to the Railway worker via /api/journey/dispatch.
 
 export interface ClientDispatchResult {
   status: 'queued' | 'error';

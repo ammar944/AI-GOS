@@ -1,6 +1,6 @@
 // src/lib/ai/tools/research/dispatch.ts
 // Dispatch a research job to the Railway worker.
-// Returns immediately (fire-and-forget from the lead agent's perspective).
+// Returns immediately (fire-and-forget from the chat's perspective).
 
 import { auth } from '@clerk/nextjs/server';
 import type { ToolExecutionOptions } from 'ai';

@@ -1,4 +1,4 @@
-// Lead Agent Tool: Fast Competitor Intelligence
+// Journey Chat Tool: Fast Competitor Intelligence
 // Stage 2 — runs a Haiku sub-agent with Firecrawl + Ad Library for quick competitor snapshot
 // Target: < 10 seconds from call to result
 // Uses toolRunner() (not stream()) so that betaZodTool.run() is executed for client-side tools

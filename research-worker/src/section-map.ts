@@ -11,6 +11,7 @@ export const TOOL_SECTION_MAP = {
   synthesizeResearch: 'strategicSynthesis',
   researchKeywords: 'keywordIntel',
   researchMediaPlan: 'mediaPlan',
+  resolveIdentity: 'identityResolution',
 } as const;
 
 const LEGACY_TO_CANONICAL_SECTION_MAP: Record<string, string> = {

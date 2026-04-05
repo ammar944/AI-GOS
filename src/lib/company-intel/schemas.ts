@@ -2,7 +2,7 @@
 // Used with Vercel AI SDK streamObject/generateObject for structured extraction
 // CRITICAL: Every .describe() hint reinforces factual-only extraction — no hallucination
 //
-// Field names are aligned 1:1 with the lead agent's FIELD_LABELS (32 onboarding fields).
+// Field names are aligned 1:1 with the journey's FIELD_LABELS (32 onboarding fields).
 // 22 of 32 fields are extractable from a website; 10 are user-only (budget, goals, etc.).
 
 import { z } from 'zod';
@@ -31,7 +31,7 @@ const researchedFieldSchema = z.object({
 }).describe('A single extracted field with provenance. null value = not found.');
 
 // =============================================================================
-// Company Research Output Schema — aligned with lead agent's 32 onboarding fields
+// Company Research Output Schema — aligned with the journey's 32 onboarding fields
 // 22 extractable fields + confidenceNotes + asset URLs
 // =============================================================================
 

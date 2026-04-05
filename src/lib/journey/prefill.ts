@@ -3,7 +3,7 @@ import type { CompanyResearchOutput, ResearchedField } from '@/lib/company-intel
 import type { OnboardingState } from '@/lib/journey/session-state';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 
-// All 32 onboarding field names from the lead agent's FIELD_LABELS
+// All 32 onboarding field names from the journey's FIELD_LABELS
 type JourneyFieldName =
   | keyof OnboardingState
   | 'companyName' | 'websiteUrl' | 'businessModel' | 'primaryIcpDescription'
@@ -14,7 +14,8 @@ type JourneyFieldName =
   | 'competitorFrustrations' | 'marketBottlenecks' | 'marketProblem'
   | 'situationBeforeBuying' | 'desiredTransformation' | 'commonObjections'
   | 'salesCycleLength' | 'salesProcessOverview' | 'brandPositioning'
-  | 'monthlyAdBudget' | 'campaignDuration' | 'targetCpl' | 'targetCac' | 'goals'
+  | 'monthlyAdBudget' | 'monthlyRevenueRange' | 'payingCustomerCount'
+  | 'campaignDuration' | 'targetCpl' | 'targetCac' | 'goals'
   | 'testimonialQuote';
 
 /** Accept both `Partial` and the deeper `PartialObject` returned by `experimental_useObject`. */

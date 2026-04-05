@@ -8,6 +8,7 @@ import {
   runSynthesizeResearch,
   runResearchKeywords,
   runMediaPlan,
+  resolveProductIdentity,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, type ResearchResult } from './supabase';
 import { runAdScripts, type AdScriptsInput } from './runners/ad-scripts';
@@ -58,7 +59,8 @@ type ToolName =
   | 'researchOffer'
   | 'synthesizeResearch'
   | 'researchKeywords'
-  | 'researchMediaPlan';
+  | 'researchMediaPlan'
+  | 'resolveIdentity';
 
 interface RunJobRequest {
   tool: ToolName;
@@ -76,6 +78,7 @@ const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgre
   synthesizeResearch: runSynthesizeResearch,
   researchKeywords: runResearchKeywords,
   researchMediaPlan: runMediaPlan,
+  resolveIdentity: resolveProductIdentity,
 };
 
 // -- Health -------------------------------------------------------------------

@@ -36,6 +36,24 @@
 **Context:** Codex recommended this. Review chose the subset+tracking approach for v1. Re-evaluate after 3 batch evals. If proof overuse persists despite subset rotation, upgrade to deterministic.
 **Depends on:** Current subset+tracking approach shipped and evaluated first.
 
+## Research Accuracy — Deferred from Wave 1 (from eng review + Codex 2026-04-05)
+
+### Unify pipeline order definitions across files
+**What:** `PIPELINE_ORDER` in `dispatch/route.ts:130` disagrees with pipeline definitions in `src/lib/workspace/pipeline.ts`, `src/lib/research/pipeline-types.ts`, and `src/lib/ai/journey-review-gates.ts`. The ordering of competitors vs icpValidation and keywordIntel vs crossAnalysis differs across files.
+**Why:** If the intelligence chain injects upstream results in a different order than the frontend expects, sections may get stale or incomplete context. Today this is masked because each file is consumed independently, but it's a latent bug that will surface when more sections depend on strict ordering.
+**Pros:** Single source of truth for pipeline order. Eliminates a class of ordering bugs.
+**Cons:** Touches 4+ files. Requires understanding why each file has a different order (may be intentional for different purposes).
+**Context:** Flagged by Codex during outside voice plan review. Both Claude and Codex agree this is a real structural bug but out of scope for Wave 1.
+**Depends on:** Nothing blocking. Can be done independently of identity resolver work.
+
+### Identity card invalidation on profile field edits
+**What:** If a user edits `companyName`, `websiteUrl`, or `productDescription` in the profile edit view AFTER the identity card has been resolved, the identity card becomes stale. All downstream research sections that consumed the identity card are also stale. The plan currently has no invalidation logic.
+**Why:** The profile edit view (`src/app/profiles/page.tsx`) lets users change these fields freely. Without invalidation, a user could change their product description and re-run research, but the old identity card would still be prepended to every context.
+**Pros:** Ensures identity card always reflects the latest profile data. Prevents silent staleness.
+**Cons:** Requires tracking which fields the identity card depends on and triggering re-resolution when they change. May need UI indication that research is stale.
+**Context:** Flagged by Codex during outside voice plan review. The `confidence` + `ambiguityFlags` fields on the identity card are the architectural hook for this — a stale card could set `ambiguityFlags: ["stale-profile-edited"]`. Existing stale-section logic in `pipeline-controller.ts` and `research-sections.ts` may be reusable.
+**Depends on:** Wave 1 identity resolver shipped first.
+
 ## Wasam Feedback Sprint — Implementation Notes (from eng review 2026-03-31)
 
 ### PR 3: adLibraryTool type mismatch in offer runner

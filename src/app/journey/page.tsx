@@ -27,9 +27,9 @@ import {
   shouldIgnoreDispatchError,
 } from '@/lib/journey/research-recovery';
 import {
-  LEAD_AGENT_WELCOME_MESSAGE,
-  LEAD_AGENT_RESUME_WELCOME,
-} from '@/lib/ai/prompts/lead-agent-system';
+  JOURNEY_CHAT_WELCOME_MESSAGE,
+  JOURNEY_CHAT_RESUME_WELCOME,
+} from '@/lib/ai/prompts/journey-chat-system';
 import {
   getJourneySession,
   setJourneySession,
@@ -148,7 +148,7 @@ function getJourneyStudioDescription(
     return 'Journey is extracting company and positioning signals from the URLs you provided before the session begins.';
   }
   if (journeyPhase === 'review') {
-    return 'Accept the fields that look right, skip the ones that need manual handling, then hand control back to the lead agent.';
+    return 'Accept the fields that look right, skip the ones that need manual handling, then hand control back to the journey chat.';
   }
   if (journeyPhase === 'resume') {
     return 'A saved session exists locally. Continue from the current answers or start over with a clean run.';
@@ -1633,8 +1633,8 @@ function JourneyPageContent() {
   }, [artifactSection, showArtifactSection]);
 
   const welcomeMessage = isResuming
-    ? LEAD_AGENT_RESUME_WELCOME
-    : LEAD_AGENT_WELCOME_MESSAGE;
+    ? JOURNEY_CHAT_RESUME_WELCOME
+    : JOURNEY_CHAT_WELCOME_MESSAGE;
 
   const lastMessage = messages[messages.length - 1];
   const isLastMessageStreaming = isStreaming && lastMessage?.role === 'assistant';

@@ -6,7 +6,7 @@ import type { DeepPartial } from 'ai';
 import { companyResearchSchema, type CompanyResearchOutput } from '@/lib/company-intel/schemas';
 import { createJourneyGuardedFetch } from '@/lib/journey/http';
 
-// Aligned with companyResearchSchema field names (matches lead agent FIELD_LABELS)
+// Aligned with companyResearchSchema field names (matches journey FIELD_LABELS)
 const RESEARCH_FIELD_KEYS = [
   // Business Basics
   'companyName',

@@ -1,4 +1,4 @@
-// Direct research dispatch — no lead agent.
+// Direct research dispatch — frontend-driven pipeline.
 // Frontend calls this when a section needs to start researching.
 //
 // IMPORTANT: This route stamps the activeJourneyRunId into Supabase metadata
