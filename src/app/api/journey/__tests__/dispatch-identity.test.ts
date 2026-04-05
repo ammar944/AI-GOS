@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest';
+import {
+  DISPATCH_PIPELINE_ORDER,
+  summarizeForSynthesis,
+} from '../dispatch/route';
+
+// Note: The POST handler in dispatch/route.ts depends on Clerk auth and Supabase,
+// which require real credentials in a Next.js server context. We test the two
+// extractable behaviors — pipeline order and enrichment content — directly via
+// exported helpers, per the testing guidance in the task spec.
+
+describe('DISPATCH_PIPELINE_ORDER', () => {
+  it('places identityResolution first and industryMarket second', () => {
+    expect(DISPATCH_PIPELINE_ORDER[0]).toBe('identityResolution');
+    expect(DISPATCH_PIPELINE_ORDER[1]).toBe('industryMarket');
+  });
+
+  it('contains all 8 expected sections in the canonical research order', () => {
+    expect(DISPATCH_PIPELINE_ORDER).toEqual([
+      'identityResolution',
+      'industryMarket',
+      'icpValidation',
+      'competitors',
+      'offerAnalysis',
+      'keywordIntel',
+      'crossAnalysis',
+      'mediaPlan',
+    ]);
+  });
+});
+
+describe('summarizeForSynthesis — identityResolution enrichment', () => {
+  const identityCard = {
+    schemaVersion: 1,
+    category: 'AI Whiteboard / Visual Collaboration Tool',
+    subcategory: 'AI-powered visual thinking',
+    businessModel: 'SaaS subscription',
+    coreProduct: 'AI-powered collaborative whiteboard with brainstorming templates',
+    coreKeywords: ['ai whiteboard', 'visual collaboration', 'online whiteboard ai'],
+    negativeKeywords: ['video generation', 'video editing'],
+    buyer: 'Product managers and creative leads at tech-forward teams',
+    jobToBeDone: 'Turn raw ideas into structured visual outputs faster',
+    confidence: 88,
+    ambiguityFlags: [],
+    evidence: {
+      websiteSignals: ['Homepage emphasises "visual thinking" and "AI brainstorming"'],
+      onboardingSignals: ['User described as "AI content creation tool"'],
+      conflicts: [],
+    },
+  };
+
+  it('passes the full identity card through for downstream context enrichment', () => {
+    const result = summarizeForSynthesis('identityResolution', identityCard);
+    const parsed = JSON.parse(result) as typeof identityCard;
+
+    // Every downstream runner needs category, coreKeywords, negativeKeywords,
+    // confidence, and evidence — verify all are preserved
+    expect(parsed.category).toBe('AI Whiteboard / Visual Collaboration Tool');
+    expect(parsed.coreKeywords).toContain('ai whiteboard');
+    expect(parsed.negativeKeywords).toContain('video generation');
+    expect(parsed.confidence).toBe(88);
+    expect(parsed.evidence.websiteSignals).toHaveLength(1);
+  });
+
+  it('produces a non-empty string that can be injected as a ## identityResolution block', () => {
+    const result = summarizeForSynthesis('identityResolution', identityCard);
+
+    // The route wraps this in `## ${key}\n${content}` — verify the content is valid
+    const enrichedBlock = `## identityResolution\n${result}`;
+    expect(enrichedBlock).toContain('## identityResolution');
+    expect(enrichedBlock).toContain('AI Whiteboard');
+  });
+
+  it('gracefully handles a missing identity card payload without throwing', () => {
+    // When research_results is empty ({}) the upstream code skips the section
+    // (no value → continue). This test verifies the summarizer itself handles
+    // edge-case inputs safely.
+    expect(() => summarizeForSynthesis('identityResolution', {})).not.toThrow();
+    expect(() => summarizeForSynthesis('identityResolution', null)).not.toThrow();
+  });
+});

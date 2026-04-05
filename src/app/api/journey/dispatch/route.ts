@@ -11,9 +11,21 @@ import { NextResponse } from 'next/server';
 import { dispatchResearchForUser } from '@/lib/ai/tools/research/dispatch';
 import { createAdminClient } from '@/lib/supabase/server';
 
+/** Ordered list of dispatch pipeline sections. Exported for testing. */
+export const DISPATCH_PIPELINE_ORDER = [
+  'identityResolution',
+  'industryMarket',
+  'icpValidation',
+  'competitors',
+  'offerAnalysis',
+  'keywordIntel',
+  'crossAnalysis',
+  'mediaPlan',
+] as const;
+
 /** Extract key summary fields from upstream research for synthesis context.
- *  Reduces ~15K tokens of full JSON to ~5-7K of essential data. */
-function summarizeForSynthesis(key: string, payload: unknown): string {
+ *  Reduces ~15K tokens of full JSON to ~5-7K of essential data. Exported for testing. */
+export function summarizeForSynthesis(key: string, payload: unknown): string {
   const d = payload as Record<string, unknown>;
   try {
     switch (key) {
@@ -133,16 +145,7 @@ export async function POST(req: Request) {
   // Identity first so every downstream runner gets the canonical product identity card.
   // Competitors before offer so the offer runner gets Firecrawl-verified pricing tiers
   // via the intelligence chain, enabling accurate market benchmarking.
-  const PIPELINE_ORDER = [
-    'identityResolution',
-    'industryMarket',
-    'icpValidation',
-    'competitors',
-    'offerAnalysis',
-    'keywordIntel',
-    'crossAnalysis',
-    'mediaPlan',
-  ];
+  const PIPELINE_ORDER = DISPATCH_PIPELINE_ORDER;
 
   let enrichedContext = context;
   const sectionIndex = PIPELINE_ORDER.indexOf(section);
