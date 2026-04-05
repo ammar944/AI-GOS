@@ -5,9 +5,10 @@
 
 import { generateText } from 'ai';
 import { createPerplexity } from '@ai-sdk/perplexity';
-import type { CompetitorEntry } from './parse-context';
+import type { CompetitorEntry, IdentityCard } from './parse-context';
 
 const SONAR_TIMEOUT_MS = 25_000;
+const DISCOVERY_TIMEOUT_MS = 15_000;
 // Validation runs in parallel per competitor — keep it tight.
 const VALIDATION_TIMEOUT_MS = 15_000;
 const DOMAIN_HEAD_TIMEOUT_MS = 3_000;
@@ -278,22 +279,116 @@ async function validateCompetitors(
     }
   }
 
-  // Safety valve: if all competitors were removed, keep the highest-confidence one
+  // Safety valve: if all competitors were removed, check WHY before re-adding.
+  // If removal was due to industryMatch:false (wrong category), do NOT re-add —
+  // instead, let the discovery step (below) find real competitors.
   if (verified.length === 0 && candidates.length > 0) {
     const best = validationResults.reduce((a, b) => (a.confidence >= b.confidence ? a : b));
-    const bestIndex = validationResults.indexOf(best);
-    const bestCandidate = candidates[bestIndex];
-    const removedIndex = removed.findIndex(r => r.name === bestCandidate.name);
-    if (removedIndex >= 0) {
-      removed.splice(removedIndex, 1);
-    }
-    verified.push(bestCandidate);
-    console.warn(
-      `[sonar-research] All competitors failed validation — keeping "${bestCandidate.name}" as fallback (confidence: ${best.confidence})`,
+
+    // Check if ANY competitor was rejected specifically for wrong industry.
+    // If so, the user-provided list is fundamentally wrong — don't re-add.
+    const allRejectedForIndustry = validationResults.every(
+      v => !v.verified && v.reason?.toLowerCase().match(/different|not in|wrong|note.?taking|knowledge management/),
     );
+
+    if (allRejectedForIndustry && clientContext.identityCard) {
+      console.warn(
+        `[sonar-research] All competitors rejected for wrong industry — skipping fallback, will discover replacements`,
+      );
+      // Don't re-add. Discovery step below will find real competitors.
+    } else {
+      // Original safety valve: keep highest-confidence as fallback
+      const bestIndex = validationResults.indexOf(best);
+      const bestCandidate = candidates[bestIndex];
+      const removedIndex = removed.findIndex(r => r.name === bestCandidate.name);
+      if (removedIndex >= 0) {
+        removed.splice(removedIndex, 1);
+      }
+      verified.push(bestCandidate);
+      console.warn(
+        `[sonar-research] All competitors failed validation — keeping "${bestCandidate.name}" as fallback (confidence: ${best.confidence})`,
+      );
+    }
   }
 
   return { verified, removed };
+}
+
+/**
+ * Discover competitors via Sonar Pro when user-provided ones are all wrong-category.
+ * Uses the identity card's coreKeywords to search for real competitors.
+ * Returns up to 5 CompetitorEntry objects with verified domains.
+ */
+async function discoverCompetitorsFromIdentity(
+  identityCard: IdentityCard,
+  companyName: string | null,
+): Promise<CompetitorEntry[]> {
+  if (!process.env.PERPLEXITY_API_KEY) return [];
+
+  const perplexity = createPerplexity({ apiKey: process.env.PERPLEXITY_API_KEY });
+  const keywords = identityCard.coreKeywords.slice(0, 3).join(', ');
+  const currentDate = new Date().toISOString().slice(0, 10);
+
+  const prompt = `Today is ${currentDate}. Find the top 5 competitors for a company in this space:
+  - Category: ${identityCard.category}
+  - Product: ${identityCard.coreProduct}
+  - Keywords: ${keywords}
+  - Company to exclude: ${companyName ?? 'N/A'} (this is the CLIENT, not a competitor)
+
+Search the web and return ONLY companies that are DIRECT competitors in the SAME product category.
+Do NOT include general productivity tools, note-taking apps, or tools from adjacent categories.
+
+Return ONLY valid JSON, no other text:
+{
+  "competitors": [
+    { "name": "Company Name", "domain": "company.com", "reason": "one sentence why they compete" }
+  ]
+}`;
+
+  try {
+    const result = await Promise.race([
+      generateText({
+        model: perplexity('sonar'),
+        prompt,
+        maxOutputTokens: 600,
+        temperature: 0.1,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Discovery timed out')), DISCOVERY_TIMEOUT_MS),
+      ),
+    ]);
+
+    const text = result.text.trim();
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1)) as {
+        competitors?: Array<{ name: string; domain?: string; reason?: string }>;
+      };
+
+      if (Array.isArray(parsed.competitors)) {
+        const entries: CompetitorEntry[] = [];
+        for (const c of parsed.competitors.slice(0, 5)) {
+          if (!c.name) continue;
+          const domain = c.domain
+            ? c.domain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+            : null;
+          entries.push({
+            name: c.name,
+            domain,
+            inferredDomain: !domain,
+          });
+        }
+        console.info(
+          `[sonar-research] Discovered ${entries.length} competitors via identity card: ${entries.map(e => e.name).join(', ')}`,
+        );
+        return entries;
+      }
+    }
+  } catch (err) {
+    console.warn('[sonar-research] Competitor discovery failed:', err instanceof Error ? err.message : err);
+  }
+  return [];
 }
 
 /**
@@ -305,6 +400,9 @@ async function validateCompetitors(
  * total validation time equals the slowest single validation. Note that Phase 0
  * blocks Phase 1 Sonar research, adding ~5-15s to the sonar research leg of
  * the pipeline overall.
+ *
+ * Phase 0.5: If all competitors fail validation due to wrong industry AND an
+ * identity card is available, discover real competitors via Sonar Pro search.
  *
  * Phase 1: Gather review intelligence for verified competitors only.
  *
@@ -356,10 +454,25 @@ export async function fetchSonarCompetitorResearch(input: {
     );
   }
 
-  // Use verified entries for research — fall back to original list only when
-  // validation was entirely skipped (e.g. no Perplexity key).
+  // Phase 0.5: If all user-provided competitors were wrong-category and we have
+  // an identity card, discover real competitors via Sonar Pro web search.
+  let discoveredCompetitors: CompetitorEntry[] = [];
+  if (verifiedCompetitors.length === 0 && removedCompetitors.length > 0 && input.identityCard) {
+    console.info('[sonar-research] All competitors rejected — discovering replacements via identity card');
+    discoveredCompetitors = await discoverCompetitorsFromIdentity(
+      input.identityCard,
+      input.companyName,
+    );
+  }
+
+  // Use verified entries for research. If none verified, use discovered competitors.
+  // Fall back to original list only when validation was entirely skipped (e.g. no Perplexity key).
   const competitorsForResearch =
-    verifiedCompetitors.length > 0 ? verifiedCompetitors : input.competitors;
+    verifiedCompetitors.length > 0
+      ? verifiedCompetitors
+      : discoveredCompetitors.length > 0
+        ? discoveredCompetitors
+        : input.competitors;
 
   if (competitorsForResearch.length === 0) {
     return {
