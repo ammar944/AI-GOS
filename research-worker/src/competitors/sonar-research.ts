@@ -272,24 +272,46 @@ async function validateCompetitors(
 
   if (clientContext.identityCard?.evidence?.conflicts?.length) {
     const conflictText = clientContext.identityCard.evidence.conflicts.join(' ').toLowerCase();
-    filteredCandidates = [];
-    for (const candidate of candidates) {
-      const nameLower = candidate.name.toLowerCase();
-      // Check if this specific competitor is called out in conflicts
-      if (conflictText.includes(nameLower) &&
-          (conflictText.includes('not direct competitor') ||
-           conflictText.includes('not direct script') ||
-           conflictText.includes('knowledge management') ||
-           conflictText.includes('note-taking') ||
-           conflictText.includes('not in') ||
-           conflictText.includes('wrong'))) {
-        console.info(`[sonar-research] Pre-filtered "${candidate.name}" — identity card conflicts flag as wrong category`);
+
+    // Check if conflicts indicate the ENTIRE competitor list is wrong-category.
+    // Signals: "competitors are note-taking tools", "not content generation", etc.
+    const listIsWrongCategory =
+      conflictText.includes('not direct competitor') ||
+      conflictText.includes('not content generation') ||
+      conflictText.includes('not content creation') ||
+      conflictText.includes('note-taking') ||
+      conflictText.includes('knowledge management') ||
+      conflictText.includes('pkm tool') ||
+      conflictText.includes('not direct script') ||
+      conflictText.includes('true competitors') ||
+      conflictText.includes('not in the same');
+
+    if (listIsWrongCategory) {
+      // The identity card says the competitor list is fundamentally wrong.
+      // Reject ALL user-provided competitors, not just the named ones.
+      // Discovery will find real competitors.
+      for (const candidate of candidates) {
+        console.info(`[sonar-research] Pre-filtered "${candidate.name}" — identity card flags entire competitor list as wrong category`);
         preFilterRemoved.push({
           name: candidate.name,
-          reason: `Identity card conflicts explicitly flag as wrong-category competitor`,
+          reason: `Identity card conflicts indicate entire competitor list is wrong category`,
         });
-      } else {
-        filteredCandidates.push(candidate);
+      }
+      filteredCandidates = [];
+    } else {
+      // Only reject individually named competitors
+      filteredCandidates = [];
+      for (const candidate of candidates) {
+        const nameLower = candidate.name.toLowerCase();
+        if (conflictText.includes(nameLower)) {
+          console.info(`[sonar-research] Pre-filtered "${candidate.name}" — identity card conflicts name as wrong category`);
+          preFilterRemoved.push({
+            name: candidate.name,
+            reason: `Identity card conflicts explicitly flag as wrong-category competitor`,
+          });
+        } else {
+          filteredCandidates.push(candidate);
+        }
       }
     }
   }
