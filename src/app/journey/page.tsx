@@ -85,7 +85,7 @@ import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
 import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-status';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
-import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
+import { dispatchResearchSection, dispatchWithIdentity } from '@/lib/journey/dispatch-client';
 import { getNextSection } from '@/lib/workspace/pipeline';
 import { ProfileDropdown } from '@/components/journey/profile-dropdown';
 import { normalizeProfileFields } from '@/lib/profiles/normalize-fields';
@@ -1511,8 +1511,8 @@ function JourneyPageContent() {
           body: JSON.stringify({ sessionId: nextRunId }),
         }).catch(() => { /* non-critical */ });
 
-        addLog('run', `Dispatching ${SECTION_META['industryMarket'] ?? 'Market Overview'}...`);
-        return dispatchResearchSection('industryMarket', nextRunId, context);
+        addLog('run', 'Resolving product identity...');
+        return dispatchWithIdentity('industryMarket', nextRunId, context);
       }).then((result) => {
         if (result.status === 'error') {
           addLog('err', `Market Overview dispatch failed: ${result.error ?? 'Unknown error'}`);
@@ -1598,8 +1598,8 @@ function JourneyPageContent() {
           body: JSON.stringify({ sessionId: nextRunId }),
         }).catch(() => { /* non-critical */ });
 
-        addLog('run', `Dispatching ${SECTION_META['industryMarket'] ?? 'Market Overview'}...`);
-        return dispatchResearchSection('industryMarket', nextRunId, context);
+        addLog('run', 'Resolving product identity...');
+        return dispatchWithIdentity('industryMarket', nextRunId, context);
       }).then((result) => {
         if (result.status === 'error') {
           addLog('err', `Market Overview dispatch failed: ${result.error ?? 'Unknown error'}`);

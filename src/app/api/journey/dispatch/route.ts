@@ -17,6 +17,10 @@ function summarizeForSynthesis(key: string, payload: unknown): string {
   const d = payload as Record<string, unknown>;
   try {
     switch (key) {
+      case 'identityResolution':
+        // Identity card is small (~500 tokens) — pass in full so every downstream
+        // runner sees category, coreKeywords, negativeKeywords, confidence, and evidence.
+        return JSON.stringify(d, null, 1);
       case 'industryMarket':
         // categorySnapshot and trendSignals are the actual top-level fields
         return JSON.stringify(
@@ -65,6 +69,7 @@ function summarizeForSynthesis(key: string, payload: unknown): string {
 }
 
 const SECTION_TO_TOOL: Record<string, string> = {
+  identityResolution: 'resolveIdentity',
   industryMarket: 'researchIndustry',
   competitors: 'researchCompetitors',
   icpValidation: 'researchICP',
@@ -124,10 +129,12 @@ export async function POST(req: Request) {
   // gets no prior results; every subsequent step gets all completed sections
   // that precede it in the pipeline.
   //
-  // Pipeline order: industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan
+  // Pipeline order: identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan
+  // Identity first so every downstream runner gets the canonical product identity card.
   // Competitors before offer so the offer runner gets Firecrawl-verified pricing tiers
   // via the intelligence chain, enabling accurate market benchmarking.
   const PIPELINE_ORDER = [
+    'identityResolution',
     'industryMarket',
     'icpValidation',
     'competitors',
