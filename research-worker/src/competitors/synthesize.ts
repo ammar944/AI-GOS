@@ -119,16 +119,22 @@ function buildEvidencePackage(input: SynthesisInput): string {
   const { parsed, fetchResults, sonarResults } = input;
   const sections: string[] = [];
 
-  // 1. Business context
+  // 1. Business context (identity card overrides raw fields when available)
+  const ic = parsed.identityCard;
   sections.push(`## Client Business Context
 - Company: ${parsed.companyName ?? 'Unknown'}
 - Website: ${parsed.websiteUrl ?? 'Unknown'}
-- Business Model: ${parsed.businessModel ?? 'Unknown'}
-- Product: ${parsed.productDescription ?? 'Unknown'}
+- Business Model: ${ic?.businessModel ?? parsed.businessModel ?? 'Unknown'}
+- Product: ${ic?.coreProduct ?? parsed.productDescription ?? 'Unknown'}
+- Product Category: ${ic?.category ?? 'Unknown'}${ic?.subcategory ? ` / ${ic.subcategory}` : ''}
+- Core Keywords: ${ic?.coreKeywords?.join(', ') ?? 'N/A'}
+- Negative Keywords (wrong categories): ${ic?.negativeKeywords?.join(', ') ?? 'N/A'}
 - ICP: ${parsed.icpDescription ?? 'Unknown'}
+- Buyer: ${ic?.buyer ?? 'Unknown'}
 - Pricing: ${parsed.pricingContext ?? 'Unknown'}
 - Unique Edge: ${parsed.uniqueEdge ?? 'Unknown'}
-- Goals: ${parsed.goals ?? 'Unknown'}`);
+- Goals: ${parsed.goals ?? 'Unknown'}
+- Identity Confidence: ${ic?.confidence ?? 'N/A'}/100`);
 
   // 2. Competitor validation results — synthesis model MUST respect these
   const verifiedNames = sonarResults.verifiedCompetitors ?? parsed.competitors.map(c => c.name);

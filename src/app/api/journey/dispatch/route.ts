@@ -148,7 +148,7 @@ export async function POST(req: Request) {
   const PIPELINE_ORDER = DISPATCH_PIPELINE_ORDER;
 
   let enrichedContext = context;
-  const sectionIndex = PIPELINE_ORDER.indexOf(section);
+  const sectionIndex = (PIPELINE_ORDER as readonly string[]).indexOf(section);
 
   // Only enrich if this section has upstream sections AND we have a runId
   if (sectionIndex > 0 && runId) {

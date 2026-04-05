@@ -74,6 +74,7 @@ async function runValidateThenFetch(
     companyName: parsed.companyName,
     productDescription: parsed.productDescription,
     icpDescription: parsed.icpDescription,
+    identityCard: parsed.identityCard,
   });
 
   // Use verified entries with corrected domains for all downstream fetches

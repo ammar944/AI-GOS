@@ -8,6 +8,23 @@ export interface CompetitorEntry {
   inferredDomain: boolean;
 }
 
+export interface IdentityCard {
+  category: string;
+  subcategory: string;
+  businessModel?: string;
+  coreProduct: string;
+  coreKeywords: string[];
+  negativeKeywords: string[];
+  buyer: string;
+  confidence: number;
+  ambiguityFlags: string[];
+  evidence: {
+    websiteSignals: string[];
+    onboardingSignals: string[];
+    conflicts: string[];
+  };
+}
+
 export interface ParsedCompetitorContext {
   competitors: CompetitorEntry[];
   companyName: string | null;
@@ -18,6 +35,7 @@ export interface ParsedCompetitorContext {
   pricingContext: string | null;
   uniqueEdge: string | null;
   goals: string | null;
+  identityCard: IdentityCard | null;
   rawContext: string;
 }
 
@@ -103,6 +121,28 @@ function parseCompetitorString(raw: string): CompetitorEntry[] {
 }
 
 /**
+ * Extract the identity card JSON from the enriched context.
+ * The dispatch route prepends it as: ## identityResolution\n{...JSON...}
+ */
+function extractIdentityCard(context: string): IdentityCard | null {
+  // Look for the identity card JSON in the "Prior Research Results" section
+  const identityMatch = context.match(/## identityResolution\n([\s\S]*?)(?=\n## |\n# |$)/);
+  if (!identityMatch?.[1]) return null;
+
+  try {
+    const raw = identityMatch[1].trim();
+    const parsed = JSON.parse(raw);
+    // Validate it has the essential fields
+    if (parsed && typeof parsed.category === 'string' && Array.isArray(parsed.coreKeywords)) {
+      return parsed as IdentityCard;
+    }
+  } catch {
+    // Not valid JSON — identity card missing or malformed
+  }
+  return null;
+}
+
+/**
  * Parse the full context string into structured competitor data.
  */
 export function parseCompetitorContext(context: string): ParsedCompetitorContext {
@@ -115,6 +155,7 @@ export function parseCompetitorContext(context: string): ParsedCompetitorContext
   );
 
   const competitors = competitorsRaw ? parseCompetitorString(competitorsRaw) : [];
+  const identityCard = extractIdentityCard(context);
 
   return {
     competitors,
@@ -145,6 +186,7 @@ export function parseCompetitorContext(context: string): ParsedCompetitorContext
     ),
     uniqueEdge: extractField(context, 'Unique Edge', 'Differentiator', 'Competitive Advantage'),
     goals: extractField(context, 'Goals', 'Objective', 'Target'),
+    identityCard,
     rawContext: context,
   };
 }

@@ -76,6 +76,7 @@ async function validateCompetitor(
     companyName: string | null;
     productDescription: string | null;
     icpDescription: string | null;
+    identityCard?: import('./parse-context').IdentityCard | null;
   },
   currentDate: string,
 ): Promise<ValidationResult> {
@@ -84,13 +85,26 @@ async function validateCompetitor(
   });
 
   const domainHint = candidate.domain ? ` (${candidate.domain})` : '';
+
+  // Use identity card for more precise classification when available
+  const identityCard = clientContext.identityCard;
+  const productLine = identityCard
+    ? `${identityCard.coreProduct} (Category: ${identityCard.category})`
+    : (clientContext.productDescription ?? 'unknown');
+  const keywordsHint = identityCard?.coreKeywords?.length
+    ? `\n  - Core keywords for this space: ${identityCard.coreKeywords.join(', ')}`
+    : '';
+  const negativeHint = identityCard?.negativeKeywords?.length
+    ? `\n  - NOT in these categories (wrong matches): ${identityCard.negativeKeywords.join(', ')}`
+    : '';
+
   const prompt = `Today is ${currentDate}. You are a business verification researcher.
 
 Does the company "${candidate.name}"${domainHint} exist and is it currently in business?
 Does it directly compete with or operate in the same space as:
   - Client: ${clientContext.companyName ?? 'unknown'}
-  - What client sells: ${clientContext.productDescription ?? 'unknown'}
-  - Client's customers: ${clientContext.icpDescription ?? 'unknown'}
+  - What client sells: ${productLine}
+  - Client's customers: ${clientContext.icpDescription ?? 'unknown'}${keywordsHint}${negativeHint}
 
 Search the web to verify. Return ONLY valid JSON, no other text:
 {
@@ -104,7 +118,7 @@ Search the web to verify. Return ONLY valid JSON, no other text:
 
 Rules:
 - Set exists: false if you cannot find any credible web presence for this company
-- Set industryMatch: false if the company exists but serves a completely different industry or market segment. Examples: a consumer data analytics tool is NOT a competitor to a restaurant AI platform, even if the names are similar.
+- Set industryMatch: false if the company exists but serves a completely different industry or market segment. Use the core keywords and negative keywords above to determine if the candidate is in the SAME specific space. A note-taking app is NOT a competitor to a video creation tool, even if both use AI.
 - If the candidate's domain resolves but belongs to a DIFFERENT business than expected (e.g. company is "Maitly" but maitly.com is not the AI company — the real site is maitly.ai), return the CORRECT domain in officialWebsite. Search for "[company name] [industry]" to find the right domain.
 - confidence should reflect how certain you are based on search results
 - NEVER make up company information — only use what you find in search results`;
@@ -218,6 +232,7 @@ async function validateCompetitors(
     companyName: string | null;
     productDescription: string | null;
     icpDescription: string | null;
+    identityCard?: import('./parse-context').IdentityCard | null;
   },
   currentDate: string,
 ): Promise<{
@@ -314,6 +329,7 @@ export async function fetchSonarCompetitorResearch(input: {
   companyName: string | null;
   productDescription: string | null;
   icpDescription: string | null;
+  identityCard?: import('./parse-context').IdentityCard | null;
 }): Promise<SonarCompetitorResult> {
   const perplexity = createPerplexity({
     apiKey: process.env.PERPLEXITY_API_KEY,
@@ -329,6 +345,7 @@ export async function fetchSonarCompetitorResearch(input: {
         companyName: input.companyName,
         productDescription: input.productDescription,
         icpDescription: input.icpDescription,
+        identityCard: input.identityCard ?? null,
       },
       currentDate,
     );
