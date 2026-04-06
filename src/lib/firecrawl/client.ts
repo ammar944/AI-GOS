@@ -9,6 +9,8 @@ import type {
   PricingPageResult,
   BatchScrapeOptions,
   BatchScrapeResult,
+  CrawlSiteOptions,
+  CrawlSiteResult,
 } from './types';
 
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
@@ -323,6 +325,135 @@ export class FirecrawlClient {
       successCount,
       failureCount: options.urls.length - successCount,
     };
+  }
+
+  /**
+   * Discover pages on a website using Firecrawl's map endpoint.
+   * Returns a list of discovered URLs (fast, ~2-5s).
+   *
+   * @param url - Base URL to map
+   * @param limit - Max URLs to return (default: 50)
+   * @returns Array of discovered URLs, or empty array on failure
+   */
+  async mapSite(url: string, limit = 50): Promise<string[]> {
+    if (!this.client) return [];
+
+    const baseUrl = this.normalizeBaseUrl(url);
+
+    try {
+      const result = await withRetry(
+        () => this.client!.map(baseUrl, { limit }),
+        `map ${baseUrl}`,
+        1,
+      );
+
+      const links = result?.links ?? [];
+      if (!Array.isArray(links) || links.length === 0) return [];
+
+      // Extract URL strings from results (may be objects or strings depending on SDK version)
+      return links
+        .map((link: any) => typeof link === 'string' ? link : link?.url ?? '')
+        .filter((u: string) => u.length > 0);
+    } catch (error) {
+      console.warn(`[Firecrawl] Map failed for ${baseUrl}:`, error instanceof Error ? error.message : error);
+      return [];
+    }
+  }
+
+  /**
+   * Crawl an entire website and return markdown for each discovered page.
+   *
+   * Uses Firecrawl's crawlUrl which discovers and scrapes pages automatically.
+   * Falls back gracefully if unavailable or if crawl fails.
+   *
+   * @param options - Crawl options including URL, limit, and exclude patterns
+   * @returns CrawlSiteResult with pages array or error
+   */
+  async crawlSite(options: CrawlSiteOptions): Promise<CrawlSiteResult> {
+    if (!this.client) {
+      return {
+        success: false,
+        pages: [],
+        totalDiscovered: 0,
+        creditsUsed: 0,
+        error: 'Firecrawl not available: FIRECRAWL_API_KEY not configured',
+      };
+    }
+
+    const limit = options.limit ?? 20;
+    const pollInterval = options.pollInterval ?? 5000;
+    const excludePaths = options.excludePaths ?? [
+      '/blog/*', '/blog', '/news/*', '/news',
+      '/terms', '/terms-of-service', '/privacy', '/privacy-policy', '/legal/*',
+      '/careers', '/careers/*', '/jobs', '/jobs/*',
+      '/login', '/signup', '/register', '/auth/*',
+      '/404', '/500',
+    ];
+
+    const baseUrl = this.normalizeBaseUrl(options.url);
+
+    try {
+      console.log(`[Firecrawl] Starting crawl of ${baseUrl} (limit: ${limit} pages)`);
+
+      const job = await withRetry(
+        () => this.client!.crawl(baseUrl, {
+          limit,
+          excludePaths,
+          scrapeOptions: {
+            formats: ['markdown'],
+            onlyMainContent: true,
+            blockAds: true,
+          },
+          pollInterval,
+          timeout: 120,
+        }),
+        `crawl ${baseUrl}`,
+        1, // Only 1 retry for crawls (they're expensive)
+      );
+
+      if (!job || job.status === 'failed' || job.status === 'cancelled') {
+        const errorMsg = `Crawl ${job?.status ?? 'unknown'} for ${baseUrl}`;
+        console.error(`[Firecrawl] ${errorMsg}`);
+        return {
+          success: false,
+          pages: [],
+          totalDiscovered: 0,
+          creditsUsed: 0,
+          error: errorMsg,
+        };
+      }
+
+      const data = job.data ?? [];
+      const total = job.total ?? data.length;
+      const creditsUsed = job.creditsUsed ?? 0;
+
+      console.log(`[Firecrawl] Crawl complete: ${data.length} pages scraped, ${total} discovered, ${creditsUsed} credits`);
+
+      const pages = data
+        .filter((doc) => doc.markdown && doc.markdown.trim().length > 0)
+        .map((doc) => ({
+          url: doc.metadata?.url ?? '',
+          markdown: doc.markdown!,
+          title: doc.metadata?.title ?? undefined,
+        }));
+
+      return {
+        success: true,
+        pages,
+        totalDiscovered: total,
+        creditsUsed,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Firecrawl] Crawl error for ${baseUrl}:`, errorMessage);
+      return {
+        success: false,
+        pages: [],
+        totalDiscovered: 0,
+        creditsUsed: 0,
+        error: errorMessage,
+      };
+    }
   }
 
   /**

@@ -26,8 +26,8 @@ ABSOLUTE RULES:
 8. For URLs (case studies, pricing, demo pages), ONLY include URLs that actually exist on the site
 9. When scraped content is provided, prefer extracting from it over web search — it is the ground truth`;
 
-// Pages to scrape for comprehensive company research
-const SCRAPE_PATHS = [
+// Fallback paths if crawl fails — the original 11-page approach
+const FALLBACK_SCRAPE_PATHS = [
   '',            // homepage
   '/about',
   '/about-us',
@@ -42,12 +42,47 @@ const SCRAPE_PATHS = [
   '/testimonials',
 ] as const;
 
-// Max chars per scraped page to stay within token limits
-const MAX_PAGE_CHARS = 3000;
-// Max total scraped content
-const MAX_TOTAL_CHARS = 15000;
-// Scrape timeout (shorter than default — we don't want to block too long)
+// Char limits for crawled pages
+const KEY_PAGE_CHARS = 5000;   // pricing, features, testimonials, case-studies
+const OTHER_PAGE_CHARS = 3000; // everything else
+const MAX_TOTAL_CHARS = 30000; // total budget (up from 15k)
+// Scrape timeout for fallback path
 const SCRAPE_TIMEOUT = 15000;
+
+/** URL patterns for key pages that get higher char limits */
+const KEY_PAGE_PATTERNS = [
+  /\/pricing/i, /\/plans/i, /\/buy/i,
+  /\/features/i, /\/product/i,
+  /\/testimonials/i, /\/reviews/i, /\/customers/i,
+  /\/case.?stud/i,
+];
+
+/** URL patterns to categorize pages into sections */
+const PAGE_CATEGORIES: [RegExp, string][] = [
+  [/^\/?$/, 'Homepage'],
+  [/\/pricing|\/plans|\/buy/i, 'Pricing'],
+  [/\/features/i, 'Features'],
+  [/\/product/i, 'Products'],
+  [/\/about|\/company|\/who-we-are/i, 'About'],
+  [/\/testimonial|\/review|\/customer/i, 'Testimonials & Customers'],
+  [/\/case.?stud/i, 'Case Studies'],
+  [/\/solution/i, 'Solutions'],
+  [/\/service/i, 'Services'],
+  [/\/integrat/i, 'Integrations'],
+  [/\/why/i, 'Why Us'],
+];
+
+function categorize(url: string, baseUrl: string): string {
+  const path = url.replace(baseUrl, '');
+  for (const [pattern, label] of PAGE_CATEGORIES) {
+    if (pattern.test(path)) return label;
+  }
+  return `Other (${path || '/'})`;
+}
+
+function isKeyPage(url: string): boolean {
+  return KEY_PAGE_PATTERNS.some(p => p.test(url));
+}
 
 function isValidUrl(str: string): boolean {
   try {
@@ -108,8 +143,103 @@ async function checkDomainReachable(baseUrl: string): Promise<boolean> {
 }
 
 /**
- * Scrape key pages from the company website using Firecrawl.
- * Returns a formatted markdown block of scraped content, or empty string if unavailable.
+ * Build structured markdown from crawled/scraped pages with categorization and char limits.
+ */
+function buildStructuredContent(
+  pages: { url: string; markdown: string; title?: string }[],
+  baseUrl: string,
+): string {
+  // Sort: key pages first, then by URL length (shorter = more important)
+  const sorted = [...pages].sort((a, b) => {
+    const aKey = isKeyPage(a.url) ? 0 : 1;
+    const bKey = isKeyPage(b.url) ? 0 : 1;
+    if (aKey !== bKey) return aKey - bKey;
+    return a.url.length - b.url.length;
+  });
+
+  const sections: string[] = [];
+  let totalChars = 0;
+
+  for (const page of sorted) {
+    if (totalChars >= MAX_TOTAL_CHARS) break;
+
+    const charLimit = isKeyPage(page.url) ? KEY_PAGE_CHARS : OTHER_PAGE_CHARS;
+    const remaining = MAX_TOTAL_CHARS - totalChars;
+    const pageLimit = Math.min(charLimit, remaining);
+    const content = page.markdown.slice(0, pageLimit);
+    const label = categorize(page.url, baseUrl);
+    const heading = page.title ? `${label} — ${page.title}` : label;
+
+    sections.push(`### ${heading} (${page.url})\n${content}`);
+    totalChars += content.length;
+  }
+
+  if (sections.length === 0) return '';
+
+  return `\n\n--- SCRAPED WEBSITE CONTENT (${sections.length} pages) ---\nThe following is real content scraped directly from the company's website. Use this as your primary source.\n\n${sections.join('\n\n')}\n--- END SCRAPED CONTENT ---`;
+}
+
+/**
+ * Fallback: scrape key pages individually using batchScrape (the original approach).
+ */
+async function fallbackBatchScrape(firecrawl: ReturnType<typeof createFirecrawlClient>, baseUrl: string): Promise<string> {
+  const urlsToScrape = [...new Set(
+    FALLBACK_SCRAPE_PATHS.map(path => `${baseUrl}${path}`)
+  )];
+
+  console.log(`[onboarding/research] Fallback: batch-scraping ${urlsToScrape.length} pages from ${baseUrl}`);
+
+  const results = await firecrawl.batchScrape({
+    urls: urlsToScrape,
+    timeout: SCRAPE_TIMEOUT,
+  });
+
+  console.log(
+    `[onboarding/research] Fallback scraped ${results.successCount}/${urlsToScrape.length} pages`
+  );
+
+  if (results.successCount === 0) return '';
+
+  const pages = Array.from(results.results.entries())
+    .filter(([, r]) => r.success && r.markdown)
+    .map(([url, r]) => ({
+      url: r.url ?? url,
+      markdown: r.markdown!,
+      title: r.title,
+    }));
+
+  return buildStructuredContent(pages, baseUrl);
+}
+
+/** URL patterns to skip when selecting pages from map() results */
+const SKIP_PATTERNS = [
+  /\/blog(\/|$)/i, /\/news(\/|$)/i, /\/press(\/|$)/i,
+  /\/terms/i, /\/privacy/i, /\/legal/i, /\/cookie/i,
+  /\/careers/i, /\/jobs/i,
+  /\/login/i, /\/signup/i, /\/register/i, /\/auth/i,
+  /\/404/i, /\/500/i,
+  /\.(pdf|png|jpg|svg|xml|json)$/i,
+];
+
+function shouldSkipUrl(url: string): boolean {
+  return SKIP_PATTERNS.some(p => p.test(url));
+}
+
+/** Score a URL for priority — lower = more important */
+function scoreUrl(url: string): number {
+  if (isKeyPage(url)) return 0;
+  // Homepage or short paths are high value
+  const path = new URL(url).pathname;
+  if (path === '/' || path === '') return 1;
+  if (path.split('/').filter(Boolean).length === 1) return 2;
+  return 3;
+}
+
+/**
+ * Scrape company website using map() for discovery + batchScrape for content.
+ * map() discovers real pages (~2-5s), then we scrape the best ones (~15-25s).
+ * Falls back to hardcoded paths if map fails.
+ * Returns a formatted markdown block or empty string if unavailable.
  */
 async function scrapeWebsiteContent(websiteUrl: string): Promise<string> {
   const firecrawl = createFirecrawlClient();
@@ -119,7 +249,6 @@ async function scrapeWebsiteContent(websiteUrl: string): Promise<string> {
   }
 
   try {
-    // Derive base URL (strip paths, query params)
     const parsed = new URL(websiteUrl);
     const baseUrl = `${parsed.protocol}//${parsed.host}`;
 
@@ -130,13 +259,40 @@ async function scrapeWebsiteContent(websiteUrl: string): Promise<string> {
       return '';
     }
 
-    // Build unique URLs to scrape
-    const urlsToScrape = [...new Set(
-      SCRAPE_PATHS.map(path => `${baseUrl}${path}`)
-    )];
+    // Step 1: Discover pages via map() (~2-5s)
+    let urlsToScrape: string[] = [];
+    try {
+      console.log(`[onboarding/research] Mapping ${baseUrl} to discover pages...`);
+      const discovered = await firecrawl.mapSite(baseUrl, 50);
 
+      if (discovered.length > 0) {
+        // Filter out junk, score by importance, take top 20
+        const selected = discovered
+          .filter(url => url.startsWith(baseUrl) && !shouldSkipUrl(url))
+          .sort((a, b) => scoreUrl(a) - scoreUrl(b))
+          .slice(0, 20);
+
+        if (selected.length > 0) {
+          // Ensure homepage is always included
+          if (!selected.includes(baseUrl) && !selected.includes(baseUrl + '/')) {
+            selected.unshift(baseUrl);
+          }
+          urlsToScrape = [...new Set(selected)];
+          console.log(`[onboarding/research] Map discovered ${discovered.length} URLs, selected ${urlsToScrape.length} to scrape`);
+        }
+      }
+    } catch (error) {
+      console.warn(`[onboarding/research] Map failed, falling back to hardcoded paths:`, error instanceof Error ? error.message : error);
+    }
+
+    // Fallback: use hardcoded paths if map found nothing
+    if (urlsToScrape.length === 0) {
+      urlsToScrape = [...new Set(FALLBACK_SCRAPE_PATHS.map(path => `${baseUrl}${path}`))];
+      console.log(`[onboarding/research] Using ${urlsToScrape.length} hardcoded paths`);
+    }
+
+    // Step 2: Batch scrape the selected pages (~15-25s)
     console.log(`[onboarding/research] Scraping ${urlsToScrape.length} pages from ${baseUrl}`);
-
     const results = await firecrawl.batchScrape({
       urls: urlsToScrape,
       timeout: SCRAPE_TIMEOUT,
@@ -148,26 +304,15 @@ async function scrapeWebsiteContent(websiteUrl: string): Promise<string> {
 
     if (results.successCount === 0) return '';
 
-    // Build formatted content block
-    const sections: string[] = [];
-    let totalChars = 0;
+    const pages = Array.from(results.results.entries())
+      .filter(([, r]) => r.success && r.markdown)
+      .map(([url, r]) => ({
+        url: r.url ?? url,
+        markdown: r.markdown!,
+        title: r.title,
+      }));
 
-    for (const [url, result] of results.results) {
-      if (!result.success || !result.markdown) continue;
-      if (totalChars >= MAX_TOTAL_CHARS) break;
-
-      const remaining = MAX_TOTAL_CHARS - totalChars;
-      const pageLimit = Math.min(MAX_PAGE_CHARS, remaining);
-      const content = result.markdown.slice(0, pageLimit);
-      const pageName = result.title || url.replace(baseUrl, '') || 'Homepage';
-
-      sections.push(`### ${pageName} (${url})\n${content}`);
-      totalChars += content.length;
-    }
-
-    if (sections.length === 0) return '';
-
-    return `\n\n--- SCRAPED WEBSITE CONTENT (${sections.length} pages) ---\nThe following is real content scraped directly from the company's website. Use this as your primary source.\n\n${sections.join('\n\n')}\n--- END SCRAPED CONTENT ---`;
+    return buildStructuredContent(pages, baseUrl);
   } catch (error) {
     console.error('[onboarding/research] Firecrawl scraping failed:', error);
     return '';

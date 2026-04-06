@@ -8,4 +8,7 @@ export type {
   PricingPageResult,
   BatchScrapeOptions,
   BatchScrapeResult,
+  CrawlSiteOptions,
+  CrawlSiteResult,
+  CrawlPageResult,
 } from './types';

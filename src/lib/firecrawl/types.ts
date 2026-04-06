@@ -90,3 +90,45 @@ export interface BatchScrapeResult {
   /** Number of failed scrapes */
   failureCount: number;
 }
+
+/**
+ * Options for crawling an entire website
+ */
+export interface CrawlSiteOptions {
+  /** Base URL to crawl (e.g., https://example.com) */
+  url: string;
+  /** Max pages to crawl (default: 20) */
+  limit?: number;
+  /** Poll interval in ms for checking crawl status (default: 5000) */
+  pollInterval?: number;
+  /** URL path patterns to exclude (e.g., ['/blog/*', '/careers/*']) */
+  excludePaths?: string[];
+}
+
+/**
+ * A single page returned from a crawl
+ */
+export interface CrawlPageResult {
+  /** Page URL */
+  url: string;
+  /** Markdown content */
+  markdown: string;
+  /** Page title from metadata */
+  title?: string;
+}
+
+/**
+ * Result of crawling an entire website
+ */
+export interface CrawlSiteResult {
+  /** Whether the crawl succeeded */
+  success: boolean;
+  /** Individual page results */
+  pages: CrawlPageResult[];
+  /** Total pages discovered */
+  totalDiscovered: number;
+  /** Firecrawl credits used */
+  creditsUsed: number;
+  /** Error message if failed */
+  error?: string;
+}
