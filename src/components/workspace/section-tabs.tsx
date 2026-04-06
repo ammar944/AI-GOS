@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
@@ -20,8 +20,17 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
     return sections.filter((key) => sectionStates[key] === 'approved').length;
   }, [sections, sectionStates]);
 
+  // Reset horizontal scroll whenever the active section changes so returning
+  // to a tab never shows a stale scroll offset from a previous visit.
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (tabBarRef.current) {
+      tabBarRef.current.scrollLeft = 0;
+    }
+  }, [currentSection]);
+
   return (
-    <div className="flex h-11 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 overflow-x-auto">
+    <div ref={tabBarRef} className="flex h-11 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 overflow-x-auto">
       {sections.map((section) => {
         const meta = SECTION_META[section] ?? DEFAULT_SECTION_META;
         const phase = sectionStates?.[section];

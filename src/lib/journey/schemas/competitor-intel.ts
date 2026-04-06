@@ -118,6 +118,18 @@ export const whiteSpaceGapSchema = z.object({
   recommendedAction: nonEmptyStringSchema,
 });
 
+export const commonWeaknessSchema = z.object({
+  theme: z.string(),
+  affectedCompetitors: z.array(z.string()),
+  frequency: z.number(),
+  exampleQuote: z.string(),
+  leverageAngle: z.string(),
+});
+
+export const reviewCrossAnalysisSchema = z.object({
+  commonWeaknesses: z.array(commonWeaknessSchema),
+});
+
 export const competitorIntelDataSchema = z.object({
   competitors: z.array(competitorRecordSchema).min(1),
   marketPatterns: nonEmptyStringArraySchema.optional(),
@@ -125,6 +137,7 @@ export const competitorIntelDataSchema = z.object({
   marketWeaknesses: nonEmptyStringArraySchema.optional(),
   whiteSpaceGaps: z.array(whiteSpaceGapSchema).default([]),
   overallLandscape: nonEmptyStringSchema.optional(),
+  reviewCrossAnalysis: reviewCrossAnalysisSchema.optional(),
 
   // ── Intelligence: Positioning Moves ─────────────────────────────────
   positioningMoves: z.array(z.object({
@@ -157,3 +170,5 @@ export type CompetitorAdCreative = z.infer<typeof competitorAdCreativeSchema>;
 export type CompetitorLibraryLinks = z.infer<typeof competitorLibraryLinksSchema>;
 export type CompetitorReviews = z.infer<typeof competitorReviewsSchema>;
 export type NegativeReview = z.infer<typeof negativeReviewSchema>;
+export type CommonWeakness = z.infer<typeof commonWeaknessSchema>;
+export type ReviewCrossAnalysis = z.infer<typeof reviewCrossAnalysisSchema>;

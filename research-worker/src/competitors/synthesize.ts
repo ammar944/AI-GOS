@@ -458,9 +458,14 @@ export function postProcessSynthesis(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
   gapIntelligence?: Record<string, unknown> | null,
+  crossAnalysis?: import('./review-cross-analysis').ReviewCrossAnalysis | null,
 ): void {
   injectLibraryLinks(parsed, input);
   injectReviews(parsed, input, gapIntelligence);
+  if (crossAnalysis) {
+    parsed.reviewCrossAnalysis = crossAnalysis;
+    console.log(`[postProcess] injected reviewCrossAnalysis — ${crossAnalysis.commonWeaknesses.length} shared themes`);
+  }
   injectClientAds(parsed, input);
 
   // Validate pricing confidence matches Firecrawl data

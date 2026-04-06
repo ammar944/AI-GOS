@@ -9,13 +9,16 @@ import { groq, GROQ_CHAT_MODEL } from '@/lib/ai/groq-provider';
 import { createChatTools } from '@/lib/ai/chat-tools';
 import { buildBlueprintIndex } from '@/lib/ai/chat-tools/blueprint-index';
 import type { BlueprintIndex } from '@/lib/ai/chat-tools/blueprint-index';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const maxDuration = 120;
 
 interface AgentChatRequest {
   messages: UIMessage[];
   blueprintId: string;
-  blueprint: Record<string, unknown>;
+  // NOTE: blueprint from the client is ignored — we always load from Supabase
+  // using the authenticated user's ownership of the session (security fix).
+  blueprint?: Record<string, unknown>;
   conversationId?: string;
 }
 
@@ -134,17 +137,49 @@ export async function POST(request: Request) {
 
   const body: AgentChatRequest = await request.json();
 
-  if (!body.messages || !body.blueprint) {
+  if (!body.messages || !body.blueprintId) {
     return new Response(
-      JSON.stringify({ error: 'messages and blueprint are required' }),
+      JSON.stringify({ error: 'messages and blueprintId are required' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  const blueprintIndex = buildBlueprintIndex(body.blueprint);
+  // ── Ownership verification (security) ────────────────────────────────────
+  // Always load blueprint data from the server using the authenticated user's
+  // identity. Never trust client-sent blueprint data — it could belong to a
+  // different user's session, causing cross-profile data leakage.
+  const supabase = createAdminClient();
+  const { data: session, error: sessionError } = await supabase
+    .from('journey_sessions')
+    .select('id, research_results')
+    .eq('run_id', body.blueprintId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (sessionError) {
+    console.error('[chat/agent] Supabase error during ownership check:', sessionError.message);
+    return new Response(JSON.stringify({ error: 'Failed to verify session ownership' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!session) {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden: session does not belong to authenticated user' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Use server-side research results as the authoritative blueprint data.
+  // Fall back to an empty object if the session has no results yet (chat still
+  // works, tools will simply report empty sections).
+  const serverBlueprint = (session.research_results as Record<string, unknown> | null) ?? {};
+
+  const blueprintIndex = buildBlueprintIndex(serverBlueprint);
   const systemPrompt = buildSystemPrompt(blueprintIndex);
 
-  const tools = createChatTools(body.blueprintId, body.blueprint);
+  const tools = createChatTools(body.blueprintId, serverBlueprint);
 
   // Sanitize messages: strip tool parts that never completed (approval-requested,
   // input-streaming, input-available) to prevent MissingToolResultsError

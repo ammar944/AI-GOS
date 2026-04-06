@@ -20,6 +20,7 @@ export const RELEVANCE_COLORS: Record<AdRelevanceCategory, { bg: string; text: s
   lead_magnet: { bg: "bg-amber-500/20", text: "text-amber-400", label: "Lead Magnet" },
   brand_awareness: { bg: "bg-primary/20", text: "text-primary", label: "Brand" },
   subsidiary: { bg: "bg-purple-500/20", text: "text-purple-400", label: "Related Brand" },
+  corporate: { bg: "bg-rose-500/20", text: "text-rose-400", label: "Corporate" },
   unclear: { bg: "bg-gray-500/20", text: "text-gray-400", label: "Unclear" },
 };
 

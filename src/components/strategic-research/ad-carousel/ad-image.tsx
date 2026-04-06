@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
+import { shouldUseProxy, getProxyUrl } from "@/lib/image-proxy";
 
 export interface AdImageProps {
   src: string;
@@ -11,19 +12,6 @@ export interface AdImageProps {
 
 export function AdImage({ src, alt, onError }: AdImageProps) {
   const [fallbackLevel, setFallbackLevel] = React.useState(0);
-
-  const shouldUseProxy = (url: string) => {
-    const proxyDomains = [
-      'googlesyndication.com',
-      'storage.googleapis.com',
-      'firebasestorage.googleapis.com',
-    ];
-    return proxyDomains.some(d => url.includes(d));
-  };
-
-  const getProxyUrl = (url: string) => {
-    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
-  };
 
   const handleNextImageError = () => {
     setFallbackLevel(1);

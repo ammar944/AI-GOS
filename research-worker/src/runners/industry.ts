@@ -448,7 +448,9 @@ function shouldRetryIndustryWithRepair(input: {
     return false;
   }
 
-  return input.telemetry.stopReason === 'max_tokens';
+  // Repair on max_tokens (truncated JSON) OR any JSON parse failure
+  // (model returned prose instead of JSON — common with Haiku)
+  return true;
 }
 
 function getIndustryResultText(finalMsg: { content: BetaContentBlock[] }): string {

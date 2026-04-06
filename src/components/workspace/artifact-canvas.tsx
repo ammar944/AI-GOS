@@ -118,6 +118,14 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   const [docSaveStatus, setDocSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const hasSavedRef = useRef(false);
 
+  // Reset vertical scroll to top whenever the active section changes
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [state.currentSection]);
+
   // Auto-save research document when all 6 research sections are approved
   useEffect(() => {
     if (!allResearchApproved || hasSavedRef.current) return;
@@ -154,7 +162,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-x-hidden">
-      <div className="flex-1 overflow-y-auto px-6 pt-6 custom-scrollbar">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 pt-6 custom-scrollbar">
         <AnimatePresence
           mode="wait"
           onExitComplete={() => {

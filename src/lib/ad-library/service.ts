@@ -722,31 +722,37 @@ export class AdLibraryService {
     // Sort by relevance (highest first) so most relevant ads appear at top
     const sortedAds = sortByRelevance(scoredAds);
 
+    // Filter out ads below minimum relevance threshold (corporate, logo-only, unrelated ads)
+    const MIN_RELEVANCE_SCORE = 30;
+    const filteredAds = sortedAds.filter(ad => (ad.relevance?.score ?? 0) >= MIN_RELEVANCE_SCORE);
+    const removedCount = sortedAds.length - filteredAds.length;
+
     console.log(
       `[AdLibrary:${context.requestId}] Relevance scoring complete: ` +
-      `${sortedAds.filter(a => (a.relevance?.score ?? 0) >= 70).length} high, ` +
-      `${sortedAds.filter(a => (a.relevance?.score ?? 0) >= 40 && (a.relevance?.score ?? 0) < 70).length} medium, ` +
-      `${sortedAds.filter(a => (a.relevance?.score ?? 0) < 40).length} low relevance`
+      `${filteredAds.filter(a => (a.relevance?.score ?? 0) >= 70).length} high, ` +
+      `${filteredAds.filter(a => (a.relevance?.score ?? 0) >= 40 && (a.relevance?.score ?? 0) < 70).length} medium, ` +
+      `${filteredAds.filter(a => (a.relevance?.score ?? 0) < 40).length} low relevance` +
+      (removedCount > 0 ? `, ${removedCount} removed (score < ${MIN_RELEVANCE_SCORE})` : '')
     );
 
-    // Rebuild per-platform results with scored and sorted ads
+    // Rebuild per-platform results with scored, sorted, and filtered ads
     const dedupedResults: AdLibraryResponse[] = [
       {
         ...linkedinResult,
-        ads: sortedAds.filter((ad) => ad.platform === 'linkedin'),
+        ads: filteredAds.filter((ad) => ad.platform === 'linkedin'),
       },
       {
         ...metaResult,
-        ads: sortedAds.filter((ad) => ad.platform === 'meta'),
+        ads: filteredAds.filter((ad) => ad.platform === 'meta'),
       },
       {
         ...googleResult,
-        ads: sortedAds.filter((ad) => ad.platform === 'google'),
+        ads: filteredAds.filter((ad) => ad.platform === 'google'),
       },
     ];
 
-    const totalAds = sortedAds.length;
-    const hasCreatives = sortedAds.some((ad) => ad.imageUrl || ad.videoUrl);
+    const totalAds = filteredAds.length;
+    const hasCreatives = filteredAds.some((ad) => ad.imageUrl || ad.videoUrl);
 
     logMultiPlatformSummary(context, dedupedResults);
 

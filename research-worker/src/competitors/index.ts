@@ -18,6 +18,7 @@ import { fetchSonarCompetitorResearch, type SonarCompetitorResult } from './sona
 import { fetchAllCompetitorData, type ParallelFetchResults } from './parallel-fetch';
 import { synthesizeCompetitorIntel, postProcessSynthesis, type SynthesisInput } from './synthesize';
 import { analyzeReviewGaps } from './review-gap-intelligence';
+import { analyzeReviewCrossPatterns } from './review-cross-analysis';
 
 export { parseCompetitorContext } from './parse-context';
 export type { ParsedCompetitorContext, CompetitorEntry } from './parse-context';
@@ -31,6 +32,7 @@ interface PipelineResult {
   synthesisDurationMs: number;
   synthInput: SynthesisInput;
   gapIntelligence: Record<string, import('./review-gap-intelligence').CompetitorGapIntelligence> | null;
+  crossAnalysis: import('./review-cross-analysis').ReviewCrossAnalysis | null;
 }
 
 /**
@@ -149,14 +151,15 @@ async function runPipeline(
   // Phase 2: Synthesis + gap intelligence in parallel
   const synthesisStart = Date.now();
   const synthInput: SynthesisInput = { parsed, fetchResults, sonarResults };
-  const [synthesisResult, gapIntelligence] = await Promise.all([
+  const [synthesisResult, gapIntelligence, crossAnalysis] = await Promise.all([
     runSynthesis(synthInput, onProgress),
     analyzeReviewGaps(fetchResults.reviews, parsed.companyName ?? '').catch(() => null),
+    analyzeReviewCrossPatterns(fetchResults.reviews).catch(() => null),
   ]);
   const { resultText, stopReason } = synthesisResult;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
-  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, gapIntelligence };
+  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, gapIntelligence, crossAnalysis };
 }
 
 /**
@@ -203,6 +206,7 @@ export async function runResearchCompetitors(
         parsed as Record<string, unknown>,
         pipelineResult.synthInput,
         pipelineResult.gapIntelligence,
+        pipelineResult.crossAnalysis,
       );
     }
 

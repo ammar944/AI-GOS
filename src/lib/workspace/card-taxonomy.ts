@@ -339,6 +339,29 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
     }
   }
 
+  // Cross-Competitor Review Analysis
+  const crossAnalysis = asRecord(data.reviewCrossAnalysis);
+  if (crossAnalysis) {
+    const commonWeaknesses = asRecordArray(crossAnalysis.commonWeaknesses)
+      .map((w) => {
+        const affectedCompetitors = asStringArray(w.affectedCompetitors);
+        return {
+          theme: asString(w.theme) ?? '',
+          affectedCompetitors,
+          frequency: asNumber(w.frequency) ?? affectedCompetitors.length,
+          exampleQuote: asString(w.exampleQuote) ?? '',
+          leverageAngle: asString(w.leverageAngle) ?? '',
+        };
+      })
+      .filter((w) => w.theme && w.affectedCompetitors.length >= 2);
+
+    if (commonWeaknesses.length > 0) {
+      cards.push(makeCard(section, 'review-cross-analysis-card', 'Common Competitor Weaknesses', {
+        commonWeaknesses,
+      }, 'Complaint themes shared across multiple competitors — your positioning opportunities'));
+    }
+  }
+
   return cards;
 }
 

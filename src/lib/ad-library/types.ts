@@ -14,6 +14,7 @@ export type AdRelevanceCategory =
   | 'lead_magnet'      // Educational content for lead gen (books, webinars, guides)
   | 'brand_awareness'  // General brand content, not product-focused
   | 'subsidiary'       // Ad from an owned/related brand (e.g., Slack for Salesforce)
+  | 'corporate'        // Hiring, events, awards, announcements — not product marketing
   | 'unclear';         // Couldn't determine relationship with confidence
 
 /**

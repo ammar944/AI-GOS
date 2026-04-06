@@ -274,6 +274,9 @@ export function isAdvertiserMatch(
 // Decision tree:
 //   resolveBestCandidate(candidates, name, domain, isDomainVerified)
 //     ├─ No candidates above 0.8 → REJECTED
+//     ├─ isDomainVerified + short name (≤6) + no domain corroboration → REJECTED
+//          (domain-first lookups already ran; a name-search result that doesn't
+//           corroborate the verified domain is the wrong entity)
 //     ├─ Exact normalized match → ACCEPTED
 //     ├─ isDomainVerified + candidate corroborates domain → ACCEPTED
 //     ├─ Single candidate ≥0.95 with ≥0.15 margin → ACCEPTED
@@ -320,9 +323,21 @@ export function resolveBestCandidate(
     // Use score of 1.0 as the exact match signal — this accounts for suffix stripping
     // (e.g. "Atlas Corp" normalizes to "atlas" = 1.0 match with "Atlas")
     const exactMatch = score >= 1.0;
-    const domainMatch = domainBase && isDomainVerified
-      ? c.name.toLowerCase().includes(domainBase.toLowerCase())
-      : false;
+    // domainMatch: candidate name contains the domain base word.
+    // For short names we use whole-word matching to avoid "fathom" matching "Fathom Analytics"
+    // when the actual entity is "Fathom Video" — we need the domain base to appear as a
+    // standalone word (possibly with corporate suffixes) in the candidate name.
+    let domainMatch = false;
+    if (domainBase && isDomainVerified) {
+      const candidateNorm = c.name.toLowerCase();
+      const base = domainBase.toLowerCase();
+      if (isShortName) {
+        // Whole-word check: base must be a word boundary match, not just a substring
+        domainMatch = new RegExp(`\\b${base}\\b`).test(candidateNorm);
+      } else {
+        domainMatch = candidateNorm.includes(base);
+      }
+    }
     return { candidate: c, name: c.name, score, exactMatch, domainMatch };
   });
 
@@ -341,14 +356,45 @@ export function resolveBestCandidate(
   const top = scored[0];
   const runnerUp = scored[1];
 
+  // Early rejection for short names with a verified domain when NO candidate corroborates it.
+  // When isDomainVerified=true, the platform-specific fetchers already ran a domain-first
+  // lookup (google_ads_advertiser_info / meta page search by domain). If those succeeded,
+  // we never reach resolveBestCandidate with mismatched candidates. If they failed and we
+  // fell back to name search, a name-search result that doesn't corroborate the verified
+  // domain is very likely the wrong entity (e.g. "Fathom.com" vs "Fathom AI").
+  // Reject hard rather than returning ambiguous — callers treat ambiguous as "try anyway".
+  if (isShortName && isDomainVerified && domainBase) {
+    const hasDomainCorroboration = scored.some(s => s.domainMatch);
+    if (!hasDomainCorroboration) {
+      return {
+        verdict: 'rejected',
+        reason: `Short name "${companyName}" (≤6 chars) with verified domain "${domain}": no candidate corroborates domain base "${domainBase}". Rejecting to prevent wrong-entity ads. Top name-match: "${top.name}" (${top.score.toFixed(2)})`,
+        candidates: candidateLog,
+      };
+    }
+  }
+
   // Exact normalized match
   if (top.exactMatch) {
-    // For short names: if there are multiple exact matches or other high-scoring
-    // candidates, we can't be sure WHICH "Atlas" or "Spot" this is. Require domain
-    // corroboration to disambiguate. Without it, ambiguous.
-    const exactCount = scored.filter(s => s.exactMatch).length;
-    if (isShortName && exactCount >= 1 && !top.domainMatch && isDomainVerified) {
-      // Have a verified domain but this exact-match candidate doesn't corroborate it
+    // For short names with a verified domain: we require domain corroboration because
+    // multiple companies share the same short name (e.g. "Atlas VPN" vs "Atlas CRM").
+    // The domain-first lookup above should have found the right page; if we're here via
+    // name-search fallback and the exact match corroborates the domain, accept it.
+    if (isShortName && !top.domainMatch && isDomainVerified) {
+      // Exact match exists but doesn't corroborate the verified domain.
+      // This branch is only reached when hasDomainCorroboration=true (early rejection
+      // above didn't fire), meaning some OTHER candidate corroborates the domain.
+      // Sort puts domainMatch candidates higher — if top is exact but not domain-matched
+      // and another candidate IS domain-matched, we should trust the domain match instead.
+      const domainMatchedCandidate = scored.find(s => s.domainMatch);
+      if (domainMatchedCandidate) {
+        return {
+          verdict: 'accepted',
+          candidate: domainMatchedCandidate.candidate,
+          reason: `Short name "${companyName}": domain corroboration preferred over exact name match "${top.name}". Domain match: "${domainMatchedCandidate.name}" (verified domain: "${domain}")`,
+          candidates: candidateLog,
+        };
+      }
       return {
         verdict: 'ambiguous',
         candidate: top.candidate,
@@ -357,7 +403,7 @@ export function resolveBestCandidate(
       };
     }
     if (isShortName && !isDomainVerified) {
-      // Inferred domain, can't verify. Multiple "Atlas" pages exist. Ambiguous.
+      // Inferred domain, can't verify. Multiple pages with same short name exist. Ambiguous.
       return {
         verdict: 'ambiguous',
         candidate: top.candidate,
@@ -443,10 +489,16 @@ export function resolveBestCandidate(
 
 /**
  * Google Ads: two-step advertiser-first lookup.
- * 1. Search for advertiser by name → get advertiser_id
- * 2. Fetch ads by advertiser_id
  *
- * Falls back to domain-based lookup via google_ads_advertiser_info if available.
+ * When isDomainVerified=true (domain came from Wave 1 Sonar validation):
+ *   PRIMARY: google_ads_advertiser_info domain lookup → direct advertiser_id
+ *   FALLBACK: name-based advertiser search
+ *
+ * When isDomainVerified=false (inferred domain):
+ *   PRIMARY: name-based advertiser search only
+ *
+ * This prevents short-name confusion (e.g. "Fathom AI" vs "Fathom.com") by
+ * anchoring on the verified domain when available rather than relying on name matching.
  */
 export async function searchGoogleAds(
   companyName: string,
@@ -458,8 +510,30 @@ export async function searchGoogleAds(
 
   const BASE = 'https://www.searchapi.io/api/v1/search';
 
+  // When we have a Wave 1 verified domain, use it as the primary lookup path.
+  // google_ads_advertiser_info does a direct domain → advertiser_id resolution,
+  // which is far more reliable than name matching for short/ambiguous names.
+  if (domain && isDomainVerified) {
+    try {
+      const domainParams = new URLSearchParams({
+        engine: 'google_ads_advertiser_info',
+        q: domain,
+        api_key: apiKey,
+      });
+      const domainPayload = await fetchJson(`${BASE}?${domainParams.toString()}`);
+      const domainId = (domainPayload as { advertiser_id?: string })?.advertiser_id;
+      if (domainId) {
+        console.log(`[adlibrary] Google domain-primary for "${companyName}": found advertiser via verified domain "${domain}"`);
+        return fetchGoogleAdsByAdvertiserId(domainId, apiKey);
+      }
+      console.log(`[adlibrary] Google domain-primary for "${companyName}": no advertiser_id from "${domain}", falling back to name search`);
+    } catch {
+      console.log(`[adlibrary] Google domain-primary for "${companyName}": domain lookup failed, falling back to name search`);
+    }
+  }
+
   try {
-    // Step 1: Find the advertiser
+    // Name-based advertiser search (primary for unverified, fallback for verified)
     const searchParams = new URLSearchParams({
       engine: 'google_ads_transparency_center_advertiser_search',
       q: companyName,
@@ -487,22 +561,6 @@ export async function searchGoogleAds(
     console.log(`[adlibrary] Google verdict for "${companyName}": ${result.verdict} — ${result.reason}`);
 
     if (result.verdict !== 'accepted' || !result.candidate) {
-      // Fallback: try domain-based advertiser info lookup (only if domain is verified)
-      if (domain && isDomainVerified) {
-        const domainParams = new URLSearchParams({
-          engine: 'google_ads_advertiser_info',
-          q: domain,
-          api_key: apiKey,
-        });
-        try {
-          const domainPayload = await fetchJson(`${BASE}?${domainParams.toString()}`);
-          const domainId = (domainPayload as { advertiser_id?: string })?.advertiser_id;
-          if (domainId) {
-            console.log(`[adlibrary] Google domain fallback for "${companyName}": found advertiser via "${domain}"`);
-            return fetchGoogleAdsByAdvertiserId(domainId, apiKey);
-          }
-        } catch { /* domain lookup failed, return empty */ }
-      }
       return [];
     }
 
@@ -572,8 +630,16 @@ export async function searchLinkedInAds(
 
 /**
  * Meta Ads: two-step advertiser-first lookup.
- * 1. Search for the company page via meta_ad_library_page_search → get page_id
- * 2. Fetch ads from that page via meta_ad_library with page_id filter
+ *
+ * When isDomainVerified=true (domain came from Wave 1 Sonar validation):
+ *   Step 1: Search by domain first (meta_ad_library_page_search q=domain), then by name.
+ *           Domain-first prevents Fathom AI vs Fathom.com confusion — the verified
+ *           domain anchors identity before falling back to name-based disambiguation.
+ *   Step 2: Fetch ads from the matched page_id.
+ *
+ * When isDomainVerified=false (inferred domain):
+ *   Step 1: Search by name only (previous behavior).
+ *   Step 2: Fetch ads from the matched page_id.
  */
 export async function searchMetaAds(
   companyName: string,
@@ -586,17 +652,44 @@ export async function searchMetaAds(
   const BASE = 'https://www.searchapi.io/api/v1/search';
 
   try {
-    // Step 1: Find the page
-    const pageSearchParams = new URLSearchParams({
-      engine: 'meta_ad_library_page_search',
-      q: companyName,
-      api_key: apiKey,
-    });
-    const pagePayload = await fetchJson(`${BASE}?${pageSearchParams.toString()}`);
+    let pageResults: Array<{ name?: string; page_id?: string; likes?: number }> = [];
 
-    const pageResults = Array.isArray((pagePayload as { page_results?: unknown[] }).page_results)
-      ? (pagePayload as { page_results: unknown[] }).page_results as Array<{ name?: string; page_id?: string; likes?: number }>
-      : [];
+    // When we have a Wave 1 verified domain, search by domain first.
+    // Meta's page search supports domain queries and returns the canonical brand page,
+    // bypassing the name-matching ambiguity that causes false positives for short names.
+    if (domain && isDomainVerified) {
+      try {
+        const domainSearchParams = new URLSearchParams({
+          engine: 'meta_ad_library_page_search',
+          q: normalizeDomain(domain),
+          api_key: apiKey,
+        });
+        const domainPagePayload = await fetchJson(`${BASE}?${domainSearchParams.toString()}`);
+        const domainPageResults = Array.isArray((domainPagePayload as { page_results?: unknown[] }).page_results)
+          ? (domainPagePayload as { page_results: unknown[] }).page_results as Array<{ name?: string; page_id?: string; likes?: number }>
+          : [];
+
+        if (domainPageResults.length > 0) {
+          console.log(`[adlibrary] Meta domain-first for "${companyName}": found ${domainPageResults.length} page(s) via verified domain "${domain}"`);
+          pageResults = domainPageResults;
+        }
+      } catch {
+        console.log(`[adlibrary] Meta domain-first for "${companyName}": domain search failed, falling back to name search`);
+      }
+    }
+
+    // Fall back to (or use as primary when unverified) name-based page search
+    if (pageResults.length === 0) {
+      const pageSearchParams = new URLSearchParams({
+        engine: 'meta_ad_library_page_search',
+        q: companyName,
+        api_key: apiKey,
+      });
+      const pagePayload = await fetchJson(`${BASE}?${pageSearchParams.toString()}`);
+      pageResults = Array.isArray((pagePayload as { page_results?: unknown[] }).page_results)
+        ? (pagePayload as { page_results: unknown[] }).page_results as Array<{ name?: string; page_id?: string; likes?: number }>
+        : [];
+    }
 
     // Resolve best page match using verdict-based identity verification
     const result = resolveBestCandidate(

@@ -50,6 +50,7 @@ import { PositioningMoveCard } from '@/components/workspace/cards/positioning-mo
 import { KeywordGapCard } from '@/components/workspace/cards/keyword-gap-card';
 import { ReadinessScorecard } from '@/components/workspace/cards/readiness-scorecard';
 import { PriorityActions } from '@/components/workspace/cards/priority-actions';
+import { ReviewCrossAnalysisCard } from '@/components/workspace/cards/review-cross-analysis-card';
 import { cn } from '@/lib/utils';
 import type { CardState } from '@/lib/workspace/types';
 
@@ -366,6 +367,12 @@ export function CardContentSwitch({ card }: { card: CardState }) {
       return <ReadinessScorecard overallScore={card.content.overallScore as number} verdict={card.content.verdict as string} verdictLabel={card.content.verdictLabel as string} dimensions={card.content.dimensions as Array<{name: string; score: number; summary: string}>} />;
     case 'priority-actions':
       return <PriorityActions actions={card.content.actions as Array<{action: string; source: string; priority: string}>} />;
+    case 'review-cross-analysis-card':
+      return (
+        <ReviewCrossAnalysisCard
+          commonWeaknesses={card.content.commonWeaknesses as Array<{ theme: string; affectedCompetitors: string[]; frequency: number; exampleQuote: string; leverageAngle: string }>}
+        />
+      );
     default:
       return <p className="text-xs text-[var(--text-tertiary)]">Unknown card type: {card.cardType}</p>;
   }

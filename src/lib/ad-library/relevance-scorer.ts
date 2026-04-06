@@ -31,6 +31,36 @@ const LEAD_MAGNET_KEYWORDS = [
 ];
 
 /**
+ * Corporate/non-marketing keywords that indicate hiring, events, or announcements
+ * Ads with 2+ of these are almost certainly not product marketing ads
+ */
+const CORPORATE_KEYWORDS = [
+  'hiring',
+  'we are hiring',
+  'join our team',
+  'open position',
+  'career',
+  'summit',
+  'conference',
+  'proud to announce',
+  'welcome aboard',
+  'new hire',
+  'award',
+  'recognized by',
+  'sponsors',
+  'sponsoring',
+];
+
+/**
+ * Check ad content for corporate/non-marketing signals.
+ * Returns the number of matching corporate keywords found.
+ */
+function countCorporateKeywords(text: string): number {
+  const lowerText = text.toLowerCase();
+  return CORPORATE_KEYWORDS.filter(keyword => lowerText.includes(keyword)).length;
+}
+
+/**
  * Product-related keywords that should appear in relevant SaaS/marketing ads
  * Used to detect partnership/sponsored ads that promote unrelated products
  */
@@ -256,14 +286,36 @@ export function assessAdRelevance(
     }
   }
 
-  // 7. Determine category based on signals
+  // 7. Content-based corporate/irrelevance filtering
+  // Penalise hiring posts, event announcements, awards, etc. — not product marketing
+  const corporateMatchCount = countCorporateKeywords(adContent);
+  const isCorporateContent = corporateMatchCount >= 2;
+  if (isCorporateContent) {
+    score -= 40;
+    signals.push(`Corporate/non-marketing content detected (${corporateMatchCount} keyword matches: hiring, events, awards, etc.)`);
+  }
+
+  // Logo-only ads: no headline AND no body text — likely a brand impression with no content
+  const isLogoOnly = !ad.headline?.trim() && !ad.body?.trim();
+  if (isLogoOnly) {
+    score -= 20;
+    signals.push('Logo-only ad: no headline or body text found');
+  }
+
+  // 8. Determine category based on signals
   let category: AdRelevanceCategory;
   let explanation: string;
 
   // Check if this is a partnership/sponsored ad (detected in step 6)
   const isPartnershipAd = signals.some(s => s.includes('possible partnership/sponsored ad'));
 
-  if (advertiserSimilarity >= 0.8 && contentContainsCompany) {
+  if (isCorporateContent) {
+    category = 'corporate';
+    explanation = `This ad appears to be a corporate announcement (hiring, event, award, etc.) rather than a product marketing ad. It matched ${corporateMatchCount} corporate keyword(s).`;
+  } else if (isLogoOnly) {
+    category = 'unclear';
+    explanation = 'This ad has no headline or body text — it may be a logo/brand impression with no marketable content.';
+  } else if (advertiserSimilarity >= 0.8 && contentContainsCompany) {
     category = 'direct';
     explanation = 'This ad directly promotes the searched company\'s products or services.';
   } else if (advertiserSimilarity >= 0.8 && isLeadMagnet) {

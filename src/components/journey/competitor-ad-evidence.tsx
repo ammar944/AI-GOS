@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { shouldUseProxy, getProxyUrl as proxyUrlFn } from '@/lib/image-proxy';
 import { ExternalLink, Play, ImageOff } from 'lucide-react';
 
 interface AdCreative {
@@ -19,28 +20,9 @@ interface AdCreative {
   lastSeen?: string;
 }
 
-/** Domains that need proxying through /api/image-proxy for CORS */
-const PROXY_DOMAINS = [
-  'googlesyndication.com',
-  'googleusercontent.com',
-  'storage.googleapis.com',
-  'firebasestorage.googleapis.com',
-  'fbcdn.net',
-  'licdn.com',
-];
-
-function shouldProxy(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname;
-    return PROXY_DOMAINS.some((d) => hostname.includes(d));
-  } catch {
-    return false;
-  }
-}
-
 function proxyUrl(url: string): string {
-  if (shouldProxy(url)) {
-    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+  if (shouldUseProxy(url)) {
+    return proxyUrlFn(url);
   }
   return url;
 }
@@ -173,7 +155,7 @@ function AdMedia({ creative }: { creative: AdCreative }) {
         referrerPolicy="no-referrer"
         className="h-full w-full object-contain"
         onError={() => {
-          if (!useProxy && shouldProxy(creative.imageUrl!)) {
+          if (!useProxy && shouldUseProxy(creative.imageUrl!)) {
             setUseProxy(true);
           } else {
             setImgError(true);

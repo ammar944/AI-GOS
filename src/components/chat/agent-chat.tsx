@@ -139,17 +139,20 @@ export function AgentChat({
 
   // Reactive transport — useMemo recreates when deps change, and useChat
   // picks up the new instance via its internal ref update on each render.
+  // NOTE: We intentionally do NOT send the blueprint object to the server.
+  // The API route loads blueprint data server-side from Supabase after
+  // verifying the authenticated user owns the session (security fix for
+  // cross-profile data leakage).
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: '/api/chat/agent',
         body: {
           blueprintId: blueprintId || '',
-          blueprint,
           conversationId,
         },
       }),
-    [blueprint, blueprintId, conversationId]
+    [blueprintId, conversationId]
   );
 
   const {
