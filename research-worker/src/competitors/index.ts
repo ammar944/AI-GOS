@@ -99,10 +99,15 @@ async function runValidateThenFetch(
     ? parsed.websiteUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     : null;
 
+  // Pass identity card's coreKeywords as category context for ad batch sanity check.
+  // This prevents wrong-company ads (e.g., Fathom terrain data for Fathom AI meetings)
+  // by rejecting entire ad batches where zero ads mention any category keyword.
+  const categoryKeywords = parsed.identityCard?.coreKeywords ?? [];
+
   const fetchResults = await fetchAllCompetitorData(verifiedEntries, {
     name: parsed.companyName ?? '',
     domain: clientDomain,
-  });
+  }, categoryKeywords);
 
   // Report what we got
   const pricingHits = fetchResults.pricing.filter(p => p.success).length;

@@ -333,7 +333,24 @@ export function resolveBestCandidate(
       const base = domainBase.toLowerCase();
       if (isShortName) {
         // Whole-word check: base must be a word boundary match, not just a substring
-        domainMatch = new RegExp(`\\b${base}\\b`).test(candidateNorm);
+        const hasBase = new RegExp(`\\b${base}\\b`).test(candidateNorm);
+        if (hasBase) {
+          // Extra disambiguation: if company name has a qualifier (e.g., "Fathom AI"),
+          // the candidate must ALSO contain that qualifier. "Fathom" alone doesn't match
+          // "Fathom AI" — it could be any Fathom. But "Fathom AI" or "Fathom - AI Meeting"
+          // would match. This prevents terrain company "Fathom" from matching "Fathom AI".
+          const companyWords = compNorm.split(/\s+/);
+          const qualifiers = companyWords.filter(w => w.toLowerCase() !== base && w.length > 1);
+          if (qualifiers.length === 0) {
+            // No qualifier (just "Fathom") — any candidate with the base word matches
+            domainMatch = true;
+          } else {
+            // Has qualifier (e.g., "AI", "Video") — candidate must contain at least one qualifier
+            // OR be a very high name-similarity match (≥0.85) which catches "Fathom.ai" page names
+            domainMatch = qualifiers.some(q => candidateNorm.includes(q.toLowerCase()))
+              || score >= 0.85;
+          }
+        }
       } else {
         domainMatch = candidateNorm.includes(base);
       }

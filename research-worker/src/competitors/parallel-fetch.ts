@@ -234,13 +234,19 @@ async function fetchSpyfu(competitor: CompetitorEntry): Promise<SpyfuResult> {
 /**
  * Get ad creatives for a competitor.
  * Uses Apify for Meta + Google, SearchAPI for LinkedIn.
+ * categoryKeywords from identity card enable batch-level sanity check
+ * (e.g., "Fathom" terrain ads rejected when searching for "Fathom AI" meeting tool).
  */
-async function fetchAdLibrary(competitor: CompetitorEntry): Promise<AdLibraryResult> {
+async function fetchAdLibrary(
+  competitor: CompetitorEntry,
+  categoryKeywords?: string[],
+): Promise<AdLibraryResult> {
   try {
     const insight = await fetchCompetitorAds(
       competitor.name,
       competitor.domain ?? undefined,
       !competitor.inferredDomain,
+      categoryKeywords,
     );
 
     return {
@@ -275,6 +281,7 @@ async function fetchAdLibrary(competitor: CompetitorEntry): Promise<AdLibraryRes
 export async function fetchAllCompetitorData(
   competitors: CompetitorEntry[],
   clientInfo?: { name: string; domain: string | null },
+  categoryKeywords?: string[],
 ): Promise<ParallelFetchResults> {
   const startTime = Date.now();
   const capped = competitors.slice(0, MAX_COMPETITORS);
@@ -412,7 +419,7 @@ export async function fetchAllCompetitorData(
 
   const pricingPromise = Promise.allSettled(capped.map(fetchPricing)).then(r => { pricingSettled = r; });
   const spyfuPromise = Promise.allSettled(capped.map(fetchSpyfu)).then(r => { spyfuSettled = r; });
-  const adLibraryPromise = Promise.allSettled(capped.map(fetchAdLibrary)).then(r => { adLibrarySettled = r; });
+  const adLibraryPromise = Promise.allSettled(capped.map(c => fetchAdLibrary(c, categoryKeywords))).then(r => { adLibrarySettled = r; });
   const reviewsPromise = Promise.allSettled(capped.map(fetchReviews)).then(r => { reviewsSettled = r; });
   const clientAdCaptured = clientAdPromise.then(r => { clientAdResult = r; });
 

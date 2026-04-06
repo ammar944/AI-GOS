@@ -319,13 +319,16 @@ function guessTheme(message: string): string {
  *     from broad keyword searches returning competitor-of-competitor results).
  *     Google ads are excluded from the advertiser check because the Apify Google
  *     actor assigns the query company name as the advertiser — no signal there.
+ *   - ALL ads from this batch fail a product-category sanity check (wrong company
+ *     with same name, e.g., Fathom terrain data vs Fathom AI meetings).
  */
 function filterRelevantAds(
   creatives: WorkerAdCreative[],
   companyName: string,
   domain?: string,
+  categoryKeywords?: string[],
 ): WorkerAdCreative[] {
-  return creatives.filter((c) => {
+  const filtered = creatives.filter((c) => {
     // Drop completely empty shell ads (no text and no media)
     const hasText = Boolean(c.headline) || Boolean(c.body);
     const hasMedia = Boolean(c.imageUrl) || Boolean(c.videoUrl);
@@ -340,6 +343,24 @@ function filterRelevantAds(
 
     return true;
   });
+
+  // Batch-level sanity check: if we have category keywords (from identity card or
+  // competitor context), check whether ANY ad in the batch mentions ANY keyword.
+  // If zero ads match any category keyword, the entire batch is likely from the wrong
+  // company (e.g., "Fathom" terrain data ads when searching for "Fathom AI" meetings).
+  if (categoryKeywords && categoryKeywords.length > 0 && filtered.length > 0) {
+    const lowerKeywords = categoryKeywords.map(k => k.toLowerCase());
+    const anyAdMatchesCategory = filtered.some((c) => {
+      const text = `${c.headline ?? ''} ${c.body ?? ''}`.toLowerCase();
+      return lowerKeywords.some(kw => text.includes(kw));
+    });
+    if (!anyAdMatchesCategory) {
+      console.log(`[apify-ads] Batch sanity check FAILED for "${companyName}": ${filtered.length} ads, none mention category keywords [${lowerKeywords.join(', ')}]. Likely wrong company — dropping entire batch.`);
+      return [];
+    }
+  }
+
+  return filtered;
 }
 
 // ── Main function ──────────────────────────────────────────────────────────
@@ -447,6 +468,7 @@ export async function fetchCompetitorAds(
   companyName: string,
   domain?: string,
   isDomainVerified?: boolean,
+  categoryKeywords?: string[],
 ): Promise<WorkerAdInsight> {
   const startTime = Date.now();
 
@@ -472,6 +494,7 @@ export async function fetchCompetitorAds(
     deduplicateCreatives([...metaCreatives, ...googleCreatives, ...linkedInCreatives]),
     companyName,
     domain,
+    categoryKeywords,
   ).slice(0, 60);
 
   // Build summary
