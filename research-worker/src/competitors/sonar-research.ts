@@ -656,9 +656,9 @@ Return ONLY valid JSON, no other text:
       marketPatterns: [],
       whiteSpaceOpportunities: [],
       citations: [],
-      verifiedCompetitors: verifiedCompetitors.map(c => c.name),
+      verifiedCompetitors: (verifiedCompetitors.length > 0 ? verifiedCompetitors : discoveredCompetitors).map(c => c.name),
       removedCompetitors,
-      verifiedEntries: verifiedCompetitors,
+      verifiedEntries: verifiedCompetitors.length > 0 ? verifiedCompetitors : discoveredCompetitors,
     };
   }
 }
