@@ -264,124 +264,52 @@ async function validateCompetitors(
     return { verified: candidates, removed: [] };
   }
 
-  // Deterministic pre-filter: if the identity card's evidence.conflicts explicitly
-  // name a candidate as wrong-category, reject it BEFORE calling Sonar.
-  // This prevents non-deterministic Sonar responses from overriding a clear signal.
-  const preFilterRemoved: Array<{ name: string; reason: string }> = [];
-  let filteredCandidates = candidates;
-
-  if (clientContext.identityCard?.evidence?.conflicts?.length) {
-    const conflictText = clientContext.identityCard.evidence.conflicts.join(' ').toLowerCase();
-
-    // Check if conflicts indicate the ENTIRE competitor list is wrong-category.
-    // Signals: "competitors are note-taking tools", "not content generation", etc.
-    const listIsWrongCategory =
-      conflictText.includes('not direct competitor') ||
-      conflictText.includes('not content generation') ||
-      conflictText.includes('not content creation') ||
-      conflictText.includes('note-taking') ||
-      conflictText.includes('knowledge management') ||
-      conflictText.includes('pkm tool') ||
-      conflictText.includes('not direct script') ||
-      conflictText.includes('true competitors') ||
-      conflictText.includes('not in the same');
-
-    if (listIsWrongCategory) {
-      // The identity card says the competitor list is fundamentally wrong.
-      // Reject ALL user-provided competitors, not just the named ones.
-      // Discovery will find real competitors.
-      for (const candidate of candidates) {
-        console.info(`[sonar-research] Pre-filtered "${candidate.name}" — identity card flags entire competitor list as wrong category`);
-        preFilterRemoved.push({
-          name: candidate.name,
-          reason: `Identity card conflicts indicate entire competitor list is wrong category`,
-        });
-      }
-      filteredCandidates = [];
-    } else {
-      // Only reject individually named competitors
-      filteredCandidates = [];
-      for (const candidate of candidates) {
-        const nameLower = candidate.name.toLowerCase();
-        if (conflictText.includes(nameLower)) {
-          console.info(`[sonar-research] Pre-filtered "${candidate.name}" — identity card conflicts name as wrong category`);
-          preFilterRemoved.push({
-            name: candidate.name,
-            reason: `Identity card conflicts explicitly flag as wrong-category competitor`,
-          });
-        } else {
-          filteredCandidates.push(candidate);
-        }
-      }
-    }
-  }
-
+  // User-provided competitors are ALWAYS kept. The user knows their market.
+  // Validation only checks existence + domain resolution, NOT category match.
+  // Category-mismatched competitors are tagged but not removed — synthesis
+  // positions the client against both user-provided and discovered competitors.
   const validationResults = await Promise.all(
-    filteredCandidates.map(c => validateCompetitor(c, clientContext, currentDate)),
+    candidates.map(c => validateCompetitor(c, clientContext, currentDate)),
   );
 
   const verified: CompetitorEntry[] = [];
-  const removed: Array<{ name: string; reason: string }> = [...preFilterRemoved];
+  const removed: Array<{ name: string; reason: string }> = [];
 
-  for (let i = 0; i < filteredCandidates.length; i++) {
+  for (let i = 0; i < candidates.length; i++) {
     const validation = validationResults[i];
-    const candidate = filteredCandidates[i];
+    const candidate = candidates[i];
 
-    // Verified competitors still need a minimum confidence of 30 to guard against
-    // cases where Sonar returns verified=true with very low confidence (e.g. 15).
-    // Unverified competitors need 60+ confidence to pass through.
-    if ((validation.verified && validation.confidence >= 30) || validation.confidence >= 60) {
-      // Update domain if Sonar found a better one AND HEAD check confirmed it
+    // Only reject if the company genuinely doesn't exist or domain is dead.
+    // NEVER reject for industryMatch — user chose these competitors for a reason.
+    if (validation.verified || validation.confidence >= 30) {
       const updatedDomain = validation.domain ?? candidate.domain;
       const domainWasUpgraded = updatedDomain !== candidate.domain && validation.domainVerified;
       verified.push({
         ...candidate,
         domain: updatedDomain,
-        // Domain is NOT inferred if HEAD-verified by Sonar validation
         inferredDomain: domainWasUpgraded ? false : candidate.inferredDomain,
       });
-    } else {
+    } else if (!validation.verified && validation.reason?.toLowerCase().includes('cannot find')) {
+      // Company doesn't exist — remove it
       removed.push({ name: candidate.name, reason: validation.reason });
+    } else {
+      // Low confidence but company exists — keep it. User provided it.
+      verified.push(candidate);
+      console.info(`[sonar-research] Keeping "${candidate.name}" despite low confidence (${validation.confidence}) — user-provided`);
     }
   }
 
-  // Safety valve: if all competitors were removed, check WHY before re-adding.
-  // Pre-filtered competitors (identity card conflicts) are already gone — if ALL
-  // remaining candidates also failed, either discover replacements or use fallback.
-  if (verified.length === 0 && (filteredCandidates.length > 0 || preFilterRemoved.length > 0)) {
-    // If competitors were pre-filtered by identity card, skip fallback entirely
-    // and let discovery find real competitors.
-    if (preFilterRemoved.length > 0 && clientContext.identityCard) {
-      console.warn(
-        `[sonar-research] ${preFilterRemoved.length} competitor(s) pre-filtered by identity card — skipping fallback, will discover replacements`,
-      );
-      // Don't re-add. Discovery step below will find real competitors.
-    } else if (filteredCandidates.length > 0) {
-      const best = validationResults.reduce((a, b) => (a.confidence >= b.confidence ? a : b));
-
-      // Check if remaining candidates were rejected for wrong industry
-      const allRejectedForIndustry = validationResults.every(
-        v => !v.verified && v.reason?.toLowerCase().match(/different|not in|wrong|note.?taking|knowledge management/),
-      );
-
-      if (allRejectedForIndustry && clientContext.identityCard) {
-        console.warn(
-          `[sonar-research] All competitors rejected for wrong industry — skipping fallback, will discover replacements`,
-        );
-      } else {
-        // Original safety valve: keep highest-confidence as fallback
-        const bestIndex = validationResults.indexOf(best);
-        const bestCandidate = filteredCandidates[bestIndex];
-        const removedIndex = removed.findIndex(r => r.name === bestCandidate.name);
-        if (removedIndex >= 0) {
-          removed.splice(removedIndex, 1);
-        }
-        verified.push(bestCandidate);
-        console.warn(
-          `[sonar-research] All competitors failed validation — keeping "${bestCandidate.name}" as fallback (confidence: ${best.confidence})`,
-        );
-      }
-    }
+  // Safety valve: if all competitors were removed (all don't exist), keep the best one
+  if (verified.length === 0 && candidates.length > 0) {
+    const best = validationResults.reduce((a, b) => (a.confidence >= b.confidence ? a : b));
+    const bestIndex = validationResults.indexOf(best);
+    const bestCandidate = candidates[bestIndex];
+    const removedIndex = removed.findIndex(r => r.name === bestCandidate.name);
+    if (removedIndex >= 0) removed.splice(removedIndex, 1);
+    verified.push(bestCandidate);
+    console.warn(
+      `[sonar-research] All competitors failed validation — keeping "${bestCandidate.name}" as fallback (confidence: ${best.confidence})`,
+    );
   }
 
   return { verified, removed };
@@ -529,23 +457,40 @@ export async function fetchSonarCompetitorResearch(input: {
 
   // Phase 0.5: If all user-provided competitors were wrong-category and we have
   // an identity card, discover real competitors via Sonar Pro web search.
+  // Discovery: when identity card flags a category mismatch in user competitors,
+  // discover ADDITIONAL competitors in the correct category. These are ADDED to
+  // the user-provided list, not used as replacements.
   let discoveredCompetitors: CompetitorEntry[] = [];
-  if (verifiedCompetitors.length === 0 && removedCompetitors.length > 0 && input.identityCard) {
-    console.info('[sonar-research] All competitors rejected — discovering replacements via identity card');
-    discoveredCompetitors = await discoverCompetitorsFromIdentity(
-      input.identityCard,
-      input.companyName,
-    );
+  if (input.identityCard?.evidence?.conflicts?.length) {
+    const conflictText = input.identityCard.evidence.conflicts.join(' ').toLowerCase();
+    const hasCompetitorMismatch =
+      conflictText.includes('not direct competitor') ||
+      conflictText.includes('not content') ||
+      conflictText.includes('note-taking') ||
+      conflictText.includes('knowledge management') ||
+      conflictText.includes('true competitors');
+
+    if (hasCompetitorMismatch) {
+      console.info('[sonar-research] Identity card flags competitor category mismatch — discovering additional competitors');
+      discoveredCompetitors = await discoverCompetitorsFromIdentity(
+        input.identityCard,
+        input.companyName,
+      );
+      // Deduplicate: don't add discovered competitors that match user-provided ones
+      const existingNames = new Set(verifiedCompetitors.map(c => c.name.toLowerCase()));
+      discoveredCompetitors = discoveredCompetitors.filter(
+        dc => !existingNames.has(dc.name.toLowerCase()),
+      );
+      if (discoveredCompetitors.length > 0) {
+        console.info(
+          `[sonar-research] Adding ${discoveredCompetitors.length} discovered competitors: ${discoveredCompetitors.map(c => c.name).join(', ')}`,
+        );
+      }
+    }
   }
 
-  // Use verified entries for research. If none verified, use discovered competitors.
-  // Fall back to original list only when validation was entirely skipped (e.g. no Perplexity key).
-  const competitorsForResearch =
-    verifiedCompetitors.length > 0
-      ? verifiedCompetitors
-      : discoveredCompetitors.length > 0
-        ? discoveredCompetitors
-        : input.competitors;
+  // Merge user-provided (verified) + discovered competitors
+  const competitorsForResearch = [...verifiedCompetitors, ...discoveredCompetitors];
 
   if (competitorsForResearch.length === 0) {
     return {
@@ -634,18 +579,20 @@ Return ONLY valid JSON, no other text:
       }
 
       // Attach validation metadata for observability
-      parsed.verifiedCompetitors = verifiedCompetitors.map(c => c.name);
+      const allEntries = [...verifiedCompetitors, ...discoveredCompetitors];
+      parsed.verifiedCompetitors = allEntries.map(c => c.name);
       parsed.removedCompetitors = removedCompetitors;
-      parsed.verifiedEntries = verifiedCompetitors;
+      parsed.verifiedEntries = allEntries;
 
       return parsed;
     }
 
     // Fallback: attempt to parse the whole text as JSON
+    const allEntries = [...verifiedCompetitors, ...discoveredCompetitors];
     const fallback = JSON.parse(text) as SonarCompetitorResult;
-    fallback.verifiedCompetitors = verifiedCompetitors.map(c => c.name);
+    fallback.verifiedCompetitors = allEntries.map(c => c.name);
     fallback.removedCompetitors = removedCompetitors;
-    fallback.verifiedEntries = verifiedCompetitors;
+    fallback.verifiedEntries = allEntries;
     return fallback;
   } catch (error) {
     console.error('[sonar-research] Sonar Pro competitor research failed:', error);
@@ -656,9 +603,9 @@ Return ONLY valid JSON, no other text:
       marketPatterns: [],
       whiteSpaceOpportunities: [],
       citations: [],
-      verifiedCompetitors: (verifiedCompetitors.length > 0 ? verifiedCompetitors : discoveredCompetitors).map(c => c.name),
+      verifiedCompetitors: [...verifiedCompetitors, ...discoveredCompetitors].map(c => c.name),
       removedCompetitors,
-      verifiedEntries: verifiedCompetitors.length > 0 ? verifiedCompetitors : discoveredCompetitors,
+      verifiedEntries: [...verifiedCompetitors, ...discoveredCompetitors],
     };
   }
 }
