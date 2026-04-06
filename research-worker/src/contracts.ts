@@ -220,6 +220,16 @@ const competitorIntelDataSchema = z.object({
     adCreatives: z.array(competitorAdCreativeSchema).default([]),
     libraryLinks: competitorLibraryLinksSchema.optional(),
   }).optional(),
+  // Cross-competitor review analysis — injected by postProcessSynthesis
+  reviewCrossAnalysis: z.object({
+    commonWeaknesses: z.array(z.object({
+      theme: z.string(),
+      affectedCompetitors: z.array(z.string()),
+      frequency: z.number(),
+      exampleQuote: z.string(),
+      leverageAngle: z.string(),
+    })),
+  }).optional(),
 });
 
 const icpValidationDataSchema = z.object({
