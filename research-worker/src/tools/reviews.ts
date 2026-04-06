@@ -34,12 +34,22 @@ export interface NegativeReview {
   source: 'g2' | 'capterra' | 'trustpilot';
 }
 
+export interface ExtractedTestimonial {
+  quote: string;
+  author?: string;
+  role?: string;
+  company?: string;
+  sourceUrl: string;
+}
+
 export interface ReviewResult {
   competitorName: string;
   domain: string;
   trustpilot: TrustpilotResult | null;
   g2: G2Result | null;
   capterra: CapterraResult | null;
+  testimonials: ExtractedTestimonial[];
+  testimonialPages: string[];
   negativeReviews: NegativeReview[];
   error?: string;
 }
@@ -484,6 +494,111 @@ async function scrapeCapterra(companyName: string, domain: string): Promise<{ re
   }
 }
 
+// ── Testimonial Discovery & Extraction (Firecrawl map + scrape) ──
+
+/** Parse "Name, Role at Company" attribution strings */
+function parseAttribution(attr: string): { author?: string; role?: string; company?: string } {
+  if (!attr) return {};
+  const atMatch = attr.match(/^([^,]+),\s*([^,]+?)(?:\s+at\s+|\s*,\s*)(.+)$/i);
+  if (atMatch) return { author: atMatch[1].trim(), role: atMatch[2].trim(), company: atMatch[3].trim() };
+  const simpleMatch = attr.match(/^([^,—–-]+)[,—–-]\s*(.+)$/);
+  if (simpleMatch) return { author: simpleMatch[1].trim(), company: simpleMatch[2].trim() };
+  return { author: attr.trim() };
+}
+
+/** Extract individual testimonials from page markdown */
+function extractTestimonialsFromMarkdown(markdown: string, sourceUrl: string): ExtractedTestimonial[] {
+  const testimonials: ExtractedTestimonial[] = [];
+  let match: RegExpExecArray | null;
+
+  // Pattern 1: Blockquotes (> "quote" — Author, Role at Company)
+  const blockquotePattern = />\s*["""](.{30,500}?)["""]\s*(?:—|--|–|-)\s*([^\n]+)/g;
+  while ((match = blockquotePattern.exec(markdown)) !== null) {
+    const { author, role, company } = parseAttribution(match[2].trim());
+    testimonials.push({ quote: match[1].trim(), author, role, company, sourceUrl });
+  }
+
+  // Pattern 2: Quoted testimonials ("quote" — attribution)
+  const quotedPattern = /["""](.{40,500}?)["""]\s*(?:—|--|–|-)\s*([^\n]+)/g;
+  while ((match = quotedPattern.exec(markdown)) !== null) {
+    const quote = match[1].trim();
+    if (testimonials.some(t => t.quote === quote)) continue;
+    const { author, role, company } = parseAttribution(match[2].trim());
+    testimonials.push({ quote, author, role, company, sourceUrl });
+  }
+
+  // Pattern 3: First-person positive statements in headed sections
+  const sectionPattern = /#{1,4}\s+["""]?([^"\n]+)["""]?\n+([^#]{40,400})/g;
+  while ((match = sectionPattern.exec(markdown)) !== null) {
+    const text = match[2].trim();
+    if (/\b(we|our|i|my)\b/i.test(text) &&
+        /\b(helped|improved|saved|love|great|amazing|excellent|recommend|transformed)\b/i.test(text)) {
+      if (testimonials.some(t => t.quote === text)) continue;
+      testimonials.push({ quote: text.slice(0, 500), author: match[1].trim(), sourceUrl });
+    }
+  }
+
+  return testimonials;
+}
+
+/**
+ * Use Firecrawl map() to discover testimonial/case-study pages across
+ * the company's site including subdomains, then scrape and extract
+ * individual testimonials as structured data.
+ */
+async function discoverAndExtractTestimonials(
+  domain: string,
+): Promise<{ pages: string[]; testimonials: ExtractedTestimonial[] }> {
+  const apiKey = process.env.FIRECRAWL_API_KEY;
+  if (!apiKey) return { pages: [], testimonials: [] };
+
+  const client = new Firecrawl({ apiKey });
+
+  // Step 1: Discover testimonial/case-study pages via map()
+  let discoveredPages: string[] = [];
+  try {
+    const mapResult = await Promise.race([
+      client.map(`https://${domain}`, {
+        search: 'testimonials case studies reviews customers success stories',
+        limit: 8,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firecrawl map timeout')), 15_000),
+      ),
+    ]);
+    discoveredPages = (mapResult as any)?.links ?? [];
+  } catch (error) {
+    console.log(`[reviews] map() error for ${domain}: ${error instanceof Error ? error.message : error}`);
+  }
+
+  // Filter to likely testimonial/case-study URLs
+  const testimonialPatterns = /testimonial|case.?stud|success.?stor|customer.?stor|review|clients?\/|customers?\//i;
+  const relevant = discoveredPages.filter(url => testimonialPatterns.test(url)).slice(0, 5);
+
+  if (relevant.length === 0) {
+    return { pages: discoveredPages, testimonials: [] };
+  }
+
+  console.log(`[reviews] found ${relevant.length} testimonial pages for ${domain}`);
+
+  // Step 2: Scrape discovered pages and extract testimonials
+  const testimonials: ExtractedTestimonial[] = [];
+  const scrapeResults = await Promise.allSettled(
+    relevant.map(async (url) => {
+      const markdown = await firecrawlScrape(url, 15_000);
+      if (!markdown || markdown.length < 100) return [];
+      return extractTestimonialsFromMarkdown(markdown, url);
+    }),
+  );
+
+  for (const result of scrapeResults) {
+    if (result.status === 'fulfilled') testimonials.push(...result.value);
+  }
+
+  console.log(`[reviews] extracted ${testimonials.length} testimonials from ${relevant.length} pages for ${domain}`);
+  return { pages: discoveredPages, testimonials: testimonials.slice(0, 10) };
+}
+
 // ── Public API ──
 
 interface ReviewInput {
@@ -508,6 +623,8 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       trustpilot: null,
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
       error: 'No domain available',
     };
@@ -516,16 +633,18 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
   console.log(`[reviews] fetching reviews for ${competitor.name} (${domain})`);
 
   try {
-    // Phase 1: Scrape all 3 platforms in parallel
-    const [tpData, g2Data, capData] = await Promise.all([
+    // Phase 1: Scrape all platforms + discover testimonials in parallel
+    const [tpData, g2Data, capData, testimonialData] = await Promise.all([
       scrapeTrustpilot(domain),
       scrapeG2(competitor.name),
       scrapeCapterra(competitor.name, domain),
+      discoverAndExtractTestimonials(domain),
     ]);
 
     const trustpilot = tpData.result;
     const g2 = g2Data.result;
     const capterra = capData.result;
+    const { pages: testimonialPages, testimonials } = testimonialData;
 
     const hasTrustpilot = trustpilot && (trustpilot.rating !== null || trustpilot.reviewCount !== null);
     const hasG2Data = g2 && (g2.rating !== null || g2.reviewCount !== null);
@@ -536,7 +655,8 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
     console.log(
       `[reviews] ${competitor.name}: trustpilot=${hasTrustpilot ? 'data' : 'none'}, ` +
       `g2=${hasG2Data ? 'data' : hasG2Link ? 'link-only' : 'none'}, ` +
-      `capterra=${hasCapterraData ? 'data' : hasCapterraLink ? 'link-only' : 'none'}`,
+      `capterra=${hasCapterraData ? 'data' : hasCapterraLink ? 'link-only' : 'none'}, ` +
+      `testimonials=${testimonials.length}, pages=${testimonialPages.length}`,
     );
 
     // Phase 2: Merge negative reviews from all sources
@@ -558,6 +678,8 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       trustpilot: hasTrustpilot ? trustpilot : null,
       g2: (hasG2Data || hasG2Link) ? g2 : null,
       capterra: (hasCapterraData || hasCapterraLink) ? capterra : null,
+      testimonials,
+      testimonialPages,
       negativeReviews,
     };
   } catch (error) {
@@ -568,6 +690,8 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       trustpilot: null,
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
       error: error instanceof Error ? error.message : String(error),
     };

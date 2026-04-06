@@ -341,6 +341,8 @@ export async function fetchAllCompetitorData(
       trustpilot: null,
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
       error:
         settled.reason instanceof Error
@@ -378,6 +380,8 @@ export async function fetchAllCompetitorData(
         trustpilot: null,
         g2: null,
         capterra: null,
+        testimonials: [],
+        testimonialPages: [],
         negativeReviews: [],
         error: reason,
       })),

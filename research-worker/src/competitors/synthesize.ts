@@ -206,6 +206,18 @@ ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
       parts.push('G2: No data available');
     }
 
+    if (rev.testimonials && rev.testimonials.length > 0) {
+      parts.push('**Testimonials from website:**');
+      for (const t of rev.testimonials.slice(0, 5)) {
+        const attr = [t.author, t.role, t.company].filter(Boolean).join(', ');
+        parts.push(`- "${t.quote.slice(0, 200)}" — ${attr || 'Anonymous'} (${t.sourceUrl})`);
+      }
+    }
+
+    if (rev.testimonialPages && rev.testimonialPages.length > 0) {
+      parts.push(`Testimonial pages discovered: ${rev.testimonialPages.slice(0, 5).join(', ')}`);
+    }
+
     if (rev.error) {
       parts.push(`Error: ${rev.error}`);
     }
@@ -406,6 +418,14 @@ function injectReviews(
       reviews.negativeReviews = reviewResult.negativeReviews;
     }
 
+    if (reviewResult.testimonials && reviewResult.testimonials.length > 0) {
+      reviews.testimonials = reviewResult.testimonials;
+    }
+
+    if (reviewResult.testimonialPages && reviewResult.testimonialPages.length > 0) {
+      reviews.testimonialPages = reviewResult.testimonialPages;
+    }
+
     // Inject gap intelligence if available for this competitor
     if (gapIntelligence) {
       const gapKey = Object.keys(gapIntelligence).find(
@@ -419,6 +439,7 @@ function injectReviews(
     // Only inject if we actually have data from at least one source
     const hasAnyReviewData = reviews.trustpilot || reviews.g2 || reviews.capterra
       || (reviewResult.negativeReviews?.length ?? 0) > 0
+      || (reviewResult.testimonials?.length ?? 0) > 0
       || reviews.gapIntelligence;
     if (hasAnyReviewData) {
       c.reviews = reviews;

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { STATUS_BADGE_COLORS } from "@/components/strategic-research/ui-tokens";
 import { EditableText } from "@/components/strategic-research/editable/editable-text";
 import type { KPITarget } from "@/lib/media-plan/types";
+import { FUNNEL_STAGE_LABELS } from "@/lib/media-plan/schemas";
 
 // Re-export for consumers
 export { STATUS_BADGE_COLORS };
@@ -81,7 +82,8 @@ export const FUNNEL_COLORS: Record<string, keyof typeof STATUS_BADGE_COLORS> = {
 
 export function FunnelBadge({ stage }: { stage: string }) {
   const variant = FUNNEL_COLORS[stage] ?? "neutral";
-  return <StatusBadge label={stage} variant={variant} />;
+  const label = FUNNEL_STAGE_LABELS[stage] ?? stage;
+  return <StatusBadge label={label} variant={variant} />;
 }
 
 export const PRIORITY_COLORS: Record<string, keyof typeof STATUS_BADGE_COLORS> = {

@@ -22,6 +22,8 @@ function makeReviewResult(name: string, negativeReviews: ReviewResult['negativeR
     trustpilot: null,
     g2: null,
     capterra: null,
+    testimonials: [],
+    testimonialPages: [],
     negativeReviews,
   };
 }

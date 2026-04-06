@@ -92,13 +92,20 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
       )}
     >
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider">
-            {card.label}
-          </span>
-          {showSaved && (
-            <span className="text-[10px] font-mono text-[var(--accent-green,#22c55e)] animate-pulse">
-              Saved
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider">
+              {card.label}
+            </span>
+            {showSaved && (
+              <span className="text-[10px] font-mono text-[var(--accent-green,#22c55e)] animate-pulse">
+                Saved
+              </span>
+            )}
+          </div>
+          {card.description && (
+            <span className="text-[11px] text-[var(--text-tertiary)] leading-snug">
+              {card.description}
             </span>
           )}
         </div>

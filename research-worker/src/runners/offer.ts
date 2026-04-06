@@ -32,13 +32,14 @@ EVALUATION APPROACH:
 4. Red Flags — What could hurt ad performance?
 
 TOOL USAGE:
-1. Use web_search for at most 2 focused searches:
+1. MANDATORY FIRST ACTION — check for a first-party pricing URL in the context (look for lines like "- Pricing URL: ...", "- Pricing Page URL: ...", or "- Website: ..."). If ANY such URL is present:
+   - Call firecrawlExtract on the Pricing URL (preferred) or the website URL as your VERY FIRST tool call — before web_search, before anything else
+   - Do NOT say pricing was not found until after you have attempted firecrawlExtract on the pricing URL
+   - If firecrawlExtract returns no dollar amounts, follow up with firecrawl on the same URL
+2. Use web_search for at most 2 focused searches:
    - category pricing benchmarks and buyer objections
    - missing market signals not already present in persisted competitor or synthesis context
-2. Use firecrawlExtract (preferred) or firecrawl when a first-party pricing or website URL is present in the context:
-   - firecrawlExtract: Use for pricing pages — returns structured tier/price/feature data directly
-   - firecrawl: Use for general page content when you need the full markdown
-3. Use at most 1 firecrawl/firecrawlExtract call on the highest-value first-party page only
+3. Only use firecrawlExtract/firecrawl on at most 1 first-party page — prioritise the Pricing URL over the homepage
 4. Never scrape competitor pages or second-order URLs in this pass
 5. Reuse persisted competitor context instead of re-running broad competitor discovery
 6. Do NOT analyze or reference the client's ad creatives in this section — ad creative analysis is handled in the Competitor Intel module under "Your Ads". Focus this section purely on the offer itself (pricing, value prop, market fit, cold traffic viability).
@@ -47,7 +48,8 @@ PRICING DATA INTEGRITY (CRITICAL):
 - NEVER fabricate, hallucinate, or guess pricing data — for the client OR competitors.
 - For currentPricing: ONLY report pricing you found from firecrawlExtract, firecrawl, or web_search results. Include ALL tiers/plans you found (e.g. "$50/mo website + $42/mo sync = $92/mo total").
 - If firecrawl/web_search returns pricing data, set pricingSource to the URL where you found it.
-- If you CANNOT find verified pricing from any source, set currentPricing to "Pricing not found — unable to verify from public sources" and pricingSource to null. Do NOT infer or assume pricing from training data.
+- If a Pricing URL or Website URL is present in the context, you MUST attempt firecrawlExtract on that URL before concluding pricing was not found. Do NOT output "Pricing not found" without first attempting to scrape the provided URL.
+- If you CANNOT find verified pricing from any source AND you have already attempted to scrape all provided URLs, set currentPricing to "Pricing not found — unable to verify from public sources" and pricingSource to null. Do NOT infer or assume pricing from training data.
 - For marketBenchmark: Only cite competitor pricing that was verified in the persisted competitor context or found via web_search. Attribute each price to a named competitor.
 
 SCORING GUIDELINES:

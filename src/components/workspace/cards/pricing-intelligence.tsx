@@ -5,6 +5,15 @@
  * Follows DESIGN.md: callout blocks with left accent, inline stats, no cards for scores.
  */
 
+// Strips citation markers like [1], [2], [[citation]], [[source]], [source] from text.
+function stripCitations(text: string): string {
+  return text
+    .replace(/\[\[^\]]*?\]\]/g, '') // [[double bracket citations]]
+    .replace(/\[\d+\]/g, '')        // [1], [2], numeric citations
+    .replace(/\[[^\]]{1,40}\]/g, '') // [short label citations] up to 40 chars
+    .trim();
+}
+
 interface ElasticitySignal {
   signal: string;
   source: string;
@@ -73,7 +82,7 @@ export function PricingIntelligence({
                 {s.direction === 'inelastic' ? '▲' : '▼'}
               </span>
               <span className="text-[var(--text-secondary)] leading-relaxed">
-                {s.signal}
+                {stripCitations(s.signal)}
               </span>
               <span className="ml-auto shrink-0 text-[10px] font-mono text-[var(--text-tertiary)]">
                 {s.source}
@@ -87,7 +96,7 @@ export function PricingIntelligence({
         <p className="text-sm text-[var(--text-secondary)] leading-relaxed border-l-2 pl-3"
           style={{ borderColor: verdictColor(verdict) }}
         >
-          {reasoning}
+          {stripCitations(reasoning)}
         </p>
       )}
     </div>

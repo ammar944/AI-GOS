@@ -1240,6 +1240,31 @@ export function validateCampaignNaming(
       }
     }
 
+    // Rule 1b: Sanitize hallucinated funnel abbreviations in campaign names
+    // AI sometimes generates abbreviations like YTO, TOF, BOF, MOF instead of proper funnel terms
+    const HALLUCINATED_FUNNEL_ABBREVS: Record<string, string> = {
+      'YTO': 'Cold',
+      'TOF': 'Cold',
+      'BOF': 'Hot',
+      'MOF': 'Warm',
+    };
+    for (const [abbrev, replacement] of Object.entries(HALLUCINATED_FUNNEL_ABBREVS)) {
+      // Match the abbreviation as a word boundary or underscore-delimited segment
+      const abbrevRegex = new RegExp(`(?<=^|_)${abbrev}(?=$|_)`, 'i');
+      if (abbrevRegex.test(fixedName)) {
+        const sanitized = fixedName.replace(new RegExp(`(^|_)${abbrev}($|_)`, 'i'), `$1${replacement}$2`);
+        adjustments.push({
+          field: `campaignStructure.campaigns.${campaign.name}.name`,
+          originalValue: fixedName,
+          adjustedValue: sanitized,
+          rule: 'CampaignNaming_FunnelAbbrevSanitize',
+          reason: `Campaign name contained hallucinated funnel abbreviation "${abbrev}", replaced with "${replacement}".`,
+        });
+        fixedName = sanitized;
+        break;
+      }
+    }
+
     // Rule 2: Warn if campaign name doesn't contain its platform
     const campaignPlatform = campaign.platform.toLowerCase();
     const platformMatch = Object.entries(PLATFORM_ALIASES).find(

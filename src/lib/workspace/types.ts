@@ -26,6 +26,7 @@ export interface CardState {
   sectionKey: SectionKey;
   cardType: string;
   label: string;
+  description?: string;
   content: Record<string, unknown>;
   status: 'draft' | 'edited' | 'approved';
   versions: CardSnapshot[];

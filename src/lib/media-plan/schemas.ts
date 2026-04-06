@@ -4,6 +4,16 @@
 import { z } from 'zod';
 
 // =============================================================================
+// Funnel Stage Display Labels
+// =============================================================================
+
+export const FUNNEL_STAGE_LABELS: Record<string, string> = {
+  cold: 'Top of Funnel (Prospecting)',
+  warm: 'Mid-Funnel (Retargeting)',
+  hot: 'Bottom of Funnel (Conversion)',
+};
+
+// =============================================================================
 // Executive Summary
 // =============================================================================
 

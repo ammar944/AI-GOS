@@ -38,12 +38,14 @@ function makeCard(
   cardType: string,
   label: string,
   content: Record<string, unknown>,
+  description?: string,
 ): CardState {
   return {
     id: nextCardId(section, cardType),
     sectionKey: section,
     cardType,
     label,
+    ...(description ? { description } : {}),
     content,
     status: 'draft',
     versions: [],
@@ -65,7 +67,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
         difficulty: asString(o.difficulty) ?? 'medium',
         evidence: asString(o.evidence) ?? '',
       })).filter((o) => o.opportunity),
-    }));
+    }, 'Actionable market gaps ranked by size, timing, and difficulty'));
   }
 
   // Category Snapshot StatGrid
@@ -81,7 +83,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     ].filter((s): s is { label: string; value: string } => s.value !== null);
 
     if (stats.length > 0) {
-      cards.push(makeCard(section, 'stat-grid', 'Category Snapshot', { stats }));
+      cards.push(makeCard(section, 'stat-grid', 'Category Snapshot', { stats }, 'At-a-glance market characteristics and buying dynamics'));
     }
   }
 
@@ -92,7 +94,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Pain Points', {
       items: painItems,
       accent: 'var(--section-market)',
-    }));
+    }, 'Core frustrations your target market experiences today'));
   }
 
   // Demand Drivers
@@ -102,7 +104,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Demand Drivers', {
       items: drivers,
       accent: 'var(--section-market)',
-    }));
+    }, 'Forces accelerating demand in this market right now'));
   }
 
   // Buying Triggers
@@ -111,7 +113,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Buying Triggers', {
       items: triggers,
       accent: 'var(--section-market)',
-    }));
+    }, 'Events or situations that make prospects ready to purchase'));
   }
 
   // Barriers
@@ -120,7 +122,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Barriers to Purchase', {
       items: barriers,
       accent: 'var(--section-market)',
-    }));
+    }, 'Friction points that slow or prevent buyers from committing'));
   }
 
   // Trend Signals
@@ -132,7 +134,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
         trend: asString(t.trend)!,
         direction: asString(t.direction) ?? 'stable',
         evidence: asString(t.evidence) ?? '',
-      }));
+      }, 'Emerging market shift with direction and supporting evidence'));
     }
   }
 
@@ -143,7 +145,7 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'check-list', 'Messaging Opportunities', {
       items: recs,
       accent: 'var(--accent-green)',
-    }));
+    }, 'Positioning angles and narrative hooks ready to test in ads'));
   }
 
   return cards;
@@ -166,7 +168,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
         reward: asString(m.reward) ?? 'medium',
         playbook: asString(m.playbook) ?? '',
       })).filter((m) => m.move),
-    }));
+    }, 'Tactical repositioning plays to exploit competitor weaknesses'));
   }
 
   const competitors = asRecordArray(data.competitors);
@@ -247,7 +249,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
         : undefined,
       topAdHooks: asStringArray(threat?.topAdHooks),
       counterPositioning: asString(threat?.counterPositioning),
-    }));
+    }, 'Pricing, ad activity, strengths, and counter-positioning for this competitor'));
 
     // Review card — emit if competitor has review data OR a verified profile link
     const reviews = asRecord(competitor.reviews);
@@ -299,7 +301,15 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
           } : null,
           negativeReviews,
           gapIntelligence: gapIntelligence ?? null,
-        }));
+          testimonials: asRecordArray(reviews.testimonials).map((t) => ({
+            quote: asString(t.quote) ?? '',
+            author: asString(t.author),
+            role: asString(t.role),
+            company: asString(t.company),
+            sourceUrl: asString(t.sourceUrl) ?? '',
+          })).filter((t) => t.quote),
+          testimonialPages: asStringArray(reviews.testimonialPages),
+        }, 'Ratings, review themes, and customer complaints across review platforms'));
       }
     }
   }
@@ -310,7 +320,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Market Patterns', {
       items: marketPatterns,
       accent: 'var(--accent-cyan)',
-    }));
+    }, 'Recurring behaviors and trends observed across the competitive landscape'));
   }
 
   // White-Space Gaps
@@ -325,7 +335,7 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
         exploitability: asNumber(gap.exploitability),
         impact: asNumber(gap.impact),
         recommendedAction: asString(gap.recommendedAction),
-      }));
+      }, 'Underserved market position no competitor currently owns'));
     }
   }
 
@@ -349,7 +359,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
         testMethod: asString(r.testMethod) ?? '',
         risk: asString(r.risk) ?? '',
       })).filter((r) => r.refinement),
-    }));
+    }, 'Targeting adjustments to improve ad performance and reduce wasted spend'));
   }
 
   // Persona stats
@@ -361,7 +371,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   ].filter((s): s is { label: string; value: string } => s.value !== null);
 
   if (stats.length > 0) {
-    cards.push(makeCard(section, 'stat-grid', 'ICP Overview', { stats }));
+    cards.push(makeCard(section, 'stat-grid', 'ICP Overview', { stats }, 'Validated ideal customer profile with audience size and confidence score'));
   }
 
   // Final Verdict
@@ -370,13 +380,13 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'verdict-card', 'Final Verdict', {
       status: asString(finalVerdict.status)!,
       reasoning: asString(finalVerdict.reasoning),
-    }));
+    }, 'Overall assessment of ad readiness for this audience segment'));
   }
 
   // Decision Process
   const decisionProcess = asString(data.decisionProcess);
   if (decisionProcess) {
-    cards.push(makeCard(section, 'prose-card', 'Decision Process', { text: decisionProcess }));
+    cards.push(makeCard(section, 'prose-card', 'Decision Process', { text: decisionProcess }, 'How buyers evaluate, compare, and decide to purchase in this market'));
   }
 
   // Channels, Triggers, Objections
@@ -385,7 +395,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Best Channels', {
       items: channels,
       accent: 'var(--accent-cyan)',
-    }));
+    }, 'Recommended paid advertising platforms ranked by expected ROI'));
   }
 
   const triggers = asStringArray(data.triggers);
@@ -393,7 +403,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Buying Triggers', {
       items: triggers,
       accent: 'var(--accent-blue)',
-    }));
+    }, 'Events or situations that make this ICP ready to purchase'));
   }
 
   const objections = asStringArray(data.objections);
@@ -401,7 +411,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Core Objections', {
       items: objections,
       accent: 'var(--accent-red)',
-    }));
+    }, 'Common reasons prospects hesitate or say no'));
   }
 
   // Recommendations
@@ -410,7 +420,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'check-list', 'Recommendations', {
       items: recommendations,
       accent: 'var(--accent-green)',
-    }));
+    }, 'Suggested next steps to improve ICP targeting and campaign fit'));
   }
 
   // Multi-product ICP segments (when business has distinct product lines targeting different audiences)
@@ -424,14 +434,14 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
         name: productLine,
         description: asString(segment.validatedPersona),
         estimatedReach: asString(segment.audienceSize),
-      }));
+      }, 'Distinct audience segment with its own persona and targeting profile'));
 
       const segChannels = asStringArray(segment.channels);
       if (segChannels.length > 0) {
         cards.push(makeCard(section, 'bullet-list', `${productLine} — Channels`, {
           items: segChannels,
           accent: 'var(--accent-cyan)',
-        }));
+        }, 'Best advertising platforms for this product line segment'));
       }
 
       const segTriggers = asStringArray(segment.triggers);
@@ -439,7 +449,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
         cards.push(makeCard(section, 'bullet-list', `${productLine} — Buying Triggers`, {
           items: segTriggers,
           accent: 'var(--accent-blue)',
-        }));
+        }, 'Purchase-ready signals specific to this product line'));
       }
 
       const segObjections = asStringArray(segment.objections);
@@ -447,7 +457,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
         cards.push(makeCard(section, 'bullet-list', `${productLine} — Objections`, {
           items: segObjections,
           accent: 'var(--accent-red)',
-        }));
+        }, 'Common hesitations and blockers for this product line audience'));
       }
     }
   }
@@ -484,13 +494,13 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   ].filter((s): s is { label: string; value: string } => s.value !== null);
 
   if (scoreStats.length > 0) {
-    cards.push(makeCard(section, 'stat-grid', 'Offer Score', { stats: scoreStats }));
+    cards.push(makeCard(section, 'stat-grid', 'Offer Score', { stats: scoreStats }, 'Strength rating across six dimensions: pain, urgency, differentiation, and more'));
   }
 
   // Rationale
   const reasoning = asString(recommendation?.summary);
   if (reasoning) {
-    cards.push(makeCard(section, 'prose-card', 'Recommendation Rationale', { text: reasoning }));
+    cards.push(makeCard(section, 'prose-card', 'Recommendation Rationale', { text: reasoning }, 'Explanation of the overall offer assessment and go/no-go recommendation'));
   }
 
   // Pricing Analysis
@@ -504,7 +514,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
         marketBenchmark: asString(pricingAnalysis.marketBenchmark),
         pricingPosition: asString(pricingAnalysis.pricingPosition),
         coldTrafficViability: asString(pricingAnalysis.coldTrafficViability),
-      }));
+      }, 'How your pricing compares to market benchmarks and cold traffic thresholds'));
     }
 
     // Pricing Intelligence (elasticity assessment)
@@ -516,7 +526,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
           signals: Array.isArray(elasticity.signals) ? elasticity.signals : [],
           reasoning: asString(elasticity.reasoning) ?? '',
         },
-      }));
+      }, 'Price sensitivity assessment based on market signals and competitor data'));
     }
   }
 
@@ -526,7 +536,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Strengths', {
       items: strengths,
       accent: 'var(--accent-green)',
-    }));
+    }, 'Offer elements that differentiate you and build purchase confidence'));
   }
 
   const weaknesses = asStringArray(recommendation?.priorityFixes);
@@ -534,7 +544,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Weaknesses', {
       items: weaknesses,
       accent: 'var(--accent-red)',
-    }));
+    }, 'Critical gaps in your offer that need to be addressed before scaling spend'));
   }
 
   const actionItems = asStringArray(recommendation?.recommendedActionPlan);
@@ -542,7 +552,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Recommended Actions', {
       items: actionItems,
       accent: 'var(--accent-blue)',
-    }));
+    }, 'Prioritized steps to strengthen offer-market fit and improve conversion'));
   }
 
   const messagingRecs = asStringArray(data.messagingRecommendations);
@@ -550,13 +560,13 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Messaging Recommendations', {
       items: messagingRecs,
       accent: 'var(--accent-cyan)',
-    }));
+    }, 'Language and framing suggestions to communicate your offer more effectively'));
   }
 
   // Market Fit
   const marketFit = asString(data.marketFitAssessment);
   if (marketFit) {
-    cards.push(makeCard(section, 'prose-card', 'Market Fit Assessment', { text: marketFit }));
+    cards.push(makeCard(section, 'prose-card', 'Market Fit Assessment', { text: marketFit }, 'Evaluation of how well your offer matches current market demand and timing'));
   }
 
   // Red Flags
@@ -570,7 +580,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
         priority: asNumber(flag.priority),
         evidence: asString(flag.evidence),
         recommendedAction: asString(flag.recommendedAction),
-      }));
+      }, 'High-priority issue that could undermine campaign performance'));
     }
   }
 
@@ -584,7 +594,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
         rationale: asString(s.rationale),
         targetEmotion: asString(s.targetEmotion),
       })).filter((s) => s.statement),
-    }));
+    }, 'AI-generated headlines and hooks ready to test in ad copy'));
   }
 
   // ICE-scored fixes (intelligence feature)
@@ -600,7 +610,7 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
         ease: asNumber(f.ease),
         iceScore: asNumber(f.iceScore),
       })).filter((f) => f.issue || f.fix),
-    }));
+    }, 'Offer fixes ranked by Impact, Confidence, and Ease of implementation'));
   }
 
   return cards;
@@ -651,12 +661,12 @@ function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
     }
 
     if (gaps.length > 0) {
-      cards.push(makeCard('keywordIntel', 'keyword-gap-card', 'Keyword Gaps to Fill', { gaps: gaps.slice(0, 3) }));
+      cards.push(makeCard('keywordIntel', 'keyword-gap-card', 'Keyword Gaps to Fill', { gaps: gaps.slice(0, 3) }, 'Search term clusters your competitors rank for but you currently miss'));
     }
   }
 
   // Existing passthrough
-  cards.push(makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', { rawData: data }));
+  cards.push(makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', { rawData: data }, 'Search volume, competition level, and priority score for each keyword'));
   return cards;
 }
 
@@ -680,7 +690,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
           score: asNumber(d.score) ?? 0,
           summary: asString(d.summary) ?? '',
         })).filter((d) => d.name),
-      }));
+      }, 'Overall paid media readiness score across market, offer, audience, and creative dimensions'));
     }
   }
 
@@ -695,7 +705,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
           source: asString(a.source) ?? '',
           priority: asString(a.priority) ?? 'medium',
         })).filter((a) => a.action),
-      }));
+      }, 'Highest-leverage actions to take before launching your first campaign'));
     }
   }
 
@@ -708,7 +718,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
         recommendedAngle: asString(positioningStrategy.recommendedAngle),
         leadRecommendation: asString(positioningStrategy.leadRecommendation),
         keyDifferentiator: asString(positioningStrategy.keyDifferentiator),
-      }));
+      }, 'Recommended market positioning angle and key differentiator for ad messaging'));
     }
   }
 
@@ -722,7 +732,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
     ].filter((s): s is { label: string; value: string } => s.value !== null);
 
     if (contextStats.length > 0) {
-      cards.push(makeCard(section, 'stat-grid', 'Planning Context', { stats: contextStats }));
+      cards.push(makeCard(section, 'stat-grid', 'Planning Context', { stats: contextStats }, 'Budget targets and cost benchmarks that guide the media plan'));
     }
 
     const downstream = asStringArray(planningContext.downstreamSequence);
@@ -730,7 +740,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
       cards.push(makeCard(section, 'bullet-list', 'Downstream Sequence', {
         items: downstream,
         accent: 'var(--accent-blue)',
-      }));
+      }, 'Post-click conversion steps from lead capture to closed deal'));
     }
   }
 
@@ -743,14 +753,14 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
         title,
         description: asString(chart.description),
         imageUrl: asString(chart.imageUrl) ?? asString(chart.url),
-      }));
+      }, 'Visual data chart supporting the strategic analysis'));
     }
   }
 
   // Strategic Narrative
   const narrative = asString(data.strategicNarrative);
   if (narrative) {
-    cards.push(makeCard(section, 'prose-card', 'Strategic Narrative', { text: narrative }));
+    cards.push(makeCard(section, 'prose-card', 'Strategic Narrative', { text: narrative }, 'Cohesive story connecting market, audience, and offer into a media strategy'));
   }
 
   // Key Insights
@@ -762,7 +772,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
         insight: headline,
         source: asString(insight.source),
         implication: asString(insight.implication),
-      }));
+      }, 'Cross-section finding with source attribution and strategic implication'));
     }
   }
 
@@ -776,7 +786,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
         role: asString(platform.role),
         budgetAllocation: asString(platform.budgetAllocation),
         rationale: asString(platform.rationale),
-      }));
+      }, 'Recommended advertising channel with role, budget share, and expected CPL'));
     }
   }
 
@@ -789,7 +799,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
         angle: title,
         exampleHook: asString(angle.exampleHook),
         evidence: asString(angle.evidence),
-      }));
+      }, 'Ad messaging angle with a sample hook and supporting evidence'));
     }
   }
 
@@ -799,7 +809,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'check-list', 'Critical Success Factors', {
       items: successFactors,
       accent: 'var(--accent-green)',
-    }));
+    }, 'Must-have conditions for campaign success based on cross-section analysis'));
   }
 
   // Next Steps
@@ -808,7 +818,7 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'check-list', 'Next Steps', {
       items: nextSteps,
       accent: 'var(--accent-blue)',
-    }));
+    }, 'Prioritized action items to execute before and after campaign launch'));
   }
 
   return cards;
@@ -838,7 +848,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
         estimatedCAC: asNumber(expectedOutcomes.estimatedCAC),
         expectedROAS: asNumber(expectedOutcomes.expectedROAS),
       } : undefined,
-    }));
+    }, 'High-level strategy overview with budget, priorities, and expected outcomes'));
   }
 
   // Block 1: Channel Mix — one card per platform + budget summary
@@ -856,7 +866,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           percentage: asNumber(platform.percentage),
           expectedCPL: expectedCPL ? { low: asNumber(expectedCPL.low), high: asNumber(expectedCPL.high) } : undefined,
           rationale: asString(platform.rationale),
-        }));
+        }, 'Advertising platform with spend allocation, role, and expected cost per lead'));
       }
     }
 
@@ -871,7 +881,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           conversion: asNumber(funnelSplit.conversion),
         } : undefined,
         rampUpWeeks: asNumber(budgetSummary.rampUpWeeks),
-      }));
+      }, 'Total monthly spend with funnel allocation and ramp-up timeline'));
     }
   }
 
@@ -888,7 +898,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           estimatedReach: asString(segment.estimatedReach),
           funnelPosition: asString(segment.funnelPosition),
           priority: asNumber(segment.priority),
-        }));
+        }, 'Target audience segment with reach estimate and funnel position'));
       }
     }
 
@@ -902,7 +912,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           objective: asString(campaign.objective),
           adSets: asRecordArray(campaign.adSets),
           namingConvention: asString(campaign.namingConvention),
-        }));
+        }, 'Campaign structure with platform, objective, and ad set configuration'));
       }
     }
   }
@@ -919,13 +929,13 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           hook: asString(angle.hook),
           messagingApproach: asString(angle.messagingApproach),
           targetSegment: asString(angle.targetSegment),
-        }));
+        }, 'Creative messaging angle with hook and target audience segment'));
       }
     }
 
     const formatSpecs = asRecordArray(creative.formatSpecs);
     if (formatSpecs.length > 0) {
-      cards.push(makeCard(section, 'format-spec', 'Ad Format Specifications', { specs: formatSpecs }));
+      cards.push(makeCard(section, 'format-spec', 'Ad Format Specifications', { specs: formatSpecs }, 'Required ad dimensions, formats, and platform-specific creative specs'));
     }
 
     const testingPlan = asRecord(creative.testingPlan);
@@ -934,7 +944,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
         firstTests: asStringArray(testingPlan.firstTests),
         methodology: asString(testingPlan.methodology),
         minBudgetPerTest: asNumber(testingPlan.minBudgetPerTest),
-      }));
+      }, 'A/B testing methodology with initial tests and minimum budget per variant'));
     }
   }
 
@@ -943,7 +953,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   if (measurement) {
     const kpis = asRecordArray(measurement.kpis);
     if (kpis.length > 0) {
-      cards.push(makeCard(section, 'kpi-grid', 'KPI Targets', { kpis }));
+      cards.push(makeCard(section, 'kpi-grid', 'KPI Targets', { kpis }, 'Key performance indicators with targets and industry benchmarks'));
     }
 
     const cacModel = asRecord(measurement.cacModel);
@@ -958,7 +968,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
         expectedCustomersPerMonth: asNumber(cacModel.expectedCustomersPerMonth),
         ltv: asNumber(cacModel.ltv),
         ltvCacRatio: asNumber(cacModel.ltvCacRatio),
-      }));
+      }, 'Customer acquisition cost model with conversion rates and LTV ratio'));
     }
 
     const risks = asRecordArray(measurement.risks);
@@ -972,7 +982,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           likelihood: asString(risk.likelihood),
           mitigation: asString(risk.mitigation),
           earlyWarning: asString(risk.earlyWarning),
-        }));
+        }, 'Campaign risk with severity, likelihood, and mitigation strategy'));
       }
     }
   }
@@ -992,7 +1002,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           successCriteria: asStringArray(phase.successCriteria),
           budgetAllocation: asNumber(phase.budgetAllocation),
           goNoGo: asString(phase.goNoGo),
-        }));
+        }, 'Rollout phase with timeline, objectives, and go/no-go criteria'));
       }
     }
   }
@@ -1004,7 +1014,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
       .map(p => ({ name: asString(p.name) ?? '', percentage: asNumber(p.percentage) ?? 0 }))
       .filter(p => p.name && p.percentage > 0);
     if (platformChartData.length > 0) {
-      cards.push(makeCard(section, 'pie-chart', 'Platform Budget Allocation', { platforms: platformChartData }));
+      cards.push(makeCard(section, 'pie-chart', 'Platform Budget Allocation', { platforms: platformChartData }, 'Visual breakdown of monthly spend across advertising platforms'));
     }
 
     const budgetSummary = asRecord(channelMix.budgetSummary);
@@ -1016,7 +1026,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           consideration: asNumber(funnelSplit.consideration) ?? 0,
           conversion: asNumber(funnelSplit.conversion) ?? 0,
         },
-      }));
+      }, 'Budget split across awareness, consideration, and conversion stages'));
     }
   }
 
@@ -1029,7 +1039,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
       if (leads != null && sqls != null && customers != null) {
         cards.push(makeCard(section, 'cac-funnel-chart', 'CAC Conversion Funnel', {
           cacModel: { expectedLeadsPerMonth: leads, expectedSQLsPerMonth: sqls, expectedCustomersPerMonth: customers },
-        }));
+        }, 'Lead-to-customer conversion funnel with expected volume at each stage'));
       }
     }
 
@@ -1042,7 +1052,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
       }))
       .filter(k => k.metric);
     if (kpiChartData.length > 0) {
-      cards.push(makeCard(section, 'kpi-benchmark-chart', 'KPI Targets vs Benchmarks', { kpis: kpiChartData }));
+      cards.push(makeCard(section, 'kpi-benchmark-chart', 'KPI Targets vs Benchmarks', { kpis: kpiChartData }, 'Your target KPIs compared against industry benchmark values'));
     }
   }
 
@@ -1052,7 +1062,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
       .map(p => ({ name: asString(p.name) ?? '', budgetAllocation: asNumber(p.budgetAllocation) ?? 0 }))
       .filter(p => p.name && p.budgetAllocation > 0);
     if (phaseChartData.length > 0) {
-      cards.push(makeCard(section, 'phase-budget-chart', 'Phase Budget Timeline', { phases: phaseChartData }));
+      cards.push(makeCard(section, 'phase-budget-chart', 'Phase Budget Timeline', { phases: phaseChartData }, 'Budget allocation across rollout phases over time'));
     }
   }
 
@@ -1062,7 +1072,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
     cards.push(makeCard(section, 'bullet-list', 'Validation Notes', {
       items: warnings,
       accent: 'var(--accent-amber)',
-    }));
+    }, 'Automated checks that flagged potential issues in the media plan'));
   }
 
   return cards;

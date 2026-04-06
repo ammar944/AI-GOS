@@ -59,11 +59,11 @@ const pricingPositionSchema = z
 export const elasticityAssessmentSchema = z.object({
   verdict: flexibleEnum(['likely-inelastic', 'likely-elastic', 'insufficient-data'] as const, 'insufficient-data'),
   signals: z.array(z.object({
-    signal: nonEmptyStringSchema,
-    source: nonEmptyStringSchema,
+    signal: nonEmptyStringSchema.describe('Plain text description of the signal — no citations or markdown'),
+    source: nonEmptyStringSchema.describe('Plain text label for where this signal came from — no citations or markdown'),
     direction: flexibleEnum(['inelastic', 'elastic'] as const, 'elastic'),
   })).default([]),
-  reasoning: nonEmptyStringSchema,
+  reasoning: nonEmptyStringSchema.describe('Plain text paragraph explaining the overall assessment — no citations or markdown'),
 });
 
 export const pricingAnalysisSchema = z.object({

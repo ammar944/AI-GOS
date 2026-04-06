@@ -1,6 +1,7 @@
 // Converts a MediaPlanOutput into clean, structured markdown
 // optimized for LLM consumption (pasting into Claude, ChatGPT, etc.)
 
+import { FUNNEL_STAGE_LABELS } from './schemas';
 import type {
   MediaPlanOutput,
   MediaPlanExecutiveSummary,
@@ -110,7 +111,7 @@ function campaignStructureMd(d: CampaignStructure): string {
   lines.push(`### Campaigns`);
   for (const c of d.campaigns) {
     lines.push(``);
-    lines.push(`**${c.name}** — ${c.platform} | ${c.funnelStage} | ${c.objective}`);
+    lines.push(`**${c.name}** — ${c.platform} | ${FUNNEL_STAGE_LABELS[c.funnelStage] ?? c.funnelStage} | ${c.objective}`);
     lines.push(`- Daily Budget: ${fmt$(c.dailyBudget)}`);
     if (c.adSets.length > 0) {
       lines.push(`- Ad Sets:`);

@@ -50,6 +50,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: { rating: 4.2, reviewCount: 100, recentThemes: ['fast'], url: 'https://tp.com/acme' },
       g2: { rating: 3.8, reviewCount: 50, categories: ['analytics'], url: 'https://g2.com/acme' },
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
     }]);
 
@@ -69,6 +71,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: null,
       g2: null,
       capterra: { rating: 4.0, reviewCount: 200, categories: ['CRM'], url: 'https://capterra.com/acme' },
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
     }]);
 
@@ -88,6 +92,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: null,
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [
         { text: 'Terrible onboarding', rating: 1, source: 'g2' as const },
       ],
@@ -109,6 +115,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: null,
       g2: null,
       capterra: { rating: 3.5, reviewCount: 30, categories: [], url: 'https://capterra.com/acme' },
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
     }]);
 
@@ -126,6 +134,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: null,
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [
         { text: 'Bad UX', rating: 2, source: 'capterra' as const },
       ],
@@ -145,6 +155,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: { rating: 4.0, reviewCount: 50, recentThemes: [], url: '' },
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
     }]);
 
@@ -178,6 +190,8 @@ describe('injectReviews via postProcessSynthesis', () => {
       trustpilot: null,
       g2: null,
       capterra: null,
+      testimonials: [],
+      testimonialPages: [],
       negativeReviews: [],
     }]);
 
