@@ -16,11 +16,13 @@ import type {
   RiskMonitoring,
 } from "./types";
 
-function fmt$(n: number): string {
+function fmt$(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
   return `$${n.toLocaleString()}`;
 }
 
-function fmtPct(n: number): string {
+function fmtPct(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
   return `${n}%`;
 }
 
@@ -293,20 +295,22 @@ function kpiTargetsMd(data: KPITarget[]): string {
 function performanceModelMd(d: PerformanceModel): string {
   const m = d.cacModel;
   const lines = [`## 9. Performance Model`, ``];
+  const nullable = (n: number | null): string =>
+    n !== null ? n.toLocaleString() : '—';
 
   lines.push(`### CAC Funnel Model`);
   lines.push(``);
   lines.push(`| Metric | Value |`);
   lines.push(`|--------|-------|`);
   lines.push(`| Target CPL | ${fmt$(m.targetCPL)} |`);
-  lines.push(`| Expected Leads/mo | ${m.expectedMonthlyLeads.toLocaleString()} |`);
+  lines.push(`| Expected Leads/mo | ${nullable(m.expectedMonthlyLeads)} |`);
   lines.push(`| Lead → SQL Rate | ${fmtPct(m.leadToSqlRate)} |`);
-  lines.push(`| Expected SQLs/mo | ${m.expectedMonthlySQLs.toLocaleString()} |`);
+  lines.push(`| Expected SQLs/mo | ${nullable(m.expectedMonthlySQLs)} |`);
   lines.push(`| SQL → Customer Rate | ${fmtPct(m.sqlToCustomerRate)} |`);
-  lines.push(`| Expected Customers/mo | ${m.expectedMonthlyCustomers.toLocaleString()} |`);
+  lines.push(`| Expected Customers/mo | ${nullable(m.expectedMonthlyCustomers)} |`);
   lines.push(`| Target CAC | ${fmt$(m.targetCAC)} |`);
   lines.push(`| Estimated LTV | ${fmt$(m.estimatedLTV)} |`);
-  lines.push(`| **LTV : CAC Ratio** | **${m.ltvToCacRatio}** |`);
+  lines.push(`| **LTV : CAC Ratio** | **${m.ltvToCacRatio ?? 'Insufficient data'}** |`);
   lines.push(``);
 
   lines.push(`### Monitoring Schedule`);

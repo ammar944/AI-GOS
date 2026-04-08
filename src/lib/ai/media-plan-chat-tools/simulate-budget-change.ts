@@ -8,7 +8,6 @@ import type { MediaPlanOutput } from '@/lib/media-plan/types';
 import type { OnboardingFormData } from '@/lib/onboarding/types';
 import type { BudgetSimulationResult, SimulatedCACSnapshot } from './types';
 import { computeCACModel } from '@/lib/media-plan/validation';
-import { deriveOfferPrice, deriveRetentionMultiplier } from './validation-cascade';
 
 export function createSimulateBudgetChangeTool(
   mediaPlan: MediaPlanOutput,
@@ -28,8 +27,6 @@ export function createSimulateBudgetChangeTool(
     }),
     execute: async ({ proposedMonthlyBudget }) => {
       const cacModel = mediaPlan.performanceModel.cacModel;
-      const offerPrice = deriveOfferPrice(onboardingData);
-      const retentionMultiplier = deriveRetentionMultiplier(onboardingData);
       const currentBudget = mediaPlan.budgetAllocation.totalMonthlyBudget;
 
       const currentSnapshot: SimulatedCACSnapshot = {
@@ -42,13 +39,26 @@ export function createSimulateBudgetChangeTool(
         ltvToCacRatio: cacModel.ltvToCacRatio,
       };
 
-      const proposedCACModel = computeCACModel({
+      // Reverse the sqrt distribution used inside computeCACModel to recover
+      // the single leadToCustomerRate from the two-stage split on the existing
+      // plan. Preserves the original plan's anchors (currentCac, avgCustomerLtv)
+      // so this read-only simulation never fabricates new LTV/CAC values.
+      const leadToCustomerRate =
+        cacModel.leadToSqlRate !== null && cacModel.sqlToCustomerRate !== null
+          ? (cacModel.leadToSqlRate / 100) * (cacModel.sqlToCustomerRate / 100) * 100
+          : null;
+
+      // Onboarding data is intentionally unused here — the plan's own cacModel
+      // is the source of truth for CAC/LTV anchors, because baseline metrics
+      // were already resolved at generation time.
+      void onboardingData;
+
+      const { cacModel: proposedCACModel } = computeCACModel({
         monthlyBudget: proposedMonthlyBudget,
         targetCPL: cacModel.targetCPL,
-        leadToSqlRate: cacModel.leadToSqlRate,
-        sqlToCustomerRate: cacModel.sqlToCustomerRate,
-        offerPrice,
-        retentionMultiplier,
+        leadToCustomerRate,
+        currentCac: cacModel.targetCAC,
+        avgCustomerLtv: cacModel.estimatedLTV,
       });
 
       const proposedSnapshot: SimulatedCACSnapshot = {
@@ -61,6 +71,9 @@ export function createSimulateBudgetChangeTool(
         ltvToCacRatio: proposedCACModel.ltvToCacRatio,
       };
 
+      const safeDelta = (a: number | null, b: number | null): number | null =>
+        a !== null && b !== null ? a - b : null;
+
       const result: BudgetSimulationResult = {
         current: currentSnapshot,
         proposed: proposedSnapshot,
@@ -70,12 +83,15 @@ export function createSimulateBudgetChangeTool(
           budgetChangePercent: Math.round(
             ((proposedMonthlyBudget - currentBudget) / currentBudget) * 100,
           ),
-          leadsDelta:
-            proposedCACModel.expectedMonthlyLeads - cacModel.expectedMonthlyLeads,
-          customersDelta:
-            proposedCACModel.expectedMonthlyCustomers -
+          leadsDelta: safeDelta(
+            proposedCACModel.expectedMonthlyLeads,
+            cacModel.expectedMonthlyLeads,
+          ),
+          customersDelta: safeDelta(
+            proposedCACModel.expectedMonthlyCustomers,
             cacModel.expectedMonthlyCustomers,
-          cacDelta: proposedCACModel.targetCAC - cacModel.targetCAC,
+          ),
+          cacDelta: safeDelta(proposedCACModel.targetCAC, cacModel.targetCAC),
         },
       };
 

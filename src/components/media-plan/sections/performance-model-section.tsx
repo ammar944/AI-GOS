@@ -30,7 +30,7 @@ export function PerformanceModelContent({
               <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Target CPL</p>
                 <EditableText
-                  value={String(m.targetCPL)}
+                  value={m.targetCPL !== null ? String(m.targetCPL) : ''}
                   onSave={(v) => onFieldChange?.("cacModel.targetCPL", Number(v) || 0)}
                 />
               </div>
@@ -38,7 +38,7 @@ export function PerformanceModelContent({
               <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Lead &rarr; SQL</p>
                 <EditableText
-                  value={String(m.leadToSqlRate)}
+                  value={m.leadToSqlRate !== null ? String(m.leadToSqlRate) : ''}
                   onSave={(v) => onFieldChange?.("cacModel.leadToSqlRate", Number(v) || 0)}
                 />
               </div>
@@ -49,7 +49,7 @@ export function PerformanceModelContent({
               <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>SQL &rarr; Customer</p>
                 <EditableText
-                  value={String(m.sqlToCustomerRate)}
+                  value={m.sqlToCustomerRate !== null ? String(m.sqlToCustomerRate) : ''}
                   onSave={(v) => onFieldChange?.("cacModel.sqlToCustomerRate", Number(v) || 0)}
                 />
               </div>
@@ -57,14 +57,14 @@ export function PerformanceModelContent({
               <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Target CAC</p>
                 <EditableText
-                  value={String(m.targetCAC)}
+                  value={m.targetCAC !== null ? String(m.targetCAC) : ''}
                   onSave={(v) => onFieldChange?.("cacModel.targetCAC", Number(v) || 0)}
                 />
               </div>
               <div className={"p-4"}>
                 <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Est. LTV</p>
                 <EditableText
-                  value={String(m.estimatedLTV)}
+                  value={m.estimatedLTV !== null ? String(m.estimatedLTV) : ''}
                   onSave={(v) => onFieldChange?.("cacModel.estimatedLTV", Number(v) || 0)}
                 />
               </div>
@@ -100,7 +100,7 @@ export function PerformanceModelContent({
             className="text-xl font-bold font-mono"
             style={{ color: "rgb(34,197,94)", fontFamily: "var(--font-mono), monospace" }}
           >
-            {m.ltvToCacRatio}
+            {m.ltvToCacRatio ?? 'Insufficient data'}
           </span>
         </div>
       </SubSection>

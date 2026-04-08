@@ -42,7 +42,13 @@ export function SubSection({ title, children }: { title: string; children: React
   );
 }
 
-export function InfoCard({ label, value, mono }: { label: string; value: string | number; mono?: boolean }) {
+export function InfoCard({ label, value, mono }: { label: string; value: string | number | null | undefined; mono?: boolean }) {
+  const rendered =
+    value === null || value === undefined
+      ? '—'
+      : typeof value === 'number'
+        ? value.toLocaleString()
+        : value;
   return (
     <div className="p-4">
       <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
@@ -55,7 +61,7 @@ export function InfoCard({ label, value, mono }: { label: string; value: string 
           ...(mono ? { fontFamily: "var(--font-mono), monospace" } : {}),
         }}
       >
-        {typeof value === "number" ? value.toLocaleString() : value}
+        {rendered}
       </p>
     </div>
   );
@@ -121,11 +127,19 @@ export function ListItem({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function fmt$(n: number): string {
+/**
+ * Format a USD amount. Renders an em-dash for null so the UI shows no value
+ * rather than "$NaN" when a cacModel field was left null due to missing
+ * baseline metrics (part of the research-fabrication-fix insufficient-data path).
+ */
+export function fmt$(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
   return `$${n.toLocaleString()}`;
 }
 
-export function fmtPct(n: number): string {
+/** Format a 0-100 percentage. Null/undefined renders as "—". */
+export function fmtPct(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
   return `${n}%`;
 }
 

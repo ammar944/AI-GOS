@@ -1,7 +1,10 @@
 // Media Plan Chat Tools -- barrel export and factory function
 
 export { summarizeMediaPlan, getAffectedValidators, applyMediaPlanEdit } from './utils';
-export { runValidationCascade, deriveOfferPrice, deriveRetentionMultiplier } from './validation-cascade';
+export { runValidationCascade, deriveOfferPrice } from './validation-cascade';
+// NOTE: deriveRetentionMultiplier was removed as part of the research-fabrication
+// fix. The chat tools now preserve the existing plan's LTV/CAC anchors rather
+// than re-fabricating them from pricing-model heuristics.
 export type {
   MediaPlanPendingEdit,
   ValidatorCategory,

@@ -67,15 +67,48 @@ export interface CrossSectionValidationResult {
 
 export interface ResolvedTargets {
   monthlyBudget: number;
-  cpl: number;
-  cac: number;
-  leadsPerMonth: number;
-  sqlsPerMonth: number;
-  customersPerMonth: number;
+  cpl: number | null;
+  cac: number | null;
+  leadsPerMonth: number | null;
+  sqlsPerMonth: number | null;
+  customersPerMonth: number | null;
+  leadToSqlRate: number | null;
+  sqlToCustomerRate: number | null;
+  ltvCacRatio: string | null;
+  estimatedLtv: number | null;
+}
+
+/**
+ * Narrowing type guard: true when every economic field is non-null, which
+ * means the model had enough baseline metrics to resolve the full cascade.
+ * Internal validators that require deterministic math (KPI reconciliation,
+ * stale-reference sweeps, etc.) early-return on incomplete models rather
+ * than operating on partial data.
+ */
+type CompleteCACModel = CACModel & {
+  targetCAC: number;
+  targetCPL: number;
   leadToSqlRate: number;
   sqlToCustomerRate: number;
-  ltvCacRatio: string;
-  estimatedLtv: number;
+  expectedMonthlyLeads: number;
+  expectedMonthlySQLs: number;
+  expectedMonthlyCustomers: number;
+  estimatedLTV: number;
+  ltvToCacRatio: string;
+};
+
+function isCompleteCacModel(m: CACModel): m is CompleteCACModel {
+  return (
+    m.targetCAC !== null &&
+    m.targetCPL !== null &&
+    m.leadToSqlRate !== null &&
+    m.sqlToCustomerRate !== null &&
+    m.expectedMonthlyLeads !== null &&
+    m.expectedMonthlySQLs !== null &&
+    m.expectedMonthlyCustomers !== null &&
+    m.estimatedLTV !== null &&
+    m.ltvToCacRatio !== null
+  );
 }
 
 export interface RetargetingValidationInput {
@@ -475,7 +508,7 @@ export function validateCrossSection(input: {
     if (kpiCplMatch) {
       const kpiCplValue = parseInt(kpiCplMatch[1], 10);
       const modelCpl = performanceModel.cacModel.targetCPL;
-      if (Math.abs(kpiCplValue - modelCpl) > modelCpl * 0.2) {
+      if (modelCpl !== null && Math.abs(kpiCplValue - modelCpl) > modelCpl * 0.2) {
         warnings.push(
           `KPI CPL target ($${kpiCplValue}) differs >20% from performance model CPL ($${modelCpl})`,
         );
@@ -492,7 +525,7 @@ export function validateCrossSection(input: {
     if (kpiCacMatch) {
       const kpiCacValue = parseInt(kpiCacMatch[1].replace(/,/g, ''), 10);
       const modelCac = performanceModel.cacModel.targetCAC;
-      if (Math.abs(kpiCacValue - modelCac) > modelCac * 0.2) {
+      if (modelCac !== null && Math.abs(kpiCacValue - modelCac) > modelCac * 0.2) {
         warnings.push(
           `KPI CAC target ($${kpiCacValue}) differs >20% from computed CAC ($${modelCac}). Computed value is deterministic: budget / customers.`,
         );
@@ -529,6 +562,13 @@ export function reconcileKPITargets(
   monthlyBudget: number,
   offerPrice?: number,
 ): { kpiTargets: KPITarget[]; overrides: ValidationAdjustment[] } {
+  // If the cacModel lacks any computed field (user did not provide the required
+  // baseline metrics), there is no deterministic baseline to reconcile KPI
+  // targets against. Pass through unchanged — the insufficient-data state is
+  // preserved for the UI to surface.
+  if (!isCompleteCacModel(cacModel)) {
+    return { kpiTargets, overrides: [] };
+  }
   const overrides: ValidationAdjustment[] = [];
   const fixed = kpiTargets.map(kpi => {
     const metric = kpi.metric.toLowerCase();
@@ -1818,6 +1858,12 @@ export function sweepStaleReferences(
   monthlyBudget: number,
   offerPrice?: number,
 ): { mediaPlan: MediaPlanOutput; corrections: string[] } {
+  // No baseline to sweep against when the cacModel is incomplete. The stale-
+  // reference scrubber replaces AI prose with deterministic values — if we
+  // don't have those values, we can't rewrite anything, so return unchanged.
+  if (!isCompleteCacModel(cacModel)) {
+    return { mediaPlan, corrections: [] };
+  }
   const corrections: string[] = [];
   const computedCAC = cacModel.targetCAC;
   const computedLeads = cacModel.expectedMonthlyLeads;
