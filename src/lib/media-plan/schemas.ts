@@ -523,34 +523,37 @@ export const kpiTargetSchema = z.object({
 // Performance Model (NEW)
 // =============================================================================
 
-const cacModelSchema = z.object({
-  targetCAC: z.number()
-    .describe('Target customer acquisition cost in USD. Must be achievable given the funnel math below.'),
+export const cacModelSchema = z.object({
+  targetCAC: z.number().nullable()
+    .describe('Target customer acquisition cost in USD. Null if neither currentCac nor conversion funnel can be resolved.'),
 
-  targetCPL: z.number()
-    .describe('Target cost per lead in USD. Derived from platform benchmarks and budget constraints.'),
+  targetCPL: z.number().nullable()
+    .describe('Target cost per lead in USD. Null if no benchmark is available.'),
 
-  leadToSqlRate: z.number().min(0).max(100)
-    .describe('Expected lead-to-SQL conversion rate as percentage (e.g., 15 means 15%). Use industry benchmarks for the vertical.'),
+  leadToSqlRate: z.number().min(0).max(100).nullable()
+    .describe('Expected lead-to-SQL conversion rate as percentage. Null if leadToCustomerRate was not provided.'),
 
-  sqlToCustomerRate: z.number().min(0).max(100)
-    .describe('Expected SQL-to-customer close rate as percentage (e.g., 25 means 25%). Base on industry norms or client data.'),
+  sqlToCustomerRate: z.number().min(0).max(100).nullable()
+    .describe('Expected SQL-to-customer close rate as percentage. Null if leadToCustomerRate was not provided.'),
 
-  expectedMonthlyLeads: z.number()
-    .describe('Expected monthly leads at effective spend (80% of budget). Formula: (monthlyBudget × 0.80) / targetCPL.'),
+  expectedMonthlyLeads: z.number().nullable()
+    .describe('Expected monthly leads at effective spend (80% of budget). Null if targetCPL is null.'),
 
-  expectedMonthlySQLs: z.number()
-    .describe('Expected monthly SQLs. Formula: expectedMonthlyLeads * leadToSqlRate / 100.'),
+  expectedMonthlySQLs: z.number().nullable()
+    .describe('Expected monthly SQLs. Null if expectedMonthlyLeads or leadToSqlRate is null.'),
 
-  expectedMonthlyCustomers: z.number()
-    .describe('Expected monthly new customers. Formula: expectedMonthlySQLs * sqlToCustomerRate / 100.'),
+  expectedMonthlyCustomers: z.number().nullable()
+    .describe('Expected monthly new customers. Null if the conversion cascade cannot be resolved.'),
 
-  estimatedLTV: z.number()
-    .describe('Estimated customer lifetime value in USD. Use offer price and typical retention for the pricing model.'),
+  estimatedLTV: z.number().nullable()
+    .describe('Customer lifetime value in USD. Null unless avgCustomerLtv was provided by the user. NEVER computed from offerPrice × retention heuristics.'),
 
-  ltvToCacRatio: z.string()
-    .describe('Projected LTV:CAC ratio (e.g., "5.2:1"). Healthy is >3:1. Include brief assessment.'),
-}).describe('CAC funnel math model with conversion rates and unit economics');
+  ltvToCacRatio: z.string().nullable()
+    .describe('Projected LTV:CAC ratio (e.g., "5.2:1 — Healthy"). Null if either estimatedLTV or targetCAC is null.'),
+
+  insufficientData: z.array(z.string()).optional()
+    .describe('List of cac-model fields that were null because the required baseline metric was not provided. Example: ["estimatedLTV: no avgCustomerLtv provided"]. Absent when all fields resolved.'),
+}).describe('CAC funnel math model with nullable fields when baseline metrics are missing');
 
 const monitoringScheduleSchema = z.object({
   daily: z.array(z.string())

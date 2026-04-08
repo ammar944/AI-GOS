@@ -82,9 +82,8 @@ export {
   computeCACModel,
   validateCrossSection,
   reconcileKPITargets,
-  estimateRetentionMultiplier,
 } from './validation';
-export type { CACModelInput, BudgetValidationResult, CrossSectionValidationResult } from './validation';
+export type { CACModelInput, CACModelResult, BudgetValidationResult, CrossSectionValidationResult } from './validation';
 
 export { createApprovedMediaPlan } from './approval';
 export type { ApprovedMediaPlanMetadata } from './approval';

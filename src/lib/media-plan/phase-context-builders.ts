@@ -12,15 +12,15 @@ import type { PlatformStrategy, ICPTargeting, KPITarget, BudgetAllocation, Campa
 
 export interface ResolvedTargets {
   monthlyBudget: number;
-  cpl: number;
-  cac: number;
-  leadsPerMonth: number;
-  sqlsPerMonth: number;
-  customersPerMonth: number;
-  leadToSqlRate: number;
-  sqlToCustomerRate: number;
-  ltvCacRatio: string;
-  estimatedLtv: number;
+  cpl: number | null;
+  cac: number | null;
+  leadsPerMonth: number | null;
+  sqlsPerMonth: number | null;
+  customersPerMonth: number | null;
+  leadToSqlRate: number | null;
+  sqlToCustomerRate: number | null;
+  ltvCacRatio: string | null;
+  estimatedLtv: number | null;
 }
 
 // =============================================================================

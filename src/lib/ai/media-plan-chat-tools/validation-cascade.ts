@@ -30,28 +30,12 @@ export function deriveOfferPrice(onboardingData: OnboardingFormData): number {
   return onboardingData.productOffer.offerPrice || 0;
 }
 
-/**
- * Derive retention multiplier from onboarding data pricing model.
- * monthly -> 12, annual -> 1, one_time -> 1, usage_based -> 6, seat_based -> 12, custom -> 3
- */
-export function deriveRetentionMultiplier(onboardingData: OnboardingFormData): number {
-  const models = onboardingData.productOffer.pricingModel;
-  if (!models || models.length === 0) return 1;
-
-  // Use the primary pricing tier's billing cycle if available
-  const tiers = onboardingData.productOffer.pricingTiers;
-  const primaryCycle = tiers?.find(t => t.isPrimary)?.billingCycle ?? models[0];
-
-  switch (primaryCycle) {
-    case 'monthly': return 12;
-    case 'annual': return 1;
-    case 'one_time': return 1;
-    case 'usage_based': return 6;
-    case 'seat_based': return 12;
-    case 'custom': return 3;
-    default: return 1;
-  }
-}
+// NOTE: The previous `deriveRetentionMultiplier` helper was deleted as part of
+// the research-fabrication-fix effort. It was a duplicate of the hardcoded
+// retention heuristic in validation.ts — both synthesized LTV values from
+// pricing-model buckets without any client input. The new computeCACModel
+// signature takes `currentCac` and `avgCustomerLtv` directly; consumers must
+// pass either real user-provided values or null (emitting insufficient-data).
 
 /**
  * Run the validation cascade on a media plan after an edit.
@@ -72,10 +56,17 @@ export function runValidationCascade(
   let workingPlan = JSON.parse(JSON.stringify(mediaPlan)) as MediaPlanOutput;
   const monthlyBudget = onboardingData.budgetTargets.monthlyAdBudget;
   const offerPrice = deriveOfferPrice(onboardingData);
-  const retentionMultiplier = deriveRetentionMultiplier(onboardingData);
-  const targetCPL = onboardingData.budgetTargets.targetCpl || workingPlan.performanceModel.cacModel.targetCPL;
+  const targetCPL =
+    onboardingData.budgetTargets.targetCpl ??
+    workingPlan.performanceModel.cacModel.targetCPL;
   const leadToSqlRate = workingPlan.performanceModel.cacModel.leadToSqlRate;
   const sqlToCustomerRate = workingPlan.performanceModel.cacModel.sqlToCustomerRate;
+  // Recover the single user rate from the existing plan's two-stage split so
+  // recomputes preserve the original anchors instead of re-fabricating LTV.
+  const leadToCustomerRate =
+    leadToSqlRate !== null && sqlToCustomerRate !== null
+      ? (leadToSqlRate / 100) * (sqlToCustomerRate / 100) * 100
+      : null;
 
   const shouldRun = (v: ValidatorCategory) => validatorsToRun.includes(v);
 
@@ -103,13 +94,12 @@ export function runValidationCascade(
   let currentCACModel = workingPlan.performanceModel.cacModel;
   if (shouldRun('cacModel')) {
     validatorsRun.push('cacModel');
-    const newCACModel = computeCACModel({
+    const { cacModel: newCACModel } = computeCACModel({
       monthlyBudget: workingPlan.budgetAllocation?.totalMonthlyBudget ?? monthlyBudget,
       targetCPL,
-      leadToSqlRate,
-      sqlToCustomerRate,
-      offerPrice,
-      retentionMultiplier,
+      leadToCustomerRate,
+      currentCac: currentCACModel.targetCAC,
+      avgCustomerLtv: currentCACModel.estimatedLTV,
     });
 
     // Check if values actually changed

@@ -62,12 +62,22 @@ type ToolName =
   | 'researchMediaPlan'
   | 'resolveIdentity';
 
+import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
+
 interface RunJobRequest {
   tool: ToolName;
   context: string;
   userId: string;
   jobId: string;
   runId?: string;
+  /**
+   * Optional baseline metrics forwarded by the dispatch layer. When present,
+   * a BASELINE METRICS DATA INTEGRITY block is rendered into the runner's
+   * context so the model cannot fabricate LTV/CAC/growth claims. When absent,
+   * the block renders with all NOT PROVIDED values, which forces runners to
+   * emit insufficient-data states for any computation that needs the data.
+   */
+  baselineMetrics?: BaselineMetrics;
 }
 
 const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgressReporter) => Promise<ResearchResult>> = {
@@ -128,7 +138,7 @@ const activeJobs = new Map<
 
 // -- Run ----------------------------------------------------------------------
 app.post('/run', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { tool, context, userId, jobId, runId } = req.body as RunJobRequest;
+  const { tool, context, userId, jobId, runId, baselineMetrics } = req.body as RunJobRequest;
 
   if (!tool || !context || !userId || !jobId) {
     res.status(400).json({ error: 'tool, context, userId, jobId are required' });
@@ -181,7 +191,16 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     // Without this, models default to their training cutoff and return stale data.
     const now = new Date();
     const dateContext = `Current date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${now.getFullYear()}). Always search for and prioritize the most recent data available. Do not use outdated statistics or market data from prior years when current data exists.\n\n`;
-    const contextWithDate = sanitizeForJson(dateContext + context);
+
+    // Inject the baseline-metrics integrity block. This appears in every
+    // runner's context (not just synthesize/icp/media-plan) — runners that
+    // don't generate LTV/CAC/growth claims simply ignore it. Runners that do
+    // are constrained by the block to either use the user's reported numbers
+    // or emit explicit insufficient-data states. This is the production-side
+    // anchor for the research-fabrication fix.
+    const baselineBlock = `${renderBaselineMetricsBlock(baselineMetrics)}\n\n`;
+
+    const contextWithDate = sanitizeForJson(dateContext + baselineBlock + context);
     let statusWriteChain = Promise.resolve();
     let lastProgressSignature: string | null = null;
     let jobFinalized = false;

@@ -40,12 +40,20 @@ export interface BudgetValidationResult {
 
 export interface CACModelInput {
   monthlyBudget: number;
-  targetCPL: number;
-  leadToSqlRate: number;
-  sqlToCustomerRate: number;
-  offerPrice: number;
-  /** Multiplier for LTV based on pricing model (e.g., 12 for monthly sub, 1 for one-time) */
-  retentionMultiplier: number;
+  /** Benchmark-derived target cost per lead. Null when no benchmark is available. */
+  targetCPL: number | null;
+  /** User-reported lead-to-customer conversion rate, 0-100. Null when not provided. */
+  leadToCustomerRate: number | null;
+  /** User-reported current customer acquisition cost in USD. Null when not provided. */
+  currentCac: number | null;
+  /** User-reported average customer lifetime value in USD. Null when not provided. */
+  avgCustomerLtv: number | null;
+}
+
+export interface CACModelResult {
+  cacModel: CACModel;
+  /** Fields set to null because the required baseline metric was not provided. */
+  insufficientData: string[];
 }
 
 export interface CrossSectionValidationResult {
@@ -59,15 +67,48 @@ export interface CrossSectionValidationResult {
 
 export interface ResolvedTargets {
   monthlyBudget: number;
-  cpl: number;
-  cac: number;
-  leadsPerMonth: number;
-  sqlsPerMonth: number;
-  customersPerMonth: number;
+  cpl: number | null;
+  cac: number | null;
+  leadsPerMonth: number | null;
+  sqlsPerMonth: number | null;
+  customersPerMonth: number | null;
+  leadToSqlRate: number | null;
+  sqlToCustomerRate: number | null;
+  ltvCacRatio: string | null;
+  estimatedLtv: number | null;
+}
+
+/**
+ * Narrowing type guard: true when every economic field is non-null, which
+ * means the model had enough baseline metrics to resolve the full cascade.
+ * Internal validators that require deterministic math (KPI reconciliation,
+ * stale-reference sweeps, etc.) early-return on incomplete models rather
+ * than operating on partial data.
+ */
+type CompleteCACModel = CACModel & {
+  targetCAC: number;
+  targetCPL: number;
   leadToSqlRate: number;
   sqlToCustomerRate: number;
-  ltvCacRatio: string;
-  estimatedLtv: number;
+  expectedMonthlyLeads: number;
+  expectedMonthlySQLs: number;
+  expectedMonthlyCustomers: number;
+  estimatedLTV: number;
+  ltvToCacRatio: string;
+};
+
+function isCompleteCacModel(m: CACModel): m is CompleteCACModel {
+  return (
+    m.targetCAC !== null &&
+    m.targetCPL !== null &&
+    m.leadToSqlRate !== null &&
+    m.sqlToCustomerRate !== null &&
+    m.expectedMonthlyLeads !== null &&
+    m.expectedMonthlySQLs !== null &&
+    m.expectedMonthlyCustomers !== null &&
+    m.estimatedLTV !== null &&
+    m.ltvToCacRatio !== null
+  );
 }
 
 export interface RetargetingValidationInput {
@@ -208,59 +249,110 @@ export function validateAndFixBudget(
 // =============================================================================
 
 /**
- * Pure arithmetic CAC model. No AI involved.
- * effectiveBudget = budget × 0.80 (20% reserved for overhead/testing)
- * leads = effectiveBudget / CPL
- * SQLs = leads * rate / 100
- * customers = SQLs * closeRate / 100
- * CAC = budget / customers (full budget — you still spent it all)
- * LTV = offerPrice * retentionMultiplier
- * ltvToCacRatio = LTV / CAC
+ * Pure-arithmetic CAC model with nullable inputs.
+ *
+ * Every output field is null when the required baseline metric is missing.
+ * No fallback heuristics — the prior `estimateRetentionMultiplier` path was
+ * deleted to stop fabricating LTV from offerPrice × hardcoded retention buckets.
+ *
+ * `insufficientData` lists which user inputs would unlock each null field —
+ * this drives the UI's empty-state CTA copy.
  */
-export function computeCACModel(input: CACModelInput): CACModel {
-  const { monthlyBudget, targetCPL, leadToSqlRate, sqlToCustomerRate, offerPrice, retentionMultiplier } = input;
+export function computeCACModel(input: CACModelInput): CACModelResult {
+  const { monthlyBudget, targetCPL, leadToCustomerRate, currentCac, avgCustomerLtv } = input;
+  const insufficientData: string[] = [];
 
-  // Apply 20% safety margin: only 80% of budget drives lead acquisition.
-  // The remaining 20% covers platform overhead, testing, and optimization.
-  // CAC still uses full monthlyBudget because that's the total spend.
-  const safeCPL = targetCPL > 0 ? targetCPL : 1; // guard division by zero
+  // Lead volume requires a targetCPL (may come from benchmarks, not baseline metrics).
+  const safeCPL = targetCPL !== null && targetCPL > 0 ? targetCPL : null;
   const effectiveBudget = monthlyBudget * 0.80;
-  const expectedMonthlyLeads = Math.round(effectiveBudget / safeCPL);
-  const expectedMonthlySQLs = Math.round(expectedMonthlyLeads * leadToSqlRate / 100);
-  const expectedMonthlyCustomers = Math.max(1, Math.round(expectedMonthlySQLs * sqlToCustomerRate / 100));
-  const targetCAC = Math.round(monthlyBudget / expectedMonthlyCustomers);
-  const estimatedLTV = Math.round(offerPrice * retentionMultiplier);
-  const ltvToCacRatio = targetCAC > 0 ? estimatedLTV / targetCAC : 0;
+  const expectedMonthlyLeads = safeCPL !== null ? Math.round(effectiveBudget / safeCPL) : null;
+  if (safeCPL === null) {
+    insufficientData.push('expectedMonthlyLeads: no targetCPL provided');
+  }
 
-  const ratioStr = ltvToCacRatio >= 3
-    ? `${ltvToCacRatio.toFixed(1)}:1 — Healthy`
-    : ltvToCacRatio >= 1
-      ? `${ltvToCacRatio.toFixed(1)}:1 — Below ideal (target >3:1)`
-      : `${ltvToCacRatio.toFixed(1)}:1 — Unsustainable`;
+  // Conversion cascade requires user-reported lead→customer rate.
+  let expectedMonthlyCustomers: number | null = null;
+  let leadToSqlRate: number | null = null;
+  let sqlToCustomerRate: number | null = null;
+  let expectedMonthlySQLs: number | null = null;
+
+  if (
+    leadToCustomerRate !== null &&
+    leadToCustomerRate > 0 &&
+    expectedMonthlyLeads !== null
+  ) {
+    expectedMonthlyCustomers = Math.max(
+      1,
+      Math.round((expectedMonthlyLeads * leadToCustomerRate) / 100),
+    );
+    // Split the single user rate across the two-stage schema via sqrt distribution.
+    // If leadToCustomerRate = 4%, each stage is ~20%, and 0.2 × 0.2 = 0.04 = 4% overall.
+    const stageRate = Math.round(Math.sqrt(leadToCustomerRate / 100) * 100 * 10) / 10;
+    leadToSqlRate = stageRate;
+    sqlToCustomerRate = stageRate;
+    expectedMonthlySQLs = Math.round((expectedMonthlyLeads * stageRate) / 100);
+  } else {
+    insufficientData.push('expectedMonthlyCustomers: no leadToCustomerRate provided');
+  }
+
+  // CAC: honor the user's reported number. Fall back to derived only if we have customers.
+  let targetCAC: number | null = null;
+  if (currentCac !== null && currentCac > 0) {
+    targetCAC = currentCac;
+  } else if (expectedMonthlyCustomers !== null) {
+    targetCAC = Math.round(monthlyBudget / expectedMonthlyCustomers);
+  } else {
+    insufficientData.push('targetCAC: no currentCac and no leadToCustomerRate provided');
+  }
+
+  // LTV: user-provided only. No heuristic.
+  const estimatedLTV = avgCustomerLtv !== null && avgCustomerLtv > 0 ? avgCustomerLtv : null;
+  if (estimatedLTV === null) {
+    insufficientData.push('estimatedLTV: no avgCustomerLtv provided');
+  }
+
+  // Ratio: requires both LTV and CAC.
+  let ltvToCacRatio: string | null = null;
+  if (estimatedLTV !== null && targetCAC !== null && targetCAC > 0) {
+    const ratio = estimatedLTV / targetCAC;
+    ltvToCacRatio =
+      ratio >= 3
+        ? `${ratio.toFixed(1)}:1 — Healthy`
+        : ratio >= 1
+          ? `${ratio.toFixed(1)}:1 — Below ideal (target >3:1)`
+          : `${ratio.toFixed(1)}:1 — Unsustainable`;
+  } else {
+    insufficientData.push('ltvToCacRatio: requires both avgCustomerLtv and a resolvable CAC');
+  }
 
   return {
-    targetCAC,
-    targetCPL,
-    leadToSqlRate,
-    sqlToCustomerRate,
-    expectedMonthlyLeads,
-    expectedMonthlySQLs,
-    expectedMonthlyCustomers,
-    estimatedLTV,
-    ltvToCacRatio: ratioStr,
+    cacModel: {
+      targetCAC,
+      targetCPL: safeCPL,
+      leadToSqlRate,
+      sqlToCustomerRate,
+      expectedMonthlyLeads,
+      expectedMonthlySQLs,
+      expectedMonthlyCustomers,
+      estimatedLTV,
+      ltvToCacRatio,
+      insufficientData: insufficientData.length > 0 ? insufficientData : undefined,
+    },
+    insufficientData,
   };
 }
 
 /**
- * Build a complete PerformanceModel from CAC input and monitoring schedule.
- * CAC model is computed deterministically; monitoring schedule comes from AI.
+ * Build a complete PerformanceModel from a pre-computed CAC model + monitoring schedule.
+ * The caller is responsible for running `computeCACModel` first so it can intercept
+ * the `insufficientData` array returned alongside the model.
  */
 export function buildPerformanceModel(
-  cacInput: CACModelInput,
+  cacModel: CACModel,
   monitoringSchedule: MonitoringSchedule,
 ): PerformanceModel {
   return {
-    cacModel: computeCACModel(cacInput),
+    cacModel,
     monitoringSchedule,
   };
 }
@@ -416,7 +508,7 @@ export function validateCrossSection(input: {
     if (kpiCplMatch) {
       const kpiCplValue = parseInt(kpiCplMatch[1], 10);
       const modelCpl = performanceModel.cacModel.targetCPL;
-      if (Math.abs(kpiCplValue - modelCpl) > modelCpl * 0.2) {
+      if (modelCpl !== null && Math.abs(kpiCplValue - modelCpl) > modelCpl * 0.2) {
         warnings.push(
           `KPI CPL target ($${kpiCplValue}) differs >20% from performance model CPL ($${modelCpl})`,
         );
@@ -433,7 +525,7 @@ export function validateCrossSection(input: {
     if (kpiCacMatch) {
       const kpiCacValue = parseInt(kpiCacMatch[1].replace(/,/g, ''), 10);
       const modelCac = performanceModel.cacModel.targetCAC;
-      if (Math.abs(kpiCacValue - modelCac) > modelCac * 0.2) {
+      if (modelCac !== null && Math.abs(kpiCacValue - modelCac) > modelCac * 0.2) {
         warnings.push(
           `KPI CAC target ($${kpiCacValue}) differs >20% from computed CAC ($${modelCac}). Computed value is deterministic: budget / customers.`,
         );
@@ -470,6 +562,13 @@ export function reconcileKPITargets(
   monthlyBudget: number,
   offerPrice?: number,
 ): { kpiTargets: KPITarget[]; overrides: ValidationAdjustment[] } {
+  // If the cacModel lacks any computed field (user did not provide the required
+  // baseline metrics), there is no deterministic baseline to reconcile KPI
+  // targets against. Pass through unchanged — the insufficient-data state is
+  // preserved for the UI to surface.
+  if (!isCompleteCacModel(cacModel)) {
+    return { kpiTargets, overrides: [] };
+  }
   const overrides: ValidationAdjustment[] = [];
   const fixed = kpiTargets.map(kpi => {
     const metric = kpi.metric.toLowerCase();
@@ -1362,20 +1461,154 @@ export function validateRetargetingPoolRealism(
 }
 
 // =============================================================================
-// Retention Multiplier Heuristic
+// Fabricated Claim Sweep
 // =============================================================================
+//
+// Runtime guard against AI-generated growth/ARR/scaling claims in narrative
+// fields. Runs after generation, strips forbidden patterns, logs every strip
+// so prompt regressions are auditable. Gated growth claims (YoY percentages)
+// are permitted only when the user actually reported a growth rate via
+// baselineMetrics.last12MoGrowthRate AND the sentence cites that exact number.
+
+interface SweepPattern {
+  name: string;
+  re: RegExp;
+  gated: boolean;
+}
+
+const FABRICATION_PATTERNS: readonly SweepPattern[] = [
+  {
+    name: 'yoy_growth',
+    re: /\d+\s*%\s*(?:YoY|year[- ]over[- ]year|annual(?:ized)?\s*growth)/gi,
+    gated: true,
+  },
+  {
+    name: 'scale_to_arr',
+    re: /scale\s+to\s+\$[\d.,]+\s*[MBK]?\s*(?:ARR|MRR|in revenue)?(?:\s+(?:in|within|over)\s+\d+\s*(?:months?|years?))?/gi,
+    gated: false,
+  },
+  {
+    name: 'grow_from_to',
+    re: /grow(?:ing)?\s+(?:from|by)\s+\$[\d.,]+\s*[MBK]?(?:\s+to\s+\$[\d.,]+\s*[MBK]?)?/gi,
+    gated: false,
+  },
+  {
+    name: 'reach_arr',
+    re: /reach\s+\$[\d.,]+\s*[MBK]?\s+ARR/gi,
+    gated: false,
+  },
+];
+
+export interface SweepResult {
+  clean: string;
+  stripped: string[];
+}
 
 /**
- * Estimate a retention multiplier from pricing model for LTV calculation.
- * Roughly: monthly → 12 months, annual → 2.5 years, one-time → 1, etc.
+ * Indicators that a sentence is a CITED benchmark or reference rather than a
+ * fabricated projection. When a gated pattern matches inside a sentence that
+ * contains any of these tokens, the match is preserved — legitimate references
+ * like "B2B SaaS sees 20-35% annual growth per Gartner 2025" should not be
+ * stripped.
  */
-export function estimateRetentionMultiplier(pricingModels: string[]): number {
-  const normalized = pricingModels.map(p => p.toLowerCase().replace(/[_-]/g, ''));
-  if (normalized.some(p => p.includes('monthly') || p.includes('subscription'))) return 12;
-  if (normalized.some(p => p.includes('annual'))) return 2.5;
-  if (normalized.some(p => p.includes('seat') || p.includes('usage'))) return 10;
-  if (normalized.some(p => p.includes('onetime') || p.includes('one time'))) return 1;
-  return 8; // default for recurring-ish models
+const BENCHMARK_CITATION_RE = /per\s+\w+|benchmark|industry\s+(?:average|standard)|typical(?:ly)?|according\s+to|gartner|openview|forrester|mckinsey|statista/i;
+
+/**
+ * Scrub fabricated growth/ARR/scale prose from a narrative text field.
+ *
+ * @param text Raw narrative string (typically from an AI runner output).
+ * @param allowGrowthClaims True only when baselineMetrics.last12MoGrowthRate was provided.
+ * @param userGrowthRate The user's reported rate, used to preserve sentences that cite it.
+ */
+export function sweepFabricatedClaims(
+  text: string,
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): SweepResult {
+  let clean = text;
+  const stripped: string[] = [];
+  const userRateStr = userGrowthRate !== null ? String(Math.round(userGrowthRate)) : null;
+
+  // Extract the sentence containing a match so we can check it for citation
+  // tokens. This is a coarse sentence finder — splits on ". ", "! ", "? ".
+  const sentenceContainingMatch = (offset: number, source: string): string => {
+    const start = Math.max(
+      source.lastIndexOf('. ', offset - 1) + 1,
+      source.lastIndexOf('! ', offset - 1) + 1,
+      source.lastIndexOf('? ', offset - 1) + 1,
+      0,
+    );
+    const endCandidates = [
+      source.indexOf('. ', offset),
+      source.indexOf('! ', offset),
+      source.indexOf('? ', offset),
+      source.length,
+    ].filter((i) => i >= 0);
+    const end = Math.min(...endCandidates);
+    return source.slice(start, end);
+  };
+
+  for (const pattern of FABRICATION_PATTERNS) {
+    clean = clean.replace(pattern.re, (match, ...args) => {
+      // Last two callback args from String.replace are offset and full source.
+      const offset = typeof args[args.length - 2] === 'number' ? (args[args.length - 2] as number) : 0;
+      const source = typeof args[args.length - 1] === 'string' ? (args[args.length - 1] as string) : text;
+
+      // Skip if the match lives inside a sentence that cites an external source.
+      const sentence = sentenceContainingMatch(offset, source);
+      if (BENCHMARK_CITATION_RE.test(sentence)) {
+        return match;
+      }
+
+      if (pattern.gated && allowGrowthClaims && userRateStr !== null) {
+        const numberMatch = match.match(/(\d+)\s*%/);
+        if (numberMatch && numberMatch[1] === userRateStr) {
+          return match; // sentence cites the user-reported rate — keep it
+        }
+      }
+      stripped.push(`${pattern.name}: ${match}`);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[fabrication-sweep] stripped pattern=${pattern.name} match="${match}"`,
+      );
+      return '[growth rate not tracked]';
+    });
+  }
+
+  return { clean, stripped };
+}
+
+/** Apply the fabrication sweep to an executive summary's overview field. */
+export function sweepExecutiveSummary<T extends { overview: string }>(
+  summary: T,
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): T {
+  const { clean } = sweepFabricatedClaims(summary.overview, allowGrowthClaims, userGrowthRate);
+  return { ...summary, overview: clean };
+}
+
+/** Apply the fabrication sweep to every campaign-phase objective. */
+export function sweepCampaignPhases(
+  phases: readonly CampaignPhase[],
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): CampaignPhase[] {
+  return phases.map((p) => {
+    if (!p.objective) return p;
+    const { clean } = sweepFabricatedClaims(p.objective, allowGrowthClaims, userGrowthRate);
+    if (clean === p.objective) return p;
+    return { ...p, objective: clean };
+  });
+}
+
+/** Apply the fabrication sweep to a strategic narrative string. */
+export function sweepStrategicNarrative(
+  narrative: string,
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): string {
+  return sweepFabricatedClaims(narrative, allowGrowthClaims, userGrowthRate).clean;
 }
 
 // =============================================================================
@@ -1776,6 +2009,12 @@ export function sweepStaleReferences(
   monthlyBudget: number,
   offerPrice?: number,
 ): { mediaPlan: MediaPlanOutput; corrections: string[] } {
+  // No baseline to sweep against when the cacModel is incomplete. The stale-
+  // reference scrubber replaces AI prose with deterministic values — if we
+  // don't have those values, we can't rewrite anything, so return unchanged.
+  if (!isCompleteCacModel(cacModel)) {
+    return { mediaPlan, corrections: [] };
+  }
   const corrections: string[] = [];
   const computedCAC = cacModel.targetCAC;
   const computedLeads = cacModel.expectedMonthlyLeads;

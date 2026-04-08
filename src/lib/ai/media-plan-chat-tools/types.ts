@@ -53,19 +53,21 @@ export interface BudgetSimulationResult {
   delta: {
     budgetChange: number;
     budgetChangePercent: number;
-    leadsDelta: number;
-    customersDelta: number;
-    cacDelta: number;
+    /** Null when either snapshot is missing the value (insufficient data). */
+    leadsDelta: number | null;
+    customersDelta: number | null;
+    cacDelta: number | null;
   };
 }
 
-/** A snapshot of CAC model numbers for comparison */
+/** A snapshot of CAC model numbers for comparison. Numeric fields are null when
+ * the original plan lacked the baseline metric required to compute them. */
 export interface SimulatedCACSnapshot {
   monthlyBudget: number;
-  expectedMonthlyLeads: number;
-  expectedMonthlySQLs: number;
-  expectedMonthlyCustomers: number;
-  targetCAC: number;
-  estimatedLTV: number;
-  ltvToCacRatio: string;
+  expectedMonthlyLeads: number | null;
+  expectedMonthlySQLs: number | null;
+  expectedMonthlyCustomers: number | null;
+  targetCAC: number | null;
+  estimatedLTV: number | null;
+  ltvToCacRatio: string | null;
 }

@@ -371,23 +371,25 @@ export interface KPITarget {
 
 export interface CACModel {
   /** Target customer acquisition cost */
-  targetCAC: number;
+  targetCAC: number | null;
   /** Target cost per lead */
-  targetCPL: number;
+  targetCPL: number | null;
   /** Expected lead-to-SQL conversion rate (0-100) */
-  leadToSqlRate: number;
+  leadToSqlRate: number | null;
   /** Expected SQL-to-customer conversion rate (0-100) */
-  sqlToCustomerRate: number;
+  sqlToCustomerRate: number | null;
   /** Expected monthly leads at target spend */
-  expectedMonthlyLeads: number;
+  expectedMonthlyLeads: number | null;
   /** Expected monthly SQLs */
-  expectedMonthlySQLs: number;
+  expectedMonthlySQLs: number | null;
   /** Expected monthly new customers */
-  expectedMonthlyCustomers: number;
+  expectedMonthlyCustomers: number | null;
   /** Customer lifetime value for ROI context */
-  estimatedLTV: number;
+  estimatedLTV: number | null;
   /** Projected LTV:CAC ratio */
-  ltvToCacRatio: string;
+  ltvToCacRatio: string | null;
+  /** Fields null because required baseline metric was not provided */
+  insufficientData?: string[];
 }
 
 export interface MonitoringSchedule {

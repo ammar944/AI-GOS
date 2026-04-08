@@ -117,31 +117,40 @@ export const icpValidationDataSchema = z.object({
 
   sensitivityAnalysis: z
     .object({
-      bestCase: z.object({
-        assumedCPL: z.number(),
-        leadToSqlRate: z.number(),
-        sqlToCustomerRate: z.number(),
-        conditions: nonEmptyStringSchema,
-      }),
-      baseCase: z.object({
-        assumedCPL: z.number(),
-        leadToSqlRate: z.number(),
-        sqlToCustomerRate: z.number(),
-        conditions: nonEmptyStringSchema,
-        confidencePercent: z.number(),
-      }),
-      worstCase: z.object({
-        assumedCPL: z.number(),
-        leadToSqlRate: z.number(),
-        sqlToCustomerRate: z.number(),
-        conditions: nonEmptyStringSchema,
-      }),
-      breakEven: z.object({
-        maxCPLFor3xLTV: z.number(),
-        maxCAC: z.number(),
-        minLeadToSqlRate: z.number(),
-        budgetFloorForTesting: z.number(),
-      }),
+      bestCase: z
+        .object({
+          assumedCPL: z.number(),
+          leadToSqlRate: z.number(),
+          sqlToCustomerRate: z.number(),
+          conditions: nonEmptyStringSchema,
+        })
+        .nullable(),
+      baseCase: z
+        .object({
+          assumedCPL: z.number(),
+          leadToSqlRate: z.number(),
+          sqlToCustomerRate: z.number(),
+          conditions: nonEmptyStringSchema,
+          confidencePercent: z.number(),
+        })
+        .nullable(),
+      worstCase: z
+        .object({
+          assumedCPL: z.number(),
+          leadToSqlRate: z.number(),
+          sqlToCustomerRate: z.number(),
+          conditions: nonEmptyStringSchema,
+        })
+        .nullable(),
+      breakEven: z
+        .object({
+          maxCPLFor3xLTV: z.number().nullable(),
+          maxCAC: z.number().nullable(),
+          minLeadToSqlRate: z.number().nullable(),
+          budgetFloorForTesting: z.number().nullable(),
+        })
+        .nullable(),
+      insufficientData: z.array(z.string()).optional(),
     })
     .optional(),
 

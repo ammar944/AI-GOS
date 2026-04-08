@@ -62,7 +62,8 @@ import {
   validateRetargetingPoolRealism,
   validatePerPlatformDailyBudgets,
   validatePlatformCompliance,
-  estimateRetentionMultiplier,
+  sweepExecutiveSummary,
+  sweepCampaignPhases,
   validateRiskMonitoring,
   reconcileMonthlyRoadmapWithPhases,
   sweepStaleReferences,
@@ -294,19 +295,30 @@ export async function runMediaPlanPipeline(
       if (match) leadToSqlRate = parseInt(match[1], 10);
     }
 
-    const retentionMultiplier = estimateRetentionMultiplier(onboarding.productOffer.pricingModel);
+    // Legacy V1 pipeline path — the production journey flow uses the Railway
+    // research worker (research-worker/src/runners/media-plan.ts) and collects
+    // baseline metrics via src/lib/journey/field-catalog.ts. This pipeline
+    // doesn't have access to the journey's collectedFields bag, so it passes
+    // nulls for all baseline metrics and the cacModel emits insufficient-data
+    // states for LTV/CAC fields. If this pipeline is ever reconnected to the
+    // production journey, wire `baselineMetrics` through OnboardingFormData
+    // and extract via `extractBaselineMetrics` from '@/lib/journey/baseline-metrics'.
+    const leadToCustomerRate =
+      leadToSqlRate > 0 && sqlToCustomerRate > 0
+        ? (leadToSqlRate / 100) * (sqlToCustomerRate / 100) * 100
+        : null;
 
     const cacInput: CACModelInput = {
       monthlyBudget: budgetAllocation.totalMonthlyBudget,
       targetCPL,
-      leadToSqlRate,
-      sqlToCustomerRate,
-      offerPrice: onboarding.productOffer.offerPrice,
-      retentionMultiplier,
+      leadToCustomerRate,
+      currentCac: null,
+      avgCustomerLtv: null,
     };
 
+    const cacResult = computeCACModel(cacInput);
     const performanceModel: PerformanceModel = buildPerformanceModel(
-      cacInput,
+      cacResult.cacModel,
       budgetMonitoringData.monitoringSchedule,
     );
 
@@ -525,6 +537,17 @@ export async function runMediaPlanPipeline(
       }
       allValidationWarnings.push(...sweepResult.corrections.map(c => `Stale reference fix: ${c}`));
     }
+
+    // --- Post-assembly: Scrub fabricated growth/ARR/scaling prose ---
+    // The legacy V1 pipeline has no path to the user's last12MoGrowthRate
+    // (it runs off OnboardingFormData, not the journey's collectedFields bag).
+    // Treat growth claims as forbidden here — the production path in
+    // research-worker/src/runners/media-plan.ts resolves the gate properly.
+    mediaPlan = {
+      ...mediaPlan,
+      executiveSummary: sweepExecutiveSummary(mediaPlan.executiveSummary, false, null),
+      campaignPhases: sweepCampaignPhases(mediaPlan.campaignPhases, false, null),
+    };
 
     // --- Persist all validation warnings on the output ---
     if (allValidationWarnings.length > 0) {

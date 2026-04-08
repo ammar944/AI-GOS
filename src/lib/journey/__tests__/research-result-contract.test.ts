@@ -414,3 +414,72 @@ describe('research-result-contract', () => {
     });
   });
 });
+
+describe('cacModelSchema nullable fields', () => {
+  async function loadSchema() {
+    const mod = await import('@/lib/media-plan/schemas');
+    return mod.cacModelSchema;
+  }
+
+  it('accepts all nullable fields set to null', async () => {
+    const cacModelSchema = await loadSchema();
+    const result = cacModelSchema.safeParse({
+      targetCAC: null,
+      targetCPL: null,
+      leadToSqlRate: null,
+      sqlToCustomerRate: null,
+      expectedMonthlyLeads: null,
+      expectedMonthlySQLs: null,
+      expectedMonthlyCustomers: null,
+      estimatedLTV: null,
+      ltvToCacRatio: null,
+      insufficientData: ['estimatedLTV: no avgCustomerLtv provided'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a legacy payload without insufficientData', async () => {
+    const cacModelSchema = await loadSchema();
+    const result = cacModelSchema.safeParse({
+      targetCAC: 450,
+      targetCPL: 85,
+      leadToSqlRate: 22,
+      sqlToCustomerRate: 25,
+      expectedMonthlyLeads: 47,
+      expectedMonthlySQLs: 10,
+      expectedMonthlyCustomers: 3,
+      estimatedLTV: 3600,
+      ltvToCacRatio: '8.0:1 — Healthy',
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('sensitivityAnalysis nullable scenarios', () => {
+  it('accepts all scenarios set to null', async () => {
+    const { icpValidationDataSchema } = await import('../schemas/icp-validation');
+    const result = icpValidationDataSchema.partial().safeParse({
+      sensitivityAnalysis: {
+        bestCase: null,
+        baseCase: null,
+        worstCase: null,
+        breakEven: null,
+        insufficientData: ['breakEven: no avgCustomerLtv provided'],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a legacy fully-populated payload', async () => {
+    const { icpValidationDataSchema } = await import('../schemas/icp-validation');
+    const result = icpValidationDataSchema.partial().safeParse({
+      sensitivityAnalysis: {
+        bestCase: { assumedCPL: 60, leadToSqlRate: 20, sqlToCustomerRate: 30, conditions: 'n' },
+        baseCase: { assumedCPL: 85, leadToSqlRate: 15, sqlToCustomerRate: 25, conditions: 'n', confidencePercent: 65 },
+        worstCase: { assumedCPL: 120, leadToSqlRate: 10, sqlToCustomerRate: 20, conditions: 'n' },
+        breakEven: { maxCPLFor3xLTV: 100, maxCAC: 300, minLeadToSqlRate: 12, budgetFloorForTesting: 3000 },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+});
