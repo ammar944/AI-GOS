@@ -1461,6 +1461,156 @@ export function validateRetargetingPoolRealism(
 }
 
 // =============================================================================
+// Fabricated Claim Sweep
+// =============================================================================
+//
+// Runtime guard against AI-generated growth/ARR/scaling claims in narrative
+// fields. Runs after generation, strips forbidden patterns, logs every strip
+// so prompt regressions are auditable. Gated growth claims (YoY percentages)
+// are permitted only when the user actually reported a growth rate via
+// baselineMetrics.last12MoGrowthRate AND the sentence cites that exact number.
+
+interface SweepPattern {
+  name: string;
+  re: RegExp;
+  gated: boolean;
+}
+
+const FABRICATION_PATTERNS: readonly SweepPattern[] = [
+  {
+    name: 'yoy_growth',
+    re: /\d+\s*%\s*(?:YoY|year[- ]over[- ]year|annual(?:ized)?\s*growth)/gi,
+    gated: true,
+  },
+  {
+    name: 'scale_to_arr',
+    re: /scale\s+to\s+\$[\d.,]+\s*[MBK]?\s*(?:ARR|MRR|in revenue)?(?:\s+(?:in|within|over)\s+\d+\s*(?:months?|years?))?/gi,
+    gated: false,
+  },
+  {
+    name: 'grow_from_to',
+    re: /grow(?:ing)?\s+(?:from|by)\s+\$[\d.,]+\s*[MBK]?(?:\s+to\s+\$[\d.,]+\s*[MBK]?)?/gi,
+    gated: false,
+  },
+  {
+    name: 'reach_arr',
+    re: /reach\s+\$[\d.,]+\s*[MBK]?\s+ARR/gi,
+    gated: false,
+  },
+];
+
+export interface SweepResult {
+  clean: string;
+  stripped: string[];
+}
+
+/**
+ * Indicators that a sentence is a CITED benchmark or reference rather than a
+ * fabricated projection. When a gated pattern matches inside a sentence that
+ * contains any of these tokens, the match is preserved — legitimate references
+ * like "B2B SaaS sees 20-35% annual growth per Gartner 2025" should not be
+ * stripped.
+ */
+const BENCHMARK_CITATION_RE = /per\s+\w+|benchmark|industry\s+(?:average|standard)|typical(?:ly)?|according\s+to|gartner|openview|forrester|mckinsey|statista/i;
+
+/**
+ * Scrub fabricated growth/ARR/scale prose from a narrative text field.
+ *
+ * @param text Raw narrative string (typically from an AI runner output).
+ * @param allowGrowthClaims True only when baselineMetrics.last12MoGrowthRate was provided.
+ * @param userGrowthRate The user's reported rate, used to preserve sentences that cite it.
+ */
+export function sweepFabricatedClaims(
+  text: string,
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): SweepResult {
+  let clean = text;
+  const stripped: string[] = [];
+  const userRateStr = userGrowthRate !== null ? String(Math.round(userGrowthRate)) : null;
+
+  // Extract the sentence containing a match so we can check it for citation
+  // tokens. This is a coarse sentence finder — splits on ". ", "! ", "? ".
+  const sentenceContainingMatch = (offset: number, source: string): string => {
+    const start = Math.max(
+      source.lastIndexOf('. ', offset - 1) + 1,
+      source.lastIndexOf('! ', offset - 1) + 1,
+      source.lastIndexOf('? ', offset - 1) + 1,
+      0,
+    );
+    const endCandidates = [
+      source.indexOf('. ', offset),
+      source.indexOf('! ', offset),
+      source.indexOf('? ', offset),
+      source.length,
+    ].filter((i) => i >= 0);
+    const end = Math.min(...endCandidates);
+    return source.slice(start, end);
+  };
+
+  for (const pattern of FABRICATION_PATTERNS) {
+    clean = clean.replace(pattern.re, (match, ...args) => {
+      // Last two callback args from String.replace are offset and full source.
+      const offset = typeof args[args.length - 2] === 'number' ? (args[args.length - 2] as number) : 0;
+      const source = typeof args[args.length - 1] === 'string' ? (args[args.length - 1] as string) : text;
+
+      // Skip if the match lives inside a sentence that cites an external source.
+      const sentence = sentenceContainingMatch(offset, source);
+      if (BENCHMARK_CITATION_RE.test(sentence)) {
+        return match;
+      }
+
+      if (pattern.gated && allowGrowthClaims && userRateStr !== null) {
+        const numberMatch = match.match(/(\d+)\s*%/);
+        if (numberMatch && numberMatch[1] === userRateStr) {
+          return match; // sentence cites the user-reported rate — keep it
+        }
+      }
+      stripped.push(`${pattern.name}: ${match}`);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[fabrication-sweep] stripped pattern=${pattern.name} match="${match}"`,
+      );
+      return '[growth rate not tracked]';
+    });
+  }
+
+  return { clean, stripped };
+}
+
+/** Apply the fabrication sweep to an executive summary's overview field. */
+export function sweepExecutiveSummary<T extends { overview: string }>(
+  summary: T,
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): T {
+  const { clean } = sweepFabricatedClaims(summary.overview, allowGrowthClaims, userGrowthRate);
+  return { ...summary, overview: clean };
+}
+
+/** Apply the fabrication sweep to every campaign-phase description. */
+export function sweepCampaignPhases<T extends { description?: string }>(
+  phases: readonly T[],
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): T[] {
+  return phases.map((p) => {
+    if (!p.description) return p;
+    const { clean } = sweepFabricatedClaims(p.description, allowGrowthClaims, userGrowthRate);
+    return { ...p, description: clean };
+  });
+}
+
+/** Apply the fabrication sweep to a strategic narrative string. */
+export function sweepStrategicNarrative(
+  narrative: string,
+  allowGrowthClaims: boolean,
+  userGrowthRate: number | null,
+): string {
+  return sweepFabricatedClaims(narrative, allowGrowthClaims, userGrowthRate).clean;
+}
+
+// =============================================================================
 // ACV + Platform Minimum Compliance Validation
 // =============================================================================
 
