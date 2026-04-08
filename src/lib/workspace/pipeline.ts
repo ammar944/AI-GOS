@@ -12,6 +12,54 @@ export const SECTION_PIPELINE: SectionKey[] = [
   'mediaPlan',
 ];
 
+/** Human-readable labels for pipeline sections (UI + API errors). */
+export const SECTION_PIPELINE_LABELS: Record<SectionKey, string> = {
+  industryMarket: 'Market Overview',
+  icpValidation: 'ICP Validation',
+  competitors: 'Competitor Intel',
+  offerAnalysis: 'Offer Analysis',
+  keywordIntel: 'Keywords',
+  crossAnalysis: 'Strategic Synthesis',
+  mediaPlan: 'Media Plan',
+};
+
+type ResearchSectionEntry = { data?: unknown; status?: string };
+
+/**
+ * True when every SECTION_PIPELINE key in research_results is complete with data.
+ * Used to gate script generation and session pickers.
+ */
+export function getResearchPipelineReadiness(rawResults: Record<string, unknown> | null | undefined): {
+  ready: boolean;
+  missingSections: SectionKey[];
+  completedSectionKeys: SectionKey[];
+} {
+  const results = rawResults ?? {};
+  const missing: SectionKey[] = [];
+  const completed: SectionKey[] = [];
+
+  for (const key of SECTION_PIPELINE) {
+    const entry = results[key] as ResearchSectionEntry | undefined;
+    const ok =
+      entry &&
+      typeof entry === 'object' &&
+      entry.status === 'complete' &&
+      entry.data != null;
+
+    if (ok) {
+      completed.push(key);
+    } else {
+      missing.push(key);
+    }
+  }
+
+  return {
+    ready: missing.length === 0,
+    missingSections: missing,
+    completedSectionKeys: completed,
+  };
+}
+
 /** Research sections shown in workspace tabs — excludes Media Plan */
 export const RESEARCH_SECTIONS: SectionKey[] = [
   'industryMarket',

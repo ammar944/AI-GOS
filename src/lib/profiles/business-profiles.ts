@@ -3,7 +3,9 @@
 // who it's talking to (company name, industry, ICP, budget, etc.).
 
 import { createAdminClient } from '@/lib/supabase/server';
+import type { SectionKey } from '@/lib/workspace/types';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
+import { getResearchPipelineReadiness, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 
 function getSupabase() {
   return createAdminClient();
@@ -348,21 +350,26 @@ export interface ProfileSession {
   runId: string;
   sectionCount: number;
   totalSections: number;
+  /** All SECTION_PIPELINE sections are complete with data (incl. media plan). */
+  ready: boolean;
+  missingSections: SectionKey[];
+  hasMediaPlan: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 function mapSessionRow(row: Record<string, unknown>): ProfileSession {
   const results = (row.research_results as Record<string, unknown>) ?? {};
-  const completedSections = Object.values(results).filter(
-    (r) => r && typeof r === 'object' && (r as Record<string, unknown>).status === 'complete',
-  ).length;
+  const readiness = getResearchPipelineReadiness(results);
 
   return {
     id: row.id as string,
     runId: row.run_id as string,
-    sectionCount: completedSections,
-    totalSections: 7,
+    sectionCount: readiness.completedSectionKeys.length,
+    totalSections: SECTION_PIPELINE.length,
+    ready: readiness.ready,
+    missingSections: readiness.missingSections,
+    hasMediaPlan: readiness.completedSectionKeys.includes('mediaPlan'),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

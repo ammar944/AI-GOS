@@ -5,6 +5,7 @@ import { Sparkles, Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ProfileSession } from '@/lib/profiles/business-profiles';
+import { SECTION_PIPELINE_LABELS } from '@/lib/workspace/pipeline';
 import type { PackListItem, AdScript, GenerationContext } from '@/lib/scripts/schemas';
 import { PackContextCard } from './pack-context-card';
 import { ScriptPackViewer } from './script-pack-viewer';
@@ -160,12 +161,12 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
         const list: ProfileSession[] = data.sessions ?? [];
         setSessions(list);
         if (list.length > 0 && !selectedSessionRunId) {
-          // Default to most complete session
-          const best = [...list].sort((a, b) =>
-            b.sectionCount !== a.sectionCount
-              ? b.sectionCount - a.sectionCount
-              : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          )[0];
+          // Prefer pipeline-ready sessions (incl. media plan), then most complete / newest
+          const best = [...list].sort((a, b) => {
+            if (a.ready !== b.ready) return a.ready ? -1 : 1;
+            if (b.sectionCount !== a.sectionCount) return b.sectionCount - a.sectionCount;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          })[0];
           setSelectedSessionRunId(best.runId);
         }
       }
@@ -280,7 +281,11 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setGenError(data.error ?? 'Generation failed');
+        const base = typeof data.error === 'string' ? data.error : 'Generation failed';
+        const labels: string[] | undefined = Array.isArray(data.missingSectionLabels)
+          ? data.missingSectionLabels.filter((x: unknown) => typeof x === 'string')
+          : undefined;
+        setGenError(labels?.length ? `${base} Missing: ${labels.join(', ')}.` : base);
         return;
       }
 
@@ -315,6 +320,9 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
 
   const anyGenerating = packs.some((p) => p.status === 'generating');
   const isCurrentPackGenerating = generating && generatingPackId === selectedPackId;
+
+  const selectedSession = sessions.find((s) => s.runId === selectedSessionRunId) ?? null;
+  const canGenerateFromSession = Boolean(selectedSession?.ready);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -509,9 +517,10 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
                     return 'Session';
                   }
                 })();
+                const statusSuffix = s.ready ? ' — ready' : ` — missing ${s.missingSections.length}`;
                 return (
                   <option key={s.runId} value={s.runId}>
-                    {sessionDate} — {s.sectionCount}/{s.totalSections} sections
+                    {sessionDate} — {s.sectionCount}/{s.totalSections} sections{statusSuffix}
                   </option>
                 );
               })}
@@ -570,6 +579,16 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
             />
           </div>
 
+          {selectedSession && !selectedSession.ready && (
+            <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+              Finish research before generating scripts. Still needed:{' '}
+              {selectedSession.missingSections
+                .map((key) => SECTION_PIPELINE_LABELS[key] ?? key)
+                .join(', ')}
+              .
+            </p>
+          )}
+
           {genError && (
             <p
               className="text-[12px] font-mono"
@@ -583,7 +602,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
             <Button
               type="submit"
               aria-label="Generate new script batch"
-              disabled={anyGenerating || !selectedSessionRunId}
+              disabled={anyGenerating || !selectedSessionRunId || !canGenerateFromSession}
               className={cn(
                 'text-[13px] font-medium px-[14px] py-[6px] rounded-[5px] text-white',
                 'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',

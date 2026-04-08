@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { trimResearchForScripts } from '@/lib/scripts/trim-research-context';
+import { getResearchPipelineReadiness, SECTION_PIPELINE_LABELS } from '@/lib/workspace/pipeline';
 
 export const maxDuration = 30;
 
@@ -30,21 +31,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  // Fetch research results (use run_id lookup — frontend passes run_id as sessionId)
+  // Fetch research results (run_id from UI); must belong to this user + profile
   const { data: session, error: sessionErr } = await supabase
     .from('journey_sessions')
     .select('id, research_results, created_at')
     .eq('run_id', sessionId)
+    .eq('user_id', userId)
+    .eq('profile_id', profileId)
     .single();
 
   if (sessionErr || !session?.research_results) {
     return NextResponse.json({ error: 'Research session not found' }, { status: 404 });
   }
 
-  // Only pass completed research sections — ignore in-progress or failed ones
-  const rawResults = session.research_results as Record<string, { data?: unknown; status?: string }>;
+  const rawResults = session.research_results as Record<string, unknown>;
+  const readiness = getResearchPipelineReadiness(rawResults);
+
+  if (!readiness.ready) {
+    const labels = readiness.missingSections.map((k) => SECTION_PIPELINE_LABELS[k]);
+    return NextResponse.json(
+      {
+        error:
+          'Research pipeline incomplete — finish every section (including the media plan) before generating scripts.',
+        missingSections: readiness.missingSections,
+        missingSectionLabels: labels,
+      },
+      { status: 400 },
+    );
+  }
+
+  // Only pass completed research sections — ignore stray keys outside the pipeline
+  const typed = rawResults as Record<string, { data?: unknown; status?: string }>;
   const completedResults: Record<string, { data?: unknown }> = {};
-  for (const [key, value] of Object.entries(rawResults)) {
+  for (const [key, value] of Object.entries(typed)) {
     if (value && value.status === 'complete' && value.data) {
       completedResults[key] = value;
     }
