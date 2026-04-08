@@ -1009,16 +1009,26 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
 
     const cacModel = asRecord(measurement.cacModel);
     if (cacModel) {
+      // Schema field names (cacModelSchema in src/lib/media-plan/schemas.ts):
+      //   targetCAC, targetCPL, leadToSqlRate, sqlToCustomerRate,
+      //   expectedMonthlyLeads, expectedMonthlySQLs, expectedMonthlyCustomers,
+      //   estimatedLTV, ltvToCacRatio (STRING, e.g. "5.2:1 — Healthy"),
+      //   insufficientData (string[])
+      // Card prop names (CacModelCardProps in cac-model-card.tsx) are remapped
+      // here to: expectedCPL, expectedLeadsPerMonth, expectedSQLsPerMonth,
+      // expectedCustomersPerMonth, ltv, ltvCacRatio. Keep this mapping in sync
+      // with both files when the schema or card props change.
       cards.push(makeCard(section, 'cac-model', 'CAC Model', {
         targetCAC: asNumber(cacModel.targetCAC),
-        expectedCPL: asNumber(cacModel.expectedCPL),
+        expectedCPL: asNumber(cacModel.targetCPL),
         leadToSqlRate: asNumber(cacModel.leadToSqlRate),
         sqlToCustomerRate: asNumber(cacModel.sqlToCustomerRate),
-        expectedLeadsPerMonth: asNumber(cacModel.expectedLeadsPerMonth),
-        expectedSQLsPerMonth: asNumber(cacModel.expectedSQLsPerMonth),
-        expectedCustomersPerMonth: asNumber(cacModel.expectedCustomersPerMonth),
-        ltv: asNumber(cacModel.ltv),
-        ltvCacRatio: asNumber(cacModel.ltvCacRatio),
+        expectedLeadsPerMonth: asNumber(cacModel.expectedMonthlyLeads),
+        expectedSQLsPerMonth: asNumber(cacModel.expectedMonthlySQLs),
+        expectedCustomersPerMonth: asNumber(cacModel.expectedMonthlyCustomers),
+        ltv: asNumber(cacModel.estimatedLTV),
+        ltvCacRatio: asString(cacModel.ltvToCacRatio),
+        insufficientData: asStringArray(cacModel.insufficientData),
       }, 'Customer acquisition cost model with conversion rates and LTV ratio'));
     }
 

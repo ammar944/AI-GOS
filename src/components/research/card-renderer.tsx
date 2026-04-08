@@ -317,15 +317,20 @@ export function CardContentSwitch({ card }: { card: CardState }) {
     case 'cac-model':
       return (
         <CacModelCard
-          targetCAC={card.content.targetCAC as number | undefined}
-          expectedCPL={card.content.expectedCPL as number | undefined}
-          leadToSqlRate={card.content.leadToSqlRate as number | undefined}
-          sqlToCustomerRate={card.content.sqlToCustomerRate as number | undefined}
-          expectedLeadsPerMonth={card.content.expectedLeadsPerMonth as number | undefined}
-          expectedSQLsPerMonth={card.content.expectedSQLsPerMonth as number | undefined}
-          expectedCustomersPerMonth={card.content.expectedCustomersPerMonth as number | undefined}
-          ltv={card.content.ltv as number | undefined}
-          ltvCacRatio={card.content.ltvCacRatio as number | undefined}
+          targetCAC={card.content.targetCAC as number | null | undefined}
+          expectedCPL={card.content.expectedCPL as number | null | undefined}
+          leadToSqlRate={card.content.leadToSqlRate as number | null | undefined}
+          sqlToCustomerRate={card.content.sqlToCustomerRate as number | null | undefined}
+          expectedLeadsPerMonth={card.content.expectedLeadsPerMonth as number | null | undefined}
+          expectedSQLsPerMonth={card.content.expectedSQLsPerMonth as number | null | undefined}
+          expectedCustomersPerMonth={card.content.expectedCustomersPerMonth as number | null | undefined}
+          ltv={card.content.ltv as number | null | undefined}
+          // Wave 6: ltvCacRatio is a pre-formatted string from the worker
+          // (e.g. "5.2:1 — Healthy"), not a number. The card renders it as-is.
+          ltvCacRatio={card.content.ltvCacRatio as string | null | undefined}
+          // Wave 6: insufficientData drives the card's empty-state CTA when
+          // baseline metrics weren't provided.
+          insufficientData={card.content.insufficientData as string[] | undefined}
         />
       );
     case 'risk-card':

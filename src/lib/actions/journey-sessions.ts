@@ -217,8 +217,16 @@ export async function dispatchMediaPlanForSession(
   // growth) from the session metadata so the worker can inject them into
   // runner system prompts. Any missing metric cascades to an insufficient-data
   // state in the generated plan — no silent fabrication.
+  //
+  // The fields live inside `meta.collectedFields` (a loose Record produced by
+  // the chat agent's askUser tool outputs) — NOT at the top level of meta.
+  // Earlier we passed `meta` directly which made every metric resolve to null
+  // and silently bypassed the fabrication fix.
   const { extractBaselineMetrics } = await import('@/lib/journey/baseline-metrics')
-  const baselineMetrics = extractBaselineMetrics(meta as Record<string, unknown> | null)
+  const collectedFields = (meta as Record<string, unknown> | null | undefined)?.collectedFields
+  const baselineMetrics = extractBaselineMetrics(
+    (collectedFields as Record<string, unknown> | null | undefined) ?? null,
+  )
 
   // Dispatch via the existing infrastructure
   const { dispatchResearchForUser } = await import('@/lib/ai/tools/research/dispatch')

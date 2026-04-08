@@ -646,6 +646,9 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'cac-model': {
+      // Wave 6: ltvCacRatio is a pre-formatted string from the worker
+      // (e.g. "5.2:1 — Healthy"), not a number — render it verbatim
+      // and skip the unit suffix.
       const fields: [string, string, string][] = [
         ['targetCAC', 'Target CAC', '$'],
         ['expectedCPL', 'Expected CPL', '$'],
@@ -655,11 +658,11 @@ function cardToMarkdown(card: CardState): string[] {
         ['expectedSQLsPerMonth', 'SQLs/Month', ''],
         ['expectedCustomersPerMonth', 'Customers/Month', ''],
         ['ltv', 'LTV', '$'],
-        ['ltvCacRatio', 'LTV:CAC Ratio', 'x'],
+        ['ltvCacRatio', 'LTV:CAC Ratio', ''],
       ];
       for (const [key, label, unit] of fields) {
-        if (c[key] != null) {
-          const val = c[key] as number;
+        if (c[key] != null && c[key] !== '') {
+          const val = c[key] as number | string;
           const formatted = unit === '$' ? `$${val}` : unit ? `${val}${unit}` : `${val}`;
           lines.push(`- ${label}: ${formatted}`);
         }

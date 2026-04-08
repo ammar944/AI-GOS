@@ -30,6 +30,7 @@ import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/ses
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
 import { validateWorkerUrl } from '@/lib/env';
 import { parseCollectedFields } from '@/lib/ai/journey-state';
+import { extractBaselineMetrics } from '@/lib/journey/baseline-metrics';
 import { getDownstreamResearchPlan } from '@/lib/ai/journey-downstream-research';
 import {
   getPostApprovalPlan,
@@ -654,6 +655,15 @@ ${cardSummaries.join('\n\n')}`;
     messages: await convertToModelMessages(modelMessages),
     experimental_context: {
       activeRunId: body.activeRunId ?? null,
+      // Baseline metrics extracted from the user's onboarding fields
+      // (currentCac, avgCustomerLtv, leadToCustomerRate, last12MoGrowthRate).
+      // The dispatch helpers in src/lib/ai/tools/research/dispatch.ts read
+      // this off the experimental_context and forward it to the Railway
+      // worker so the runners can render the BASELINE METRICS DATA INTEGRITY
+      // block in their system prompts. Without this wiring, every research
+      // tool call would treat metrics as NOT PROVIDED and the fabrication
+      // fix would be dead code.
+      baselineMetrics: extractBaselineMetrics(journeySnap.collectedFields),
     },
     maxRetries: 0,
     tools: {

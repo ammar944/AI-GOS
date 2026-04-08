@@ -11,7 +11,13 @@ interface CacModelCardProps {
   expectedSQLsPerMonth?: number | null;
   expectedCustomersPerMonth?: number | null;
   ltv?: number | null;
-  ltvCacRatio?: number | null;
+  /**
+   * LTV:CAC ratio as a pre-formatted display string (e.g. "5.2:1 — Healthy").
+   * The schema source field is `ltvToCacRatio: z.string().nullable()` —
+   * the worker computes the ratio AND its qualitative band, so we just
+   * display the string verbatim.
+   */
+  ltvCacRatio?: string | null;
   /**
    * List of cac-model fields that were null because the required baseline
    * metric was not provided. Drives the "Insufficient data" empty-state
@@ -86,8 +92,8 @@ export function CacModelCard({
   const summaryStats = [
     ...(targetCAC != null ? [{ label: 'Target CAC', value: usd(targetCAC) }] : []),
     ...(ltv != null ? [{ label: 'LTV', value: usd(ltv) }] : []),
-    ...(ltvCacRatio != null
-      ? [{ label: 'LTV : CAC', value: `${ltvCacRatio.toFixed(1)}x` }]
+    ...(ltvCacRatio != null && ltvCacRatio !== ''
+      ? [{ label: 'LTV : CAC', value: ltvCacRatio }]
       : []),
   ];
 
