@@ -86,6 +86,7 @@ import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-status';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import { dispatchResearchSection, dispatchWithIdentity } from '@/lib/journey/dispatch-client';
+import { buildJourneyResearchContext } from '@/lib/journey/context-string';
 import { getNextSection } from '@/lib/workspace/pipeline';
 import { ProfileDropdown } from '@/components/journey/profile-dropdown';
 import { normalizeProfileFields } from '@/lib/profiles/normalize-fields';
@@ -1474,14 +1475,6 @@ function JourneyPageContent() {
         ]),
       );
 
-      const lines: string[] = ["Here's what I found about the company:"];
-      for (const key of orderedFieldKeys) {
-        const value = acceptedJourneyFields[key]?.trim();
-        if (!value) continue;
-        lines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
-      }
-      lines.push('', 'Please use this context and begin the research journey.');
-
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
       // Go straight to workspace — render immediately while session persists
@@ -1490,7 +1483,7 @@ function JourneyPageContent() {
 
       // Persist session fields THEN dispatch — must await so the worker's
       // isActiveJourneyRun() guard sees the run ID when it tries to write results
-      const context = lines.join('\n');
+      const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
       const guardedFetch = createJourneyGuardedFetch('Journey');
       // Clear old research results, set new fields + run ID, THEN dispatch
       guardedFetch('/api/journey/session', {
@@ -1563,14 +1556,6 @@ function JourneyPageContent() {
       const displayName = acceptedJourneyFields.companyName || 'this company';
       const orderedFieldKeys = Object.keys(acceptedJourneyFields);
 
-      const lines: string[] = ["Here's what I found about the company:"];
-      for (const key of orderedFieldKeys) {
-        const value = acceptedJourneyFields[key];
-        if (!value) continue;
-        lines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
-      }
-      lines.push('', 'Please use this context and begin the research journey.');
-
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
       // Go straight to workspace — render immediately while session persists
@@ -1578,7 +1563,7 @@ function JourneyPageContent() {
       setJourneyPhase('workspace');
 
       // Clear old results, set new fields + run ID, THEN dispatch
-      const context = lines.join('\n');
+      const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
       const guardedFetch = createJourneyGuardedFetch('Journey');
       guardedFetch('/api/journey/session', {
         method: 'PATCH',
