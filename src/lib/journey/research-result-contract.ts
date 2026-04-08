@@ -80,11 +80,17 @@ const WRAPPER_KEYS = new Set([
 const ROOT_METADATA_KEYS = new Set(['citations', 'sources', 'provenance']);
 
 const FALLBACK_LANGUAGE_PATTERNS = [
-  /\b(?:request|research|analysis|data)\s+timed?\s*out\b/i,
-  /\bfallback (?:response|output|result|data|artifact)\b/i,
-  /\bplaceholder (?:response|output|result|data|text|content)\b/i,
+  // Any "timed out" / "timeout" mention in user-facing strategy artifacts is
+  // a leak from worker recovery prose — flag aggressively.
+  /\btimed?\s*out\b/i,
+  /\btimeout\b/i,
+  // "Fallback" qualified by any artifact / strategy / copy noun
+  /\bfallback\s+(?:response|output|result|data|artifact|strategy|benchmarks?|mode|copy|hook|angle|language|content|text)\b/i,
+  // "using fallback X" — any noun
+  /\busing\s+fallback\b/i,
+  // Generic placeholder language
+  /\bplaceholder\b/i,
   /\bbenchmark-only\b/i,
-  /\busing fallback (?:data|mode|response)\b/i,
   /\bunable to (?:complete|generate|produce|retrieve)\b/i,
   /\bno (?:data|results?) (?:available|found|returned)\b/i,
 ] as const;

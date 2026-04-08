@@ -1,5 +1,45 @@
 # TODOS
 
+## Test Suite Cleanup — Pre-existing failures (noticed during /ship 2026-04-09)
+
+These failures exist in `main` and were NOT introduced by the current research-fabrication-fix + current-marketing-activities ship. Tracked here so they get fixed in a dedicated cleanup branch instead of leaking into unrelated PRs. **Priority: P1** (each masks real future regressions in its area).
+
+### Vitest — `src/lib/journey/__tests__/session-state-server.test.ts` (8 failing)
+**What:** All 8 failures throw `supabase.from(...).select(...).eq(...).order is not a function`. The supabase mock chain doesn't include `.order()` after `.eq()`.
+**Fix:** Update the mock builder in the test setup to add `.order()` to the `.eq()` return.
+**Why it matters:** session-state-server is the persistence layer for journey runs. A real regression here could silently break run hydration.
+
+### Vitest — `src/lib/ad-library/__tests__/false-positive-prevention.test.ts` + `name-matcher.test.ts` (7 failing)
+**What:** Name-matcher scoring drifted (e.g. test expects `0.75` for "Funnel.io" vs "AR Funnel.io", actual is `0.4`). Either the algorithm changed and assertions weren't updated, or the algorithm regressed.
+**Fix:** Triage — read git blame on `name-matcher.ts` and decide whether the test or the algorithm is right. The expected scores look defensible (prefix match should score higher than 0.4), so this might be a real regression.
+**Why it matters:** This is the ad-library false-positive guard. Ad ownership disambiguation depends on it.
+
+### Vitest — `src/components/journey/__tests__/prefill-stream-view.test.tsx` (2 failing)
+**What:** "lets users edit extracted fields before continuing to review" + "switches completed fields into editable inputs in the same container".
+**Fix:** Component likely changed how it transitions from streaming to editable state.
+
+### Vitest — `src/lib/journey/__tests__/read-research-result.test.ts` (1 failing)
+**What:** "returns section data when research_results contains the section". Likely a contract drift between the read helper and stored shape.
+
+### Vitest — `src/app/journey/__tests__/page.test.tsx` (11 SKIPPED, 0 failing) — REWRITE NEEDED
+**What:** All 11 scenarios in this suite were written against the OLD welcome flow ("Start without website analysis" / "Analyze website first" buttons + `https://example.com` placeholder + "Start Market Overview" CTA). The journey page was redesigned with a URL-input-first kickoff (`Begin Analysis` button + optional document upload, no skip flow). Suite is currently `describe.skip` with full mock graph in place (framer-motion, ProfileDropdown, WorkspaceProvider, WorkspacePage, JourneyWorkerStatusBanner, UnifiedFieldReview, PrefillStreamView).
+**Fix:** Rewrite the 11 scenarios for the new welcome UX. The artifact orchestration logic is still valid; only the kickoff and CTA assertions need to change. Estimated 1–2 hours.
+**Why it matters:** This is the artifact orchestration regression suite for the journey chat — high-value coverage of approval gating, realtime hooks, dispatch errors, and timeout banners.
+
+### Worker — `research-worker/src/__tests__/supabase.test.ts` (2 failing)
+**What:** Both failures throw `query.eq is not a function` after retrying 3 times. Same root cause as the app-side session-state-server failures: supabase mock chain is incomplete.
+**Fix:** Add `.eq()` chaining to the test mock builder.
+
+### Worker — `research-worker/src/__tests__/keywords.test.ts` (2 failing)
+**What:** "falls back to an ultra-compact rescue when the repair pass is also truncated at max tokens" + "repairs keyword research from compact evidence after a max-token truncated primary pass". Same pattern as the competitors test failures fixed during this ship — keywords runner likely changed signatures or progress messages and the test wasn't updated.
+**Fix:** Apply the same retry/progress-message updates that the competitors test got.
+
+### Worker — `research-worker/src/__tests__/contracts.test.ts` (1 failing)
+**What:** "rejects non-canonical market overview enums in the worker contract". Contract validation tightened or loosened.
+**Fix:** Triage which side moved.
+
+---
+
 ## Review Gap Intelligence — Future Improvements
 
 ### Feed exploit angles into whiteSpaceGaps for strategy synthesis (from eng review + Codex 2026-04-02)

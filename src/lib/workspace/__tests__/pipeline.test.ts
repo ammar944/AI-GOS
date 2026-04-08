@@ -6,12 +6,16 @@ import {
   isFinalSection,
 } from '../pipeline';
 
+// Pipeline order was reordered so the offer runner gets verified competitor
+// pricing via the intelligence chain. icpValidation now precedes competitors,
+// and competitors precedes offerAnalysis.
+
 describe('SECTION_PIPELINE', () => {
   it('has 7 sections in correct order', () => {
     expect(SECTION_PIPELINE).toEqual([
       'industryMarket',
-      'competitors',
       'icpValidation',
+      'competitors',
       'offerAnalysis',
       'keywordIntel',
       'crossAnalysis',
@@ -21,8 +25,16 @@ describe('SECTION_PIPELINE', () => {
 });
 
 describe('getNextSection', () => {
-  it('returns competitors after industryMarket', () => {
-    expect(getNextSection('industryMarket')).toBe('competitors');
+  it('returns icpValidation after industryMarket', () => {
+    expect(getNextSection('industryMarket')).toBe('icpValidation');
+  });
+
+  it('returns competitors after icpValidation', () => {
+    expect(getNextSection('icpValidation')).toBe('competitors');
+  });
+
+  it('returns offerAnalysis after competitors', () => {
+    expect(getNextSection('competitors')).toBe('offerAnalysis');
   });
 
   it('returns null after mediaPlan (last section)', () => {
@@ -41,6 +53,14 @@ describe('getNextSection', () => {
 describe('getSectionIndex', () => {
   it('returns 0 for industryMarket', () => {
     expect(getSectionIndex('industryMarket')).toBe(0);
+  });
+
+  it('returns 1 for icpValidation', () => {
+    expect(getSectionIndex('icpValidation')).toBe(1);
+  });
+
+  it('returns 2 for competitors', () => {
+    expect(getSectionIndex('competitors')).toBe(2);
   });
 
   it('returns 5 for crossAnalysis', () => {

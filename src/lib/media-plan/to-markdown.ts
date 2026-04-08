@@ -73,7 +73,7 @@ function icpTargetingMd(d: ICPTargeting): string {
   lines.push(`### Audience Segments`);
   for (const seg of d.segments) {
     lines.push(``);
-    lines.push(`**${seg.name}** (${seg.funnelPosition})`);
+    lines.push(`**${seg.name}** (${FUNNEL_STAGE_LABELS[seg.funnelPosition] ?? seg.funnelPosition})`);
     lines.push(`${seg.description}`);
     lines.push(`- Targeting: ${seg.targetingParameters.join(", ")}`);
     lines.push(`- Est. Reach: ${seg.estimatedReach}`);
@@ -162,7 +162,7 @@ function creativeStrategyMd(d: CreativeStrategy): string {
   lines.push(`### Creative Angles`);
   for (const a of d.angles) {
     lines.push(``);
-    lines.push(`**${a.name}** (${a.bestForFunnelStages.join(", ")} | ${a.platforms.join(", ")})`);
+    lines.push(`**${a.name}** (${a.bestForFunnelStages.map((s) => FUNNEL_STAGE_LABELS[s] ?? s).join(", ")} | ${a.platforms.join(", ")})`);
     lines.push(`${a.description}`);
     lines.push(`> "${a.exampleHook}"`);
   }
@@ -223,7 +223,8 @@ function budgetAllocationMd(d: BudgetAllocation): string {
   // Funnel Split
   lines.push(`### Funnel Split`);
   for (const fs of d.funnelSplit) {
-    lines.push(`- **${fs.stage}** (${fmtPct(fs.percentage)}): ${fs.rationale}`);
+    const stageLabel = FUNNEL_STAGE_LABELS[fs.stage] ?? fs.stage;
+    lines.push(`- **${stageLabel}** (${fmtPct(fs.percentage)}): ${fs.rationale}`);
   }
   lines.push(``);
 
@@ -298,19 +299,19 @@ function performanceModelMd(d: PerformanceModel): string {
   const nullable = (n: number | null): string =>
     n !== null ? n.toLocaleString() : '—';
 
-  lines.push(`### CAC Funnel Model`);
+  lines.push(`### Customer Acquisition Cost (CAC) Funnel Model`);
   lines.push(``);
   lines.push(`| Metric | Value |`);
   lines.push(`|--------|-------|`);
-  lines.push(`| Target CPL | ${fmt$(m.targetCPL)} |`);
+  lines.push(`| Target Cost Per Lead (CPL) | ${fmt$(m.targetCPL)} |`);
   lines.push(`| Expected Leads/mo | ${nullable(m.expectedMonthlyLeads)} |`);
-  lines.push(`| Lead → SQL Rate | ${fmtPct(m.leadToSqlRate)} |`);
-  lines.push(`| Expected SQLs/mo | ${nullable(m.expectedMonthlySQLs)} |`);
-  lines.push(`| SQL → Customer Rate | ${fmtPct(m.sqlToCustomerRate)} |`);
-  lines.push(`| Expected Customers/mo | ${nullable(m.expectedMonthlyCustomers)} |`);
-  lines.push(`| Target CAC | ${fmt$(m.targetCAC)} |`);
-  lines.push(`| Estimated LTV | ${fmt$(m.estimatedLTV)} |`);
-  lines.push(`| **LTV : CAC Ratio** | **${m.ltvToCacRatio ?? 'Insufficient data'}** |`);
+  lines.push(`| Lead → Sales-Qualified Lead (SQL) Rate | ${fmtPct(m.leadToSqlRate)} |`);
+  lines.push(`| Expected Sales-Qualified Leads (SQLs)/mo | ${nullable(m.expectedMonthlySQLs)} |`);
+  lines.push(`| SQL → Customer Close Rate | ${fmtPct(m.sqlToCustomerRate)} |`);
+  lines.push(`| Expected New Customers/mo | ${nullable(m.expectedMonthlyCustomers)} |`);
+  lines.push(`| Target Customer Acquisition Cost (CAC) | ${fmt$(m.targetCAC)} |`);
+  lines.push(`| Estimated Lifetime Value (LTV) | ${fmt$(m.estimatedLTV)} |`);
+  lines.push(`| **Lifetime Value : CAC Ratio (LTV:CAC)** | **${m.ltvToCacRatio ?? 'Insufficient data'}** |`);
   lines.push(``);
 
   lines.push(`### Monitoring Schedule`);

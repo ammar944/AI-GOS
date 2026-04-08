@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ReviewCard } from '../review-card';
 
+// Wave 6e: ReviewCard intentionally no longer renders the ExploitAngles section
+// (`gapIntelligence` is accepted as a backwards-compat prop but ignored). The
+// component renders only when there's at least one review source or
+// negativeReviews entry. These tests pin that contract.
+
 describe('ReviewCard', () => {
   it('renders all three review sources', () => {
     render(
@@ -18,7 +23,7 @@ describe('ReviewCard', () => {
     expect(screen.getByText('Capterra')).toBeDefined();
   });
 
-  it('renders exploit angles when gapIntelligence is provided', () => {
+  it('does not render exploit angles even when gapIntelligence is provided (Wave 6e)', () => {
     render(
       <ReviewCard
         competitorName="Acme"
@@ -37,9 +42,9 @@ describe('ReviewCard', () => {
       />,
     );
 
-    expect(screen.getByText('Exploit Angles')).toBeDefined();
-    expect(screen.getByText('Slow onboarding')).toBeDefined();
-    expect(screen.getByText('Position as instant setup')).toBeDefined();
+    expect(screen.queryByText('Exploit Angles')).toBeNull();
+    expect(screen.queryByText('Slow onboarding')).toBeNull();
+    expect(screen.queryByText('Position as instant setup')).toBeNull();
   });
 
   it('does not render exploit angles when gapIntelligence is null', () => {
@@ -67,7 +72,7 @@ describe('ReviewCard', () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it('does NOT return null when only gapIntelligence exists', () => {
+  it('returns null when only gapIntelligence is provided (Wave 6e — gap data does not gate render)', () => {
     const { container } = render(
       <ReviewCard
         competitorName="Acme"
@@ -85,8 +90,7 @@ describe('ReviewCard', () => {
       />,
     );
 
-    expect(container.firstChild).not.toBeNull();
-    expect(screen.getByText('Exploit Angles')).toBeDefined();
+    expect(container.firstChild).toBeNull();
   });
 
   it('returns null when no data exists', () => {
@@ -97,10 +101,11 @@ describe('ReviewCard', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders confidence badges with correct labels', () => {
+  it('does not render confidence badges (Wave 6e — exploit angles removed)', () => {
     render(
       <ReviewCard
         competitorName="Acme"
+        trustpilot={{ rating: 4.0 }}
         gapIntelligence={{
           recurringComplaints: [],
           exploitAngles: [
@@ -125,7 +130,7 @@ describe('ReviewCard', () => {
       />,
     );
 
-    expect(screen.getByText('high')).toBeDefined();
-    expect(screen.getByText('low')).toBeDefined();
+    expect(screen.queryByText('high')).toBeNull();
+    expect(screen.queryByText('low')).toBeNull();
   });
 });

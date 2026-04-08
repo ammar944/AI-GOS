@@ -40,21 +40,26 @@ describe('analyzeReviewGaps', () => {
   });
 
   it('calls generateObject with correct structure', async () => {
+    // Schema is { competitors: Array<{ name, analysis }> } — the runner
+    // converts the array into a Record keyed by competitor name on the way out.
     mockGenerateObject.mockResolvedValueOnce({
       object: {
-        competitors: {
-          Acme: {
-            recurringComplaints: ['slow onboarding'],
-            exploitAngles: [{
-              gap: 'Slow onboarding',
-              whyItMatters: 'Cited by 2 reviewers',
-              positioningAngle: 'Position as instant setup',
-              adHook: 'Stop waiting. Start selling.',
-              confidence: 'high',
-              evidenceQuotes: ['Took 3 weeks'],
-            }],
+        competitors: [
+          {
+            name: 'Acme',
+            analysis: {
+              recurringComplaints: ['slow onboarding'],
+              exploitAngles: [{
+                gap: 'Slow onboarding',
+                whyItMatters: 'Cited by 2 reviewers',
+                positioningAngle: 'Position as instant setup',
+                adHook: 'Stop waiting. Start selling.',
+                confidence: 'high',
+                evidenceQuotes: ['Took 3 weeks'],
+              }],
+            },
           },
-        },
+        ],
       },
       usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       finishReason: 'stop',

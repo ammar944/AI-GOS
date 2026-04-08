@@ -21,6 +21,12 @@ describe('isCompetitorTimeoutError', () => {
   });
 });
 
+// Wave 6 broadened the retry contract: any parseError on the primary or repair
+// pass triggers a fallback (regardless of stopReason). The repair/rescue
+// passes use no-tool prompts that produce valid JSON far more reliably than
+// the primary tool-using pass, so retrying on any non-JSON output is the
+// correct call. These tests pin the new contract.
+
 describe('shouldRetryCompetitorsWithFallback', () => {
   it('retries when the response was truncated by max tokens', () => {
     expect(
@@ -33,20 +39,23 @@ describe('shouldRetryCompetitorsWithFallback', () => {
     ).toBe(true);
   });
 
-  it('does not retry when parsing succeeded or the stop reason differs', () => {
-    expect(
-      shouldRetryCompetitorsWithFallback({
-        parseError: undefined,
-        telemetry: {
-          stopReason: 'max_tokens',
-        },
-      }),
-    ).toBe(false);
+  it('retries when the model produced non-JSON output even on a clean stop reason', () => {
     expect(
       shouldRetryCompetitorsWithFallback({
         parseError: new Error('Unexpected end of JSON input'),
         telemetry: {
           stopReason: 'end_turn',
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not retry when parsing succeeded', () => {
+    expect(
+      shouldRetryCompetitorsWithFallback({
+        parseError: undefined,
+        telemetry: {
+          stopReason: 'max_tokens',
         },
       }),
     ).toBe(false);
@@ -65,20 +74,23 @@ describe('shouldRetryCompetitorsWithRescue', () => {
     ).toBe(true);
   });
 
-  it('does not retry when parsing succeeded or the stop reason differs', () => {
-    expect(
-      shouldRetryCompetitorsWithRescue({
-        parseError: undefined,
-        telemetry: {
-          stopReason: 'max_tokens',
-        },
-      }),
-    ).toBe(false);
+  it('retries when the compact repair pass produced non-JSON output even on a clean stop reason', () => {
     expect(
       shouldRetryCompetitorsWithRescue({
         parseError: new Error('Unexpected end of JSON input'),
         telemetry: {
           stopReason: 'end_turn',
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not retry when parsing succeeded', () => {
+    expect(
+      shouldRetryCompetitorsWithRescue({
+        parseError: undefined,
+        telemetry: {
+          stopReason: 'max_tokens',
         },
       }),
     ).toBe(false);
@@ -465,14 +477,21 @@ describe('runResearchCompetitorsWithDeps', () => {
       section: 'competitorIntel',
       durationMs: 850,
     });
+    // Wave 6 reworked progress messages from technical labels
+    // ('attempt primary (model: ..., tools: enabled) started') to user-facing
+    // labels ('competitor analysis with live data started'). The internal
+    // 'primary competitor pass timed out — repairing artifact from captured
+    // evidence' bridge message is preserved because the recovery flow itself
+    // didn't change.
     expect(progress.map((update) => update.message)).toEqual(
       expect.arrayContaining([
-        'attempt primary (model: claude-sonnet-4-6, tools: enabled) started',
-        'attempt primary (model: claude-sonnet-4-6, tools: enabled) timed out (source: request_timeout)',
+        'preparing competitor research brief',
+        'competitor analysis with live data started',
+        'competitor analysis with live data timed out',
         'primary competitor pass timed out — repairing artifact from captured evidence',
-        'repair evidence package prepared (business lines: 5, searches: 0, sources: 3, analysis notes: 0, draft chars: 0, total chars: 825)',
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) started',
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) completed (stop reason: end_turn)',
+        'preparing additional competitor analysis',
+        'competitor analysis (repair pass) from context started',
+        'competitor analysis (repair pass) from context complete',
       ]),
     );
   });
@@ -818,12 +837,16 @@ describe('runResearchCompetitorsWithDeps', () => {
       section: 'competitorIntel',
       durationMs: 1500,
     });
+    // Wave 6 reworked progress messages from technical labels
+    // ('attempt repair (model: ..., tools: disabled) timed out') to user-facing
+    // labels ('competitor analysis (repair pass) from context timed out'). The
+    // recovery flow itself didn't change.
     expect(progress.map((update) => update.message)).toEqual(
       expect.arrayContaining([
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) timed out (source: worker_timeout)',
+        'competitor analysis (repair pass) from context timed out',
         'competitor repair pass timed out — retrying with ultra-compact rescue',
-        'attempt rescue (model: claude-sonnet-4-6, tools: disabled) started',
-        'attempt rescue (model: claude-sonnet-4-6, tools: disabled) completed (stop reason: end_turn)',
+        'competitor analysis (rescue pass) from context started',
+        'competitor analysis (rescue pass) from context complete',
       ]),
     );
   });
