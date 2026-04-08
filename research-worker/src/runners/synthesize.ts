@@ -90,7 +90,7 @@ const synthesisGenerateSchema = z.object({
   }).optional(),
 });
 
-const SYNTHESIS_SYSTEM = `You are synthesizing research into an actionable paid media strategy.
+export const SYNTHESIS_SYSTEM = `You are synthesizing research into an actionable paid media strategy.
 
 Create a strategic cross-analysis connecting all research insights into actionable paid media strategy.
 
@@ -101,6 +101,14 @@ RULES:
 - Keep all strings concise and decision-useful
 - Do not fabricate data not present in the research
 - When citing statistics, distinguish between independent research (industry surveys, government data, academic studies) and competitor marketing claims. If a statistic originates from a competitor's website or promotional materials, label it as "per [Competitor] estimates" rather than presenting it as independent industry data.
+
+CURRENT MARKETING ACTIVITIES (anti-duplication rule):
+- The context may contain a "Current Marketing Activities:" line describing channels, budgets, and creatives the client is ALREADY running.
+- If present, your recommendations MUST NOT restate these as "new" strategy.
+- Your platformRecommendations, messagingAngles, and positioningStrategy must propose NEW angles, UNTESTED channels, or CONTRARIAN moves relative to what's already in market.
+- If the client is already running a channel successfully, you may keep it as a "primary" platform but your rationale MUST explicitly reference what they're doing today and describe the INCREMENTAL change (new audience, new creative system, new bidding strategy) — not repeat their existing playbook.
+- If a channel is already running but failing, recommend a structural fix or cutting it — do not silently re-recommend it.
+- If the field is empty or absent, ignore this rule and proceed normally.
 
 BUDGET ALLOCATION:
 - Under $2K/month: 1 primary platform (70-80%), 1 secondary for retargeting only
