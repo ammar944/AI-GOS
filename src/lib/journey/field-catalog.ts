@@ -69,6 +69,10 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'monthlyAdBudget', label: 'Monthly Ad Budget', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either' },
   { key: 'monthlyRevenueRange', label: 'Monthly Revenue Range', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
   { key: 'payingCustomerCount', label: 'Paying Customer Count', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
+  { key: 'currentCac', label: 'Current CAC', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
+  { key: 'avgCustomerLtv', label: 'Avg Customer LTV', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
+  { key: 'leadToCustomerRate', label: 'Lead → Customer %', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
+  { key: 'last12MoGrowthRate', label: 'Last 12-Month Revenue Growth %', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
   { key: 'campaignDuration', label: 'Campaign Duration', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'targetCpl', label: 'Target CPL', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'targetCac', label: 'Target CAC', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
@@ -186,6 +190,34 @@ export const JOURNEY_ENRICHMENT_FIELD_METAS: readonly JourneyManualFieldDefiniti
     helper: 'How many paying customers or clients do you currently have?',
     rows: 1,
   },
+  {
+    key: 'currentCac',
+    label: 'Current CAC',
+    placeholder: '$450',
+    helper: 'What it currently costs you to acquire a customer.',
+    rows: 1,
+  },
+  {
+    key: 'avgCustomerLtv',
+    label: 'Avg Customer LTV',
+    placeholder: '$3,600',
+    helper: "Lifetime revenue per customer. Leave blank if you're not sure.",
+    rows: 1,
+  },
+  {
+    key: 'leadToCustomerRate',
+    label: 'Lead → Customer %',
+    placeholder: '5',
+    helper: 'Of every 100 leads, how many become paying customers?',
+    rows: 1,
+  },
+  {
+    key: 'last12MoGrowthRate',
+    label: 'Last 12-Month Revenue Growth %',
+    placeholder: '25',
+    helper: "Leave blank if you don't track it. Used to gate growth-rate claims in the plan.",
+    rows: 1,
+  },
 ];
 
 export const JOURNEY_WAVE_TWO_REQUIREMENTS: readonly JourneyRequirementDefinition[] = [
@@ -287,6 +319,11 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
     label: 'Goals & Strategy',
     fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning'],
   },
+  {
+    id: 'current-performance',
+    label: 'Current Performance (optional)',
+    fieldKeys: ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'],
+  },
 ];
 
 // ── Profile field groups: all journey-collected fields for profile view/edit ──
@@ -317,6 +354,11 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
     id: 'goals-strategy',
     label: 'Goals & Strategy',
     fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'salesCycleLength', 'salesProcessOverview', 'campaignDuration', 'targetCpl', 'targetCac'],
+  },
+  {
+    id: 'current-performance',
+    label: 'Current Performance (optional)',
+    fieldKeys: ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'],
   },
 ];
 
