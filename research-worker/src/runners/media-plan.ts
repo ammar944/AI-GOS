@@ -44,6 +44,16 @@ const MAX_TOKENS = 8000;
 
 const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data and research results. Do not infer unsupported facts. All benchmark numbers must be labeled as 'industry benchmark'.`;
 
+export const CURRENT_ACTIVITIES_GUARDRAIL = `
+
+CURRENT MARKETING ACTIVITIES (anti-duplication rule):
+- The context may contain a "Current Marketing Activities:" line describing channels, budgets, and creatives the client is ALREADY running.
+- For Channel Mix & Budget: do not propose a budget allocation that mirrors the current one. If 60% of current spend is on Meta, your recommendation should either (a) cut Meta to open room for untested channels or (b) restructure the Meta spend into a materially different audience/creative mix, with explicit rationale.
+- For Audience & Campaign: do not re-propose audience layers the client confirms they're already running. New lookalike seeds, new interest stacks, new exclusions — yes. Same targeting — no.
+- For Creative System: do not recommend a creative format (UGC, static, carousel, VSL) the client explicitly says is already working or already tested. Pick a different format or a different angle on the same format.
+- For Rollout Roadmap: phase 1 should not be "launch [channel they're already running]" — phase 1 is the INCREMENTAL change.
+- If the field is empty or absent, ignore this rule.`;
+
 interface BlockConfig {
   name: MediaPlanBlock;
   label: string;
@@ -134,6 +144,7 @@ export async function runMediaPlan(
       refs ? `\n\n## Reference Data\n\n${refs}` : '',
       industryTemplate ? `\n\n## Industry Template (${industry})\n\n${industryTemplate}` : '',
       ANTI_HALLUCINATION,
+      CURRENT_ACTIVITIES_GUARDRAIL,
     ];
 
     const previousBlocksContext = completedBlocks.length > 0
@@ -328,6 +339,7 @@ export async function runMediaPlan(
         STRATEGY_SNAPSHOT_SKILL,
         refs ? `\n\n## Reference Data\n\n${refs}` : '',
         ANTI_HALLUCINATION,
+        CURRENT_ACTIVITIES_GUARDRAIL,
         '\n\nCRITICAL: The snapshot numbers must EXACTLY match the validated block data provided. Do not round or approximate.',
       ];
 
