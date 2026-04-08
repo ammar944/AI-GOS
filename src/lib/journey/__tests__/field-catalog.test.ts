@@ -7,6 +7,12 @@ import {
   JOURNEY_RESEARCH_ENRICHMENT_FIELDS,
   JOURNEY_SECTION_FOLLOWUP_FIELDS,
   JOURNEY_WAVE_TWO_REQUIREMENTS,
+  JOURNEY_FIELD_GROUPS,
+  PROFILE_FIELD_GROUPS,
+  PROFILE_MULTILINE_KEYS,
+  JOURNEY_REQUIRED_FIELD_KEYS,
+  JOURNEY_ENRICHMENT_FIELD_METAS,
+  getJourneyFieldDefinition,
 } from '../field-catalog';
 
 describe('field-catalog', () => {
@@ -47,5 +53,57 @@ describe('field-catalog', () => {
       'primaryIcpDescription',
       'pricingContext',
     ]);
+  });
+});
+
+describe('currentMarketingActivities field', () => {
+  it('is registered in JOURNEY_FIELDS with the correct shape', () => {
+    const field = getJourneyFieldDefinition('currentMarketingActivities');
+    expect(field).toBeDefined();
+    expect(field?.category).toBe('section-followup');
+    expect(field?.section).toBe('crossAnalysis');
+    expect(field?.collectionMode).toBe('manual');
+    expect(field?.prefillVisible).toBeFalsy();
+  });
+
+  it('appears in the goals-strategy group of JOURNEY_FIELD_GROUPS', () => {
+    const group = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'goals-strategy');
+    expect(group?.fieldKeys).toContain('currentMarketingActivities');
+  });
+
+  it('appears in the goals-strategy group of PROFILE_FIELD_GROUPS', () => {
+    const group = PROFILE_FIELD_GROUPS.find((g) => g.id === 'goals-strategy');
+    expect(group?.fieldKeys).toContain('currentMarketingActivities');
+  });
+
+  it('renders as a multi-line textarea on the profile edit page', () => {
+    expect(PROFILE_MULTILINE_KEYS.has('currentMarketingActivities')).toBe(true);
+  });
+
+  it('is NOT required — must remain optional for existing users', () => {
+    expect(JOURNEY_REQUIRED_FIELD_KEYS.has('currentMarketingActivities')).toBe(false);
+  });
+
+  it('has placeholder and helper metadata in JOURNEY_ENRICHMENT_FIELD_METAS', () => {
+    const meta = JOURNEY_ENRICHMENT_FIELD_METAS.find(
+      (m) => m.key === 'currentMarketingActivities',
+    );
+    expect(meta).toBeDefined();
+    expect(meta?.placeholder).toBeTruthy();
+    expect(meta?.helper).toBeTruthy();
+    expect(meta?.rows).toBeGreaterThan(1);
+    expect(meta?.required).toBeFalsy();
+  });
+
+  it('flows through buildJourneyResearchContext as a labeled line', async () => {
+    const { buildJourneyResearchContext } = await import('../context-string');
+    const ctx = buildJourneyResearchContext({
+      companyName: 'Acme',
+      currentMarketingActivities:
+        'Meta $8k/mo LAL 1% + UGC, 2.1x ROAS. LinkedIn flat. Google brand-only.',
+    });
+    expect(ctx).toContain(
+      'Current Marketing Activities: Meta $8k/mo LAL 1% + UGC, 2.1x ROAS. LinkedIn flat. Google brand-only.',
+    );
   });
 });

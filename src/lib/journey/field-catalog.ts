@@ -66,6 +66,7 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'salesCycleLength', label: 'Sales Cycle Length', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'salesProcessOverview', label: 'Sales Process', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'brandPositioning', label: 'Brand Positioning', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'currentMarketingActivities', label: 'Current Marketing Activities', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'monthlyAdBudget', label: 'Monthly Ad Budget', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either' },
   { key: 'monthlyRevenueRange', label: 'Monthly Revenue Range', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
   { key: 'payingCustomerCount', label: 'Paying Customer Count', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
@@ -186,6 +187,15 @@ export const JOURNEY_ENRICHMENT_FIELD_METAS: readonly JourneyManualFieldDefiniti
     helper: 'How many paying customers or clients do you currently have?',
     rows: 1,
   },
+  {
+    key: 'currentMarketingActivities',
+    label: 'Current Marketing Activities',
+    placeholder:
+      'Meta $8k/mo — LAL 1% + interest stacks, UGC testimonial hooks, 2.1x ROAS (working).\nLinkedIn $3k/mo — job-title + static images, flat (cutting soon).\nGoogle Search: not running yet.',
+    helper:
+      "Channels you're already running, rough budget split, creative styles, what's working, what's not. Helps us avoid recommending strategies you already have in market. Skip any part.",
+    rows: 4,
+  },
 ];
 
 export const JOURNEY_WAVE_TWO_REQUIREMENTS: readonly JourneyRequirementDefinition[] = [
@@ -285,7 +295,7 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning'],
+    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities'],
   },
 ];
 
@@ -316,7 +326,7 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'salesCycleLength', 'salesProcessOverview', 'campaignDuration', 'targetCpl', 'targetCac'],
+    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities', 'salesCycleLength', 'salesProcessOverview', 'campaignDuration', 'targetCpl', 'targetCac'],
   },
 ];
 
@@ -336,4 +346,5 @@ export const PROFILE_MULTILINE_KEYS: ReadonlySet<string> = new Set([
   'commonObjections',
   'salesProcessOverview',
   'brandPositioning',
+  'currentMarketingActivities',
 ]);
