@@ -213,10 +213,18 @@ export async function dispatchMediaPlanForSession(
 
   const runId = (meta?.activeJourneyRunId as string) ?? sessionId
 
+  // Extract baseline metrics (current CAC, LTV, lead→customer rate, 12-mo
+  // growth) from the session metadata so the worker can inject them into
+  // runner system prompts. Any missing metric cascades to an insufficient-data
+  // state in the generated plan — no silent fabrication.
+  const { extractBaselineMetrics } = await import('@/lib/journey/baseline-metrics')
+  const baselineMetrics = extractBaselineMetrics(meta as Record<string, unknown> | null)
+
   // Dispatch via the existing infrastructure
   const { dispatchResearchForUser } = await import('@/lib/ai/tools/research/dispatch')
   const result = await dispatchResearchForUser('researchMediaPlan', 'mediaPlan', context, userId, {
     activeRunId: runId,
+    baselineMetrics,
   })
 
   if (result.status === 'error') {

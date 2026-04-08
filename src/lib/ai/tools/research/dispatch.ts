@@ -4,6 +4,7 @@
 
 import { auth } from '@clerk/nextjs/server';
 import type { ToolExecutionOptions } from 'ai';
+import type { BaselineMetrics } from '@/lib/journey/baseline-metrics';
 
 export interface DispatchResult {
   status: 'queued' | 'error';
@@ -15,10 +16,19 @@ export interface DispatchResult {
 
 export interface DispatchResearchOptions {
   activeRunId?: string | null;
+  /**
+   * User-provided baseline metrics (current CAC, LTV, lead→customer rate,
+   * last 12-month growth). When present, the worker renders a BASELINE
+   * METRICS DATA INTEGRITY block into runner system prompts so the model
+   * cannot fabricate LTV/CAC/growth claims. When absent or partial, runners
+   * emit insufficient-data states for any field that needs a missing metric.
+   */
+  baselineMetrics?: BaselineMetrics;
 }
 
 export interface JourneyToolExecutionContext {
   activeRunId?: string | null;
+  baselineMetrics?: BaselineMetrics;
 }
 
 export function getActiveRunIdFromToolExecutionOptions(
@@ -33,6 +43,22 @@ export function getActiveRunIdFromToolExecutionOptions(
   return typeof activeRunId === 'string' && activeRunId.trim().length > 0
     ? activeRunId
     : null;
+}
+
+/**
+ * Extract baseline metrics from the chat agent's experimental_context.
+ * Returns undefined when no metrics were attached — the worker will then
+ * render NOT PROVIDED for every field and runners will emit insufficient-data.
+ */
+export function getBaselineMetricsFromToolExecutionOptions(
+  options: ToolExecutionOptions,
+): BaselineMetrics | undefined {
+  const context = options.experimental_context;
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    return undefined;
+  }
+  const { baselineMetrics } = context as JourneyToolExecutionContext;
+  return baselineMetrics;
 }
 
 // Retry a fetch call up to maxAttempts times on network errors only.
@@ -107,6 +133,9 @@ export async function dispatchResearchForUser(
             jobId,
             ...(typeof options.activeRunId === 'string' && options.activeRunId.length > 0
               ? { runId: options.activeRunId }
+              : {}),
+            ...(options.baselineMetrics !== undefined
+              ? { baselineMetrics: options.baselineMetrics }
               : {}),
           }),
           signal: AbortSignal.timeout(5000),
