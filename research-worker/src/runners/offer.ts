@@ -21,7 +21,15 @@ const WEB_SEARCH_TOOL = {
 } as const;
 type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool;
 
-const OFFER_SYSTEM_PROMPT = `You are an expert offer analyst evaluating viability for paid media campaigns.
+export const OFFER_CURRENT_ACTIVITIES_GUARDRAIL = `
+
+CURRENT MARKETING ACTIVITIES (context for offer analysis):
+- The context may contain a "Current Marketing Activities:" line.
+- If the client is running paid traffic with poor performance, your offer analysis should consider whether the offer structure itself is the blocker (weak guarantee, unclear value prop, wrong funnel) rather than attributing the failure to targeting or creative.
+- Do not recommend a funnel type the client confirms is already in use unless you explicitly reference the existing implementation and recommend a specific structural change.
+- If the field is empty or absent, ignore this rule.`;
+
+export const OFFER_SYSTEM_PROMPT = `You are an expert offer analyst evaluating viability for paid media campaigns.
 
 TASK: Score and assess whether this offer can convert cold traffic profitably.
 
@@ -172,7 +180,8 @@ After completing your research, respond with a JSON object. Structure:
   ]
 }
 
-After your analysis, generate 3-5 concrete offer statements the client could use in their ads. Include at least one guarantee or risk-reversal. Each statement should be specific to this client's product and market position — not generic.`;
+After your analysis, generate 3-5 concrete offer statements the client could use in their ads. Include at least one guarantee or risk-reversal. Each statement should be specific to this client's product and market position — not generic.
+${OFFER_CURRENT_ACTIVITIES_GUARDRAIL}`;
 
 interface OfferAttemptConfig {
   model: string;
