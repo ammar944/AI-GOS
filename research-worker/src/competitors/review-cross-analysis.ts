@@ -82,7 +82,11 @@ The leverage angle must be a concrete, actionable positioning statement — not 
       abortSignal: AbortSignal.timeout(CROSS_ANALYSIS_TIMEOUT_MS),
     });
 
-    console.log(`[cross-analysis] success — ${result.object.commonWeaknesses.length} shared themes identified`);
+    const weaknesses = result.object.commonWeaknesses;
+    console.log(`[cross-analysis] success — ${weaknesses.length} shared themes identified`);
+    for (const w of weaknesses) {
+      console.log(`[cross-analysis] theme="${w.theme}" affectedCompetitors=${JSON.stringify(w.affectedCompetitors)} frequency=${w.frequency}`);
+    }
     return result.object;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

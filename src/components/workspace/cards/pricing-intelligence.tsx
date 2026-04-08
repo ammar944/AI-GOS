@@ -81,11 +81,15 @@ export function PricingIntelligence({
               >
                 {s.direction === 'inelastic' ? '▲' : '▼'}
               </span>
-              <span className="text-[var(--text-secondary)] leading-relaxed">
-                {stripCitations(s.signal)}
-              </span>
-              <span className="ml-auto shrink-0 text-[10px] font-mono text-[var(--text-tertiary)]">
-                {s.source}
+              <span className="flex-1 min-w-0">
+                <span className="block text-[var(--text-secondary)] leading-relaxed">
+                  {stripCitations(s.signal)}
+                </span>
+                {s.source && (
+                  <span className="block mt-0.5 text-[10px] font-mono text-[var(--text-tertiary)] truncate">
+                    {s.source}
+                  </span>
+                )}
               </span>
             </div>
           ))}

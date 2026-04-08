@@ -452,19 +452,29 @@ function injectReviews(
 
 /**
  * Post-process the synthesis output: inject library links, ad creatives,
- * reviews, and validate pricing confidence.
+ * reviews, validate pricing confidence, and tag competitor sources.
  */
 export function postProcessSynthesis(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
   gapIntelligence?: Record<string, unknown> | null,
   crossAnalysis?: import('./review-cross-analysis').ReviewCrossAnalysis | null,
+  competitorSources?: Array<{ name: string; source: 'user-provided' | 'ai-discovered'; domain?: string }> | null,
 ): void {
   injectLibraryLinks(parsed, input);
   injectReviews(parsed, input, gapIntelligence);
   if (crossAnalysis) {
     parsed.reviewCrossAnalysis = crossAnalysis;
     console.log(`[postProcess] injected reviewCrossAnalysis — ${crossAnalysis.commonWeaknesses.length} shared themes`);
+    for (const w of crossAnalysis.commonWeaknesses) {
+      console.log(`[postProcess] reviewCrossAnalysis theme="${w.theme}" affectedCompetitors=${JSON.stringify(w.affectedCompetitors)} frequency=${w.frequency}`);
+    }
+  } else {
+    console.log('[postProcess] reviewCrossAnalysis NOT injected — crossAnalysis was null (cross-pattern analysis skipped or timed out)');
+  }
+  if (competitorSources && competitorSources.length > 0) {
+    parsed.competitorSources = competitorSources;
+    console.log(`[postProcess] injected competitorSources — ${competitorSources.filter(s => s.source === 'user-provided').length} user-provided, ${competitorSources.filter(s => s.source === 'ai-discovered').length} ai-discovered`);
   }
   injectClientAds(parsed, input);
 

@@ -319,16 +319,23 @@ function guessTheme(message: string): string {
  *     from broad keyword searches returning competitor-of-competitor results).
  *     Google ads are excluded from the advertiser check because the Apify Google
  *     actor assigns the query company name as the advertiser — no signal there.
- *   - ALL ads from this batch fail a product-category sanity check (wrong company
- *     with same name, e.g., Fathom terrain data vs Fathom AI meetings).
+ *
+ * NOTE (Wave 6d): The previous batch-level category-keyword sanity check was removed.
+ * It was over-filtering: real ads from Gong, Fireflies, Fathom etc. don't contain
+ * verbatim product-category keywords ("meeting transcription software") — they use
+ * benefit language ("close more deals", "10x your revenue"). The check was dropping
+ * 13 Gong + 6 Fathom + 3 Fireflies valid ads per run. Wrong-company protection is
+ * now handled solely by `isAdvertiserMatch` above, which uses verdict-based name
+ * matching + domain corroboration from adlibrary.ts. The `categoryKeywords` param
+ * is retained in the signature for backwards compatibility but no longer used.
  */
 function filterRelevantAds(
   creatives: WorkerAdCreative[],
   companyName: string,
   domain?: string,
-  categoryKeywords?: string[],
+  _categoryKeywords?: string[],
 ): WorkerAdCreative[] {
-  const filtered = creatives.filter((c) => {
+  return creatives.filter((c) => {
     // Drop completely empty shell ads (no text and no media)
     const hasText = Boolean(c.headline) || Boolean(c.body);
     const hasMedia = Boolean(c.imageUrl) || Boolean(c.videoUrl);
@@ -336,31 +343,16 @@ function filterRelevantAds(
 
     // Last line of defense: verify advertiser matches the expected company.
     // Uses the tightened isAdvertiserMatch from adlibrary.ts (imported above).
-    if (!isAdvertiserMatch(c.advertiser, companyName, domain)) {
-      console.log(`[apify-ads] filterRelevantAds rejected: advertiser="${c.advertiser}" for company="${companyName}"`);
+    // Wave 6e Hole 3: pass the ad's clickthrough URL so the matcher can apply
+    // the short-name URL guard (rejects "Fathom" vs "Fathom" name-collision when
+    // the URL goes to a different domain than the verified one).
+    if (!isAdvertiserMatch(c.advertiser, companyName, domain, c.detailsUrl)) {
+      console.log(`[apify-ads] filterRelevantAds rejected: advertiser="${c.advertiser}" url="${c.detailsUrl ?? ''}" for company="${companyName}"`);
       return false;
     }
 
     return true;
   });
-
-  // Batch-level sanity check: if we have category keywords (from identity card or
-  // competitor context), check whether ANY ad in the batch mentions ANY keyword.
-  // If zero ads match any category keyword, the entire batch is likely from the wrong
-  // company (e.g., "Fathom" terrain data ads when searching for "Fathom AI" meetings).
-  if (categoryKeywords && categoryKeywords.length > 0 && filtered.length > 0) {
-    const lowerKeywords = categoryKeywords.map(k => k.toLowerCase());
-    const anyAdMatchesCategory = filtered.some((c) => {
-      const text = `${c.headline ?? ''} ${c.body ?? ''}`.toLowerCase();
-      return lowerKeywords.some(kw => text.includes(kw));
-    });
-    if (!anyAdMatchesCategory) {
-      console.log(`[apify-ads] Batch sanity check FAILED for "${companyName}": ${filtered.length} ads, none mention category keywords [${lowerKeywords.join(', ')}]. Likely wrong company — dropping entire batch.`);
-      return [];
-    }
-  }
-
-  return filtered;
 }
 
 // ── Main function ──────────────────────────────────────────────────────────
@@ -474,12 +466,90 @@ export async function fetchCompetitorAds(
 
   const { searchLinkedInAds, searchMetaAds, searchGoogleAds, normalizeSearchApiToCreatives } = await import('./adlibrary');
 
-  // All 3 platforms in parallel — advertiser-first lookup with verdict resolution
-  const [linkedInRaw, metaRaw, googleRaw] = await Promise.all([
-    searchLinkedInAds(companyName, domain).catch(() => []),
-    searchMetaAds(companyName, domain, isDomainVerified).catch(() => []),
-    searchGoogleAds(companyName, domain, isDomainVerified).catch(() => []),
+  /**
+   * Fetch a single platform with retries ONLY on transient rate-limit errors.
+   *
+   * Wave 6d rewrite: The prior version retried on ANY zero-result outcome,
+   * burning 30s per platform on deterministic zeros (ambiguous verdicts,
+   * malformed API responses, genuinely ad-less advertisers). That caused the
+   * parallel-fetch 45s budget to get eaten by pointless waiting and killed
+   * downstream cross-analysis.
+   *
+   * New policy:
+   * - Non-rate-limit success (including empty array): return immediately.
+   *   If it's zero now, retrying won't change the answer.
+   * - RateLimitError: retry at 5s, 10s, 15s (up to 3 attempts).
+   * - If all retries exhaust with rate limits: flag wasRateLimited so the
+   *   caller can distinguish "we got rate limited and gave up" from "real zero".
+   */
+  async function fetchWithRetry<T>(
+    platform: string,
+    fn: () => Promise<T[]>,
+  ): Promise<{ results: T[]; wasRateLimited: boolean }> {
+    const { RateLimitError } = await import('./adlibrary');
+    const retryDelays = [5000, 10000, 15000]; // 5s, 10s, 15s — cap ~30s total wait
+
+    // First attempt
+    try {
+      const result = await fn();
+      return { results: result, wasRateLimited: false };
+    } catch (err) {
+      if (!(err instanceof RateLimitError)) {
+        // Non-rate-limit error: give up immediately, don't retry
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[apify-ads] ${platform} for "${companyName}" failed (non-rate-limit): ${msg}`);
+        return { results: [], wasRateLimited: false };
+      }
+      console.warn(`[apify-ads] ${platform} for "${companyName}" RATE LIMITED on first attempt`);
+    }
+
+    // Retry loop — only reached if first attempt was a RateLimitError
+    for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+      const delayMs = retryDelays[attempt]!;
+      console.log(`[apify-ads] ${platform} "${companyName}" rate-limit retry ${attempt + 1}/${retryDelays.length} in ${delayMs / 1000}s...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      try {
+        const retryResult = await fn();
+        return { results: retryResult, wasRateLimited: false };
+      } catch (err) {
+        if (!(err instanceof RateLimitError)) {
+          // Hit a different error on retry — stop and return empty
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[apify-ads] ${platform} "${companyName}" retry ${attempt + 1} failed (non-rate-limit): ${msg}`);
+          return { results: [], wasRateLimited: false };
+        }
+        // Still rate limited — continue to next retry
+      }
+    }
+
+    console.warn(`[apify-ads] RATE-LIMITED-ZERO for ${platform} "${companyName}" — NOT a real zero`);
+    return { results: [], wasRateLimited: true };
+  }
+
+  // Stagger the 3 platform calls by 750ms each to reduce burst load on SearchAPI.
+  // LinkedIn first, then Meta after 750ms, then Google after 1500ms.
+  // Wave 6e Layer 4: thread isDomainVerified into LinkedIn so it can post-filter
+  // by clickthrough URL when we have a confirmed domain (catches multi-company
+  // same-name leaks like FathomDEM+ vs Fathom.video).
+  const [linkedInFetch, metaFetch, googleFetch] = await Promise.all([
+    fetchWithRetry('LinkedIn', () => searchLinkedInAds(companyName, domain, isDomainVerified)),
+    new Promise<void>((resolve) => setTimeout(resolve, 750)).then(() =>
+      fetchWithRetry('Meta', () => searchMetaAds(companyName, domain, isDomainVerified)),
+    ),
+    new Promise<void>((resolve) => setTimeout(resolve, 1500)).then(() =>
+      fetchWithRetry('Google', () => searchGoogleAds(companyName, domain, isDomainVerified)),
+    ),
   ]);
+
+  const linkedInRaw = linkedInFetch.results;
+  const metaRaw = metaFetch.results;
+  const googleRaw = googleFetch.results;
+
+  const rateLimitedPlatforms: string[] = [
+    ...(linkedInFetch.wasRateLimited ? ['linkedin'] : []),
+    ...(metaFetch.wasRateLimited ? ['meta'] : []),
+    ...(googleFetch.wasRateLimited ? ['google'] : []),
+  ];
 
   const linkedInCreatives = normalizeSearchApiToCreatives(linkedInRaw, 'linkedin', companyName, domain);
   const metaCreatives = normalizeSearchApiToCreatives(metaRaw, 'meta', companyName, domain);
@@ -537,6 +607,7 @@ export async function fetchCompetitorAds(
       linkedin: linkedInCount,
       foreplay: 0,
     },
+    ...(rateLimitedPlatforms.length > 0 ? { rateLimitedPlatforms } : {}),
   };
 }
 

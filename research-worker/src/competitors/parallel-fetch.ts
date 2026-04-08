@@ -92,9 +92,31 @@ function extractPricingWindow(md: string, maxChars: number): string {
 }
 
 /**
+ * Return true if the scraped URL's hostname matches the competitor's verified domain.
+ * Strips www. prefix before comparing so fathom.video matches www.fathom.video.
+ * Used to reject redirected pages that land on a different company's domain.
+ */
+function isSameDomain(scrapedUrl: string | undefined, verifiedDomain: string): boolean {
+  if (!scrapedUrl) return true; // no URL info — can't reject
+  try {
+    const hostname = new URL(scrapedUrl).hostname.replace(/^www\./, '');
+    const expected = verifiedDomain.replace(/^www\./, '');
+    return hostname === expected;
+  } catch {
+    return true; // unparseable URL — don't reject
+  }
+}
+
+/**
  * Scrape a competitor's /pricing page with Firecrawl.
  * Tries /pricing first; falls back to the homepage if /pricing returns no
  * useful content (empty, too short, or a hard failure).
+ *
+ * Domain verification guard: if the competitor domain was inferred (not confirmed
+ * by Sonar validation), skip the scrape entirely — an inferred domain like fathom.com
+ * for "Fathom AI" would hit the wrong company (Fathom Analytics).
+ * After scraping, also verify the response URL still resolves to the expected domain
+ * to guard against cross-domain redirects.
  */
 async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult> {
   if (!competitor.domain) {
@@ -104,6 +126,20 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
       pricingMarkdown: null,
       success: false,
       error: 'No domain available',
+    };
+  }
+
+  // Domain verification guard — mirrors the isDomainVerified check in ad disambiguation.
+  // An inferred domain (guessed as name.com) is unreliable: "Fathom AI" → fathom.com
+  // is Fathom Analytics, not Fathom AI (fathom.video). Skip scraping entirely.
+  if (competitor.inferredDomain) {
+    console.log(`[pricing] ${competitor.name}: skipping — domain "${competitor.domain}" is inferred (not Sonar-verified). Would risk scraping wrong company.`);
+    return {
+      competitorName: competitor.name,
+      domain: competitor.domain,
+      pricingMarkdown: null,
+      success: false,
+      error: 'Domain not verified — skipped to avoid scraping wrong company',
     };
   }
 
@@ -130,12 +166,18 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
         client.scrape(url, {
           formats: ['markdown'],
           blockAds: true,
-        }) as Promise<{ success: boolean; markdown?: string; error?: unknown }>,
+        }) as Promise<{ success: boolean; markdown?: string; url?: string; error?: unknown }>,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Pricing scrape timed out')), 20_000),
         ),
       ]);
       const elapsed = Date.now() - start;
+
+      // Redirect guard: if Firecrawl followed a redirect to a different domain, reject.
+      if (!isSameDomain(result?.url, competitor.domain)) {
+        console.log(`[pricing] ${competitor.name} ${path}: rejected — redirected to "${result?.url}" (expected domain: ${competitor.domain})`);
+        continue;
+      }
 
       const md = typeof result?.markdown === 'string' ? result.markdown : '';
       if (md.trim().length > 50) {
@@ -165,11 +207,23 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
       client.scrape(`https://${competitor.domain}`, {
         formats: ['markdown'],
         blockAds: true,
-      }) as Promise<{ success: boolean; markdown?: string }>,
+      }) as Promise<{ success: boolean; markdown?: string; url?: string }>,
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Homepage scrape timed out')), 20_000),
       ),
     ]);
+
+    // Redirect guard on homepage too
+    if (!isSameDomain(homepage?.url, competitor.domain)) {
+      console.log(`[pricing] ${competitor.name} homepage: rejected — redirected to "${homepage?.url}" (expected domain: ${competitor.domain})`);
+      return {
+        competitorName: competitor.name,
+        domain: competitor.domain,
+        pricingMarkdown: null,
+        success: false,
+        error: 'Homepage redirected to a different domain — likely wrong company',
+      };
+    }
 
     const homeMd = typeof homepage?.markdown === 'string' ? homepage.markdown : '';
     const homeHasPricing = /\$\d+|starting at|\d+\/mo/i.test(homeMd);

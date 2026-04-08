@@ -130,8 +130,15 @@ export const reviewCrossAnalysisSchema = z.object({
   commonWeaknesses: z.array(commonWeaknessSchema),
 });
 
+export const competitorSourceSchema = z.object({
+  name: z.string(),
+  source: z.enum(['user-provided', 'ai-discovered']),
+  domain: z.string().optional(),
+});
+
 export const competitorIntelDataSchema = z.object({
   competitors: z.array(competitorRecordSchema).min(1),
+  competitorSources: z.array(competitorSourceSchema).optional(),
   marketPatterns: nonEmptyStringArraySchema.optional(),
   marketStrengths: nonEmptyStringArraySchema.optional(),
   marketWeaknesses: nonEmptyStringArraySchema.optional(),
@@ -172,3 +179,4 @@ export type CompetitorReviews = z.infer<typeof competitorReviewsSchema>;
 export type NegativeReview = z.infer<typeof negativeReviewSchema>;
 export type CommonWeakness = z.infer<typeof commonWeaknessSchema>;
 export type ReviewCrossAnalysis = z.infer<typeof reviewCrossAnalysisSchema>;
+export type CompetitorSource = z.infer<typeof competitorSourceSchema>;

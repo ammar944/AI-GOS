@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, useCallback } from 'react';
+import { useId, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ReviewSourceData {
@@ -17,27 +17,16 @@ interface NegativeReview {
   source: 'g2' | 'capterra' | 'trustpilot';
 }
 
-interface ExploitAngle {
-  gap: string;
-  whyItMatters: string;
-  positioningAngle: string;
-  adHook: string;
-  confidence: 'high' | 'medium' | 'low';
-  evidenceQuotes: string[];
-}
-
-interface GapIntelligence {
-  recurringComplaints: string[];
-  exploitAngles: ExploitAngle[];
-}
-
 interface ReviewCardProps {
   competitorName: string;
   trustpilot?: ReviewSourceData | null;
   g2?: ReviewSourceData | null;
   capterra?: ReviewSourceData | null;
   negativeReviews?: NegativeReview[] | null;
-  gapIntelligence?: GapIntelligence | null;
+  // Wave 6e: ExploitAngles section removed from rendering. Prop accepted for
+  // backwards compat with callers (e.g. card-renderer pass-through) but not
+  // used. Type widened to unknown so we don't need to import the gap schema.
+  gapIntelligence?: unknown;
 }
 
 function Stars({ rating, idPrefix }: { rating: number; idPrefix: string }) {
@@ -144,121 +133,10 @@ const SOURCE_LABEL: Record<'g2' | 'capterra' | 'trustpilot', string> = {
   trustpilot: 'Trustpilot',
 };
 
-const CONFIDENCE_STYLES: Record<'high' | 'medium' | 'low', string> = {
-  high: 'text-[var(--green)] bg-[rgba(34,197,94,0.1)]',
-  medium: 'text-[var(--amber)] bg-[rgba(234,179,8,0.1)]',
-  low: 'text-[var(--text-tertiary)] bg-[var(--bg-hover)]',
-};
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Fallback for non-secure contexts
-    }
-  }, [text]);
-
-  return (
-    <button
-      onClick={handleCopy}
-      className="inline-flex items-center justify-center w-6 h-6 min-w-[44px] min-h-[44px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
-      aria-label="Copy ad hook to clipboard"
-    >
-      {copied ? (
-        <svg className="w-3.5 h-3.5 text-[var(--green)]" viewBox="0 0 16 16" fill="none">
-          <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ) : (
-        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
-          <rect x="5.5" y="5.5" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <path d="M10.5 5.5V3.5a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h2" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-      )}
-    </button>
-  );
-}
-
-function EvidenceQuotes({ quotes }: { quotes: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (quotes.length === 0) return null;
-
-  return (
-    <div className="mt-1">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors min-h-[44px] min-w-[44px]"
-        aria-expanded={expanded}
-      >
-        <svg
-          className={cn('w-2.5 h-2.5 transition-transform', expanded && 'rotate-90')}
-          viewBox="0 0 16 16"
-          fill="none"
-        >
-          <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        {quotes.length} source{quotes.length !== 1 ? 's' : ''}
-      </button>
-      {expanded && (
-        <div className="mt-1 space-y-1">
-          {quotes.slice(0, 3).map((quote, idx) => (
-            <p key={idx} className="text-[11px] text-[var(--text-tertiary)] leading-relaxed pl-3 border-l border-[var(--border-subtle)]">
-              &ldquo;{quote.length > 150 ? `${quote.slice(0, 150)}...` : quote}&rdquo;
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ExploitAnglesSection({ intelligence }: { intelligence: GapIntelligence }) {
-  const angles = intelligence.exploitAngles;
-  if (angles.length === 0) return null;
-
-  return (
-    <div className="space-y-3">
-      <span className="text-[11px] font-mono font-medium text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
-        Exploit Angles
-      </span>
-      <div className="space-y-2">
-        {angles.map((angle, idx) => (
-          <div
-            key={idx}
-            className="border-l-2 border-[var(--accent-blue)] pl-3 space-y-1"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-[var(--text-primary)]">
-                {angle.gap}
-              </span>
-              <span className={cn(
-                'shrink-0 rounded-full px-[7px] py-[1px] text-[10px] font-mono font-medium uppercase',
-                CONFIDENCE_STYLES[angle.confidence],
-              )}>
-                {angle.confidence}
-              </span>
-            </div>
-            <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
-              {angle.positioningAngle}
-            </p>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[13px] italic text-[var(--text-secondary)]">
-                &ldquo;{angle.adHook}&rdquo;
-              </p>
-              <CopyButton text={angle.adHook} />
-            </div>
-            <EvidenceQuotes quotes={angle.evidenceQuotes} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// Wave 6e: ExploitAnglesSection + EvidenceQuotes + CopyButton + CONFIDENCE_STYLES removed.
+// They rendered an "Exploit Angles" block driven by gap-intelligence output;
+// product feedback was that the section wasn't useful. The data still flows
+// through the prop for backwards compat but is no longer rendered.
 
 function NegativeReviewsSection({ reviews }: { reviews: NegativeReview[] }) {
   const [expanded, setExpanded] = useState(false);
@@ -349,9 +227,8 @@ export function ReviewCard({
   const hasCapterra = Boolean(capterra);
   const activeSourceCount = [hasTrustpilot, hasG2, hasCapterra].filter(Boolean).length;
   const hasNegativeReviews = (negativeReviews ?? []).length > 0;
-  const hasGapIntelligence = Boolean(gapIntelligence?.exploitAngles?.length);
 
-  if (!hasTrustpilot && !hasG2 && !hasCapterra && !hasNegativeReviews && !hasGapIntelligence) return null;
+  if (!hasTrustpilot && !hasG2 && !hasCapterra && !hasNegativeReviews) return null;
 
   const gridCols =
     activeSourceCount === 3
@@ -362,15 +239,10 @@ export function ReviewCard({
 
   return (
     <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-3">
-      {hasGapIntelligence && (
-        <ExploitAnglesSection intelligence={gapIntelligence!} />
-      )}
-
       {activeSourceCount > 0 && (
         <div className={cn(
           'grid gap-4',
           gridCols,
-          hasGapIntelligence && 'border-t border-[var(--border-subtle)] pt-3',
         )}>
           {trustpilot && (
             <ReviewSource

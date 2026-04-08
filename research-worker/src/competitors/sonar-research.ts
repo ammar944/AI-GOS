@@ -34,6 +34,54 @@ async function verifyDomainResolves(domain: string): Promise<boolean> {
   }
 }
 
+/**
+ * Wave 6e Hole 1: Tokenized keyword check.
+ *
+ * Checks whether a description "mentions" a keyword phrase using:
+ *   1. Direct substring match (catches verbatim phrases AND plural forms)
+ *   2. Token overlap with word-boundary regex (catches paraphrased phrases —
+ *      e.g. "ai meeting assistant" matches "AI Notetaker for meetings" because
+ *      'meeting' appears as a word stem)
+ *
+ * Tokens shorter than 4 characters are skipped to avoid false positives like
+ * "ai" matching "Asia" or "available". Word-boundary anchoring on the START
+ * of the token catches plural/inflected forms ("meeting" → "meetings") without
+ * false-matching unrelated words.
+ *
+ * 60% threshold: at least 60% of significant tokens in the keyword must appear
+ * as word-boundary-anchored stems in the description.
+ */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function descriptionMentionsKeyword(description: string, keyword: string): boolean {
+  const desc = description.toLowerCase();
+  const kw = keyword.toLowerCase().trim();
+  if (!kw) return false;
+
+  // Direct substring match (handles verbatim and natural plurals)
+  if (desc.includes(kw)) return true;
+
+  // Token overlap with word-boundary anchoring on the start of each token
+  const tokens = kw.split(/\s+/).filter(t => t.length >= 4);
+  if (tokens.length === 0) {
+    // Single short keyword (e.g. "AI") — require strict word boundary on both sides
+    if (kw.length >= 3) {
+      const re = new RegExp(`\\b${escapeRegex(kw)}\\b`, 'i');
+      return re.test(desc);
+    }
+    return false;
+  }
+
+  let hits = 0;
+  for (const t of tokens) {
+    const re = new RegExp(`\\b${escapeRegex(t)}`, 'i');
+    if (re.test(desc)) hits++;
+  }
+  return hits / tokens.length >= 0.6;
+}
+
 export interface SonarCompetitorResult {
   competitorInsights: Array<{
     name: string;
@@ -85,7 +133,15 @@ async function validateCompetitor(
     apiKey: process.env.PERPLEXITY_API_KEY,
   });
 
-  const domainHint = candidate.domain ? ` (${candidate.domain})` : '';
+  // Wave 6e Layer 1: only pass the domain hint when it was USER-SUPPLIED.
+  // For inferred domains (e.g. "Fathom" → guessed "fathom.com"), passing the hint
+  // creates confirmation bias — Sonar finds *some* business at that URL and
+  // confirms it instead of searching for the right company in the client's
+  // category. Suppressing the hint forces Sonar to search blind using the
+  // category context below.
+  const domainHint = candidate.domain && !candidate.inferredDomain
+    ? ` (${candidate.domain})`
+    : '';
 
   // Use identity card for more precise classification when available
   const identityCard = clientContext.identityCard;
@@ -121,20 +177,34 @@ Does it directly compete with or operate in the same space as:
   - What client sells: ${productLine}
   - Client's customers: ${clientContext.icpDescription ?? 'unknown'}${keywordsHint}${negativeHint}
 
+CRITICAL — multi-company disambiguation:
+Many short names exist for SEVERAL unrelated companies in different industries. Examples:
+  - "Fathom" → fathom.video (AI meeting assistant), fathom.ai (analytics), Fathom Holdings (real estate), Fathom Sauce Company (food).
+  - "Otter" → otter.ai (transcription) but also unrelated otter.com businesses.
+  - "Avoma", "Gong", "Bird", "Notion", "Linear" all have multiple unrelated companies sharing the name.
+
+Do NOT confirm the FIRST company you find with this name. You MUST:
+  1. Search for "${candidate.name}" to see ALL companies with this name.
+  2. From those candidates, pick ONLY the one that operates in the client's category above.
+  3. If multiple candidates exist, search "${candidate.name} ${identityCard?.category ?? 'in this category'}" to disambiguate.
+  4. Return the website of the SPECIFIC company in the client's category, not any other Fathom/Otter/etc.
+
 Search the web to verify. Return ONLY valid JSON, no other text:
 {
   "exists": true | false,
   "currentlyInBusiness": true | false,
   "officialWebsite": "https://..." or null,
+  "websiteDescription": "one sentence describing what THIS company does, in their own words from the website",
   "industryMatch": true | false,
   "confidence": 0-100,
-  "reason": "one sentence explaining your conclusion"
+  "reason": "one sentence explaining your conclusion AND why this is the right company (not a same-named one in another industry)"
 }
 
 Rules:
 - Set exists: false if you cannot find any credible web presence for this company
 - Set industryMatch: false if the company exists but serves a completely different industry or market segment. Use the core keywords and negative keywords above to determine if the candidate is in the SAME specific space. A note-taking app is NOT a competitor to a video creation tool, even if both use AI.
-- If the candidate's domain resolves but belongs to a DIFFERENT business than expected (e.g. company is "Maitly" but maitly.com is not the AI company — the real site is maitly.ai), return the CORRECT domain in officialWebsite. Search for "[company name] [industry]" to find the right domain.
+- websiteDescription MUST come from the actual company website, not from a guess. It will be used for downstream category verification.
+- If the candidate's domain hint resolves but belongs to a DIFFERENT business than expected, IGNORE the hint and return the CORRECT domain. Search for "[company name] [industry]" to find the right one.
 - confidence should reflect how certain you are based on search results
 - NEVER make up company information — only use what you find in search results`;
 
@@ -162,21 +232,62 @@ Rules:
         exists?: boolean;
         currentlyInBusiness?: boolean;
         officialWebsite?: string | null;
+        websiteDescription?: string | null;
         industryMatch?: boolean;
         confidence?: number;
         reason?: string;
       };
 
-      const verified =
+      let verified =
         parsed.exists !== false &&
         parsed.currentlyInBusiness !== false &&
         parsed.industryMatch !== false;
+
+      // Wave 6e Layer 3: local category verification via the website description.
+      // Even if Sonar claims industryMatch=true, we cross-check that the description
+      // it returned actually mentions a category keyword OR doesn't trip a negative
+      // keyword. This catches cases where Sonar confidently picks the wrong company
+      // (e.g. "Fathom" → Fathom Sauce Company instead of fathom.video) by looking at
+      // the actual website content, not just the URL.
+      //
+      // Wave 6e Hole 1 fix: use tokenized matching (descriptionMentionsKeyword)
+      // instead of literal substring. Catches paraphrased descriptions where the
+      // category keyword tokens appear as stems (e.g. "AI Notetaker for meetings"
+      // matches "ai meeting assistant" via the 'meeting' token).
+      const description = parsed.websiteDescription ?? '';
+      const coreKw = (identityCard?.coreKeywords ?? []).filter(Boolean);
+      const negKw = (identityCard?.negativeKeywords ?? []).filter(Boolean);
+
+      let categoryVerdict: 'matches' | 'mismatches' | 'no-signal' = 'no-signal';
+      if (description) {
+        const hitsNegative = negKw.some(kw => descriptionMentionsKeyword(description, kw));
+        const hitsCore = coreKw.some(kw => descriptionMentionsKeyword(description, kw));
+        if (hitsNegative && !hitsCore) {
+          categoryVerdict = 'mismatches';
+        } else if (hitsCore) {
+          categoryVerdict = 'matches';
+        }
+      }
+
+      console.log(
+        `[sonar-research] "${candidate.name}": websiteDescription="${parsed.websiteDescription ?? ''}" → verdict=${categoryVerdict}`,
+      );
+
+      // Hard reject only on explicit negative-keyword hit. A weak/no-signal
+      // description should NOT block valid competitors with sparse descriptions.
+      if (categoryVerdict === 'mismatches') {
+        console.warn(
+          `[sonar-research] "${candidate.name}": REJECTED — description matches negative keywords ` +
+            `[${negKw.join(', ')}] without any core keyword match. Likely wrong-company match.`,
+        );
+        verified = false;
+      }
 
       // Extract and verify domain from Sonar's officialWebsite
       let resolvedDomain = candidate.domain;
       let domainVerified = false;
 
-      if (parsed.officialWebsite) {
+      if (parsed.officialWebsite && categoryVerdict !== 'mismatches') {
         const sonarDomain = parsed.officialWebsite
           .replace(/^https?:\/\//, '')
           .replace(/^www\./, '')
@@ -194,13 +305,23 @@ Rules:
         }
       }
 
+      // If category mismatched, downgrade confidence so the caller can decide
+      // whether to keep or drop. We don't auto-remove because it's user-provided.
+      const confidence = categoryVerdict === 'mismatches'
+        ? 15
+        : (typeof parsed.confidence === 'number' ? parsed.confidence : (verified ? 70 : 20));
+
+      const reason = categoryVerdict === 'mismatches'
+        ? `Wrong-company match: description "${parsed.websiteDescription}" hit negative keywords without core match`
+        : (parsed.reason ?? (verified ? 'Verification passed' : 'Could not verify'));
+
       return {
         name: candidate.name,
         domain: resolvedDomain,
         verified,
         domainVerified,
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : (verified ? 70 : 20),
-        reason: parsed.reason ?? (verified ? 'Verification passed' : 'Could not verify'),
+        confidence,
+        reason,
       };
     }
 
@@ -283,11 +404,18 @@ async function validateCompetitors(
     // NEVER reject for industryMatch — user chose these competitors for a reason.
     if (validation.verified || validation.confidence >= 30) {
       const updatedDomain = validation.domain ?? candidate.domain;
-      const domainWasUpgraded = updatedDomain !== candidate.domain && validation.domainVerified;
       verified.push({
         ...candidate,
         domain: updatedDomain,
-        inferredDomain: domainWasUpgraded ? false : candidate.inferredDomain,
+        // Wave 6d fix: clear inferredDomain whenever Sonar verified the domain,
+        // not only when the domain was upgraded to a different value. Previously
+        // Avoma stayed marked as inferredDomain=true because its original
+        // guessed "avoma.com" happened to be correct — Sonar verified it via
+        // HEAD but `domainWasUpgraded` was false since the value didn't change,
+        // so the flag never got cleared. Downstream this blocked pricing scraping
+        // AND forced the ad library into unverified mode, producing ambiguous
+        // verdicts and zero ads for a valid competitor.
+        inferredDomain: validation.domainVerified ? false : candidate.inferredDomain,
       });
     } else if (!validation.verified && validation.reason?.toLowerCase().includes('cannot find')) {
       // Company doesn't exist — remove it

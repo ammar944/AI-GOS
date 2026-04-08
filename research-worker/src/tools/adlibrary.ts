@@ -155,6 +155,16 @@ function guessTheme(message: string): string {
   return message.length > 90 ? `${message.slice(0, 87)}...` : message;
 }
 
+/** Thrown by fetchJson when SearchAPI responds with 429 or 503. */
+export class RateLimitError extends Error {
+  readonly status: number;
+  constructor(status: number, url: string) {
+    super(`HTTP ${status} for ${url}`);
+    this.name = 'RateLimitError';
+    this.status = status;
+  }
+}
+
 export async function fetchJson(
   url: string,
   init?: RequestInit,
@@ -166,6 +176,16 @@ export async function fetchJson(
   });
 
   if (!response.ok) {
+    if (response.status === 429 || response.status === 503) {
+      // Extract platform and company context from URL for clearer logging
+      const urlObj = new URL(url);
+      const engine = urlObj.searchParams.get('engine') ?? 'unknown';
+      const q = urlObj.searchParams.get('q') ?? urlObj.searchParams.get('advertiser') ?? urlObj.searchParams.get('advertiser_id') ?? '';
+      console.warn(`[adlibrary] SearchAPI rate limited (${response.status}) for engine=${engine} q="${q}"`);
+      throw new RateLimitError(response.status, url);
+    } else {
+      console.warn(`[adlibrary] HTTP ${response.status} for ${url}`);
+    }
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
 
@@ -185,16 +205,47 @@ export async function fetchJson(
  * Rejects: "Direct Metals" vs "Directive" (different first words, JW=0.82)
  * Rejects: "TEPLOBAK Buffer Tanks" vs "Buffer" (buffer is not the first word)
  * Passes:  "Buffer Inc" vs "Buffer" (first word matches exactly)
+ *
+ * Wave 6e Hole 3 fix: when `adUrl` is provided AND the company name is short
+ * (≤6 chars) AND a domain is provided, REQUIRE the ad URL to contain the domain.
+ * This catches the multi-company-same-name leak: e.g. an ad whose advertiser is
+ * literally "Fathom" but whose clickthrough goes to fathomdem.com instead of
+ * fathom.video. Without this guard, Layer 1 (exact match) would accept it
+ * because the names are byte-identical.
+ *
+ * Behavior matrix (short name + verified domain + adUrl):
+ *   url contains domain → fall through to existing layers
+ *   url present but doesn't contain domain → REJECT (domain mismatch)
+ *   url missing/empty → fall through (permissive, name-only match still allowed)
+ *
+ * For long names or when adUrl is undefined, this guard does nothing — backward
+ * compatible with existing callers (eval scripts, tests, normalizeSearchApi*).
  */
 export function isAdvertiserMatch(
   advertiserName: string | undefined,
   companyName: string,
   domain?: string,
+  adUrl?: string,
 ): boolean {
   if (!advertiserName) return false;
 
   const advNorm = advertiserName.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
   const compNorm = companyName.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+
+  // Wave 6e Hole 3: short-name URL guard.
+  // When the company name is short and we have a verified domain, an ad URL
+  // that points to a different domain is a hard reject — even if the name
+  // matches exactly, the URL is the strongest disambiguator we have.
+  const compLenForGuard = compNorm.replace(/\s+/g, '').length;
+  if (compLenForGuard <= 6 && domain && adUrl) {
+    const url = adUrl.toLowerCase();
+    const dom = normalizeDomain(domain).toLowerCase();
+    if (url.length > 0 && !url.includes(dom)) {
+      // URL is non-empty AND doesn't contain our verified domain — reject
+      return false;
+    }
+    // URL is empty or contains our domain — fall through to name checks
+  }
 
   // Layer 1: Exact match after normalization
   if (advNorm === compNorm) return true;
@@ -527,25 +578,34 @@ export async function searchGoogleAds(
 
   const BASE = 'https://www.searchapi.io/api/v1/search';
 
-  // When we have a Wave 1 verified domain, use it as the primary lookup path.
-  // google_ads_advertiser_info does a direct domain → advertiser_id resolution,
-  // which is far more reliable than name matching for short/ambiguous names.
+  // When we have a Wave 1 verified domain, call google_ads_transparency_center
+  // directly with ?domain=X. This engine natively accepts a domain parameter
+  // and returns ad_creatives — no separate advertiser lookup needed.
+  // (Wave 6c's google_ads_advertiser_info path was architecturally wrong: that
+  // endpoint requires an advertiser_info_token from Google Search, not a domain,
+  // and returned HTTP 400 for every call.)
   if (domain && isDomainVerified) {
     try {
-      const domainParams = new URLSearchParams({
-        engine: 'google_ads_advertiser_info',
-        q: domain,
+      const directParams = new URLSearchParams({
+        engine: 'google_ads_transparency_center',
+        domain: normalizeDomain(domain),
         api_key: apiKey,
       });
-      const domainPayload = await fetchJson(`${BASE}?${domainParams.toString()}`);
-      const domainId = (domainPayload as { advertiser_id?: string })?.advertiser_id;
-      if (domainId) {
-        console.log(`[adlibrary] Google domain-primary for "${companyName}": found advertiser via verified domain "${domain}"`);
-        return fetchGoogleAdsByAdvertiserId(domainId, apiKey);
-      }
-      console.log(`[adlibrary] Google domain-primary for "${companyName}": no advertiser_id from "${domain}", falling back to name search`);
-    } catch {
-      console.log(`[adlibrary] Google domain-primary for "${companyName}": domain lookup failed, falling back to name search`);
+      const directPayload = await fetchJson(`${BASE}?${directParams.toString()}`);
+      const directAds = Array.isArray((directPayload as { ad_creatives?: unknown[] }).ad_creatives)
+        ? (directPayload as { ad_creatives: unknown[] }).ad_creatives
+        : [];
+      const filtered = directAds.filter(
+        (ad): ad is SearchApiAdRecord =>
+          Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
+      );
+      console.log(`[adlibrary] Google domain-direct for "${companyName}" (${domain}): ${filtered.length} ad_creatives`);
+      if (filtered.length > 0) return filtered;
+      // Fall through to name search if domain-direct returned nothing
+      console.log(`[adlibrary] Google domain-direct for "${companyName}": 0 results, falling back to name search`);
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err;
+      console.log(`[adlibrary] Google domain-direct for "${companyName}": lookup failed, falling back to name search`);
     }
   }
 
@@ -583,7 +643,13 @@ export async function searchGoogleAds(
 
     // Step 2: Fetch ads by advertiser_id
     return fetchGoogleAdsByAdvertiserId(result.candidate.id, apiKey);
-  } catch {
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      console.warn(`[adlibrary] SearchAPI rate limited (${err.status}) for Google "${companyName}"`);
+      throw err; // propagate so fetchWithRetry can apply rate-limit backoff
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[adlibrary] Google ads fetch failed for "${companyName}": ${msg}`);
     return [];
   }
 }
@@ -601,8 +667,11 @@ async function fetchGoogleAdsByAdvertiserId(
   const payload = await fetchJson(
     `https://www.searchapi.io/api/v1/search?${params.toString()}`,
   );
-  const ads = Array.isArray((payload as { ads?: unknown[] }).ads)
-    ? (payload as { ads: unknown[] }).ads
+  // SearchAPI returns the ads array under `ad_creatives`, NOT `ads`.
+  // Prior code read `payload.ads` which was always undefined → empty array,
+  // silently zeroing every Google ad fetch regardless of advertiser_id validity.
+  const ads = Array.isArray((payload as { ad_creatives?: unknown[] }).ad_creatives)
+    ? (payload as { ad_creatives: unknown[] }).ad_creatives
     : [];
 
   return ads.filter(
@@ -614,10 +683,16 @@ async function fetchGoogleAdsByAdvertiserId(
 /**
  * LinkedIn Ads: advertiser-first lookup.
  * Uses the `advertiser` param (NOT `q`) to search by company name.
+ *
+ * Wave 6e Layer 4: when we have a verified domain, post-filter ads whose
+ * clickthrough URL doesn't point to that domain. This catches the
+ * multi-company-same-name problem (e.g., FathomDEM+ terrain data ads
+ * showing up when searching for Fathom.video AI meeting tool).
  */
 export async function searchLinkedInAds(
   companyName: string,
-  _domain?: string,
+  domain?: string,
+  isDomainVerified?: boolean,
 ): Promise<SearchApiAdRecord[]> {
   const apiKey = process.env.SEARCHAPI_KEY;
   if (!apiKey) return [];
@@ -636,11 +711,64 @@ export async function searchLinkedInAds(
       ? (payload as { ads: unknown[] }).ads
       : [];
 
-    return ads.filter(
+    const allAds = ads.filter(
       (ad): ad is SearchApiAdRecord =>
         Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
     );
-  } catch {
+
+    console.log(`[adlibrary] LinkedIn raw for "${companyName}": ${allAds.length} ads`);
+
+    // Layer 4 post-filter: when we have a verified domain, drop ads ONLY when
+    // we have STRONG evidence the destination is a different external domain.
+    //
+    // Important behaviors (Wave 6e Hole 4 fix):
+    //   - Missing link → KEEP (LinkedIn omits links on awareness ads).
+    //   - Link is a LinkedIn-internal URL (linkedin.com without an embedded
+    //     redirect target) → KEEP (we can't see the destination from here).
+    //   - Link contains the verified domain (either as the host or as a
+    //     URL-encoded redirect target) → KEEP.
+    //   - Link points to a clearly different external domain → DROP.
+    //
+    // Trade-off: this is permissive by default. We'd rather keep a few wrong
+    // ads than drop all the right ones. The downstream `isAdvertiserMatch` +
+    // Hole 3 short-name URL guard provide a second filter pass.
+    if (domain && isDomainVerified && allAds.length > 0) {
+      const normalizedDomain = normalizeDomain(domain);
+      const filtered = allAds.filter((ad) => {
+        const rawLink = ad.link ?? '';
+        const link = String(rawLink).toLowerCase();
+        if (!link) return true; // no link → can't disambiguate, keep
+        // Link contains our verified domain (raw or URL-encoded inside a redirect)
+        if (link.includes(normalizedDomain)) return true;
+        // LinkedIn-internal URL without an obvious redirect target → keep
+        if (link.includes('linkedin.com') && !link.includes('redirect') && !link.includes('http')) {
+          return true;
+        }
+        // LinkedIn redirect WITH a discernible target — if target isn't us, drop
+        // (the link contains "http" but doesn't include our domain)
+        return false;
+      });
+      const dropped = allAds.length - filtered.length;
+      if (dropped > 0) {
+        console.log(
+          `[adlibrary] LinkedIn domain post-filter for "${companyName}" (${normalizedDomain}): kept ${filtered.length}, dropped ${dropped} wrong-company ads`,
+        );
+      } else {
+        console.log(
+          `[adlibrary] LinkedIn domain post-filter for "${companyName}" (${normalizedDomain}): kept all ${filtered.length} ads (no wrong-domain matches)`,
+        );
+      }
+      return filtered;
+    }
+
+    return allAds;
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      console.warn(`[adlibrary] SearchAPI rate limited (${err.status}) for LinkedIn "${companyName}"`);
+      throw err; // propagate so fetchWithRetry can apply rate-limit backoff
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[adlibrary] LinkedIn ads fetch failed for "${companyName}": ${msg}`);
     return [];
   }
 }
@@ -720,23 +848,35 @@ export async function searchMetaAds(
 
     if (result.verdict !== 'accepted' || !result.candidate) return [];
 
-    // Step 2: Fetch ads from the matched page
+    // Step 2: Fetch ads from the matched page.
+    // active_status=all: include both active AND inactive ads (don't rely on
+    // default which may exclude what we want).
+    // No country filter: country=US was over-filtering — Meta ads targeted
+    // globally or to non-US regions were being excluded, producing false zeros
+    // for major advertisers like Gong and Fireflies.
     const adParams = new URLSearchParams({
       engine: 'meta_ad_library',
       page_id: result.candidate.id,
-      country: 'US',
+      active_status: 'all',
       api_key: apiKey,
     });
     const adPayload = await fetchJson(`${BASE}?${adParams.toString()}`);
     const ads = Array.isArray((adPayload as { ads?: unknown[] }).ads)
       ? (adPayload as { ads: unknown[] }).ads
       : [];
+    console.log(`[adlibrary] Meta ad fetch for "${companyName}" (page_id=${result.candidate.id}): ${ads.length} ads`);
 
     return ads.filter(
       (ad): ad is SearchApiAdRecord =>
         Boolean(ad) && typeof ad === 'object' && !Array.isArray(ad),
     );
-  } catch {
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      console.warn(`[adlibrary] SearchAPI rate limited (${err.status}) for Meta "${companyName}"`);
+      throw err; // propagate so fetchWithRetry can apply rate-limit backoff
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[adlibrary] Meta ads fetch failed for "${companyName}": ${msg}`);
     return [];
   }
 }
@@ -935,12 +1075,24 @@ export function normalizeSearchApiToCreatives(
       const firstSeen = record.first_shown ?? record.start_date_formatted ?? undefined;
       const lastSeen = record.last_shown ?? record.end_date_formatted ?? undefined;
 
-      // Extract details URL
-      const detailsUrl = firstNonEmpty([
+      // Extract details URL with platform-aware fallback construction.
+      // Wave 6e Meta UX fix: when SearchAPI doesn't return a details_url for a
+      // Meta ad, construct one from the ad_archive_id so the user can ALWAYS
+      // click through to the original ad in the Meta Ad Library. Same idea for
+      // Google (advertiser_id) and LinkedIn (when we have a known ad ID).
+      let detailsUrl = firstNonEmpty([
         record.details_url,
         record.ad_library_url,
         record.link,
       ]);
+      if (!detailsUrl) {
+        const platform = guessPlatform(record, sourcePlatform);
+        if (platform === 'meta' && record.ad_archive_id) {
+          detailsUrl = `https://www.facebook.com/ads/library/?id=${record.ad_archive_id}`;
+        } else if (platform === 'google' && record.advertiser_id) {
+          detailsUrl = `https://adstransparency.google.com/advertiser/${record.advertiser_id}`;
+        }
+      }
 
       return {
         platform: guessPlatform(record, sourcePlatform),

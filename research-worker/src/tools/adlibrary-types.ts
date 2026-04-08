@@ -39,4 +39,6 @@ export interface WorkerAdInsight {
     google: number;
     foreplay: number;
   };
+  /** Platforms that returned 0 ads due to rate limiting after all retries exhausted. */
+  rateLimitedPlatforms?: string[];
 }

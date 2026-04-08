@@ -157,6 +157,23 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'competitors';
 
+  // Competitor Sources — show user-provided vs AI-discovered at the top
+  const competitorSources = asRecordArray(data.competitorSources);
+  if (competitorSources.length > 0) {
+    const userProvided = competitorSources
+      .filter((s) => asString(s.source) === 'user-provided')
+      .map((s) => asString(s.name) ?? '')
+      .filter(Boolean);
+    const aiDiscovered = competitorSources
+      .filter((s) => asString(s.source) === 'ai-discovered')
+      .map((s) => asString(s.name) ?? '')
+      .filter(Boolean);
+    cards.push(makeCard(section, 'competitor-sources-card', 'Competitor Sources', {
+      userProvided,
+      aiDiscovered,
+    }, 'Which competitors you selected vs which were discovered by AI research'));
+  }
+
   // Intelligence: Positioning Moves
   const moves = asRecordArray(data.positioningMoves);
   if (moves.length > 0) {
@@ -341,19 +358,30 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
 
   // Cross-Competitor Review Analysis
   const crossAnalysis = asRecord(data.reviewCrossAnalysis);
+  console.log(`[cross-analysis] card-taxonomy: reviewCrossAnalysis present=${Boolean(crossAnalysis)}`);
   if (crossAnalysis) {
-    const commonWeaknesses = asRecordArray(crossAnalysis.commonWeaknesses)
+    const rawWeaknesses = asRecordArray(crossAnalysis.commonWeaknesses);
+    console.log(`[cross-analysis] card-taxonomy: raw commonWeaknesses count=${rawWeaknesses.length}`);
+    const commonWeaknesses = rawWeaknesses
       .map((w) => {
         const affectedCompetitors = asStringArray(w.affectedCompetitors);
+        const frequency = asNumber(w.frequency) ?? affectedCompetitors.length;
         return {
           theme: asString(w.theme) ?? '',
           affectedCompetitors,
-          frequency: asNumber(w.frequency) ?? affectedCompetitors.length,
+          frequency,
           exampleQuote: asString(w.exampleQuote) ?? '',
           leverageAngle: asString(w.leverageAngle) ?? '',
         };
       })
-      .filter((w) => w.theme && w.affectedCompetitors.length >= 2);
+      // Accept if affectedCompetitors array has 2+ names, OR if frequency field says 2+ (model may
+      // sometimes populate frequency but not fully populate affectedCompetitors array)
+      .filter((w) => w.theme && (w.affectedCompetitors.length >= 2 || w.frequency >= 2));
+
+    console.log(`[cross-analysis] card-taxonomy: after filter commonWeaknesses count=${commonWeaknesses.length}`);
+    for (const w of commonWeaknesses) {
+      console.log(`[cross-analysis] card-taxonomy: theme="${w.theme}" affectedCompetitors=${JSON.stringify(w.affectedCompetitors)} frequency=${w.frequency}`);
+    }
 
     if (commonWeaknesses.length > 0) {
       cards.push(makeCard(section, 'review-cross-analysis-card', 'Common Competitor Weaknesses', {

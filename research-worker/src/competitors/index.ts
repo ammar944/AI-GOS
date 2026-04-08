@@ -25,6 +25,12 @@ export type { ParsedCompetitorContext, CompetitorEntry } from './parse-context';
 
 const PIPELINE_TIMEOUT_MS = 120_000; // Hard cap: 120s (fetch ~45s + synthesis ~60s + buffer for review scraping)
 
+interface CompetitorSourceTag {
+  name: string;
+  source: 'user-provided' | 'ai-discovered';
+  domain?: string;
+}
+
 interface PipelineResult {
   resultText: string;
   stopReason: string | null;
@@ -33,6 +39,7 @@ interface PipelineResult {
   synthInput: SynthesisInput;
   gapIntelligence: Record<string, import('./review-gap-intelligence').CompetitorGapIntelligence> | null;
   crossAnalysis: import('./review-cross-analysis').ReviewCrossAnalysis | null;
+  competitorSources: CompetitorSourceTag[];
 }
 
 /**
@@ -153,6 +160,17 @@ async function runPipeline(
   const { parsed, fetchResults, sonarResults } = await runValidateThenFetch(context, onProgress);
   const fetchDurationMs = Date.now() - collectionStart;
 
+  // Build competitor source tags: mark user-provided vs AI-discovered.
+  // parsed.competitors = original user-provided list.
+  // sonarResults.verifiedEntries = user-provided + any AI-discovered additions.
+  const userProvidedNames = new Set(parsed.competitors.map(c => c.name.toLowerCase()));
+  const allVerified = sonarResults.verifiedEntries ?? parsed.competitors;
+  const competitorSources: CompetitorSourceTag[] = allVerified.map(entry => ({
+    name: entry.name,
+    source: userProvidedNames.has(entry.name.toLowerCase()) ? 'user-provided' : 'ai-discovered',
+    ...(entry.domain ? { domain: entry.domain } : {}),
+  }));
+
   // Phase 2: Synthesis + gap intelligence in parallel
   const synthesisStart = Date.now();
   const synthInput: SynthesisInput = { parsed, fetchResults, sonarResults };
@@ -164,7 +182,7 @@ async function runPipeline(
   const { resultText, stopReason } = synthesisResult;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
-  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, gapIntelligence, crossAnalysis };
+  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, gapIntelligence, crossAnalysis, competitorSources };
 }
 
 /**
@@ -205,13 +223,14 @@ export async function runResearchCompetitors(
       parseError = error;
     }
 
-    // Post-process: inject library links, validate pricing confidence, inject gap intelligence
+    // Post-process: inject library links, validate pricing confidence, inject gap intelligence, tag sources
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       postProcessSynthesis(
         parsed as Record<string, unknown>,
         pipelineResult.synthInput,
         pipelineResult.gapIntelligence,
         pipelineResult.crossAnalysis,
+        pipelineResult.competitorSources,
       );
     }
 

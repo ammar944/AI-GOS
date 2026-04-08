@@ -78,6 +78,56 @@ function formatDate(dateStr: string): string {
 
 // ─── AdMedia ────────────────────────────────────────────────────────────────
 
+/**
+ * Placeholder shown when an ad has no usable preview (video failed to load
+ * AND no poster image, OR no media at all). Always provides a click-through
+ * to detailsUrl so the user can view the original ad in the platform's library.
+ */
+function AdMediaPlaceholder({ creative, reason }: { creative: AdCreative; reason: 'no-media' | 'video-failed' }) {
+  const platformLabel = PLATFORM_LABELS[creative.platform] ?? creative.platform;
+  const platformColor = PLATFORM_COLORS[creative.platform] ?? 'rgba(255,255,255,0.4)';
+  const message = reason === 'video-failed'
+    ? `${platformLabel} video preview unavailable`
+    : `${platformLabel} ad preview unavailable`;
+
+  // If we have a detailsUrl, render the placeholder as a clickable link.
+  if (creative.detailsUrl) {
+    return (
+      <a
+        href={creative.detailsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group/media flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center gap-2 transition-colors"
+        style={{ background: 'rgba(255,255,255,0.025)', borderBottom: `1px solid ${platformColor}20` }}
+        aria-label={`Open ${platformLabel} ad in library`}
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-full transition-transform group-hover/media:scale-110"
+          style={{ background: `${platformColor}20`, color: platformColor }}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </div>
+        <p className="px-4 text-center text-[11px] leading-snug" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          {message}
+          <br />
+          <span className="text-[10px]" style={{ color: platformColor }}>Click to open original</span>
+        </p>
+      </a>
+    );
+  }
+
+  // No detailsUrl either — minimal placeholder
+  return (
+    <div
+      className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2"
+      style={{ background: 'rgba(255,255,255,0.02)' }}
+    >
+      <ImageOff className="h-6 w-6" style={{ color: 'rgba(255,255,255,0.15)' }} />
+      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>{message}</p>
+    </div>
+  );
+}
+
 function AdMedia({ creative }: { creative: AdCreative }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -88,20 +138,35 @@ function AdMedia({ creative }: { creative: AdCreative }) {
   const hasVideo = !!creative.videoUrl && !videoError;
   const hasImage = !!creative.imageUrl && !imgError;
 
-  // No media at all — placeholder
-  if (!hasVideo && !hasImage) {
-    return (
-      <div
-        className="flex aspect-[4/3] w-full items-center justify-center"
-        style={{ background: 'rgba(255,255,255,0.02)' }}
-      >
-        <ImageOff className="h-6 w-6" style={{ color: 'rgba(255,255,255,0.15)' }} />
-      </div>
-    );
+  // Video failed AND no poster image → clickable placeholder pointing at the source
+  if (creative.videoUrl && videoError && !hasImage) {
+    return <AdMediaPlaceholder creative={creative} reason="video-failed" />;
   }
 
-  // Video with play overlay
+  // No media at all → clickable placeholder pointing at the source
+  if (!hasVideo && !hasImage) {
+    return <AdMediaPlaceholder creative={creative} reason="no-media" />;
+  }
+
+  // Video with play overlay (and clickable fallback to detailsUrl when play fails)
   if (hasVideo) {
+    const handlePlayClick = () => {
+      const videoEl = videoRef.current;
+      if (!videoEl) return;
+      const playPromise = videoEl.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch(() => {
+          // Play was rejected (CORS, codec, autoplay block, etc.)
+          // Fall back to opening the source library if available.
+          if (creative.detailsUrl) {
+            window.open(creative.detailsUrl, '_blank', 'noopener,noreferrer');
+          } else {
+            setVideoError(true);
+          }
+        });
+      }
+    };
+
     return (
       <div className="relative aspect-[4/3] w-full bg-black">
         <video
@@ -110,15 +175,31 @@ function AdMedia({ creative }: { creative: AdCreative }) {
           poster={creative.imageUrl ? proxyUrl(creative.imageUrl) : undefined}
           preload="metadata"
           controls={isPlaying}
+          playsInline
           className="h-full w-full object-contain"
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
           onError={() => setVideoError(true)}
         />
+        {/* Show a placeholder pattern behind the video when no poster is set,
+            so the user sees something instead of a black void while loading. */}
+        {!creative.imageUrl && !isPlaying && (
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)',
+            }}
+          >
+            <div className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              {PLATFORM_LABELS[creative.platform] ?? creative.platform} video
+            </div>
+          </div>
+        )}
         {!isPlaying && (
           <button
-            onClick={() => videoRef.current?.play()}
+            onClick={handlePlayClick}
             className="absolute inset-0 flex cursor-pointer items-center justify-center transition-all duration-200"
             style={{ background: 'rgba(0,0,0,0.35)' }}
             onMouseEnter={(e) => {
@@ -141,9 +222,11 @@ function AdMedia({ creative }: { creative: AdCreative }) {
     );
   }
 
-  // Image with proxy fallback on error
+  // Image with proxy fallback on error.
+  // Wave 6e Meta UX fix: wrap in a clickable link to detailsUrl when present,
+  // so users can always click through to the source.
   const imgSrc = useProxy ? proxyUrl(creative.imageUrl!) : creative.imageUrl!;
-  return (
+  const imgEl = (
     <div
       className="relative aspect-[4/3] w-full overflow-hidden"
       style={{ background: 'rgba(255,255,255,0.02)' }}
@@ -164,6 +247,21 @@ function AdMedia({ creative }: { creative: AdCreative }) {
       />
     </div>
   );
+
+  if (creative.detailsUrl) {
+    return (
+      <a
+        href={creative.detailsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group/media block transition-opacity hover:opacity-90"
+        aria-label={`Open ${PLATFORM_LABELS[creative.platform] ?? creative.platform} ad in library`}
+      >
+        {imgEl}
+      </a>
+    );
+  }
+  return imgEl;
 }
 
 // ─── AdCreativeCard ──────────────────────────────────────────────────────────
