@@ -21,6 +21,10 @@ const WEB_SEARCH_TOOL = {
 } as const;
 type OfferTool = typeof WEB_SEARCH_TOOL | typeof firecrawlTool | typeof firecrawlExtractTool;
 
+// Paired guardrail — keep in sync with synthesize.ts (SYNTHESIS_SYSTEM) and
+// media-plan.ts (CURRENT_ACTIVITIES_GUARDRAIL). All three runners react to
+// the same "Current Marketing Activities:" line in the context string.
+// See docs/superpowers/specs/2026-04-08-current-marketing-activities-design.md
 export const OFFER_CURRENT_ACTIVITIES_GUARDRAIL = `
 
 CURRENT MARKETING ACTIVITIES (context for offer analysis):

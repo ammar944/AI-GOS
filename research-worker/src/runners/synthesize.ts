@@ -90,6 +90,11 @@ const synthesisGenerateSchema = z.object({
   }).optional(),
 });
 
+// The CURRENT MARKETING ACTIVITIES block below is a paired guardrail — keep
+// in sync with media-plan.ts (CURRENT_ACTIVITIES_GUARDRAIL) and offer.ts
+// (OFFER_CURRENT_ACTIVITIES_GUARDRAIL). All three runners react to the same
+// "Current Marketing Activities:" line in the context string.
+// See docs/superpowers/specs/2026-04-08-current-marketing-activities-design.md
 export const SYNTHESIS_SYSTEM = `You are synthesizing research into an actionable paid media strategy.
 
 Create a strategic cross-analysis connecting all research insights into actionable paid media strategy.

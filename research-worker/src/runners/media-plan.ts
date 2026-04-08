@@ -44,6 +44,10 @@ const MAX_TOKENS = 8000;
 
 const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data and research results. Do not infer unsupported facts. All benchmark numbers must be labeled as 'industry benchmark'.`;
 
+// Paired guardrail — keep in sync with synthesize.ts (SYNTHESIS_SYSTEM) and
+// offer.ts (OFFER_CURRENT_ACTIVITIES_GUARDRAIL). All three runners react to
+// the same "Current Marketing Activities:" line in the context string.
+// See docs/superpowers/specs/2026-04-08-current-marketing-activities-design.md
 export const CURRENT_ACTIVITIES_GUARDRAIL = `
 
 CURRENT MARKETING ACTIVITIES (anti-duplication rule):

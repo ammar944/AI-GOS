@@ -8,10 +8,15 @@ import { JOURNEY_FIELD_LABELS } from './field-catalog';
  * registered). Empty, whitespace-only, and undefined values are skipped so
  * optional fields don't produce `"undefined"` in the worker context.
  *
- * This is the single source of truth for the context string format — both
- * `handleStartFromReview` and `handleStartFromUnifiedReview` in
- * `src/app/journey/page.tsx` call this helper so the two submit paths
- * produce identical context shapes.
+ * Used by the two fresh-submit paths in `src/app/journey/page.tsx`:
+ * `handleStartFromReview` and `handleStartFromUnifiedReview`. Both wrap the
+ * field lines with the standard preamble/postamble.
+ *
+ * NOTE: A third context-building loop exists in `handleWorkspaceSectionApproved`
+ * (around `src/app/journey/page.tsx:2180`) for the workspace resume path. That
+ * loop has different requirements (no preamble/postamble, metadata key filter,
+ * conditional overwrite) and does NOT use this helper. If the line format
+ * (`${label}: ${value}`) ever changes here, update that loop too.
  */
 export function buildJourneyResearchContext(
   fields: Record<string, string | undefined>,
