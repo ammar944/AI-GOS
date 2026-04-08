@@ -40,12 +40,20 @@ export interface BudgetValidationResult {
 
 export interface CACModelInput {
   monthlyBudget: number;
-  targetCPL: number;
-  leadToSqlRate: number;
-  sqlToCustomerRate: number;
-  offerPrice: number;
-  /** Multiplier for LTV based on pricing model (e.g., 12 for monthly sub, 1 for one-time) */
-  retentionMultiplier: number;
+  /** Benchmark-derived target cost per lead. Null when no benchmark is available. */
+  targetCPL: number | null;
+  /** User-reported lead-to-customer conversion rate, 0-100. Null when not provided. */
+  leadToCustomerRate: number | null;
+  /** User-reported current customer acquisition cost in USD. Null when not provided. */
+  currentCac: number | null;
+  /** User-reported average customer lifetime value in USD. Null when not provided. */
+  avgCustomerLtv: number | null;
+}
+
+export interface CACModelResult {
+  cacModel: CACModel;
+  /** Fields set to null because the required baseline metric was not provided. */
+  insufficientData: string[];
 }
 
 export interface CrossSectionValidationResult {
@@ -208,59 +216,110 @@ export function validateAndFixBudget(
 // =============================================================================
 
 /**
- * Pure arithmetic CAC model. No AI involved.
- * effectiveBudget = budget × 0.80 (20% reserved for overhead/testing)
- * leads = effectiveBudget / CPL
- * SQLs = leads * rate / 100
- * customers = SQLs * closeRate / 100
- * CAC = budget / customers (full budget — you still spent it all)
- * LTV = offerPrice * retentionMultiplier
- * ltvToCacRatio = LTV / CAC
+ * Pure-arithmetic CAC model with nullable inputs.
+ *
+ * Every output field is null when the required baseline metric is missing.
+ * No fallback heuristics — the prior `estimateRetentionMultiplier` path was
+ * deleted to stop fabricating LTV from offerPrice × hardcoded retention buckets.
+ *
+ * `insufficientData` lists which user inputs would unlock each null field —
+ * this drives the UI's empty-state CTA copy.
  */
-export function computeCACModel(input: CACModelInput): CACModel {
-  const { monthlyBudget, targetCPL, leadToSqlRate, sqlToCustomerRate, offerPrice, retentionMultiplier } = input;
+export function computeCACModel(input: CACModelInput): CACModelResult {
+  const { monthlyBudget, targetCPL, leadToCustomerRate, currentCac, avgCustomerLtv } = input;
+  const insufficientData: string[] = [];
 
-  // Apply 20% safety margin: only 80% of budget drives lead acquisition.
-  // The remaining 20% covers platform overhead, testing, and optimization.
-  // CAC still uses full monthlyBudget because that's the total spend.
-  const safeCPL = targetCPL > 0 ? targetCPL : 1; // guard division by zero
+  // Lead volume requires a targetCPL (may come from benchmarks, not baseline metrics).
+  const safeCPL = targetCPL !== null && targetCPL > 0 ? targetCPL : null;
   const effectiveBudget = monthlyBudget * 0.80;
-  const expectedMonthlyLeads = Math.round(effectiveBudget / safeCPL);
-  const expectedMonthlySQLs = Math.round(expectedMonthlyLeads * leadToSqlRate / 100);
-  const expectedMonthlyCustomers = Math.max(1, Math.round(expectedMonthlySQLs * sqlToCustomerRate / 100));
-  const targetCAC = Math.round(monthlyBudget / expectedMonthlyCustomers);
-  const estimatedLTV = Math.round(offerPrice * retentionMultiplier);
-  const ltvToCacRatio = targetCAC > 0 ? estimatedLTV / targetCAC : 0;
+  const expectedMonthlyLeads = safeCPL !== null ? Math.round(effectiveBudget / safeCPL) : null;
+  if (safeCPL === null) {
+    insufficientData.push('expectedMonthlyLeads: no targetCPL provided');
+  }
 
-  const ratioStr = ltvToCacRatio >= 3
-    ? `${ltvToCacRatio.toFixed(1)}:1 — Healthy`
-    : ltvToCacRatio >= 1
-      ? `${ltvToCacRatio.toFixed(1)}:1 — Below ideal (target >3:1)`
-      : `${ltvToCacRatio.toFixed(1)}:1 — Unsustainable`;
+  // Conversion cascade requires user-reported lead→customer rate.
+  let expectedMonthlyCustomers: number | null = null;
+  let leadToSqlRate: number | null = null;
+  let sqlToCustomerRate: number | null = null;
+  let expectedMonthlySQLs: number | null = null;
+
+  if (
+    leadToCustomerRate !== null &&
+    leadToCustomerRate > 0 &&
+    expectedMonthlyLeads !== null
+  ) {
+    expectedMonthlyCustomers = Math.max(
+      1,
+      Math.round((expectedMonthlyLeads * leadToCustomerRate) / 100),
+    );
+    // Split the single user rate across the two-stage schema via sqrt distribution.
+    // If leadToCustomerRate = 4%, each stage is ~20%, and 0.2 × 0.2 = 0.04 = 4% overall.
+    const stageRate = Math.round(Math.sqrt(leadToCustomerRate / 100) * 100 * 10) / 10;
+    leadToSqlRate = stageRate;
+    sqlToCustomerRate = stageRate;
+    expectedMonthlySQLs = Math.round((expectedMonthlyLeads * stageRate) / 100);
+  } else {
+    insufficientData.push('expectedMonthlyCustomers: no leadToCustomerRate provided');
+  }
+
+  // CAC: honor the user's reported number. Fall back to derived only if we have customers.
+  let targetCAC: number | null = null;
+  if (currentCac !== null && currentCac > 0) {
+    targetCAC = currentCac;
+  } else if (expectedMonthlyCustomers !== null) {
+    targetCAC = Math.round(monthlyBudget / expectedMonthlyCustomers);
+  } else {
+    insufficientData.push('targetCAC: no currentCac and no leadToCustomerRate provided');
+  }
+
+  // LTV: user-provided only. No heuristic.
+  const estimatedLTV = avgCustomerLtv !== null && avgCustomerLtv > 0 ? avgCustomerLtv : null;
+  if (estimatedLTV === null) {
+    insufficientData.push('estimatedLTV: no avgCustomerLtv provided');
+  }
+
+  // Ratio: requires both LTV and CAC.
+  let ltvToCacRatio: string | null = null;
+  if (estimatedLTV !== null && targetCAC !== null && targetCAC > 0) {
+    const ratio = estimatedLTV / targetCAC;
+    ltvToCacRatio =
+      ratio >= 3
+        ? `${ratio.toFixed(1)}:1 — Healthy`
+        : ratio >= 1
+          ? `${ratio.toFixed(1)}:1 — Below ideal (target >3:1)`
+          : `${ratio.toFixed(1)}:1 — Unsustainable`;
+  } else {
+    insufficientData.push('ltvToCacRatio: requires both avgCustomerLtv and a resolvable CAC');
+  }
 
   return {
-    targetCAC,
-    targetCPL,
-    leadToSqlRate,
-    sqlToCustomerRate,
-    expectedMonthlyLeads,
-    expectedMonthlySQLs,
-    expectedMonthlyCustomers,
-    estimatedLTV,
-    ltvToCacRatio: ratioStr,
+    cacModel: {
+      targetCAC,
+      targetCPL: safeCPL,
+      leadToSqlRate,
+      sqlToCustomerRate,
+      expectedMonthlyLeads,
+      expectedMonthlySQLs,
+      expectedMonthlyCustomers,
+      estimatedLTV,
+      ltvToCacRatio,
+      insufficientData: insufficientData.length > 0 ? insufficientData : undefined,
+    },
+    insufficientData,
   };
 }
 
 /**
- * Build a complete PerformanceModel from CAC input and monitoring schedule.
- * CAC model is computed deterministically; monitoring schedule comes from AI.
+ * Build a complete PerformanceModel from a pre-computed CAC model + monitoring schedule.
+ * The caller is responsible for running `computeCACModel` first so it can intercept
+ * the `insufficientData` array returned alongside the model.
  */
 export function buildPerformanceModel(
-  cacInput: CACModelInput,
+  cacModel: CACModel,
   monitoringSchedule: MonitoringSchedule,
 ): PerformanceModel {
   return {
-    cacModel: computeCACModel(cacInput),
+    cacModel,
     monitoringSchedule,
   };
 }
@@ -1359,23 +1418,6 @@ export function validateRetargetingPoolRealism(
     adjustments,
     warnings,
   };
-}
-
-// =============================================================================
-// Retention Multiplier Heuristic
-// =============================================================================
-
-/**
- * Estimate a retention multiplier from pricing model for LTV calculation.
- * Roughly: monthly → 12 months, annual → 2.5 years, one-time → 1, etc.
- */
-export function estimateRetentionMultiplier(pricingModels: string[]): number {
-  const normalized = pricingModels.map(p => p.toLowerCase().replace(/[_-]/g, ''));
-  if (normalized.some(p => p.includes('monthly') || p.includes('subscription'))) return 12;
-  if (normalized.some(p => p.includes('annual'))) return 2.5;
-  if (normalized.some(p => p.includes('seat') || p.includes('usage'))) return 10;
-  if (normalized.some(p => p.includes('onetime') || p.includes('one time'))) return 1;
-  return 8; // default for recurring-ish models
 }
 
 // =============================================================================
