@@ -62,6 +62,8 @@ import {
   validateRetargetingPoolRealism,
   validatePerPlatformDailyBudgets,
   validatePlatformCompliance,
+  sweepExecutiveSummary,
+  sweepCampaignPhases,
   validateRiskMonitoring,
   reconcileMonthlyRoadmapWithPhases,
   sweepStaleReferences,
@@ -535,6 +537,17 @@ export async function runMediaPlanPipeline(
       }
       allValidationWarnings.push(...sweepResult.corrections.map(c => `Stale reference fix: ${c}`));
     }
+
+    // --- Post-assembly: Scrub fabricated growth/ARR/scaling prose ---
+    // The legacy V1 pipeline has no path to the user's last12MoGrowthRate
+    // (it runs off OnboardingFormData, not the journey's collectedFields bag).
+    // Treat growth claims as forbidden here — the production path in
+    // research-worker/src/runners/media-plan.ts resolves the gate properly.
+    mediaPlan = {
+      ...mediaPlan,
+      executiveSummary: sweepExecutiveSummary(mediaPlan.executiveSummary, false, null),
+      campaignPhases: sweepCampaignPhases(mediaPlan.campaignPhases, false, null),
+    };
 
     // --- Persist all validation warnings on the output ---
     if (allValidationWarnings.length > 0) {

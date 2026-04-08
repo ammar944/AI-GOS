@@ -1588,16 +1588,17 @@ export function sweepExecutiveSummary<T extends { overview: string }>(
   return { ...summary, overview: clean };
 }
 
-/** Apply the fabrication sweep to every campaign-phase description. */
-export function sweepCampaignPhases<T extends { description?: string }>(
-  phases: readonly T[],
+/** Apply the fabrication sweep to every campaign-phase objective. */
+export function sweepCampaignPhases(
+  phases: readonly CampaignPhase[],
   allowGrowthClaims: boolean,
   userGrowthRate: number | null,
-): T[] {
+): CampaignPhase[] {
   return phases.map((p) => {
-    if (!p.description) return p;
-    const { clean } = sweepFabricatedClaims(p.description, allowGrowthClaims, userGrowthRate);
-    return { ...p, description: clean };
+    if (!p.objective) return p;
+    const { clean } = sweepFabricatedClaims(p.objective, allowGrowthClaims, userGrowthRate);
+    if (clean === p.objective) return p;
+    return { ...p, objective: clean };
   });
 }
 

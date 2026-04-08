@@ -81,17 +81,25 @@ describe('sweepFabricatedClaims — pipeline integration helpers', () => {
     expect(result.overview).toContain('[growth rate not tracked]');
   });
 
-  it('sweepCampaignPhases scrubs every description', async () => {
+  it('sweepCampaignPhases scrubs every campaign-phase objective', async () => {
     const { sweepCampaignPhases } = await import('../validation');
+    const makePhase = (objective: string) => ({
+      name: 'Phase',
+      phase: 1,
+      durationWeeks: 4,
+      objective,
+      activities: [],
+      successCriteria: [],
+      estimatedBudget: 0,
+    });
     const phases = [
-      { description: 'Phase 1: Targeting 30% YoY growth.' },
-      { description: 'Phase 2: Scale winning ad sets.' },
-      { description: undefined },
+      makePhase('Phase 1: Targeting 30% YoY growth.'),
+      makePhase('Phase 2: Scale winning ad sets.'),
     ];
-    const result = sweepCampaignPhases(phases, false, null);
-    expect(result[0].description).toContain('[growth rate not tracked]');
-    expect(result[1].description).toBe('Phase 2: Scale winning ad sets.');
-    expect(result[2].description).toBeUndefined();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = sweepCampaignPhases(phases as any, false, null);
+    expect(result[0].objective).toContain('[growth rate not tracked]');
+    expect(result[1].objective).toBe('Phase 2: Scale winning ad sets.');
   });
 
   it('sweepStrategicNarrative returns the cleaned string', async () => {
