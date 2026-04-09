@@ -42,9 +42,9 @@ describe('adScriptSchema', () => {
     expect(() => adScriptSchema.parse(unhumanized)).not.toThrow();
   });
 
-  it('rejects invalid section names in groundedIn', () => {
-    const bad = { ...validScript, groundedIn: [{ section: 'fake', claim: 'x', label: 'y' }] };
-    expect(() => adScriptSchema.parse(bad)).toThrow();
+  it('accepts any section name in groundedIn (v2: string, not enum)', () => {
+    const withCustomSection = { ...validScript, groundedIn: [{ section: 'fake', claim: 'x', label: 'y' }] };
+    expect(() => adScriptSchema.parse(withCustomSection)).not.toThrow();
   });
 });
 

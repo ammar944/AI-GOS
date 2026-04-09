@@ -1,24 +1,14 @@
 import { z } from 'zod';
 
-const VALID_SECTIONS = [
-  'industryMarket',
-  'icpValidation',
-  'offerAnalysis',
-  'competitors',
-  'keywordIntel',
-  'crossAnalysis',
-  'mediaPlan',
-] as const;
-
 export const groundedInSchema = z.object({
-  section: z.enum(VALID_SECTIONS),
+  section: z.string(),
   claim: z.string(),
-  label: z.string(),
+  label: z.string().optional(),
 });
 
 export const adScriptSchema = z.object({
   id: z.string(),
-  title: z.string(),
+  title: z.string().optional(),
   type: z.enum(['video', 'static', 'email']),
   platform: z.enum(['meta', 'google', 'linkedin']),
   awarenessLevel: z.enum(['unaware', 'problem', 'solution', 'product', 'mostAware']),
@@ -35,15 +25,29 @@ export const adScriptSchema = z.object({
   duration: z.string().optional(),
   headline: z.string().optional(),
   subheadline: z.string().optional(),
+  subjectLine: z.string().optional(),
+  previewText: z.string().optional(),
   cta: z.string(),
   body: z.string(),
   hookVariants: z.array(z.string()).optional(),
   designDirection: z.string().optional(),
   groundedIn: z.array(groundedInSchema),
-  confidenceScore: z.number().min(0).max(10),
+  confidenceScore: z.number(),
   humanizedPass: z.boolean(),
   patternsFixed: z.number().optional(),
-  flaggedClaims: z.array(z.string()).optional(),
+  flaggedClaims: z.array(
+    z.union([
+      z.string(),
+      z.object({ claim: z.string(), reason: z.string() }),
+    ]),
+  ).optional(),
+  // V2 ICM pipeline fields
+  inMarketTier: z.enum(['in-market', 'needs-convinced', 'cold-mass']).optional(),
+  subSegment: z.string().nullable().optional(),
+  framework: z.string().optional(),
+  objectionHandled: z.string().nullable().optional(),
+  qualityGateViolations: z.number().optional(),
+  qualityGateAutoFixes: z.number().optional(),
 });
 
 export const adScriptPackSchema = z.object({

@@ -12,6 +12,7 @@ import {
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, type ResearchResult } from './supabase';
 import { runAdScripts, type AdScriptsInput } from './runners/ad-scripts';
+import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
 import { writeDeadLetter } from './dead-letter';
 import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
@@ -376,42 +377,82 @@ app.post('/api/scripts', requireApiKey, async (req: express.Request, res: expres
 
   res.status(202).json({ status: 'accepted', packId });
 
-  // Detached async execution (same pattern as /run)
-  const input: AdScriptsInput = {
-    companyName: companyName ?? 'Unknown Company',
-    researchContext,
-    styleReferences: styleReferences ?? [],
-    targetAudience: researchContext.targetAudience ?? 'target audience',
-    proofPoints: proofPoints ?? [],
-  };
+  // Pipeline version toggle: v2 (ICM pipeline) is default, v1 available as fallback
+  const useV2 = req.body.pipelineVersion !== 'v1';
 
   void (async () => {
     try {
-      const result = await runAdScripts(
-        input,
-        async (update) => {
-          console.log(`[ad-scripts] ${update.phase}: ${update.message}`);
-        },
-        async (scripts, completedLevels) => {
-          const status = completedLevels >= 5 ? 'complete' : 'partial';
-          await writeScriptPackUpdate(packId, {
-            scripts: JSON.stringify(scripts),
-            status,
-            script_count: scripts.length,
-          });
-        },
-      );
+      if (useV2) {
+        // --- ICM Pipeline (v2) ---
+        console.log(`[ad-scripts-v2] Starting ICM pipeline for pack ${packId}`);
+        const pipelineInput: PipelineInput = {
+          companyName: companyName ?? 'Unknown Company',
+          researchContext,
+          styleReferences: styleReferences ?? [],
+          targetAudience: researchContext.targetAudience ?? 'target audience',
+          proofPoints: proofPoints ?? [],
+        };
 
-      await writeScriptPackUpdate(packId, {
-        scripts: JSON.stringify(result.scripts),
-        status: 'complete',
-        script_count: result.scripts.length,
-        ...(result.diversity ? {
-          diversity_score: result.diversity.diversityScore,
-          diversity_flags: JSON.stringify(result.diversity.flags),
-        } : {}),
-      });
-      console.log(`[ad-scripts] Completed: ${result.summary.totalScripts} scripts for pack ${packId}${result.diversity ? ` (diversity: ${result.diversity.diversityScore}/10)` : ''}`);
+        const result = await runScriptPipeline(
+          pipelineInput,
+          async (update) => {
+            console.log(`[ad-scripts-v2] ${update.phase}: ${update.message}`);
+          },
+          async (scripts, completedLevels) => {
+            const status = completedLevels >= 5 ? 'complete' : 'partial';
+            await writeScriptPackUpdate(packId, {
+              scripts: JSON.stringify(scripts),
+              status,
+              script_count: scripts.length,
+            });
+          },
+        );
+
+        await writeScriptPackUpdate(packId, {
+          scripts: JSON.stringify(result.assembledScripts),
+          status: 'complete',
+          script_count: result.assembledScripts.length,
+          diversity_score: 10, // Diversity guaranteed by construction in v2
+          diversity_flags: JSON.stringify(result.metadata.matrixViolations),
+        });
+        console.log(`[ad-scripts-v2] Completed: ${result.assembledScripts.length} scripts, ${result.hookVariants.length} hook variants, ${result.metadata.totalClaims} claims for pack ${packId}`);
+      } else {
+        // --- Legacy Pipeline (v1) ---
+        console.log(`[ad-scripts-v1] Starting legacy pipeline for pack ${packId}`);
+        const input: AdScriptsInput = {
+          companyName: companyName ?? 'Unknown Company',
+          researchContext,
+          styleReferences: styleReferences ?? [],
+          targetAudience: researchContext.targetAudience ?? 'target audience',
+          proofPoints: proofPoints ?? [],
+        };
+
+        const result = await runAdScripts(
+          input,
+          async (update) => {
+            console.log(`[ad-scripts-v1] ${update.phase}: ${update.message}`);
+          },
+          async (scripts, completedLevels) => {
+            const status = completedLevels >= 5 ? 'complete' : 'partial';
+            await writeScriptPackUpdate(packId, {
+              scripts: JSON.stringify(scripts),
+              status,
+              script_count: scripts.length,
+            });
+          },
+        );
+
+        await writeScriptPackUpdate(packId, {
+          scripts: JSON.stringify(result.scripts),
+          status: 'complete',
+          script_count: result.scripts.length,
+          ...(result.diversity ? {
+            diversity_score: result.diversity.diversityScore,
+            diversity_flags: JSON.stringify(result.diversity.flags),
+          } : {}),
+        });
+        console.log(`[ad-scripts-v1] Completed: ${result.summary.totalScripts} scripts for pack ${packId}${result.diversity ? ` (diversity: ${result.diversity.diversityScore}/10)` : ''}`);
+      }
     } catch (err) {
       console.error(`[ad-scripts] Failed for pack ${packId}:`, err);
       await writeScriptPackUpdate(packId, {

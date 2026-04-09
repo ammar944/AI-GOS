@@ -36,6 +36,22 @@ const ANGLE_LABELS: Record<AdScript['angle'], string> = {
   contrarian: 'Contrarian',
 };
 
+const FRAMEWORK_LABELS: Record<string, string> = {
+  'talking-head-broll': 'Talking Head',
+  'case-study-snapshot': 'Case Study',
+  'objection-first': 'Objection-First',
+  'qa-style': 'Q&A',
+  'demo-screencast': 'Demo',
+  'interview': 'Interview',
+  'skit-scenario': 'Skit',
+};
+
+const TIER_LABELS: Record<string, { label: string; color: string }> = {
+  'in-market': { label: 'In-Market', color: 'text-emerald-500 bg-emerald-500/10' },
+  'needs-convinced': { label: 'Needs Convinced', color: 'text-amber-500 bg-amber-500/10' },
+  'cold-mass': { label: 'Cold', color: 'text-sky-500 bg-sky-500/10' },
+};
+
 interface ScriptItemProps {
   script: AdScript;
   packId: string;
@@ -181,6 +197,21 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
             {ANGLE_LABELS[script.angle]}
           </span>
         )}
+        {/* V2: Framework badge */}
+        {script.framework && FRAMEWORK_LABELS[script.framework] && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[var(--bg-base)] text-[10px] font-mono font-medium text-[var(--text-tertiary)] uppercase tracking-wide border border-[var(--border-default)]">
+            {FRAMEWORK_LABELS[script.framework]}
+          </span>
+        )}
+        {/* V2: In-market tier */}
+        {script.inMarketTier && TIER_LABELS[script.inMarketTier] && (
+          <span className={cn(
+            'inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wide',
+            TIER_LABELS[script.inMarketTier].color,
+          )}>
+            {TIER_LABELS[script.inMarketTier].label}
+          </span>
+        )}
       </div>
 
       {/* Headline + Subheadline */}
@@ -278,7 +309,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
           <ul className="space-y-1">
             {script.flaggedClaims.map((claim, i) => (
               <li key={i} className="text-xs text-[var(--text-secondary)]">
-                {claim}
+                {typeof claim === 'string' ? claim : `${claim.claim} — ${claim.reason}`}
               </li>
             ))}
           </ul>
