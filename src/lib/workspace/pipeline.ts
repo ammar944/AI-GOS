@@ -23,10 +23,33 @@ export const SECTION_PIPELINE_LABELS: Record<SectionKey, string> = {
   mediaPlan: 'Media Plan',
 };
 
+/**
+ * Mapping from canonical research section IDs (used by the journey chat tools)
+ * to boundary/pipeline IDs (used by the workspace + scripts pipeline).
+ * Some sections store results under canonical names, so we check both.
+ */
+const CANONICAL_ALIASES: Record<string, string[]> = {
+  industryMarket: ['industryResearch'],
+  competitors: ['competitorIntel'],
+  crossAnalysis: ['strategicSynthesis'],
+  mediaPlan: ['mediaPlan'],
+  icpValidation: ['icpValidation'],
+  offerAnalysis: ['offerAnalysis'],
+  keywordIntel: ['keywordIntel'],
+};
+
 type ResearchSectionEntry = { data?: unknown; status?: string };
+
+function isComplete(entry: unknown): boolean {
+  if (!entry || typeof entry !== 'object') return false;
+  const e = entry as ResearchSectionEntry;
+  return e.status === 'complete' && e.data != null;
+}
 
 /**
  * True when every SECTION_PIPELINE key in research_results is complete with data.
+ * Checks both boundary IDs (industryMarket) and canonical IDs (industryResearch)
+ * because the journey flow may store results under either naming convention.
  * Used to gate script generation and session pickers.
  */
 export function getResearchPipelineReadiness(rawResults: Record<string, unknown> | null | undefined): {
@@ -39,14 +62,18 @@ export function getResearchPipelineReadiness(rawResults: Record<string, unknown>
   const completed: SectionKey[] = [];
 
   for (const key of SECTION_PIPELINE) {
-    const entry = results[key] as ResearchSectionEntry | undefined;
-    const ok =
-      entry &&
-      typeof entry === 'object' &&
-      entry.status === 'complete' &&
-      entry.data != null;
+    // Check the primary boundary key first
+    let found = isComplete(results[key]);
 
-    if (ok) {
+    // Fall back to canonical aliases if the boundary key isn't found
+    if (!found) {
+      const aliases = CANONICAL_ALIASES[key];
+      if (aliases) {
+        found = aliases.some((alias) => isComplete(results[alias]));
+      }
+    }
+
+    if (found) {
       completed.push(key);
     } else {
       missing.push(key);
