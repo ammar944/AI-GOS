@@ -31,17 +31,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  // Fetch research results (run_id from UI); must belong to this user + profile
+  // Fetch research results (run_id from UI); must belong to this user.
+  // Accept sessions linked to this profile OR unlinked (profile_id is null)
+  // because the journey flow doesn't set profile_id on session creation.
   const { data: session, error: sessionErr } = await supabase
     .from('journey_sessions')
-    .select('id, research_results, created_at')
+    .select('id, research_results, created_at, profile_id')
     .eq('run_id', sessionId)
     .eq('user_id', userId)
-    .eq('profile_id', profileId)
+    .or(`profile_id.eq.${profileId},profile_id.is.null`)
     .single();
 
   if (sessionErr || !session?.research_results) {
     return NextResponse.json({ error: 'Research session not found' }, { status: 404 });
+  }
+
+  // Backfill profile_id if session was unlinked
+  if (!session.profile_id) {
+    void supabase
+      .from('journey_sessions')
+      .update({ profile_id: profileId })
+      .eq('id', session.id)
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) console.warn('[scripts/generate] profile_id backfill failed:', error.message);
+      });
   }
 
   const rawResults = session.research_results as Record<string, unknown>;

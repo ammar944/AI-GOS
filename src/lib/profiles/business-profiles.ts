@@ -334,15 +334,69 @@ export async function getProfileSessions(
   userId: string,
   profileId: string,
 ): Promise<ProfileSession[]> {
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+
+  // Fetch sessions explicitly linked to this profile
+  const { data: linked, error: linkedErr } = await supabase
     .from('journey_sessions')
     .select('id, run_id, research_results, metadata, created_at, updated_at')
     .eq('profile_id', profileId)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
-  if (error || !data) return [];
-  return data.map(mapSessionRow);
+  // Also fetch unlinked sessions (profile_id is null) — the journey flow
+  // doesn't set profile_id, so completed research sessions won't appear
+  // in the profile command center without this fallback.
+  const { data: unlinked, error: unlinkedErr } = await supabase
+    .from('journey_sessions')
+    .select('id, run_id, research_results, metadata, created_at, updated_at')
+    .is('profile_id', null)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if ((linkedErr && unlinkedErr) || (!linked && !unlinked)) return [];
+
+  // Merge and deduplicate by id
+  const allRows = [...(linked ?? []), ...(unlinked ?? [])];
+  const seen = new Set<string>();
+  const deduped = allRows.filter((row) => {
+    const id = row.id as string;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+
+  // Only include unlinked sessions that have at least 1 research section
+  // (skip empty/abandoned sessions)
+  const filtered = deduped.filter((row) => {
+    const results = row.research_results as Record<string, unknown> | null;
+    if (!results) return false;
+    return Object.keys(results).length > 0;
+  });
+
+  // Backfill: link unlinked sessions to this profile so future queries are fast
+  const unlinkedIds = (unlinked ?? [])
+    .filter((row) => {
+      const results = row.research_results as Record<string, unknown> | null;
+      return results && Object.keys(results).length > 0;
+    })
+    .map((row) => row.id as string);
+
+  if (unlinkedIds.length > 0) {
+    // Fire-and-forget backfill — don't block the response
+    void supabase
+      .from('journey_sessions')
+      .update({ profile_id: profileId })
+      .in('id', unlinkedIds)
+      .eq('user_id', userId)
+      .is('profile_id', null)
+      .then(({ error }) => {
+        if (error) console.warn('[getProfileSessions] backfill failed:', error.message);
+      });
+  }
+
+  return filtered.map(mapSessionRow);
 }
 
 export interface ProfileSession {
