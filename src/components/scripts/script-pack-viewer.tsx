@@ -81,9 +81,10 @@ export function ScriptPackViewer({
   }
 
   // Compute stats
-  const totalVideo = activeScripts.filter((s) => s.type === 'video').length;
-  const totalStatic = activeScripts.filter((s) => s.type === 'static').length;
-  const totalEmail = activeScripts.filter((s) => s.type === 'email').length;
+  const getType = (s: { type?: string; format?: string }) => s.type ?? s.format ?? 'video';
+  const totalVideo = activeScripts.filter((s) => getType(s) === 'video').length;
+  const totalStatic = activeScripts.filter((s) => getType(s) === 'static').length;
+  const totalEmail = activeScripts.filter((s) => getType(s) === 'email').length;
   const awarenessCounts = buildAwarenessCounts(activeScripts);
 
   // Filter scripts

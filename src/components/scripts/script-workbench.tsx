@@ -28,7 +28,7 @@ function isAdScript(s: unknown): s is AdScript {
     typeof s === 'object' &&
     s !== null &&
     'id' in s &&
-    'type' in s &&
+    ('type' in s || 'format' in s) &&
     'platform' in s &&
     'awarenessLevel' in s
   );

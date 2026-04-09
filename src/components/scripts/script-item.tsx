@@ -8,13 +8,20 @@ import { cn } from '@/lib/utils';
 import { EvidenceChain } from './evidence-chain';
 import type { AdScript } from '@/lib/scripts/schemas';
 
-const TYPE_COLORS: Record<AdScript['type'], string> = {
+type ScriptType = 'video' | 'static' | 'email';
+
+/** Get the script type from either v1 `type` or v2 `format` field */
+function getScriptType(script: AdScript): ScriptType {
+  return (script.type ?? script.format ?? 'video') as ScriptType;
+}
+
+const TYPE_COLORS: Record<ScriptType, string> = {
   video: 'text-blue-500',
   static: 'text-amber-500',
   email: 'text-green-500',
 };
 
-const TYPE_BG: Record<AdScript['type'], string> = {
+const TYPE_BG: Record<ScriptType, string> = {
   video: 'bg-blue-500/10',
   static: 'bg-amber-500/10',
   email: 'bg-green-500/10',
@@ -123,11 +130,11 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
           <span
             className={cn(
               'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-wide',
-              TYPE_BG[script.type],
-              TYPE_COLORS[script.type],
+              TYPE_BG[getScriptType(script)],
+              TYPE_COLORS[getScriptType(script)],
             )}
           >
-            {script.type}
+            {getScriptType(script)}
           </span>
           {/* Platform */}
           <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wide">
@@ -262,7 +269,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
       )}
 
       {/* Hook variants (video) */}
-      {script.type === 'video' && script.hookVariants && script.hookVariants.length > 0 && (
+      {getScriptType(script) === 'video' && script.hookVariants && script.hookVariants.length > 0 && (
         <div className="mb-3">
           <p className="text-[11px] uppercase tracking-[0.06em] font-mono font-medium text-[var(--text-tertiary)] mb-2">
             Hook Variants
@@ -281,7 +288,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
       )}
 
       {/* Design direction (static) */}
-      {script.type === 'static' && script.designDirection && (
+      {getScriptType(script) === 'static' && script.designDirection && (
         <div className="mb-3 rounded-md bg-[var(--bg-base)] px-3 py-2.5">
           <p className="text-[11px] uppercase tracking-[0.06em] font-mono font-medium text-[var(--text-tertiary)] mb-1">
             Design Direction

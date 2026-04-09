@@ -9,7 +9,8 @@ export const groundedInSchema = z.object({
 export const adScriptSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
-  type: z.enum(['video', 'static', 'email']),
+  type: z.enum(['video', 'static', 'email']).optional(),
+  format: z.enum(['video', 'static', 'email']).optional(),
   platform: z.enum(['meta', 'google', 'linkedin']),
   awarenessLevel: z.enum(['unaware', 'problem', 'solution', 'product', 'mostAware']),
   angle: z.enum([
