@@ -1,29 +1,27 @@
 /**
- * ICM Script Pipeline Orchestrator (replaces runAdScripts)
+ * ICM Script Pipeline v2.1 — Plan-Write-Gate (3 stages)
  *
- * Orchestrates 6 stages sequentially:
- *   01-plan     → Deterministic script matrix
- *   02-claims   → Deterministic claim extraction
- *   03-hooks    → Focused AI hook generation
- *   04-body     → Focused AI body writing
- *   05-quality  → Deterministic quality gate
- *   06-polish   → Focused AI voice polish
+ * Fixes the copy quality regression from v2.0's 6-stage architecture by
+ * collapsing the 3 creative AI stages (hooks, body, polish) back into a
+ * single integrated creative call per awareness level while keeping the
+ * deterministic wins (planning matrix, claim extraction, quality gate).
  *
- * Produces a DynamicCreativePackage for platform upload
- * + assembled scripts for human review.
+ *   Stage A (Plan)  → Deterministic matrix + claim extraction
+ *   Stage B (Write) → Single integrated AI call per level (3 scripts)
+ *   Stage C (Gate)  → Deterministic quality gate (code-based checks)
  */
 
 import crypto from 'node:crypto';
-import { buildScriptMatrix, validateMatrixDiversity, type ScriptPlan } from './stages/01-plan/planner';
+import { buildScriptMatrix, validateMatrixDiversity, type ScriptPlan, type AwarenessLevel } from './stages/01-plan/planner';
 import { extractClaims, type ExtractedClaim } from './stages/02-claims/claim-extractor';
-import { generateHooks, type HookResult } from './stages/03-hooks/hook-generator';
-import { writeBody, type ScriptBody } from './stages/04-body/body-writer';
+import { writeCreativeLevel } from './stages/03-write/creative-writer';
 import { runQualityGate } from './stages/05-quality-gate/quality-gate';
-import { polishVoice, mergePolishResult } from './stages/06-voice-polish/voice-polisher';
+import { getProofSubset, detectUsedProofPoints, sanitizeScript, dedupScripts } from '../runners/ad-scripts';
+import { loadRefFile } from '../skills/loader';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
 
-// --- Types ---
+// --- Types (unchanged from v2.0 — frontend compatibility) ---
 
 export interface PipelineInput {
   companyName: string;
@@ -91,6 +89,10 @@ export interface DynamicCreativePackage {
   };
 }
 
+// --- Constants ---
+
+const AWARENESS_LEVELS: AwarenessLevel[] = ['unaware', 'problem', 'solution', 'product', 'mostAware'];
+
 // --- Pipeline ---
 
 export async function runScriptPipeline(
@@ -100,14 +102,14 @@ export async function runScriptPipeline(
 ): Promise<DynamicCreativePackage> {
   const startTime = Date.now();
 
-  // --- Stage 01: Plan ---
-  await emitRunnerProgress(onProgress, 'runner', 'Stage 1/6: Building script matrix');
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STAGE A: PLAN (deterministic)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  await emitRunnerProgress(onProgress, 'runner', 'Stage A: Planning script matrix + extracting claims');
 
   const objections = extractObjections(input.researchContext);
   const proofPoints = input.proofPoints ?? [];
-
-  // We need claim count for the planner, but claims aren't extracted yet.
-  // Pre-count by running the extractor (it's deterministic and fast).
   const claims = extractClaims(input.researchContext);
 
   const plans = buildScriptMatrix({
@@ -123,20 +125,32 @@ export async function runScriptPipeline(
     await emitRunnerProgress(onProgress, 'error', `Matrix violations: ${matrixViolations.join('; ')}`);
   }
 
-  await emitRunnerProgress(onProgress, 'runner', `Stage 1 complete: ${plans.length} scripts planned, ${claims.length} claims extracted`);
-
-  // --- Stage 02: Claims (already done above) ---
-  await emitRunnerProgress(onProgress, 'runner', `Stage 2/6: ${claims.length} citable claims extracted`);
+  await emitRunnerProgress(onProgress, 'runner', `Stage A complete: ${plans.length} scripts planned, ${claims.length} claims extracted`);
 
   // Prepare shared context
+  const contextText = JSON.stringify(input.researchContext);
   const styleRefText = input.styleReferences.length > 0
     ? input.styleReferences.map((r) => `### ${r.name} (${r.source})\n${r.content}`).join('\n\n')
     : null;
 
-  const audienceTriggers = extractAudienceTriggers(input.researchContext);
-  const competitorHooks = extractCompetitorHooks(input.researchContext);
+  const platformSpecs = loadRefFile('platform-specs.md');
+  const adCopyTemplates = loadRefFile('ad-copy-templates.md');
 
-  // --- Stages 03-06: Per-script processing ---
+  // Extract audience triggers and competitor hooks from research
+  const audienceTriggers = extractAudienceTriggers(input.researchContext);
+  const competitorAdIntel = extractCompetitorAdIntel(input.researchContext);
+
+  // Extract research stats for rotation
+  const researchStats = Array.isArray(input.researchContext.researchStats)
+    ? (input.researchContext.researchStats as Array<{ stat: string; source: string }>)
+    : [];
+
+  // Cross-level tracking (same as v1)
+  const usedAnglesAndHooks: { angle: string; hook: string }[] = [];
+  const usedProofPoints = new Map<string, number>();
+  const proofHeadlines = proofPoints.map((p) => p.headline);
+
+  // Accumulators
   const assembledScripts: AssembledScript[] = [];
   const allHookVariants: DynamicCreativePackage['hookVariants'] = [];
   const allHeadlines: DynamicCreativePackage['headlineVariants'] = [];
@@ -144,189 +158,183 @@ export async function runScriptPipeline(
   const allCtas: DynamicCreativePackage['ctaVariants'] = [];
   const seenCtas = new Set<string>();
 
-  // Track completed awareness levels for progressive writes
-  let lastCompletedLevel = '';
-  let completedLevelCount = 0;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STAGE B: WRITE (integrated AI, one call per awareness level)
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  for (const [idx, plan] of plans.entries()) {
-    const scriptNum = idx + 1;
+  for (const [levelIdx, level] of AWARENESS_LEVELS.entries()) {
     await emitRunnerProgress(
       onProgress,
       'runner',
-      `Stage 3/6: Generating hooks for script ${scriptNum}/15 (${plan.awarenessLevel}/${plan.framework})`,
+      `Stage B: Writing ${level} scripts (${levelIdx + 1}/5)`,
     );
 
-    // Get assigned claims for this script
-    const assignedClaims = plan.claimIndices.map((i) => claims[i]).filter(Boolean);
+    // Get the 3 plans for this level
+    const levelPlans = plans.filter((p) => p.awarenessLevel === level);
 
-    // Get assigned proof point
-    const proofPoint = plan.proofPointIndex !== null ? proofPoints[plan.proofPointIndex] ?? null : null;
+    // Rotate proof points for this level (same as v1)
+    const proofSubset = proofPoints.length > 0
+      ? getProofSubset(proofPoints, levelIdx)
+      : undefined;
 
-    // --- Stage 03: Generate hooks ---
-    let hookResult: HookResult;
+    // Rotate research stats for this level
+    const statsSubset = researchStats.length > 0
+      ? getProofSubset(researchStats, levelIdx)
+      : undefined;
+
+    // --- Single integrated creative call ---
+    let rawScripts: Array<Record<string, unknown>>;
     try {
-      hookResult = await generateHooks({
-        plan,
+      const result = await writeCreativeLevel({
+        level,
+        levelPlans,
         companyName: input.companyName,
+        trimmedResearchContext: contextText,
         targetAudience: input.targetAudience,
-        audienceTriggers,
-        assignedClaims,
-        competitorHooks,
-        objectionText: plan.objectionToHandle,
-      });
-    } catch (err) {
-      await emitRunnerProgress(onProgress, 'error', `Hook generation failed for script ${scriptNum}: ${err instanceof Error ? err.message : String(err)}`);
-      continue;
-    }
-
-    const selectedHook = hookResult.hooks[hookResult.recommendedIndex]?.text ?? hookResult.hooks[0]?.text ?? '';
-    const hookTexts = hookResult.hooks.map((h) => h.text);
-
-    // Collect hook variants for Dynamic Creative package
-    for (const hook of hookResult.hooks) {
-      allHookVariants.push({
-        id: crypto.randomUUID(),
-        text: hook.text,
-        scriptIndex: idx,
-        platform: plan.platform,
-        angle: plan.angle,
-      });
-    }
-
-    // --- Stage 04: Write body ---
-    await emitRunnerProgress(onProgress, 'analysis', `Stage 4/6: Writing body for script ${scriptNum}/15`);
-
-    let bodyResult: ScriptBody;
-    try {
-      bodyResult = await writeBody({
-        plan,
-        companyName: input.companyName,
-        targetAudience: input.targetAudience,
-        selectedHook,
-        allHookVariants: hookTexts,
-        assignedClaims,
-        proofPoint,
-        objectionText: plan.objectionToHandle,
+        targetAudienceMonologue: audienceTriggers,
         styleReferences: styleRefText,
+        proofPoints: proofSubset,
+        usedProofPoints,
+        competitorAdIntel,
+        researchStatsSubset: statsSubset,
+        usedAnglesAndHooks,
+        allClaims: claims,
+        platformSpecs: platformSpecs || undefined,
+        adCopyTemplates: adCopyTemplates || undefined,
       });
+      rawScripts = result.scripts as unknown as Array<Record<string, unknown>>;
     } catch (err) {
-      await emitRunnerProgress(onProgress, 'error', `Body writing failed for script ${scriptNum}: ${err instanceof Error ? err.message : String(err)}`);
-      continue;
-    }
-
-    // Merge hook + body into a single script object
-    let scriptObj: Record<string, unknown> = {
-      ...bodyResult,
-      awarenessLevel: plan.awarenessLevel,
-      angle: plan.angle,
-      type: plan.format,
-      platform: plan.platform,
-      hookType: hookResult.hooks[hookResult.recommendedIndex]?.hookType ?? 'direct',
-      duration: plan.duration,
-    };
-
-    // --- Stage 05: Quality gate ---
-    await emitRunnerProgress(onProgress, 'analysis', `Stage 5/6: Quality gate for script ${scriptNum}/15`);
-
-    const { script: gatedScript, report: qualityReport } = runQualityGate({
-      script: scriptObj,
-      platform: plan.platform,
-      format: plan.format,
-    });
-    scriptObj = gatedScript;
-
-    if (qualityReport.autoFixed > 0) {
-      await emitRunnerProgress(
-        onProgress,
-        'analysis',
-        `Quality gate auto-fixed ${qualityReport.autoFixed} issues in script ${scriptNum}`,
-      );
-    }
-
-    // --- Stage 06: Voice polish ---
-    await emitRunnerProgress(onProgress, 'analysis', `Stage 6/6: Voice polishing script ${scriptNum}/15`);
-
-    try {
-      const polishResult = await polishVoice({
-        script: scriptObj,
-        platform: plan.platform,
-        format: plan.format,
-        targetAudience: input.targetAudience,
-        styleReferences: styleRefText,
-        qualityReport,
-      });
-      scriptObj = mergePolishResult(scriptObj, polishResult);
-    } catch (err) {
-      // Voice polish failure is non-fatal — keep the quality-gated version
       await emitRunnerProgress(
         onProgress,
         'error',
-        `Voice polish failed for script ${scriptNum} — keeping quality-gated version`,
+        `Creative write failed for ${level}: ${err instanceof Error ? err.message : String(err)}`,
       );
-      scriptObj = {
-        ...scriptObj,
-        humanizedPass: false,
-        patternsFixed: 0,
-        flaggedClaims: [],
+      continue;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // STAGE C: GATE (deterministic quality enforcement)
+    // ═════════════════════════════════════════════════════════════════════════
+
+    await emitRunnerProgress(onProgress, 'analysis', `Stage C: Quality gate for ${level} (${rawScripts.length} scripts)`);
+
+    // Post-processing: sanitize dashes, dedup, quality gate
+    let processed = rawScripts.map(sanitizeScript);
+    processed = dedupScripts(processed);
+
+    // Cap at 3 per level
+    if (processed.length > 3) processed = processed.slice(0, 3);
+
+    let totalAutoFixed = 0;
+    const gatedScripts: Array<Record<string, unknown>> = [];
+
+    for (const script of processed) {
+      const platform = String(script.platform ?? levelPlans[0]?.platform ?? 'meta');
+      const format = String(script.type ?? script.format ?? levelPlans[0]?.format ?? 'video');
+
+      const { script: gatedScript, report } = runQualityGate({
+        script,
+        platform,
+        format,
+      });
+
+      totalAutoFixed += report.autoFixed;
+
+      // Inject ID and level metadata
+      const finalScript: Record<string, unknown> = {
+        ...gatedScript,
+        id: crypto.randomUUID(),
+        awarenessLevel: level,
       };
-    }
 
-    // Inject ID
-    scriptObj.id = crypto.randomUUID();
+      // Find matching plan for metadata (best-effort match by angle+platform)
+      const matchedPlan = levelPlans.find(
+        (p) => p.angle === finalScript.angle && p.platform === finalScript.platform,
+      ) ?? levelPlans.find(
+        (p) => p.platform === finalScript.platform,
+      ) ?? levelPlans[gatedScripts.length] ?? levelPlans[0];
 
-    // Build assembled script
-    const assembled: AssembledScript = {
-      id: scriptObj.id as string,
-      awarenessLevel: plan.awarenessLevel,
-      inMarketTier: plan.inMarketTier,
-      subSegment: plan.subSegment,
-      angle: plan.angle,
-      platform: plan.platform,
-      format: plan.format,
-      framework: plan.framework,
-      duration: plan.duration,
-      headline: (scriptObj.headline as string) ?? '',
-      ...(scriptObj.subheadline && { subheadline: scriptObj.subheadline as string }),
-      ...(scriptObj.subjectLine && { subjectLine: scriptObj.subjectLine as string }),
-      ...(scriptObj.previewText && { previewText: scriptObj.previewText as string }),
-      body: (scriptObj.body as string) ?? '',
-      cta: (scriptObj.cta as string) ?? '',
-      ...(scriptObj.hookVariants && { hookVariants: scriptObj.hookVariants as string[] }),
-      ...(scriptObj.designDirection && { designDirection: scriptObj.designDirection as string }),
-      groundedIn: (scriptObj.groundedIn as Array<{ section: string; claim: string }>) ?? [],
-      confidenceScore: (scriptObj.confidenceScore as number) ?? 5,
-      humanizedPass: (scriptObj.humanizedPass as boolean) ?? false,
-      patternsFixed: (scriptObj.patternsFixed as number) ?? 0,
-      flaggedClaims: (scriptObj.flaggedClaims as Array<{ claim: string; reason: string }>) ?? [],
-      objectionHandled: plan.objectionToHandle,
-      qualityGateViolations: qualityReport.totalViolations,
-      qualityGateAutoFixes: qualityReport.autoFixed,
-    };
+      // Build assembled script
+      const assembled: AssembledScript = {
+        id: finalScript.id as string,
+        awarenessLevel: level,
+        inMarketTier: matchedPlan?.inMarketTier ?? 'needs-convinced',
+        subSegment: matchedPlan?.subSegment ?? null,
+        angle: String(finalScript.angle ?? matchedPlan?.angle ?? 'painPoint'),
+        platform,
+        format,
+        framework: String(finalScript.framework ?? matchedPlan?.framework ?? 'talking-head-broll'),
+        duration: String(finalScript.duration ?? matchedPlan?.duration ?? '60s'),
+        headline: String(finalScript.headline ?? ''),
+        ...(finalScript.subheadline && { subheadline: String(finalScript.subheadline) }),
+        ...(finalScript.subjectLine && { subjectLine: String(finalScript.subjectLine) }),
+        ...(finalScript.previewText && { previewText: String(finalScript.previewText) }),
+        body: String(finalScript.body ?? ''),
+        cta: String(finalScript.cta ?? ''),
+        ...(Array.isArray(finalScript.hookVariants) && { hookVariants: finalScript.hookVariants as string[] }),
+        ...(finalScript.designDirection && { designDirection: String(finalScript.designDirection) }),
+        groundedIn: (finalScript.groundedIn as Array<{ section: string; claim: string }>) ?? [],
+        confidenceScore: (finalScript.confidenceScore as number) ?? 5,
+        humanizedPass: (finalScript.humanizedPass as boolean) ?? true,
+        patternsFixed: (finalScript.patternsFixed as number) ?? 0,
+        flaggedClaims: (finalScript.flaggedClaims as Array<{ claim: string; reason: string }>) ?? [],
+        objectionHandled: matchedPlan?.objectionToHandle ?? null,
+        qualityGateViolations: report.totalViolations,
+        qualityGateAutoFixes: report.autoFixed,
+      };
 
-    assembledScripts.push(assembled);
+      assembledScripts.push(assembled);
+      gatedScripts.push(finalScript);
 
-    // Collect Dynamic Creative variants
-    allHeadlines.push({ id: crypto.randomUUID(), text: assembled.headline, platform: plan.platform });
-    allBodies.push({ id: crypto.randomUUID(), text: assembled.body, platform: plan.platform, format: plan.format });
-    if (!seenCtas.has(assembled.cta.toLowerCase())) {
-      seenCtas.add(assembled.cta.toLowerCase());
-      allCtas.push({ id: crypto.randomUUID(), text: assembled.cta });
-    }
+      // Collect Dynamic Creative variants
+      allHeadlines.push({ id: crypto.randomUUID(), text: assembled.headline, platform });
+      allBodies.push({ id: crypto.randomUUID(), text: assembled.body, platform, format });
+      if (!seenCtas.has(assembled.cta.toLowerCase())) {
+        seenCtas.add(assembled.cta.toLowerCase());
+        allCtas.push({ id: crypto.randomUUID(), text: assembled.cta });
+      }
 
-    // Progressive write callback — fire after each awareness level completes
-    if (plan.awarenessLevel !== lastCompletedLevel && lastCompletedLevel !== '') {
-      completedLevelCount++;
-      if (onLevelComplete) {
-        await onLevelComplete(assembledScripts, completedLevelCount);
+      // Collect hook variants for Dynamic Creative package
+      if (assembled.hookVariants) {
+        for (const hookText of assembled.hookVariants) {
+          allHookVariants.push({
+            id: crypto.randomUUID(),
+            text: hookText,
+            scriptIndex: assembledScripts.length - 1,
+            platform,
+            angle: assembled.angle,
+          });
+        }
       }
     }
-    lastCompletedLevel = plan.awarenessLevel;
-  }
 
-  // Final level complete callback
-  if (onLevelComplete && assembledScripts.length > 0) {
-    completedLevelCount++;
-    await onLevelComplete(assembledScripts, completedLevelCount);
+    if (totalAutoFixed > 0) {
+      await emitRunnerProgress(
+        onProgress,
+        'analysis',
+        `Quality gate auto-fixed ${totalAutoFixed} issues in ${level} scripts`,
+      );
+    }
+
+    // Track used angles/hooks for cross-level dedup (same as v1)
+    for (const script of gatedScripts) {
+      const angle = String(script.angle ?? '');
+      const hook = String(script.headline ?? (script.body as string)?.split('.')[0] ?? '');
+      if (angle) usedAnglesAndHooks.push({ angle, hook });
+    }
+
+    // Track proof point usage for rotation
+    if (proofHeadlines.length > 0) {
+      const levelProofUsage = detectUsedProofPoints(gatedScripts, proofHeadlines);
+      for (const [headline, count] of levelProofUsage) {
+        usedProofPoints.set(headline, (usedProofPoints.get(headline) ?? 0) + count);
+      }
+    }
+
+    // Progressive write callback
+    if (onLevelComplete) {
+      await onLevelComplete(assembledScripts, levelIdx + 1);
+    }
   }
 
   // --- Build Dynamic Creative Sets ---
@@ -355,12 +363,12 @@ export async function runScriptPipeline(
       totalClaims: claims.length,
       matrixViolations,
       styleReferencesUsed: input.styleReferences.map((r) => r.name),
-      pipelineVersion: '2.0.0-icm',
+      pipelineVersion: '2.1.0-plan-write-gate',
     },
   };
 }
 
-// --- Helper extractors ---
+// --- Helper extractors (unchanged) ---
 
 function extractObjections(ctx: Record<string, unknown>): string[] {
   const icp = ctx.icpValidation as Record<string, unknown> | undefined;
@@ -393,14 +401,24 @@ function extractAudienceTriggers(ctx: Record<string, unknown>): string[] {
     .slice(0, 5);
 }
 
-function extractCompetitorHooks(ctx: Record<string, unknown>): string[] {
-  const hooks: string[] = [];
+function extractCompetitorAdIntel(ctx: Record<string, unknown>): Array<{
+  advertiser: string;
+  topAdHooks: string[];
+  adCreatives: Array<{ platform: string; headline?: string; body?: string; format: string }>;
+}> {
   const intel = Array.isArray(ctx.competitorAdIntel) ? ctx.competitorAdIntel : [];
-  for (const ci of intel as Array<Record<string, unknown>>) {
-    const adHooks = Array.isArray(ci.topAdHooks) ? ci.topAdHooks : [];
-    for (const h of adHooks.slice(0, 3)) {
-      if (typeof h === 'string' && h.length > 5) hooks.push(h);
-    }
-  }
-  return hooks.slice(0, 8);
+  return (intel as Array<Record<string, unknown>>).map((ci) => ({
+    advertiser: String(ci.advertiser ?? 'Competitor'),
+    topAdHooks: Array.isArray(ci.topAdHooks)
+      ? (ci.topAdHooks as string[]).filter((h) => typeof h === 'string' && h.length > 5).slice(0, 5)
+      : [],
+    adCreatives: Array.isArray(ci.adCreatives)
+      ? (ci.adCreatives as Array<Record<string, unknown>>).slice(0, 5).map((ad) => ({
+          platform: String(ad.platform ?? 'unknown'),
+          headline: ad.headline as string | undefined,
+          body: ad.body as string | undefined,
+          format: String(ad.format ?? 'unknown'),
+        }))
+      : [],
+  }));
 }
