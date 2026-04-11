@@ -92,6 +92,8 @@ import { ProfileDropdown } from '@/components/journey/profile-dropdown';
 import { normalizeProfileFields } from '@/lib/profiles/normalize-fields';
 import type { BusinessProfile } from '@/lib/profiles/business-profiles';
 import type { SectionKey } from '@/lib/workspace/types';
+import { SalesCallPanel } from '@/components/journey/sales-call-panel';
+import type { FathomCallMeta, SalesCallInsights } from '@/lib/fathom/types';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
@@ -449,6 +451,8 @@ function JourneyPageContent() {
   // Session reset signal — increment to clear stale research data from Realtime hook
   const [realtimeResetSignal, setRealtimeResetSignal] = useState(0);
   const [researchResetAt, setResearchResetAt] = useState<string | null>(null);
+  const [fathomCalls, setFathomCalls] = useState<FathomCallMeta[]>([]);
+  const [fathomInsightsMap, setFathomInsightsMap] = useState<Record<string, SalesCallInsights>>({});
 
   // Clear stale research data from Supabase and reset local state.
   // Called when starting a NEW session (accept prefill / skip / start fresh).
@@ -908,6 +912,7 @@ function JourneyPageContent() {
 
   // Guard ref to prevent double workspace transitions
   const hasTransitionedToWorkspaceRef = useRef(false);
+  const dispatchedSectionsRef = useRef<Set<string>>(new Set());
 
   const appendRealtimeResearchMessage = useCallback(
     (section: string, result: ResearchSectionResult) => {
@@ -1395,6 +1400,18 @@ function JourneyPageContent() {
 
       addLog('run', `Extracted ${Object.keys(flat).length} fields — review before starting research`);
       setNdExtractedFields(flat);
+
+      // Persist raw document for runner context injection (fire-and-forget).
+      // The dispatch route queries business_profile_documents at research time
+      // and injects matched doc content into each runner's context string.
+      fetch('/api/documents/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: [{ fileBase64: base64, fileName: file.name, mimeType }],
+        }),
+      }).catch(() => { /* non-critical — field extraction still worked */ });
+
       setJourneyPhase('review');
     } catch (err) {
       addLog('err', `Document upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -2105,10 +2122,20 @@ function JourneyPageContent() {
   const reviewFields = ndExtractedFields ?? extractedFieldsFlat;
 
   const reviewWorkspace = (
-    <UnifiedFieldReview
-      extractedFields={reviewFields}
-      onStart={handleStartFromUnifiedReview}
-    />
+    <div>
+      <UnifiedFieldReview
+        extractedFields={reviewFields}
+        onStart={handleStartFromUnifiedReview}
+      />
+      <div className="mt-4">
+        <SalesCallPanel
+          runId={activeRunId ?? ''}
+          initialCalls={fathomCalls}
+          extractedFieldsMap={fathomInsightsMap}
+          onCallsChange={setFathomCalls}
+        />
+      </div>
+    </div>
   );
 
   const welcomeWorkspace = (
@@ -2155,7 +2182,6 @@ function JourneyPageContent() {
 
   // Workspace phase — replaces entire chat layout with artifact-first workspace
   if (journeyPhase === 'workspace') {
-    const dispatchedSectionsRef = { current: new Set<string>() };
     const handleWorkspaceSectionApproved = async (approvedSection: SectionKey) => {
       const nextSection = getNextSection(approvedSection);
       if (!nextSection || !activeRunId) return;
