@@ -6,3 +6,4 @@ export { runSynthesizeResearch } from './synthesize';
 export { runResearchKeywords } from './keywords';
 export { runMediaPlan } from './media-plan';
 export { resolveProductIdentity } from '../identity/resolve-identity';
+export { runFathomExtraction } from './fathom-extract';

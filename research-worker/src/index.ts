@@ -9,8 +9,9 @@ import {
   runResearchKeywords,
   runMediaPlan,
   resolveProductIdentity,
+  runFathomExtraction,
 } from './runners';
-import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, type ResearchResult } from './supabase';
+import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
 import { runAdScripts, type AdScriptsInput } from './runners/ad-scripts';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
 import { writeDeadLetter } from './dead-letter';
@@ -61,7 +62,8 @@ type ToolName =
   | 'synthesizeResearch'
   | 'researchKeywords'
   | 'researchMediaPlan'
-  | 'resolveIdentity';
+  | 'resolveIdentity'
+  | 'extractFathomCall';
 
 import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
 
@@ -79,6 +81,12 @@ interface RunJobRequest {
    * emit insufficient-data states for any computation that needs the data.
    */
   baselineMetrics?: BaselineMetrics;
+  /**
+   * Optional document ID for Fathom extraction. When present and tool is
+   * 'extractFathomCall', the extracted fields are written back to
+   * business_profile_documents and the fathom call status is updated.
+   */
+  documentId?: string;
 }
 
 const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgressReporter) => Promise<ResearchResult>> = {
@@ -90,6 +98,7 @@ const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgre
   researchKeywords: runResearchKeywords,
   researchMediaPlan: runMediaPlan,
   resolveIdentity: resolveProductIdentity,
+  extractFathomCall: runFathomExtraction,
 };
 
 // -- Health -------------------------------------------------------------------
@@ -139,7 +148,7 @@ const activeJobs = new Map<
 
 // -- Run ----------------------------------------------------------------------
 app.post('/run', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { tool, context, userId, jobId, runId, baselineMetrics } = req.body as RunJobRequest;
+  const { tool, context, userId, jobId, runId, baselineMetrics, documentId } = req.body as RunJobRequest;
 
   if (!tool || !context || !userId || !jobId) {
     res.status(400).json({ error: 'tool, context, userId, jobId are required' });
@@ -295,6 +304,28 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           writeError,
         );
         writeDeadLetter(userId, result.section, result, String(writeError));
+      }
+
+      // For Fathom extraction: write extracted fields back to business_profile_documents
+      // and update the fathom call status to 'ready'.
+      if (tool === 'extractFathomCall' && documentId && result.status === 'complete' && result.data) {
+        try {
+          const adminClient = getClient();
+          await adminClient
+            .from('business_profile_documents')
+            .update({ extracted_fields: result.data })
+            .eq('id', documentId);
+
+          await adminClient.rpc('update_fathom_call_status_by_document', {
+            p_user_id: userId,
+            p_run_id: runId ?? '',
+            p_document_id: documentId,
+            p_status: 'ready',
+          });
+          console.log(`[worker] Updated extracted_fields for Fathom doc ${documentId}`);
+        } catch (writeBackErr) {
+          console.error(`[worker] Failed to write back Fathom extraction for doc ${documentId}:`, writeBackErr);
+        }
       }
       jobFinalized = true;
       clearInterval(heartbeatInterval);
