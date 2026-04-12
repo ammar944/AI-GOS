@@ -92,7 +92,6 @@ import { ProfileDropdown } from '@/components/journey/profile-dropdown';
 import { normalizeProfileFields } from '@/lib/profiles/normalize-fields';
 import type { BusinessProfile } from '@/lib/profiles/business-profiles';
 import type { SectionKey } from '@/lib/workspace/types';
-import { SalesCallPanel } from '@/components/journey/sales-call-panel';
 import type { FathomCallMeta, SalesCallInsights } from '@/lib/fathom/types';
 
 // Demo progress items matching the mockup's right panel
@@ -2111,20 +2110,14 @@ function JourneyPageContent() {
   const reviewFields = ndExtractedFields ?? extractedFieldsFlat;
 
   const reviewWorkspace = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <UnifiedFieldReview
-        extractedFields={reviewFields}
-        onStart={handleStartFromUnifiedReview}
-      />
-      <div className="mt-4 px-6 pb-6">
-        <SalesCallPanel
-          runId={activeRunId ?? ''}
-          initialCalls={fathomCalls}
-          extractedFieldsMap={fathomInsightsMap}
-          onCallsChange={setFathomCalls}
-        />
-      </div>
-    </div>
+    <UnifiedFieldReview
+      extractedFields={reviewFields}
+      onStart={handleStartFromUnifiedReview}
+      runId={activeRunId ?? ''}
+      fathomCalls={fathomCalls}
+      fathomInsightsMap={fathomInsightsMap}
+      onFathomCallsChange={setFathomCalls}
+    />
   );
 
   const welcomeWorkspace = (
