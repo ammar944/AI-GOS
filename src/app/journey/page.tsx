@@ -1401,17 +1401,6 @@ function JourneyPageContent() {
       addLog('run', `Extracted ${Object.keys(flat).length} fields — review before starting research`);
       setNdExtractedFields(flat);
 
-      // Persist raw document for runner context injection (fire-and-forget).
-      // The dispatch route queries business_profile_documents at research time
-      // and injects matched doc content into each runner's context string.
-      fetch('/api/documents/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          files: [{ fileBase64: base64, fileName: file.name, mimeType }],
-        }),
-      }).catch(() => { /* non-critical — field extraction still worked */ });
-
       setJourneyPhase('review');
     } catch (err) {
       addLog('err', `Document upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -2122,12 +2111,12 @@ function JourneyPageContent() {
   const reviewFields = ndExtractedFields ?? extractedFieldsFlat;
 
   const reviewWorkspace = (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <UnifiedFieldReview
         extractedFields={reviewFields}
         onStart={handleStartFromUnifiedReview}
       />
-      <div className="mt-4">
+      <div className="mt-4 px-6 pb-6">
         <SalesCallPanel
           runId={activeRunId ?? ''}
           initialCalls={fathomCalls}
