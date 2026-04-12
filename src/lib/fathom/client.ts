@@ -27,19 +27,21 @@ export function createFathomClient(
     const shareId = new URL(shareUrl).pathname.split('/').pop();
     if (!shareId) throw new FathomResolutionError('Invalid share URL format');
 
-    const createdAfter = new Date(Date.now() - 90 * 86400_000).toISOString();
     let cursor: string | null = null;
     let pageCount = 0;
     const maxPages = 20;
 
     do {
-      const params = new URLSearchParams({ limit: '50', created_after: createdAfter });
+      const params = new URLSearchParams({ limit: '50' });
       if (cursor) params.set('cursor', cursor);
 
       const res = await fetchFn(`${FATHOM_API_BASE}/meetings?${params}`, { headers });
       if (!res.ok) {
         if (res.status === 401) throw new FathomResolutionError('Fathom API key is invalid or expired');
         if (res.status === 429) throw new FathomResolutionError('Fathom rate limit exceeded — try again in a minute');
+        // Log response body for debugging
+        const body = await res.text().catch(() => '');
+        console.error(`[fathom] API error ${res.status}: ${body}`);
         throw new FathomResolutionError(`Fathom API error: ${res.status}`);
       }
 
