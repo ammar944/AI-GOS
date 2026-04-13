@@ -12,6 +12,7 @@ import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
 import { MediaPlanCta } from './media-plan-cta';
+import { PhaseTransitionCard } from './phase-transition-card';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
 import { CompetitorTabs } from './competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
@@ -30,6 +31,7 @@ const SECTION_LABELS: Record<string, string> = {
   keywordIntel: 'Keywords',
   crossAnalysis: 'Strategic Synthesis',
   mediaPlan: 'Media Plan',
+  scripts: 'Scripts',
 };
 
 interface ArtifactCanvasProps {
@@ -37,9 +39,10 @@ interface ArtifactCanvasProps {
   onGenerateMediaPlan?: () => void;
   mediaPlanGenerating?: boolean;
   onRetrySection?: (section: SectionKey) => void;
+  onNavigateToScripts?: () => void;
 }
 
-export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection }: ArtifactCanvasProps) {
+export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection, onNavigateToScripts }: ArtifactCanvasProps) {
   const { state, approveSection } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
@@ -108,6 +111,12 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   // mediaPlan is "active" once it leaves 'queued' — any subsequent phase (researching,
   // streaming, review, approved, error) means generation was triggered.
   const mediaPlanActive = state.sectionStates.mediaPlan !== 'queued';
+
+  // mediaPlan is done — show scripts CTA
+  const mediaPlanComplete = state.sectionStates.mediaPlan === 'review' || state.sectionStates.mediaPlan === 'approved';
+
+  // scripts is "active" once it leaves 'queued'
+  const scriptsActive = state.sectionStates.scripts !== 'queued';
 
   // All done = all 7 sections approved (research + media plan)
   const allDone = useMemo(
@@ -300,6 +309,17 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                   sectionStates={state.sectionStates}
                   onGenerateMediaPlan={onGenerateMediaPlan}
                   mediaPlanGenerating={mediaPlanGenerating}
+                />
+              )}
+
+              {/* Scripts CTA — shown on mediaPlan tab when media plan is complete and scripts not yet started */}
+              {mediaPlanComplete && !scriptsActive && state.currentSection === 'mediaPlan' && onNavigateToScripts && (
+                <PhaseTransitionCard
+                  tag="Next Phase"
+                  title="Generate your ad scripts"
+                  description="15 scripts across 5 awareness levels, grounded in your research and media plan."
+                  actionLabel="Generate Scripts"
+                  onAction={onNavigateToScripts}
                 />
               )}
             </motion.div>

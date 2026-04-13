@@ -18,6 +18,7 @@ import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { useSessionShare } from '@/hooks/use-session-share';
 import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
+import { ScriptsPhaseContent } from './scripts-phase';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -150,13 +151,17 @@ function ShareButton() {
 function WorkspaceNavBar() {
   const { state, navigateToSection } = useWorkspace();
 
-  // Show mediaPlan tab when it's no longer queued
+  // Progressively reveal tabs: mediaPlan when not queued, scripts when not queued
   const visibleSections = useMemo(() => {
+    const sections: SectionKey[] = [...RESEARCH_SECTIONS];
     if (state.sectionStates.mediaPlan !== 'queued') {
-      return SECTION_PIPELINE;
+      sections.push('mediaPlan');
     }
-    return RESEARCH_SECTIONS;
-  }, [state.sectionStates.mediaPlan]);
+    if (state.sectionStates.scripts !== 'queued') {
+      sections.push('scripts');
+    }
+    return sections;
+  }, [state.sectionStates.mediaPlan, state.sectionStates.scripts]);
 
   return (
     <div className="flex items-center">
@@ -309,18 +314,35 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     setMediaPlanGenerating(false);
   }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection, buildSectionContext, state.sectionStates.crossAnalysis]);
 
+  const handleNavigateToScripts = useCallback(() => {
+    // Approve mediaPlan if still in review
+    if (state.sectionStates.mediaPlan === 'review') {
+      setSectionPhase('mediaPlan', 'approved');
+    }
+    // Transition scripts out of 'queued' so the tab appears and navigation is allowed
+    setSectionPhase('scripts', 'review');
+    requestAnimationFrame(() => navigateToSection('scripts'));
+  }, [setSectionPhase, navigateToSection, state.sectionStates.mediaPlan]);
+
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
       <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
       <WorkspaceNavBar />
       <div className="flex flex-1 min-h-0">
-        <ArtifactCanvas
-          jobActivity={jobActivity}
-          onGenerateMediaPlan={handleGenerateMediaPlan}
-          mediaPlanGenerating={mediaPlanGenerating}
-          onRetrySection={handleRetrySection}
-        />
+        {state.currentSection === 'scripts' ? (
+          <div className="flex flex-1 flex-col min-h-0 overflow-y-auto custom-scrollbar">
+            <ScriptsPhaseContent activeRunId={activeRunId ?? null} />
+          </div>
+        ) : (
+          <ArtifactCanvas
+            jobActivity={jobActivity}
+            onGenerateMediaPlan={handleGenerateMediaPlan}
+            mediaPlanGenerating={mediaPlanGenerating}
+            onRetrySection={handleRetrySection}
+            onNavigateToScripts={handleNavigateToScripts}
+          />
+        )}
         {(() => {
           const currentPhase = state.sectionStates[state.currentSection];
           const showChat = !hasActiveResearch || currentPhase === 'review';

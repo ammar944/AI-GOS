@@ -6,7 +6,7 @@ import { scaleIn, springs } from '@/lib/motion';
 import { RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import type { SectionKey, SectionPhase } from '@/lib/workspace/types';
 
-const SECTION_LABELS: Record<Exclude<SectionKey, 'mediaPlan'>, string> = {
+const SECTION_LABELS: Record<Exclude<SectionKey, 'mediaPlan' | 'scripts'>, string> = {
   industryMarket: 'Market Overview',
   competitors: 'Competitor Intel',
   icpValidation: 'ICP Validation',
@@ -120,7 +120,7 @@ export function MediaPlanCta({ sectionStates, onGenerateMediaPlan, mediaPlanGene
                     isApproved ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-secondary)]',
                   )}
                 >
-                  {SECTION_LABELS[section as Exclude<SectionKey, 'mediaPlan'>]}
+                  {SECTION_LABELS[section as Exclude<SectionKey, 'mediaPlan' | 'scripts'>]}
                 </span>
               </motion.div>
             );

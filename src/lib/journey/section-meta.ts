@@ -12,6 +12,7 @@ export const SECTION_META: Record<string, SectionMeta> = {
   keywordIntel: { label: 'Keywords', moduleNumber: '05', description: 'Search volume, competition, and keyword strategy opportunities' },
   crossAnalysis: { label: 'Strategic Synthesis', moduleNumber: '06', description: 'Cross-section insights, strategic patterns, and recommendations' },
   mediaPlan: { label: 'Media Plan', moduleNumber: '07', description: 'Channel mix, budget allocation, and campaign architecture' },
+  scripts: { label: 'Scripts', moduleNumber: '08', description: 'Ad scripts across awareness levels grounded in research data' },
 };
 
 export const DEFAULT_SECTION_META: SectionMeta = { label: 'Research', moduleNumber: '00', description: '' };

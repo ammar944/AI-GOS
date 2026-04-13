@@ -21,7 +21,18 @@ export const SECTION_PIPELINE_LABELS: Record<SectionKey, string> = {
   keywordIntel: 'Keywords',
   crossAnalysis: 'Strategic Synthesis',
   mediaPlan: 'Media Plan',
+  scripts: 'Scripts',
 };
+
+/**
+ * All workspace sections including scripts phase.
+ * Used for tab visibility — scripts sits after mediaPlan.
+ * Scripts are NOT part of the research pipeline (different API + data model).
+ */
+export const WORKSPACE_SECTIONS: SectionKey[] = [
+  ...SECTION_PIPELINE,
+  'scripts',
+];
 
 /**
  * Mapping from canonical research section IDs (used by the journey chat tools)
@@ -113,7 +124,7 @@ export function isFinalSection(section: SectionKey): boolean {
 
 export function createInitialSectionStates(): Record<SectionKey, SectionPhase> {
   const states = {} as Record<SectionKey, SectionPhase>;
-  for (const key of SECTION_PIPELINE) {
+  for (const key of WORKSPACE_SECTIONS) {
     states[key] = 'queued';
   }
   return states;

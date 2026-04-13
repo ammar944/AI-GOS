@@ -109,7 +109,7 @@ export async function GET(request: Request) {
   if (requestedRunId) {
     const { data: runData, error: runError } = await supabase
       .from('journey_sessions')
-      .select('metadata, research_results, job_status, updated_at, run_id')
+      .select('id, profile_id, metadata, research_results, job_status, updated_at, run_id')
       .eq('user_id', userId)
       .eq('run_id', requestedRunId)
       .maybeSingle();
@@ -134,6 +134,8 @@ export async function GET(request: Request) {
           (runData?.job_status as Record<string, unknown> | null | undefined) ?? null,
         runId: storedRunId ?? runData?.run_id ?? null,
         updatedAt: runData?.updated_at ?? null,
+        sessionId: runData?.id ?? null,
+        profileId: runData?.profile_id ?? null,
       }),
       {
         status: 200,
