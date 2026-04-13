@@ -16,14 +16,6 @@ import {
 import { askUser } from '@/lib/ai/tools/ask-user';
 import { competitorFastHits } from '@/lib/ai/tools/competitor-fast-hits';
 import { scrapeClientSite } from '@/lib/ai/tools/scrape-client-site';
-import {
-  researchIndustry,
-  researchCompetitors,
-  researchICP,
-  researchOffer,
-  synthesizeResearch,
-  researchKeywords,
-} from '@/lib/ai/tools/research';
 import { updateFieldInputSchema } from '@/lib/ai/tools/update-field';
 import { editCard } from '@/lib/ai/tools/edit-card';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
@@ -670,12 +662,6 @@ ${cardSummaries.join('\n\n')}`;
       askUser,
       competitorFastHits,
       scrapeClientSite,
-      researchIndustry,
-      researchCompetitors,
-      researchICP,
-      researchOffer,
-      synthesizeResearch,
-      researchKeywords,
       editCard,
       updateField: {
         description:
