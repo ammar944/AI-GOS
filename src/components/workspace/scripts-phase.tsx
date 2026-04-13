@@ -5,7 +5,7 @@ import { PhaseTransitionCard } from './phase-transition-card';
 import { SectionHeader } from './section-header';
 import { ScriptPackViewer } from '@/components/scripts/script-pack-viewer';
 import { useScriptPackRealtime } from '@/lib/scripts/use-script-pack-realtime';
-import type { AdScript } from '@/lib/scripts/schemas';
+import type { AdScript, PackListItem } from '@/lib/scripts/schemas';
 
 interface SessionInfo {
   sessionId: string | null; // internal UUID
@@ -62,7 +62,9 @@ export function ScriptsPhaseContent({ activeRunId }: ScriptsPhaseContentProps) {
             const packs = packsData.packs ?? [];
             // Find the most recent pack for this session
             const matchingPack = packs.find(
-              (p: { id: string; status: string }) => p.status === 'complete' || p.status === 'generating',
+              (p: PackListItem) =>
+                (p.status === 'complete' || p.status === 'generating') &&
+                p.generation_context?.researchSessionRunId === activeRunId,
             );
             if (matchingPack) {
               setPackId(matchingPack.id);

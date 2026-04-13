@@ -118,8 +118,8 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   // scripts is "active" once it leaves 'queued'
   const scriptsActive = state.sectionStates.scripts !== 'queued';
 
-  // All done = all 7 sections approved (research + media plan)
-  const allDone = useMemo(
+  // Only gates research + media plan completion. Scripts phase is managed separately.
+  const researchAndPlanDone = useMemo(
     () => SECTION_PIPELINE.every((key) => state.sectionStates[key] === 'approved'),
     [state.sectionStates],
   );
@@ -153,7 +153,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     });
   }, [allResearchApproved, state.cards, state.sessionId]);
 
-  const showCards = isReviewable || isApproved || allResearchApproved || allDone;
+  const showCards = isReviewable || isApproved || allResearchApproved || researchAndPlanDone;
 
   const sectionCards = useMemo(() => {
     return Object.values(state.cards)
@@ -334,7 +334,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
       {/* Show completion footer when all 6 research sections approved (media plan not yet generated).
           The generate button is intentionally omitted here — the in-canvas MediaPlanCta card handles it. */}
-      {allResearchApproved && !mediaPlanActive && !allDone && (
+      {allResearchApproved && !mediaPlanActive && !researchAndPlanDone && (
         <ArtifactFooter
           variant="complete"
           docSaveStatus={docSaveStatus}
@@ -343,12 +343,12 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
       )}
 
       {/* Media plan in review — show save & finish only if not already all done */}
-      {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && !allDone && (
+      {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && !researchAndPlanDone && (
         <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Save & Finish →" />
       )}
 
-      {/* All 7 sections done — single completion footer */}
-      {allDone && (
+      {/* Research + media plan approved — completion footer (scripts phase is separate) */}
+      {researchAndPlanDone && (
         <ArtifactFooter
           variant="complete"
           docSaveStatus={docSaveStatus}
