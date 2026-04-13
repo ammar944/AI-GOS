@@ -972,8 +972,9 @@ function JourneyPageContent() {
         addLog('ok', `${sectionLabel} research complete`);
       }
 
-      // Save AI insights to business profile when key sections complete (fire-and-forget)
-      if (result.status === 'complete' && result.data && (section === 'crossAnalysis' || section === 'offerAnalysis')) {
+      // Save AI insights to business profile when research sections complete (fire-and-forget)
+      const insightSections = ['industryMarket', 'icpValidation', 'competitors', 'offerAnalysis', 'keywordIntel', 'crossAnalysis'];
+      if (result.status === 'complete' && result.data && insightSections.includes(section)) {
         fetch('/api/profiles/insights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

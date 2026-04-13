@@ -223,11 +223,7 @@ export function buildProfileContext(
 export async function saveProfileInsights(
   userId: string,
   companyName: string,
-  insights: {
-    offerScore?: Record<string, unknown>;
-    positioningStrategy?: Record<string, unknown>;
-    keyInsights?: unknown[];
-  },
+  insights: Record<string, unknown>,
 ): Promise<boolean> {
   // Read existing insights to merge (not overwrite)
   const { data: existing } = await getSupabase()
