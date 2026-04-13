@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
  * Onboarding entry point - redirects based on user's onboarding status
  * - Not authenticated → /sign-in
  * - Onboarding complete → /dashboard
- * - Onboarding incomplete → /generate
+ * - Onboarding incomplete → /journey
  */
 export default async function OnboardingPage() {
   const { userId } = await auth();
@@ -29,10 +29,10 @@ export default async function OnboardingPage() {
       redirect("/dashboard");
     }
   } catch (error) {
-    // If profile doesn't exist or error, proceed to generate
+    // If profile doesn't exist or error, proceed to journey
     console.error("[Onboarding] Error checking status:", error);
   }
 
-  // Not completed - go to generate flow
-  redirect("/generate");
+  // Not completed - go to journey entry point
+  redirect("/journey");
 }

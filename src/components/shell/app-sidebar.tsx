@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, FileText, Building2, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Home, Compass, FileText, Building2, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -21,7 +21,6 @@ const NAV_ITEMS: NavEntry[] = [
   { icon: Compass, label: 'Journey', href: '/journey' },
   { icon: FileText, label: 'Research', href: '/research' },
   { icon: Building2, label: 'Profiles', href: '/profiles' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 
 function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) {
