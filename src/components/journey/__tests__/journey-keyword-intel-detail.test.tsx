@@ -89,21 +89,25 @@ describe('JourneyKeywordIntelDetail', () => {
       />,
     );
 
-    expect(screen.getByText('Keyword opportunities')).toBeInTheDocument();
+    // Hero stats (inline row)
+    expect(screen.getByText('Keywords Found')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    // Section headings
     expect(screen.getByText('Campaign groups')).toBeInTheDocument();
     expect(screen.getByText('Recommended starting set')).toBeInTheDocument();
-    expect(screen.getByText('Negative keywords')).toBeInTheDocument();
-    expect(screen.getByText('Confidence notes')).toBeInTheDocument();
-    expect(screen.getAllByText('Competitor gaps')).toHaveLength(2);
-    expect(screen.getAllByText('Quick wins')).toHaveLength(2);
-    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getAllByText(/Negative keywords/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Confidence notes/)).toBeInTheDocument();
+    expect(screen.getByText('Competitor gaps')).toBeInTheDocument();
+    expect(screen.getByText('Quick wins')).toBeInTheDocument();
+    // Data content
     expect(screen.getByText('Competitor Alternatives')).toBeInTheDocument();
     expect(screen.getByText('Hey Digital Alternatives')).toBeInTheDocument();
     expect(screen.getByText('High-intent comparison term with clear switching signal.')).toBeInTheDocument();
     expect(screen.getByText('b2b saas demand generation agency')).toBeInTheDocument();
     expect(screen.getByText('Hey Digital')).toBeInTheDocument();
     expect(screen.getByText('Launch competitor alternative campaigns immediately.')).toBeInTheDocument();
-    expect(screen.getByText('Employment intent, not buyer intent.')).toBeInTheDocument();
+    // Negative keyword reason is now in title attribute (tooltip)
+    expect(screen.getByTitle('Employment intent, not buyer intent.')).toBeInTheDocument();
   });
 
   it('handles sparse payloads without throwing and shows empty-state copy', () => {

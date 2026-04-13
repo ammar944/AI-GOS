@@ -29,7 +29,7 @@ export function MediaPlanCta({ sectionStates, onGenerateMediaPlan, mediaPlanGene
       animate="animate"
       transition={springs.smooth}
       className={cn(
-        'mt-8 mb-2 rounded-2xl border border-[var(--border-default)]',
+        'mt-8 mb-2 rounded-[var(--radius-lg)] border border-[var(--border-subtle)]',
         'bg-[var(--bg-surface)]',
         'overflow-hidden',
       )}
@@ -42,7 +42,7 @@ export function MediaPlanCta({ sectionStates, onGenerateMediaPlan, mediaPlanGene
         <div className="flex items-start justify-between gap-6">
           <div className="flex-1">
             {/* Module tag */}
-            <span className="text-xs font-mono text-[var(--accent-blue)] uppercase tracking-widest">
+            <span className="text-[11px] font-mono text-[var(--accent-blue)] uppercase tracking-[0.06em]">
               Research Complete
             </span>
 

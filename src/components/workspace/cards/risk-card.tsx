@@ -14,7 +14,7 @@ interface RiskCardProps {
 function getSeverityColor(severity?: string): string {
   const s = severity?.toLowerCase();
   if (s === 'critical') return 'var(--accent-red, #ef4444)';
-  if (s === 'high') return '#f59e0b';
+  if (s === 'high') return 'var(--accent-amber, #f59e0b)';
   return 'var(--text-tertiary)';
 }
 
@@ -37,11 +37,11 @@ export function RiskCard({ risk, category, severity, likelihood, mitigation, ear
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{mitigation}</p>
       )}
       {earlyWarning && (
-        <div className="rounded-[var(--radius-md)] border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 block mb-1">
+        <div className="rounded-[var(--radius-md)] border border-[var(--accent-amber)]/20 bg-[var(--accent-amber)]/[0.06] px-3 py-2">
+          <span className="text-[11px] font-mono uppercase tracking-[0.06em] text-[var(--accent-amber)]/70 block mb-1">
             Early Warning
           </span>
-          <p className="text-sm leading-relaxed text-amber-300/80">{earlyWarning}</p>
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{earlyWarning}</p>
         </div>
       )}
     </div>

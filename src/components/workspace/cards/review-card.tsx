@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ReviewSourceData {
@@ -29,87 +29,56 @@ interface ReviewCardProps {
   gapIntelligence?: unknown;
 }
 
-function Stars({ rating, idPrefix }: { rating: number; idPrefix: string }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => {
-        const fill = Math.min(1, Math.max(0, rating - star + 1));
-        return (
-          <svg key={star} className="w-3.5 h-3.5" viewBox="0 0 20 20">
-            <defs>
-              <linearGradient id={`${idPrefix}-star-${star}`}>
-                <stop offset={`${fill * 100}%`} stopColor="var(--accent-amber)" />
-                <stop
-                  offset={`${fill * 100}%`}
-                  stopColor="currentColor"
-                  stopOpacity="0.15"
-                />
-              </linearGradient>
-            </defs>
-            <path
-              d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-              fill={`url(#${idPrefix}-star-${star})`}
-            />
-          </svg>
-        );
-      })}
-    </div>
-  );
+const SOURCE_LABEL: Record<'g2' | 'capterra' | 'trustpilot', string> = {
+  g2: 'G2',
+  capterra: 'Capterra',
+  trustpilot: 'Trustpilot',
+};
+
+/** Semantic color for a rating: green >= 4, amber >= 3, red < 3 */
+function ratingColor(rating: number): string {
+  if (rating >= 4) return 'var(--accent-green)';
+  if (rating >= 3) return 'var(--accent-amber)';
+  return 'var(--accent-red)';
 }
 
-function ReviewSource({
+/** Compact inline platform rating */
+function PlatformRating({
   platform,
   source,
-  idPrefix,
 }: {
   platform: string;
   source: ReviewSourceData;
-  idPrefix: string;
 }) {
   const hasRating = source.rating != null;
   const hasCount = source.reviewCount != null;
-  const themes = source.themes ?? [];
 
   return (
-    <div className="space-y-2">
-      <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+    <div className="flex items-center gap-2.5 py-2 px-3">
+      <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
         {platform}
       </span>
-
       {hasRating && (
-        <div className="flex items-center gap-2">
-          <Stars rating={source.rating!} idPrefix={`${idPrefix}-${platform}`} />
-          <span className="text-base font-semibold text-[var(--text-primary)]">
-            {source.rating!.toFixed(1)}/5
-          </span>
-        </div>
+        <span
+          className="font-mono tabular-nums text-base font-semibold"
+          style={{ color: ratingColor(source.rating!) }}
+        >
+          {source.rating!.toFixed(1)}
+          <span className="text-[var(--text-tertiary)] text-xs font-normal">/5</span>
+        </span>
       )}
-
       {hasCount && (
-        <p className="text-xs text-[var(--text-tertiary)]">
-          {source.reviewCount!.toLocaleString()} reviews
-        </p>
+        <span className="text-xs text-[var(--text-tertiary)]">
+          ({source.reviewCount!.toLocaleString()})
+        </span>
       )}
-
-      {themes.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {themes.map((theme) => (
-            <span
-              key={theme}
-              className="bg-[var(--bg-hover)] rounded-full px-2 py-0.5 text-xs text-[var(--text-secondary)]"
-            >
-              {theme}
-            </span>
-          ))}
-        </div>
-      )}
-
       {source.url && (
         <a
           href={source.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[var(--accent-blue)] hover:underline"
+          className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors duration-150 shrink-0"
+          aria-label={`View ${platform} reviews`}
         >
           <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none">
             <path
@@ -120,23 +89,11 @@ function ReviewSource({
               strokeLinejoin="round"
             />
           </svg>
-          View source
         </a>
       )}
     </div>
   );
 }
-
-const SOURCE_LABEL: Record<'g2' | 'capterra' | 'trustpilot', string> = {
-  g2: 'G2',
-  capterra: 'Capterra',
-  trustpilot: 'Trustpilot',
-};
-
-// Wave 6e: ExploitAnglesSection + EvidenceQuotes + CopyButton + CONFIDENCE_STYLES removed.
-// They rendered an "Exploit Angles" block driven by gap-intelligence output;
-// product feedback was that the section wasn't useful. The data still flows
-// through the prop for backwards compat but is no longer rendered.
 
 function NegativeReviewsSection({ reviews }: { reviews: NegativeReview[] }) {
   const [expanded, setExpanded] = useState(false);
@@ -147,11 +104,11 @@ function NegativeReviewsSection({ reviews }: { reviews: NegativeReview[] }) {
     <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors w-full text-left min-h-[44px]"
+        className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors duration-150 w-full text-left min-h-[44px]"
         aria-expanded={expanded}
       >
         <svg
-          className={cn('w-3 h-3 transition-transform', expanded && 'rotate-90')}
+          className={cn('w-3 h-3 transition-transform duration-150', expanded && 'rotate-90')}
           viewBox="0 0 16 16"
           fill="none"
         >
@@ -163,48 +120,45 @@ function NegativeReviewsSection({ reviews }: { reviews: NegativeReview[] }) {
             strokeLinejoin="round"
           />
         </svg>
-        <span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.06em]">
           {reviews.length} negative review{reviews.length !== 1 ? 's' : ''}
         </span>
       </button>
 
       {expanded && (
-        <div className="space-y-2">
+        <div className="space-y-0">
           {reviews.map((review, idx) => (
             <div
               key={idx}
-              className="bg-[var(--bg-hover)] rounded-[var(--radius-sm)] p-2.5 space-y-1"
+              className={cn(
+                'flex items-start gap-3 py-2.5',
+                idx < reviews.length - 1 && 'border-b border-[var(--border-subtle)]',
+              )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3].map((star) => (
-                    <svg
-                      key={star}
-                      className={cn(
-                        'w-3 h-3',
-                        star <= review.rating
-                          ? 'text-[var(--accent-amber)]'
-                          : 'text-[var(--text-tertiary)] opacity-30',
-                      )}
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-wide">
-                    {SOURCE_LABEL[review.source]}
-                  </span>
-                  {review.date && (
-                    <span className="text-xs text-[var(--text-tertiary)]">{review.date}</span>
-                  )}
-                </div>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-3">
+              {/* Rating as colored number */}
+              <span
+                className="font-mono tabular-nums text-sm font-semibold shrink-0 mt-0.5"
+                style={{ color: ratingColor(review.rating) }}
+              >
+                {review.rating}/5
+              </span>
+
+              {/* Quote */}
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed line-clamp-3 flex-1 min-w-0">
                 &ldquo;{review.text}&rdquo;
               </p>
+
+              {/* Source + date */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5 bg-[var(--bg-hover)] text-[var(--text-secondary)]">
+                  {SOURCE_LABEL[review.source]}
+                </span>
+                {review.date && (
+                  <span className="text-[11px] font-mono text-[var(--text-tertiary)] tabular-nums">
+                    {review.date}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -221,56 +175,56 @@ export function ReviewCard({
   negativeReviews,
   gapIntelligence,
 }: ReviewCardProps) {
-  const uniqueId = useId();
-  const hasTrustpilot = Boolean(trustpilot);
-  const hasG2 = Boolean(g2);
-  const hasCapterra = Boolean(capterra);
-  const activeSourceCount = [hasTrustpilot, hasG2, hasCapterra].filter(Boolean).length;
+  const sources: Array<{ key: 'trustpilot' | 'g2' | 'capterra'; data: ReviewSourceData }> = [];
+  if (trustpilot) sources.push({ key: 'trustpilot', data: trustpilot });
+  if (g2) sources.push({ key: 'g2', data: g2 });
+  if (capterra) sources.push({ key: 'capterra', data: capterra });
+
   const hasNegativeReviews = (negativeReviews ?? []).length > 0;
 
-  if (!hasTrustpilot && !hasG2 && !hasCapterra && !hasNegativeReviews) return null;
+  // Collect all themes from all platforms, deduplicated
+  const allThemes = Array.from(
+    new Set(sources.flatMap((s) => s.data.themes ?? [])),
+  );
 
-  const gridCols =
-    activeSourceCount === 3
-      ? 'grid-cols-3'
-      : activeSourceCount === 2
-        ? 'grid-cols-2'
-        : 'grid-cols-1';
+  if (sources.length === 0 && !hasNegativeReviews) return null;
 
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-3">
-      {activeSourceCount > 0 && (
-        <div className={cn(
-          'grid gap-4',
-          gridCols,
-        )}>
-          {trustpilot && (
-            <ReviewSource
-              platform="Trustpilot"
-              source={trustpilot}
-              idPrefix={`${uniqueId}-tp`}
+    <div className="space-y-3">
+      {/* Platform ratings — compact horizontal row */}
+      {sources.length > 0 && (
+        <div className="flex items-center flex-wrap divide-x divide-[var(--border-subtle)]">
+          {sources.map((s) => (
+            <PlatformRating
+              key={s.key}
+              platform={SOURCE_LABEL[s.key]}
+              source={s.data}
             />
-          )}
-          {g2 && (
-            <ReviewSource
-              platform="G2"
-              source={g2}
-              idPrefix={`${uniqueId}-g2`}
-            />
-          )}
-          {capterra && (
-            <ReviewSource
-              platform="Capterra"
-              source={capterra}
-              idPrefix={`${uniqueId}-cap`}
-            />
-          )}
+          ))}
         </div>
       )}
 
-      {hasNegativeReviews && (
-        <NegativeReviewsSection reviews={negativeReviews!} />
+      {/* Review themes — single deduped row */}
+      {allThemes.length > 0 && (
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+            Review Themes
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {allThemes.map((theme) => (
+              <span
+                key={theme}
+                className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5 bg-[var(--bg-hover)] text-[var(--text-secondary)]"
+              >
+                {theme}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
+
+      {/* Negative reviews — compact rows */}
+      {hasNegativeReviews && <NegativeReviewsSection reviews={negativeReviews!} />}
     </div>
   );
 }

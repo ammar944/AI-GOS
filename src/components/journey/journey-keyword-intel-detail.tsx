@@ -1,8 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { KeyRound, ShieldBan, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+
+/* ─── Types ─── */
 
 export interface JourneyKeywordOpportunity {
   keyword: string;
@@ -65,6 +66,8 @@ export interface JourneyKeywordIntelDetailProps {
   data: JourneyKeywordIntelDetailData;
   className?: string;
 }
+
+/* ─── Parse helpers (unchanged) ─── */
 
 function dedup<T>(items: T[], keyFn: (item: T) => string): T[] {
   const seen = new Set<string>();
@@ -226,44 +229,19 @@ export function getJourneyKeywordIntelDetailData(
   };
 }
 
+/* ─── Shared formatting ─── */
+
 function formatNumber(value: number | undefined): string {
   return typeof value === 'number' ? value.toLocaleString('en-US') : 'N/A';
 }
 
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof KeyRound;
-  label: string;
-  value: string;
-}): React.JSX.Element {
-  return (
-    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
-        <Icon className="h-3.5 w-3.5 text-[var(--accent-cyan)]" />
-        {label}
-      </div>
-      <div className="mt-3 text-2xl font-semibold text-text-primary">{value}</div>
-    </div>
-  );
-}
+/* ─── Reusable sub-components ─── */
 
-function SectionCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}): React.JSX.Element {
+function SectionHeading({ children }: { children: ReactNode }): React.JSX.Element {
   return (
-    <section className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-text-tertiary">
-        {title}
-      </h4>
-      <div className="mt-4">{children}</div>
-    </section>
+    <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+      {children}
+    </h4>
   );
 }
 
@@ -271,17 +249,17 @@ function DifficultyPill({ difficulty }: { difficulty?: string }): React.JSX.Elem
   const normalized = difficulty?.toLowerCase() ?? '';
   const tone =
     normalized === 'low'
-      ? 'border-[rgba(34,197,94,0.24)] bg-[rgba(34,197,94,0.12)] text-[rgb(170,255,203)]'
+      ? 'bg-[rgba(34,197,94,0.10)] text-[var(--accent-green)]'
       : normalized === 'medium'
-        ? 'border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.12)] text-[rgb(255,222,158)]'
+        ? 'bg-[rgba(245,158,11,0.10)] text-[var(--accent-amber)]'
         : normalized === 'high'
-          ? 'border-[rgba(248,113,113,0.24)] bg-[rgba(248,113,113,0.12)] text-[rgb(255,198,198)]'
-          : 'border-[var(--border-default)] bg-[var(--bg-hover)] text-text-secondary';
+          ? 'bg-[rgba(239,68,68,0.10)] text-[var(--accent-red)]'
+          : 'bg-[var(--bg-hover)] text-[var(--text-secondary)]';
 
   return (
     <span
       className={cn(
-        'inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
+        'inline-flex text-[10px] font-mono font-medium rounded-full px-2 py-0.5',
         tone,
       )}
     >
@@ -290,6 +268,59 @@ function DifficultyPill({ difficulty }: { difficulty?: string }): React.JSX.Elem
   );
 }
 
+/** Column header for tables */
+function ColHeader({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}): React.JSX.Element {
+  return (
+    <span
+      className={cn(
+        'text-[11px] font-mono uppercase tracking-[0.06em] text-[var(--text-quaternary)]',
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* ─── Section 1: Hero Stats (inline row) ─── */
+
+function HeroStats({ data }: { data: JourneyKeywordIntelDetailData }): React.JSX.Element {
+  const stats = [
+    { label: 'Keywords Found', value: formatNumber(data.totalKeywordsFound) },
+    { label: 'Competitor Gaps', value: formatNumber(data.competitorGapCount) },
+    { label: 'Campaign Plans', value: formatNumber(data.campaignGroups.length) },
+    { label: 'Quick Wins', value: formatNumber(data.quickWins.length) },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-y-3">
+      {stats.map((stat, i) => (
+        <div key={stat.label} className="flex items-center">
+          <div className="px-4 first:pl-0">
+            <div className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+              {stat.label}
+            </div>
+            <div className="mt-1 text-xl font-mono tabular-nums text-[var(--text-primary)]">
+              {stat.value}
+            </div>
+          </div>
+          {i < stats.length - 1 && (
+            <div className="h-8 border-r border-[var(--border-subtle)]" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Section 2: Top Opportunities Table ─── */
+
 function OpportunityTable({
   opportunities,
 }: {
@@ -297,287 +328,459 @@ function OpportunityTable({
 }): React.JSX.Element {
   if (opportunities.length === 0) {
     return (
-      <p className="text-sm text-text-secondary">
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
         No keyword opportunities were returned.
       </p>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-default)]">
-      <div className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px] gap-3 border-b border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-        <span>Keyword</span>
-        <span className="text-right">Volume</span>
-        <span className="text-right">CPC</span>
-        <span className="text-right">Difficulty</span>
-      </div>
-      <div className="divide-y divide-white/10">
-        {opportunities.map((opportunity) => (
-          <div
-            key={opportunity.keyword}
-            className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px] gap-3 px-4 py-3"
-          >
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-text-primary">
-                {opportunity.keyword}
-              </div>
-              <div className="mt-1 text-xs text-text-secondary">
-                Priority {formatNumber(opportunity.priorityScore)} · {opportunity.confidence ?? 'Unknown'} confidence
-              </div>
-            </div>
-            <div className="text-right font-mono text-xs text-text-secondary">
-              {formatNumber(opportunity.searchVolume)}
-            </div>
-            <div className="text-right font-mono text-xs text-text-secondary">
-              {opportunity.estimatedCpc ?? 'N/A'}
-            </div>
-            <div className="flex justify-end">
-              <DifficultyPill difficulty={opportunity.difficulty} />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[540px]">
+        <thead>
+          <tr>
+            <th className="pb-2 text-left"><ColHeader>Keyword</ColHeader></th>
+            <th className="pb-2 text-right"><ColHeader>Volume</ColHeader></th>
+            <th className="pb-2 text-right"><ColHeader>CPC</ColHeader></th>
+            <th className="pb-2 text-center"><ColHeader>Difficulty</ColHeader></th>
+            <th className="pb-2 text-right"><ColHeader>Priority</ColHeader></th>
+          </tr>
+        </thead>
+        <tbody>
+          {opportunities.map((opp) => (
+            <tr
+              key={opp.keyword}
+              className="hover:bg-[var(--bg-hover)] transition-colors duration-150"
+            >
+              <td className="py-2 pr-3 text-sm text-[var(--text-primary)]">
+                {opp.keyword}
+              </td>
+              <td className="py-2 px-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                {formatNumber(opp.searchVolume)}
+              </td>
+              <td className="py-2 px-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                {opp.estimatedCpc ?? 'N/A'}
+              </td>
+              <td className="py-2 px-3 text-center">
+                <DifficultyPill difficulty={opp.difficulty} />
+              </td>
+              <td className="py-2 pl-3 text-right">
+                <span className="font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                  {formatNumber(opp.priorityScore)}
+                </span>
+                {opp.confidence && (
+                  <span className="block text-[10px] font-mono text-[var(--text-tertiary)]">
+                    {opp.confidence}
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
+
+/* ─── Section 3: Campaign Groups (sub-tab switching) ─── */
+
+function CampaignGroupsSection({
+  groups,
+}: {
+  groups: JourneyKeywordCampaignGroup[];
+}): React.JSX.Element {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  if (groups.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        No campaign groups were returned.
+      </p>
+    );
+  }
+
+  const active = groups[activeIndex] ?? groups[0];
+
+  // Collect all negative keywords across all ad groups in the active campaign
+  const allNegatives = active.adGroups.flatMap((ag) => ag.negativeKeywords);
+  const uniqueNegatives = [...new Set(allNegatives)];
+
+  // Collect all keywords across all ad groups for flat table display
+  const allKeywords = active.adGroups.flatMap((ag) =>
+    ag.keywords.map((kw) => ({
+      ...kw,
+      adGroupName: ag.name,
+      matchTypes: ag.recommendedMatchTypes,
+    })),
+  );
+
+  return (
+    <div>
+      {/* Sub-tab pill group */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center rounded-[var(--radius-md)] bg-[var(--bg-hover)] p-0.5">
+          {groups.map((group, i) => (
+            <button
+              key={group.campaign}
+              type="button"
+              onClick={() => setActiveIndex(i)}
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-[var(--radius-md)] transition-colors duration-150',
+                i === activeIndex
+                  ? 'bg-[var(--bg-card)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
+              )}
+            >
+              {group.campaign}
+            </button>
+          ))}
+        </div>
+
+        {/* Budget inline stat */}
+        {typeof active.recommendedMonthlyBudget === 'number' && (
+          <span className="text-sm font-mono tabular-nums text-[var(--text-secondary)]">
+            ${active.recommendedMonthlyBudget.toLocaleString()}/mo
+          </span>
+        )}
+      </div>
+
+      {/* Campaign intent */}
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)] mb-4">
+        {active.intent}
+      </p>
+
+      {/* Keywords table */}
+      {allKeywords.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[540px]">
+            <thead>
+              <tr>
+                <th className="pb-2 text-left"><ColHeader>Keyword</ColHeader></th>
+                <th className="pb-2 text-left"><ColHeader>Ad Group</ColHeader></th>
+                <th className="pb-2 text-right"><ColHeader>Volume</ColHeader></th>
+                <th className="pb-2 text-right"><ColHeader>CPC</ColHeader></th>
+                <th className="pb-2 text-center"><ColHeader>Difficulty</ColHeader></th>
+              </tr>
+            </thead>
+            <tbody>
+              {allKeywords.map((kw) => (
+                <tr
+                  key={`${kw.adGroupName}-${kw.keyword}`}
+                  className="hover:bg-[var(--bg-hover)] transition-colors duration-150"
+                >
+                  <td className="py-2 pr-3">
+                    <span className="text-sm text-[var(--text-primary)]">{kw.keyword}</span>
+                    {kw.matchTypes.length > 0 && (
+                      <span className="ml-2 text-[10px] font-mono text-[var(--text-tertiary)]">
+                        {kw.matchTypes.join(', ')}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 px-3 text-sm text-[var(--text-secondary)]">
+                    {kw.adGroupName}
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                    {formatNumber(kw.searchVolume)}
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                    {kw.estimatedCpc ?? 'N/A'}
+                  </td>
+                  <td className="py-2 pl-3 text-center">
+                    <DifficultyPill difficulty={kw.difficulty} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          No keywords in this campaign.
+        </p>
+      )}
+
+      {/* Negative keywords as pill badges row */}
+      {uniqueNegatives.length > 0 && (
+        <div className="mt-4">
+          <div className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2">
+            Negative keywords
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {uniqueNegatives.map((neg) => (
+              <span
+                key={neg}
+                className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5 bg-[rgba(239,68,68,0.10)] text-[var(--accent-red)]"
+              >
+                {neg}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Section 4: Recommended Starting Set (callout blocks) ─── */
+
+function StartingSetSection({
+  keywords,
+}: {
+  keywords: JourneyKeywordStartingKeyword[];
+}): React.JSX.Element {
+  if (keywords.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        No recommended starting set was returned.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {keywords.map((kw) => (
+        <div
+          key={`${kw.keyword}-${kw.adGroup}`}
+          className="border-l-2 border-[var(--accent-green)] pl-4 py-1"
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="font-mono text-sm text-[var(--text-primary)]">
+              {kw.keyword}
+            </span>
+            <span className="font-mono tabular-nums text-sm text-[var(--text-primary)] shrink-0">
+              {typeof kw.recommendedMonthlyBudget === 'number'
+                ? `$${kw.recommendedMonthlyBudget.toLocaleString()}/mo`
+                : 'Budget TBD'}
+            </span>
+          </div>
+          <div className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mt-0.5">
+            {kw.campaign} / {kw.adGroup}
+          </div>
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)] mt-1.5">
+            {kw.reason}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Section 5: Competitor Gaps (table) ─── */
+
+function CompetitorGapsTable({
+  gaps,
+}: {
+  gaps: JourneyKeywordCompetitorGap[];
+}): React.JSX.Element {
+  if (gaps.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        No competitor gaps were returned.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px]">
+        <thead>
+          <tr>
+            <th className="pb-2 text-left"><ColHeader>Keyword</ColHeader></th>
+            <th className="pb-2 text-left"><ColHeader>Competitor</ColHeader></th>
+            <th className="pb-2 text-right"><ColHeader>Volume</ColHeader></th>
+            <th className="pb-2 text-right"><ColHeader>CPC</ColHeader></th>
+            <th className="pb-2 text-right"><ColHeader>Priority</ColHeader></th>
+          </tr>
+        </thead>
+        <tbody>
+          {gaps.map((gap) => (
+            <tr
+              key={`${gap.keyword}-${gap.competitorName}`}
+              className="hover:bg-[var(--bg-hover)] transition-colors duration-150"
+            >
+              <td className="py-2 pr-3 text-sm text-[var(--text-primary)]">
+                {gap.keyword}
+              </td>
+              <td className="py-2 px-3 text-sm text-[var(--text-secondary)]">
+                {gap.competitorName}
+              </td>
+              <td className="py-2 px-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                {formatNumber(gap.searchVolume)}
+              </td>
+              <td className="py-2 px-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                {gap.estimatedCpc ?? 'N/A'}
+              </td>
+              <td className="py-2 pl-3 text-right font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                {formatNumber(gap.priorityScore)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ─── Section 6: Negative Keywords (pill badges) ─── */
+
+function NegativeKeywordsPills({
+  keywords,
+}: {
+  keywords: JourneyKeywordNegativeKeyword[];
+}): React.JSX.Element {
+  if (keywords.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        No negative keywords were returned.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {keywords.map((kw) => (
+        <span
+          key={kw.keyword}
+          title={kw.reason}
+          className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5 bg-[rgba(239,68,68,0.10)] text-[var(--accent-red)] cursor-default"
+        >
+          {kw.keyword}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Section 7: Confidence Notes (collapsible) ─── */
+
+function ConfidenceNotesSection({
+  notes,
+}: {
+  notes: string[];
+}): React.JSX.Element {
+  if (notes.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        No confidence notes were returned.
+      </p>
+    );
+  }
+
+  return (
+    <details>
+      <summary className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] cursor-pointer select-none">
+        Confidence notes ({notes.length})
+      </summary>
+      <div className="mt-3 space-y-2">
+        {notes.map((note) => (
+          <p
+            key={note}
+            className="text-sm leading-relaxed text-[var(--text-secondary)]"
+          >
+            {note}
+          </p>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/* ─── Section 8: Quick Wins (callout blocks) ─── */
+
+function QuickWinsSection({
+  wins,
+}: {
+  wins: string[];
+}): React.JSX.Element {
+  if (wins.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        No quick wins were returned.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {wins.map((win) => (
+        <div
+          key={win}
+          className="border-l-2 border-[var(--accent-blue)] pl-4 py-1"
+        >
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+            {win}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Main Component ─── */
 
 export function JourneyKeywordIntelDetail({
   data,
   className,
 }: JourneyKeywordIntelDetailProps): React.JSX.Element {
   return (
-    <div className={cn('space-y-4', className)}>
-      <div className="grid gap-3 md:grid-cols-4">
-        <StatTile
-          icon={KeyRound}
-          label="Keyword opportunities"
-          value={formatNumber(data.totalKeywordsFound)}
-        />
-        <StatTile
-          icon={Target}
-          label="Competitor gaps"
-          value={formatNumber(data.competitorGapCount)}
-        />
-        <StatTile
-          icon={TrendingUp}
-          label="Campaign plans"
-          value={formatNumber(data.campaignGroups.length)}
-        />
-        <StatTile
-          icon={Sparkles}
-          label="Quick wins"
-          value={formatNumber(data.quickWins.length)}
-        />
-      </div>
+    <div className={cn('space-y-6', className)}>
+      {/* Section 1: Hero Stats — inline row */}
+      <HeroStats data={data} />
 
-      <SectionCard title="Top opportunities">
-        <OpportunityTable opportunities={data.topOpportunities} />
-      </SectionCard>
+      {/* Section 2: Top Opportunities — clean table */}
+      <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+        <SectionHeading>Top opportunities</SectionHeading>
+        <div className="mt-4">
+          <OpportunityTable opportunities={data.topOpportunities} />
+        </div>
+      </section>
 
-      <SectionCard title="Campaign groups">
-        {data.campaignGroups.length > 0 ? (
-          <div className="space-y-4">
-            {data.campaignGroups.map((group) => (
-              <div
-                key={group.campaign}
-                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium text-text-primary">
-                      {group.campaign}
-                    </div>
-                    <div className="mt-1 text-xs text-text-secondary">
-                      {group.intent}
-                    </div>
-                  </div>
-                  <div className="text-xs font-mono text-text-secondary">
-                    {typeof group.recommendedMonthlyBudget === 'number'
-                      ? `$${group.recommendedMonthlyBudget.toLocaleString()}/mo`
-                      : 'Budget TBD'}
-                  </div>
-                </div>
+      {/* Section 3: Campaign Groups — sub-tab switching */}
+      <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+        <SectionHeading>Campaign groups</SectionHeading>
+        <div className="mt-4">
+          <CampaignGroupsSection groups={data.campaignGroups} />
+        </div>
+      </section>
 
-                <div className="mt-4 space-y-3">
-                  {group.adGroups.map((adGroup) => (
-                    <div
-                      key={adGroup.name}
-                      className="rounded-xl border border-[var(--border-default)] bg-black/20 p-3"
-                    >
-                      <div className="text-sm font-medium text-text-primary">
-                        {adGroup.name}
-                      </div>
-                      {adGroup.recommendedMatchTypes.length > 0 && (
-                        <div className="mt-1 text-xs text-text-secondary">
-                          Match types: {adGroup.recommendedMatchTypes.join(', ')}
-                        </div>
-                      )}
-                      <div className="mt-2 space-y-2">
-                        {adGroup.keywords.map((keyword) => (
-                          <div
-                            key={`${adGroup.name}-${keyword.keyword}`}
-                            className="flex items-center justify-between gap-3 rounded-lg bg-[var(--bg-surface)] px-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate text-sm text-text-primary">
-                                {keyword.keyword}
-                              </div>
-                              <div className="text-xs text-text-secondary">
-                                {keyword.estimatedCpc ?? 'N/A'} · {formatNumber(keyword.searchVolume)}/mo
-                              </div>
-                            </div>
-                            <DifficultyPill difficulty={keyword.difficulty} />
-                          </div>
-                        ))}
-                      </div>
-                      {adGroup.negativeKeywords.length > 0 && (
-                        <div className="mt-3 text-xs text-text-secondary">
-                          Negatives: {adGroup.negativeKeywords.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+      {/* Section 4 + 5: Starting Set + Competitor Gaps — side by side */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+          <SectionHeading>Recommended starting set</SectionHeading>
+          <div className="mt-4">
+            <StartingSetSection keywords={data.recommendedStartingSet} />
           </div>
-        ) : (
-          <p className="text-sm text-text-secondary">
-            No campaign groups were returned.
-          </p>
-        )}
-      </SectionCard>
+        </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <SectionCard title="Recommended starting set">
-          {data.recommendedStartingSet.length > 0 ? (
-            <div className="space-y-3">
-              {data.recommendedStartingSet.map((keyword) => (
-                <div
-                  key={`${keyword.keyword}-${keyword.adGroup}`}
-                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium text-text-primary">
-                        {keyword.keyword}
-                      </div>
-                      <div className="mt-1 text-xs text-text-secondary">
-                        {keyword.campaign} · {keyword.adGroup}
-                      </div>
-                    </div>
-                    <div className="text-xs font-mono text-text-secondary">
-                      {typeof keyword.recommendedMonthlyBudget === 'number'
-                        ? `$${keyword.recommendedMonthlyBudget.toLocaleString()}/mo`
-                        : 'Budget TBD'}
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-text-secondary">{keyword.reason}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-secondary">
-              No recommended starting set was returned.
-            </p>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Competitor gaps">
-          {data.competitorGaps.length > 0 ? (
-            <div className="space-y-3">
-              {data.competitorGaps.map((gap) => (
-                <div
-                  key={`${gap.keyword}-${gap.competitorName}`}
-                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
-                >
-                  <div className="text-sm font-medium text-text-primary">
-                    {gap.keyword}
-                  </div>
-                  <div className="mt-1 text-xs text-text-secondary">
-                    {gap.competitorName}
-                  </div>
-                  <div className="mt-1 text-xs text-text-secondary">
-                    {gap.competitorName} ranks, you don't
-                  </div>
-                  <div className="mt-2 text-xs text-text-secondary">
-                    {formatNumber(gap.searchVolume)}/mo · {gap.estimatedCpc ?? 'N/A'} · Priority {formatNumber(gap.priorityScore)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-secondary">
-              No competitor gaps were returned.
-            </p>
-          )}
-        </SectionCard>
+        <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+          <SectionHeading>Competitor gaps</SectionHeading>
+          <div className="mt-4">
+            <CompetitorGapsTable gaps={data.competitorGaps} />
+          </div>
+        </section>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <SectionCard title="Negative keywords">
-          {data.negativeKeywords.length > 0 ? (
-            <div className="space-y-3">
-              {data.negativeKeywords.map((keyword) => (
-                <div
-                  key={keyword.keyword}
-                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3"
-                >
-                  <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                    <ShieldBan className="h-4 w-4 text-[var(--accent-cyan)]" />
-                    {keyword.keyword}
-                  </div>
-                  <div className="mt-2 text-sm text-text-secondary">
-                    {keyword.reason}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-secondary">
-              No negative keywords were returned.
-            </p>
-          )}
-        </SectionCard>
+      {/* Section 6 + 7: Negative Keywords + Confidence Notes — side by side */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+          <SectionHeading>Negative keywords</SectionHeading>
+          <div className="mt-4">
+            <NegativeKeywordsPills keywords={data.negativeKeywords} />
+          </div>
+        </section>
 
-        <SectionCard title="Confidence notes">
-          {data.confidenceNotes.length > 0 ? (
-            <ul className="space-y-3">
-              {data.confidenceNotes.map((note) => (
-                <li
-                  key={note}
-                  className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
-                >
-                  {note}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-text-secondary">
-              No confidence notes were returned.
-            </p>
-          )}
-        </SectionCard>
+        <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+          <ConfidenceNotesSection notes={data.confidenceNotes} />
+        </section>
       </div>
 
-      <SectionCard title="Quick wins">
-        {data.quickWins.length > 0 ? (
-          <ul className="space-y-3">
-            {data.quickWins.map((quickWin) => (
-              <li
-                key={quickWin}
-                className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-text-secondary"
-              >
-                {quickWin}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-text-secondary">
-            No quick wins were returned.
-          </p>
-        )}
-      </SectionCard>
+      {/* Section 8: Quick Wins — callout blocks */}
+      <section className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5">
+        <SectionHeading>Quick wins</SectionHeading>
+        <div className="mt-4">
+          <QuickWinsSection wins={data.quickWins} />
+        </div>
+      </section>
     </div>
   );
 }

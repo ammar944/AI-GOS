@@ -129,7 +129,7 @@ function AgentBrowser({
     : null;
 
   return (
-    <div className="flex flex-col h-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] overflow-hidden">
+    <div className="flex flex-col h-full rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden">
       {/* Browser chrome — tab bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-glass)] bg-[var(--bg-glass-panel)]">
         {/* Window dots */}

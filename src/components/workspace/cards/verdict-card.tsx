@@ -13,8 +13,8 @@ export function VerdictCard({ status, reasoning }: VerdictCardProps) {
   const isNegative = /rejected|failed|weak/.test(normalized);
 
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-4">
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-2">
+    <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+      <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2">
         Final Verdict
       </h4>
       <p

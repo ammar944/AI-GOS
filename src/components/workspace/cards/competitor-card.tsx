@@ -1,7 +1,6 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { StatGrid, type StatItem } from './stat-grid';
 import { BulletList } from './bullet-list';
 import { CompetitorAdEvidence } from '@/components/journey/competitor-ad-evidence';
 
@@ -47,6 +46,12 @@ interface CompetitorCardProps {
   counterPositioning?: string;
 }
 
+const CONFIDENCE_COLOR: Record<string, string> = {
+  high: 'var(--accent-green)',
+  medium: 'var(--accent-amber)',
+  low: 'var(--accent-red)',
+};
+
 export function CompetitorCard({
   name,
   website,
@@ -66,107 +71,228 @@ export function CompetitorCard({
   counterPositioning,
 }: CompetitorCardProps) {
   const hasTiers = Array.isArray(pricingTiers) && pricingTiers.length > 0;
-  const hasRealPricing = !hasTiers && !!price && price !== 'null' && !price.toLowerCase().includes('see pricing') && /\$\d+/.test(price);
-  const priceStats: StatItem[] = hasRealPricing ? [{ label: 'Price', value: price! }] : [];
+  const hasRealPricing =
+    !hasTiers &&
+    !!price &&
+    price !== 'null' &&
+    !price.toLowerCase().includes('see pricing') &&
+    /\$\d+/.test(price);
+  const hasPricing = hasTiers || hasRealPricing;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
-          {website && (
-            <a
-              href={website.startsWith('http') ? website : `https://${website}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-xs font-mono hover:underline"
-              style={{ color: 'var(--accent-blue)' }}
+      {/* Header — name, website, positioning only */}
+      <div>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{name}</h3>
+        {website && (
+          <a
+            href={website.startsWith('http') ? website : `https://${website}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-xs font-mono hover:underline"
+            style={{ color: 'var(--accent-blue)' }}
+          >
+            {website}
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              {website}
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-            </a>
-          )}
-          {positioning && (
-            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">{positioning}</p>
-          )}
-        </div>
-        {priceStats.length > 0 && (
-          <div className="shrink-0 flex flex-col items-end gap-1">
-            <StatGrid stats={priceStats} columns={2} />
-            {pricingSourceUrl && (
-              <a
-                href={pricingSourceUrl.startsWith('http') ? pricingSourceUrl : `https://${pricingSourceUrl}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-mono text-[10px] hover:underline"
-                style={{ color: 'var(--accent-blue)' }}
-              >
-                View pricing source
-                <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-              </a>
-            )}
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+              />
+            </svg>
+          </a>
+        )}
+        {positioning && (
+          <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
+            {positioning}
+          </p>
         )}
       </div>
 
-      {/* Pricing Tiers */}
-      {hasTiers && (
+      {/* Pricing Section — dedicated area below header */}
+      {hasPricing && (
         <div className="space-y-2">
-          <span className="text-xs font-mono uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
-            Pricing
-          </span>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {pricingTiers!.map((tier) => (
-              <div key={tier.name} className="rounded-[var(--radius-control)] p-3 space-y-1" style={{ background: 'var(--bg-secondary, rgba(255,255,255,0.03))' }}>
-                <p className="text-xs font-mono uppercase" style={{ color: 'var(--text-tertiary)' }}>{tier.name}</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.price}</p>
-                {tier.description && (
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{tier.description}</p>
-                )}
-              </div>
-            ))}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+              Pricing
+            </span>
+            {pricingConfidence && (
+              <span
+                className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5"
+                style={{
+                  color: CONFIDENCE_COLOR[pricingConfidence] ?? 'var(--text-tertiary)',
+                  backgroundColor: `color-mix(in srgb, ${CONFIDENCE_COLOR[pricingConfidence] ?? 'var(--text-tertiary)'} 10%, transparent)`,
+                }}
+              >
+                {pricingConfidence}
+              </span>
+            )}
           </div>
+
+          {hasTiers ? (
+            /* Pricing tiers as a clean table */
+            <div className="w-full">
+              <table className="w-full text-left">
+                <thead>
+                  <tr>
+                    <th className="text-[10px] font-mono font-medium text-[var(--text-quaternary)] uppercase tracking-[0.06em] pb-2 pr-4">
+                      Tier
+                    </th>
+                    <th className="text-[10px] font-mono font-medium text-[var(--text-quaternary)] uppercase tracking-[0.06em] pb-2 pr-4">
+                      Price
+                    </th>
+                    <th className="text-[10px] font-mono font-medium text-[var(--text-quaternary)] uppercase tracking-[0.06em] pb-2">
+                      Description
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pricingTiers!.map((tier) => (
+                    <tr
+                      key={tier.name}
+                      className="hover:bg-[var(--bg-hover)] transition-colors duration-150"
+                    >
+                      <td className="py-2 pr-4 text-sm font-medium text-[var(--text-primary)]">
+                        {tier.name}
+                      </td>
+                      <td className="py-2 pr-4 font-mono tabular-nums text-sm text-[var(--text-primary)]">
+                        {tier.price}
+                      </td>
+                      <td className="py-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+                        {tier.description ?? '--'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* Single price — inline stat */
+            <p className="font-mono tabular-nums text-sm font-medium text-[var(--text-primary)]">
+              {price}
+            </p>
+          )}
+
+          {pricingSourceUrl && (
+            <a
+              href={
+                pricingSourceUrl.startsWith('http')
+                  ? pricingSourceUrl
+                  : `https://${pricingSourceUrl}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-mono hover:underline"
+              style={{ color: 'var(--accent-blue)' }}
+            >
+              View pricing source
+              <svg
+                className="h-2.5 w-2.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                />
+              </svg>
+            </a>
+          )}
         </div>
       )}
 
-      {/* S/W/O Lists */}
-      <BulletList title="Strengths" items={strengths} accent="var(--accent-green)" />
-      <BulletList title="Weaknesses" items={weaknesses} accent="var(--accent-red)" />
-      <BulletList title="Opportunities" items={opportunities} accent="var(--accent-blue)" />
-      <BulletList title="Top Ad Hooks" items={topAdHooks} accent="var(--accent-cyan)" />
+      {/* Strengths / Weaknesses — 2-column grid */}
+      {(strengths.length > 0 || weaknesses.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {strengths.length > 0 && (
+            <BulletList title="Strengths" items={strengths} accent="var(--accent-green)" />
+          )}
+          {weaknesses.length > 0 && (
+            <BulletList title="Weaknesses" items={weaknesses} accent="var(--accent-red)" />
+          )}
+        </div>
+      )}
 
-      {/* Our Advantage */}
+      {/* Opportunities — full width, amber accent */}
+      {opportunities.length > 0 && (
+        <BulletList title="Opportunities" items={opportunities} accent="var(--accent-amber)" />
+      )}
+
+      {/* Top Ad Hooks — callout block with 2px left accent */}
+      {topAdHooks.length > 0 && (
+        <div className="border-l-2 border-[var(--accent-cyan)] pl-4">
+          <BulletList title="Top Ad Hooks" items={topAdHooks} accent="var(--accent-cyan)" />
+        </div>
+      )}
+
+      {/* Our Advantage — callout block */}
       {ourAdvantage && (
-        <div>
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-2">
+        <div className="border-l-2 border-[var(--accent-blue)] pl-4">
+          <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2">
             {`Our Advantage vs ${name}`}
           </h4>
           <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{ourAdvantage}</p>
         </div>
       )}
 
-      {/* Ad Activity */}
+      {/* Ad Activity — standard card surface, no glass-surface */}
       {adActivity && (
-        <div className="glass-surface rounded-[var(--radius-md)] p-3 space-y-2">
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-[var(--radius-lg)] p-4 space-y-3">
+          <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
             Ad Activity
           </h4>
-          <div className="grid grid-cols-2 gap-3">
-            <StatGrid
-              stats={[
-                { label: 'Active Ads', value: String(adActivity.activeAdCount) },
-                { label: 'Coverage', value: adActivity.sourceConfidence },
-              ]}
-              columns={2}
-            />
+
+          {/* Active Ads count + platforms inline */}
+          <div className="flex items-center flex-wrap gap-3">
+            <span className="font-mono tabular-nums text-xl font-semibold text-[var(--text-primary)]">
+              {adActivity.activeAdCount}
+            </span>
+            <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+              Active Ads
+            </span>
+            {adActivity.platforms.length > 0 && (
+              <div className="flex items-center flex-wrap gap-1.5 ml-auto">
+                {adActivity.platforms.map((platform) => (
+                  <span
+                    key={platform}
+                    className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5 bg-[var(--bg-hover)] text-[var(--text-secondary)]"
+                  >
+                    {platform}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-          <BulletList title="Platforms" items={adActivity.platforms} accent="var(--accent-cyan)" />
-          <BulletList title="Themes" items={adActivity.themes} accent="var(--accent-blue)" />
+
+          {/* Themes — callout style with 2px left accent, no bg */}
+          {adActivity.themes.length > 0 && (
+            <div className="border-l-2 border-[var(--accent-blue)] pl-3">
+              <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
+                Themes
+              </span>
+              <ul className="space-y-1">
+                {adActivity.themes.map((theme) => (
+                  <li
+                    key={theme}
+                    className="text-sm leading-relaxed text-[var(--text-secondary)]"
+                  >
+                    {theme}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Evidence */}
           {adActivity.evidence && (
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
               {adActivity.evidence}
@@ -182,13 +308,15 @@ export function CompetitorCard({
         libraryLinks={libraryLinks}
       />
 
-      {/* Counter Positioning */}
+      {/* Counter Positioning — callout block */}
       {counterPositioning && (
-        <div>
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-2">
+        <div className="border-l-2 border-[var(--accent-blue)] pl-4">
+          <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2">
             Counter Positioning
           </h4>
-          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{counterPositioning}</p>
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+            {counterPositioning}
+          </p>
         </div>
       )}
     </div>

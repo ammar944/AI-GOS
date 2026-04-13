@@ -16,17 +16,17 @@ export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: Cr
   return (
     <div className="space-y-4">
       {targetSegment?.trim() ? (
-        <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-hover)]/40 px-3 py-2.5">
-          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
+        <div className="border-l-2 border-[var(--accent-blue)] pl-3 py-0.5">
+          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
             Target segment
           </span>
-          <p className="text-xs leading-relaxed text-[var(--text-secondary)] normal-case tracking-normal">
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
             {targetSegment.trim()}
           </p>
         </div>
       ) : null}
       {hook?.trim() ? (
-        <blockquote className="border-l-2 border-[var(--accent-blue)]/50 pl-3">
+        <blockquote className="border-l-2 border-[var(--accent-blue)] pl-3">
           <p className="text-sm italic leading-relaxed text-[var(--text-secondary)]">
             &ldquo;{hook.trim()}&rdquo;
           </p>
@@ -37,9 +37,14 @@ export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: Cr
           {blocks.map((block, i) => (
             <div key={i} className="space-y-1">
               {block.heading ? (
-                <p className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider">
+                <span className="inline-block text-[10px] font-mono font-medium uppercase tracking-[0.06em] rounded-full px-2 py-0.5 tabular-nums"
+                  style={{
+                    color: 'var(--accent-blue)',
+                    background: 'var(--accent-blue-subtle)',
+                  }}
+                >
                   {block.heading}
-                </p>
+                </span>
               ) : null}
               <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{block.body}</p>
             </div>

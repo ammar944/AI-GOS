@@ -70,7 +70,7 @@ export function TrendCard(props: TrendCardProps) {
 
   if (rows.length === 1) {
     return (
-      <div className="glass-surface rounded-[var(--radius-md)] p-3">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         <TrendRowContent row={rows[0]} />
       </div>
     );

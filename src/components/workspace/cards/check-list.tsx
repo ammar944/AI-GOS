@@ -38,7 +38,7 @@ export function CheckList({
 
   return (
     <div>
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-3">
+      <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-3">
         {title}
       </h4>
       <ul className="space-y-2">

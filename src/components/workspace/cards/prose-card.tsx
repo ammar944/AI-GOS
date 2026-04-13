@@ -27,8 +27,8 @@ export function ProseCard({ title, text, isEditing: isEditingProp = false, onTex
     .filter(Boolean);
 
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-4">
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-2">
+    <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
+      <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2.5">
         {title}
       </h4>
       {isEditing ? (
@@ -41,14 +41,21 @@ export function ProseCard({ title, text, isEditing: isEditingProp = false, onTex
             onTextChange?.(newText);
             updateDraft({ text: newText });
           }}
-          className="text-sm leading-relaxed text-[var(--text-secondary)] border border-dashed border-[var(--border-subtle)] rounded-[var(--radius-sm)] px-2 py-1 outline-none min-h-[3rem]"
+          className="text-sm leading-relaxed text-[var(--text-secondary)] border border-dashed border-[var(--accent-blue-subtle)] rounded-[var(--radius-sm)] px-2 py-1.5 outline-none min-h-[3rem] focus:border-[var(--accent-blue)]"
         >
           {localText}
         </p>
       ) : paragraphs.length > 1 ? (
         <div className="space-y-3">
           {paragraphs.map((p, i) => (
-            <p key={i} className="text-sm leading-relaxed text-[var(--text-secondary)]">
+            <p
+              key={i}
+              className={
+                i === 0
+                  ? 'text-sm leading-relaxed text-[var(--text-primary)]'
+                  : 'text-sm leading-relaxed text-[var(--text-secondary)]'
+              }
+            >
               {p}
             </p>
           ))}

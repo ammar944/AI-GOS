@@ -1,7 +1,5 @@
 'use client';
 
-import { StatGrid } from './stat-grid';
-
 interface PricingCardProps {
   currentPricing?: string;
   pricingSource?: string | null;
@@ -10,31 +8,66 @@ interface PricingCardProps {
   coldTrafficViability?: string;
 }
 
-export function PricingCard({ currentPricing, pricingSource, marketBenchmark, pricingPosition, coldTrafficViability }: PricingCardProps) {
-  const stats = [
-    ...(currentPricing ? [{ label: 'Current Pricing', value: currentPricing }] : []),
-    ...(marketBenchmark ? [{ label: 'Benchmark', value: marketBenchmark }] : []),
-    ...(pricingPosition ? [{ label: 'Position', value: pricingPosition }] : []),
-  ];
+function positionColor(pos: string): string {
+  const lower = pos.toLowerCase();
+  if (lower.includes('premium') || lower.includes('high')) return 'var(--accent-amber)';
+  if (lower.includes('budget') || lower.includes('low')) return 'var(--accent-green)';
+  return 'var(--accent-blue)';
+}
 
-  if (stats.length === 0 && !coldTrafficViability) return null;
+export function PricingCard({ pricingSource, pricingPosition, coldTrafficViability }: PricingCardProps) {
+  if (!coldTrafficViability && !pricingPosition) return null;
+
+  const paragraphs = coldTrafficViability
+    ? coldTrafficViability.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+    : [];
 
   return (
-    <div className="glass-surface rounded-[var(--radius-md)] p-4 space-y-3">
-      <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
-        Pricing Analysis
-      </h4>
-      {stats.length > 0 && <StatGrid stats={stats} columns={3} />}
+    <div className="space-y-3">
+      {/* Position badge */}
+      {pricingPosition?.trim() && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+            Position
+          </span>
+          <span
+            className="text-[10px] font-mono font-medium uppercase tracking-[0.06em] rounded-full px-2 py-0.5"
+            style={{
+              color: positionColor(pricingPosition),
+              background: `color-mix(in srgb, ${positionColor(pricingPosition)} 10%, transparent)`,
+            }}
+          >
+            {pricingPosition.trim()}
+          </span>
+        </div>
+      )}
+
+      {/* Analysis prose */}
+      {paragraphs.length > 0 && (
+        <div className="space-y-2.5">
+          {paragraphs.map((p, i) => (
+            <p
+              key={i}
+              className={
+                i === 0
+                  ? 'text-sm leading-relaxed text-[var(--text-primary)]'
+                  : 'text-sm leading-relaxed text-[var(--text-secondary)]'
+              }
+            >
+              {p}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Source link */}
       {pricingSource && (
-        <p className="text-xs text-[var(--text-tertiary)]">
+        <p className="text-[11px] font-mono text-[var(--text-tertiary)]">
           Source:{' '}
-          <a href={pricingSource} target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--text-secondary)]">
+          <a href={pricingSource} target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--text-secondary)] transition-colors duration-150">
             {pricingSource}
           </a>
         </p>
-      )}
-      {coldTrafficViability && (
-        <p className="text-sm text-[var(--text-secondary)]">{coldTrafficViability}</p>
       )}
     </div>
   );

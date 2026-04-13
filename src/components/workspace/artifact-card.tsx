@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Check, Clock, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
@@ -81,13 +80,10 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
   const hasVersions = card.versions.length > 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, delay: index * 0.05 }}
+    <div
       className={cn(
         'group/card rounded-[var(--radius-lg)] border p-5',
-        'transition-colors duration-200',
+        'transition-colors duration-150',
         'border-[var(--border-subtle)] bg-[var(--bg-card)]',
       )}
     >
@@ -203,6 +199,6 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
       <CardEditingContext value={editingContext}>
         {children}
       </CardEditingContext>
-    </motion.div>
+    </div>
   );
 }

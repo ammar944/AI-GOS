@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import type { OfferScoreDimension } from '@/lib/workspace/parse-offer-score-stats';
 
 export interface OfferScoreBarPanelProps {
@@ -31,26 +30,23 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
         : 'var(--accent-red)';
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="group/bar flex items-center gap-3 rounded px-1 -mx-1 py-0.5 transition-colors duration-150 hover:bg-[var(--bg-hover)]">
       <span
         className="w-28 shrink-0 text-[12px] font-mono truncate"
         style={{ color: isWeak ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
       >
         {label}
       </span>
-      <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+      <div className="relative flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
         {isWeak && target && (
           <div
             className="absolute inset-y-0 left-0 rounded-full opacity-15"
             style={{ width: `${targetPct}%`, background: 'var(--accent-green)' }}
           />
         )}
-        <motion.div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ background: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+        <div
+          className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+          style={{ background: color, width: `${pct}%` }}
         />
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -86,7 +82,7 @@ export function OfferScoreBarPanel({
 
   return (
     <div
-      className="rounded-2xl border border-[var(--border-default)] p-5"
+      className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] p-5"
       style={{ background: 'var(--bg-card)' }}
     >
       <div
@@ -100,14 +96,14 @@ export function OfferScoreBarPanel({
             Offer Score
           </h3>
         ) : null}
-        <div className="flex items-center gap-2">
+        <div className="flex items-baseline gap-2">
           {prevScore !== null && prevScore !== undefined && (
             <span className="text-[12px] font-mono line-through" style={{ color: 'var(--text-quaternary)' }}>
               {prevScore}
             </span>
           )}
           <span
-            className="text-[18px] font-mono font-bold tabular-nums"
+            className="text-[20px] font-mono font-bold tabular-nums leading-tight"
             style={{
               color:
                 overallScore >= 8
@@ -139,22 +135,21 @@ export function OfferScoreBarPanel({
 function RecommendationCard({ dimension, score, fix }: { dimension: string; score: number; fix: string }) {
   return (
     <div
-      className="rounded-xl border border-[var(--border-default)] p-4 transition-colors hover:border-[var(--border-default)]"
+      className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] p-4 transition-colors duration-150 hover:border-[var(--border-hover)]"
       style={{ background: 'var(--bg-card)' }}
     >
       <div className="flex items-center gap-2 mb-2">
         <span
-          className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md tabular-nums"
+          className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full tabular-nums"
           style={{
             color: score < 5 ? 'var(--accent-red)' : 'var(--accent-amber)',
-            background: score < 5 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-            border: `1px solid ${score < 5 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)'}`,
+            background: score < 5 ? 'rgba(239, 68, 68, 0.10)' : 'rgba(245, 158, 11, 0.10)',
           }}
         >
           {score}/10 → 8+
         </span>
         <span
-          className="text-[12px] font-semibold"
+          className="text-[13px] font-semibold"
           style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
         >
           {dimension}

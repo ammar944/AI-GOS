@@ -62,7 +62,7 @@ export function ReviewCrossAnalysisCard({ commonWeaknesses }: ReviewCrossAnalysi
           {/* Leverage angle */}
           {weakness.leverageAngle && (
             <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-[11px] font-mono uppercase tracking-[0.06em]" style={{ color: 'var(--text-tertiary)' }}>
                 Your Leverage
               </span>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--accent-green, #48bb78)' }}>

@@ -53,7 +53,7 @@ export function PricingIntelligence({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest">
+        <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
           Elasticity Assessment
         </h4>
         <span

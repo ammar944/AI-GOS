@@ -60,15 +60,24 @@ export function StatGrid({
       value.length > 72 && 'max-w-prose text-balance',
     );
 
-  if (layout === 'definition') {
+  // Auto-detect: if any value is long prose (>100 chars), switch to definition layout
+  const effectiveLayout =
+    layout === 'definition' || safeStats.some((s) => s.value.length > 100)
+      ? 'definition'
+      : layout;
+
+  if (effectiveLayout === 'definition') {
     return (
-      <dl className="divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] overflow-hidden bg-[var(--bg-hover)]/30">
+      <dl className="space-y-0">
         {editedStats.map((stat, index) => (
           <div
             key={stat.label}
-            className="flex flex-col gap-1.5 px-3 py-3 sm:flex-row sm:items-start sm:gap-6 first:pt-3 last:pb-3"
+            className={cn(
+              'flex flex-col gap-1 px-0 py-2.5 sm:flex-row sm:items-baseline sm:gap-6',
+              index < editedStats.length - 1 && 'border-b border-[var(--border-subtle)]',
+            )}
           >
-            <dt className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider shrink-0 sm:w-36 pt-0.5">
+            <dt className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] shrink-0 sm:w-32">
               {stat.label}
             </dt>
             <dd className="min-w-0 flex-1 space-y-1">
@@ -85,7 +94,7 @@ export function StatGrid({
               )}
               {stat.badge && (
                 <span
-                  className="block text-[10px] font-mono"
+                  className="block text-[10px] font-mono tabular-nums"
                   style={{ color: stat.badgeColor ?? 'var(--accent-blue)' }}
                 >
                   {stat.badge}
@@ -108,9 +117,9 @@ export function StatGrid({
       {editedStats.map((stat, index) => (
         <div
           key={stat.label}
-          className="glass-surface rounded-[var(--radius-md)] p-3 self-start h-auto min-h-0"
+          className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 self-start h-auto min-h-0"
         >
-          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
+          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
             {stat.label}
           </span>
           {isEditing ? (
@@ -122,11 +131,11 @@ export function StatGrid({
               className={cn(valueClass(stat.value), 'bg-transparent border-b border-[var(--text-tertiary)] outline-none')}
             />
           ) : (
-            <span className={valueClass(stat.value)}>{stat.value}</span>
+            <span className={cn(valueClass(stat.value), 'tabular-nums')}>{stat.value}</span>
           )}
           {stat.badge && (
             <span
-              className="mt-1 block text-[10px] font-mono"
+              className="mt-1 block text-[10px] font-mono tabular-nums"
               style={{ color: stat.badgeColor ?? 'var(--accent-blue)' }}
             >
               {stat.badge}

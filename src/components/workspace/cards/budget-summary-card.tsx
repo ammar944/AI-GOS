@@ -33,12 +33,12 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
       {topStats.length > 0 && <StatGrid stats={topStats} columns={2} />}
       {hasFunnelSplit && (
         <div>
-          <h4 className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-widest mb-3">
+          <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-3">
             Funnel Split
           </h4>
           <div className="grid grid-cols-3 gap-3">
             {funnelSplit?.awareness !== undefined && (
-              <div className="glass-surface rounded-[var(--radius-md)] p-3 text-center">
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
                   Awareness
                 </span>
@@ -48,7 +48,7 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
               </div>
             )}
             {funnelSplit?.consideration !== undefined && (
-              <div className="glass-surface rounded-[var(--radius-md)] p-3 text-center">
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
                   Consider.
                 </span>
@@ -58,7 +58,7 @@ export function BudgetSummaryCard({ totalMonthly, funnelSplit, rampUpWeeks }: Bu
               </div>
             )}
             {funnelSplit?.conversion !== undefined && (
-              <div className="glass-surface rounded-[var(--radius-md)] p-3 text-center">
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-center">
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
                   Conversion
                 </span>
