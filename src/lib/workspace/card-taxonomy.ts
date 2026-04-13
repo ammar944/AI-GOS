@@ -83,7 +83,15 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     ].filter((s): s is { label: string; value: string } => s.value !== null);
 
     if (stats.length > 0) {
-      cards.push(makeCard(section, 'stat-grid', 'Category Snapshot', { stats }, 'At-a-glance market characteristics and buying dynamics'));
+      cards.push(
+        makeCard(
+          section,
+          'stat-grid',
+          'Category Snapshot',
+          { stats, layout: 'definition' },
+          'At-a-glance market characteristics and buying dynamics',
+        ),
+      );
     }
   }
 
@@ -404,16 +412,35 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     }, 'Targeting adjustments to improve ad performance and reduce wasted spend'));
   }
 
-  // Persona stats
-  const stats = [
-    { label: 'Validated Persona', value: asString(data.validatedPersona) },
-    { label: 'Audience Size', value: asString(data.audienceSize) },
-    { label: 'Confidence', value: asNumber(data.confidenceScore) !== null ? `${asNumber(data.confidenceScore)}/100` : null },
-    { label: 'Demographics', value: asString(data.demographics) },
-  ].filter((s): s is { label: string; value: string } => s.value !== null);
+  const validatedPersona = asString(data.validatedPersona);
+  if (validatedPersona) {
+    cards.push(
+      makeCard(section, 'prose-card', 'Validated Persona', { text: validatedPersona }, 'Primary ICP description from research'),
+    );
+  }
 
-  if (stats.length > 0) {
-    cards.push(makeCard(section, 'stat-grid', 'ICP Overview', { stats }, 'Validated ideal customer profile with audience size and confidence score'));
+  const demographics = asString(data.demographics);
+  if (demographics) {
+    cards.push(
+      makeCard(section, 'prose-card', 'Demographics', { text: demographics }, 'Firmographic and geographic profile'),
+    );
+  }
+
+  const audienceSize = asString(data.audienceSize);
+  const confidenceNum = asNumber(data.confidenceScore);
+  if (audienceSize || confidenceNum !== null) {
+    cards.push(
+      makeCard(
+        section,
+        'icp-metrics',
+        'ICP signals',
+        {
+          audienceSize: audienceSize ?? undefined,
+          confidenceScore: confidenceNum ?? undefined,
+        },
+        'Audience size estimate and model confidence',
+      ),
+    );
   }
 
   // Final Verdict

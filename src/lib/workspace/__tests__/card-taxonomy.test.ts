@@ -31,22 +31,27 @@ describe('parseResearchToCards — industryMarket', () => {
 
   it('creates correct number of cards', () => {
     const cards = parseResearchToCards('industryMarket', mockData);
-    expect(cards.length).toBe(7);
+    // stat-grid + bullet(pain) + bullet(dynamics) + trend-card + check-list(messaging)
+    expect(cards.length).toBe(5);
   });
 
-  it('creates StatGrid card for categorySnapshot', () => {
+  it('creates StatGrid card for categorySnapshot with definition layout', () => {
     const cards = parseResearchToCards('industryMarket', mockData);
     const statCard = cards.find((c) => c.cardType === 'stat-grid');
     expect(statCard).toBeDefined();
     expect(statCard!.label).toBe('Category Snapshot');
     expect(statCard!.content.stats).toHaveLength(6);
+    expect(statCard!.content.layout).toBe('definition');
   });
 
   it('creates TrendCard for trendSignals', () => {
     const cards = parseResearchToCards('industryMarket', mockData);
     const trendCards = cards.filter((c) => c.cardType === 'trend-card');
     expect(trendCards).toHaveLength(1);
-    expect(trendCards[0].content.trend).toBe('AI adoption');
+    // trends are now consolidated into a single card with a trends array
+    const trends = trendCards[0].content.trends as Array<{ trend: string }>;
+    expect(trends).toHaveLength(1);
+    expect(trends[0].trend).toBe('AI adoption');
   });
 
   it('assigns all cards to industryMarket section', () => {
@@ -122,9 +127,10 @@ describe('parseResearchToCards — competitors', () => {
     ],
   };
 
-  it('creates correct number of cards (1 competitor + 1 market patterns + 1 gap)', () => {
+  it('creates correct number of cards (1 competitor + 1 gap)', () => {
     const cards = parseResearchToCards('competitors', mockData);
-    expect(cards.length).toBe(3);
+    // competitor-card + gap-card (marketPatterns string array no longer emits a card)
+    expect(cards.length).toBe(2);
   });
 
   it('creates competitor-card with all ad data preserved', () => {
@@ -163,9 +169,12 @@ describe('parseResearchToCards — competitors', () => {
     const cards = parseResearchToCards('competitors', mockData);
     const gapCard = cards.find((c) => c.cardType === 'gap-card');
     expect(gapCard).toBeDefined();
-    expect(gapCard!.content.gap).toBe('SMB self-serve');
-    expect(gapCard!.content.exploitability).toBe(8);
-    expect(gapCard!.content.impact).toBe(7);
+    // gaps are consolidated into a single card with a gaps array
+    const gaps = gapCard!.content.gaps as Array<{ gap: string; exploitability: number; impact: number }>;
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].gap).toBe('SMB self-serve');
+    expect(gaps[0].exploitability).toBe(8);
+    expect(gaps[0].impact).toBe(7);
   });
 
   it('assigns all cards to competitors section', () => {
@@ -200,8 +209,8 @@ describe('parseResearchToCards — icpValidation', () => {
 
   it('creates correct number of cards', () => {
     const cards = parseResearchToCards('icpValidation', mockData);
-    // stat-grid + verdict + prose + 3 bullet-lists + 1 check-list = 7
-    expect(cards.length).toBe(7);
+    // persona prose + demographics prose + icp-metrics + verdict + decision prose + 3 bullet-lists + 1 check-list = 9
+    expect(cards.length).toBe(9);
   });
 
   it('creates verdict-card with status and reasoning', () => {
@@ -212,11 +221,17 @@ describe('parseResearchToCards — icpValidation', () => {
     expect(verdict!.content.reasoning).toBe('Strong product-market fit signals');
   });
 
-  it('creates stat-grid with persona stats', () => {
+  it('creates icp-metrics and splits persona into prose cards', () => {
     const cards = parseResearchToCards('icpValidation', mockData);
-    const statCard = cards.find((c) => c.cardType === 'stat-grid');
-    expect(statCard).toBeDefined();
-    expect(statCard!.content.stats).toHaveLength(4);
+    expect(cards.find((c) => c.cardType === 'stat-grid')).toBeUndefined();
+    const metrics = cards.find((c) => c.cardType === 'icp-metrics');
+    expect(metrics).toBeDefined();
+    expect(metrics!.content.audienceSize).toBe('50K');
+    expect(metrics!.content.confidenceScore).toBe(85);
+    const persona = cards.find((c) => c.cardType === 'prose-card' && c.label === 'Validated Persona');
+    expect(persona?.content.text).toBe('SaaS Founder');
+    const demo = cards.find((c) => c.cardType === 'prose-card' && c.label === 'Demographics');
+    expect(demo?.content.text).toBe('25-45, US-based');
   });
 
   it('handles empty data', () => {
@@ -258,8 +273,9 @@ describe('parseResearchToCards — offerAnalysis', () => {
 
   it('creates correct number of cards', () => {
     const cards = parseResearchToCards('offerAnalysis', mockData);
-    // stat-grid + prose(rationale) + pricing + 4 bullet-lists + prose(market fit) + 1 flag = 9
-    expect(cards.length).toBe(9);
+    // stat-grid + prose(rationale) + pricing + 3 bullet-lists(strengths/weaknesses/actions) + flag-card = 7
+    // (marketFitAssessment is not a handled field; messagingRecommendations has no card emitter)
+    expect(cards.length).toBe(7);
   });
 
   it('creates pricing-card with all fields', () => {
@@ -274,9 +290,12 @@ describe('parseResearchToCards — offerAnalysis', () => {
     const cards = parseResearchToCards('offerAnalysis', mockData);
     const flag = cards.find((c) => c.cardType === 'flag-card');
     expect(flag).toBeDefined();
-    expect(flag!.content.issue).toBe('No social proof');
-    expect(flag!.content.severity).toBe('high');
-    expect(flag!.content.priority).toBe(1);
+    // flags are consolidated into a single card with a flags array
+    const flags = flag!.content.flags as Array<{ issue: string; severity: string; priority: number }>;
+    expect(flags).toHaveLength(1);
+    expect(flags[0].issue).toBe('No social proof');
+    expect(flags[0].severity).toBe('high');
+    expect(flags[0].priority).toBe(1);
   });
 
   it('handles empty data', () => {
@@ -288,16 +307,30 @@ describe('parseResearchToCards — offerAnalysis', () => {
 // -- Keyword Intel -------------------------------------------------------------
 
 describe('parseResearchToCards — keywordIntel', () => {
-  it('creates a single keyword-grid card with raw data', () => {
+  it('returns empty for unrecognised fields (no campaignGroups or topOpportunities)', () => {
+    // keyword-grid is now derived from campaignGroups/topOpportunities, not raw passthrough
     const cards = parseResearchToCards('keywordIntel', { someField: 'value' });
-    expect(cards.length).toBe(1);
-    expect(cards[0].cardType).toBe('keyword-grid');
-    expect(cards[0].content.rawData).toEqual({ someField: 'value' });
+    expect(cards.length).toBe(0);
   });
 
   it('returns empty for empty data', () => {
     const cards = parseResearchToCards('keywordIntel', {});
     expect(cards.length).toBe(0);
+  });
+
+  it('creates keyword-grid card from topOpportunities', () => {
+    const mockData = {
+      topOpportunities: [
+        { keyword: 'crm software', searchVolume: 5000, difficulty: 'medium', cpc: '$3.50', priorityScore: 80 },
+        { keyword: 'sales automation', searchVolume: 3000, difficulty: 'high', cpc: '$5.00', priorityScore: 70 },
+      ],
+    };
+    const cards = parseResearchToCards('keywordIntel', mockData);
+    const kwGrid = cards.find((c) => c.cardType === 'keyword-grid');
+    expect(kwGrid).toBeDefined();
+    const keywords = kwGrid!.content.keywords as Array<{ keyword: string }>;
+    expect(keywords.length).toBeGreaterThan(0);
+    expect(keywords[0].keyword).toBe('crm software');
   });
 });
 
@@ -335,8 +368,11 @@ describe('parseResearchToCards — crossAnalysis', () => {
 
   it('creates correct number of cards', () => {
     const cards = parseResearchToCards('crossAnalysis', mockData);
-    // strategy + stat-grid + bullet(downstream) + chart + prose(narrative) + insight + platform + angle + 2 check-lists = 10
-    expect(cards.length).toBe(10);
+    // strategy-card + stat-grid(planning) + chart-card + insight-card + angle-card + check-list(successFactors) = 6
+    // platform-card and nextSteps check-list removed in sprint overhaul
+    // strategicNarrative prose-card removed (no prose emitter for that field)
+    // downstreamSequence bullet removed (planningContext only emits stat-grid)
+    expect(cards.length).toBe(6);
   });
 
   it('creates strategy-card with positioning', () => {
@@ -351,21 +387,26 @@ describe('parseResearchToCards — crossAnalysis', () => {
     const cards = parseResearchToCards('crossAnalysis', mockData);
     const insight = cards.find((c) => c.cardType === 'insight-card');
     expect(insight).toBeDefined();
-    expect(insight!.content.source).toBe('competitor analysis');
+    // insights are consolidated into a single card with an insights array
+    const insights = insight!.content.insights as Array<{ insight: string; source: string }>;
+    expect(insights).toHaveLength(1);
+    expect(insights[0].source).toBe('competitor analysis');
   });
 
-  it('creates platform-card with budget allocation', () => {
+  it('does not emit platform-card (removed in sprint overhaul)', () => {
     const cards = parseResearchToCards('crossAnalysis', mockData);
     const platform = cards.find((c) => c.cardType === 'platform-card');
-    expect(platform).toBeDefined();
-    expect(platform!.content.budgetAllocation).toBe('60%');
+    expect(platform).toBeUndefined();
   });
 
   it('creates angle-card with hook', () => {
     const cards = parseResearchToCards('crossAnalysis', mockData);
     const angle = cards.find((c) => c.cardType === 'angle-card');
     expect(angle).toBeDefined();
-    expect(angle!.content.exampleHook).toBe('Set up in 5 minutes');
+    // angles are consolidated into a single card with an angles array
+    const angles = angle!.content.angles as Array<{ angle: string; exampleHook: string }>;
+    expect(angles).toHaveLength(1);
+    expect(angles[0].exampleHook).toBe('Set up in 5 minutes');
   });
 
   it('creates chart-card with image', () => {

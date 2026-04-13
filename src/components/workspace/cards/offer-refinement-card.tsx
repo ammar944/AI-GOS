@@ -1,15 +1,19 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import type { OfferScoreDimension } from '@/lib/workspace/parse-offer-score-stats';
 
-interface ScoreDimension {
-  label: string;
-  value: number;
+export interface OfferScoreBarPanelProps {
+  overallScore: number;
+  dimensions: OfferScoreDimension[];
+  prevScore?: number | null;
+  /** When false, omit the inner "Offer Score" heading (parent already shows the card label). */
+  showHeading?: boolean;
 }
 
 export interface OfferRefinementCardProps {
   overallScore: number;
-  dimensions: ScoreDimension[];
+  dimensions: OfferScoreDimension[];
   priorityFixes: string[];
   actionPlan: string[];
   prevScore?: number | null;
@@ -72,6 +76,66 @@ function ScoreBar({ label, value, target }: { label: string; value: number; targ
   );
 }
 
+export function OfferScoreBarPanel({
+  overallScore,
+  dimensions,
+  prevScore,
+  showHeading = true,
+}: OfferScoreBarPanelProps) {
+  const sorted = [...dimensions].sort((a, b) => a.value - b.value);
+
+  return (
+    <div
+      className="rounded-2xl border border-[var(--border-default)] p-5"
+      style={{ background: 'var(--bg-card)' }}
+    >
+      <div
+        className={`flex items-center ${showHeading ? 'justify-between' : 'justify-end'} mb-5`}
+      >
+        {showHeading ? (
+          <h3
+            className="text-[15px] font-semibold tracking-[-0.01em]"
+            style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
+          >
+            Offer Score
+          </h3>
+        ) : null}
+        <div className="flex items-center gap-2">
+          {prevScore !== null && prevScore !== undefined && (
+            <span className="text-[12px] font-mono line-through" style={{ color: 'var(--text-quaternary)' }}>
+              {prevScore}
+            </span>
+          )}
+          <span
+            className="text-[18px] font-mono font-bold tabular-nums"
+            style={{
+              color:
+                overallScore >= 8
+                  ? 'var(--accent-green)'
+                  : overallScore >= 5
+                    ? 'var(--accent-amber)'
+                    : 'var(--accent-red)',
+            }}
+          >
+            {overallScore}/10
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        {sorted.map((dim) => (
+          <ScoreBar
+            key={dim.label}
+            label={dim.label}
+            value={dim.value}
+            target={dim.value < 7 ? 8 : undefined}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RecommendationCard({ dimension, score, fix }: { dimension: string; score: number; fix: string }) {
   return (
     <div
@@ -115,50 +179,12 @@ export function OfferRefinementCard({
 
   return (
     <div className="space-y-4">
-      {/* Score breakdown */}
-      <div
-        className="rounded-2xl border border-[var(--border-default)] p-5"
-        style={{ background: 'var(--bg-card)' }}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h3
-            className="text-[15px] font-semibold tracking-[-0.01em]"
-            style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
-          >
-            Offer Score
-          </h3>
-          <div className="flex items-center gap-2">
-            {prevScore !== null && prevScore !== undefined && (
-              <span className="text-[12px] font-mono line-through" style={{ color: 'var(--text-quaternary)' }}>
-                {prevScore}
-              </span>
-            )}
-            <span
-              className="text-[18px] font-mono font-bold tabular-nums"
-              style={{
-                color: overallScore >= 8
-                  ? 'var(--accent-green)'
-                  : overallScore >= 5
-                    ? 'var(--accent-amber)'
-                    : 'var(--accent-red)',
-              }}
-            >
-              {overallScore}/10
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-2.5">
-          {sorted.map((dim) => (
-            <ScoreBar
-              key={dim.label}
-              label={dim.label}
-              value={dim.value}
-              target={dim.value < 7 ? 8 : undefined}
-            />
-          ))}
-        </div>
-      </div>
+      <OfferScoreBarPanel
+        overallScore={overallScore}
+        dimensions={dimensions}
+        prevScore={prevScore}
+        showHeading
+      />
 
       {/* Gap recommendations */}
       {weakDimensions.length > 0 && (

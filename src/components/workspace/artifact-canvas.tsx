@@ -14,6 +14,7 @@ import { ResearchActivityLog } from './research-activity-log';
 import { MediaPlanCta } from './media-plan-cta';
 import { PhaseTransitionCard } from './phase-transition-card';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
+import { parseOfferScoreFromStats } from '@/lib/workspace/parse-offer-score-stats';
 import { CompetitorTabs } from './competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
@@ -59,30 +60,12 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     );
     if (!scoreCard) return null;
 
-    const stats = scoreCard.content?.stats;
-    if (!Array.isArray(stats) || stats.length === 0) return null;
-
-    const dimensions: Array<{ label: string; value: number }> = [];
-    let overall = 0;
-
-    for (const stat of stats) {
-      const s = stat as { label?: string; value?: string };
-      if (!s.label || !s.value) continue;
-      const num = parseFloat(String(s.value).split('/')[0]);
-      if (Number.isNaN(num)) continue;
-      if (s.label === 'Overall Score') {
-        overall = num;
-      } else {
-        dimensions.push({ label: s.label, value: num });
-      }
-    }
-
-    if (overall === 0) return null;
+    const parsed = parseOfferScoreFromStats(scoreCard.content?.stats);
+    if (!parsed) return null;
 
     const prevScore = offerPrevScoreRef.current;
-    offerPrevScoreRef.current = overall;
+    offerPrevScoreRef.current = parsed.overall;
 
-    // Extract priorityFixes and actionPlan from the offer cards
     const weaknessesCard = Object.values(state.cards).find(
       (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Weaknesses',
     );
@@ -92,7 +75,13 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     const priorityFixes = (weaknessesCard?.content?.items ?? []) as string[];
     const actionPlan = (actionsCard?.content?.items ?? []) as string[];
 
-    return { overall, dimensions, prevScore, priorityFixes, actionPlan };
+    return {
+      overall: parsed.overall,
+      dimensions: parsed.dimensions,
+      prevScore,
+      priorityFixes,
+      actionPlan,
+    };
   }, [state.currentSection, state.cards]);
 
   const allResearchApproved = useMemo(
@@ -247,17 +236,19 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
               )}
 
               {/* Offer refinement card — score breakdown at TOP, before other cards */}
-              {state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && (
-                <div className="mb-4">
-                  <OfferRefinementCard
-                    overallScore={offerScoreData.overall}
-                    dimensions={offerScoreData.dimensions}
-                    priorityFixes={offerScoreData.priorityFixes}
-                    actionPlan={offerScoreData.actionPlan}
-                    prevScore={offerScoreData.prevScore}
-                  />
-                </div>
-              )}
+              {state.currentSection === 'offerAnalysis' &&
+                (isReviewable || isApproved) &&
+                offerScoreData && (
+                  <div className="mb-4">
+                    <OfferRefinementCard
+                      overallScore={offerScoreData.overall}
+                      dimensions={offerScoreData.dimensions}
+                      priorityFixes={offerScoreData.priorityFixes}
+                      actionPlan={offerScoreData.actionPlan}
+                      prevScore={offerScoreData.prevScore}
+                    />
+                  </div>
+                )}
 
               {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && state.currentSection === 'competitors' && (
@@ -267,7 +258,16 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 <CardGrid>
                   {sectionCards
                     // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
-                    .filter((card) => !(state.currentSection === 'offerAnalysis' && isReviewable && offerScoreData && card.label === 'Offer Score' && card.cardType === 'stat-grid'))
+                    .filter(
+                      (card) =>
+                        !(
+                          state.currentSection === 'offerAnalysis' &&
+                          (isReviewable || isApproved) &&
+                          offerScoreData &&
+                          card.label === 'Offer Score' &&
+                          card.cardType === 'stat-grid'
+                        ),
+                    )
                     .map((card, i) => (
                     <motion.div
                       key={card.id}

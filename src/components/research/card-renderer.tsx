@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { CardEditingContext, useCardEditing } from '@/lib/workspace/card-editing-context';
 import { ArtifactCard } from '@/components/workspace/artifact-card';
 import { StatGrid } from '@/components/workspace/cards/stat-grid';
+import { OfferScoreBarPanel } from '@/components/workspace/cards/offer-refinement-card';
+import { parseOfferScoreFromStats } from '@/lib/workspace/parse-offer-score-stats';
 import { BulletList } from '@/components/workspace/cards/bullet-list';
 import { CheckList } from '@/components/workspace/cards/check-list';
 import { ProseCard } from '@/components/workspace/cards/prose-card';
@@ -25,6 +27,7 @@ import { BudgetSummaryCard } from '@/components/workspace/cards/budget-summary-c
 import { SegmentCard } from '@/components/workspace/cards/segment-card';
 import { CampaignCard } from '@/components/workspace/cards/campaign-card';
 import { CreativeAngleCard } from '@/components/workspace/cards/creative-angle-card';
+import { IcpMetricsCard } from '@/components/workspace/cards/icp-metrics-card';
 import { RiskCard } from '@/components/workspace/cards/risk-card';
 import { FormatSpecCard } from '@/components/workspace/cards/format-spec-card';
 import { TestingPlanCard } from '@/components/workspace/cards/testing-plan-card';
@@ -67,12 +70,38 @@ export function CardContentSwitch({ card }: { card: CardState }) {
   const content = isEditing ? { ...card.content, ...draftContent } : card.content;
 
   switch (card.cardType) {
-    case 'stat-grid':
+    case 'stat-grid': {
+      const stats = content.stats as { label: string; value: string; badge?: string; badgeColor?: string }[];
+      if (
+        card.sectionKey === 'offerAnalysis' &&
+        card.label === 'Offer Score' &&
+        !isEditing
+      ) {
+        const parsed = parseOfferScoreFromStats(stats);
+        if (parsed) {
+          return (
+            <OfferScoreBarPanel
+              overallScore={parsed.overall}
+              dimensions={parsed.dimensions}
+              showHeading={false}
+            />
+          );
+        }
+      }
       return (
         <StatGrid
-          stats={content.stats as { label: string; value: string; badge?: string; badgeColor?: string }[]}
+          stats={stats}
+          layout={(content.layout as 'grid' | 'definition' | undefined) ?? 'grid'}
           isEditing={isEditing}
           onStatsChange={(stats) => updateDraft({ stats })}
+        />
+      );
+    }
+    case 'icp-metrics':
+      return (
+        <IcpMetricsCard
+          audienceSize={content.audienceSize as string | undefined}
+          confidenceScore={content.confidenceScore as number | null | undefined}
         />
       );
     case 'bullet-list':
@@ -369,7 +398,6 @@ export function CardContentSwitch({ card }: { card: CardState }) {
     case 'creative-angle':
       return (
         <CreativeAngleCard
-          theme={card.content.theme as string}
           hook={card.content.hook as string | undefined}
           messagingApproach={card.content.messagingApproach as string | undefined}
           targetSegment={card.content.targetSegment as string | undefined}

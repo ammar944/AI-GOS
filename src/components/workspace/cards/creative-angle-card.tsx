@@ -1,31 +1,51 @@
 'use client';
 
+import { messagingApproachToBlocks } from '@/lib/workspace/messaging-approach-blocks';
+
 interface CreativeAngleCardProps {
-  theme: string;
+  /** Shown in parent ArtifactCard / document header only — not duplicated here */
+  theme?: string;
   hook?: string;
   messagingApproach?: string;
   targetSegment?: string;
 }
 
-export function CreativeAngleCard({ theme, hook, messagingApproach, targetSegment }: CreativeAngleCardProps) {
+export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: CreativeAngleCardProps) {
+  const blocks = messagingApproach ? messagingApproachToBlocks(messagingApproach) : [];
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-[var(--text-primary)]">{theme}</p>
-        {targetSegment && (
-          <span className="shrink-0 rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
-            {targetSegment}
+    <div className="space-y-4">
+      {targetSegment?.trim() ? (
+        <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-hover)]/40 px-3 py-2.5">
+          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider block mb-1">
+            Target segment
           </span>
-        )}
-      </div>
-      {hook && (
-        <p className="text-sm italic leading-relaxed text-[var(--text-secondary)]">
-          &ldquo;{hook}&rdquo;
-        </p>
-      )}
-      {messagingApproach && (
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{messagingApproach}</p>
-      )}
+          <p className="text-xs leading-relaxed text-[var(--text-secondary)] normal-case tracking-normal">
+            {targetSegment.trim()}
+          </p>
+        </div>
+      ) : null}
+      {hook?.trim() ? (
+        <blockquote className="border-l-2 border-[var(--accent-blue)]/50 pl-3">
+          <p className="text-sm italic leading-relaxed text-[var(--text-secondary)]">
+            &ldquo;{hook.trim()}&rdquo;
+          </p>
+        </blockquote>
+      ) : null}
+      {blocks.length > 0 ? (
+        <div className="space-y-3">
+          {blocks.map((block, i) => (
+            <div key={i} className="space-y-1">
+              {block.heading ? (
+                <p className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider">
+                  {block.heading}
+                </p>
+              ) : null}
+              <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{block.body}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
