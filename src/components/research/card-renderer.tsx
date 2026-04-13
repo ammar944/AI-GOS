@@ -79,7 +79,8 @@ export function CardContentSwitch({ card }: { card: CardState }) {
       return (
         <BulletList
           title={card.label}
-          items={content.items as string[]}
+          items={(content.items as string[]) ?? []}
+          groups={content.groups as Array<{ group: string; items: string[] }> | undefined}
           accent={content.accent as string | undefined}
           isEditing={isEditing}
           onItemsChange={(items) => updateDraft({ items })}
@@ -105,7 +106,14 @@ export function CardContentSwitch({ card }: { card: CardState }) {
         />
       );
     case 'trend-card':
-      return <TrendCard trend={card.content.trend as string} direction={card.content.direction as string} evidence={card.content.evidence as string} />;
+      return (
+        <TrendCard
+          trends={content.trends as Array<{ trend: string; direction: string; evidence: string }> | undefined}
+          trend={content.trend as string | undefined}
+          direction={content.direction as string | undefined}
+          evidence={content.evidence as string | undefined}
+        />
+      );
     case 'competitor-card': {
       const c = card.content;
       return (
@@ -131,12 +139,24 @@ export function CardContentSwitch({ card }: { card: CardState }) {
     case 'gap-card':
       return (
         <GapCard
-          gap={card.content.gap as string}
-          type={card.content.type as string | undefined}
-          evidence={card.content.evidence as string | undefined}
-          exploitability={card.content.exploitability as number | undefined}
-          impact={card.content.impact as number | undefined}
-          recommendedAction={card.content.recommendedAction as string | undefined}
+          gaps={
+            content.gaps as
+              | Array<{
+                  gap: string;
+                  type?: string;
+                  evidence?: string;
+                  exploitability?: number;
+                  impact?: number;
+                  recommendedAction?: string;
+                }>
+              | undefined
+          }
+          gap={content.gap as string | undefined}
+          type={content.type as string | undefined}
+          evidence={content.evidence as string | undefined}
+          exploitability={content.exploitability as number | undefined}
+          impact={content.impact as number | undefined}
+          recommendedAction={content.recommendedAction as string | undefined}
         />
       );
     case 'review-card': {
@@ -172,11 +192,22 @@ export function CardContentSwitch({ card }: { card: CardState }) {
     case 'flag-card':
       return (
         <FlagCard
-          issue={card.content.issue as string}
-          severity={card.content.severity as string | undefined}
-          priority={card.content.priority as number | undefined}
-          evidence={card.content.evidence as string | undefined}
-          recommendedAction={card.content.recommendedAction as string | undefined}
+          flags={
+            content.flags as
+              | Array<{
+                  issue: string;
+                  severity?: string;
+                  priority?: number;
+                  evidence?: string;
+                  recommendedAction?: string;
+                }>
+              | undefined
+          }
+          issue={content.issue as string | undefined}
+          severity={content.severity as string | undefined}
+          priority={content.priority as number | undefined}
+          evidence={content.evidence as string | undefined}
+          recommendedAction={content.recommendedAction as string | undefined}
         />
       );
     case 'strategy-card':
@@ -190,9 +221,12 @@ export function CardContentSwitch({ card }: { card: CardState }) {
     case 'insight-card':
       return (
         <InsightCard
-          insight={card.content.insight as string}
-          source={card.content.source as string | undefined}
-          implication={card.content.implication as string | undefined}
+          insights={
+            content.insights as Array<{ insight: string; source?: string; implication?: string }> | undefined
+          }
+          insight={content.insight as string | undefined}
+          source={content.source as string | undefined}
+          implication={content.implication as string | undefined}
         />
       );
     case 'platform-card':
@@ -207,9 +241,12 @@ export function CardContentSwitch({ card }: { card: CardState }) {
     case 'angle-card':
       return (
         <AngleCard
-          angle={card.content.angle as string}
-          exampleHook={card.content.exampleHook as string | undefined}
-          evidence={card.content.evidence as string | undefined}
+          angles={
+            content.angles as Array<{ angle: string; exampleHook?: string; evidence?: string }> | undefined
+          }
+          angle={content.angle as string | undefined}
+          exampleHook={content.exampleHook as string | undefined}
+          evidence={content.evidence as string | undefined}
         />
       );
     case 'chart-card':
