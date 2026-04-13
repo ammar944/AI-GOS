@@ -97,45 +97,39 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
     }, 'Core frustrations your target market experiences today'));
   }
 
-  // Demand Drivers
+  // Market Dynamics (consolidated: demand drivers + buying triggers + barriers)
   const dynamics = asRecord(data.marketDynamics);
   const drivers = asStringArray(dynamics?.demandDrivers);
-  if (drivers.length > 0) {
-    cards.push(makeCard(section, 'bullet-list', 'Demand Drivers', {
-      items: drivers,
-      accent: 'var(--section-market)',
-    }, 'Forces accelerating demand in this market right now'));
-  }
-
-  // Buying Triggers
   const triggers = asStringArray(dynamics?.buyingTriggers);
-  if (triggers.length > 0) {
-    cards.push(makeCard(section, 'bullet-list', 'Buying Triggers', {
-      items: triggers,
-      accent: 'var(--section-market)',
-    }, 'Events or situations that make prospects ready to purchase'));
-  }
-
-  // Barriers
   const barriers = asStringArray(dynamics?.barriersToPurchase);
-  if (barriers.length > 0) {
-    cards.push(makeCard(section, 'bullet-list', 'Barriers to Purchase', {
-      items: barriers,
+  const dynamicsItems: Array<{ group: string; items: string[] }> = [];
+  if (drivers.length > 0) dynamicsItems.push({ group: 'Demand Drivers', items: drivers });
+  if (triggers.length > 0) dynamicsItems.push({ group: 'Buying Triggers', items: triggers });
+  if (barriers.length > 0) dynamicsItems.push({ group: 'Barriers to Purchase', items: barriers });
+  if (dynamicsItems.length > 0) {
+    cards.push(makeCard(section, 'bullet-list', 'Market Dynamics', {
+      groups: dynamicsItems,
       accent: 'var(--section-market)',
-    }, 'Friction points that slow or prevent buyers from committing'));
+    }, 'Demand drivers, buying triggers, and barriers to purchase in one view'));
   }
 
-  // Trend Signals
+  // Trend Signals (consolidated into one card)
   const trends = Array.isArray(data.trendSignals) ? data.trendSignals : [];
-  for (const trend of trends) {
-    const t = asRecord(trend);
-    if (t && asString(t.trend)) {
-      cards.push(makeCard(section, 'trend-card', 'Trend Signal', {
+  const trendItems = trends
+    .map((trend) => {
+      const t = asRecord(trend);
+      if (!t || !asString(t.trend)) return null;
+      return {
         trend: asString(t.trend)!,
         direction: asString(t.direction) ?? 'stable',
         evidence: asString(t.evidence) ?? '',
-      }, 'Emerging market shift with direction and supporting evidence'));
-    }
+      };
+    })
+    .filter((t): t is NonNullable<typeof t> => t !== null);
+  if (trendItems.length > 0) {
+    cards.push(makeCard(section, 'trend-card', 'Trend Signals', {
+      trends: trendItems,
+    }, 'Emerging market shifts with direction and supporting evidence'));
   }
 
   // Messaging Opportunities
@@ -331,29 +325,26 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
     }
   }
 
-  // Market Patterns
-  const marketPatterns = asStringArray(data.marketPatterns);
-  if (marketPatterns.length > 0) {
-    cards.push(makeCard(section, 'bullet-list', 'Market Patterns', {
-      items: marketPatterns,
-      accent: 'var(--accent-cyan)',
-    }, 'Recurring behaviors and trends observed across the competitive landscape'));
-  }
-
-  // White-Space Gaps
+  // White-Space Gaps (consolidated into one card)
   const gaps = asRecordArray(data.whiteSpaceGaps);
-  for (const gap of gaps) {
-    const gapName = asString(gap.gap);
-    if (gapName) {
-      cards.push(makeCard(section, 'gap-card', gapName, {
+  const gapItems = gaps
+    .map((gap) => {
+      const gapName = asString(gap.gap);
+      if (!gapName) return null;
+      return {
         gap: gapName,
         type: asString(gap.type),
         evidence: asString(gap.evidence),
         exploitability: asNumber(gap.exploitability),
         impact: asNumber(gap.impact),
         recommendedAction: asString(gap.recommendedAction),
-      }, 'Underserved market position no competitor currently owns'));
-    }
+      };
+    })
+    .filter((g): g is NonNullable<typeof g> => g !== null);
+  if (gapItems.length > 0) {
+    cards.push(makeCard(section, 'gap-card', 'White-Space Gaps', {
+      gaps: gapItems,
+    }, 'Underserved market positions no competitor currently owns'));
   }
 
   // Cross-Competitor Review Analysis
@@ -474,45 +465,6 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
     }, 'Suggested next steps to improve ICP targeting and campaign fit'));
   }
 
-  // Multi-product ICP segments (when business has distinct product lines targeting different audiences)
-  const segments = asRecordArray(data.segments);
-  if (segments.length > 0) {
-    for (const segment of segments) {
-      const productLine = asString(segment.productLine);
-      if (!productLine) continue;
-
-      cards.push(makeCard(section, 'segment-card', productLine, {
-        name: productLine,
-        description: asString(segment.validatedPersona),
-        estimatedReach: asString(segment.audienceSize),
-      }, 'Distinct audience segment with its own persona and targeting profile'));
-
-      const segChannels = asStringArray(segment.channels);
-      if (segChannels.length > 0) {
-        cards.push(makeCard(section, 'bullet-list', `${productLine} — Channels`, {
-          items: segChannels,
-          accent: 'var(--accent-cyan)',
-        }, 'Best advertising platforms for this product line segment'));
-      }
-
-      const segTriggers = asStringArray(segment.triggers);
-      if (segTriggers.length > 0) {
-        cards.push(makeCard(section, 'bullet-list', `${productLine} — Buying Triggers`, {
-          items: segTriggers,
-          accent: 'var(--accent-blue)',
-        }, 'Purchase-ready signals specific to this product line'));
-      }
-
-      const segObjections = asStringArray(segment.objections);
-      if (segObjections.length > 0) {
-        cards.push(makeCard(section, 'bullet-list', `${productLine} — Objections`, {
-          items: segObjections,
-          accent: 'var(--accent-red)',
-        }, 'Common hesitations and blockers for this product line audience'));
-      }
-    }
-  }
-
   return cards;
 }
 
@@ -568,17 +520,6 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
       }, 'How your pricing compares to market benchmarks and cold traffic thresholds'));
     }
 
-    // Pricing Intelligence (elasticity assessment)
-    const elasticity = asRecord(pricingAnalysis?.elasticityAssessment);
-    if (elasticity) {
-      cards.push(makeCard(section, 'pricing-intelligence', 'Pricing Intelligence', {
-        elasticityAssessment: {
-          verdict: asString(elasticity.verdict) ?? 'insufficient-data',
-          signals: Array.isArray(elasticity.signals) ? elasticity.signals : [],
-          reasoning: asString(elasticity.reasoning) ?? '',
-        },
-      }, 'Price sensitivity assessment based on market signals and competitor data'));
-    }
   }
 
   // Strengths, Weaknesses, Actions, Messaging
@@ -606,33 +547,25 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     }, 'Prioritized steps to strengthen offer-market fit and improve conversion'));
   }
 
-  const messagingRecs = asStringArray(data.messagingRecommendations);
-  if (messagingRecs.length > 0) {
-    cards.push(makeCard(section, 'bullet-list', 'Messaging Recommendations', {
-      items: messagingRecs,
-      accent: 'var(--accent-cyan)',
-    }, 'Language and framing suggestions to communicate your offer more effectively'));
-  }
-
-  // Market Fit
-  const marketFit = asString(data.marketFitAssessment);
-  if (marketFit) {
-    cards.push(makeCard(section, 'prose-card', 'Market Fit Assessment', { text: marketFit }, 'Evaluation of how well your offer matches current market demand and timing'));
-  }
-
-  // Red Flags
+  // Red Flags (consolidated into one card)
   const redFlags = asRecordArray(data.redFlags);
-  for (const flag of redFlags) {
-    const issue = asString(flag.issue);
-    if (issue) {
-      cards.push(makeCard(section, 'flag-card', issue, {
+  const flagItems = redFlags
+    .map((flag) => {
+      const issue = asString(flag.issue);
+      if (!issue) return null;
+      return {
         issue,
         severity: asString(flag.severity),
         priority: asNumber(flag.priority),
         evidence: asString(flag.evidence),
         recommendedAction: asString(flag.recommendedAction),
-      }, 'High-priority issue that could undermine campaign performance'));
-    }
+      };
+    })
+    .filter((f): f is NonNullable<typeof f> => f !== null);
+  if (flagItems.length > 0) {
+    cards.push(makeCard(section, 'flag-card', 'Red Flags', {
+      flags: flagItems,
+    }, 'High-priority issues that could undermine campaign performance'));
   }
 
   // Generated Offer Statements (intelligence feature)
@@ -716,8 +649,52 @@ function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
     }
   }
 
-  // Existing passthrough
-  cards.push(makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', { rawData: data }, 'Search volume, competition level, and priority score for each keyword'));
+  // Keyword Intelligence — structured top keywords instead of raw data dump
+  const campaignGroups = asRecordArray(data.campaignGroups);
+  const kwOpportunities = asRecordArray(data.topOpportunities);
+
+  // Collect keywords from campaign groups and top opportunities
+  const allKeywords: Array<{ keyword: string; volume: number; difficulty: string; cpc: string; priority: number }> = [];
+
+  for (const group of campaignGroups) {
+    const kws = asRecordArray(group.keywords);
+    for (const kw of kws) {
+      const keyword = asString(kw.keyword);
+      if (keyword) {
+        allKeywords.push({
+          keyword,
+          volume: asNumber(kw.searchVolume) ?? 0,
+          difficulty: asString(kw.difficulty) ?? 'unknown',
+          cpc: asString(kw.cpc) ?? '',
+          priority: asNumber(kw.priorityScore) ?? 0,
+        });
+      }
+    }
+  }
+
+  for (const opp of kwOpportunities) {
+    const keyword = asString(opp.keyword);
+    if (keyword && !allKeywords.some((k) => k.keyword.toLowerCase() === keyword.toLowerCase())) {
+      allKeywords.push({
+        keyword,
+        volume: asNumber(opp.searchVolume) ?? 0,
+        difficulty: asString(opp.difficulty) ?? 'unknown',
+        cpc: asString(opp.cpc) ?? '',
+        priority: asNumber(opp.priorityScore) ?? 0,
+      });
+    }
+  }
+
+  // Sort by priority descending, take top 15
+  allKeywords.sort((a, b) => b.priority - a.priority);
+  const topKeywords = allKeywords.slice(0, 15);
+
+  if (topKeywords.length > 0) {
+    cards.push(makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', {
+      keywords: topKeywords,
+    }, 'Top keywords ranked by priority score with volume, difficulty, and CPC'));
+  }
+
   return cards;
 }
 
@@ -786,13 +763,6 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
       cards.push(makeCard(section, 'stat-grid', 'Planning Context', { stats: contextStats }, 'Budget targets and cost benchmarks that guide the media plan'));
     }
 
-    const downstream = asStringArray(planningContext.downstreamSequence);
-    if (downstream.length > 0) {
-      cards.push(makeCard(section, 'bullet-list', 'Downstream Sequence', {
-        items: downstream,
-        accent: 'var(--accent-blue)',
-      }, 'Post-click conversion steps from lead capture to closed deal'));
-    }
   }
 
   // Charts
@@ -808,50 +778,42 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
     }
   }
 
-  // Strategic Narrative
-  const narrative = asString(data.strategicNarrative);
-  if (narrative) {
-    cards.push(makeCard(section, 'prose-card', 'Strategic Narrative', { text: narrative }, 'Cohesive story connecting market, audience, and offer into a media strategy'));
-  }
-
-  // Key Insights
+  // Key Insights (consolidated into one card)
   const keyInsights = asRecordArray(data.keyInsights);
-  for (const insight of keyInsights) {
-    const headline = asString(insight.insight);
-    if (headline) {
-      cards.push(makeCard(section, 'insight-card', headline, {
+  const insightItems = keyInsights
+    .map((insight) => {
+      const headline = asString(insight.insight);
+      if (!headline) return null;
+      return {
         insight: headline,
         source: asString(insight.source),
         implication: asString(insight.implication),
-      }, 'Cross-section finding with source attribution and strategic implication'));
-    }
+      };
+    })
+    .filter((i): i is NonNullable<typeof i> => i !== null);
+  if (insightItems.length > 0) {
+    cards.push(makeCard(section, 'insight-card', 'Key Insights', {
+      insights: insightItems,
+    }, 'Cross-section findings with source attribution and strategic implications'));
   }
 
-  // Platform Recommendations
-  const platformRecs = asRecordArray(data.platformRecommendations);
-  for (const platform of platformRecs) {
-    const name = asString(platform.platform);
-    if (name) {
-      cards.push(makeCard(section, 'platform-card', name, {
-        platform: name,
-        role: asString(platform.role),
-        budgetAllocation: asString(platform.budgetAllocation),
-        rationale: asString(platform.rationale),
-      }, 'Recommended advertising channel with role, budget share, and expected CPL'));
-    }
-  }
-
-  // Messaging Angles
+  // Messaging Angles (consolidated into one card)
   const angles = asRecordArray(data.messagingAngles);
-  for (const angle of angles) {
-    const title = asString(angle.angle);
-    if (title) {
-      cards.push(makeCard(section, 'angle-card', title, {
+  const angleItems = angles
+    .map((angle) => {
+      const title = asString(angle.angle);
+      if (!title) return null;
+      return {
         angle: title,
         exampleHook: asString(angle.exampleHook),
         evidence: asString(angle.evidence),
-      }, 'Ad messaging angle with a sample hook and supporting evidence'));
-    }
+      };
+    })
+    .filter((a): a is NonNullable<typeof a> => a !== null);
+  if (angleItems.length > 0) {
+    cards.push(makeCard(section, 'angle-card', 'Messaging Angles', {
+      angles: angleItems,
+    }, 'Ad messaging angles with sample hooks and supporting evidence'));
   }
 
   // Critical Success Factors
@@ -861,15 +823,6 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
       items: successFactors,
       accent: 'var(--accent-green)',
     }, 'Must-have conditions for campaign success based on cross-section analysis'));
-  }
-
-  // Next Steps
-  const nextSteps = asStringArray(data.nextSteps);
-  if (nextSteps.length > 0) {
-    cards.push(makeCard(section, 'check-list', 'Next Steps', {
-      items: nextSteps,
-      accent: 'var(--accent-blue)',
-    }, 'Prioritized action items to execute before and after campaign launch'));
   }
 
   return cards;
