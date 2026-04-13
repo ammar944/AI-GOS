@@ -27,7 +27,7 @@ export function messagingApproachToBlocks(text: string): MessagingBlock[] {
     return frameworkSplit.map((segment) => normalizeBlock(segment.trim())).filter((b) => b.body);
   }
 
-  const pasBab = trimmed.match(/^(PAS|BAB)\s*:\s*(.+)$/is);
+  const pasBab = trimmed.match(/^(PAS|BAB)\s*:\s*(.+)$/i);
   if (pasBab) {
     const inner = pasBab[2].trim();
     const innerPieces = inner.split(/\s+(?=(?:Agitate|Solution|After|Bridge)\s*[–—])/i);
@@ -41,7 +41,7 @@ export function messagingApproachToBlocks(text: string): MessagingBlock[] {
 
 function normalizeBlock(segment: string): MessagingBlock {
   const labelMatch = segment.match(
-    /^((?:PAS|BAB|Pain|Agitate|Solution|Before|After|Bridge)(?:\s+\w+)?)\s*[–—:]\s*(.+)$/is,
+    /^((?:PAS|BAB|Pain|Agitate|Solution|Before|After|Bridge)(?:\s+\w+)?)\s*[–—:]\s*(.+)$/i,
   );
   if (labelMatch && labelMatch[2]) {
     return {
