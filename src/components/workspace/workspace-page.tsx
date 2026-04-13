@@ -214,6 +214,7 @@ const CHAT_DEFAULT_W = 400;
 export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
   const { state, setSectionPhase, navigateToSection } = useWorkspace();
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
+  const [scriptsGenerating, setScriptsGenerating] = useState(false);
 
   // Resizable chat panel
   const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_W);
@@ -358,7 +359,10 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
       <div className="flex flex-1 min-h-0">
         {state.currentSection === 'scripts' ? (
           <div className="flex flex-1 flex-col min-h-0 overflow-y-auto custom-scrollbar">
-            <ScriptsPhaseContent activeRunId={activeRunId ?? null} />
+            <ScriptsPhaseContent
+              activeRunId={activeRunId ?? null}
+              onScriptsGeneratingChange={setScriptsGenerating}
+            />
           </div>
         ) : (
           <ArtifactCanvas
@@ -371,7 +375,10 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
         )}
         {(() => {
           const currentPhase = state.sectionStates[state.currentSection];
-          const showChat = !hasActiveResearch || currentPhase === 'review';
+          const hideChatForScripts =
+            state.currentSection === 'scripts' && scriptsGenerating;
+          const showChat =
+            (!hasActiveResearch || currentPhase === 'review') && !hideChatForScripts;
           if (!showChat) return null;
 
           // Build card summaries for AI context injection
@@ -404,7 +411,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
               }
             }
             // Build field list — for stat grids, expose dot-notation paths like "stats.Category"
-            let fields: string[] = [];
+            const fields: string[] = [];
             if (content && typeof content === 'object') {
               for (const key of Object.keys(content)) {
                 if (key === 'stats' && Array.isArray(content.stats)) {

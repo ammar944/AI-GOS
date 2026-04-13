@@ -14,6 +14,8 @@ interface SessionInfo {
 
 interface ScriptsPhaseContentProps {
   activeRunId: string | null;
+  /** When true, workspace hides the chat rail (same idea as active research). */
+  onScriptsGeneratingChange?: (generating: boolean) => void;
 }
 
 /**
@@ -26,7 +28,10 @@ interface ScriptsPhaseContentProps {
  * 4. On generate: POST /api/scripts/generate → poll via useScriptPackRealtime
  * 5. Show ScriptPackViewer when scripts arrive
  */
-export function ScriptsPhaseContent({ activeRunId }: ScriptsPhaseContentProps) {
+export function ScriptsPhaseContent({
+  activeRunId,
+  onScriptsGeneratingChange,
+}: ScriptsPhaseContentProps) {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({ sessionId: null, profileId: null });
   const [loading, setLoading] = useState(true);
   const [packId, setPackId] = useState<string | null>(null);
@@ -82,6 +87,13 @@ export function ScriptsPhaseContent({ activeRunId }: ScriptsPhaseContentProps) {
     })();
   }, [activeRunId]);
 
+  useEffect(
+    () => () => {
+      onScriptsGeneratingChange?.(false);
+    },
+    [onScriptsGeneratingChange],
+  );
+
   // Poll for script pack updates when we have a packId
   const packState = useScriptPackRealtime({
     packId,
@@ -123,6 +135,25 @@ export function ScriptsPhaseContent({ activeRunId }: ScriptsPhaseContentProps) {
     }
   }, [activeRunId, sessionInfo.profileId]);
 
+  // Resolved scripts (complete pack)
+  const displayScripts = completedScripts.length > 0
+    ? completedScripts
+    : (packState.scripts as AdScript[] | undefined) ?? [];
+
+  const isComplete = packState.status === 'complete' || completedScripts.length > 0;
+  // In-flight: explicit click, or any packId that is not yet complete/errored (covers pre-poll "idle")
+  const isGenerating =
+    generating ||
+    (Boolean(packId) && !isComplete && packState.status !== 'error');
+
+  useEffect(() => {
+    if (loading) {
+      onScriptsGeneratingChange?.(false);
+      return;
+    }
+    onScriptsGeneratingChange?.(isGenerating);
+  }, [loading, isGenerating, onScriptsGeneratingChange]);
+
   // Loading state
   if (loading) {
     return (
@@ -142,14 +173,6 @@ export function ScriptsPhaseContent({ activeRunId }: ScriptsPhaseContentProps) {
       </div>
     );
   }
-
-  // Resolved scripts (complete pack)
-  const displayScripts = completedScripts.length > 0
-    ? completedScripts
-    : (packState.scripts as AdScript[] | undefined) ?? [];
-
-  const isComplete = packState.status === 'complete' || completedScripts.length > 0;
-  const isGenerating = generating || packState.status === 'generating' || packState.status === 'partial';
 
   return (
     <div className="px-6 pt-6 pb-12">
@@ -200,15 +223,19 @@ export function ScriptsPhaseContent({ activeRunId }: ScriptsPhaseContentProps) {
         />
       )}
 
-      {/* CTA: ready to generate */}
-      {!isComplete && !isGenerating && !error && packState.status !== 'error' && !!sessionInfo.profileId && !packId && (
+      {/* CTA: ready to generate — hide as soon as generation is requested or a pack exists */}
+      {!isComplete &&
+        !isGenerating &&
+        !error &&
+        packState.status !== 'error' &&
+        !!sessionInfo.profileId &&
+        !packId && (
         <PhaseTransitionCard
           tag="Next Phase"
           title="Generate your ad scripts"
           description="15 scripts across 5 awareness levels, grounded in your research and media plan."
           actionLabel="Generate Scripts"
           onAction={handleGenerate}
-          isLoading={generating}
         />
       )}
     </div>

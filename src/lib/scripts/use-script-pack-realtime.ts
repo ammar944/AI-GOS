@@ -24,6 +24,14 @@ export function useScriptPackRealtime({
 }: UseScriptPackRealtimeOpts) {
   const [state, setState] = useState<ScriptPackState>({ status: 'idle', scripts: [] });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const packIdRef = useRef<string | null>(packId);
+  const prevPackIdRef = useRef<string | null>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    packIdRef.current = packId;
+    onCompleteRef.current = onComplete;
+  }, [packId, onComplete]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {
@@ -33,9 +41,10 @@ export function useScriptPackRealtime({
   }, []);
 
   const poll = useCallback(async () => {
-    if (!packId) return;
+    const id = packIdRef.current;
+    if (!id) return;
     try {
-      const res = await fetch(`/api/scripts/${packId}`);
+      const res = await fetch(`/api/scripts/${id}`);
       if (!res.ok) return;
       const { pack } = await res.json();
       const scripts = typeof pack.scripts === 'string' ? JSON.parse(pack.scripts) : pack.scripts;
@@ -61,20 +70,35 @@ export function useScriptPackRealtime({
       });
       if (pack.status === 'complete' || pack.status === 'error') {
         stopPolling();
-        if (pack.status === 'complete' && onComplete) {
-          onComplete({ status: pack.status, scripts });
+        if (pack.status === 'complete' && onCompleteRef.current) {
+          onCompleteRef.current({ status: pack.status, scripts });
         }
       }
     } catch {
       /* silently retry */
     }
-  }, [packId, onComplete, stopPolling]);
+  }, [stopPolling]);
 
   useEffect(() => {
-    if (!packId || !enabled) return;
-    setState({ status: 'generating', scripts: [] });
-    poll();
-    intervalRef.current = setInterval(poll, POLL_INTERVAL);
+    if (!packId) {
+      prevPackIdRef.current = null;
+    }
+    if (!packId || !enabled) {
+      stopPolling();
+      return;
+    }
+
+    if (prevPackIdRef.current !== packId) {
+      prevPackIdRef.current = packId;
+      // Sync hook state to a new pack id — not derivable from props alone (poll fills scripts)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on packId change
+      setState({ status: 'generating', scripts: [] });
+    }
+
+    void poll();
+    intervalRef.current = setInterval(() => {
+      void poll();
+    }, POLL_INTERVAL);
     return () => {
       stopPolling();
     };
