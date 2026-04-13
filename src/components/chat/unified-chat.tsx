@@ -859,6 +859,20 @@ export function UnifiedChat({
 
         const updatedContent = { ...card.content, [topField]: newValue };
         updateCard(edit.cardId, updatedContent, 'ai');
+
+        // Persist card edit to Supabase (fire-and-forget)
+        if (activeRunId) {
+          fetch('/api/journey/card-edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              runId: activeRunId,
+              sectionKey: card.sectionKey,
+              cardId: edit.cardId,
+              updatedContent,
+            }),
+          }).catch(() => { /* best-effort persistence */ });
+        }
       }
 
       setPendingEdits((prev) => {
@@ -872,7 +886,7 @@ export function UnifiedChat({
         { id: crypto.randomUUID(), role: 'assistant', text: `${edit.cardLabel} updated` },
       ]);
     },
-    [pendingEdits, workspaceState.cards, updateCard],
+    [pendingEdits, workspaceState.cards, updateCard, activeRunId],
   );
 
   // Edit rejection — discard the proposed change

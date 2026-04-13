@@ -91,6 +91,9 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
     setState((prev) => {
       const next = { ...prev.cards };
       for (const card of cards) {
+        // Preserve user/AI edits — don't let polling overwrite them
+        const existing = next[card.id];
+        if (existing?.status === 'edited') continue;
         next[card.id] = card;
       }
       return { ...prev, cards: next };

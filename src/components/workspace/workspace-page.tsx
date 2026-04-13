@@ -27,8 +27,34 @@ interface WorkspacePageProps {
 }
 
 function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
-  const { setSectionPhase, setCards } = useWorkspace();
+  const { setSectionPhase, setCards, updateCard } = useWorkspace();
   const renderedMediaPlanBlocksRef = useRef<Set<string>>(new Set());
+
+  // One-time fetch of persisted card edits from Supabase (cold-start / cross-device recovery).
+  // Stored under research_results[section].__cardEdits by POST /api/journey/card-edit.
+  const appliedEditsRef = useRef(false);
+  useEffect(() => {
+    if (!activeRunId || appliedEditsRef.current) return;
+    appliedEditsRef.current = true;
+
+    fetch(`/api/journey/session?runId=${activeRunId}`, { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const results = json?.researchResults as Record<string, unknown> | null;
+        if (!results) return;
+
+        for (const [, sectionResult] of Object.entries(results)) {
+          const sr = sectionResult as Record<string, unknown> | null;
+          const edits = sr?.__cardEdits as Record<string, Record<string, unknown>> | undefined;
+          if (!edits) continue;
+
+          for (const [cardId, content] of Object.entries(edits)) {
+            updateCard(cardId, content, 'ai');
+          }
+        }
+      })
+      .catch(() => { /* best-effort */ });
+  }, [activeRunId, updateCard]);
 
   const onSectionComplete = useCallback(
     (section: string, result: ResearchSectionResult) => {
