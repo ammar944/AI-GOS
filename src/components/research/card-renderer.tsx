@@ -288,10 +288,46 @@ export function CardContentSwitch({ card }: { card: CardState }) {
         />
       );
     case 'keyword-grid': {
-      const rawData = card.content.rawData as Record<string, unknown>;
-      const normalized = getJourneyKeywordIntelDetailData(rawData);
-      if (!normalized) return <p className="text-sm text-[var(--text-secondary)]">Keyword intelligence could not be rendered.</p>;
-      return <JourneyKeywordIntelDetail data={normalized} />;
+      const keywords = card.content.keywords as
+        | Array<{
+            keyword: string;
+            volume: number;
+            difficulty: string;
+            cpc: number;
+            priority: number;
+          }>
+        | undefined;
+      if (keywords && keywords.length > 0) {
+        return (
+          <div className="space-y-2">
+            <div className="grid grid-cols-5 gap-2 text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-wider pb-1 border-b border-[var(--border-subtle)]">
+              <span className="col-span-2">Keyword</span>
+              <span>Volume</span>
+              <span>Difficulty</span>
+              <span>Priority</span>
+            </div>
+            {keywords.map((kw, i) => (
+              <div
+                key={i}
+                className="grid grid-cols-5 gap-2 text-sm py-1.5 border-b border-[var(--border-subtle)] last:border-0"
+              >
+                <span className="col-span-2 text-[var(--text-primary)] font-medium truncate">{kw.keyword}</span>
+                <span className="text-[var(--text-secondary)]">{kw.volume?.toLocaleString() ?? '—'}</span>
+                <span className="text-[var(--text-secondary)]">{kw.difficulty ?? '—'}</span>
+                <span className="text-[var(--text-secondary)] font-semibold">{kw.priority ?? '—'}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      const rawData = card.content.rawData as Record<string, unknown> | undefined;
+      if (rawData) {
+        const normalized = getJourneyKeywordIntelDetailData(rawData);
+        if (normalized) return <JourneyKeywordIntelDetail data={normalized} />;
+      }
+      return (
+        <p className="text-sm text-[var(--text-secondary)]">Keyword intelligence could not be rendered.</p>
+      );
     }
     case 'strategy-snapshot':
       return (
