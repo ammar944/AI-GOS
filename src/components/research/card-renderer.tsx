@@ -288,6 +288,11 @@ export function CardContentSwitch({ card }: { card: CardState }) {
         />
       );
     case 'keyword-grid': {
+      const rawData = card.content.rawData as Record<string, unknown> | undefined;
+      if (rawData) {
+        const normalized = getJourneyKeywordIntelDetailData(rawData);
+        if (normalized) return <JourneyKeywordIntelDetail data={normalized} />;
+      }
       const keywords = card.content.keywords as
         | Array<{
             keyword: string;
@@ -319,11 +324,6 @@ export function CardContentSwitch({ card }: { card: CardState }) {
             ))}
           </div>
         );
-      }
-      const rawData = card.content.rawData as Record<string, unknown> | undefined;
-      if (rawData) {
-        const normalized = getJourneyKeywordIntelDetailData(rawData);
-        if (normalized) return <JourneyKeywordIntelDetail data={normalized} />;
       }
       return (
         <p className="text-sm text-[var(--text-secondary)]">Keyword intelligence could not be rendered.</p>

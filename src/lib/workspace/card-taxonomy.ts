@@ -649,7 +649,7 @@ function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
     }
   }
 
-  // Keyword Intelligence — structured top keywords instead of raw data dump
+  // Keyword Intelligence — full raw payload for detail view plus top keywords for structured fallback
   const campaignGroups = asRecordArray(data.campaignGroups);
   const kwOpportunities = asRecordArray(data.topOpportunities);
 
@@ -691,8 +691,9 @@ function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
 
   if (topKeywords.length > 0) {
     cards.push(makeCard('keywordIntel', 'keyword-grid', 'Keyword Intelligence', {
+      rawData: data,
       keywords: topKeywords,
-    }, 'Top keywords ranked by priority score with volume, difficulty, and CPC'));
+    }, 'Full keyword intelligence with campaign groups, ad groups, and priority rankings'));
   }
 
   return cards;

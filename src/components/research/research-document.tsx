@@ -447,18 +447,6 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'keyword-grid': {
-      const keywords = c.keywords as
-        | Array<{ keyword: string; volume: number; difficulty: string; priority: number }>
-        | undefined;
-      if (keywords && keywords.length > 0) {
-        lines.push('Top Keywords by Priority:');
-        for (const kw of keywords) {
-          lines.push(
-            `  ${kw.keyword} — Vol: ${kw.volume?.toLocaleString() ?? '?'}, Difficulty: ${kw.difficulty ?? '?'}, Priority: ${kw.priority ?? '?'}`
-          );
-        }
-        break;
-      }
       const raw = c.rawData as Record<string, unknown> | undefined;
       if (raw) {
         const topOpps = raw.topOpportunities as Array<Record<string, unknown>> | undefined;
@@ -497,6 +485,18 @@ function cardToMarkdown(card: CardState): string[] {
           if (Array.isArray(strategy.focusAreas) && strategy.focusAreas.length > 0) {
             lines.push(`Focus Areas: ${(strategy.focusAreas as string[]).join(', ')}`);
           }
+        }
+        break;
+      }
+      const keywords = c.keywords as
+        | Array<{ keyword: string; volume: number; difficulty: string; priority: number }>
+        | undefined;
+      if (keywords && keywords.length > 0) {
+        lines.push('Top Keywords by Priority:');
+        for (const kw of keywords) {
+          lines.push(
+            `  ${kw.keyword} — Vol: ${kw.volume?.toLocaleString() ?? '?'}, Difficulty: ${kw.difficulty ?? '?'}, Priority: ${kw.priority ?? '?'}`
+          );
         }
       }
       break;
