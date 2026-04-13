@@ -108,6 +108,8 @@ Respond with JSON only. No preamble. No markdown fences. Start with { and end wi
 
 const KEYWORDS_PRIMARY_SYSTEM_PROMPT = `You are a paid search keyword intelligence specialist.
 
+CRITICAL: You MUST respond with valid JSON only. Start your response with { and end with }. No preamble, no commentary, no narrative text before or after the JSON. If you write anything other than JSON, the system will fail.
+
 TASK: Find the highest-value paid search keyword opportunities for this business.
 
 RESEARCH FOCUS:
@@ -117,7 +119,7 @@ RESEARCH FOCUS:
 4. Long-tail terms with clear commercial intent relevant to this business type
 
 TOOL USAGE:
-- Use the spyfu tool once when it can add live keyword or competitor evidence
+- Use the spyfu tool up to 3 times — once per competitor domain — to gather live keyword data. Query the top 2-3 competitors by relevance. More SpyFu data = better keyword coverage.
 - If spyfu is unavailable, sparse, or errors, continue using the persisted industry, ICP, offer, strategic, and competitor context already provided
 
 DATA HONESTY:
@@ -260,6 +262,7 @@ interface KeywordAttemptConfig {
   tools: KeywordTool[];
   system: string;
   synthesisMessage: string;
+  maxToolIterations?: number;
 }
 
 interface RunResearchKeywordsDeps {
@@ -986,6 +989,7 @@ function getKeywordAttemptConfig(mode: KeywordAttemptMode): KeywordAttemptConfig
     tools: [spyfuTool],
     system: KEYWORDS_PRIMARY_SYSTEM_PROMPT,
     synthesisMessage: 'synthesizing keyword opportunities',
+    maxToolIterations: 3,
   };
 }
 
@@ -1105,13 +1109,19 @@ async function runKeywordToolAttempt(
         stream: true,
         tools: config.tools,
         system: config.system,
-        messages: [{ role: 'user', content: `Find keyword opportunities for:\n\n${context}` }],
+        messages: [
+          { role: 'user', content: `Find keyword opportunities for:\n\n${context}` },
+          {
+            role: 'user',
+            content: 'Now output the complete keyword intelligence JSON. Start with {',
+          },
+        ],
       });
       return Promise.race([
         runStreamedToolRunner(runner, {
           onProgress,
           synthesisMessage: config.synthesisMessage,
-          maxToolIterations: undefined,
+          maxToolIterations: config.maxToolIterations,
         }),
         new Promise<never>((_, reject) =>
           setTimeout(
