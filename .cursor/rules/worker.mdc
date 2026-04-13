@@ -1,0 +1,15 @@
+---
+globs: "research-worker/**/*"
+alwaysApply: false
+description: "Railway research worker conventions"
+---
+
+# Research Worker Rules
+
+- Separate Express server on :3001. Cannot import from src/lib/.
+- Schemas/types must exist in BOTH the worker and the Next.js app.
+- Each runner: primary phase -> repair phase -> rescue phase with fallback models.
+- All runners use Anthropic SDK streaming with native web_search + tool loop.
+- Results written to Supabase journey_sessions.research_results[section].
+- Worker validates activeJourneyRunId before writing (prevents stale overwrites).
+- Deploy separately: cd research-worker && railway up

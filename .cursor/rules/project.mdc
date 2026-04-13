@@ -1,0 +1,45 @@
+---
+globs: "**/*"
+alwaysApply: true
+description: "AIGOS project conventions and architecture"
+---
+
+# AIGOS — Strategic Marketing Blueprint Generator
+
+Stack: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
+
+## Architecture
+
+The journey is FORM-DRIVEN, not chat-driven. No AI asks questions. No chat-based onboarding.
+
+User flow:
+1. Enter URL -> auto-prefill fields
+2. Review/edit in form (UnifiedFieldReview)
+3. Submit -> dispatches identityResolution (silent) then industryMarket
+4. Workspace shows research cards via Supabase realtime
+5. User approves each section -> next dispatches automatically
+6. After 6 sections: guided prompt for Media Plan
+7. After media plan: guided prompt for Scripts
+8. All results saved to profile
+
+Research dispatch: Button clicks -> POST /api/journey/dispatch -> Railway worker -> Supabase -> realtime to frontend.
+Chat sidebar: Post-research editing only (editCard, updateField). Does NOT trigger research.
+
+Pipeline: identityResolution -> industryMarket -> icpValidation -> competitors -> offerAnalysis -> keywordIntel -> crossAnalysis -> mediaPlan
+
+## Conventions
+
+- Imports: @/* maps to ./src/* (always absolute)
+- UI: shadcn/ui (new-york) + Radix + Tailwind CSS v4. cn() for conditional classes.
+- Files: kebab-case. Named exports (not default). Props suffixed with Props.
+- All AI calls: @ai-sdk/anthropic directly. Never OpenRouter.
+- Zod for all AI outputs and API inputs.
+
+## Gotchas
+
+- id vs run_id: Frontend passes run_id. Query .eq('run_id', id).
+- Railway worker (research-worker/) cannot import from src/lib/.
+- toUIMessageStreamResponse() requires DefaultChatTransport. Mismatch = silent failure.
+- Tool definitions: inputSchema (not parameters), maxOutputTokens (not maxTokens).
+- Remove .min()/.max() from Zod numbers in generateObject schemas.
+- Read DESIGN.md before any visual/UI work.

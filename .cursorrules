@@ -1,0 +1,60 @@
+You are working on AIGOS, a strategic marketing blueprint generator.
+
+Stack: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
+
+## CRITICAL — READ THIS FIRST
+
+The journey is FORM-DRIVEN, not chat-driven.
+- Users enter a URL, review auto-prefilled fields in a FORM, then click buttons to advance through research sections.
+- The chat sidebar is for EDITING/REFINEMENT only (editCard, updateField). It does NOT trigger research dispatch.
+- Research dispatch happens via button clicks → POST /api/journey/dispatch → Railway worker.
+
+## Conventions
+
+- Imports: `@/*` maps to `./src/*` — always use absolute imports
+- UI: shadcn/ui (new-york style) + Radix + Tailwind CSS v4
+- Use `cn()` from `@/lib/utils` for conditional classes
+- Files: kebab-case. Named exports (not default). Props interfaces suffixed with `Props`.
+- Auth: Clerk. `auth()` in API routes.
+- All AI calls use `@ai-sdk/anthropic` directly. Never OpenRouter.
+- Zod for all AI outputs and API inputs. Schemas colocated with features.
+- Read DESIGN.md before any visual/UI work.
+
+## AI SDK Gotchas (silent bugs if wrong)
+
+- `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatch = silent failure.
+- Tool definitions use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`).
+- Remove `.min()/.max()` from Zod numbers in `generateObject()` schemas — Anthropic API rejects them.
+
+## Key Types
+
+```typescript
+// src/lib/workspace/types.ts
+type SectionKey = 'industryMarket' | 'competitors' | 'icpValidation' | 'offerAnalysis' | 'keywordIntel' | 'crossAnalysis' | 'mediaPlan';
+type SectionPhase = 'queued' | 'researching' | 'streaming' | 'review' | 'approved' | 'error';
+```
+
+## Key Files
+
+| What | Where |
+|------|-------|
+| Journey page | src/app/journey/page.tsx |
+| Chat stream | src/app/api/journey/stream/route.ts |
+| Research dispatch | src/app/api/journey/dispatch/route.ts |
+| Dispatch client | src/lib/journey/dispatch-client.ts |
+| Realtime hook | src/lib/journey/research-realtime.ts |
+| Card taxonomy | src/lib/workspace/card-taxonomy.ts |
+| Pipeline config | src/lib/workspace/pipeline.ts |
+| Workspace types | src/lib/workspace/types.ts |
+| Section tabs | src/components/workspace/section-tabs.tsx |
+| Media plan CTA | src/components/workspace/media-plan-cta.tsx |
+| Script workbench | src/components/scripts/script-workbench.tsx |
+| Script viewer | src/components/scripts/script-pack-viewer.tsx |
+| Sidebar | src/components/shell/app-sidebar.tsx |
+| Worker entry | research-worker/src/index.ts |
+
+## Critical Gotchas
+
+- `id` vs `run_id`: Frontend passes `run_id`. Query with `.eq('run_id', id)`.
+- Railway worker (research-worker/) cannot import from src/lib/. Separate boundary.
+- Pre-existing TS errors in openrouter tests and chat blueprint tests — ignore them.

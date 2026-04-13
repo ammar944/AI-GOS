@@ -1,248 +1,116 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Design System
-Always read DESIGN.md before making any visual or UI decisions.
-All font choices, colors, spacing, and aesthetic direction are defined there.
-Do not deviate without explicit user approval.
-In QA mode, flag any code that doesn't match DESIGN.md.
+Read DESIGN.md before any visual/UI work. Do not deviate without user approval.
 
 ## Commands
-
 ```bash
-npm run dev          # Start Next.js dev server (http://localhost:3000)
+npm run dev          # Next.js dev server (localhost:3000)
 npm run build        # Production build
-npm run lint         # ESLint (flat config, Next.js rules)
-npm test             # Vitest watch mode
+npm run lint         # ESLint
 npm run test:run     # Vitest single run
-npm run test:run -- src/lib/ai/__tests__/research.test.ts  # Single test file
-npm run test:coverage  # Coverage report (V8 provider)
+npm run test:run -- src/lib/ai/__tests__/research.test.ts  # Single file
 ```
 
-## gstack Workflow
-
-This project now uses **gstack** as a workflow operating layer on top of the project-specific architecture rules in this file.
-
-Available gstack skills:
-- `/office-hours`
-- `/plan-ceo-review`
-- `/plan-eng-review`
-- `/plan-design-review`
-- `/design-consultation`
-- `/review`
-- `/ship`
-- `/browse`
-- `/qa`
-- `/qa-only`
-- `/design-review`
-- `/setup-browser-cookies`
-- `/retro`
-- `/investigate`
-- `/document-release`
-- `/codex`
-- `/careful`
-- `/freeze`
-- `/guard`
-- `/unfreeze`
-- `/gstack-upgrade`
-
-Rules:
-- Use `/browse` for web browsing workflows when appropriate.
-- Use `/plan-ceo-review` before major feature work or product direction changes.
-- Use `/plan-eng-review` before non-trivial implementation.
-- Use `/review` before calling work done.
-- Use `/qa` or `/qa-only` for real UI/browser validation.
-- Use `/ship` for final release/merge flow.
-- If gstack skills stop working, run: `cd .claude/skills/gstack && ./setup`
-
-## Dream Memory Consolidation
-
-This project also includes the **dream** skill for Claude Code memory consolidation.
-
-Use `/dream` when:
-- session memory feels noisy or stale
-- project state has drifted across many sessions
-- PRIMER/state/docs contain contradictions or outdated assumptions
-- you want to consolidate recent work into cleaner memory
-
-Dream should support the current memory stack, not replace it:
-- `CLAUDE.md` = permanent rules
-- `PRIMER.md` = current execution handoff
-- `.planning/STATE.md` = strategic project state
-
-Use Dream to keep these layers cleaner over time.
-If dream needs reinstall/setup later, repo-local files live at `.claude/skills/dream`.
-
-## Session State
-
-This repo uses `PRIMER.md` as the current working-state handoff file.
-
-Rules:
-- Read `PRIMER.md` at the start of every meaningful session.
-- Treat it as current execution state, not permanent documentation.
-- At the end of a meaningful work session, rewrite `PRIMER.md` with the newest correct state.
-- Keep it short, current, and action-oriented.
-- Include: current focus, what was just done, exact next step, active files, blockers, and what to verify next.
-- Do not let multiple agents overwrite it casually; the primary implementation agent should consolidate shared state there.
-
-## Research Worker (Local Dev)
-
-The research pipeline requires the Railway worker running locally:
-
+## Research Worker (required for research to work)
 ```bash
-# Terminal 1: Next.js
+# Terminal 1: Next.js app
 npm run dev
-
-# Terminal 2: Research worker
-cd research-worker
-cp .env.example .env  # fill in your keys
-npm run dev           # starts on :3001
+# Terminal 2: Research worker (separate process, cannot import from src/lib/)
+cd research-worker && npm run dev  # starts on :3001
 ```
-
-Add to `.env.local`:
-```
-RAILWAY_WORKER_URL=http://localhost:3001
-RAILWAY_API_KEY=dev-secret
-```
+Add to `.env.local`: `RAILWAY_WORKER_URL=http://localhost:3001` and `RAILWAY_API_KEY=dev-secret`.
+Without RAILWAY_WORKER_URL, all research dispatches silently fail.
 
 ## Environment Variables
-
 Required in `.env.local`:
 ```
-ANTHROPIC_API_KEY=         # Claude models via Vercel AI SDK
-GROQ_API_KEY=              # Groq API (chat agent, voice transcription, synthesis)
-SEARCHAPI_KEY=             # Web search for research
-NEXT_PUBLIC_SUPABASE_URL=  # Supabase project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Supabase publishable key
-CLERK_SECRET_KEY=          # Clerk auth (server)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=  # Clerk auth (client)
+ANTHROPIC_API_KEY, GROQ_API_KEY, SEARCHAPI_KEY,
+NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ```
-
-Optional:
-```
-PERPLEXITY_API_KEY=   # Perplexity Sonar Pro for research
-FOREPLAY_API_KEY=     # Creative intelligence enrichment
-FIRECRAWL_API_KEY=    # Pricing page scraping
-SPYFU_API_KEY=        # Keyword intelligence
-RAILWAY_WORKER_URL=   # Research worker URL (e.g. https://your-worker.railway.app). Required for research tools to work — without it all research dispatches silently fail.
-RAILWAY_API_KEY=      # Bearer token for worker auth (set same value in worker env)
-```
+Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
 
 ## Architecture
 
-**AIGOS** is a strategic marketing blueprint generator. Users complete an onboarding wizard, then the system runs a multi-phase AI pipeline to produce a comprehensive paid media strategy document.
+AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-extracted fields, then step through a research pipeline that produces: 6 research sections, a media plan, and ad scripts.
 
-### Core Pipeline (Strategic Blueprint Generation)
+**Stack**: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
 
-Three-phase pipeline orchestrated in `src/lib/ai/generator.ts`, streamed via SSE from `src/app/api/strategic-blueprint/generate/route.ts`:
+### Journey Flow (IMPORTANT — read carefully)
 
-1. **Phase 1** (parallel): Industry/Market + Competitors research via Perplexity Sonar Pro
-2. **Phase 2** (parallel): ICP + Offer analysis via Sonar Pro, then deterministic reconciliation
-3. **Phase 3**: Cross-analysis synthesis via Claude Sonnet
+The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-based onboarding.
 
-Enrichment runs in parallel with Phases 2/3: Firecrawl pricing scraping, Ad Library creative analysis, SpyFu keyword intelligence, SEO audit (cheerio + PageSpeed API).
+**User flow:**
+1. Enter company URL → system auto-prefills onboarding fields
+2. User reviews/edits prefilled fields in a form (UnifiedFieldReview)
+3. Submit → dispatches `identityResolution` (silent), then `industryMarket`
+4. Workspace shows research cards arriving via Supabase realtime
+5. User approves each section → next section dispatches automatically
+6. After all 6 sections: guided prompt to generate Media Plan
+7. After media plan: guided prompt to generate Scripts
+8. All results saved to profile
 
-### AI SDK Integration (Vercel AI SDK v6)
+**Research dispatch**: Button clicks → `POST /api/journey/dispatch` → Railway worker → writes results to Supabase → realtime pushes to frontend.
 
-All AI calls use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly (NOT OpenRouter). Key patterns:
+**Chat sidebar**: Exists for post-research **editing/refinement only** (`editCard`, `updateField`). Chat input is disabled during active research. The chat does NOT trigger research dispatch.
 
-- **Research**: `generateObject()` with Zod schemas for structured output
-- **Chat**: `streamText()` + `toUIMessageStreamResponse()` for streaming tool-calling agent
-- **Onboarding suggestions**: `streamObject()` + `toTextStreamResponse()` on backend, `experimental_useObject` on frontend
-- **Transport matching**: `toUIMessageStreamResponse()` requires `DefaultChatTransport`; `toTextStreamResponse()` requires `TextStreamChatTransport`
-- **Tool definitions**: Use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`)
-- **Message conversion**: `convertToModelMessages(messages)` is async and throws `MissingToolResultsError` if tool calls lack results — sanitize incomplete tool parts before converting
+**Pipeline order**: `identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan`
 
-Provider config: `src/lib/ai/providers.ts` (model constants, cost tracking, section-to-model mapping)
+**Runners** (in `research-worker/src/runners/`): industry, icp, competitors, offer, keywords, synthesize, media-plan, ad-scripts, fathom-extract. Each runner: primary phase → repair phase → rescue phase with fallback models.
 
-### Chat Agent
+### Key Files
+| What | Where |
+|------|-------|
+| Journey page | `src/app/journey/page.tsx` |
+| Journey chat | `src/app/api/journey/stream/route.ts` |
+| Research dispatch | `src/app/api/journey/dispatch/route.ts` |
+| Dispatch client | `src/lib/journey/dispatch-client.ts` |
+| Research realtime | `src/lib/journey/research-realtime.ts` |
+| Card taxonomy | `src/lib/workspace/card-taxonomy.ts` |
+| Field catalog | `src/lib/journey/field-catalog.ts` |
+| Context builder | `src/lib/journey/context-string.ts` |
+| Worker entry | `research-worker/src/index.ts` |
+| Identity resolver | `research-worker/src/identity/resolve-identity.ts` |
+| Fathom client | `src/lib/fathom/client.ts` |
 
-Tool-calling agent at `src/app/api/chat/agent/route.ts` using `streamText` with 4 tools defined in `src/lib/ai/chat-tools/`:
-- `searchBlueprint` — query blueprint sections
-- `editBlueprint` — propose edits (requires user approval)
-- `explainBlueprint` — explain scores/recommendations with evidence
-- `webResearch` — live web search for market data
+### Profiles & Scripts
+- Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Scripts, Assets.
+- Scripts generated via `research-worker/src/runners/ad-scripts.ts` (2-pass: draft → humanize with 43-point audit). Currently accessed only through profile Scripts tab.
+- Profile AI insights compile intelligence from each research section.
 
-Frontend: `src/components/chat/agent-chat.tsx` using `useChat` from `@ai-sdk/react`.
+## AI SDK Patterns (Vercel AI SDK v6)
 
-Tool part types use `part.type = "tool-${TOOL_NAME}"` format. States flow: `input-streaming` → `input-available` → `approval-requested` → `approval-responded` → `output-available` | `output-error`.
+IMPORTANT — these cause silent bugs if wrong:
+- ALL AI calls use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly. Never OpenRouter.
+- `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatch = silent failure.
+- Tool definitions use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`).
+- `convertToModelMessages()` throws `MissingToolResultsError` — sanitize incomplete tool parts first.
+- Remove `.min()/.max()` from Zod numbers in `generateObject()` schemas — Anthropic API rejects them. Use `.describe()` instead.
 
-### Onboarding Auto-Fill
+## Conventions
+- **Imports**: `@/*` maps to `./src/*` — always absolute
+- **Auth**: Clerk. `auth()` in API routes, middleware in `src/middleware.ts`
+- **UI**: shadcn/ui (new-york) + Radix + Tailwind CSS v4. `cn()` for conditional classes.
+- **Files**: kebab-case. Named exports (not default). Props suffixed with `Props`.
+- **Zod**: Runtime validation for all AI outputs and API inputs. Schemas colocated.
+- **State**: localStorage via `src/lib/storage/local-storage.ts`. Supabase for persistent data.
 
-Per-step AI suggestions: `src/app/api/onboarding/suggest/route.ts` routes to Perplexity (market data) or Claude (analysis) per step. Schemas in `src/lib/company-intel/step-schemas.ts`.
-
-Bulk research: `src/app/api/onboarding/research/route.ts` streams structured company intel.
-
-### Media Plan Pipeline
-
-Separate 10-section pipeline in `src/lib/media-plan/pipeline/` with phased execution (research → synthesis → validation). Route at `src/app/api/media-plan/generate/route.ts` with 300s timeout for Vercel Pro.
-
-## Key Conventions
-
-- **Path alias**: `@/*` maps to `./src/*` — always use absolute imports
-- **Auth**: Clerk (`@clerk/nextjs`) — middleware in `src/middleware.ts`, `auth()` in API routes
-- **UI**: shadcn/ui (new-york style, zinc base) + Radix primitives + Tailwind CSS v4
-- **Styling**: Use `cn()` from `@/lib/utils` for conditional classes. CVA for component variants. CSS variables for theme colors.
-- **Files**: kebab-case for all files/directories. Components as named exports (not default). Props interfaces suffixed with `Props`.
-- **State**: Browser localStorage via `src/lib/storage/local-storage.ts` with STORAGE_KEYS namespace. Supabase for persistent data.
-- **Zod**: Runtime validation for all AI outputs and API inputs. Schemas in `schemas.ts` files colocated with features.
-- **SSE streaming**: Backend emits typed events (`section-start`, `content`, `section-end`, `error`). Frontend must match event names exactly.
-- **Section name mapping**: Generator uses short names (e.g. `industryMarket`), frontend expects full keys (e.g. `industryMarketOverview`). Mapping in route.ts `GENERATOR_TO_SECTION`.
-
-## Testing
-
-Vitest with jsdom environment. Config in `vitest.config.ts`. Tests colocated in `__tests__/` directories next to source. Test utilities in `src/test/factories/` and `src/test/mocks/`.
-
-Pre-existing TS errors exist in some test files (openrouter tests, chat blueprint tests) — these are not related to main application code.
-
-## Deployment
-
-Vercel hosting with serverless functions. Long-running routes use `export const maxDuration = 300` (requires Pro tier). Automatic deploy on push to main.
-
-## V2 Reference Documents
-
-These documents define the V2 vision and should be consulted when planning or implementing V2 features:
-
-- **PRD**: `AI-GOS-v2-PRD.docx` — Full product specification
-- **Design System**: `AI-GOS-v2-Design-System.docx` — Tokens, components, layout
-- **Roadmap**: `AI-GOS-v2-Roadmap.docx` — Sprint breakdown with brain dumps
-
-## V2 Sprint 1 Orchestration
-
-Active sprint implementation. All orchestration files at `.claude/orchestration-aigos-v2-sprint1/`:
-
-| File | Purpose |
-|------|---------|
-| `DISCOVERY.md` | **Authority document** — overrides everything. Key design decisions. |
-| `PHASES.md` | Master plan — 18 tasks across 4 phases |
-| `PROGRESS.md` | Execution tracker — task status and agent assignments |
-| `START.md` | Execution protocol — wave-based parallel agent instructions |
-| `tasks/task-*.md` | Individual task specs with code, contracts, acceptance criteria |
-| `research/*.md` | Research files — existing codebase patterns, chat UI, tokens |
-
-**Key decisions (DISCOVERY.md)**:
-- Vercel AI SDK (NOT Agent SDK) — `streamText` + `toUIMessageStreamResponse()`
-- Model: `claude-opus-4-6` with `thinking: { type: "adaptive" }`
-- No step indicators/wizard — pure chat agent experience
-- Fonts: DM Sans (body), Instrument Sans (heading), JetBrains Mono (mono)
-- Supabase: `journey_sessions` table, service role + Clerk user ID
-- Branch: `aigos-v2`
+## Critical Gotchas
+- **id vs run_id**: Frontend passes `run_id`. Query `.eq('run_id', id)`, use `session.id` for FKs.
+- **Field sync**: New onboarding fields must sync across 6 places: field-catalog.ts, JOURNEY_FIELD_GROUPS, PROFILE_FIELD_GROUPS, Supabase migration, worker parse-context.ts, identity card JSONB.
+- **Railway worker boundary**: Cannot import from `src/lib/`. Schemas/types must exist in both places.
+- **Pre-existing TS errors**: openrouter tests and chat blueprint tests have known errors — ignore them.
+- **Deploy**: Vercel. Long routes need `export const maxDuration = 300` (Pro tier). Worker deploys separately via `cd research-worker && railway up`.
 
 ## Skill routing
 
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
-
-Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
-- Code review, check my diff → invoke review
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
+When the user's request matches an available skill, invoke it using the Skill tool FIRST:
+- Product ideas, brainstorming → office-hours
+- Bugs, errors, 500s → investigate
+- Ship, deploy, PR → ship
+- QA, test the site → qa
+- Code review → review
+- Design system → design-consultation
+- Visual audit → design-review
+- Architecture review → plan-eng-review
