@@ -16,6 +16,8 @@ interface ScriptsPhaseContentProps {
   activeRunId: string | null;
   /** When true, workspace hides the chat rail (same idea as active research). */
   onScriptsGeneratingChange?: (generating: boolean) => void;
+  /** When true, auto-trigger generation after session info loads (skip the CTA click). */
+  autoGenerate?: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ interface ScriptsPhaseContentProps {
 export function ScriptsPhaseContent({
   activeRunId,
   onScriptsGeneratingChange,
+  autoGenerate = false,
 }: ScriptsPhaseContentProps) {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({ sessionId: null, profileId: null });
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,7 @@ export function ScriptsPhaseContent({
   const [error, setError] = useState<string | null>(null);
   const [completedScripts, setCompletedScripts] = useState<AdScript[]>([]);
   const fetchedRef = useRef(false);
+  const autoGenerateTriggered = useRef(false);
 
   // Fetch session info + check for existing script pack
   useEffect(() => {
@@ -134,6 +138,22 @@ export function ScriptsPhaseContent({
       setGenerating(false);
     }
   }, [activeRunId, sessionInfo.profileId]);
+
+  // Auto-generate when navigated from media plan CTA (skip the second click)
+  useEffect(() => {
+    if (
+      autoGenerate &&
+      !autoGenerateTriggered.current &&
+      !loading &&
+      sessionInfo.profileId &&
+      !packId &&
+      !generating &&
+      !error
+    ) {
+      autoGenerateTriggered.current = true;
+      handleGenerate();
+    }
+  }, [autoGenerate, loading, sessionInfo.profileId, packId, generating, error, handleGenerate]);
 
   // Resolved scripts (complete pack)
   const displayScripts = completedScripts.length > 0

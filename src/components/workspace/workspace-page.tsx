@@ -207,6 +207,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
   const { state, setSectionPhase, navigateToSection } = useWorkspace();
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
   const [scriptsGenerating, setScriptsGenerating] = useState(false);
+  const [autoGenerateScripts, setAutoGenerateScripts] = useState(false);
 
   // Resizable chat panel
   const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_W);
@@ -340,6 +341,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     }
     // Transition scripts out of 'queued' so the tab appears and navigation is allowed
     setSectionPhase('scripts', 'review');
+    setAutoGenerateScripts(true);
     requestAnimationFrame(() => navigateToSection('scripts'));
   }, [setSectionPhase, navigateToSection, state.sectionStates.mediaPlan]);
 
@@ -354,6 +356,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
             <ScriptsPhaseContent
               activeRunId={activeRunId ?? null}
               onScriptsGeneratingChange={setScriptsGenerating}
+              autoGenerate={autoGenerateScripts}
             />
           </div>
         ) : (
