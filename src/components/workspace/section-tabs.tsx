@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 import type { SectionKey, SectionPhase } from '@/lib/workspace/types';
@@ -16,12 +15,10 @@ interface SectionTabsProps {
 
 export function SectionTabs({ sections, currentSection, sectionStates, onNavigate, mode }: SectionTabsProps) {
   const approvedCount = useMemo(() => {
-    if (!sectionStates) return sections.length; // document mode: all complete
+    if (!sectionStates) return sections.length;
     return sections.filter((key) => sectionStates[key] === 'approved').length;
   }, [sections, sectionStates]);
 
-  // Reset horizontal scroll whenever the active section changes so returning
-  // to a tab never shows a stale scroll offset from a previous visit.
   const tabBarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (tabBarRef.current) {
@@ -30,7 +27,10 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
   }, [currentSection]);
 
   return (
-    <div ref={tabBarRef} className="flex h-11 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 overflow-x-auto">
+    <div
+      ref={tabBarRef}
+      className="flex h-10 items-end gap-0 border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 overflow-x-auto"
+    >
       {sections.map((section) => {
         const meta = SECTION_META[section] ?? DEFAULT_SECTION_META;
         const phase = sectionStates?.[section];
@@ -38,63 +38,64 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
         const isQueued = mode === 'workspace' && phase === 'queued';
         const isApproved = phase === 'approved';
         const isResearching = phase === 'researching' || phase === 'streaming';
-        const isReview = phase === 'review';
         const isError = phase === 'error';
 
-        // Active researching tab gets a Framer Motion glow pulse
-        const showResearchGlow = mode === 'workspace' && isActive && isResearching;
+        // Text color by state — no backgrounds, underline only
+        const textColor = (() => {
+          if (isQueued) return 'text-[var(--text-quaternary)]';
+          if (isActive) return 'text-[var(--text-primary)]';
+          if (isApproved) return 'text-[var(--accent-green)]';
+          if (isError) return 'text-[var(--accent-red)]';
+          if (isResearching) return 'text-[var(--accent-blue)]';
+          return 'text-[var(--text-quaternary)]';
+        })();
+
+        // Bottom border for active tab
+        const borderColor = (() => {
+          if (!isActive) return 'border-transparent';
+          if (isApproved) return 'border-[var(--accent-green)]';
+          if (isError) return 'border-[var(--accent-red)]';
+          if (isResearching) return 'border-[var(--accent-blue)]';
+          return 'border-[var(--accent-blue)]';
+        })();
 
         return (
-          <motion.button
+          <button
             key={section}
             type="button"
             onClick={() => !isQueued && onNavigate(section)}
             disabled={isQueued}
-            animate={showResearchGlow ? { boxShadow: ['0 0 8px rgba(96,165,250,0.15)', '0 0 20px rgba(96,165,250,0.45)', '0 0 8px rgba(96,165,250,0.15)'] } : {}}
-            transition={showResearchGlow ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : {}}
             className={cn(
-              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200 border shrink-0',
-              // Document mode: simple active/inactive
-              mode === 'document' && isActive && 'border-transparent bg-transparent text-[var(--accent-blue)] font-semibold relative after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-3/4 after:h-0.5 after:bg-[var(--accent-blue)] after:rounded-full',
-              mode === 'document' && !isActive && 'border-transparent bg-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer',
-              // Workspace mode states
-              mode === 'workspace' && isActive && isApproved && 'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10 text-[var(--accent-green)]',
-              mode === 'workspace' && isActive && isReview && 'border-[var(--accent-blue)]/40 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] shadow-[0_0_12px_rgba(96,165,250,0.1)]',
-              mode === 'workspace' && isActive && isResearching && 'border-[var(--accent-blue)]/50 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]',
-              mode === 'workspace' && isActive && isError && 'border-[var(--accent-red)]/30 bg-[var(--accent-red)]/10 text-[var(--accent-red)]',
-              mode === 'workspace' && !isActive && isApproved && 'border-[var(--accent-green)]/20 bg-[var(--accent-green)]/8 text-[var(--accent-green)] hover:bg-[var(--accent-green)]/12 cursor-pointer',
-              mode === 'workspace' && !isActive && (isReview || isResearching) && 'border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/8 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/12 cursor-pointer',
-              mode === 'workspace' && !isActive && isError && 'border-[var(--accent-red)]/20 bg-[var(--accent-red)]/8 text-[var(--accent-red)] hover:bg-[var(--accent-red)]/12 cursor-pointer',
-              mode === 'workspace' && isQueued && 'border-[var(--border-subtle)] bg-transparent text-[var(--text-tertiary)] cursor-not-allowed opacity-70',
+              'group flex items-center gap-1.5 px-3 pb-2.5 pt-2',
+              'text-[12px] font-mono font-medium whitespace-nowrap',
+              'border-b-[1.5px] shrink-0',
+              'transition-colors duration-150',
+              textColor,
+              borderColor,
+              isQueued && 'cursor-not-allowed opacity-50',
+              !isQueued && !isActive && 'cursor-pointer hover:text-[var(--text-secondary)]',
             )}
           >
-            {/* Status indicator */}
+            {/* Status indicator — subtle inline markers */}
             {mode === 'workspace' && isApproved && (
-              <span className="text-[10px]">&#10003;</span>
+              <span className="text-[10px] leading-none">&#10003;</span>
             )}
-            {mode === 'workspace' && (isResearching || (isReview && isActive)) && (
-              <motion.span
-                className="h-1.5 w-1.5 rounded-full bg-current shrink-0"
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-              />
+            {mode === 'workspace' && isResearching && (
+              <span className="h-1.5 w-1.5 rounded-full bg-current shrink-0 animate-pulse" />
             )}
             {mode === 'workspace' && isError && (
-              <span className="text-[10px]">!</span>
-            )}
-            {mode === 'workspace' && isQueued && (
-              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50 shrink-0" />
+              <span className="text-[10px] leading-none">!</span>
             )}
 
-            <span className={cn(isActive && 'font-semibold')}>{meta.label}</span>
-          </motion.button>
+            <span>{meta.label}</span>
+          </button>
         );
       })}
 
       {/* Progress counter */}
       {mode === 'workspace' && (
-        <span className="ml-auto text-xs font-mono text-[var(--text-tertiary)] shrink-0">
-          {approvedCount} / {sections.length}
+        <span className="ml-auto pb-2.5 text-[11px] font-mono text-[var(--text-quaternary)] shrink-0 tabular-nums">
+          {approvedCount}/{sections.length}
         </span>
       )}
     </div>

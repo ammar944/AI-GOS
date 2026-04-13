@@ -17,7 +17,7 @@ import { getJourneySession } from '@/lib/storage/local-storage';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { useSessionShare } from '@/hooks/use-session-share';
 import type { SectionKey } from '@/lib/workspace/types';
-import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
+import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 
 interface WorkspacePageProps {
@@ -177,17 +177,9 @@ function ShareButton() {
 function WorkspaceNavBar() {
   const { state, navigateToSection } = useWorkspace();
 
-  // Progressively reveal tabs: mediaPlan when not queued, scripts when not queued
-  const visibleSections = useMemo(() => {
-    const sections: SectionKey[] = [...RESEARCH_SECTIONS];
-    if (state.sectionStates.mediaPlan !== 'queued') {
-      sections.push('mediaPlan');
-    }
-    if (state.sectionStates.scripts !== 'queued') {
-      sections.push('scripts');
-    }
-    return sections;
-  }, [state.sectionStates.mediaPlan, state.sectionStates.scripts]);
+  // Show all 8 sections so users see the full pipeline upfront.
+  // Queued sections render dimmed but visible in the tab bar.
+  const visibleSections = WORKSPACE_SECTIONS;
 
   return (
     <div className="flex items-center">
