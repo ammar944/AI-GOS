@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   // Fetch profile
   const { data: profile, error: profileErr } = await supabase
     .from('business_profiles')
-    .select('id, company_name, style_references, proof_points')
+    .select('id, company_name, style_references, proof_points, brand_voice_notes')
     .eq('id', profileId)
     .eq('user_id', userId)
     .single();
@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     proofPointsUsed: ((profile.proof_points as Array<{headline: string; type: string}>) ?? []).map((p: {headline: string; type: string}) => ({ headline: p.headline, type: p.type })),
     userNote: userNote ?? null,
     styleReferencesSnapshot: profile.style_references ?? [],
+    brandVoiceNotesSnapshot: profile.brand_voice_notes ?? null,
   };
 
   // Create script_packs row
@@ -141,6 +142,7 @@ export async function POST(request: Request) {
         researchContext: trimmed,
         styleReferences: profile.style_references ?? [],
         proofPoints: profile.proof_points ?? [],
+        brandVoiceNotes: profile.brand_voice_notes ?? null,
       }),
       signal: AbortSignal.timeout(10_000),
     });
