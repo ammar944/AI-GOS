@@ -1,24 +1,27 @@
-import type { FathomCallMeta, SalesCallInsights } from './types';
+import type { MeetingMeta, MeetingInsights } from './types';
 
-function formatDuration(seconds: number): string {
-  return `${Math.round(seconds / 60)}min`;
-}
+const MEETING_TYPE_LABELS: Record<string, string> = {
+  discovery: 'Discovery',
+  demo: 'Demo',
+  follow_up: 'Follow-up',
+  closing: 'Closing',
+  strategy: 'Strategy',
+  kickoff: 'Kickoff',
+  review: 'Review',
+  other: 'Meeting',
+};
 
-export function buildSalesCallIntelligenceBlock(
-  meta: FathomCallMeta,
-  insights: SalesCallInsights,
+export function buildMeetingIntelligenceBlock(
+  meta: MeetingMeta,
+  insights: MeetingInsights,
 ): string {
   const lines: string[] = [];
 
-  lines.push('══ SALES CALL INTELLIGENCE ══');
+  const typeLabel = MEETING_TYPE_LABELS[meta.meetingType] ?? 'Meeting';
+  lines.push('══ MEETING INTELLIGENCE ══');
   lines.push(
-    `Source: ${meta.title} (${new Date(meta.date).toLocaleDateString('en-US')}, ${formatDuration(meta.durationSeconds)})`,
+    `Source: ${meta.title} (${typeLabel}, ${new Date(meta.dateAdded).toLocaleDateString('en-US')})`,
   );
-
-  const attendeeNames = meta.attendees
-    .map((a) => a.name ?? a.email ?? 'Unknown')
-    .join(', ');
-  if (attendeeNames) lines.push(`Attendees: ${attendeeNames}`);
 
   lines.push('');
   lines.push(`Business Health: ${insights.businessHealthSummary}`);
@@ -100,23 +103,23 @@ export function buildSalesCallIntelligenceBlock(
     }
   }
 
-  lines.push('══ END SALES CALL INTELLIGENCE ══');
+  lines.push('══ END MEETING INTELLIGENCE ══');
   return lines.join('\n');
 }
 
-export function buildAllSalesCallBlocks(
-  calls: FathomCallMeta[],
-  extractedFieldsMap: Record<string, SalesCallInsights>,
+export function buildAllMeetingIntelBlocks(
+  meetings: MeetingMeta[],
+  extractedFieldsMap: Record<string, MeetingInsights>,
 ): string {
-  const readyCalls = calls.filter(
-    (c) => c.status === 'ready' && extractedFieldsMap[c.documentId],
+  const readyMeetings = meetings.filter(
+    (m) => m.status === 'ready' && extractedFieldsMap[m.documentId],
   );
-  if (readyCalls.length === 0) return '';
+  if (readyMeetings.length === 0) return '';
 
-  const blocks = readyCalls
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map((call) =>
-      buildSalesCallIntelligenceBlock(call, extractedFieldsMap[call.documentId]),
+  const blocks = readyMeetings
+    .sort((a, b) => new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime())
+    .map((meeting) =>
+      buildMeetingIntelligenceBlock(meeting, extractedFieldsMap[meeting.documentId]),
     );
 
   return blocks.join('\n\n');

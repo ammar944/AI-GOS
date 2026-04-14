@@ -1,28 +1,26 @@
 import { z } from 'zod';
 
-export const fathomShareUrlSchema = z
-  .string()
-  .url()
-  .refine(
-    (url) => {
-      try {
-        const parsed = new URL(url);
-        return parsed.hostname === 'fathom.video' && parsed.pathname.startsWith('/share/');
-      } catch {
-        return false;
-      }
-    },
-    { message: 'Must be a valid Fathom share link (https://fathom.video/share/...)' },
-  );
+export const meetingTypeSchema = z.enum([
+  'discovery',
+  'demo',
+  'follow_up',
+  'closing',
+  'strategy',
+  'kickoff',
+  'review',
+  'other',
+]);
 
-export const fathomFetchRequestSchema = z.object({
-  shareUrl: fathomShareUrlSchema,
+export const meetingTranscriptSubmitSchema = z.object({
+  title: z.string().min(1).max(200),
+  meetingType: meetingTypeSchema,
+  transcript: z.string().min(50).max(400_000),
   runId: z.string().min(1),
 });
 
 /** NOTE: No .min()/.max() on numbers — Anthropic API rejects them. */
-export const salesCallInsightsSchema = z.object({
-  businessHealthSummary: z.string().describe('General summary of how the business is doing based on the call'),
+export const meetingInsightsSchema = z.object({
+  businessHealthSummary: z.string().describe('General summary of how the business is doing based on the meeting'),
   callType: z.enum(['discovery', 'demo', 'follow_up', 'closing', 'other']),
   painPoints: z.array(z.object({
     pain: z.string(),

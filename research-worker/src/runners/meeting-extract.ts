@@ -1,20 +1,22 @@
 import { createClient, type RunnerProgressReporter } from '../runner';
 import type { ResearchResult } from '../supabase';
 
-const EXTRACTION_MODEL = process.env.FATHOM_EXTRACT_MODEL ?? 'claude-haiku-4-5-20251001';
+const EXTRACTION_MODEL = process.env.MEETING_EXTRACT_MODEL ?? 'claude-haiku-4-5-20251001';
 const EXTRACTION_MAX_TOKENS = 4000;
 
-const EXTRACTION_SYSTEM_PROMPT = `You are a sales intelligence analyst extracting actionable insights from a sales call transcript for a paid media strategy team.
+const EXTRACTION_SYSTEM_PROMPT = `You are a business intelligence analyst extracting actionable insights from a meeting transcript for a paid media strategy team.
+
+The transcript may be from any type of business meeting: discovery calls, demos, strategy sessions, kickoffs, reviews, or other meetings.
 
 RULES:
 - Only extract what is EXPLICITLY stated in the transcript. Never infer or fabricate.
 - Every insight MUST include the source quote from the transcript when available.
-- If a category has no relevant data in the call, return an empty array — do NOT fill with guesses.
-- Speaker attribution matters: note WHO said what (prospect vs salesperson).
+- If a category has no relevant data in the meeting, return an empty array — do NOT fill with guesses.
+- Speaker attribution matters: note WHO said what (prospect vs salesperson vs team member).
 - Budget figures must be exact quotes, not rounded or estimated.
-- Competitor mentions must use the exact name the prospect used.
+- Competitor mentions must use the exact name the speaker used.
 
-CONTEXT: This data feeds into an AI research pipeline that produces paid media strategies. The sales call insights are treated as GROUND TRUTH — higher priority than web-scraped data. Accuracy is critical because fabricated insights will contaminate downstream recommendations.
+CONTEXT: This data feeds into an AI research pipeline that produces paid media strategies. The meeting insights are treated as GROUND TRUTH — higher priority than web-scraped data. Accuracy is critical because fabricated insights will contaminate downstream recommendations.
 
 Extract the following categories from the transcript and return them as a JSON object:
 
@@ -32,7 +34,7 @@ Extract the following categories from the transcript and return them as a JSON o
 
 Return ONLY valid JSON matching this schema. No markdown, no explanation, just the JSON object.`;
 
-export async function runFathomExtraction(
+export async function runMeetingExtraction(
   context: string,
   onProgress?: RunnerProgressReporter,
 ): Promise<ResearchResult> {
@@ -40,7 +42,7 @@ export async function runFathomExtraction(
   const client = createClient();
 
   if (onProgress) {
-    await onProgress({ message: 'Analyzing sales call transcript', phase: 'analysis' });
+    await onProgress({ message: 'Analyzing meeting transcript', phase: 'analysis' });
   }
 
   try {
@@ -51,7 +53,7 @@ export async function runFathomExtraction(
       messages: [
         {
           role: 'user',
-          content: `Extract structured sales intelligence from this transcript:\n\n${context}`,
+          content: `Extract structured business intelligence from this meeting transcript:\n\n${context}`,
         },
       ],
     });
@@ -64,7 +66,7 @@ export async function runFathomExtraction(
     if (!textBlock || textBlock.type !== 'text') {
       return {
         status: 'error',
-        section: 'fathomExtraction',
+        section: 'meetingExtraction',
         error: 'No text content in extraction response',
         durationMs: Date.now() - startMs,
       };
@@ -77,7 +79,7 @@ export async function runFathomExtraction(
     } catch {
       return {
         status: 'error',
-        section: 'fathomExtraction',
+        section: 'meetingExtraction',
         error: 'Failed to parse extraction JSON',
         rawText: textBlock.text,
         durationMs: Date.now() - startMs,
@@ -86,7 +88,7 @@ export async function runFathomExtraction(
 
     return {
       status: 'complete',
-      section: 'fathomExtraction',
+      section: 'meetingExtraction',
       data: parsed,
       durationMs: Date.now() - startMs,
     };
@@ -94,7 +96,7 @@ export async function runFathomExtraction(
     const errorMsg = err instanceof Error ? err.message : String(err);
     return {
       status: 'error',
-      section: 'fathomExtraction',
+      section: 'meetingExtraction',
       error: errorMsg,
       durationMs: Date.now() - startMs,
     };

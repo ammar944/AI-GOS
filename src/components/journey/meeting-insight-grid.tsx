@@ -1,9 +1,9 @@
 'use client';
 
-import type { SalesCallInsights } from '@/lib/fathom/types';
+import type { MeetingInsights } from '@/lib/meeting-intel/types';
 
-interface SalesCallInsightGridProps {
-  insights: SalesCallInsights;
+interface MeetingInsightGridProps {
+  insights: MeetingInsights;
 }
 
 function InsightCategory({
@@ -28,7 +28,7 @@ function InsightCategory({
   );
 }
 
-export function SalesCallInsightGrid({ insights }: SalesCallInsightGridProps) {
+export function MeetingInsightGrid({ insights }: MeetingInsightGridProps) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2.5">

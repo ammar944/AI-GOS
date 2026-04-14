@@ -1,0 +1,55 @@
+Sarah (Sales Rep): Thanks for hopping on, Mark. I know you mentioned on email that you're looking to scale your paid media — can you give me a bit of background on where things stand today?
+
+Mark (VP Marketing, Acme Corp): Yeah, absolutely. So we're a B2B SaaS company, about 120 employees. We sell project management software primarily to mid-market companies, 200 to 2000 employees. We've been growing about 30% year over year, which sounds great on paper, but our CAC has basically doubled in the last 18 months.
+
+Sarah: That's a common pattern we see. What channels are you running today?
+
+Mark: Primarily Google Ads and LinkedIn. We spend about $45K a month combined. Google is probably 60% of that, LinkedIn the rest. We also do some content marketing and SEO but that's separate from the paid budget.
+
+Sarah: And how's performance looking across those channels?
+
+Mark: Google is actually decent for bottom-funnel stuff — branded search converts well, and some of our competitor keywords do okay. But LinkedIn has been a money pit honestly. We've been running lead gen forms and the volume is there but the quality is terrible. Our sales team is spending half their time qualifying leads that go nowhere. Last quarter we generated 800 leads from LinkedIn and only 12 turned into actual pipeline. That's a 1.5% conversion rate which is just brutal.
+
+Sarah: Wow, 1.5% is rough. What about the Google side — any specific campaigns that are underperforming?
+
+Mark: Yeah, our non-branded search campaigns have gotten really expensive. We're competing with Monday.com, Asana, ClickUp — they're all outbidding us on the generic terms. Our CPC for "project management software" is like $28 now. And the thing is, we can't track ROAS properly because our sales cycle is 60 to 90 days. By the time a lead closes, we've lost attribution.
+
+Sarah: That attribution gap is something we hear a lot. What tools are you using for tracking?
+
+Mark: We have HubSpot for CRM, Google Analytics obviously, and we tried setting up some UTM tracking but it's inconsistent. We looked at a tool called Dreamdata for B2B attribution but the pricing was $2K a month and we couldn't justify it without knowing if it would actually solve the problem.
+
+Sarah: Makes sense. So if I'm hearing you right, the core pain points are: rising CAC, LinkedIn lead quality, attribution gaps, and competitive pressure on search terms?
+
+Mark: Exactly. And honestly, the board is breathing down my neck. We have a board meeting in six weeks and they want to see a plan for getting CAC back under $400. Right now we're at about $620.
+
+Sarah: What would success look like for you in the next quarter?
+
+Mark: If we could get to 50 qualified demos per month from paid channels, at a CAC under $450, I'd be thrilled. Right now we're at about 30 demos but half of those aren't actually qualified. So really we're at maybe 15 good demos a month from paid.
+
+Sarah: Got it. And budget-wise, are you looking to increase spend or optimize within the current $45K?
+
+Mark: The board approved up to $60K per month if we can show a clear plan with projected returns. But I'm not going to increase budget until I'm confident the money isn't going to waste. We already burned through $50K on a Facebook campaign that generated nothing but junk leads.
+
+Sarah: I appreciate the honesty. What made you look at us specifically?
+
+Mark: A friend at TechCorp mentioned you helped them cut their CAC by 40% in about three months. And honestly, I've been frustrated with our current agency. They just keep telling us to increase budget without any strategic thinking. They don't understand B2B at all — they're treating us like an e-commerce brand.
+
+Sarah: That's a really common frustration. B2B paid media is a completely different animal. Can I ask — when would you ideally want to get started? I know you mentioned the board meeting.
+
+Mark: Yesterday, honestly. If we could have a strategy locked in within the next two weeks and start executing in week three, that would be ideal. The board meeting is April 28th and I want to show early results or at least a clear direction.
+
+Sarah: We can definitely work with that timeline. One more question — who else is involved in the decision? Is this something you can greenlight or do we need buy-in from others?
+
+Mark: I have budget authority up to $60K monthly. For the agency contract itself, I'd want my CEO to do a quick sign-off but she trusts my judgment on marketing vendors. It's more of a formality. I'd say we could have a decision within a week of seeing your proposal.
+
+Sarah: Perfect. I'll put together a tailored strategy doc this week. Before I do — any competitors you're particularly worried about right now?
+
+Mark: Monday.com is eating our lunch on brand awareness. They're everywhere — YouTube, podcasts, billboards even. We can't compete with their budget but we need to be smarter. ClickUp is the other one, they're aggressive on Google Ads and their free tier is pulling away our small business leads. Asana is there but they seem to be going more enterprise, so less direct overlap.
+
+Sarah: That's super helpful context. And one last thing — are there any internal resources we should know about? Content library, customer testimonials, case studies?
+
+Mark: We have about 15 case studies, a bunch of webinar recordings, and our content team publishes two blog posts a week. Oh, and we just finished a customer survey with an NPS of 72, which is apparently great for our space. We've got the proof points, we just need to get them in front of the right people.
+
+Sarah: That's actually a strong foundation. Alright Mark, I think I have everything I need. I'll send over the proposal by Thursday. Thanks for being so open about where things stand — it really helps us build something that'll actually work.
+
+Mark: Sounds great. Looking forward to it. And honestly, the sooner the better — I'm tired of throwing money at things that don't work.
