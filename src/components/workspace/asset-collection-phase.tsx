@@ -31,7 +31,7 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchedRef = useRef(false);
   // Track latest values for flush-save (avoids stale closure)
   const latestRef = useRef({ styleRefs, proofPoints, brandVoice });
@@ -110,7 +110,7 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
     points: ProofPoint[],
     voice: BrandVoiceNotes | null,
   ) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current !== null) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => { void persistAssets(refs, points, voice); }, 500);
   }, [persistAssets]);
 
@@ -135,7 +135,7 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
     // Cancel pending debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
-      debounceRef.current = undefined;
+      debounceRef.current = null;
     }
     setGenerating(true);
     // Use latest ref values to avoid stale closure

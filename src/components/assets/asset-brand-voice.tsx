@@ -16,7 +16,7 @@ const DEFAULT: BrandVoiceNotes = { tone: '', constraints: '', goodExample: '', b
 
 export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoiceProps) {
   const [notes, setNotes] = useState<BrandVoiceNotes>(value ?? DEFAULT);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (value) setNotes(value);
@@ -29,7 +29,7 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
       const updated = { ...notes, [field]: trimmed };
       setNotes(updated);
 
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current !== null) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => onChange(updated), 500);
     },
     [notes, onChange],
