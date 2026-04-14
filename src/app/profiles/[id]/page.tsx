@@ -201,6 +201,7 @@ export default function ProfileDetailPage() {
                 profileId={profile.id}
                 initialRefs={profile.styleReferences}
                 initialProofPoints={profile.proofPoints}
+                initialBrandVoice={profile.brandVoiceNotes}
               />
             )}
           </div>
