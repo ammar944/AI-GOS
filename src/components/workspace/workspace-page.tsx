@@ -19,6 +19,7 @@ import { useSessionShare } from '@/hooks/use-session-share';
 import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
+import { AssetCollectionPhase } from './asset-collection-phase';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -225,6 +226,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
   const [scriptsGenerating, setScriptsGenerating] = useState(false);
   const [autoGenerateScripts, setAutoGenerateScripts] = useState(false);
+  const [showAssetCollection, setShowAssetCollection] = useState(false);
 
   // Resizable chat panel
   const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_W);
@@ -348,11 +350,20 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     setMediaPlanGenerating(false);
   }, [activeRunId, mediaPlanGenerating, setSectionPhase, navigateToSection, buildSectionContext, state.sectionStates.crossAnalysis]);
 
+  const handleNavigateToAssets = useCallback(() => {
+    if (state.sectionStates.mediaPlan === 'review') {
+      setSectionPhase('mediaPlan', 'approved');
+    }
+    setShowAssetCollection(true);
+  }, [setSectionPhase, state.sectionStates.mediaPlan]);
+
   const handleNavigateToScripts = useCallback(() => {
     // Approve mediaPlan if still in review
     if (state.sectionStates.mediaPlan === 'review') {
       setSectionPhase('mediaPlan', 'approved');
     }
+    // Clear asset collection if it was showing
+    setShowAssetCollection(false);
     // Transition scripts out of 'queued' so the tab appears and navigation is allowed
     setSectionPhase('scripts', 'review');
     setAutoGenerateScripts(true);
@@ -365,7 +376,15 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
       <WorkspaceNavBar />
       <div className="flex flex-1 min-h-0">
-        {state.currentSection === 'scripts' ? (
+        {showAssetCollection && state.currentSection !== 'scripts' ? (
+          <div className="flex flex-1 flex-col min-h-0">
+            <AssetCollectionPhase
+              runId={activeRunId ?? ''}
+              onGenerateScripts={handleNavigateToScripts}
+              onSkip={handleNavigateToScripts}
+            />
+          </div>
+        ) : state.currentSection === 'scripts' ? (
           <div className="flex flex-1 flex-col min-h-0 overflow-y-auto custom-scrollbar">
             <ScriptsPhaseContent
               activeRunId={activeRunId ?? null}
@@ -380,6 +399,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
             mediaPlanGenerating={mediaPlanGenerating}
             onRetrySection={handleRetrySection}
             onNavigateToScripts={handleNavigateToScripts}
+            onNavigateToAssets={handleNavigateToAssets}
           />
         )}
         {(() => {

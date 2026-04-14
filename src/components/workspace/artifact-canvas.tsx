@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { RESEARCH_SECTIONS, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
@@ -41,9 +42,10 @@ interface ArtifactCanvasProps {
   mediaPlanGenerating?: boolean;
   onRetrySection?: (section: SectionKey) => void;
   onNavigateToScripts?: () => void;
+  onNavigateToAssets?: () => void;
 }
 
-export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection, onNavigateToScripts }: ArtifactCanvasProps) {
+export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGenerating, onRetrySection, onNavigateToScripts, onNavigateToAssets }: ArtifactCanvasProps) {
   const { state, approveSection } = useWorkspace();
   const phase = state.sectionStates[state.currentSection];
   const isReviewable = phase === 'review';
@@ -260,14 +262,37 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
               )}
 
               {/* Scripts CTA — shown on any tab when media plan is complete and scripts not yet started */}
-              {mediaPlanComplete && !scriptsActive && state.currentSection !== 'scripts' && onNavigateToScripts && (
-                <PhaseTransitionCard
-                  tag="Next Phase"
-                  title="Generate your ad scripts"
-                  description="15 scripts across 5 awareness levels, grounded in your research and media plan."
-                  actionLabel="Generate Scripts"
-                  onAction={onNavigateToScripts}
-                />
+              {mediaPlanComplete && !scriptsActive && state.currentSection !== 'scripts' && (
+                <div className={cn(
+                  'rounded-lg border-l-2 border-l-[var(--accent-blue)]',
+                  'border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5',
+                )}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[1.5px] text-[var(--accent-blue)] font-mono mb-1">Next Phase</div>
+                      <div className="text-sm font-medium text-[var(--text-primary)]">Enhance & generate your ad scripts</div>
+                      <div className="text-xs text-[var(--text-secondary)] mt-1">Add reference ads, proof points, and voice guidelines — or skip straight to generation.</div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0 ml-4">
+                      {onNavigateToAssets && (
+                        <button
+                          onClick={onNavigateToAssets}
+                          className="px-4 py-2 rounded-md text-sm font-medium bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity"
+                        >
+                          Add Assets
+                        </button>
+                      )}
+                      {onNavigateToScripts && (
+                        <button
+                          onClick={onNavigateToScripts}
+                          className="px-4 py-2 rounded-md text-sm text-[var(--text-muted)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          Skip to Scripts
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Cards — shown for review, approved, or browsing */}
