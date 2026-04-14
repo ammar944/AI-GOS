@@ -9,6 +9,9 @@ import { anthropic, MODELS } from '@/lib/ai/providers';
 import { documentExtractionSchema } from '@/lib/company-intel/document-extraction-schema';
 import { parseDocument } from '@/lib/company-intel/document-parser';
 import { DOCUMENT_TYPE_CONFIG, type DocumentType } from '@/lib/company-intel/document-types';
+import { createAdminClient } from '@/lib/supabase/server';
+
+const BUCKET = 'document-uploads';
 
 export const maxDuration = 120;
 
@@ -56,6 +59,7 @@ export async function POST(request: Request) {
     fileName?: string;
     mimeType?: string;
     fileBase64?: string;
+    storagePath?: string;
     documentType?: string;
   };
   try {
@@ -69,12 +73,12 @@ export async function POST(request: Request) {
     });
   }
 
-  const { fileName, mimeType, fileBase64, documentType } = body;
+  const { fileName, mimeType, fileBase64, storagePath, documentType } = body;
 
   // Validate required fields
-  if (!fileName || !mimeType || !fileBase64 || !documentType) {
+  if (!fileName || !mimeType || (!fileBase64 && !storagePath) || !documentType) {
     return new Response(
-      JSON.stringify({ error: 'Missing required fields: fileName, mimeType, fileBase64, documentType' }),
+      JSON.stringify({ error: 'Missing required fields: fileName, mimeType, fileBase64 or storagePath, documentType' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } },
     );
   }
@@ -92,28 +96,66 @@ export async function POST(request: Request) {
   // Normalize non-standard MIME variants (e.g., text/x-markdown → text/markdown)
   const normalizedMimeType = mimeType === 'text/x-markdown' ? 'text/markdown' : mimeType;
 
-  // Validate MIME type
-  if (!config.acceptedMimeTypes.includes(normalizedMimeType)) {
+  // Validate MIME type (allow octet-stream since browsers report it for .docx)
+  if (!config.acceptedMimeTypes.includes(normalizedMimeType) && normalizedMimeType !== 'application/octet-stream') {
     return new Response(
       JSON.stringify({ error: `Unsupported file type: ${mimeType}. Accepted: ${config.acceptedExtensions.join(', ')}` }),
       { status: 400, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
-  // Validate file size (base64 is ~33% larger than binary)
-  const estimatedBytes = fileBase64.length * 0.75;
-  if (estimatedBytes > config.maxFileSizeBytes) {
-    const maxMB = (config.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
-    return new Response(
-      JSON.stringify({ error: `File too large. Maximum size: ${maxMB}MB` }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
+  // Resolve base64 — either from payload directly or by downloading from storage
+  let resolvedBase64: string;
+
+  if (storagePath) {
+    try {
+      const supabase = createAdminClient();
+      const { data: blob, error: dlError } = await supabase.storage
+        .from(BUCKET)
+        .download(storagePath);
+      if (dlError || !blob) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to download file from storage' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      const arrayBuffer = await blob.arrayBuffer();
+      if (arrayBuffer.byteLength > config.maxFileSizeBytes) {
+        const maxMB = (config.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
+        return new Response(
+          JSON.stringify({ error: `File too large. Maximum size: ${maxMB}MB` }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      resolvedBase64 = Buffer.from(arrayBuffer).toString('base64');
+
+      // Clean up storage after reading
+      supabase.storage.from(BUCKET).remove([storagePath]).catch((err) => {
+        console.warn(`[extract-document] Storage cleanup failed for ${storagePath}:`, err);
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Storage download failed';
+      return new Response(
+        JSON.stringify({ error: msg }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+  } else {
+    resolvedBase64 = fileBase64!;
+    const estimatedBytes = resolvedBase64.length * 0.75;
+    if (estimatedBytes > config.maxFileSizeBytes) {
+      const maxMB = (config.maxFileSizeBytes / (1024 * 1024)).toFixed(0);
+      return new Response(
+        JSON.stringify({ error: `File too large. Maximum size: ${maxMB}MB` }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
   }
 
   // Parse the document
   let parsed;
   try {
-    parsed = await parseDocument(fileBase64, fileName, normalizedMimeType);
+    parsed = await parseDocument(resolvedBase64, fileName, normalizedMimeType);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to parse document';
     return new Response(

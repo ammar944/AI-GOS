@@ -22,7 +22,7 @@ export const DOCUMENT_TYPE_CONFIG: Record<DocumentType, DocumentTypeConfig> = {
       'text/markdown',
     ],
     acceptedExtensions: ['.pdf', '.docx', '.txt', '.md'],
-    maxFileSizeBytes: 3 * 1024 * 1024, // 3MB (stays under Vercel 4.5MB after base64)
+    maxFileSizeBytes: 10 * 1024 * 1024, // 10MB — docx/pdf embed images; parsers extract text only
   },
   client_briefing: {
     label: 'Client Briefing Sheet',
@@ -34,7 +34,7 @@ export const DOCUMENT_TYPE_CONFIG: Record<DocumentType, DocumentTypeConfig> = {
       'text/markdown',
     ],
     acceptedExtensions: ['.pdf', '.docx', '.txt', '.md'],
-    maxFileSizeBytes: 3 * 1024 * 1024,
+    maxFileSizeBytes: 10 * 1024 * 1024,
   },
 };
 

@@ -93,7 +93,7 @@ function parsePricingTiers(str: string | null | undefined): PricingTier[] {
 
 export interface UseDocumentExtractionReturn {
   partialResult: DeepPartial<DocumentExtractionOutput> | undefined;
-  submit: (data: { fileName: string; mimeType: string; fileBase64: string; documentType: DocumentType }) => void;
+  submit: (data: { fileName: string; mimeType: string; fileBase64?: string; storagePath?: string; documentType: DocumentType }) => void;
   isLoading: boolean;
   error: Error | undefined;
   stop: () => void;
@@ -154,12 +154,12 @@ export function useDocumentExtraction(): UseDocumentExtractionReturn {
   // ---- submit wrapper -----------------------------------------------------
 
   const submit = useCallback(
-    (data: { fileName: string; mimeType: string; fileBase64: string; documentType: DocumentType }) => {
+    (data: { fileName: string; mimeType: string; fileBase64?: string; storagePath?: string; documentType: DocumentType }) => {
       console.log('[useDocumentExtraction] Submitting:', {
         fileName: data.fileName,
         mimeType: data.mimeType,
         documentType: data.documentType,
-        base64Length: data.fileBase64.length,
+        ...(data.storagePath ? { storagePath: data.storagePath } : { base64Length: data.fileBase64?.length }),
       });
       submitObject(data);
     },

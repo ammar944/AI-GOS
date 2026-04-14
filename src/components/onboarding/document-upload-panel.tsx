@@ -164,14 +164,17 @@ function getFileExtBadge(name: string): string {
 }
 
 function inferMimeType(file: File): string {
-  if (file.type) return file.type;
   const ext = file.name.split('.').pop()?.toLowerCase();
   const map: Record<string, string> = {
     pdf: 'application/pdf',
     docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    doc: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     txt: 'text/plain',
     md: 'text/markdown',
   };
+  // Prefer extension-based lookup — browsers often report .docx as application/octet-stream
+  if (ext && map[ext]) return map[ext];
+  if (file.type && file.type !== 'application/octet-stream') return file.type;
   return map[ext ?? ''] ?? 'application/octet-stream';
 }
 
@@ -615,7 +618,8 @@ export function DocumentUploadPanel({ onPrefillComplete }: DocumentUploadPanelPr
       return;
     }
 
-    if (!config.acceptedMimeTypes.includes(file.type) && file.type !== '') {
+    const mime = inferMimeType(file);
+    if (!config.acceptedMimeTypes.includes(mime)) {
       setValidationError(`Unsupported file type. Accepted: ${config.acceptedExtensions.join(', ')}`);
       return;
     }
@@ -626,31 +630,52 @@ export function DocumentUploadPanel({ onPrefillComplete }: DocumentUploadPanelPr
 
   // ---- Start extraction ---------------------------------------------------
 
-  const handleExtract = useCallback(() => {
+  const handleExtract = useCallback(async () => {
     if (!selectedFile || !activeDocType) return;
     setValidationError(null);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1];
-      if (!base64) {
-        setValidationError("Failed to read file");
+    const mimeType = inferMimeType(selectedFile);
+
+    try {
+      // 1. Get signed upload URL
+      const urlRes = await fetch('/api/documents/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: selectedFile.name, mimeType, fileSize: selectedFile.size }),
+      });
+      if (!urlRes.ok) {
+        const err = await urlRes.json().catch(() => ({ error: 'Failed to get upload URL' }));
+        setValidationError(err.error ?? 'Failed to prepare upload');
+        return;
+      }
+      const { signedUrl, storagePath } = await urlRes.json() as {
+        signedUrl: string;
+        token: string;
+        storagePath: string;
+      };
+
+      // 2. Upload directly to Supabase Storage (bypasses Vercel body limit)
+      const uploadRes = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': mimeType, 'x-upsert': 'true' },
+        body: selectedFile,
+      });
+      if (!uploadRes.ok) {
+        setValidationError(`Storage upload failed (${uploadRes.status})`);
         return;
       }
 
+      // 3. Start extraction with storage path (no base64 in request body)
       setPanelState("extracting");
       submit({
         fileName: selectedFile.name,
-        mimeType: inferMimeType(selectedFile),
-        fileBase64: base64,
+        mimeType,
+        storagePath,
         documentType: activeDocType,
       });
-    };
-    reader.onerror = () => {
-      setValidationError("Failed to read file");
-    };
-    reader.readAsDataURL(selectedFile);
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : 'Upload failed');
+    }
   }, [selectedFile, activeDocType, submit]);
 
   // ---- Stop extraction ----------------------------------------------------

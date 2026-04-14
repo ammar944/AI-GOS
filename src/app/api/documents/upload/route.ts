@@ -16,11 +16,14 @@ import { createAdminClient } from '@/lib/supabase/server';
 export const maxDuration = 60;
 
 const MAX_FILES_PER_REQUEST = 10;
-const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024; // 3MB per file (base64 is ~33% larger)
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB per file (docx/pdf embed images; mammoth/pdf-parse extract text only)
 const MAX_TOTAL_TOKENS = 50_000;
 
+const BUCKET = 'document-uploads';
+
 interface FileInput {
-  fileBase64: string;
+  fileBase64?: string;
+  storagePath?: string;
   fileName: string;
   mimeType: string;
 }
@@ -68,10 +71,10 @@ export async function POST(request: Request) {
   let totalTokens = 0;
 
   for (const file of files) {
-    const { fileBase64, fileName, mimeType } = file;
+    const { fileBase64, storagePath, fileName, mimeType } = file;
 
     // Validate required fields
-    if (!fileBase64 || !fileName || !mimeType) {
+    if ((!fileBase64 && !storagePath) || !fileName || !mimeType) {
       errors.push(`${fileName ?? 'unknown'}: missing required fields`);
       continue;
     }
@@ -80,23 +83,56 @@ export async function POST(request: Request) {
     const normalizedMime =
       mimeType === 'text/x-markdown' ? 'text/markdown' : mimeType;
 
-    // Validate MIME type
-    if (!ACCEPTED_MIME_TYPES.includes(normalizedMime)) {
+    // Validate MIME type (allow octet-stream since browsers report it for .docx)
+    if (!ACCEPTED_MIME_TYPES.includes(normalizedMime) && normalizedMime !== 'application/octet-stream') {
       errors.push(`${fileName}: unsupported file type ${mimeType}`);
       continue;
     }
 
-    // Validate file size (base64 is ~33% larger than binary)
-    const estimatedBytes = fileBase64.length * 0.75;
-    if (estimatedBytes > MAX_FILE_SIZE_BYTES) {
-      errors.push(`${fileName}: exceeds 3MB limit`);
-      continue;
+    // Resolve base64 — either from payload directly or by downloading from storage
+    let resolvedBase64: string;
+    let estimatedBytes: number;
+
+    if (storagePath) {
+      // Download from Supabase Storage (bypasses Vercel body limit)
+      try {
+        const { data: blob, error: dlError } = await supabase.storage
+          .from(BUCKET)
+          .download(storagePath);
+        if (dlError || !blob) {
+          errors.push(`${fileName}: failed to download from storage`);
+          continue;
+        }
+        const arrayBuffer = await blob.arrayBuffer();
+        estimatedBytes = arrayBuffer.byteLength;
+        if (estimatedBytes > MAX_FILE_SIZE_BYTES) {
+          errors.push(`${fileName}: exceeds 10MB limit`);
+          continue;
+        }
+        resolvedBase64 = Buffer.from(arrayBuffer).toString('base64');
+
+        // Clean up storage — we only need the parsed text
+        supabase.storage.from(BUCKET).remove([storagePath]).catch((err) => {
+          console.warn(`[documents/upload] Storage cleanup failed for ${storagePath}:`, err);
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Storage download failed';
+        errors.push(`${fileName}: ${msg}`);
+        continue;
+      }
+    } else {
+      resolvedBase64 = fileBase64!;
+      estimatedBytes = resolvedBase64.length * 0.75;
+      if (estimatedBytes > MAX_FILE_SIZE_BYTES) {
+        errors.push(`${fileName}: exceeds 10MB limit`);
+        continue;
+      }
     }
 
     // Parse document to markdown
     let parsed;
     try {
-      parsed = await parseDocument(fileBase64, fileName, normalizedMime);
+      parsed = await parseDocument(resolvedBase64, fileName, normalizedMime);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Parse failed';
       errors.push(`${fileName}: ${msg}`);
