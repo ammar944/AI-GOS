@@ -21,8 +21,11 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
 
   const tabBarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (tabBarRef.current) {
-      tabBarRef.current.scrollLeft = 0;
+    if (!tabBarRef.current) return;
+    // Scroll the active tab into view instead of resetting to 0
+    const activeTab = tabBarRef.current.querySelector('[data-active="true"]');
+    if (activeTab) {
+      activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
   }, [currentSection]);
 
@@ -63,6 +66,7 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
           <button
             key={section}
             type="button"
+            data-active={isActive}
             onClick={() => !isQueued && onNavigate(section)}
             disabled={isQueued}
             className={cn(

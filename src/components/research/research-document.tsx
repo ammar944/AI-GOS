@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Printer, Copy, Check, Share2, Loader2, Link2 } from 'lucide-react';
 import Link from 'next/link';
 import { SectionTabs } from '@/components/workspace/section-tabs';
 import { SectionHeader } from '@/components/workspace/section-header';
 import { CardRenderer } from '@/components/research/card-renderer';
+import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
 import { CardGrid } from '@/components/workspace/card-grid';
 import { CompetitorTabs } from '@/components/workspace/competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
 import { MediaPlanButton } from '@/components/research/media-plan-button';
+import { ScriptsPhaseContent } from '@/components/workspace/scripts-phase';
 import { useSessionShare } from '@/hooks/use-session-share';
 
 interface ResearchDocumentProps {
@@ -37,15 +39,56 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
   const [currentSection, setCurrentSection] = useState<SectionKey>(
     availableSections[0] ?? 'industryMarket',
   );
+  const [scriptsTabActive, setScriptsTabActive] = useState(false);
+  const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
+  const [mediaPlanCards, setMediaPlanCards] = useState<CardState[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll for media plan results after dispatch
+  useEffect(() => {
+    if (!mediaPlanGenerating || !runId) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/journey/session?runId=${runId}`, { credentials: 'same-origin' });
+        if (!res.ok) return;
+        const json = await res.json();
+        const mp = json?.researchResults?.mediaPlan as { status?: string; data?: Record<string, unknown> } | undefined;
+        if (mp?.status === 'complete' && mp.data) {
+          const cards = parseResearchToCards('mediaPlan', mp.data);
+          setMediaPlanCards(cards);
+          setMediaPlanGenerating(false);
+        }
+      } catch { /* retry next interval */ }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [mediaPlanGenerating, runId]);
+
+  // Merge dynamic media plan cards into cardsBySection
+  const allCards = useMemo(() => {
+    if (mediaPlanCards.length === 0) return cardsBySection;
+    return { ...cardsBySection, mediaPlan: mediaPlanCards };
+  }, [cardsBySection, mediaPlanCards]);
+
+  // Add dynamic tabs to visible sections
+  const visibleSections = useMemo(() => {
+    const sections = [...availableSections];
+    if ((mediaPlanGenerating || mediaPlanCards.length > 0) && !sections.includes('mediaPlan')) {
+      sections.push('mediaPlan');
+    }
+    if (scriptsTabActive && !sections.includes('scripts')) {
+      sections.push('scripts');
+    }
+    return sections;
+  }, [availableSections, mediaPlanGenerating, mediaPlanCards, scriptsTabActive]);
 
   const sectionCards = useMemo(
-    () => cardsBySection[currentSection] ?? [],
-    [cardsBySection, currentSection],
+    () => allCards[currentSection] ?? [],
+    [allCards, currentSection],
   );
 
   const totalCards = useMemo(
-    () => Object.values(cardsBySection).reduce((sum, cards) => sum + cards.length, 0),
-    [cardsBySection],
+    () => Object.values(allCards).reduce((sum, cards) => sum + cards.length, 0),
+    [allCards],
   );
 
   const [copied, setCopied] = useState(false);
@@ -96,7 +139,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
         </Link>
         <div className="flex-1 overflow-hidden">
           <SectionTabs
-            sections={availableSections}
+            sections={visibleSections}
             currentSection={currentSection}
             onNavigate={setCurrentSection}
             mode="document"
@@ -164,8 +207,27 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               <span>{totalCards} insights</span>
             </div>
             {sessionId && (
-              <div className="mt-4">
-                <MediaPlanButton sessionId={sessionId} hasMediaPlan={hasMediaPlan ?? false} />
+              <div className="mt-4 flex items-center gap-3">
+                <MediaPlanButton
+                  sessionId={sessionId}
+                  hasMediaPlan={hasMediaPlan ?? false}
+                  onDispatched={() => {
+                    setMediaPlanGenerating(true);
+                    setCurrentSection('mediaPlan');
+                  }}
+                />
+                {(hasMediaPlan || mediaPlanCards.length > 0) && runId && !scriptsTabActive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScriptsTabActive(true);
+                      setCurrentSection('scripts');
+                    }}
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-full text-[13px] font-semibold px-5 h-9 transition-all bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple,#8b5cf6)] text-white hover:opacity-90"
+                  >
+                    Generate Scripts
+                  </button>
+                )}
               </div>
             )}
             <div className="h-px bg-gradient-to-r from-[var(--accent-blue)]/20 to-transparent mt-4" />
@@ -173,33 +235,44 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
 
           {/* Interactive section content (screen only) */}
           <div className="no-print">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentSection}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <SectionHeader section={currentSection} mode="document" />
+            {currentSection === 'scripts' && runId ? (
+              <ScriptsPhaseContent activeRunId={runId} autoGenerate />
+            ) : currentSection === 'mediaPlan' && mediaPlanGenerating && sectionCards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-blue)]" />
+                <p className="text-sm text-[var(--text-tertiary)] font-mono">
+                  Generating media plan...
+                </p>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSection}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <SectionHeader section={currentSection} mode="document" />
 
-                {sectionCards.length > 0 && currentSection === 'competitors' ? (
-                  <CompetitorTabs cards={sectionCards} />
-                ) : sectionCards.length > 0 ? (
-                  <CardGrid>
-                    {sectionCards.map((card, i) => (
-                      <CardRenderer key={card.id} card={card} mode="document" index={i} />
-                    ))}
-                  </CardGrid>
-                ) : (
-                  <div className="flex items-center justify-center min-h-[300px]">
-                    <p className="text-sm text-[var(--text-tertiary)] font-mono">
-                      Research not completed for this section
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
+                  {sectionCards.length > 0 && currentSection === 'competitors' ? (
+                    <CompetitorTabs cards={sectionCards} />
+                  ) : sectionCards.length > 0 ? (
+                    <CardGrid>
+                      {sectionCards.map((card, i) => (
+                        <CardRenderer key={card.id} card={card} mode="document" index={i} />
+                      ))}
+                    </CardGrid>
+                  ) : (
+                    <div className="flex items-center justify-center min-h-[300px]">
+                      <p className="text-sm text-[var(--text-tertiary)] font-mono">
+                        Research not completed for this section
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            )}
           </div>
 
           {/* Print-only: all sections rendered sequentially */}

@@ -250,6 +250,26 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                   </div>
                 )}
 
+              {/* Media plan CTA — shown when all 6 research sections complete and media plan not yet started */}
+              {allResearchComplete && !mediaPlanActive && state.currentSection !== 'mediaPlan' && onGenerateMediaPlan && (
+                <MediaPlanCta
+                  sectionStates={state.sectionStates}
+                  onGenerateMediaPlan={onGenerateMediaPlan}
+                  mediaPlanGenerating={mediaPlanGenerating}
+                />
+              )}
+
+              {/* Scripts CTA — shown on any tab when media plan is complete and scripts not yet started */}
+              {mediaPlanComplete && !scriptsActive && state.currentSection !== 'scripts' && onNavigateToScripts && (
+                <PhaseTransitionCard
+                  tag="Next Phase"
+                  title="Generate your ad scripts"
+                  description="15 scripts across 5 awareness levels, grounded in your research and media plan."
+                  actionLabel="Generate Scripts"
+                  onAction={onNavigateToScripts}
+                />
+              )}
+
               {/* Cards — shown for review, approved, or browsing */}
               {showCards && sectionCards.length > 0 && state.currentSection === 'competitors' && (
                 <CompetitorTabs cards={sectionCards} mode="workspace" />
@@ -303,25 +323,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 </div>
               )}
 
-              {/* Media plan CTA — shown when all 6 research sections complete and media plan not yet started */}
-              {allResearchComplete && !mediaPlanActive && state.currentSection !== 'mediaPlan' && onGenerateMediaPlan && (
-                <MediaPlanCta
-                  sectionStates={state.sectionStates}
-                  onGenerateMediaPlan={onGenerateMediaPlan}
-                  mediaPlanGenerating={mediaPlanGenerating}
-                />
-              )}
-
-              {/* Scripts CTA — shown on mediaPlan tab when media plan is complete and scripts not yet started */}
-              {mediaPlanComplete && !scriptsActive && state.currentSection === 'mediaPlan' && onNavigateToScripts && (
-                <PhaseTransitionCard
-                  tag="Next Phase"
-                  title="Generate your ad scripts"
-                  description="15 scripts across 5 awareness levels, grounded in your research and media plan."
-                  actionLabel="Generate Scripts"
-                  onAction={onNavigateToScripts}
-                />
-              )}
             </motion.div>
           )}
         </AnimatePresence>

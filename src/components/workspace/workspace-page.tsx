@@ -30,8 +30,10 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
   const { setSectionPhase, setCards, updateCard } = useWorkspace();
   const renderedMediaPlanBlocksRef = useRef<Set<string>>(new Set());
 
-  // One-time fetch of persisted card edits from Supabase (cold-start / cross-device recovery).
-  // Stored under research_results[section].__cardEdits by POST /api/journey/card-edit.
+  // One-time fetch of persisted data from Supabase (cold-start / cross-device recovery).
+  // 1. Hydrates section states — if Supabase has complete results but localStorage is stale,
+  //    update workspace state so CTAs (media plan, scripts) appear correctly.
+  // 2. Applies persisted card edits stored under research_results[section].__cardEdits.
   const appliedEditsRef = useRef(false);
   useEffect(() => {
     if (!activeRunId || appliedEditsRef.current) return;
@@ -43,6 +45,21 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
         const results = json?.researchResults as Record<string, unknown> | null;
         if (!results) return;
 
+        // Hydrate section states + cards from Supabase for any section that has
+        // complete data but whose workspace state is behind (queued/researching).
+        for (const key of SECTION_PIPELINE) {
+          const entry = results[key] as Record<string, unknown> | undefined;
+          if (!entry || entry.status !== 'complete' || !entry.data) continue;
+
+          const data = entry.data as Record<string, unknown>;
+          const cards = parseResearchToCards(key, data);
+          if (cards.length > 0) {
+            setCards(key, cards);
+            setSectionPhase(key, 'review');
+          }
+        }
+
+        // Apply persisted card edits
         for (const [, sectionResult] of Object.entries(results)) {
           const sr = sectionResult as Record<string, unknown> | null;
           const edits = sr?.__cardEdits as Record<string, Record<string, unknown>> | undefined;
@@ -54,7 +71,7 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
         }
       })
       .catch(() => { /* best-effort */ });
-  }, [activeRunId, updateCard]);
+  }, [activeRunId, updateCard, setCards, setSectionPhase]);
 
   const onSectionComplete = useCallback(
     (section: string, result: ResearchSectionResult) => {
@@ -322,10 +339,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     if (state.sectionStates.crossAnalysis === 'review') {
       setSectionPhase('crossAnalysis', 'approved');
     }
-    // Use requestAnimationFrame to ensure the state flush happens before navigation.
-    // The navigation guard in workspace-provider blocks navigation to 'queued' sections,
-    // and setState is async — stateRef.current still reflects 'queued' synchronously.
-    requestAnimationFrame(() => navigateToSection('mediaPlan'));
+    navigateToSection('mediaPlan');
 
     const result = await dispatchResearchSection('mediaPlan', activeRunId, context);
     if (result.status === 'error') {
@@ -342,7 +356,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     // Transition scripts out of 'queued' so the tab appears and navigation is allowed
     setSectionPhase('scripts', 'review');
     setAutoGenerateScripts(true);
-    requestAnimationFrame(() => navigateToSection('scripts'));
+    navigateToSection('scripts');
   }, [setSectionPhase, navigateToSection, state.sectionStates.mediaPlan]);
 
   return (

@@ -184,12 +184,11 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
   }, []);
 
   const navigateToSection = useCallback((section: SectionKey) => {
-    const currentStates = stateRef.current.sectionStates;
-    if (currentStates[section] === 'queued') return; // guard: can't navigate to queued sections
-    setState((prev) => ({
-      ...prev,
-      currentSection: section,
-    }));
+    setState((prev) => {
+      // Guard inside updater so it reads state AFTER prior setSectionPhase calls
+      if (prev.sectionStates[section] === 'queued') return prev;
+      return { ...prev, currentSection: section };
+    });
   }, []);
 
   const actions: WorkspaceActions = {

@@ -7,9 +7,10 @@ import { dispatchMediaPlanForSession } from '@/lib/actions/journey-sessions';
 interface MediaPlanButtonProps {
   sessionId: string;
   hasMediaPlan: boolean;
+  onDispatched?: () => void;
 }
 
-export function MediaPlanButton({ sessionId, hasMediaPlan }: MediaPlanButtonProps) {
+export function MediaPlanButton({ sessionId, hasMediaPlan, onDispatched }: MediaPlanButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dispatched, setDispatched] = useState(false);
@@ -38,6 +39,7 @@ export function MediaPlanButton({ sessionId, hasMediaPlan }: MediaPlanButtonProp
       const result = await dispatchMediaPlanForSession(sessionId);
       if (result.success) {
         setDispatched(true);
+        onDispatched?.();
       } else {
         setError(result.error ?? 'Failed to generate media plan');
       }
