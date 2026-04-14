@@ -28,6 +28,12 @@ export interface PipelineInput {
   researchContext: Record<string, unknown>;
   styleReferences: Array<{ name: string; content: string; source: string }>;
   targetAudience: string;
+  brandVoiceNotes?: {
+    tone: string;
+    constraints: string;
+    goodExample: string;
+    badExample: string;
+  } | null;
   proofPoints?: Array<{
     id: string;
     type: string;
@@ -133,6 +139,10 @@ export async function runScriptPipeline(
     ? input.styleReferences.map((r) => `### ${r.name} (${r.source})\n${r.content}`).join('\n\n')
     : null;
 
+  const brandVoiceText = input.brandVoiceNotes && (input.brandVoiceNotes.tone || input.brandVoiceNotes.constraints)
+    ? input.brandVoiceNotes
+    : null;
+
   const platformSpecs = loadRefFile('platform-specs.md');
   const adCopyTemplates = loadRefFile('ad-copy-templates.md');
 
@@ -193,6 +203,7 @@ export async function runScriptPipeline(
         targetAudience: input.targetAudience,
         targetAudienceMonologue: audienceTriggers,
         styleReferences: styleRefText,
+        brandVoiceNotes: brandVoiceText,
         proofPoints: proofSubset,
         usedProofPoints,
         competitorAdIntel,

@@ -9,7 +9,7 @@ import {
   runResearchKeywords,
   runMediaPlan,
   resolveProductIdentity,
-  runFathomExtraction,
+  runMeetingExtraction,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
 import { runAdScripts, type AdScriptsInput } from './runners/ad-scripts';
@@ -63,7 +63,7 @@ type ToolName =
   | 'researchKeywords'
   | 'researchMediaPlan'
   | 'resolveIdentity'
-  | 'extractFathomCall';
+  | 'extractMeetingTranscript';
 
 import { renderBaselineMetricsBlock, type BaselineMetrics } from './baseline-metrics';
 
@@ -82,9 +82,9 @@ interface RunJobRequest {
    */
   baselineMetrics?: BaselineMetrics;
   /**
-   * Optional document ID for Fathom extraction. When present and tool is
-   * 'extractFathomCall', the extracted fields are written back to
-   * business_profile_documents and the fathom call status is updated.
+   * Optional document ID for meeting extraction. When present and tool is
+   * 'extractMeetingTranscript', the extracted fields are written back to
+   * business_profile_documents and the meeting status is updated.
    */
   documentId?: string;
 }
@@ -98,7 +98,7 @@ const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgre
   researchKeywords: runResearchKeywords,
   researchMediaPlan: runMediaPlan,
   resolveIdentity: resolveProductIdentity,
-  extractFathomCall: runFathomExtraction,
+  extractMeetingTranscript: runMeetingExtraction,
 };
 
 // -- Health -------------------------------------------------------------------
@@ -306,9 +306,9 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         writeDeadLetter(userId, result.section, result, String(writeError));
       }
 
-      // For Fathom extraction: write extracted fields back to business_profile_documents
-      // and update the fathom call status to 'ready'.
-      if (tool === 'extractFathomCall' && documentId && result.status === 'complete' && result.data) {
+      // For meeting extraction: write extracted fields back to business_profile_documents
+      // and update the meeting status to 'ready'.
+      if (tool === 'extractMeetingTranscript' && documentId && result.status === 'complete' && result.data) {
         try {
           const adminClient = getClient();
           await adminClient
@@ -316,15 +316,15 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
             .update({ extracted_fields: result.data })
             .eq('id', documentId);
 
-          await adminClient.rpc('update_fathom_call_status_by_document', {
+          await adminClient.rpc('update_meeting_status_by_document', {
             p_user_id: userId,
             p_run_id: runId ?? '',
             p_document_id: documentId,
             p_status: 'ready',
           });
-          console.log(`[worker] Updated extracted_fields for Fathom doc ${documentId}`);
+          console.log(`[worker] Updated extracted_fields for meeting doc ${documentId}`);
         } catch (writeBackErr) {
-          console.error(`[worker] Failed to write back Fathom extraction for doc ${documentId}:`, writeBackErr);
+          console.error(`[worker] Failed to write back meeting extraction for doc ${documentId}:`, writeBackErr);
         }
       }
       jobFinalized = true;
@@ -399,7 +399,7 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
 
 // -- Ad Scripts ---------------------------------------------------------------
 app.post('/api/scripts', requireApiKey, async (req: express.Request, res: express.Response) => {
-  const { packId, profileId, sessionId, userId, companyName, researchContext, styleReferences, proofPoints } = req.body;
+  const { packId, profileId, sessionId, userId, companyName, researchContext, styleReferences, proofPoints, brandVoiceNotes } = req.body;
 
   if (!packId || !profileId || !userId || !researchContext) {
     res.status(400).json({ error: 'Missing required fields' });
@@ -422,6 +422,7 @@ app.post('/api/scripts', requireApiKey, async (req: express.Request, res: expres
           styleReferences: styleReferences ?? [],
           targetAudience: researchContext.targetAudience ?? 'target audience',
           proofPoints: proofPoints ?? [],
+          brandVoiceNotes: brandVoiceNotes ?? null,
         };
 
         const result = await runScriptPipeline(
@@ -456,6 +457,7 @@ app.post('/api/scripts', requireApiKey, async (req: express.Request, res: expres
           styleReferences: styleReferences ?? [],
           targetAudience: researchContext.targetAudience ?? 'target audience',
           proofPoints: proofPoints ?? [],
+          brandVoiceNotes: brandVoiceNotes ?? null,
         };
 
         const result = await runAdScripts(

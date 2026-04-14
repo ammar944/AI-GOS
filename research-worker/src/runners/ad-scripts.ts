@@ -16,6 +16,7 @@ import { stripNumericConstraints } from '../utils/strip-numeric-constraints';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
 import { loadRefFile } from '../skills/loader';
+import { getStrategicPlan } from '../planning/opus-planner';
 
 const SCRIPT_MODEL = 'claude-sonnet-4-6';
 const PER_CALL_TIMEOUT_MS = 180_000;
@@ -148,6 +149,12 @@ export interface AdScriptsInput {
   styleReferences: Array<{ name: string; content: string; source: string }>;
   targetAudience: string;
   proofPoints?: ProofPoint[];
+  brandVoiceNotes?: {
+    tone: string;
+    constraints: string;
+    goodExample: string;
+    badExample: string;
+  } | null;
 }
 
 export interface AdScriptsResult {
@@ -177,6 +184,10 @@ export async function runAdScripts(
           .join('\n\n')
       : null;
 
+  const brandVoiceText = input.brandVoiceNotes && (input.brandVoiceNotes.tone || input.brandVoiceNotes.constraints)
+    ? input.brandVoiceNotes
+    : null;
+
   const contextText = JSON.stringify(input.researchContext);
 
   // Load ref files for prompt injection
@@ -205,6 +216,12 @@ export async function runAdScripts(
   const researchStats = Array.isArray(rc.researchStats)
     ? (rc.researchStats as Array<{ stat: string; source: string }>)
     : [];
+
+  // Opus planning pass — get creative strategy guidance before generating scripts
+  const strategicPlan = await getStrategicPlan(contextText, 'ad-scripts', onProgress);
+  const enrichedContextText = strategicPlan
+    ? `${contextText}\n\n## Creative Strategy Advisor Guidance\n\nThe following creative strategy was produced by a senior direct-response copywriter. Use it to guide angle distribution, hook patterns, and proof point allocation across awareness levels — but still generate unique, specific scripts.\n\n${strategicPlan}`
+    : contextText;
 
   // Track used angles/hooks across levels for dedup
   const usedAnglesAndHooks: { angle: string; hook: string }[] = [];
@@ -237,13 +254,14 @@ export async function runAdScripts(
         companyName: input.companyName,
         awarenessLevel: level,
         count: SCRIPTS_PER_LEVEL,
-        trimmedResearchContext: contextText,
+        trimmedResearchContext: enrichedContextText,
         styleReferences: styleRefText,
         targetAudience: input.targetAudience,
         targetAudienceMonologue,
         usedAnglesAndHooks,
         platformSpecs,
         adCopyTemplates,
+        brandVoiceNotes: brandVoiceText,
         proofPoints: proofSubset,
         usedProofPoints,
         competitorAdIntel,
@@ -275,9 +293,10 @@ export async function runAdScripts(
     try {
       const { system, prompt } = buildPass2Prompt({
         pass1Scripts: JSON.stringify(pass1Scripts),
-        trimmedResearchContext: contextText,
+        trimmedResearchContext: enrichedContextText,
         styleReferences: styleRefText,
         targetAudience: input.targetAudience,
+        brandVoiceNotes: brandVoiceText,
       });
 
       const result = await generateObject({
@@ -321,13 +340,14 @@ export async function runAdScripts(
           companyName: input.companyName,
           awarenessLevel: level,
           count: retryCount,
-          trimmedResearchContext: contextText,
+          trimmedResearchContext: enrichedContextText,
           styleReferences: styleRefText,
           targetAudience: input.targetAudience,
           targetAudienceMonologue,
           usedAnglesAndHooks: [...usedAnglesAndHooks, ...removedAngles.map((a) => ({ angle: a, hook: '' }))],
           platformSpecs,
           adCopyTemplates,
+          brandVoiceNotes: brandVoiceText,
           proofPoints: proofSubset,
           usedProofPoints,
         });
