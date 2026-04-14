@@ -143,8 +143,8 @@ export function UnifiedFieldReview({
       };
 
       for (const file of Array.from(files)) {
-        if (file.size > 10 * 1024 * 1024) {
-          skipped.push(`${file.name} exceeds 10MB limit`);
+        if (file.size > 15 * 1024 * 1024) {
+          skipped.push(`${file.name} exceeds 15MB limit`);
           continue;
         }
 
@@ -689,7 +689,7 @@ export function UnifiedFieldReview({
                 )}
               </button>
               <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-quaternary)' }}>
-                PDF, DOCX, TXT, MD &middot; up to 10MB each &middot; max 10 files
+                PDF, DOCX, TXT, MD &middot; up to 15MB each &middot; max 10 files
               </p>
               {uploadError && (
                 <p className="text-[10px] mt-1.5 text-center" style={{ color: 'var(--status-red, #ef4444)' }}>{uploadError}</p>

@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { ACCEPTED_MIME_TYPES } from '@/lib/company-intel/document-types';
 
 const BUCKET = 'document-uploads';
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   }
 
   if (fileSize && fileSize > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: 'File exceeds 10MB limit' }, { status: 400 });
+    return NextResponse.json({ error: 'File exceeds 15MB limit' }, { status: 400 });
   }
 
   // Generate a unique path: userId/timestamp-filename

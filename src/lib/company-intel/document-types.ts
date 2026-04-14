@@ -22,7 +22,7 @@ export const DOCUMENT_TYPE_CONFIG: Record<DocumentType, DocumentTypeConfig> = {
       'text/markdown',
     ],
     acceptedExtensions: ['.pdf', '.docx', '.txt', '.md'],
-    maxFileSizeBytes: 10 * 1024 * 1024, // 10MB — docx/pdf embed images; parsers extract text only
+    maxFileSizeBytes: 15 * 1024 * 1024, // 15MB — docx/pdf embed images; parsers extract text only
   },
   client_briefing: {
     label: 'Client Briefing Sheet',
@@ -34,7 +34,7 @@ export const DOCUMENT_TYPE_CONFIG: Record<DocumentType, DocumentTypeConfig> = {
       'text/markdown',
     ],
     acceptedExtensions: ['.pdf', '.docx', '.txt', '.md'],
-    maxFileSizeBytes: 10 * 1024 * 1024,
+    maxFileSizeBytes: 15 * 1024 * 1024,
   },
 };
 

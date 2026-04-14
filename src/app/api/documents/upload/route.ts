@@ -16,7 +16,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 export const maxDuration = 60;
 
 const MAX_FILES_PER_REQUEST = 10;
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB per file (docx/pdf embed images; mammoth/pdf-parse extract text only)
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB per file (docx/pdf embed images; mammoth/pdf-parse extract text only)
 const MAX_TOTAL_TOKENS = 50_000;
 
 const BUCKET = 'document-uploads';
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
         const arrayBuffer = await blob.arrayBuffer();
         estimatedBytes = arrayBuffer.byteLength;
         if (estimatedBytes > MAX_FILE_SIZE_BYTES) {
-          errors.push(`${fileName}: exceeds 10MB limit`);
+          errors.push(`${fileName}: exceeds 15MB limit`);
           continue;
         }
         resolvedBase64 = Buffer.from(arrayBuffer).toString('base64');
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       resolvedBase64 = fileBase64!;
       estimatedBytes = resolvedBase64.length * 0.75;
       if (estimatedBytes > MAX_FILE_SIZE_BYTES) {
-        errors.push(`${fileName}: exceeds 10MB limit`);
+        errors.push(`${fileName}: exceeds 15MB limit`);
         continue;
       }
     }
