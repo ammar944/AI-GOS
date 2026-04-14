@@ -52,6 +52,13 @@ export interface ProofPoint {
   verified: boolean;
 }
 
+export interface BrandVoiceNotes {
+  tone: string;
+  constraints: string;
+  goodExample: string;
+  badExample: string;
+}
+
 export interface BusinessProfile {
   id: string;
   userId: string;
@@ -78,6 +85,7 @@ export interface BusinessProfile {
   positioningStrategy: Record<string, unknown> | null;
   styleReferences: StyleReference[] | null;
   proofPoints: ProofPoint[];
+  brandVoiceNotes: BrandVoiceNotes | null;
   lastResearchAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -453,6 +461,7 @@ function mapRow(row: Record<string, unknown>): BusinessProfile {
     positioningStrategy: (row.positioning_strategy as Record<string, unknown>) ?? null,
     styleReferences: (row.style_references as StyleReference[]) ?? null,
     proofPoints: (row.proof_points as ProofPoint[]) ?? [],
+    brandVoiceNotes: (row.brand_voice_notes as BrandVoiceNotes) ?? null,
     lastResearchAt: (row.last_research_at as string) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
