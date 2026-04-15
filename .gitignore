@@ -66,3 +66,4 @@ dashboard-screenshot.png
 docs/screenshots/
 *.docx
 .gstack/
+.superpowers/

@@ -203,28 +203,28 @@ export const JOURNEY_ENRICHMENT_FIELD_METAS: readonly JourneyManualFieldDefiniti
   {
     key: 'currentCac',
     label: 'Current CAC',
-    placeholder: '$450',
+    placeholder: 'e.g. $450 — what one customer currently costs to acquire',
     helper: 'What it currently costs you to acquire a customer.',
     rows: 1,
   },
   {
     key: 'avgCustomerLtv',
     label: 'Avg Customer LTV',
-    placeholder: '$3,600',
+    placeholder: 'e.g. $3,600 — total revenue per customer over their lifetime',
     helper: "Lifetime revenue per customer. Leave blank if you're not sure.",
     rows: 1,
   },
   {
     key: 'leadToCustomerRate',
     label: 'Lead → Customer %',
-    placeholder: '5',
+    placeholder: 'e.g. 5 (means 5% — 5 of every 100 leads close)',
     helper: 'Of every 100 leads, how many become paying customers?',
     rows: 1,
   },
   {
     key: 'last12MoGrowthRate',
     label: 'Last 12-Month Revenue Growth %',
-    placeholder: '25',
+    placeholder: 'e.g. 25 (means 25% — leave blank if you don\'t track it)',
     helper: "Leave blank if you don't track it. Used to gate growth-rate claims in the plan.",
     rows: 1,
   },
@@ -331,7 +331,7 @@ export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   },
   {
     id: 'current-performance',
-    label: 'Current Performance (optional)',
+    label: 'Current Performance',
     fieldKeys: ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'],
   },
 ];
@@ -367,7 +367,7 @@ export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   },
   {
     id: 'current-performance',
-    label: 'Current Performance (optional)',
+    label: 'Current Performance',
     fieldKeys: ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'],
   },
 ];
