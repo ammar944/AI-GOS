@@ -18,6 +18,7 @@ import { writeDeadLetter } from './dead-letter';
 import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
 import { authorizeWorkerRequest } from './auth';
+import { extractWikiEntries, writeWikiEntries } from './wiki';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -304,6 +305,19 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           writeError,
         );
         writeDeadLetter(userId, result.section, result, String(writeError));
+      }
+
+      // Write structured wiki entries for downstream runner context sharing.
+      // Non-fatal — wiki is an enhancement layer, not critical path.
+      if (result.status === 'complete' && result.data && runId) {
+        try {
+          const wikiEntries = extractWikiEntries(result.section, result.data);
+          if (wikiEntries.length > 0) {
+            await writeWikiEntries(userId, runId, wikiEntries);
+          }
+        } catch (wikiErr) {
+          console.warn(`[wiki] Non-fatal wiki write failure for ${result.section}:`, wikiErr);
+        }
       }
 
       // For meeting extraction: write extracted fields back to business_profile_documents

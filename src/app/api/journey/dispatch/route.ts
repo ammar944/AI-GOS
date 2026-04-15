@@ -150,35 +150,80 @@ export async function POST(req: Request) {
   let enrichedContext = context;
   const sectionIndex = (PIPELINE_ORDER as readonly string[]).indexOf(section);
 
+  // Wiki topic filters: each runner declares what upstream knowledge it needs.
+  // '*' means all entries. Patterns match topic prefixes (e.g., 'identity_*' matches 'identity_category').
+  const RUNNER_WIKI_TOPICS: Record<string, string[]> = {
+    industryMarket: ['identity_*'],
+    icpValidation: ['identity_*', 'market_*', 'pain_*', 'trend_*'],
+    competitors: ['identity_*', 'market_*', 'icp_*'],
+    offerAnalysis: ['identity_*', 'market_*', 'icp_*', 'competitor_*'],
+    keywordIntel: ['identity_*', 'market_*', 'icp_*', 'competitor_*', 'offer_*'],
+    crossAnalysis: ['*'],
+    mediaPlan: ['*'],
+  };
+
   // Only enrich if this section has upstream sections AND we have a runId
   if (sectionIndex > 0 && runId) {
     try {
       const supabase = createAdminClient();
       const { data: sessionData } = await supabase
         .from('journey_sessions')
-        .select('research_results')
+        .select('research_results, research_wiki')
         .eq('user_id', userId)
         .eq('run_id', runId)
         .maybeSingle();
 
-      const research = sessionData?.research_results as Record<string, unknown> | null;
-      if (research && Object.keys(research).length > 0) {
-        // Only include sections that come BEFORE this one in the pipeline
-        const upstreamSections = PIPELINE_ORDER.slice(0, sectionIndex);
-        const researchSections: string[] = [];
-        for (const key of upstreamSections) {
-          const value = research[key];
-          if (!value) continue;
-          // Extract the data payload — research results wrap data in { status, data, ... }
-          const payload = (value as Record<string, unknown>)?.data ?? value;
-          // Pass trimmed summaries for synthesis to reduce context (~15K → ~5-7K tokens)
-          const content = section === 'crossAnalysis'
-            ? summarizeForSynthesis(key, payload)
-            : JSON.stringify(payload, null, 1);
-          researchSections.push(`## ${key}\n${content}`);
+      // --- Research Wiki path (preferred): structured entries from all upstream runners ---
+      const wiki = sessionData?.research_wiki as { entries?: Array<{ topic: string; content: string; source_runner: string; provenance: string; confidence: number; source_url?: string }>; version?: number } | null;
+      const wikiTopics = RUNNER_WIKI_TOPICS[section] ?? [];
+      const useWiki = process.env.USE_RESEARCH_WIKI !== 'false' && wiki?.entries && wiki.entries.length > 0 && wikiTopics.length > 0;
+
+      if (useWiki && wiki?.entries) {
+        // Filter entries by this runner's topic needs
+        const filtered = wiki.entries.filter((e) => {
+          if (wikiTopics.includes('*')) return true;
+          return wikiTopics.some((pattern) => {
+            if (pattern.endsWith('*')) {
+              return e.topic.startsWith(pattern.slice(0, -1));
+            }
+            return e.topic === pattern;
+          });
+        });
+
+        if (filtered.length > 0) {
+          // Sort deterministically: topic alpha → source_runner pipeline order → content
+          filtered.sort((a, b) => a.topic.localeCompare(b.topic) || a.source_runner.localeCompare(b.source_runner));
+
+          // Format as structured context block
+          const lines = filtered.map((e) => {
+            const prov = e.provenance === 'template_default' ? ' (industry default)' : '';
+            const url = e.source_url ? ` [${e.source_url}]` : '';
+            return `- [${e.topic}] ${e.content}${prov}${url}`;
+          });
+
+          enrichedContext = `${context}\n\n# Research Knowledge Base (${filtered.length} findings from prior analysis)\n\n${lines.join('\n')}`;
+          console.log(`[dispatch] Wiki context for ${section}: ${filtered.length}/${wiki.entries.length} entries, ${enrichedContext.length} chars`);
         }
-        if (researchSections.length > 0) {
-          enrichedContext = `${context}\n\n# Prior Research Results (use these to inform your analysis)\n\n${researchSections.join('\n\n')}`;
+      }
+
+      // --- Fallback: legacy summarization path (for pre-wiki sessions or wiki disabled) ---
+      if (enrichedContext === context) {
+        const research = sessionData?.research_results as Record<string, unknown> | null;
+        if (research && Object.keys(research).length > 0) {
+          const upstreamSections = PIPELINE_ORDER.slice(0, sectionIndex);
+          const researchSections: string[] = [];
+          for (const key of upstreamSections) {
+            const value = research[key];
+            if (!value) continue;
+            const payload = (value as Record<string, unknown>)?.data ?? value;
+            const content = section === 'crossAnalysis'
+              ? summarizeForSynthesis(key, payload)
+              : JSON.stringify(payload, null, 1);
+            researchSections.push(`## ${key}\n${content}`);
+          }
+          if (researchSections.length > 0) {
+            enrichedContext = `${context}\n\n# Prior Research Results (use these to inform your analysis)\n\n${researchSections.join('\n\n')}`;
+          }
         }
       }
     } catch (err) {
