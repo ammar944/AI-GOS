@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AssetStyleRefs } from '@/components/assets/asset-style-refs';
 import { AssetProofPoints } from '@/components/assets/asset-proof-points';
@@ -154,9 +155,9 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex gap-1">
-          <div className="w-2 h-2 rounded-full bg-[var(--accent-blue)] animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 rounded-full bg-[var(--accent-blue)] animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 rounded-full bg-[var(--accent-blue)] animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="w-2 h-2 rounded-full bg-[#365eff] animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-2 h-2 rounded-full bg-[#365eff] animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2 h-2 rounded-full bg-[#365eff] animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     );
@@ -165,12 +166,16 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
   return (
     <div className="flex flex-1 flex-col min-h-0">
       {/* Header */}
-      <div className="border-b border-[var(--border-subtle)] px-8 pt-8 pb-0 flex-shrink-0">
+      <div className="border-b border-[rgba(255,255,255,0.04)] px-8 pt-8 pb-0 flex-shrink-0">
         <div className="flex justify-between items-start mb-5">
           <div>
-            <div className="text-[11px] uppercase tracking-[1.5px] text-[var(--accent-blue)] font-mono mb-2">Optional Step</div>
-            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-1.5">Enhance Your Ad Scripts</h2>
-            <p className="text-sm text-[var(--text-secondary)] max-w-[500px]">
+            <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#365eff] mb-2">
+              Optional Step
+            </div>
+            <h2 className="font-['Instrument_Sans'] text-xl font-semibold tracking-[-0.01em] text-[#e2e4ea] mb-1.5">
+              Enhance Your Ad Scripts
+            </h2>
+            <p className="text-[13px] text-[#8b90a0] max-w-[500px]">
               Add reference materials, proof points, and voice guidelines to make your scripts match your brand.
               You can always add these later from your profile.
             </p>
@@ -178,7 +183,7 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
           <div className="flex gap-2.5 items-center pt-1">
             <button
               onClick={onSkip}
-              className="px-4 py-2 text-sm text-[var(--text-muted)] border border-[var(--border-subtle)] rounded-md hover:text-[var(--text-primary)] transition-colors"
+              className="border border-[rgba(255,255,255,0.08)] text-[#8b90a0] text-[13px] px-[14px] py-[6px] rounded-[5px] bg-transparent hover:text-[#e2e4ea] transition-colors"
             >
               Skip to Scripts
             </button>
@@ -186,12 +191,13 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
               onClick={handleGenerateScripts}
               disabled={generating}
               className={cn(
-                'px-5 py-2 rounded-md text-sm font-medium transition-colors',
-                'bg-[var(--accent-blue)] text-white',
+                'flex items-center gap-1.5 bg-[#365eff] text-white text-[13px] font-medium px-[14px] py-[6px] rounded-[5px] transition-colors',
                 'disabled:opacity-60 disabled:cursor-not-allowed',
               )}
             >
-              {generating ? 'Saving...' : 'Generate Scripts →'}
+              {generating ? 'Saving...' : (
+                <>Generate Scripts <ArrowRight className="w-3.5 h-3.5" /></>
+              )}
             </button>
           </div>
         </div>
@@ -203,10 +209,10 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'px-5 py-2.5 text-[13px] font-medium transition-colors border-b-2',
+                'px-5 py-2.5 text-[13px] font-medium transition-colors border-b-[1.5px]',
                 activeTab === tab.id
-                  ? 'text-[var(--text-primary)] border-[var(--accent-blue)]'
-                  : 'text-[var(--text-muted)] border-transparent hover:text-[var(--text-secondary)]',
+                  ? 'text-[#e2e4ea] border-[#365eff]'
+                  : 'text-[#3a3e4c] border-transparent hover:text-[#8b90a0]',
               )}
             >
               {tab.label}
@@ -229,22 +235,24 @@ export function AssetCollectionPhase({ runId, onGenerateScripts, onSkip }: Asset
       </div>
 
       {/* Footer */}
-      <div className="border-t border-[var(--border-subtle)] px-8 py-4 flex justify-between items-center flex-shrink-0">
+      <div className="border-t border-[rgba(255,255,255,0.04)] px-8 py-4 flex justify-between items-center flex-shrink-0">
         <div className="flex gap-4">
-          <span className="text-xs text-[var(--text-muted)]">
-            <span className={cn('font-semibold', styleRefs.length > 0 ? 'text-[var(--accent-blue)]' : '')}>{styleRefs.length}</span> style refs
+          <span className="font-mono text-[11px] text-[#555a6a]">
+            <span className={cn('font-semibold', styleRefs.length > 0 ? 'text-[#365eff]' : '')}>{styleRefs.length}</span> style refs
           </span>
-          <span className="text-xs text-[var(--text-muted)]">
-            <span className={cn('font-semibold', proofPoints.length > 0 ? 'text-[var(--accent-blue)]' : '')}>{proofPoints.length}</span> proof points
+          <span className="font-mono text-[11px] text-[#555a6a]">
+            <span className={cn('font-semibold', proofPoints.length > 0 ? 'text-[#365eff]' : '')}>{proofPoints.length}</span> proof points
           </span>
-          <span className="text-xs text-[var(--text-muted)]">
-            <span className={cn('font-semibold', brandVoice?.tone ? 'text-[var(--accent-blue)]' : '')}>{brandVoice?.tone ? '1' : '0'}</span> voice notes
+          <span className="font-mono text-[11px] text-[#555a6a]">
+            <span className={cn('font-semibold', brandVoice?.tone ? 'text-[#365eff]' : '')}>{brandVoice?.tone ? '1' : '0'}</span> voice notes
           </span>
         </div>
         <div className="flex items-center gap-2">
           {saveError && <span className="text-xs text-red-400">{saveError}</span>}
-          {saving && <span className="text-xs text-[var(--text-muted)]">Saving...</span>}
-          {!saving && !saveError && totalAssets > 0 && <span className="text-xs text-[var(--text-muted)]">Auto-saved to profile</span>}
+          {saving && <span className="font-mono text-[11px] text-[#3a3e4c]">Saving...</span>}
+          {!saving && !saveError && totalAssets > 0 && (
+            <span className="font-mono text-[11px] text-[#3a3e4c]">Auto-saved to profile</span>
+          )}
         </div>
       </div>
     </div>
