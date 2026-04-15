@@ -211,7 +211,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     // anchor for the research-fabrication fix.
     const baselineBlock = `${renderBaselineMetricsBlock(baselineMetrics)}\n\n`;
 
-    const contextWithDate = sanitizeForJson(dateContext + baselineBlock + context);
+    // Provenance tracking instruction — tells every runner to tag data sources.
+    const provenanceInstruction = `SOURCE TRACKING: Include a "_provenance" array in your JSON output. For each significant field, add: {"field": "dotPath", "source": "user_data|web_search|tool_output|template_default|ai_synthesis", "sourceDetail": "url or description", "confidence": 0-100}. Any number from reference/template data MUST be tagged "template_default".\n\n`;
+
+    const contextWithDate = sanitizeForJson(dateContext + baselineBlock + provenanceInstruction + context);
     let statusWriteChain = Promise.resolve();
     let lastProgressSignature: string | null = null;
     let jobFinalized = false;

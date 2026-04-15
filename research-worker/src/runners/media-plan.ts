@@ -116,7 +116,8 @@ export async function runMediaPlan(
 ): Promise<ResearchResult> {
   const startTime = Date.now();
   const industry = detectIndustry(context);
-  const industryTemplate = loadIndustryTemplate(industry);
+  const shouldInjectTemplates = process.env.INJECT_INDUSTRY_TEMPLATES !== 'false';
+  const industryTemplate = shouldInjectTemplates ? loadIndustryTemplate(industry) : '';
   const { userId } = extractMetadata(context);
 
   const completedBlocks: MediaPlanBlock[] = [];
