@@ -16,8 +16,9 @@ import type { ScriptPlan } from '../01-plan/planner';
 import type { ExtractedClaim } from '../02-claims/claim-extractor';
 import { formatClaimsForScript } from '../02-claims/claim-extractor';
 import { stripNumericConstraints } from '../../../utils/strip-numeric-constraints';
+import { MODELS } from '../../../models';
 
-const BODY_MODEL = 'claude-sonnet-4-6';
+const BODY_MODEL = MODELS.STANDARD;
 const BODY_TIMEOUT_MS = 120_000;
 const BODY_MAX_TOKENS = 2500;
 

@@ -217,7 +217,8 @@ export async function POST(req: Request) {
         .select('file_name, parsed_markdown, doc_kind, token_count')
         .eq('user_id', userId)
         .overlaps('section_tags', [section])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
 
       if (docs && docs.length > 0) {
         let budgetRemaining = docBudget;
@@ -293,6 +294,11 @@ export async function POST(req: Request) {
     const meetingInstruction = `\n\n# Meeting Intelligence Priority\nIf "MEETING INTELLIGENCE" blocks appear below, these contain verified first-party data from actual client conversations. Prioritize meeting data over web-scraped or inferred data. When meeting data contradicts web research, note the discrepancy and prefer the meeting version. Cite meeting quotes using format: [Meeting: "exact quote"]. Use pain points to inform targeting, budget signals to ground spend recommendations, and competitor mentions to focus competitive analysis.\n`;
     enrichedContext = meetingInstruction + enrichedContext;
   }
+
+  // Context hash for debugging non-determinism across runs
+  const { createHash } = await import('crypto');
+  const contextHash = createHash('sha256').update(enrichedContext).digest('hex').slice(0, 16);
+  console.log(`[dispatch] section=${section} contextHash=${contextHash} len=${enrichedContext.length}`);
 
   const result = await dispatchResearchForUser(tool, section, enrichedContext, userId, {
     activeRunId: runId,

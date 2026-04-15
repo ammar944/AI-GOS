@@ -7,9 +7,10 @@ import type { ParsedCompetitorContext } from './parse-context';
 import type { ParallelFetchResults } from './parallel-fetch';
 import type { SonarCompetitorResult } from './sonar-research';
 import { buildLibraryLinks } from '../tools/adlibrary';
+import { MODELS } from '../models';
 
 const SYNTHESIS_MODEL =
-  process.env.RESEARCH_COMPETITORS_SYNTHESIS_MODEL ?? 'claude-haiku-4-5-20251001';
+  process.env.RESEARCH_COMPETITORS_SYNTHESIS_MODEL ?? MODELS.FAST;
 const SYNTHESIS_MAX_TOKENS = 8000;
 const SYNTHESIS_TIMEOUT_MS = 60_000;
 

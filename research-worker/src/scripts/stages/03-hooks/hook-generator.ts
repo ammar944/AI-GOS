@@ -15,8 +15,9 @@ import { z } from 'zod';
 import type { ScriptPlan } from '../01-plan/planner';
 import type { ExtractedClaim } from '../02-claims/claim-extractor';
 import { stripNumericConstraints } from '../../../utils/strip-numeric-constraints';
+import { MODELS } from '../../../models';
 
-const HOOK_MODEL = 'claude-sonnet-4-6';
+const HOOK_MODEL = MODELS.STANDARD;
 const HOOK_TIMEOUT_MS = 60_000;
 const HOOK_MAX_TOKENS = 1500;
 

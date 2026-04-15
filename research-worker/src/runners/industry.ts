@@ -12,11 +12,12 @@ import {
 import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
 import { INDUSTRY_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
+import { MODELS } from '../models';
 
 const INDUSTRY_PRIMARY_MODEL =
-  process.env.RESEARCH_INDUSTRY_MODEL ?? 'claude-haiku-4-5-20251001';
+  process.env.RESEARCH_INDUSTRY_MODEL ?? MODELS.FAST;
 const INDUSTRY_REPAIR_MODEL =
-  process.env.RESEARCH_INDUSTRY_REPAIR_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_INDUSTRY_REPAIR_MODEL ?? MODELS.STANDARD;
 const INDUSTRY_PRIMARY_MAX_TOKENS = 5000;
 const INDUSTRY_REPAIR_MAX_TOKENS = 4000;
 const INDUSTRY_PRIMARY_TIMEOUT_MS = 120_000;

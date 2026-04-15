@@ -11,8 +11,9 @@ import {
 import { finalizeRunnerResult } from '../contracts';
 import { firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
+import { MODELS } from '../models';
 
-const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? 'claude-sonnet-4-6';
+const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? MODELS.STANDARD;
 const OFFER_MAX_TOKENS = 8192;
 const OFFER_TIMEOUT_MS = 180_000;
 const WEB_SEARCH_TOOL = {

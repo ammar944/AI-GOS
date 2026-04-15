@@ -1,7 +1,8 @@
 import { createClient, type RunnerProgressReporter } from '../runner';
 import type { ResearchResult } from '../supabase';
+import { MODELS } from '../models';
 
-const EXTRACTION_MODEL = process.env.MEETING_EXTRACT_MODEL ?? 'claude-haiku-4-5-20251001';
+const EXTRACTION_MODEL = process.env.MEETING_EXTRACT_MODEL ?? MODELS.FAST;
 const EXTRACTION_MAX_TOKENS = 4000;
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a business intelligence analyst extracting actionable insights from a meeting transcript for a paid media strategy team.

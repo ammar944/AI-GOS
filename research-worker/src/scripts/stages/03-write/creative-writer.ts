@@ -21,8 +21,9 @@ import type { ExtractedClaim } from '../02-claims/claim-extractor';
 import { formatClaimsForScript } from '../02-claims/claim-extractor';
 import { stripNumericConstraints } from '../../../utils/strip-numeric-constraints';
 import { loadRefFile } from '../../../skills/loader';
+import { MODELS } from '../../../models';
 
-const WRITER_MODEL = 'claude-sonnet-4-6';
+const WRITER_MODEL = MODELS.STANDARD;
 const WRITER_TIMEOUT_MS = 180_000;
 const WRITER_MAX_TOKENS = 6000;
 

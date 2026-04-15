@@ -12,7 +12,9 @@ import {
 } from '../runner';
 import type { ResearchResult } from '../supabase';
 
-const IDENTITY_MODEL = process.env.IDENTITY_RESOLVER_MODEL ?? 'claude-haiku-4-5-20251001';
+import { MODELS } from '../models';
+
+const IDENTITY_MODEL = process.env.IDENTITY_RESOLVER_MODEL ?? MODELS.FAST;
 const IDENTITY_MAX_TOKENS = 2000;
 const IDENTITY_TIMEOUT_MS = 15_000;
 

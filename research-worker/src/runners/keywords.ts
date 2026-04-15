@@ -16,11 +16,12 @@ import { finalizeRunnerResult } from '../contracts';
 import { spyfuTool } from '../tools';
 import { KEYWORD_CAMPAIGN_SKILL, KEYWORD_CAMPAIGN_SKILL_COMPACT } from '../skills/keyword-campaign-skill';
 import type { ResearchResult } from '../supabase';
+import { MODELS } from '../models';
 
 const KEYWORDS_PRIMARY_MODEL =
-  process.env.RESEARCH_KEYWORDS_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_KEYWORDS_MODEL ?? MODELS.STANDARD;
 const KEYWORDS_REPAIR_MODEL =
-  process.env.RESEARCH_KEYWORDS_REPAIR_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_KEYWORDS_REPAIR_MODEL ?? MODELS.STANDARD;
 const KEYWORDS_HEURISTIC_MODEL =
   process.env.RESEARCH_KEYWORDS_HEURISTIC_MODEL ?? KEYWORDS_REPAIR_MODEL;
 const KEYWORDS_RESCUE_MODEL =

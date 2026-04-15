@@ -6,6 +6,7 @@ import { generateObject } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import type { ReviewResult, NegativeReview } from '../tools/reviews';
+import { MODELS } from '../models';
 
 // ── Schema (API-facing — no .min()/.max() on numbers) ──
 
@@ -83,7 +84,7 @@ export async function analyzeReviewGaps(
 
   try {
     const result = await generateObject({
-      model: anthropic('claude-haiku-4-5-20251001'),
+      model: anthropic(MODELS.FAST),
       schema: gapIntelligenceOutputSchema,
       system: `You are analyzing verified negative software reviews for paid media strategy.
 Use ONLY the supplied review excerpts. Do NOT invent complaints, competitors, or evidence.
