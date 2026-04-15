@@ -1,9 +1,12 @@
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
+  ADVISOR_PROMPT_ADDENDUM,
+  ADVISOR_TOOL,
   buildRunnerTelemetry,
   createClient,
   emitRunnerProgress,
   extractJson,
+  isAdvisorEnabled,
   runStreamedToolRunner,
   runWithBackoff,
   type RunnerProgressUpdate,
@@ -537,8 +540,14 @@ function getCompetitorAttemptConfig(
     model: COMPETITORS_PRIMARY_MODEL,
     maxTokens: COMPETITORS_PRIMARY_MAX_TOKENS,
     timeoutMs: COMPETITORS_PRIMARY_TIMEOUT_MS,
-    tools: [WEB_SEARCH_TOOL, adLibraryTool, spyfuTool, firecrawlExtractTool],
-    system: `${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`,
+    tools: [
+      WEB_SEARCH_TOOL,
+      adLibraryTool,
+      spyfuTool,
+      firecrawlExtractTool,
+      ...(isAdvisorEnabled() ? [ADVISOR_TOOL as unknown as CompetitorTool] : []),
+    ],
+    system: `${isAdvisorEnabled() ? ADVISOR_PROMPT_ADDENDUM : ''}${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`,
     synthesisMessage: 'synthesizing competitor landscape',
   };
 }
