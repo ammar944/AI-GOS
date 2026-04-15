@@ -33,6 +33,18 @@ describe('isAdvertiserMatch', () => {
   it('rejects records without advertiser name (no name = not verified)', () => {
     expect(isAdvertiserMatch(undefined, 'Funnel.io')).toBe(false);
   });
+
+  it('matches when ad URL has percent-encoded domain (LinkedIn redirect)', () => {
+    expect(
+      isAdvertiserMatch('Gong', 'Gong', 'gong.io', 'https://linkedin.com/redirect?url=https%3A%2F%2Fgong%2Eio%2Fpage'),
+    ).toBe(true);
+  });
+
+  it('rejects when encoded ad URL points to different domain', () => {
+    expect(
+      isAdvertiserMatch('Gong', 'Gong', 'gong.io', 'https://linkedin.com/redirect?url=https%3A%2F%2Fcompetitor%2Eio'),
+    ).toBe(false);
+  });
 });
 
 describe('normalizeSearchApiToCreatives', () => {

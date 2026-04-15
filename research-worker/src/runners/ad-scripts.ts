@@ -39,6 +39,18 @@ export function sanitizeScript(script: Record<string, unknown>): Record<string, 
       result[key] = value.map((v) => stripDashes(v as string));
     }
   }
+  // Normalize confidenceScore: prompt specifies 0–10 but models sometimes output 0–100.
+  // Clamp to [0, 10] after normalization to guarantee frontend "/10" display is correct.
+  if (typeof result.confidenceScore === 'number') {
+    let score = result.confidenceScore;
+    if (!Number.isFinite(score)) {
+      result.confidenceScore = 5; // fallback for NaN/Infinity
+    } else {
+      if (score > 20) score = score / 10;   // clearly 0-100 scale
+      else if (score > 10) score = 10;       // slight overshoot, clamp
+      result.confidenceScore = Math.min(10, Math.max(0, Math.round(score * 10) / 10));
+    }
+  }
   return result;
 }
 

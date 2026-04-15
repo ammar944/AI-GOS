@@ -79,6 +79,29 @@ describe('sanitizeScript', () => {
     expect(result.confidenceScore).toBe(8);
   });
 
+  it('normalizes confidenceScore from 0-100 scale to 0-10', () => {
+    expect(sanitizeScript({ confidenceScore: 88 }).confidenceScore).toBe(8.8);
+    expect(sanitizeScript({ confidenceScore: 100 }).confidenceScore).toBe(10);
+    expect(sanitizeScript({ confidenceScore: 50 }).confidenceScore).toBe(5);
+    expect(sanitizeScript({ confidenceScore: 7 }).confidenceScore).toBe(7);
+    expect(sanitizeScript({ confidenceScore: 0 }).confidenceScore).toBe(0);
+    expect(sanitizeScript({ confidenceScore: 10 }).confidenceScore).toBe(10);
+  });
+
+  it('clamps confidenceScore overshoot (11-20) to 10 instead of dividing', () => {
+    expect(sanitizeScript({ confidenceScore: 10.5 }).confidenceScore).toBe(10);
+    expect(sanitizeScript({ confidenceScore: 11 }).confidenceScore).toBe(10);
+    expect(sanitizeScript({ confidenceScore: 15 }).confidenceScore).toBe(10);
+    expect(sanitizeScript({ confidenceScore: 20 }).confidenceScore).toBe(10);
+  });
+
+  it('handles NaN/Infinity/negative confidenceScore gracefully', () => {
+    expect(sanitizeScript({ confidenceScore: NaN }).confidenceScore).toBe(5);
+    expect(sanitizeScript({ confidenceScore: Infinity }).confidenceScore).toBe(5);
+    expect(sanitizeScript({ confidenceScore: -Infinity }).confidenceScore).toBe(5);
+    expect(sanitizeScript({ confidenceScore: -5 }).confidenceScore).toBe(0);
+  });
+
   it('sanitizes string arrays (hookVariants)', () => {
     const script = {
       body: 'clean body',

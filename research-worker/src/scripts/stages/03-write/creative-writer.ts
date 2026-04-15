@@ -48,7 +48,7 @@ const scriptOutputSchema = z.object({
       section: z.string(),
       claim: z.string(),
     })),
-    confidenceScore: z.number(),
+    confidenceScore: z.number().describe('0–10 scale: how confident you are this script will perform'),
     humanizedPass: z.boolean(),
     patternsFixed: z.number(),
     flaggedClaims: z.array(z.object({
