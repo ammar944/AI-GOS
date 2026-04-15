@@ -1,4 +1,5 @@
 node_modules
 dist
-*.md
 .env*
+README.md
+AGENTS.md
