@@ -58,21 +58,21 @@ export function AssetStyleRefs({ refs, onChange, disabled }: AssetStyleRefsProps
     <div>
       {/* Guidance — Callout Block */}
       <div className="border-l-2 border-[#365eff] pl-4 py-3 mb-6">
-        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#555a6a] mb-1">How it works</div>
-        <p className="text-[13px] text-[#8b90a0] leading-relaxed">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1">How it works</div>
+        <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">
           Paste your winning ads, VSLs, or competitor copy here. The AI studies their{' '}
-          <strong className="text-[#e2e4ea]">voice, cadence, and structure</strong> —
+          <strong className="text-gray-900 dark:text-gray-100">voice, cadence, and structure</strong> —
           then generates scripts that match that register. It mirrors the pattern, not the words.
         </p>
       </div>
 
       {/* Add/Edit form */}
       {adding && (
-        <div className="bg-[#0e1018] border border-[rgba(255,255,255,0.08)] rounded-[8px] p-5 mb-5">
+        <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-[8px] p-5 mb-5">
           {/* Name + Source on same row */}
           <div className="flex gap-3 mb-3">
             <div className="flex-1">
-              <label className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#555a6a] mb-1.5 block">
+              <label className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1.5 block">
                 Name
               </label>
               <input
@@ -80,14 +80,14 @@ export function AssetStyleRefs({ refs, onChange, disabled }: AssetStyleRefsProps
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Winning VSL — Feb 2024"
                 className={cn(
-                  'w-full rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[#07090e] px-3 py-2',
-                  'text-sm text-[#e2e4ea] placeholder:text-[#555a6a]',
+                  'w-full rounded-[5px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2',
+                  'text-sm text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground',
                   'focus:outline-none focus:border-[#365eff]',
                 )}
               />
             </div>
             <div className="flex-1">
-              <label className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#555a6a] mb-1.5 block">
+              <label className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1.5 block">
                 Source URL
               </label>
               <input
@@ -95,15 +95,15 @@ export function AssetStyleRefs({ refs, onChange, disabled }: AssetStyleRefsProps
                 onChange={(e) => setForm({ ...form, source: e.target.value })}
                 placeholder="Optional"
                 className={cn(
-                  'w-full rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[#07090e] px-3 py-2',
-                  'text-sm text-[#e2e4ea] placeholder:text-[#555a6a]',
+                  'w-full rounded-[5px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2',
+                  'text-sm text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground',
                   'focus:outline-none focus:border-[#365eff]',
                 )}
               />
             </div>
           </div>
           <div className="mb-3">
-            <label className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#555a6a] mb-1.5 block">
+            <label className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1.5 block">
               Content
             </label>
             <textarea
@@ -112,18 +112,18 @@ export function AssetStyleRefs({ refs, onChange, disabled }: AssetStyleRefsProps
               placeholder="Paste the ad copy, script, or hook text here"
               rows={6}
               className={cn(
-                'w-full rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[#07090e] px-3 py-2',
-                'text-sm text-[#e2e4ea] placeholder:text-[#555a6a]',
+                'w-full rounded-[5px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2',
+                'text-sm text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground',
                 'resize-none focus:outline-none focus:border-[#365eff]',
               )}
             />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] text-[#555a6a]">{form.content.length}/{MAX_CONTENT_LENGTH}</span>
+            <span className="text-[11px] text-muted-foreground">{form.content.length}/{MAX_CONTENT_LENGTH}</span>
             <div className="flex gap-2">
               <button
                 onClick={handleCancel}
-                className="px-3 py-1.5 text-sm text-[#555a6a] hover:text-[#e2e4ea] transition-colors cursor-pointer"
+                className="px-3 py-1.5 text-sm text-muted-foreground hover:text-gray-900 dark:hover:text-gray-100 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -148,16 +148,16 @@ export function AssetStyleRefs({ refs, onChange, disabled }: AssetStyleRefsProps
         <button
           onClick={() => setAdding(true)}
           disabled={disabled}
-          className="flex items-center gap-2 px-[14px] py-[10px] bg-[#0e1018] border border-[rgba(255,255,255,0.08)] rounded-[5px] hover:bg-[#12141c] hover:border-[rgba(255,255,255,0.12)] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed mb-4 cursor-pointer"
+          className="flex items-center gap-2 px-[14px] py-[10px] bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-[5px] hover:bg-gray-200 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed mb-4 cursor-pointer"
         >
           <Plus className="w-4 h-4 text-[#365eff]" />
-          <span className="text-[13px] font-medium text-[#8b90a0]">Add reference ad</span>
+          <span className="text-[13px] font-medium text-gray-600 dark:text-gray-400">Add reference ad</span>
         </button>
       )}
 
       {/* Count label */}
       {refs.length > 0 && (
-        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#3a3e4c] mb-3">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-3">
           {refs.length} {refs.length === 1 ? 'reference' : 'references'}
         </div>
       )}
@@ -167,30 +167,30 @@ export function AssetStyleRefs({ refs, onChange, disabled }: AssetStyleRefsProps
         {refs.map((ref, idx) => (
           <div
             key={`${ref.name}-${idx}`}
-            className="flex items-start gap-3.5 px-4 py-3.5 rounded-[5px] border border-transparent hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.04)] transition-all duration-150 group"
+            className="flex items-start gap-3.5 px-4 py-3.5 rounded-[5px] border border-transparent hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-all duration-150 group"
           >
             <div className="w-9 h-9 rounded-[5px] bg-[rgba(54,94,255,0.08)] flex items-center justify-center flex-shrink-0 mt-0.5">
               <FileText className="w-4 h-4 text-[#365eff]" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-[14px] font-medium text-[#e2e4ea]">{ref.name}</span>
+                <span className="text-[14px] font-medium text-gray-900 dark:text-gray-100">{ref.name}</span>
                 {ref.source && (
-                  <span className="font-mono text-[11px] text-[#555a6a]">{ref.source}</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">{ref.source}</span>
                 )}
               </div>
-              <p className="text-[13px] text-[#8b90a0] leading-relaxed line-clamp-2">{ref.content}</p>
+              <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2">{ref.content}</p>
             </div>
             <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               <button
                 onClick={() => handleEdit(idx)}
-                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-[#555a6a] hover:text-[#e2e4ea] hover:bg-[#12141c] transition-all duration-150"
+                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-150"
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => handleDelete(idx)}
-                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-[#555a6a] hover:text-[#ef4444] hover:bg-[rgba(239,68,68,0.08)] transition-all duration-150"
+                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-[#ef4444] hover:bg-[rgba(239,68,68,0.08)] transition-all duration-150"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
