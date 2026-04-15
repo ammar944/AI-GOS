@@ -156,12 +156,12 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
     <div className="flex flex-col gap-6">
       {/* Callout */}
       <div className="border-l-2 border-[#365eff] pl-4 py-3">
-        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#555a6a] mb-1">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1">
           How it works
         </div>
-        <p className="text-[13px] text-[#8b90a0] leading-relaxed">
+        <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">
           These notes become{' '}
-          <strong className="text-[#e2e4ea] font-medium">hard constraints</strong> for the script
+          <strong className="text-gray-900 dark:text-gray-100 font-medium">hard constraints</strong> for the script
           generator — followed in every script across all awareness levels.
         </p>
       </div>
@@ -169,10 +169,10 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
       {/* Section 1: Tone & Personality */}
       <div>
         <div className="flex items-baseline gap-2 mb-3">
-          <span className="font-['Instrument_Sans'] text-[14px] font-medium text-[#e2e4ea]">
+          <span className="font-['Instrument_Sans'] text-[14px] font-medium text-gray-900 dark:text-gray-100">
             Tone &amp; personality
           </span>
-          <span className="text-[13px] text-[#555a6a]">— pick what fits, add your own</span>
+          <span className="text-[13px] text-muted-foreground">— pick what fits, add your own</span>
         </div>
 
         {/* Chip grid */}
@@ -189,7 +189,7 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
                   'px-3 py-1 text-[13px] font-medium rounded-full border cursor-pointer transition-all duration-150',
                   active
                     ? 'text-[#365eff] bg-[rgba(54,94,255,0.08)] border-[rgba(54,94,255,0.2)]'
-                    : 'text-[#555a6a] bg-[#0e1018] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)] hover:text-[#8b90a0]',
+                    : 'text-muted-foreground bg-gray-100 dark:bg-gray-800 border-border hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                   disabled && 'opacity-50 cursor-not-allowed',
                 )}
               >
@@ -207,8 +207,8 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
           disabled={disabled}
           placeholder="Add a custom note about your tone..."
           className={cn(
-            'w-full rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[#0e1018]',
-            'px-3 py-2 text-[13px] text-[#e2e4ea] placeholder:text-[#555a6a]',
+            'w-full rounded-[5px] border border-border bg-gray-100 dark:bg-gray-800',
+            'px-3 py-2 text-[13px] text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground',
             'focus:outline-none focus:border-[rgba(54,94,255,0.4)]',
             'transition-colors duration-150',
             disabled && 'opacity-50 cursor-not-allowed',
@@ -219,19 +219,19 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
       {/* Section 2: Hard Rules */}
       <div>
         <div className="flex items-baseline gap-2 mb-3">
-          <span className="font-['Instrument_Sans'] text-[14px] font-medium text-[#e2e4ea]">
+          <span className="font-['Instrument_Sans'] text-[14px] font-medium text-gray-900 dark:text-gray-100">
             Hard rules
           </span>
-          <span className="text-[13px] text-[#555a6a]">— always or never</span>
+          <span className="text-[13px] text-muted-foreground">— always or never</span>
         </div>
 
         {/* Rules list */}
         {rules.length > 0 && (
-          <div className="flex flex-col gap-px bg-[rgba(255,255,255,0.04)] rounded-[5px] overflow-hidden mb-2">
+          <div className="flex flex-col gap-px bg-border rounded-[5px] overflow-hidden mb-2">
             {rules.map((rule) => (
               <div
                 key={rule.id}
-                className="flex items-center gap-2.5 px-3 py-2.5 bg-[#0e1018] hover:bg-[#12141c] transition-all duration-150 group"
+                className="flex items-center gap-2.5 px-3 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-150 group"
               >
                 {/* Dot */}
                 <span
@@ -241,7 +241,7 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
                   )}
                 />
                 {/* Text */}
-                <span className="text-[13px] text-[#c4c9d6] flex-1 min-w-0">{rule.text}</span>
+                <span className="text-[13px] text-gray-700 dark:text-gray-300 flex-1 min-w-0">{rule.text}</span>
                 {/* Tag */}
                 <span
                   className={cn(
@@ -258,7 +258,7 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
                   type="button"
                   onClick={() => removeRule(rule.id)}
                   disabled={disabled}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-[#555a6a] hover:text-[#ef4444] flex-shrink-0 disabled:cursor-not-allowed"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-muted-foreground hover:text-[#ef4444] flex-shrink-0 disabled:cursor-not-allowed"
                 >
                   <X size={13} />
                 </button>
@@ -268,14 +268,14 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
         )}
 
         {/* Add rule input */}
-        <div className="flex items-center gap-0 rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[#0e1018] overflow-hidden focus-within:border-[rgba(54,94,255,0.4)] transition-colors duration-150">
+        <div className="flex items-center gap-0 rounded-[5px] border border-border bg-gray-100 dark:bg-gray-800 overflow-hidden focus-within:border-[rgba(54,94,255,0.4)] transition-colors duration-150">
           {/* Type toggle */}
           <select
             value={newRuleType}
             onChange={(e) => setNewRuleType(e.target.value as RuleType)}
             disabled={disabled}
             className={cn(
-              'bg-[#12141c] border-r border-[rgba(255,255,255,0.08)] px-2.5 py-2',
+              'bg-gray-200 dark:bg-gray-700 border-r border-border px-2.5 py-2',
               'font-mono text-[11px] font-medium cursor-pointer focus:outline-none',
               'flex-shrink-0',
               newRuleType === 'ALWAYS' ? 'text-[#22c55e]' : 'text-[#ef4444]',
@@ -299,7 +299,7 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
             disabled={disabled}
             placeholder="Type a rule and press Enter..."
             className={cn(
-              'flex-1 px-3 py-2 text-[13px] text-[#e2e4ea] placeholder:text-[#555a6a]',
+              'flex-1 px-3 py-2 text-[13px] text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground',
               'bg-transparent focus:outline-none',
               disabled && 'opacity-50 cursor-not-allowed',
             )}
@@ -310,7 +310,7 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
             onClick={addRule}
             disabled={disabled || !newRuleText.trim()}
             className={cn(
-              'px-2.5 py-2 text-[#555a6a] hover:text-[#365eff] flex-shrink-0',
+              'px-2.5 py-2 text-muted-foreground hover:text-[#365eff] flex-shrink-0',
               'transition-colors duration-150 disabled:opacity-30 disabled:cursor-not-allowed',
             )}
           >
@@ -322,23 +322,23 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
       {/* Section 3: Reference Examples */}
       <div>
         <div className="flex items-baseline gap-2 mb-3">
-          <span className="font-['Instrument_Sans'] text-[14px] font-medium text-[#e2e4ea]">
+          <span className="font-['Instrument_Sans'] text-[14px] font-medium text-gray-900 dark:text-gray-100">
             Reference examples
           </span>
-          <span className="text-[13px] text-[#555a6a]">— show the AI your voice</span>
+          <span className="text-[13px] text-muted-foreground">— show the AI your voice</span>
         </div>
 
         <div className="flex flex-col gap-2">
           {/* Good example block */}
-          <div className="border border-[rgba(255,255,255,0.08)] rounded-[5px] overflow-hidden">
+          <div className="border border-border rounded-[5px] overflow-hidden">
             <button
               type="button"
               onClick={() => setGoodOpen((v) => !v)}
-              className="w-full flex justify-between items-center px-3.5 py-2.5 bg-[#0e1018] hover:bg-[#12141c] transition-colors duration-150 cursor-pointer"
+              className="w-full flex justify-between items-center px-3.5 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] flex-shrink-0" />
-                <span className="text-[13px] text-[#c4c9d6]">Copy that sounds like us</span>
+                <span className="text-[13px] text-gray-700 dark:text-gray-300">Copy that sounds like us</span>
                 {notes.goodExample && (
                   <span className="font-mono text-[10px] text-[#22c55e] bg-[rgba(34,197,94,0.08)] px-1.5 py-px rounded-[3px]">
                     {notes.goodExample.length} chars
@@ -348,13 +348,13 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
               <ChevronDown
                 size={14}
                 className={cn(
-                  'text-[#555a6a] transition-transform duration-200',
+                  'text-muted-foreground transition-transform duration-200',
                   goodOpen && 'rotate-180',
                 )}
               />
             </button>
             {goodOpen && (
-              <div className="bg-[#0a0c12] px-3.5 pb-3.5 pt-2.5">
+              <div className="bg-white dark:bg-gray-900 px-3.5 pb-3.5 pt-2.5">
                 <textarea
                   value={notes.goodExample}
                   onChange={(e) => handleExample('goodExample', e.target.value)}
@@ -362,12 +362,12 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
                   placeholder="Paste an example of copy that sounds exactly like your brand..."
                   rows={5}
                   className={cn(
-                    'w-full bg-transparent text-[13px] text-[#c4c9d6] placeholder:text-[#555a6a]',
+                    'w-full bg-transparent text-[13px] text-gray-700 dark:text-gray-300 placeholder:text-muted-foreground',
                     'resize-none focus:outline-none border-none p-0 leading-relaxed',
                     disabled && 'opacity-50 cursor-not-allowed',
                   )}
                 />
-                <div className="text-right text-[11px] text-[#555a6a] mt-1">
+                <div className="text-right text-[11px] text-muted-foreground mt-1">
                   {notes.goodExample.length}/1500
                 </div>
               </div>
@@ -375,15 +375,15 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
           </div>
 
           {/* Bad example block */}
-          <div className="border border-[rgba(255,255,255,0.08)] rounded-[5px] overflow-hidden">
+          <div className="border border-border rounded-[5px] overflow-hidden">
             <button
               type="button"
               onClick={() => setBadOpen((v) => !v)}
-              className="w-full flex justify-between items-center px-3.5 py-2.5 bg-[#0e1018] hover:bg-[#12141c] transition-colors duration-150 cursor-pointer"
+              className="w-full flex justify-between items-center px-3.5 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-150 cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] flex-shrink-0" />
-                <span className="text-[13px] text-[#c4c9d6]">Copy that is NOT us</span>
+                <span className="text-[13px] text-gray-700 dark:text-gray-300">Copy that is NOT us</span>
                 {notes.badExample && (
                   <span className="font-mono text-[10px] text-[#ef4444] bg-[rgba(239,68,68,0.08)] px-1.5 py-px rounded-[3px]">
                     {notes.badExample.length} chars
@@ -393,13 +393,13 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
               <ChevronDown
                 size={14}
                 className={cn(
-                  'text-[#555a6a] transition-transform duration-200',
+                  'text-muted-foreground transition-transform duration-200',
                   badOpen && 'rotate-180',
                 )}
               />
             </button>
             {badOpen && (
-              <div className="bg-[#0a0c12] px-3.5 pb-3.5 pt-2.5">
+              <div className="bg-white dark:bg-gray-900 px-3.5 pb-3.5 pt-2.5">
                 <textarea
                   value={notes.badExample}
                   onChange={(e) => handleExample('badExample', e.target.value)}
@@ -407,12 +407,12 @@ export function AssetBrandVoice({ value, onChange, disabled }: AssetBrandVoicePr
                   placeholder="Paste an example of what your brand should never sound like..."
                   rows={5}
                   className={cn(
-                    'w-full bg-transparent text-[13px] text-[#c4c9d6] placeholder:text-[#555a6a]',
+                    'w-full bg-transparent text-[13px] text-gray-700 dark:text-gray-300 placeholder:text-muted-foreground',
                     'resize-none focus:outline-none border-none p-0 leading-relaxed',
                     disabled && 'opacity-50 cursor-not-allowed',
                   )}
                 />
-                <div className="text-right text-[11px] text-[#555a6a] mt-1">
+                <div className="text-right text-[11px] text-muted-foreground mt-1">
                   {notes.badExample.length}/1500
                 </div>
               </div>

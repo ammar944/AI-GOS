@@ -31,7 +31,7 @@ const TYPE_BADGE_STYLES: Record<string, string> = {
   case_study: 'bg-[rgba(234,179,8,0.1)] text-[#eab308]',
   testimonial: 'bg-[rgba(54,94,255,0.1)] text-[#365eff]',
   metric: 'bg-[rgba(34,197,94,0.1)] text-[#22c55e]',
-  credential: 'bg-[rgba(139,144,160,0.1)] text-[#8b90a0]',
+  credential: 'bg-[rgba(139,144,160,0.1)] text-gray-500 dark:text-gray-400',
 };
 
 type ProofForm = Omit<ProofPoint, 'id'>;
@@ -99,28 +99,28 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
     <div>
       {/* Guidance callout */}
       <div className="border-l-2 border-[#365eff] pl-4 py-3 mb-6">
-        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-[#555a6a] mb-1">Why this matters</div>
-        <p className="text-[13px] text-[#8b90a0] leading-relaxed">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1">Why this matters</div>
+        <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">
           Add real case studies, testimonials, and metrics. The AI{' '}
-          <strong className="text-[#c8cad4]">cites these instead of fabricating claims</strong>.
+          <strong className="text-gray-900 dark:text-gray-100">cites these instead of fabricating claims</strong>.
           Proof points rotate across awareness levels so scripts don&apos;t repeat the same evidence.
         </p>
       </div>
 
       {/* Add/Edit form */}
       {adding && (
-        <div className="rounded-[8px] border border-[rgba(255,255,255,0.06)] bg-[#0e1018] p-4 mb-4">
+        <div className="rounded-[8px] border border-border bg-muted px-4 py-4 mb-4">
           <div className="flex gap-3 mb-3">
             <select
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as ProofPoint['type'] })}
-              className="rounded-[6px] border border-[rgba(255,255,255,0.08)] bg-[#12141c] px-3 py-2 text-[#8b90a0] font-mono text-[11px] focus:outline-none"
+              className="rounded-[6px] border border-border bg-background px-3 py-2 text-muted-foreground font-mono text-[11px] focus:outline-none"
             >
               {PROOF_TYPES.map((t) => (
                 <option key={t} value={t}>{TYPE_LABELS[t]}</option>
               ))}
             </select>
-            <label className="flex items-center gap-2 font-mono text-[11px] text-[#555a6a] cursor-pointer">
+            <label className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.verified}
@@ -135,8 +135,8 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
             onChange={(e) => setForm({ ...form, headline: e.target.value })}
             placeholder="Headline (e.g. 3 demos to 22 in 90 days)"
             className={cn(
-              'w-full rounded-[6px] border border-[rgba(255,255,255,0.06)] bg-[#12141c] px-3 py-2 mb-3',
-              'text-[13px] text-[#c8cad4] placeholder:text-[#555a6a]',
+              'w-full rounded-[6px] border border-border bg-background px-3 py-2 mb-3',
+              'text-[13px] text-foreground placeholder:text-muted-foreground',
               'focus:outline-none focus:ring-1 focus:ring-[#365eff]',
             )}
           />
@@ -145,8 +145,8 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
             onChange={(e) => setForm({ ...form, clientName: e.target.value })}
             placeholder="Client name (optional)"
             className={cn(
-              'w-full rounded-[6px] border border-[rgba(255,255,255,0.06)] bg-[#12141c] px-3 py-2 mb-3',
-              'text-[13px] text-[#c8cad4] placeholder:text-[#555a6a]',
+              'w-full rounded-[6px] border border-border bg-background px-3 py-2 mb-3',
+              'text-[13px] text-foreground placeholder:text-muted-foreground',
               'focus:outline-none focus:ring-1 focus:ring-[#365eff]',
             )}
           />
@@ -156,15 +156,15 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
             placeholder="Full details — the AI uses this as source material"
             rows={4}
             className={cn(
-              'w-full rounded-[6px] border border-[rgba(255,255,255,0.06)] bg-[#12141c] px-3 py-2',
-              'text-[13px] text-[#c8cad4] placeholder:text-[#555a6a]',
+              'w-full rounded-[6px] border border-border bg-background px-3 py-2',
+              'text-[13px] text-foreground placeholder:text-muted-foreground',
               'resize-none focus:outline-none focus:ring-1 focus:ring-[#365eff]',
             )}
           />
           <div className="flex justify-end gap-2 mt-3">
             <button
               onClick={handleCancel}
-              className="px-3 py-1.5 font-mono text-[11px] text-[#555a6a] hover:text-[#8b90a0] transition-colors"
+              className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
             </button>
@@ -199,7 +199,7 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
         {points.map((p, idx) => (
           <div
             key={p.id}
-            className="group flex items-start gap-3 px-3 py-3 rounded-[6px] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+            className="group flex items-start gap-3 px-3 py-3 rounded-[6px] hover:bg-muted transition-colors"
           >
             {/* Type icon square */}
             <div className="flex-shrink-0 w-8 h-8 rounded-[6px] bg-[rgba(54,94,255,0.08)] flex items-center justify-center mt-0.5">
@@ -219,11 +219,11 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
                   </span>
                 )}
               </div>
-              <div className="text-[13px] font-medium text-[#c8cad4] leading-snug">{p.headline}</div>
+              <div className="text-[13px] font-medium text-foreground leading-snug">{p.headline}</div>
               {p.clientName && (
-                <div className="font-mono text-[10px] text-[#555a6a] mt-0.5">{p.clientName}</div>
+                <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{p.clientName}</div>
               )}
-              <p className="text-[13px] leading-relaxed text-[#8b90a0] line-clamp-2 mt-1">{p.detail}</p>
+              <p className="text-[13px] leading-relaxed text-gray-600 dark:text-gray-400 line-clamp-2 mt-1">{p.detail}</p>
             </div>
 
             {/* Hover actions */}
@@ -231,19 +231,19 @@ export function AssetProofPoints({ points, onChange, disabled }: AssetProofPoint
               <button
                 onClick={() => toggleVerified(idx)}
                 title={p.verified ? 'Mark unverified' : 'Mark verified'}
-                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-[#555a6a] hover:text-[#22c55e] hover:bg-[rgba(34,197,94,0.08)] transition-colors"
+                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-[#22c55e] hover:bg-[rgba(34,197,94,0.08)] transition-colors"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => handleEdit(idx)}
-                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-[#555a6a] hover:text-[#c8cad4] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => handleDelete(idx)}
-                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-[#555a6a] hover:text-red-400 hover:bg-[rgba(239,68,68,0.08)] transition-colors"
+                className="w-7 h-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-[rgba(239,68,68,0.08)] transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
