@@ -65,6 +65,11 @@ import {
   createJourneyRunId,
   getStoredJourneyRunId,
   setStoredJourneyRunId,
+  getStoredJourneyPhase,
+  setStoredJourneyPhase,
+  getStoredJourneyCompanyName,
+  setStoredJourneyCompanyName,
+  clearStoredJourneySession,
 } from '@/lib/journey/journey-run';
 import {
   drainPendingSectionWakeUps,
@@ -385,13 +390,20 @@ function JourneyPageContent() {
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
 
   // Journey phase: controls which view renders
-  // Deep-link: ?session=X or ?section=X jumps straight to workspace
-  const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>(
-    deepLinkSession || deepLinkSection ? 'workspace' : 'welcome',
-  );
+  // Priority: deep-link > sessionStorage restore > welcome
+  const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>(() => {
+    if (deepLinkSession || deepLinkSection) return 'workspace';
+    const storedPhase = getStoredJourneyPhase();
+    const storedRunId = getStoredJourneyRunId();
+    if (storedPhase === 'workspace' && storedRunId) return 'workspace';
+    return 'welcome';
+  });
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [isResuming, setIsResuming] = useState(false);
   const [prefillWebsiteUrl, setPrefillWebsiteUrl] = useState('');
+  const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(
+    () => getStoredJourneyCompanyName(),
+  );
 
   const {
     partialResult,
@@ -543,12 +555,35 @@ function JourneyPageContent() {
     const saved = getJourneySession();
     if (saved) {
       setOnboardingState(saved);
-      if (hasAnsweredFields(saved)) {
+      // Only show resume prompt if we didn't already restore to workspace from sessionStorage
+      if (hasAnsweredFields(saved) && journeyPhase === 'welcome') {
         setSavedSession(saved);
         setJourneyPhase('resume');
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist phase to sessionStorage so refresh restores the correct view
+  useEffect(() => {
+    setStoredJourneyPhase(journeyPhase);
+  }, [journeyPhase]);
+
+  // Fetch company name from Supabase when restoring workspace without a local name
+  useEffect(() => {
+    if (journeyPhase === 'workspace' && !journeyCompanyName && activeRunId) {
+      fetch(`/api/journey/session?runId=${activeRunId}`, { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          const name = (data?.metadata as Record<string, unknown> | null)?.companyName;
+          if (typeof name === 'string' && name.trim()) {
+            setJourneyCompanyName(name);
+            setStoredJourneyCompanyName(name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [journeyPhase, journeyCompanyName, activeRunId]);
 
   const transport = useMemo(
     () =>
@@ -623,6 +658,8 @@ function JourneyPageContent() {
     const nextRunId = createJourneyRunId();
     commitActiveRunId(nextRunId);
     resetConversationState();
+    setJourneyCompanyName(null);
+    setStoredJourneyCompanyName(null);
     if (user?.id) {
       resetResearchState(user.id, nextRunId);
     }
@@ -1429,6 +1466,7 @@ function JourneyPageContent() {
 
   const handleResumeStartFresh = useCallback(() => {
     clearJourneySession();
+    clearStoredJourneySession();
     beginFreshJourneyRun();
     setSavedSession(null);
     setIsResuming(false);
@@ -1485,6 +1523,8 @@ function JourneyPageContent() {
       // Go straight to workspace — render immediately while session persists
       hasTransitionedToWorkspaceRef.current = true;
       setJourneyPhase('workspace');
+      setJourneyCompanyName(displayName);
+      setStoredJourneyCompanyName(displayName);
 
       // Persist session fields THEN dispatch — must await so the worker's
       // isActiveJourneyRun() guard sees the run ID when it tries to write results
@@ -1566,6 +1606,8 @@ function JourneyPageContent() {
       // Go straight to workspace — render immediately while session persists
       hasTransitionedToWorkspaceRef.current = true;
       setJourneyPhase('workspace');
+      setJourneyCompanyName(displayName);
+      setStoredJourneyCompanyName(displayName);
 
       // Clear old results, set new fields + run ID, THEN dispatch
       const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
@@ -2235,6 +2277,12 @@ function JourneyPageContent() {
                 userId={user?.id}
                 activeRunId={activeRunId}
                 onSectionApproved={handleWorkspaceSectionApproved}
+                companyName={journeyCompanyName}
+                onBack={() => {
+                  clearStoredJourneySession();
+                  setJourneyCompanyName(null);
+                  setJourneyPhase('welcome');
+                }}
               />
             </WorkspaceProvider>
           </div>
