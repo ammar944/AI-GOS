@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share2, Check, Loader2, Link2 } from 'lucide-react';
+import { Share2, Check, Loader2, Link2, ArrowLeft } from 'lucide-react';
 import { SectionTabs } from './section-tabs';
 import { ArtifactCanvas } from './artifact-canvas';
 import { UnifiedChat } from '@/components/chat/unified-chat';
@@ -25,6 +25,8 @@ interface WorkspacePageProps {
   userId?: string | null;
   activeRunId?: string | null;
   onSectionApproved?: (section: SectionKey) => void;
+  companyName?: string | null;
+  onBack?: () => void;
 }
 
 function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
@@ -192,12 +194,13 @@ function ShareButton() {
   );
 }
 
-function WorkspaceNavBar() {
+function WorkspaceNavBar({ companyName, onBack }: { companyName?: string | null; onBack?: () => void }) {
   const { state, navigateToSection } = useWorkspace();
 
   // Show all 8 sections so users see the full pipeline upfront.
   // Queued sections render dimmed but visible in the tab bar.
   const visibleSections = WORKSPACE_SECTIONS;
+  const showCompanyName = companyName && companyName !== 'this company';
 
   return (
     <div className="flex items-center">
@@ -210,8 +213,22 @@ function WorkspaceNavBar() {
           mode="workspace"
         />
       </div>
-      <div className="shrink-0 pr-4">
+      <div className="flex shrink-0 items-center gap-3 pr-4">
+        {showCompanyName && (
+          <p className="hidden text-xs text-[var(--text-tertiary)] sm:block truncate max-w-[200px]">
+            {companyName}
+          </p>
+        )}
         <ShareButton />
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--text-quaternary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
+            title="Start a new journey"
+          >
+            <ArrowLeft size={13} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -221,7 +238,7 @@ const CHAT_MIN_W = 320;
 const CHAT_MAX_W = 640;
 const CHAT_DEFAULT_W = 400;
 
-export function WorkspacePage({ userId, activeRunId, onSectionApproved }: WorkspacePageProps) {
+export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyName, onBack }: WorkspacePageProps) {
   const { state, setSectionPhase, navigateToSection } = useWorkspace();
   const [mediaPlanGenerating, setMediaPlanGenerating] = useState(false);
   const [scriptsGenerating, setScriptsGenerating] = useState(false);
@@ -374,7 +391,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved }: Worksp
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
       <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
-      <WorkspaceNavBar />
+      <WorkspaceNavBar companyName={companyName} onBack={onBack} />
       <div className="flex flex-1 min-h-0">
         {showAssetCollection && state.currentSection !== 'scripts' ? (
           <div className="flex flex-1 flex-col min-h-0">

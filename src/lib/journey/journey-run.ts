@@ -122,3 +122,43 @@ export function buildJourneySessionUrl(
 ): string {
   return buildJourneySessionSnapshotUrl(activeRunId) ?? '/api/journey/session';
 }
+
+// ── Session persistence (phase + company name) ─────────────────────────────
+
+const JOURNEY_PHASE_STORAGE_KEY = 'aigos_journey_phase';
+const JOURNEY_COMPANY_NAME_STORAGE_KEY = 'aigos_journey_company_name';
+
+export function getStoredJourneyPhase(): string | null {
+  if (!isBrowser()) return null;
+  return window.sessionStorage.getItem(JOURNEY_PHASE_STORAGE_KEY);
+}
+
+export function setStoredJourneyPhase(phase: string | null): void {
+  if (!isBrowser()) return;
+  if (!phase) {
+    window.sessionStorage.removeItem(JOURNEY_PHASE_STORAGE_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(JOURNEY_PHASE_STORAGE_KEY, phase);
+}
+
+export function getStoredJourneyCompanyName(): string | null {
+  if (!isBrowser()) return null;
+  return window.sessionStorage.getItem(JOURNEY_COMPANY_NAME_STORAGE_KEY);
+}
+
+export function setStoredJourneyCompanyName(name: string | null): void {
+  if (!isBrowser()) return;
+  if (!name) {
+    window.sessionStorage.removeItem(JOURNEY_COMPANY_NAME_STORAGE_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(JOURNEY_COMPANY_NAME_STORAGE_KEY, name);
+}
+
+export function clearStoredJourneySession(): void {
+  if (!isBrowser()) return;
+  window.sessionStorage.removeItem(JOURNEY_ACTIVE_RUN_STORAGE_KEY);
+  window.sessionStorage.removeItem(JOURNEY_PHASE_STORAGE_KEY);
+  window.sessionStorage.removeItem(JOURNEY_COMPANY_NAME_STORAGE_KEY);
+}
