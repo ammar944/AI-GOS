@@ -1,9 +1,12 @@
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
+  ADVISOR_PROMPT_ADDENDUM,
+  ADVISOR_TOOL,
   buildRunnerTelemetry,
   createClient,
   emitRunnerProgress,
   extractJson,
+  isAdvisorEnabled,
   runStreamedToolRunner,
   runWithBackoff,
   type RunnerProgressReporter,
@@ -22,11 +25,11 @@ const KEYWORDS_HEURISTIC_MODEL =
   process.env.RESEARCH_KEYWORDS_HEURISTIC_MODEL ?? KEYWORDS_REPAIR_MODEL;
 const KEYWORDS_RESCUE_MODEL =
   process.env.RESEARCH_KEYWORDS_RESCUE_MODEL ?? KEYWORDS_REPAIR_MODEL;
-const KEYWORDS_PRIMARY_MAX_TOKENS = 6000;
+const KEYWORDS_PRIMARY_MAX_TOKENS = 10000;
 const KEYWORDS_REPAIR_MAX_TOKENS = 4500;
 const KEYWORDS_HEURISTIC_MAX_TOKENS = 3500;
 const KEYWORDS_RESCUE_MAX_TOKENS = 2800;
-const KEYWORDS_PRIMARY_TIMEOUT_MS = 120_000;
+const KEYWORDS_PRIMARY_TIMEOUT_MS = 180_000;
 const KEYWORDS_REPAIR_TIMEOUT_MS = 90_000;
 const KEYWORDS_HEURISTIC_TIMEOUT_MS = 75_000;
 const KEYWORDS_RESCUE_TIMEOUT_MS = 75_000;
@@ -986,8 +989,11 @@ function getKeywordAttemptConfig(mode: KeywordAttemptMode): KeywordAttemptConfig
     model: KEYWORDS_PRIMARY_MODEL,
     maxTokens: KEYWORDS_PRIMARY_MAX_TOKENS,
     timeoutMs: KEYWORDS_PRIMARY_TIMEOUT_MS,
-    tools: [spyfuTool],
-    system: KEYWORDS_PRIMARY_SYSTEM_PROMPT,
+    tools: [
+      spyfuTool,
+      ...(isAdvisorEnabled() ? [ADVISOR_TOOL as unknown as KeywordTool] : []),
+    ],
+    system: `${isAdvisorEnabled() ? ADVISOR_PROMPT_ADDENDUM : ''}${KEYWORDS_PRIMARY_SYSTEM_PROMPT}`,
     synthesisMessage: 'synthesizing keyword opportunities',
     maxToolIterations: 3,
   };

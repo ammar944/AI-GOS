@@ -10,6 +10,7 @@ import {
   EditableText,
   SEVERITY_COLORS,
   CATEGORY_COLORS,
+  CATEGORY_LABELS,
   type EditingProps,
 } from "./shared";
 
@@ -26,7 +27,7 @@ export function RiskMonitoringContent({
           {data.risks.map((r, rIdx) => (
             <div key={rIdx} className="p-4 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge label={r.category} variant={CATEGORY_COLORS[r.category] ?? "neutral"} />
+                <StatusBadge label={CATEGORY_LABELS[r.category] ?? r.category} variant={CATEGORY_COLORS[r.category] ?? "neutral"} />
                 {/* P×I score badge (new) — shown when numerical scoring is available */}
                 {r.score != null && (
                   <StatusBadge

@@ -244,54 +244,54 @@ export async function POST(req: Request) {
     }
   }
 
-  // --- Sales Call Intelligence injection ---
-  // When the session has Fathom calls with extracted insights, inject a
-  // structured "Sales Call Intelligence" block into the runner context.
+  // --- Meeting Intelligence injection ---
+  // When the session has meeting transcripts with extracted insights, inject a
+  // structured "Meeting Intelligence" block into the runner context.
   // This is higher-signal than uploaded documents and appears first.
   if (runId) {
     try {
-      const fathomSupabase = createAdminClient();
-      const { data: fathomSession } = await fathomSupabase
+      const meetingSupabase = createAdminClient();
+      const { data: meetingSession } = await meetingSupabase
         .from('journey_sessions')
-        .select('fathom_calls')
+        .select('meeting_transcripts')
         .eq('user_id', userId)
         .eq('run_id', runId)
         .maybeSingle();
 
-      const fathomCalls = (fathomSession?.fathom_calls ?? []) as import('@/lib/fathom/types').FathomCallMeta[];
-      const readyCalls = fathomCalls.filter((c) => c.status === 'ready');
+      const meetings = (meetingSession?.meeting_transcripts ?? []) as import('@/lib/meeting-intel/types').MeetingMeta[];
+      const readyMeetings = meetings.filter((m) => m.status === 'ready');
 
-      if (readyCalls.length > 0) {
-        const docIds = readyCalls.map((c) => c.documentId);
-        const { data: docs } = await fathomSupabase
+      if (readyMeetings.length > 0) {
+        const docIds = readyMeetings.map((m) => m.documentId);
+        const { data: docs } = await meetingSupabase
           .from('business_profile_documents')
           .select('id, extracted_fields')
           .in('id', docIds);
 
         if (docs && docs.length > 0) {
-          const { buildAllSalesCallBlocks } = await import('@/lib/fathom/context-block');
-          const extractedMap: Record<string, import('@/lib/fathom/types').SalesCallInsights> = {};
+          const { buildAllMeetingIntelBlocks } = await import('@/lib/meeting-intel/context-block');
+          const extractedMap: Record<string, import('@/lib/meeting-intel/types').MeetingInsights> = {};
           for (const doc of docs) {
             if (doc.extracted_fields && Object.keys(doc.extracted_fields as Record<string, unknown>).length > 0) {
-              extractedMap[doc.id] = doc.extracted_fields as import('@/lib/fathom/types').SalesCallInsights;
+              extractedMap[doc.id] = doc.extracted_fields as import('@/lib/meeting-intel/types').MeetingInsights;
             }
           }
 
-          const salesCallBlock = buildAllSalesCallBlocks(readyCalls, extractedMap);
-          if (salesCallBlock) {
-            enrichedContext = `${salesCallBlock}\n\n${enrichedContext}`;
+          const meetingBlock = buildAllMeetingIntelBlocks(readyMeetings, extractedMap);
+          if (meetingBlock) {
+            enrichedContext = `${meetingBlock}\n\n${enrichedContext}`;
           }
         }
       }
     } catch (err) {
-      console.warn('[dispatch] Failed to inject sales call intelligence:', err);
+      console.warn('[dispatch] Failed to inject meeting intelligence:', err);
     }
   }
 
-  // --- Conditional runner instruction for sales call priority ---
-  if (enrichedContext.includes('SALES CALL INTELLIGENCE')) {
-    const salesCallInstruction = `\n\n# Sales Call Intelligence Priority\nIf "SALES CALL INTELLIGENCE" blocks appear below, these contain verified first-party data from actual client conversations. Prioritize sales call data over web-scraped or inferred data. When sales call data contradicts web research, note the discrepancy and prefer the sales call version. Cite sales call quotes using format: [Sales Call: "exact quote"]. Use pain points to inform targeting, budget signals to ground spend recommendations, and competitor mentions to focus competitive analysis.\n`;
-    enrichedContext = salesCallInstruction + enrichedContext;
+  // --- Conditional runner instruction for meeting intelligence priority ---
+  if (enrichedContext.includes('MEETING INTELLIGENCE')) {
+    const meetingInstruction = `\n\n# Meeting Intelligence Priority\nIf "MEETING INTELLIGENCE" blocks appear below, these contain verified first-party data from actual client conversations. Prioritize meeting data over web-scraped or inferred data. When meeting data contradicts web research, note the discrepancy and prefer the meeting version. Cite meeting quotes using format: [Meeting: "exact quote"]. Use pain points to inform targeting, budget signals to ground spend recommendations, and competitor mentions to focus competitive analysis.\n`;
+    enrichedContext = meetingInstruction + enrichedContext;
   }
 
   const result = await dispatchResearchForUser(tool, section, enrichedContext, userId, {

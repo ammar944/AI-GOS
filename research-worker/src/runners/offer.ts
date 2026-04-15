@@ -13,7 +13,7 @@ import { firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 
 const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? 'claude-sonnet-4-6';
-const OFFER_MAX_TOKENS = 6000;
+const OFFER_MAX_TOKENS = 8192;
 const OFFER_TIMEOUT_MS = 180_000;
 const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,

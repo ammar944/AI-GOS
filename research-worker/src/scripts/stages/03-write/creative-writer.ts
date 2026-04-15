@@ -100,6 +100,12 @@ export interface CreativeWriterInput {
   allClaims: ExtractedClaim[];
   platformSpecs?: string;
   adCopyTemplates?: string;
+  brandVoiceNotes?: {
+    tone: string;
+    constraints: string;
+    goodExample: string;
+    badExample: string;
+  } | null;
 }
 
 function buildCreativePrompt(input: CreativeWriterInput): { system: string; prompt: string } {
@@ -107,7 +113,7 @@ function buildCreativePrompt(input: CreativeWriterInput): { system: string; prom
     level, levelPlans, companyName, trimmedResearchContext, targetAudience,
     targetAudienceMonologue, styleReferences, proofPoints, usedProofPoints,
     competitorAdIntel, researchStatsSubset, usedAnglesAndHooks, allClaims,
-    platformSpecs, adCopyTemplates,
+    platformSpecs, adCopyTemplates, brandVoiceNotes,
   } = input;
 
   // Build the planner suggestions block
@@ -172,6 +178,22 @@ ${researchStatsSubset.map(s => `- "${s.stat}" (source: ${s.source})`).join('\n')
 Use these to ground claims. Don't use the same stat in every script.`
     : '';
 
+  const brandVoiceText = brandVoiceNotes && (brandVoiceNotes.tone || brandVoiceNotes.constraints)
+    ? brandVoiceNotes
+    : null;
+
+  const brandConstraintsSection = brandVoiceText?.constraints
+    ? `\n## BRAND VOICE — HARD RULES (NEVER VIOLATE)\n${brandVoiceText.constraints}\nThese are non-negotiable. Every script must comply.\n`
+    : '';
+
+  const brandToneSection = brandVoiceText?.tone
+    ? `\n## BRAND VOICE — TONE\n${brandVoiceText.tone}\nWrite in this register. Match this personality throughout.\n`
+    : '';
+
+  const brandExamplesSection = brandVoiceText?.goodExample || brandVoiceText?.badExample
+    ? `\n## BRAND VOICE — EXAMPLES\n${brandVoiceText.goodExample ? `GOOD (match this): ${brandVoiceText.goodExample}` : ''}\n${brandVoiceText.badExample ? `BAD (never this): ${brandVoiceText.badExample}` : ''}\nStudy the difference. Your output should read like the "good" example.\n`
+    : '';
+
   const system = `You are a direct-response copywriter who sounds like a founder talking to another founder. You write for paid media agencies. Your job is to write ads that make people stop scrolling and take action. Every word earns its place or gets cut.
 
 You are writing for the **${level}** awareness level. Write like you understand this person's world, not like you're pitching them.
@@ -199,8 +221,10 @@ These claims have been extracted and source-attributed from the research. Use th
 ${claimsMenu}
 
 ${proofSection}
+${brandToneSection}
+${brandExamplesSection}
 ${statsSection}
-
+${brandConstraintsSection}
 ${styleReferences ? `## STYLE REFERENCES
 Study these carefully. Match their voice, cadence, and rhythm. Mirror the pattern, not the words.
 

@@ -92,7 +92,7 @@ import { ProfileDropdown } from '@/components/journey/profile-dropdown';
 import { normalizeProfileFields } from '@/lib/profiles/normalize-fields';
 import type { BusinessProfile } from '@/lib/profiles/business-profiles';
 import type { SectionKey } from '@/lib/workspace/types';
-import type { FathomCallMeta, SalesCallInsights } from '@/lib/fathom/types';
+import type { PendingMeeting } from '@/lib/meeting-intel/types';
 
 // Demo progress items matching the mockup's right panel
 const DEMO_PROGRESS_ITEMS: ProgressItem[] = [
@@ -450,8 +450,7 @@ function JourneyPageContent() {
   // Session reset signal — increment to clear stale research data from Realtime hook
   const [realtimeResetSignal, setRealtimeResetSignal] = useState(0);
   const [researchResetAt, setResearchResetAt] = useState<string | null>(null);
-  const [fathomCalls, setFathomCalls] = useState<FathomCallMeta[]>([]);
-  const [fathomInsightsMap, setFathomInsightsMap] = useState<Record<string, SalesCallInsights>>({});
+  const [pendingMeetings, setPendingMeetings] = useState<PendingMeeting[]>([]);
 
   // Clear stale research data from Supabase and reset local state.
   // Called when starting a NEW session (accept prefill / skip / start fresh).
@@ -1589,6 +1588,20 @@ function JourneyPageContent() {
           body: JSON.stringify({ sessionId: nextRunId }),
         }).catch(() => { /* non-critical */ });
 
+        // Submit any meetings added during onboarding (fire-and-forget)
+        for (const meeting of pendingMeetings) {
+          fetch('/api/meetings/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: meeting.title,
+              meetingType: meeting.meetingType,
+              transcript: meeting.transcript,
+              runId: nextRunId,
+            }),
+          }).catch(() => { /* non-critical */ });
+        }
+
         addLog('run', 'Resolving product identity...');
         return dispatchWithIdentity('industryMarket', nextRunId, context);
       }).then((result) => {
@@ -1601,7 +1614,7 @@ function JourneyPageContent() {
         addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     },
-    [addLog, commitActiveRunId],
+    [addLog, commitActiveRunId, pendingMeetings],
   );
 
   const handleArtifactApprove = useCallback(() => {
@@ -2114,10 +2127,8 @@ function JourneyPageContent() {
     <UnifiedFieldReview
       extractedFields={reviewFields}
       onStart={handleStartFromUnifiedReview}
-      runId={activeRunId ?? ''}
-      fathomCalls={fathomCalls}
-      fathomInsightsMap={fathomInsightsMap}
-      onFathomCallsChange={setFathomCalls}
+      pendingMeetings={pendingMeetings}
+      onPendingMeetingsChange={setPendingMeetings}
     />
   );
 

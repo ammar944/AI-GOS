@@ -63,7 +63,7 @@ export function PlatformStrategyContent({
           {/* CPL */}
           {isEditing ? (
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
-              <span>CPL:</span>
+              <span>Cost Per Lead (CPL):</span>
               <EditableText
                 value={String(ps.expectedCplRange.min)}
                 onSave={(v) => onFieldChange?.(`${idx}.expectedCplRange.min`, Number(v) || 0)}
@@ -76,7 +76,7 @@ export function PlatformStrategyContent({
             </div>
           ) : (
             <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-              CPL: {fmt$(ps.expectedCplRange.min)} &ndash; {fmt$(ps.expectedCplRange.max)}
+              Cost Per Lead (CPL): {fmt$(ps.expectedCplRange.min)} &ndash; {fmt$(ps.expectedCplRange.max)}
             </p>
           )}
 
@@ -154,12 +154,12 @@ export function PlatformStrategyContent({
                           : "rgba(239,68,68,0.34)",
                   }}
                 >
-                  Density: {ps.competitiveDensity}/10
+                  Competitive Density: {ps.competitiveDensity}/10
                 </span>
               )}
               {ps.audienceSaturation && (
                 <StatusBadge
-                  label={`Saturation: ${ps.audienceSaturation}`}
+                  label={`Audience Saturation: ${ps.audienceSaturation}`}
                   variant={
                     ps.audienceSaturation === "low" ? "success"
                       : ps.audienceSaturation === "medium" ? "warning"

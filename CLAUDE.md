@@ -57,7 +57,7 @@ The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-b
 
 **Pipeline order**: `identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan`
 
-**Runners** (in `research-worker/src/runners/`): industry, icp, competitors, offer, keywords, synthesize, media-plan, ad-scripts, fathom-extract. Each runner: primary phase → repair phase → rescue phase with fallback models.
+**Runners** (in `research-worker/src/runners/`): industry, icp, competitors, offer, keywords, synthesize, media-plan, ad-scripts, meeting-extract. Each runner: primary phase → repair phase → rescue phase with fallback models.
 
 ### Key Files
 | What | Where |
@@ -72,7 +72,7 @@ The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-b
 | Context builder | `src/lib/journey/context-string.ts` |
 | Worker entry | `research-worker/src/index.ts` |
 | Identity resolver | `research-worker/src/identity/resolve-identity.ts` |
-| Fathom client | `src/lib/fathom/client.ts` |
+| Meeting intel | `src/lib/meeting-intel/` |
 
 ### Profiles & Scripts
 - Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Scripts, Assets.

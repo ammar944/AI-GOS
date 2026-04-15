@@ -15,8 +15,8 @@ npm run test:run     # Vitest single run
 ## Architecture
 
 - **Framework:** Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4
-- **AI:** Vercel AI SDK — Anthropic (Opus 4.6 orchestrator, Sonnet 4.6 workers)
-- **Research:** Perplexity Sonar Pro via custom tools
+- **AI:** Vercel AI SDK v6 — `streamText` with `claude-opus-4-6` (adaptive thinking) for the Journey chat agent
+- **Research:** Separate Railway worker (`research-worker/`) running Anthropic SDK with native `web_search` tool. Dispatched as tool calls from the Journey chat agent via `/api/journey/dispatch`. Async — 202-and-write-back via Supabase realtime.
 - **DB:** Supabase (PostgreSQL + pgvector)
 - **Auth:** Clerk
 - **UI:** shadcn/ui (new-york, zinc) + SaasLaunch Design Language
@@ -24,14 +24,16 @@ npm run test:run     # Vitest single run
 ## Key Paths
 
 ```
-src/app/api/journey/     # Conversational journey routes
-src/lib/ai/              # AI SDK, sections, skills, tools
-src/lib/ai/skills/       # Per-section SKILL.md (Anthropic Skills API)
-src/lib/ai/sections/     # Runner, configs, tools
-src/lib/ai/tools/        # generate-research, scrape tools
-src/components/journey/  # Journey UI
-.planning/               # Project state — read STATE.md first
-docs/                    # PRD, design specs, audit reports
+src/app/journey/page.tsx                  # Chat UI entry (useChat + DefaultChatTransport)
+src/app/api/journey/stream/route.ts       # streamText loop — Opus 4.6 + adaptive thinking
+src/app/api/journey/dispatch/route.ts     # Bridges research tools to the Railway worker
+src/lib/ai/prompts/journey-chat-system.ts # Real current system prompt (JOURNEY_CHAT_SYSTEM_PROMPT)
+src/lib/ai/tools/research/                # Tool wrappers that POST to /api/journey/dispatch
+src/components/journey/                   # Chat UI components, artifact panel, inline cards
+research-worker/src/index.ts              # Express :3001, /run endpoint
+research-worker/src/runner.ts             # Anthropic streaming + tool loop
+research-worker/src/runners/              # industry, competitors, icp, offer, synthesize, keywords, media-plan
+docs/                                     # PRD, design specs, audit reports
 ```
 
 ## Conventions
@@ -46,10 +48,10 @@ docs/                    # PRD, design specs, audit reports
 
 ## Models
 
-- Lead Agent: `claude-opus-4-6` (orchestrator, synthesis, user-facing)
-- Workers: `claude-sonnet-4-6` (research, analysis sub-agents)
-- Research: `sonar-pro` (Perplexity — web search)
-- Compression: `claude-3-5-haiku` (raw data → structured)
+- **Journey chat agent**: `claude-opus-4-6` with adaptive thinking — single user-facing tool-calling loop in `src/app/api/journey/stream/route.ts`. There is NO separate "lead agent" process; the chat IS the agent.
+- **Research runners**: Anthropic SDK in `research-worker/src/runners/*.ts`, each with native `web_search` tool. Run as detached async jobs on Railway.
+- **Identity / structuring**: Haiku for fast structuring inside specific runners (e.g. `resolve-identity.ts`).
+- **No Perplexity, no OpenRouter** — all calls are direct Anthropic SDK or `@ai-sdk/anthropic`.
 
 ## Anti-Hallucination Rules
 
@@ -58,10 +60,27 @@ docs/                    # PRD, design specs, audit reports
 - If a tool returns no data, report it — don't fill in fake numbers
 - Tool result reminders after every API response
 
-## V2 PRD Context
+## Current Flow (production)
 
-The system is pivoting from form-based to conversational AI journey:
-- No more forms — 7-9 contextual questions with live background research
-- Progressive section generation — user validates each before next
-- One unified flow: research → ICP → competitors → media plan
-- See `docs/AI-GOS-v2-PRD.docx` and `CLAUDE.md` for full details
+```
+src/app/journey/page.tsx                  [chat UI]
+  │  POST /api/journey/stream
+  ▼
+src/app/api/journey/stream/route.ts       [Opus 4.6 streamText, tool-calling loop]
+  │  (research tool call)
+  ▼
+src/app/api/journey/dispatch/route.ts     [enriches with prior results]
+  │  POST RAILWAY_WORKER_URL/run
+  ▼
+research-worker/src/index.ts              [Express, returns 202, runs detached]
+  │  writeResearchResult()
+  ▼
+Supabase journey_sessions.research_results
+  │  realtime subscription
+  ▼
+src/app/journey/page.tsx                  [results render in artifact panel]
+```
+
+Pipeline order: `identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan`
+
+> Older orchestration docs describe a "lead agent Q&A while research happens in background" architecture. **That design was never shipped — ignore it.** The chat agent and research are a single tool-calling loop, not two phases.

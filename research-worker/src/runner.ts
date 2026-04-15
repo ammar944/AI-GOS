@@ -15,11 +15,49 @@ export {
   type RunnerUsageTelemetry,
 } from './telemetry';
 
+/** Advisor tool definition — shared by runners that opt into Opus guidance. */
+export const ADVISOR_TOOL = {
+  type: 'advisor_20260301' as const,
+  name: 'advisor' as const,
+  model: 'claude-opus-4-6',
+  max_uses: 2,
+};
+
+/**
+ * System prompt addendum based on Anthropic's recommended advisor prompting.
+ * See: https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool#suggested-system-prompt-for-coding-tasks
+ * Adapted for research tasks. Prepend to runner system prompts when advisor is enabled.
+ */
+export const ADVISOR_PROMPT_ADDENDUM = `
+The advisor should respond in under 100 words and use enumerated steps, not explanations.
+
+You have access to an \`advisor\` tool backed by a stronger reviewer model. It takes NO parameters — when you call advisor(), your entire conversation history is automatically forwarded. They see the task, every tool call you've made, every result you've seen.
+
+Call advisor BEFORE substantive work — before writing, before committing to an interpretation, before building on an assumption. If the task requires orientation first (searching the web, fetching data from tools, gathering evidence), do that, then call advisor. Orientation is not substantive work. Writing, analyzing, and declaring an answer are.
+
+Also call advisor:
+- When you believe the task is complete. BEFORE this call, make your deliverable durable.
+- When stuck — evidence is thin, approach not converging, results that don't fit.
+- When considering a change of approach.
+
+On tasks longer than a few steps, call advisor at least once before committing to an approach and once before declaring done. On short reactive tasks where the next action is dictated by tool output you just read, you don't need to keep calling — the advisor adds most of its value on the first call, before the approach crystallizes.
+
+Give the advice serious weight. If you follow a step and it fails empirically, or you have primary-source evidence that contradicts a specific claim, adapt. If you've already retrieved data pointing one way and the advisor points another: don't silently switch. Surface the conflict in one more advisor call — the advisor saw your evidence but may have underweighted it; a reconcile call is cheaper than committing to the wrong branch.`;
+
+export function isAdvisorEnabled(): boolean {
+  return process.env.ENABLE_ADVISOR_TOOL === 'true';
+}
+
 export function createClient() {
+  const betaFeatures = ['prompt-caching-2024-07-31'];
+  if (isAdvisorEnabled()) {
+    betaFeatures.push('advisor-tool-2026-03-01');
+    console.log('[runner] Advisor tool ENABLED — beta header includes advisor-tool-2026-03-01');
+  }
   return new Anthropic({
     maxRetries: 0,
     defaultHeaders: {
-      'anthropic-beta': 'prompt-caching-2024-07-31',
+      'anthropic-beta': betaFeatures.join(','),
     },
   });
 }
@@ -180,6 +218,9 @@ const TOOL_FRIENDLY_LABELS: Record<string, string> = {
   // Charts
   chart: 'Generating visualization',
   create_chart: 'Generating visualization',
+
+  // Advisor
+  advisor: 'Consulting strategic advisor',
 };
 
 export function describeToolUseBlock(block: ToolUseBlock): string {
@@ -455,6 +496,17 @@ export async function runStreamedToolRunner(
         return;
       }
 
+      // Advisor tool result — Opus guidance received, emit progress
+      if ((block as { type: string }).type === 'advisor_tool_result') {
+        console.log('[runner] Advisor tool result received — Opus guidance applied');
+        void emitRunnerProgress(
+          options.onProgress,
+          'analysis',
+          'strategic guidance received from advisor',
+        );
+        return;
+      }
+
       if (block.type === 'web_search_tool_result') {
         const resultBlock = block as BetaWebSearchToolResultBlock;
         const signature = sanitizeForJson(`${resultBlock.tool_use_id}:${Array.isArray(resultBlock.content) ? resultBlock.content.map((result) => `${result.title}|${result.url}`).join('|') : 'error'}`);
@@ -568,10 +620,29 @@ export function extractJson(text: string): unknown {
   try { return JSON.parse(trimmed); } catch {}
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) { try { return JSON.parse(fenced[1].trim()); } catch {} }
+  // Unclosed fence: model truncated before closing backticks
+  const unclosed = trimmed.match(/```(?:json)?\s*([\s\S]+)/);
+  if (unclosed) {
+    const inner = unclosed[1].trim();
+    try { return JSON.parse(inner); } catch {}
+    // Try extracting just the JSON object from the unclosed fence content
+    const uf = inner.indexOf('{');
+    const ul = inner.lastIndexOf('}');
+    if (uf >= 0 && ul > uf) {
+      const ucandidate = inner.slice(uf, ul + 1);
+      try { return JSON.parse(ucandidate); } catch {}
+      const ufixed = ucandidate.replace(/,\s*([\]}])/g, '$1');
+      try { return JSON.parse(ufixed); } catch {}
+    }
+  }
   const first = trimmed.indexOf('{');
   const last = trimmed.lastIndexOf('}');
   if (first >= 0 && last > first) {
-    try { return JSON.parse(trimmed.slice(first, last + 1)); } catch {}
+    const candidate = trimmed.slice(first, last + 1);
+    try { return JSON.parse(candidate); } catch {}
+    // Fix trailing commas before } or ] (common with Haiku/Sonnet)
+    const fixed = candidate.replace(/,\s*([\]}])/g, '$1');
+    try { return JSON.parse(fixed); } catch {}
   }
   throw new Error('No parseable JSON found');
 }

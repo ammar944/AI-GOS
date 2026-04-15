@@ -129,24 +129,27 @@ describe('Current Performance baseline-metric fields', () => {
 
     const expected: Record<typeof BASELINE_KEYS[number], { placeholder: string; helper: string }> = {
       currentCac: {
-        placeholder: '$450',
+        placeholder: 'e.g. $450 — what one customer currently costs to acquire',
         helper: 'What it currently costs you to acquire a customer.',
       },
       avgCustomerLtv: {
-        placeholder: '$3,600',
+        placeholder: 'e.g. $3,600 — total revenue per customer over their lifetime',
         helper: "Lifetime revenue per customer. Leave blank if you're not sure.",
       },
       leadToCustomerRate: {
-        placeholder: '5',
+        placeholder: 'e.g. 5 (means 5% — 5 of every 100 leads close)',
         helper: 'Of every 100 leads, how many become paying customers?',
       },
       last12MoGrowthRate: {
-        placeholder: '25',
+        placeholder: 'e.g. 25 (means 25% — leave blank if you don\'t track it)',
         helper: "Leave blank if you don't track it. Used to gate growth-rate claims in the plan.",
       },
     };
 
+    // Pin both: placeholder reads as a hint (starts with "e.g."),
+    // helper reads as a directive sentence.
     expect(meta?.placeholder).toBe(expected[key].placeholder);
+    expect(meta?.placeholder).toMatch(/^e\.g\./);
     expect(meta?.helper).toBe(expected[key].helper);
   });
 
@@ -158,7 +161,7 @@ describe('Current Performance baseline-metric fields', () => {
   it('adds a current-performance group to JOURNEY_FIELD_GROUPS', () => {
     const group = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'current-performance');
     expect(group).toBeDefined();
-    expect(group?.label).toBe('Current Performance (optional)');
+    expect(group?.label).toBe('Current Performance');
     expect(group?.fieldKeys).toEqual([...BASELINE_KEYS]);
   });
 

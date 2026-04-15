@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Users, Package, TrendingUp, Target, Gauge, FileUp, Loader2, FileText, X, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import type { MeetingMeta, MeetingInsights, MeetingType } from '@/lib/meeting-intel/types';
+import type { PendingMeeting, MeetingType } from '@/lib/meeting-intel/types';
 import { cn } from '@/lib/utils';
 import { FieldCard } from '@/components/journey/field-card';
 import {
@@ -41,19 +41,15 @@ const TAG_LABELS: Record<string, string> = {
 export interface UnifiedFieldReviewProps {
   extractedFields: Record<string, string>;
   onStart: (onboardingData: Record<string, string>) => void;
-  runId?: string;
-  meetings?: MeetingMeta[];
-  meetingInsightsMap?: Record<string, MeetingInsights>;
-  onMeetingsChange?: (meetings: MeetingMeta[]) => void;
+  pendingMeetings?: PendingMeeting[];
+  onPendingMeetingsChange?: (meetings: PendingMeeting[]) => void;
 }
 
 export function UnifiedFieldReview({
   extractedFields,
   onStart,
-  runId,
-  meetings = [],
-  meetingInsightsMap = {},
-  onMeetingsChange,
+  pendingMeetings = [],
+  onPendingMeetingsChange,
 }: UnifiedFieldReviewProps) {
   const [userEdits, setUserEdits] = useState<Record<string, string>>({});
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
@@ -76,9 +72,6 @@ export function UnifiedFieldReview({
   const [meetingTitle, setMeetingTitle] = useState('');
   const [meetingType, setMeetingType] = useState<MeetingType>('discovery');
   const [meetingTranscript, setMeetingTranscript] = useState('');
-  const [isMeetingSubmitting, setIsMeetingSubmitting] = useState(false);
-  const [meetingError, setMeetingError] = useState<string | null>(null);
-  const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
 
   const MEETING_TYPE_OPTIONS: { value: MeetingType; label: string }[] = [
     { value: 'discovery', label: 'Discovery' },
@@ -94,36 +87,19 @@ export function UnifiedFieldReview({
   const canSubmitMeeting = meetingTitle.trim().length > 0 && meetingTranscript.trim().length >= 50;
 
   const handleAddMeeting = useCallback(async () => {
-    if (!canSubmitMeeting || isMeetingSubmitting || !runId) return;
-    setMeetingError(null);
-    setIsMeetingSubmitting(true);
-    try {
-      const res = await fetch('/api/meetings/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: meetingTitle.trim(),
-          meetingType,
-          transcript: meetingTranscript.trim(),
-          runId,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(data.error ?? `Failed: ${res.status}`);
-      }
-      const newMeeting: MeetingMeta = await res.json();
-      const updated = [...meetings, newMeeting];
-      onMeetingsChange?.(updated);
-      setMeetingTitle('');
-      setMeetingTranscript('');
-      setMeetingType('discovery');
-    } catch (err) {
-      setMeetingError(err instanceof Error ? err.message : 'Failed to add meeting');
-    } finally {
-      setIsMeetingSubmitting(false);
-    }
-  }, [canSubmitMeeting, isMeetingSubmitting, runId, meetingTitle, meetingType, meetingTranscript, meetings, onMeetingsChange]);
+    if (!canSubmitMeeting) return;
+    const newMeeting: PendingMeeting = {
+      id: crypto.randomUUID(),
+      title: meetingTitle.trim(),
+      meetingType,
+      transcript: meetingTranscript.trim(),
+      dateAdded: new Date().toISOString(),
+    };
+    onPendingMeetingsChange?.([...pendingMeetings, newMeeting]);
+    setMeetingTitle('');
+    setMeetingTranscript('');
+    setMeetingType('discovery');
+  }, [canSubmitMeeting, meetingTitle, meetingType, meetingTranscript, pendingMeetings, onPendingMeetingsChange]);
 
   const handleDocUpload = useCallback(async (files: FileList) => {
     if (isUploading || files.length === 0) return;
@@ -713,8 +689,7 @@ export function UnifiedFieldReview({
                       type="text"
                       placeholder="Meeting title..."
                       value={meetingTitle}
-                      onChange={(e) => { setMeetingTitle(e.target.value); setMeetingError(null); }}
-                      disabled={isMeetingSubmitting}
+                      onChange={(e) => setMeetingTitle(e.target.value)}
                       className={cn(
                         'w-full h-12 rounded-xl border pl-9 pr-3 text-[13px] font-medium transition-all duration-200',
                         'focus:outline-none focus:border-[var(--accent-blue)]/40',
@@ -731,7 +706,7 @@ export function UnifiedFieldReview({
                   <select
                     value={meetingType}
                     onChange={(e) => setMeetingType(e.target.value as MeetingType)}
-                    disabled={isMeetingSubmitting}
+                    disabled={false}
                     className={cn(
                       'h-12 px-3 rounded-xl border text-[13px] font-medium transition-all duration-200',
                       'focus:outline-none focus:border-[var(--accent-blue)]/40',
@@ -753,8 +728,7 @@ export function UnifiedFieldReview({
                   <textarea
                     placeholder="Paste meeting transcript here..."
                     value={meetingTranscript}
-                    onChange={(e) => { setMeetingTranscript(e.target.value); setMeetingError(null); }}
-                    disabled={isMeetingSubmitting}
+                    onChange={(e) => setMeetingTranscript(e.target.value)}
                     rows={6}
                     className={cn(
                       'w-full rounded-xl border p-3 text-[13px] font-medium transition-all duration-200 resize-y min-h-[120px]',
@@ -789,7 +763,7 @@ export function UnifiedFieldReview({
                 <button
                   type="button"
                   onClick={handleAddMeeting}
-                  disabled={!canSubmitMeeting || isMeetingSubmitting}
+                  disabled={!canSubmitMeeting}
                   className={cn(
                     'w-full h-12 rounded-xl text-[13px] font-medium transition-all duration-200',
                     'disabled:opacity-30 disabled:cursor-not-allowed',
@@ -800,151 +774,37 @@ export function UnifiedFieldReview({
                     border: '1px solid var(--accent-blue-subtle)',
                   }}
                 >
-                  {isMeetingSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                  ) : (
-                    'Add Meeting'
-                  )}
+                  Add Meeting
                 </button>
               </div>
-              {meetingError && (
-                <p className="text-[10px] mt-1.5" style={{ color: 'var(--status-red, #ef4444)' }}>{meetingError}</p>
-              )}
 
-              {/* Meeting chips */}
-              {meetings.length > 0 && (
+              {/* Pending meeting chips */}
+              {pendingMeetings.length > 0 && (
                 <div className="space-y-2 mt-4">
-                  {meetings.map((meeting) => {
-                    const isExpanded = expandedMeetingId === meeting.id;
-                    const insights = meetingInsightsMap[meeting.documentId];
-                    const date = new Date(meeting.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  {pendingMeetings.map((meeting) => {
                     const typeLabel = MEETING_TYPE_OPTIONS.find((o) => o.value === meeting.meetingType)?.label ?? meeting.meetingType;
 
                     return (
-                      <div key={meeting.id} className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-default)' }}>
+                      <div key={meeting.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-default)' }}>
+                        <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--accent-blue)' }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
+                            {meeting.title}
+                          </p>
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--text-quaternary)' }}>
+                            {typeLabel} · ~{Math.ceil(meeting.transcript.length / 4).toLocaleString()} tokens
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--status-green, #22c55e)' }}>
+                          <CheckCircle2 className="h-3 w-3" /> Saved
+                        </span>
                         <button
                           type="button"
-                          onClick={() => setExpandedMeetingId(isExpanded ? null : meeting.id)}
-                          className="flex items-center gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-[var(--bg-base)]/30"
+                          onClick={() => onPendingMeetingsChange?.(pendingMeetings.filter((m) => m.id !== meeting.id))}
+                          className="p-1 rounded-md hover:bg-[var(--bg-base)]/50 transition-colors"
                         >
-                          <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--accent-blue)' }} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
-                              {meeting.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] font-mono" style={{ color: 'var(--text-quaternary)' }}>
-                                {[typeLabel, date, `~${Math.ceil(meeting.transcriptLength / 4).toLocaleString()} tokens`].join(' · ')}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {meeting.status === 'saving' && (
-                              <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                                <Loader2 className="h-3 w-3 animate-spin" /> Saving
-                              </span>
-                            )}
-                            {meeting.status === 'extracting' && (
-                              <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--status-amber, #eab308)' }}>
-                                <Loader2 className="h-3 w-3 animate-spin" /> Extracting
-                              </span>
-                            )}
-                            {meeting.status === 'ready' && (
-                              <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--status-green, #22c55e)' }}>
-                                <CheckCircle2 className="h-3 w-3" /> Ready
-                              </span>
-                            )}
-                            {meeting.status === 'error' && (
-                              <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--status-red, #ef4444)' }}>
-                                <AlertCircle className="h-3 w-3" /> Error
-                              </span>
-                            )}
-                            {meeting.status === 'ready' && (
-                              isExpanded ? <ChevronUp className="h-3.5 w-3.5" style={{ color: 'var(--text-quaternary)' }} /> : <ChevronDown className="h-3.5 w-3.5" style={{ color: 'var(--text-quaternary)' }} />
-                            )}
-                          </div>
+                          <X className="h-3 w-3" style={{ color: 'var(--text-quaternary)' }} />
                         </button>
-
-                        {/* Expanded insights */}
-                        {isExpanded && meeting.status === 'ready' && insights && (
-                          <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: 'var(--border-default)' }}>
-                            <div className="grid grid-cols-2 gap-2 mt-2">
-                              {insights.painPoints.length > 0 && (
-                                <div className="rounded-lg p-2.5" style={{ background: 'var(--bg-base)' }}>
-                                  <div className="text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--accent-blue)' }}>
-                                    Pain Points ({insights.painPoints.length})
-                                  </div>
-                                  {insights.painPoints.map((p, i) => (
-                                    <p key={i} className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                                      {p.pain}{p.quote && <span style={{ color: 'var(--text-quaternary)' }}> — &ldquo;{p.quote}&rdquo;</span>}
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                              {(insights.budgetSignals.mentionedSpend || insights.budgetSignals.willingnessToPay) && (
-                                <div className="rounded-lg p-2.5" style={{ background: 'var(--bg-base)' }}>
-                                  <div className="text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--status-amber, #eab308)' }}>
-                                    Budget Signals
-                                  </div>
-                                  {insights.budgetSignals.mentionedSpend && (
-                                    <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Spend: {insights.budgetSignals.mentionedSpend}</p>
-                                  )}
-                                  <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                                    Sensitivity: <span style={{ color: insights.budgetSignals.priceSensitivity === 'low' ? 'var(--status-green, #22c55e)' : insights.budgetSignals.priceSensitivity === 'high' ? 'var(--status-red, #ef4444)' : 'var(--status-amber, #eab308)' }}>{insights.budgetSignals.priceSensitivity}</span>
-                                  </p>
-                                </div>
-                              )}
-                              {insights.competitorMentions.length > 0 && (
-                                <div className="rounded-lg p-2.5" style={{ background: 'var(--bg-base)' }}>
-                                  <div className="text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--status-red, #ef4444)' }}>
-                                    Competitors ({insights.competitorMentions.length})
-                                  </div>
-                                  {insights.competitorMentions.map((c, i) => (
-                                    <p key={i} className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                                      <span style={{ color: 'var(--text-secondary)' }}>{c.name}</span> ({c.sentiment}): {c.context}
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                              {insights.buyingTriggers.length > 0 && (
-                                <div className="rounded-lg p-2.5" style={{ background: 'var(--bg-base)' }}>
-                                  <div className="text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--status-green, #22c55e)' }}>
-                                    Buying Signals ({insights.buyingTriggers.length})
-                                  </div>
-                                  {insights.buyingTriggers.map((t, i) => (
-                                    <p key={i} className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                                      {t.trigger} <span className="text-[10px]" style={{ color: t.urgency === 'immediate' ? 'var(--status-red, #ef4444)' : 'var(--text-quaternary)' }}>({t.urgency.replace('_', ' ')})</span>
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {insights.businessHealthSummary && (
-                              <div className="rounded-lg p-2.5 mt-2" style={{ background: 'var(--accent-blue-glow)', border: '1px solid var(--accent-blue-subtle)' }}>
-                                <div className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: 'var(--accent-blue)' }}>
-                                  Business Health
-                                </div>
-                                <p className="text-[11px] italic leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                                  {insights.businessHealthSummary}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Show extracting state */}
-                        {isExpanded && meeting.status === 'extracting' && (
-                          <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: 'var(--border-default)' }}>
-                            <div className="rounded-lg p-2.5 mt-2" style={{ background: 'var(--bg-base)' }}>
-                              <div className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: 'var(--text-quaternary)' }}>
-                                Extracting insights from transcript...
-                              </div>
-                              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                                AI is analyzing the meeting transcript to extract pain points, budget signals, competitors, and other intelligence.
-                              </p>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}

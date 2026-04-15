@@ -12,7 +12,7 @@ export const TOOL_SECTION_MAP = {
   researchKeywords: 'keywordIntel',
   researchMediaPlan: 'mediaPlan',
   resolveIdentity: 'identityResolution',
-  extractFathomCall: 'fathomExtraction',
+  extractMeetingTranscript: 'meetingExtraction',
 } as const;
 
 const LEGACY_TO_CANONICAL_SECTION_MAP: Record<string, string> = {

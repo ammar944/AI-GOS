@@ -98,9 +98,16 @@ export const PRIORITY_COLORS: Record<string, keyof typeof STATUS_BADGE_COLORS> =
   testing: "warning",
 };
 
+const PRIORITY_LABELS: Record<string, string> = {
+  primary: "Primary Platform",
+  secondary: "Secondary Platform",
+  testing: "Testing / Experimental",
+};
+
 export function PriorityBadge({ priority }: { priority: string }) {
   const variant = PRIORITY_COLORS[priority] ?? "neutral";
-  return <StatusBadge label={priority} variant={variant} />;
+  const label = PRIORITY_LABELS[priority] ?? priority;
+  return <StatusBadge label={label} variant={variant} />;
 }
 
 export function Chip({ children }: { children: React.ReactNode }) {
@@ -306,5 +313,14 @@ export const CATEGORY_COLORS: Record<string, keyof typeof STATUS_BADGE_COLORS> =
   platform: "caution",
   compliance: "danger",
   market: "neutral",
+};
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  budget: "Budget Risk",
+  creative: "Creative Risk",
+  audience: "Audience Risk",
+  platform: "Platform Risk",
+  compliance: "Compliance Risk",
+  market: "Market Risk",
 };
 

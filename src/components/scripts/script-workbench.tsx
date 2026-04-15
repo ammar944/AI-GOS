@@ -136,6 +136,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
   const [selectedSessionRunId, setSelectedSessionRunId] = useState('');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastKnownScriptCountRef = useRef(0);
 
   // ─── Fetch helpers ───────────────────────────────────────────────────────────
 
@@ -199,6 +200,25 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
     }
   }, []);
 
+  /** Silent refresh — loads scripts without setting loading/error state (for progressive updates during generation) */
+  const refreshPackScripts = useCallback(async (packId: string) => {
+    try {
+      const res = await fetch(`/api/scripts/${packId}`);
+      if (!res.ok) return;
+      const { pack } = await res.json();
+      const scripts = parseScripts(pack.scripts);
+      const flags = parseDiversityFlags(pack.diversity_flags);
+      setSelectedPackData({
+        scripts,
+        generation_context: pack.generation_context ?? null,
+        diversity_score: typeof pack.diversity_score === 'number' ? pack.diversity_score : null,
+        diversity_flags: flags,
+      });
+    } catch {
+      // Silent — don't interrupt generation UI
+    }
+  }, []);
+
   // ─── Mount ───────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -241,15 +261,24 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
       if (target && (target.status === 'complete' || target.status === 'error')) {
         stopPolling();
         setGenerating(false);
+        lastKnownScriptCountRef.current = 0;
         if (target.status === 'complete' && selectedPackId === generatingPackId) {
           fetchPackDetail(generatingPackId);
         }
         setGeneratingPackId(null);
+      } else if (
+        target &&
+        target.script_count > lastKnownScriptCountRef.current &&
+        selectedPackId === generatingPackId
+      ) {
+        // Progressive update — new scripts available, load them silently
+        lastKnownScriptCountRef.current = target.script_count;
+        refreshPackScripts(generatingPackId);
       }
     }, 3000);
 
     return () => stopPolling();
-  }, [generating, generatingPackId, profileId, selectedPackId, stopPolling, fetchPackDetail]);
+  }, [generating, generatingPackId, profileId, selectedPackId, stopPolling, fetchPackDetail, refreshPackScripts]);
 
   // ─── Pack selection ───────────────────────────────────────────────────────────
 
@@ -292,6 +321,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
       const newPackId: string = data.packId;
       setGeneratingPackId(newPackId);
       setGenerating(true);
+      lastKnownScriptCountRef.current = 0;
 
       // Optimistically add pack to list
       const optimistic: PackListItem = {

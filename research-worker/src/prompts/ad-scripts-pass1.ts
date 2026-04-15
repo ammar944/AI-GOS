@@ -17,6 +17,12 @@ export function buildPass1Prompt(opts: {
     adCreatives: Array<{ platform: string; headline?: string; body?: string; format: string }>;
   }>;
   researchStatsSubset?: Array<{ stat: string; source: string }>;
+  brandVoiceNotes?: {
+    tone: string;
+    constraints: string;
+    goodExample: string;
+    badExample: string;
+  } | null;
 }): { system: string; prompt: string } {
   const proofSection = opts.proofPoints && opts.proofPoints.length > 0
     ? `
@@ -58,6 +64,18 @@ Minimum 2 of the 3 scripts in this level must use angles NOT in the list above.
 `
     : '';
 
+  const brandConstraintsSection = opts.brandVoiceNotes?.constraints
+    ? `\n## BRAND VOICE — HARD RULES (NEVER VIOLATE)\n${opts.brandVoiceNotes.constraints}\nThese are non-negotiable. Every script must comply.\n`
+    : '';
+
+  const brandToneSection = opts.brandVoiceNotes?.tone
+    ? `\n## BRAND VOICE — TONE\n${opts.brandVoiceNotes.tone}\nWrite in this register. Match this personality throughout.\n`
+    : '';
+
+  const brandExamplesSection = opts.brandVoiceNotes?.goodExample || opts.brandVoiceNotes?.badExample
+    ? `\n## BRAND VOICE — EXAMPLES\n${opts.brandVoiceNotes.goodExample ? `GOOD (match this): ${opts.brandVoiceNotes.goodExample}` : ''}\n${opts.brandVoiceNotes.badExample ? `BAD (never this): ${opts.brandVoiceNotes.badExample}` : ''}\nStudy the difference. Your output should read like the "good" example.\n`
+    : '';
+
   const styleSection = opts.styleReferences
     ? `
 ## STYLE REFERENCES
@@ -89,7 +107,10 @@ Use these triggers as raw material for hooks and opening lines. The best hook mi
 `
     : ''}
 ${proofSection}
+${brandToneSection}
+${brandExamplesSection}
 ${researchStatsSection}
+${brandConstraintsSection}
 ${styleSection}
 ${opts.competitorAdIntel && opts.competitorAdIntel.length > 0
     ? `

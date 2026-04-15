@@ -38,6 +38,7 @@ import {
 } from '../validators/media-plan';
 
 import { stripNumericConstraints } from '../utils/strip-numeric-constraints';
+import { getStrategicPlan } from '../planning/opus-planner';
 
 const MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 8000;
@@ -123,6 +124,12 @@ export async function runMediaPlan(
 
   console.log(`[media-plan] Starting 6-block generation for industry: ${industry}`);
 
+  // Opus planning pass — get strategic guidance before generating blocks
+  const strategicPlan = await getStrategicPlan(context, 'media-plan', onProgress);
+  const strategicContext = strategicPlan
+    ? `\n\n## Strategic Advisor Guidance\n\nThe following strategic plan was produced by a senior media strategist. Use it to guide your decisions — channel priorities, budget rationale, audience sequencing — but still fill in all schema fields with specifics.\n\n${strategicPlan}`
+    : '';
+
   // Block generation helper — generates, validates, and stores a single block
   const generateBlock = async (
     block: BlockConfig,
@@ -157,7 +164,7 @@ export async function runMediaPlan(
           .join('\n\n')}`
       : '';
 
-    const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
+    const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${strategicContext}${previousBlocksContext}`;
 
     // Emit progress during generation so hyper-agent view stays active
     const blockProgressMessages: Record<string, string[]> = {
