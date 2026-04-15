@@ -240,7 +240,9 @@ export function isAdvertiserMatch(
   if (compLenForGuard <= 6 && domain && adUrl) {
     const url = adUrl.toLowerCase();
     const dom = normalizeDomain(domain).toLowerCase();
-    if (url.length > 0 && !url.includes(dom)) {
+    let decodedUrl: string;
+    try { decodedUrl = decodeURIComponent(url); } catch { decodedUrl = url; }
+    if (url.length > 0 && !decodedUrl.includes(dom)) {
       // URL is non-empty AND doesn't contain our verified domain — reject
       return false;
     }
@@ -738,10 +740,14 @@ export async function searchLinkedInAds(
         const rawLink = ad.link ?? '';
         const link = String(rawLink).toLowerCase();
         if (!link) return true; // no link → can't disambiguate, keep
-        // Link contains our verified domain (raw or URL-encoded inside a redirect)
-        if (link.includes(normalizedDomain)) return true;
+        // Link contains our verified domain (raw or URL-decoded inside a redirect).
+        // LinkedIn redirect URLs encode dots as %2E (e.g. gong%2Eio vs gong.io),
+        // so we must check both the raw link AND the decoded version.
+        let decodedLink: string;
+        try { decodedLink = decodeURIComponent(link); } catch { decodedLink = link; }
+        if (decodedLink.includes(normalizedDomain)) return true;
         // LinkedIn-internal URL without an obvious redirect target → keep
-        if (link.includes('linkedin.com') && !link.includes('redirect') && !link.includes('http')) {
+        if (decodedLink.includes('linkedin.com') && !decodedLink.includes('redirect') && !decodedLink.includes('http')) {
           return true;
         }
         // LinkedIn redirect WITH a discernible target — if target isn't us, drop
