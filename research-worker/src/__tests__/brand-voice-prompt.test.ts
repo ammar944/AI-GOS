@@ -94,9 +94,10 @@ describe('buildPass1Prompt — brand voice injection', () => {
 
 describe('buildPass2Prompt — brand voice compliance', () => {
   const basePass2Opts = {
-    companyName: 'TestCo',
-    awarenessLevel: 'solution-aware',
-    pass1Scripts: [{ hook: 'Test hook', body: 'Test body', cta: 'Test CTA' }],
+    pass1Scripts: '[{"hook":"Test hook","body":"Test body","cta":"Test CTA"}]',
+    trimmedResearchContext: 'Test research context.',
+    styleReferences: null as string | null,
+    targetAudience: 'B2B SaaS founders',
   };
 
   it('injects compliance check with full brandVoiceNotes', () => {
