@@ -1034,7 +1034,7 @@ export function shouldRetryKeywordsWithRepair(input: {
   parsed?: unknown;
   telemetry: ReturnType<typeof buildRunnerTelemetry>;
 }): boolean {
-  if (input.telemetry.stopReason !== 'max_tokens') {
+  if (input.telemetry.stopReason !== 'max_tokens' && !input.parseError) {
     return false;
   }
 
@@ -1054,7 +1054,7 @@ export function shouldRetryKeywordsWithRescue(input: {
   parsed?: unknown;
   telemetry: ReturnType<typeof buildRunnerTelemetry>;
 }): boolean {
-  if (input.telemetry.stopReason !== 'max_tokens') {
+  if (input.telemetry.stopReason !== 'max_tokens' && !input.parseError) {
     return false;
   }
 
