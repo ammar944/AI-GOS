@@ -57,7 +57,30 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
   const section: SectionKey = 'industryMarket';
 
   // Intelligence: Market Opportunities
-  const opportunities = asRecordArray(data.marketOpportunities);
+  // Prefer the Phase 6.2+ intelligence path when present. Cards are written to
+  // research_results.${section}Intelligence.${cardName} and each item is wrapped
+  // as { value: {...}, evidenceIds, confidence }. Unwrap to .value so the
+  // taxonomy renderer still gets the flat shape it expects.
+  const intelligenceBlock = asRecord(data.industryMarketIntelligence);
+  const intelligenceOpportunity = intelligenceBlock ? asRecord(intelligenceBlock.opportunity) : null;
+  const intelligenceItems = intelligenceOpportunity
+    ? asRecordArray(intelligenceOpportunity.opportunities)
+    : [];
+
+  const opportunities: Record<string, unknown>[] =
+    intelligenceItems.length > 0
+      ? (intelligenceItems
+          .map((item) => {
+            const value = asRecord(item.value);
+            if (!value) return null;
+            const out: Record<string, unknown> = { ...value };
+            if (Array.isArray(item.evidenceIds)) out._evidenceIds = item.evidenceIds;
+            if (typeof item.confidence === 'number') out._confidence = item.confidence;
+            return out;
+          })
+          .filter(Boolean) as Record<string, unknown>[])
+      : asRecordArray(data.marketOpportunities);
+
   if (opportunities.length > 0) {
     cards.push(makeCard(section, 'opportunity-card', 'Opportunities to Exploit', {
       opportunities: opportunities.map((o) => ({

@@ -176,6 +176,45 @@ export async function writeResearchResult(
   );
 }
 
+/**
+ * Write an intelligence card result to research_results.${section}Intelligence.${cardName}.
+ * Reuses the existing research_results merge RPC by treating `${section}Intelligence`
+ * as a synthetic section. Each card lives under its card name within that section's data.
+ *
+ * During 6.2.1 only one card (`opportunity`) maps to `industryMarket`, so no
+ * intra-section card collision. When multiple cards share a section (6.2.2+),
+ * this helper will need a JSONB merge at the card-name key level — punt until then.
+ */
+export async function writeIntelligenceCard(
+  userId: string,
+  runId: string,
+  parentSection: string,
+  cardName: string,
+  data: unknown,
+  meta: { durationMs: number; model: string; confidence?: number; rejected?: string[] },
+): Promise<void> {
+  const syntheticSection = `${parentSection}Intelligence`;
+  const result: ResearchResult = {
+    runId,
+    status: 'complete',
+    section: syntheticSection,
+    data: {
+      [cardName]: data,
+      _cardMeta: {
+        [cardName]: {
+          durationMs: meta.durationMs,
+          model: meta.model,
+          confidence: meta.confidence,
+          rejected: meta.rejected ?? [],
+          writtenAt: new Date().toISOString(),
+        },
+      },
+    },
+    durationMs: meta.durationMs,
+  };
+  await writeResearchResult(userId, syntheticSection, result);
+}
+
 export type JobStatus = 'running' | 'complete' | 'error';
 
 export interface JobStatusUpdateMeta {

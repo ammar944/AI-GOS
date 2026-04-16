@@ -20,6 +20,7 @@ import { synthesizeWhiteSpaceGap } from './cards/white-space-gap';
 import { synthesizeOfferStatements } from './cards/offer-statements';
 import { synthesizeStrategicSynthesis } from './cards/strategic-synthesis';
 import { validateCardClaims } from './validator';
+import { writeIntelligenceCard } from '../supabase';
 
 /**
  * Which cards a given section unlocks. Multiple cards may fire for one
@@ -104,6 +105,25 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
 
       const draft = await impl(pack);
       const { validated, rejected, confidence } = await validateCardClaims(cardName, draft, pack);
+
+      try {
+        await writeIntelligenceCard(
+          input.userId,
+          input.runId,
+          input.section,
+          cardName,
+          validated,
+          {
+            durationMs: Date.now() - start,
+            model: 'haiku',
+            confidence,
+            rejected,
+          },
+        );
+      } catch (err) {
+        // Non-fatal — card is rendered in memory even if the write fails.
+        console.warn(`[intelligence] writeIntelligenceCard failed for ${cardName}:`, err);
+      }
 
       return {
         cardName,
