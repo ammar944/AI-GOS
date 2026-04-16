@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { extractWikiEntries } from '../wiki';
 import type { WikiEntry } from '../wiki';
 
 /**
@@ -127,5 +128,76 @@ describe('writeWikiEntries — jsonb payload shape (regression: double-encoding)
     // If they pass under a stringified payload, the happy-path test is broken.
     expect(typeof payload.p_entries).toBe('string');
     expect(Array.isArray(payload.p_entries)).toBe(false);
+  });
+});
+
+// Regression guard for keyword wiki extraction bug.
+// extractKeywords was calling grp.keywords.join() on objects (producing "[object Object]")
+// and using grp.name instead of grp.campaign. The real runner output structure is:
+// campaignGroups[].adGroups[].keywords[]{keyword:string,...} and negativeKeywords[]{keyword:string,...}
+describe('extractWikiEntries — keyword section', () => {
+  const keywordPayload = {
+    totalKeywordsFound: 6,
+    campaignGroups: [
+      {
+        campaign: 'Compliance Search',
+        intent: 'solution-aware',
+        recommendedMonthlyBudget: 2000,
+        adGroups: [
+          {
+            name: 'HIPAA Compliant Tools',
+            recommendedMatchTypes: ['phrase', 'exact'],
+            keywords: [
+              { keyword: 'hipaa compliant meeting tool', searchVolume: 880, difficulty: 'low', estimatedCpc: '$8.20', priorityScore: 92, confidence: 'high' },
+              { keyword: 'hipaa meeting recorder', searchVolume: 320, difficulty: 'low', estimatedCpc: '$7.40', priorityScore: 88, confidence: 'high' },
+            ],
+            negativeKeywords: ['free', 'jobs'],
+          },
+        ],
+      },
+      {
+        campaign: 'Competitor Displacement',
+        intent: 'competitor-aware',
+        recommendedMonthlyBudget: 1500,
+        adGroups: [
+          {
+            name: 'Otter Alternatives',
+            recommendedMatchTypes: ['phrase'],
+            keywords: [
+              { keyword: 'otter ai alternative', searchVolume: 16400, difficulty: 'medium', estimatedCpc: '$5.10', priorityScore: 95, confidence: 'high' },
+            ],
+            negativeKeywords: ['free'],
+          },
+        ],
+      },
+    ],
+    negativeKeywords: [
+      { keyword: 'free', reason: 'price-sensitive; not our target' },
+      { keyword: 'jobs', reason: 'recruitment intent' },
+      { keyword: 'tutorial', reason: 'informational, not commercial' },
+    ],
+  };
+
+  it('extracts keyword_group entries as readable strings, not [object Object]', () => {
+    const entries = extractWikiEntries('keywordIntel', keywordPayload);
+    const groups = entries.filter(e => e.topic === 'keyword_group');
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) {
+      expect(g.content).not.toContain('[object Object]');
+      expect(g.content.length).toBeGreaterThan(0);
+    }
+    // Campaign name should be present (grp.campaign, not grp.name)
+    expect(groups[0].content).toContain('Compliance Search');
+    // Keyword strings from adGroups should appear
+    expect(groups[0].content).toContain('hipaa compliant meeting tool');
+  });
+
+  it('extracts keyword_negatives as readable strings, not [object Object]', () => {
+    const entries = extractWikiEntries('keywordIntel', keywordPayload);
+    const neg = entries.find(e => e.topic === 'keyword_negatives');
+    expect(neg).toBeDefined();
+    expect(neg!.content).not.toContain('[object Object]');
+    expect(neg!.content).toContain('free');
+    expect(neg!.content).toContain('jobs');
   });
 });
