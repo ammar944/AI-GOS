@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DISPATCH_PIPELINE_ORDER,
+  normalizeWikiEntries,
   summarizeForSynthesis,
 } from '../dispatch/route';
 
@@ -77,5 +78,64 @@ describe('summarizeForSynthesis — identityResolution enrichment', () => {
     // edge-case inputs safely.
     expect(() => summarizeForSynthesis('identityResolution', {})).not.toThrow();
     expect(() => summarizeForSynthesis('identityResolution', null)).not.toThrow();
+  });
+});
+
+// Regression guard for commit e2a23c34. Two production runs in journey_sessions
+// already have stringified entries in research_wiki.entries; the normalizer lets
+// the dispatch route tolerate that legacy shape instead of starving runners.
+describe('normalizeWikiEntries — legacy-format defense', () => {
+  const validEntry = {
+    topic: 'industry.segment',
+    content: 'Enterprise SaaS',
+    source_runner: 'industryMarket',
+    provenance: 'inferred',
+    confidence: 0.9,
+  };
+
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('passes native object entries through unchanged', () => {
+    const result = normalizeWikiEntries([validEntry]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(validEntry);
+  });
+
+  it('parses legacy JSON-string entries back into objects', () => {
+    const result = normalizeWikiEntries([JSON.stringify(validEntry)]);
+    expect(result).toHaveLength(1);
+    expect(result[0].topic).toBe('industry.segment');
+    expect(result[0].content).toBe('Enterprise SaaS');
+  });
+
+  it('drops malformed strings without throwing', () => {
+    const result = normalizeWikiEntries(['not json {{', validEntry]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(validEntry);
+  });
+
+  it('drops null / undefined / primitive elements', () => {
+    const result = normalizeWikiEntries([null, undefined, 42, validEntry]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(validEntry);
+  });
+
+  it('returns [] for non-array input (null, undefined, object, string)', () => {
+    expect(normalizeWikiEntries(null)).toEqual([]);
+    expect(normalizeWikiEntries(undefined)).toEqual([]);
+    expect(normalizeWikiEntries({ entries: [validEntry] })).toEqual([]);
+    expect(normalizeWikiEntries('[]')).toEqual([]);
+  });
+
+  it('drops parsed objects missing required topic/content fields', () => {
+    const result = normalizeWikiEntries([{ source_runner: 'x' }, validEntry]);
+    expect(result).toHaveLength(1);
+    expect(warnSpy).toHaveBeenCalled();
   });
 });
