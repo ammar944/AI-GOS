@@ -20,6 +20,7 @@ import { synthesizeWhiteSpaceGap } from './cards/white-space-gap';
 import { synthesizeOfferStatements } from './cards/offer-statements';
 import { synthesizeStrategicSynthesis } from './cards/strategic-synthesis';
 import { validateCardClaims } from './validator';
+import { writeIntelligenceCard } from './write-card';
 
 /**
  * Which cards a given section unlocks. Multiple cards may fire for one
@@ -171,6 +172,11 @@ workerBus.on('wiki:section-complete', async (payload) => {
   });
   for (const r of results) {
     if (r.status === 'rendered') {
+      await writeIntelligenceCard({
+        userId: payload.userId,
+        runId: payload.runId,
+        card: r,
+      });
       workerBus.emit('card:rendered', {
         userId: payload.userId,
         runId: payload.runId,
