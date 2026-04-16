@@ -16,6 +16,7 @@ import { finalizeRunnerResult } from '../contracts';
 import { spyfuTool } from '../tools';
 import { KEYWORD_CAMPAIGN_SKILL, KEYWORD_CAMPAIGN_SKILL_COMPACT } from '../skills/keyword-campaign-skill';
 import type { ResearchResult } from '../supabase';
+import { loadRunnerPrompt } from '../skills/loader';
 import { MODELS } from '../models';
 
 const KEYWORDS_PRIMARY_MODEL =
@@ -110,133 +111,33 @@ Respond with JSON only. No preamble. No markdown fences. Start with { and end wi
   ]
 }`;
 
-const KEYWORDS_PRIMARY_SYSTEM_PROMPT = `You are a paid search keyword intelligence specialist.
+const KEYWORDS_PRIMARY_SYSTEM_PROMPT =
+  loadRunnerPrompt('keywords-primary.md') +
+  '\n\n' +
+  KEYWORD_CAMPAIGN_SKILL +
+  '\n\n' +
+  KEYWORDS_OUTPUT_FORMAT;
 
-CRITICAL: You MUST respond with valid JSON only. Start your response with { and end with }. No preamble, no commentary, no narrative text before or after the JSON. If you write anything other than JSON, the system will fail.
+const KEYWORDS_REPAIR_SYSTEM_PROMPT =
+  loadRunnerPrompt('keywords-repair.md') +
+  '\n\n' +
+  KEYWORD_CAMPAIGN_SKILL_COMPACT +
+  '\n\n' +
+  KEYWORDS_OUTPUT_FORMAT;
 
-TASK: Find the highest-value paid search keyword opportunities for this business.
+const KEYWORDS_HEURISTIC_SYSTEM_PROMPT =
+  loadRunnerPrompt('keywords-heuristic.md') +
+  '\n\n' +
+  KEYWORD_CAMPAIGN_SKILL_COMPACT +
+  '\n\n' +
+  KEYWORDS_OUTPUT_FORMAT;
 
-RESEARCH FOCUS:
-1. Competitor alternative terms ("[competitor] alternative", "[competitor] vs [client]", "[competitor] pricing")
-2. Category-intent terms that match the business's actual industry and offer (e.g., "[industry] [service/product] near me", "[category] [solution] for [audience]")
-3. Pain-point terms tied to the specific buyer language found in the research context (use the ICP and offer analysis to identify real pain points, not generic ones)
-4. Long-tail terms with clear commercial intent relevant to this business type
-
-TOOL USAGE:
-- Use the spyfu tool up to 3 times — once per competitor domain — to gather live keyword data. Query the top 2-3 competitors by relevance. More SpyFu data = better keyword coverage.
-- If spyfu is unavailable, sparse, or errors, continue using the persisted industry, ICP, offer, strategic, and competitor context already provided
-
-DATA HONESTY:
-- Never invent verified search volume or CPC data
-- If a metric is unavailable, set "searchVolume" to 0, set "estimatedCpc" to "Not verified", set "confidence" to "low", and explain that in "confidenceNotes"
-- If live keyword coverage is sparse, return fewer terms instead of filler rows
-- "competitorGaps" may be an empty array when no source-backed gap data exists
-
-SIZE RULES:
-- Return exactly 3 campaignGroups (one per group type from the campaign group skill below)
-- Each campaignGroup may have at most 3 adGroups
-- Each adGroup may have at most 5 keywords
-- topOpportunities: max 6 entries
-- recommendedStartingSet: max 6 entries
-- competitorGaps: max 6 entries
-- negativeKeywords: max 10 entries
-- confidenceNotes: 2-4 entries
-- quickWins: exactly 3 entries
-- Keep every reason concise and specific
-- totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
-- competitorGapCount must equal competitorGaps.length
-
-${KEYWORD_CAMPAIGN_SKILL}
-
-${KEYWORDS_OUTPUT_FORMAT}`;
-
-const KEYWORDS_REPAIR_SYSTEM_PROMPT = `You are a paid search keyword strategist repairing a keyword artifact from compact evidence only.
-
-TASK: Finish the keyword intelligence artifact using the evidence package in the user message.
-
-RULES:
-- Do not call tools
-- Use only the business snapshot, market overview snapshot, ICP validation snapshot, offer analysis snapshot, strategic synthesis snapshot, competitor snapshot, keyword provider status, analysis notes, and incomplete draft provided
-- Never invent verified search volume or CPC data
-- If metrics are unavailable, set "searchVolume" to 0, set "estimatedCpc" to "Not verified", and set "confidence" to "low"
-- Prefer fewer high-intent terms over broad filler coverage
-- "competitorGaps" may be an empty array when source-backed gap data is unavailable
-- Return exactly 3 campaignGroups (generic, branded/competitor, variable — see skill below)
-- 1 adGroup per campaign, and 3 keywords per adGroup
-- topOpportunities: max 4 entries
-- recommendedStartingSet: max 4 entries
-- competitorGaps: max 4 entries and may be [] when no empirical gap evidence exists
-- negativeKeywords: max 6 entries
-- confidenceNotes: 2-4 entries
-- quickWins: exactly 3 entries
-- totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
-- competitorGapCount must equal competitorGaps.length
-- Start the response with { and end it with }
-
-${KEYWORD_CAMPAIGN_SKILL_COMPACT}
-
-${KEYWORDS_OUTPUT_FORMAT}`;
-
-const KEYWORDS_HEURISTIC_SYSTEM_PROMPT = `You are a paid search keyword strategist producing a compact heuristic fallback artifact after live keyword providers failed, were unavailable, or returned sparse evidence.
-
-TASK: Build the smallest strategically useful keyword plan that remains honest about missing empirical data.
-
-MANDATORY HEURISTIC RULES:
-- Do not call tools
-- Use only the business snapshot, section snapshots, provider status, and incomplete draft provided
-- Return fewer terms rather than broader fake coverage
-- Prefer these buckets when evidence supports them:
-  1. Competitor alternative / pricing intent
-  2. Pain-led category intent
-  3. Transparent pricing or proof-led evaluation intent
-- Never invent numeric search volume or CPC values
-- Set "searchVolume" to 0, set "estimatedCpc" to "Not verified", and set "confidence" to "low" for every keyword
-- competitorGaps may be []
-- Keep grouping strategic, not empirical
-- Return exactly 3 campaignGroups (generic, branded/competitor, variable — see skill below)
-- Return exactly 1 adGroup per campaignGroup
-- Return exactly 2 keywords per adGroup
-- topOpportunities: exactly 2 entries
-- recommendedStartingSet: exactly 2 entries
-- negativeKeywords: 2-4 entries
-- confidenceNotes: exactly 3 entries
-- quickWins: exactly 3 entries
-- totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
-- competitorGapCount must equal competitorGaps.length
-- Start the response with { and end it with }
-
-${KEYWORD_CAMPAIGN_SKILL_COMPACT}
-
-${KEYWORDS_OUTPUT_FORMAT}`;
-
-const KEYWORDS_RESCUE_SYSTEM_PROMPT = `You are a paid search keyword strategist producing an ultra-compact rescue artifact after earlier passes exceeded the output budget.
-
-TASK: Return the same keyword schema in the smallest complete form that still unblocks campaign planning.
-
-MANDATORY COMPRESSION RULES:
-- Do not call tools
-- Use only the evidence package provided
-- Never invent verified search volume or CPC data
-- If metrics are unavailable, set "searchVolume" to 0, set "estimatedCpc" to "Not verified", and set "confidence" to "low"
-- Prefer fewer high-intent terms over broad filler coverage
-- "competitorGaps" may be an empty array when source-backed gap data is unavailable
-- Return exactly 3 campaignGroups (generic, branded/competitor, variable)
-- Return exactly 1 adGroup per campaignGroup
-- Return exactly 2 keywords per adGroup
-- topOpportunities: max 4 entries
-- recommendedStartingSet: max 4 entries
-- competitorGaps: max 4 entries
-- negativeKeywords: max 4 entries
-- confidenceNotes: exactly 2 entries
-- quickWins: exactly 3 entries
-- Keep campaign intent, reasons, and notes to one sentence each
-- totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
-- competitorGapCount must equal competitorGaps.length
-- Start the response with { and end it with }
-
-${KEYWORD_CAMPAIGN_SKILL_COMPACT}
-
-${KEYWORDS_OUTPUT_FORMAT}`;
+const KEYWORDS_RESCUE_SYSTEM_PROMPT =
+  loadRunnerPrompt('keywords-rescue.md') +
+  '\n\n' +
+  KEYWORD_CAMPAIGN_SKILL_COMPACT +
+  '\n\n' +
+  KEYWORDS_OUTPUT_FORMAT;
 
 type KeywordTool = typeof spyfuTool;
 type KeywordAttemptMode = 'primary' | 'repair' | 'heuristic' | 'rescue';

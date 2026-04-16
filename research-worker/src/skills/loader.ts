@@ -5,11 +5,13 @@ import type { MediaPlanBlock } from '../contracts';
 const REFS_DIR = join(__dirname, 'refs');
 const TEMPLATES_DIR = join(__dirname, 'templates');
 const METHODOLOGIES_DIR = join(__dirname, 'methodologies');
+const PROMPTS_DIR = join(__dirname, '..', 'prompts', 'runners');
 
 // Cache ref files at module load — worker is a long-running Express process
 const refCache = new Map<string, string>();
 const templateCache = new Map<string, string>();
 const methodologyCache = new Map<string, string>();
+const runnerPromptCache = new Map<string, string>();
 
 function loadDir(dir: string, cache: Map<string, string>): void {
   try {
@@ -29,6 +31,7 @@ function loadDir(dir: string, cache: Map<string, string>): void {
 loadDir(REFS_DIR, refCache);
 loadDir(TEMPLATES_DIR, templateCache);
 loadDir(METHODOLOGIES_DIR, methodologyCache);
+loadDir(PROMPTS_DIR, runnerPromptCache);
 
 const BLOCK_REFS: Record<MediaPlanBlock, string[]> = {
   channelMixBudget: ['benchmarks.md', 'budget-allocation.md', 'bidding-strategies.md'],
@@ -93,6 +96,21 @@ export function loadMethodology(filename: string): string {
   const content = methodologyCache.get(filename);
   if (!content) {
     console.warn(`[loader] Missing methodology: ${filename}`);
+    return '';
+  }
+  return content;
+}
+
+/**
+ * Returns a runner system prompt from prompts/runners/*.md.
+ * These are large multi-stage prompt templates extracted from inline
+ * constants in research-worker/src/runners/*.ts — extracting them makes
+ * prompt edits reviewable in PRs without TS recompile.
+ */
+export function loadRunnerPrompt(filename: string): string {
+  const content = runnerPromptCache.get(filename);
+  if (!content) {
+    console.warn(`[loader] Missing runner prompt: ${filename}`);
     return '';
   }
   return content;
