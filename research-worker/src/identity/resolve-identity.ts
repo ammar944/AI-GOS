@@ -16,7 +16,7 @@ import { MODELS } from '../models';
 
 const IDENTITY_MODEL = process.env.IDENTITY_RESOLVER_MODEL ?? MODELS.FAST;
 const IDENTITY_MAX_TOKENS = 2000;
-const IDENTITY_TIMEOUT_MS = 15_000;
+const IDENTITY_TIMEOUT_MS = 45_000;
 
 const IDENTITY_SYSTEM_PROMPT = `You are a product classification specialist. Given research data about a company (website content, Perplexity intel, onboarding fields), produce a canonical product identity.
 

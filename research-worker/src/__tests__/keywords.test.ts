@@ -183,7 +183,7 @@ describe('runResearchKeywordsWithDeps', () => {
       {
         now: createNow([1_000, 1_920]),
         parseJson: JSON.parse,
-        runToolAttempt: async (_attemptContext, config, onProgress) => {
+        runToolAttempt: async (config, onProgress) => {
           attempts.push(config.mode);
           expect(config.mode).toBe('primary');
 
@@ -207,9 +207,9 @@ describe('runResearchKeywordsWithDeps', () => {
             },
           };
         },
-        runMessageAttempt: async (attemptContext, config) => {
+        runMessageAttempt: async (config) => {
           attempts.push(config.mode);
-          repairContext = attemptContext;
+          repairContext = config.userMessage ?? '';
           expect(config.mode).toBe('repair');
 
           return {
@@ -467,14 +467,14 @@ describe('runResearchKeywordsWithDeps', () => {
     });
     expect(progress.map((update) => update.message)).toEqual(
       expect.arrayContaining([
-        'attempt primary (model: claude-sonnet-4-6, tools: enabled) started',
-        'attempt primary (model: claude-sonnet-4-6, tools: enabled) completed (stop reason: max_tokens)',
+        'keyword research with live data started',
+        'keyword research with live data complete',
         'keyword research pass hit token limit — repairing artifact from compact evidence',
         expect.stringMatching(
           /^repair evidence package prepared \(business lines: 6, section summaries: 2, analysis notes: 0, draft chars: \d+, total chars: \d+\)$/,
         ),
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) started',
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) completed (stop reason: end_turn)',
+        'repair started',
+        'repair complete',
       ]),
     );
   });
@@ -565,7 +565,7 @@ describe('runResearchKeywordsWithDeps', () => {
       {
         now: createNow([4_000, 5_050]),
         parseJson: JSON.parse,
-        runToolAttempt: async (_context, config) => {
+        runToolAttempt: async (config) => {
           attempts.push(config.mode);
           expect(config.mode).toBe('primary');
 
@@ -649,9 +649,9 @@ describe('runResearchKeywordsWithDeps', () => {
             },
           };
         },
-        runMessageAttempt: async (attemptContext, config) => {
+        runMessageAttempt: async (config) => {
           attempts.push(config.mode);
-          heuristicContext = attemptContext;
+          heuristicContext = config.userMessage ?? '';
           expect(config.mode).toBe('heuristic');
 
           return {
@@ -839,7 +839,7 @@ describe('runResearchKeywordsWithDeps', () => {
       {
         now: createNow([6_500, 6_860]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           attempts.push(config.mode);
 
           return {
@@ -1046,7 +1046,7 @@ describe('runResearchKeywordsWithDeps', () => {
       {
         now: createNow([5_000, 5_950]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           attempts.push(config.mode);
 
           if (config.mode === 'primary') {
@@ -1083,7 +1083,7 @@ describe('runResearchKeywordsWithDeps', () => {
             };
           }
 
-          rescueContext = _context;
+          rescueContext = config.userMessage ?? '';
           return {
             resultText: JSON.stringify({
               totalKeywordsFound: 4,
@@ -1249,20 +1249,20 @@ describe('runResearchKeywordsWithDeps', () => {
     });
     expect(progress.map((update) => update.message)).toEqual(
       expect.arrayContaining([
-        'attempt primary (model: claude-sonnet-4-6, tools: enabled) started',
-        'attempt primary (model: claude-sonnet-4-6, tools: enabled) completed (stop reason: max_tokens)',
+        'keyword research with live data started',
+        'keyword research with live data complete',
         'keyword research pass hit token limit — repairing artifact from compact evidence',
         expect.stringMatching(
           /^repair evidence package prepared \(business lines: 5, section summaries: 2, analysis notes: 0, draft chars: \d+, total chars: \d+\)$/,
         ),
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) started',
-        'attempt repair (model: claude-sonnet-4-6, tools: disabled) completed (stop reason: max_tokens)',
+        'repair started',
+        'repair complete',
         'keyword repair pass hit token limit — retrying with ultra-compact rescue',
         expect.stringMatching(
           /^rescue evidence package prepared \(business lines: 5, section summaries: 2, analysis notes: 0, draft chars: \d+, total chars: \d+\)$/,
         ),
-        'attempt rescue (model: claude-sonnet-4-6, tools: disabled) started',
-        'attempt rescue (model: claude-sonnet-4-6, tools: disabled) completed (stop reason: end_turn)',
+        'rescue started',
+        'rescue complete',
       ]),
     );
   });

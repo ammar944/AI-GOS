@@ -19,7 +19,7 @@ import { writeResearchResult } from '../supabase';
 import type { ResearchResult } from '../supabase';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
-import { loadBlockRefs, loadIndustryTemplate } from '../skills/loader';
+import { loadBlockRefs, loadIndustryTemplate, loadRunnerPrompt } from '../skills/loader';
 import { CHANNEL_MIX_SKILL } from '../skills/channel-mix-skill';
 import { AUDIENCE_CAMPAIGN_SKILL } from '../skills/audience-campaign-skill';
 import { CREATIVE_SYSTEM_SKILL } from '../skills/creative-system-skill';
@@ -50,8 +50,9 @@ const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data 
 // offer.ts (OFFER_CURRENT_ACTIVITIES_GUARDRAIL). All three runners react to
 // the same "Current Marketing Activities:" line in the context string.
 // See docs/superpowers/specs/2026-04-08-current-marketing-activities-design.md
-export const CURRENT_ACTIVITIES_GUARDRAIL = `
-
+export const CURRENT_ACTIVITIES_GUARDRAIL =
+  loadRunnerPrompt('media-plan-system') ||
+  `
 CURRENT MARKETING ACTIVITIES (anti-duplication rule):
 - The context may contain a "Current Marketing Activities:" line describing channels, budgets, and creatives the client is ALREADY running.
 - For Channel Mix & Budget: do not propose a budget allocation that mirrors the current one. If 60% of current spend is on Meta, your recommendation should either (a) cut Meta to open room for untested channels or (b) restructure the Meta spend into a materially different audience/creative mix, with explicit rationale.

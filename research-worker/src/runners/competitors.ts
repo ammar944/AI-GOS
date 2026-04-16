@@ -12,10 +12,19 @@ import {
   type RunnerProgressUpdate,
   type RunnerProgressReporter,
 } from '../runner';
+import {
+  isCascadeTimeoutError,
+  runCascadeAttemptWithObservability,
+  runWithCascade,
+  type CascadeAttemptConfig,
+  type CascadeAttemptResult,
+  type CascadeDeps,
+} from '../runner-cascade';
 import { finalizeRunnerResult } from '../contracts';
 import { adLibraryTool, spyfuTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 import { COMPETITORS_INTELLIGENCE_SKILL, COMPETITORS_INTELLIGENCE_SKILL_COMPACT } from '../skills/intelligence-skill';
+import { loadRunnerPrompt } from '../skills/loader';
 import { MODELS } from '../models';
 
 const COMPETITORS_PRIMARY_MODEL =
@@ -150,70 +159,8 @@ After completing your research, respond with a JSON object. Structure:
   ]
 }`;
 
-const COMPETITORS_PRIMARY_SYSTEM_PROMPT = `You are an expert competitive analyst researching the competitor landscape for a paid media strategy.
-
-TASK: Research competitors to inform paid media positioning and messaging.
-
-CRITICAL — COMPETITOR DISAMBIGUATION:
-- When multiple companies share a similar name, identify which one operates in the SAME product category and serves the SAME target audience as the business being analyzed
-- Verify each competitor's PRIMARY product/service matches the market segment described in the context
-- Exclude companies that are homonyms serving completely different industries
-- ALWAYS include the competitor's official website URL
-- When in doubt between similar-named companies, choose the one with the most similar target customer, product category, and go-to-market approach
-
-TOOL USAGE PLAN — SPEED IS CRITICAL (aim for < 90 seconds total):
-1. Use ONE web_search to identify the top 3-5 direct competitors with positioning and review signals — combine terms to reduce calls
-2. Use ONE follow-up web_search ONLY if the first search missed a known competitor from the user's context
-3. Use adLibraryTool for the SINGLE highest-threat competitor only — skip ad library for others and generate libraryLinks from name/domain
-4. Do NOT use spyfuTool unless the user's context explicitly requests keyword spend data
-5. MAX 3 total tool calls. Once you have positioning + review evidence for 3-5 competitors, STOP searching and START writing JSON.
-
-SPEED RULES:
-- You MUST start producing JSON output within 3 tool calls — do not keep searching
-- If you have evidence for 3+ competitors, that is enough — start writing
-- Combine search queries (e.g. "CompA vs CompB vs CompC pricing reviews") to reduce round-trips
-- Skip adLibraryTool entirely if the first web search already surfaces ad activity evidence
-- adActivity.platforms must never be empty; if a platform is not verified, use ["Not verified"] and explain that in adActivity.evidence
-- Treat adActivity.activeAdCount as observed ad-library records, not verified always-on live ads, unless the evidence explicitly says the coverage is current and verified
-- adActivity.evidence must state one of: Verified, Partial coverage, Limited coverage, or Not verified
-
-RESEARCH FOCUS:
-- Competitor positioning and messaging
-- Strengths and weaknesses from G2, Capterra reviews — cite specific numbers (e.g., "3.5/5 on G2", "87% recommend on Capterra", "users cite slow onboarding in 12 of 47 reviews"). Never write vague claims like "has some UX issues" without data backing them
-- Market patterns and gaps (white space)
-- Ad strategies and creative angles
-- Counter-positioning: explicitly state our angle against each competitor
-
-COMPETITOR THREAT ASSESSMENT:
-For the top 2 threats, score these 5 threat factors (1-10 each):
-- marketShareRecognition: Brand recognition and market share
-- adSpendIntensity: Estimated monthly ad spend level
-- productOverlap: Feature overlap with client offer
-- priceCompetitiveness: Price competitiveness vs client
-- growthTrajectory: Funding, hiring, feature velocity
-- If adActivity.sourceConfidence is low or adActivity.evidence says limited coverage / historical only / not verified, keep adSpendIntensity conservative (4 or below) and state uncertainty in the competitor narrative
-- Do not claim channel white space from low-confidence ad evidence alone
-- For lower-priority competitors, threatAssessment may be omitted when the core positioning picture is already strong
-
-WHITE SPACE ANALYSIS:
-Identify gaps using this framework:
-1. Messaging White Space — messaging angles NO competitor is using
-2. Feature/Capability White Space — capabilities unaddressed or addressed poorly
-3. Audience White Space — ICP sub-segments competitors are ignoring
-4. Channel White Space — platforms with few active competitor ads
-
-COMPRESSION RULES:
-- Return 3-5 direct competitors — 3 is enough if evidence is strong
-- Keep "positioning", "ourAdvantage", "overallLandscape", and whitespace "recommendedAction" to 1 sentence max
-- Limit competitor "strengths", "weaknesses", and "opportunities" to 2 concise bullets each
-- Limit "marketPatterns", "marketStrengths", and "marketWeaknesses" to 2 bullets each
-- Limit "whiteSpaceGaps" to the 2 highest-impact gaps
-- Limit citations to the 4 most relevant sources
-- If ad tools are sparse, keep the structured field and explain the evidence briefly instead of writing long prose
-
-${COMPETITORS_OUTPUT_FORMAT}
-
-${COMPETITORS_INTELLIGENCE_SKILL}`;
+const COMPETITORS_PRIMARY_SYSTEM_PROMPT =
+  `${loadRunnerPrompt('competitors-system')}\n${COMPETITORS_OUTPUT_FORMAT}\n\n${COMPETITORS_INTELLIGENCE_SKILL}`;
 
 const COMPETITORS_REPAIR_SYSTEM_PROMPT = `You are an expert competitive analyst producing a fast first-pass competitor artifact for a paid media strategist.
 
@@ -274,45 +221,16 @@ ${COMPETITORS_OUTPUT_FORMAT}
 ${COMPETITORS_INTELLIGENCE_SKILL_COMPACT}`;
 
 type CompetitorAttemptMode = 'primary' | 'repair' | 'rescue';
-type CompetitorTimeoutSource = 'worker_timeout' | 'request_timeout' | 'network_timeout';
 
-interface CompetitorAttemptConfig {
-  mode: CompetitorAttemptMode;
-  model: string;
-  maxTokens: number;
-  timeoutMs: number;
-  tools: CompetitorTool[];
-  system: string;
-  synthesisMessage: string;
-}
+// CompetitorAttemptConfig is an alias for CascadeAttemptConfig.
+type CompetitorAttemptConfig = CascadeAttemptConfig;
 
-interface RunResearchCompetitorsDeps {
-  now?: () => number;
-  parseJson?: (text: string) => unknown;
+interface RunResearchCompetitorsDeps extends CascadeDeps {
+  /** Legacy injectable — bridged to CascadeDeps for tests. */
   runAttempt?: (
-    context: string,
-    config: CompetitorAttemptConfig,
+    config: CascadeAttemptConfig,
     onProgress?: RunnerProgressReporter,
-  ) => Promise<{
-    resultText: string;
-    telemetry: ReturnType<typeof buildRunnerTelemetry>;
-  }>;
-  runToolAttempt?: (
-    context: string,
-    config: CompetitorAttemptConfig,
-    onProgress?: RunnerProgressReporter,
-  ) => Promise<{
-    resultText: string;
-    telemetry: ReturnType<typeof buildRunnerTelemetry>;
-  }>;
-  runMessageAttempt?: (
-    context: string,
-    config: CompetitorAttemptConfig,
-    onProgress?: RunnerProgressReporter,
-  ) => Promise<{
-    resultText: string;
-    telemetry: ReturnType<typeof buildRunnerTelemetry>;
-  }>;
+  ) => Promise<CascadeAttemptResult>;
 }
 
 interface CompetitorRecoveryContextStats {
@@ -521,6 +439,7 @@ function getCompetitorAttemptConfig(
       tools: [],
       system: COMPETITORS_RESCUE_SYSTEM_PROMPT,
       synthesisMessage: 'synthesizing ultra-compact competitor rescue',
+      userMessage: '{{context}}',
     };
   }
 
@@ -533,6 +452,7 @@ function getCompetitorAttemptConfig(
       tools: [],
       system: COMPETITORS_REPAIR_SYSTEM_PROMPT,
       synthesisMessage: 'repairing competitor artifact from captured evidence',
+      userMessage: '{{context}}',
     };
   }
 
@@ -550,39 +470,13 @@ function getCompetitorAttemptConfig(
     ],
     system: `${isAdvisorEnabled() ? ADVISOR_PROMPT_ADDENDUM : ''}${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`,
     synthesisMessage: 'synthesizing competitor landscape',
+    userMessage: '{{context}}',
   };
 }
 
+/** Re-exported for tests that check timeout behaviour by name. */
 export function isCompetitorTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  return (
-    normalized.includes('request timed out') ||
-    normalized.includes('timed out') ||
-    normalized.includes('timeout')
-  );
-}
-
-function getCompetitorTimeoutSource(
-  error: unknown,
-): CompetitorTimeoutSource | null {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes('sub-agent timed out after')) {
-    return 'worker_timeout';
-  }
-
-  if (normalized.includes('request timed out')) {
-    return 'request_timeout';
-  }
-
-  if (normalized.includes('network timeout')) {
-    return 'network_timeout';
-  }
-
-  return normalized.includes('timeout') ? 'request_timeout' : null;
+  return isCascadeTimeoutError(error);
 }
 
 export function shouldRetryCompetitorsWithFallback(input: {
@@ -612,11 +506,6 @@ export function shouldRetryCompetitorsWithRescue(input: {
   // parse. The rescue pass uses an ultra-compact prompt with hard
   // word limits, maximizing the chance of a complete JSON response.
   return true;
-}
-
-function getCompetitorResultText(finalMsg: { content: BetaContentBlock[] }): string {
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return textBlock && 'text' in textBlock ? textBlock.text : '';
 }
 
 function areCompetitorToolsEnabled(config: CompetitorAttemptConfig): boolean {
@@ -656,7 +545,7 @@ async function runCompetitorToolAttempt(
         model: config.model,
         max_tokens: config.maxTokens,
         stream: true,
-        tools: config.tools,
+        tools: config.tools as Parameters<typeof client.beta.messages.toolRunner>[0]['tools'],
         system: config.system,
         messages: [{ role: 'user', content: `Research competitors for:\n\n${context}` }],
       });
@@ -677,45 +566,9 @@ async function runCompetitorToolAttempt(
     `researchCompetitors:${config.mode}`,
   );
 
+  const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
   return {
-    resultText: getCompetitorResultText(finalMsg),
-    telemetry: buildRunnerTelemetry(finalMsg),
-  };
-}
-
-async function runCompetitorMessageAttempt(
-  context: string,
-  config: CompetitorAttemptConfig,
-  onProgress?: RunnerProgressReporter,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const client = createClient();
-  await emitRunnerProgress(onProgress, 'analysis', config.synthesisMessage);
-
-  const finalMsg = await runWithBackoff(
-    () =>
-      Promise.race([
-        client.messages.create({
-          model: config.model,
-          max_tokens: config.maxTokens,
-          system: config.system,
-          messages: [{ role: 'user', content: `Research competitors for:\n\n${context}` }],
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Sub-agent timed out after ${config.timeoutMs / 1000}s`)),
-            config.timeoutMs,
-          ),
-        ),
-      ]),
-    `researchCompetitors:${config.mode}`,
-  );
-
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return {
-    resultText: textBlock?.type === 'text' ? textBlock.text : '',
+    resultText: textBlock && 'text' in textBlock ? textBlock.text : '',
     telemetry: buildRunnerTelemetry(finalMsg),
   };
 }
@@ -725,42 +578,39 @@ async function runCompetitorAttemptWithObservability(
   config: CompetitorAttemptConfig,
   onProgress: RunnerProgressReporter | undefined,
   deps: RunResearchCompetitorsDeps,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const runAttempt =
-    deps.runAttempt ??
-    (areCompetitorToolsEnabled(config)
-      ? deps.runToolAttempt ?? runCompetitorToolAttempt
-      : deps.runMessageAttempt ?? runCompetitorMessageAttempt);
-
-  await emitRunnerProgress(
-    onProgress,
-    'runner',
-    `${buildCompetitorAttemptLabel(config)} started`,
-  );
-
-  try {
-    const attemptResult = await runAttempt(context, config, onProgress);
-    await emitRunnerProgress(
-      onProgress,
-      'runner',
-      `${buildCompetitorAttemptLabel(config)} complete`,
-    );
-    return attemptResult;
-  } catch (error) {
-    const timeoutSource = getCompetitorTimeoutSource(error);
-    if (timeoutSource) {
-      await emitRunnerProgress(
-        onProgress,
-        'runner',
-        `${buildCompetitorAttemptLabel(config)} timed out`,
+): Promise<CascadeAttemptResult> {
+  // For tool-using passes (primary), use the competitor-specific tool attempt.
+  // For no-tool passes (repair, rescue), delegate to runCascadeAttemptWithObservability.
+  if (areCompetitorToolsEnabled(config)) {
+    const label = buildCompetitorAttemptLabel(config);
+    await emitRunnerProgress(onProgress, 'runner', `${label} started`);
+    try {
+      const runTool = deps.runAttempt ?? deps.runToolAttempt ?? (
+        (cfg: CascadeAttemptConfig, prog?: RunnerProgressReporter) =>
+          runCompetitorToolAttempt(context, cfg, prog)
       );
+      const result = await runTool(config, onProgress);
+      await emitRunnerProgress(onProgress, 'runner', `${label} complete`);
+      return result;
+    } catch (error) {
+      if (isCascadeTimeoutError(error)) {
+        await emitRunnerProgress(onProgress, 'runner', `${label} timed out`);
+      }
+      throw error;
     }
-
-    throw error;
   }
+
+  // No-tool pass: populate userMessage with the context and delegate.
+  const resolvedConfig: CascadeAttemptConfig = {
+    ...config,
+    userMessage: `Research competitors for:\n\n${context}`,
+  };
+  const cascadeDeps: CascadeDeps = {
+    now: deps.now,
+    parseJson: deps.parseJson,
+    runMessageAttempt: deps.runAttempt ?? deps.runMessageAttempt,
+  };
+  return runCascadeAttemptWithObservability(resolvedConfig, onProgress, cascadeDeps);
 }
 
 async function runCompetitorRepairWithTimeoutFallback(input: {

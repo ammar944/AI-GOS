@@ -105,7 +105,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([9_000, 9_350]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           expect(config.mode).toBe('primary');
 
           return {
@@ -186,7 +186,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([9_000, 9_350]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           expect(config.mode).toBe('primary');
 
           return {
@@ -279,7 +279,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([9_000, 9_350]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => ({
+        runAttempt: async (config) => ({
           resultText: JSON.stringify({
             competitors: [
               {
@@ -379,7 +379,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([1_000, 1_850]),
         parseJson: JSON.parse,
-        runToolAttempt: async (_attemptContext, config, onProgress) => {
+        runToolAttempt: async (config, onProgress) => {
           toolAttempts.push(config.mode);
           expect(config.mode).toBe('primary');
 
@@ -397,9 +397,9 @@ describe('runResearchCompetitorsWithDeps', () => {
           });
           throw new Error('Request timed out.');
         },
-        runMessageAttempt: async (attemptContext, config) => {
+        runMessageAttempt: async (config) => {
           messageAttempts.push(config.mode);
-          repairContext = attemptContext;
+          repairContext = config.userMessage ?? '';
           expect(config.mode).toBe('repair');
 
           return {
@@ -531,7 +531,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([5_000, 5_900]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           attempts.push(config.mode);
 
           if (config.mode === 'primary') {
@@ -636,7 +636,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([7_000, 8_200]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           attempts.push(config.mode);
 
           if (config.mode === 'primary') {
@@ -757,7 +757,7 @@ describe('runResearchCompetitorsWithDeps', () => {
       {
         now: createNow([11_000, 12_500]),
         parseJson: JSON.parse,
-        runAttempt: async (_context, config) => {
+        runAttempt: async (config) => {
           attempts.push(config.mode);
 
           if (config.mode === 'primary') {
