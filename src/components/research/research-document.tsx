@@ -322,7 +322,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
  * Extracts card content as markdown lines for clipboard copy.
  * Handles all card types produced by card-taxonomy.ts.
  */
-function cardToMarkdown(card: CardState): string[] {
+export function cardToMarkdown(card: CardState): string[] {
   const lines: string[] = [];
   const c = card.content;
 
@@ -336,6 +336,11 @@ function cardToMarkdown(card: CardState): string[] {
     case 'bullet-list':
     case 'check-list': {
       for (const item of (c.items ?? []) as string[]) lines.push(`- ${item}`);
+      const groups = (c.groups ?? []) as Array<{ group?: string; items?: string[] }>;
+      for (const g of groups) {
+        if (g.group) lines.push(`**${g.group}**`);
+        for (const item of g.items ?? []) lines.push(`- ${item}`);
+      }
       break;
     }
     case 'prose-card': {
@@ -353,8 +358,12 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'trend-card': {
-      lines.push(`${c.trend as string} (${c.direction as string})`);
-      if (c.evidence) lines.push(c.evidence as string);
+      const trends = (c.trends ?? []) as Array<{ trend?: string; direction?: string; evidence?: string }>;
+      for (const t of trends) {
+        if (!t.trend) continue;
+        lines.push(`- **${t.trend}**${t.direction ? ` (${t.direction})` : ''}`);
+        if (t.evidence) lines.push(`  ${t.evidence}`);
+      }
       break;
     }
 
@@ -450,9 +459,24 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'gap-card': {
-      lines.push(c.gap as string);
-      if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
-      if (c.recommendedAction) lines.push(`Action: ${c.recommendedAction as string}`);
+      const gaps = (c.gaps ?? []) as Array<{ gap?: string; type?: string; evidence?: string; recommendedAction?: string; impact?: string; exploitability?: string }>;
+      for (const g of gaps) {
+        if (!g.gap) continue;
+        lines.push(`- **${g.gap}**${g.type ? ` (${g.type})` : ''}`);
+        if (g.evidence) lines.push(`  Evidence: ${g.evidence}`);
+        if (g.recommendedAction) lines.push(`  Action: ${g.recommendedAction}`);
+      }
+      break;
+    }
+    case 'review-cross-analysis-card': {
+      const weaknesses = (c.commonWeaknesses ?? []) as Array<{ theme?: string; affectedCompetitors?: string[]; frequency?: number; exampleQuote?: string; leverageAngle?: string }>;
+      for (const w of weaknesses) {
+        if (!w.theme) continue;
+        const affected = (w.affectedCompetitors ?? []).join(', ');
+        lines.push(`- **${w.theme}**${affected ? ` — affects ${affected}` : ''}${w.frequency ? ` (${w.frequency}× frequency)` : ''}`);
+        if (w.exampleQuote) lines.push(`  "${w.exampleQuote}"`);
+        if (w.leverageAngle) lines.push(`  Leverage: ${w.leverageAngle}`);
+      }
       break;
     }
 
@@ -480,11 +504,14 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'flag-card': {
-      lines.push(c.issue as string);
-      if (c.severity) lines.push(`Severity: ${c.severity as string}`);
-      if (typeof c.priority === 'number') lines.push(`Priority: ${c.priority}`);
-      if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
-      if (c.recommendedAction) lines.push(`Action: ${c.recommendedAction as string}`);
+      const flags = (c.flags ?? []) as Array<{ issue?: string; severity?: string; priority?: number; evidence?: string; recommendedAction?: string }>;
+      for (const f of flags) {
+        if (!f.issue) continue;
+        const suffix = [f.severity, typeof f.priority === 'number' ? `P${f.priority}` : null].filter(Boolean).join(', ');
+        lines.push(`- **${f.issue}**${suffix ? ` (${suffix})` : ''}`);
+        if (f.evidence) lines.push(`  Evidence: ${f.evidence}`);
+        if (f.recommendedAction) lines.push(`  Action: ${f.recommendedAction}`);
+      }
       break;
     }
     case 'offer-statement-list': {
@@ -599,8 +626,12 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'insight-card': {
-      lines.push(c.insight as string);
-      if (c.implication) lines.push(`Implication: ${c.implication as string}`);
+      const insights = (c.insights ?? []) as Array<{ insight?: string; source?: string; implication?: string }>;
+      for (const ins of insights) {
+        if (!ins.insight) continue;
+        lines.push(`- ${ins.insight}${ins.source ? ` *(${ins.source})*` : ''}`);
+        if (ins.implication) lines.push(`  Implication: ${ins.implication}`);
+      }
       break;
     }
     case 'chart-card': {
@@ -609,9 +640,13 @@ function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'angle-card': {
-      if (c.angle) lines.push(`**${c.angle as string}**`);
-      if (c.exampleHook) lines.push(`Hook: ${c.exampleHook as string}`);
-      if (c.evidence) lines.push(`Evidence: ${c.evidence as string}`);
+      const angles = (c.angles ?? []) as Array<{ angle?: string; exampleHook?: string; evidence?: string }>;
+      for (const a of angles) {
+        if (!a.angle) continue;
+        lines.push(`- **${a.angle}**`);
+        if (a.exampleHook) lines.push(`  Hook: ${a.exampleHook}`);
+        if (a.evidence) lines.push(`  Evidence: ${a.evidence}`);
+      }
       break;
     }
 
