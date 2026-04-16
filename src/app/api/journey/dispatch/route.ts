@@ -91,6 +91,44 @@ const SECTION_TO_TOOL: Record<string, string> = {
   mediaPlan: 'researchMediaPlan',
 };
 
+/**
+ * Normalize wiki entries from DB: handles legacy double-encoded JSON strings
+ * (bug from commit before e2a23c34). If an entry is a string instead of an
+ * object, parse it; if parsing fails, drop it and warn. See: e2a23c34.
+ */
+interface WikiEntry {
+  topic: string;
+  content: string;
+  source_runner: string;
+  provenance: string;
+  confidence: number;
+  source_url?: string;
+}
+
+export function normalizeWikiEntries(raw: unknown): WikiEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === 'string') {
+        try {
+          const parsed = JSON.parse(item);
+          return typeof parsed === 'object' && parsed !== null ? parsed : null;
+        } catch {
+          return null;
+        }
+      }
+      return typeof item === 'object' && item !== null ? item : null;
+    })
+    .filter((item): item is WikiEntry => {
+      if (!item) return false;
+      const hasRequired = typeof item.topic === 'string' && typeof item.content === 'string';
+      if (!hasRequired) {
+        console.warn('[dispatch] Dropped malformed wiki entry:', item);
+      }
+      return hasRequired;
+    });
+}
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -174,13 +212,14 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       // --- Research Wiki path (preferred): structured entries from all upstream runners ---
-      const wiki = sessionData?.research_wiki as { entries?: Array<{ topic: string; content: string; source_runner: string; provenance: string; confidence: number; source_url?: string }>; version?: number } | null;
+      const rawWiki = sessionData?.research_wiki as { entries?: unknown; version?: number } | null;
+      const wikiEntries = normalizeWikiEntries(rawWiki?.entries);
       const wikiTopics = RUNNER_WIKI_TOPICS[section] ?? [];
-      const useWiki = process.env.USE_RESEARCH_WIKI !== 'false' && wiki?.entries && wiki.entries.length > 0 && wikiTopics.length > 0;
+      const useWiki = process.env.USE_RESEARCH_WIKI !== 'false' && wikiEntries.length > 0 && wikiTopics.length > 0;
 
-      if (useWiki && wiki?.entries) {
+      if (useWiki) {
         // Filter entries by this runner's topic needs
-        const filtered = wiki.entries.filter((e) => {
+        const filtered = wikiEntries.filter((e) => {
           if (wikiTopics.includes('*')) return true;
           return wikiTopics.some((pattern) => {
             if (pattern.endsWith('*')) {
@@ -202,7 +241,7 @@ export async function POST(req: Request) {
           });
 
           enrichedContext = `${context}\n\n# Research Knowledge Base (${filtered.length} findings from prior analysis)\n\n${lines.join('\n')}`;
-          console.log(`[dispatch] Wiki context for ${section}: ${filtered.length}/${wiki.entries.length} entries, ${enrichedContext.length} chars`);
+          console.log(`[dispatch] Wiki context for ${section}: ${filtered.length}/${wikiEntries.length} entries, ${enrichedContext.length} chars`);
         }
       }
 
