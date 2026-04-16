@@ -94,18 +94,35 @@ export function buildEvidencePack(
   };
 }
 
+const INSTRUCTION_PATTERNS = [
+  /ignore (previous|prior|above|all) (instructions?|rules?|directions?)/gi,
+  /(?:^|\n)\s*system\s*:/gi,
+  /(?:^|\n)\s*assistant\s*:/gi,
+  /(?:^|\n)\s*user\s*:/gi,
+  /disregard (previous|prior|above|all)/gi,
+];
+
+export function sanitizeEvidenceContent(raw: string): string {
+  let clean = raw.slice(0, 2000);
+  clean = clean.replace(/```/g, "'''");
+  for (const pattern of INSTRUCTION_PATTERNS) {
+    clean = clean.replace(pattern, '[redacted]');
+  }
+  return clean;
+}
+
 /**
- * Format evidence pack as a plain-text block for insertion into a card
- * synthesis prompt. Each entry is rendered as:
- *   [topic#N] content (provenance) [source_url?]
+ * Format evidence pack as an XML-delimited block for insertion into a card
+ * synthesis prompt. Content is sanitized to prevent prompt injection.
  */
 export function formatEvidencePack(pack: EvidencePack): string {
-  if (pack.entries.length === 0) return '(no evidence available)';
+  if (pack.entries.length === 0) return '<evidence_pack>(no evidence available)</evidence_pack>';
   const lines = pack.entries.map((e, i) => {
     const id = pack.entryIds[i];
-    const prov = e.provenance ? ` (${e.provenance})` : '';
-    const url = e.source_url ? ` [${e.source_url}]` : '';
-    return `[${id}] ${e.content}${prov}${url}`;
+    const prov = e.provenance ? ` provenance="${e.provenance}"` : '';
+    const url = e.source_url ? ` source_url="${e.source_url}"` : '';
+    const safe = sanitizeEvidenceContent(e.content);
+    return `<entry id="${id}"${prov}${url}>${safe}</entry>`;
   });
-  return lines.join('\n');
+  return `<evidence_pack>\n${lines.join('\n')}\n</evidence_pack>`;
 }
