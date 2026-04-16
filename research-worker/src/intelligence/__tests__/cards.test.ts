@@ -151,3 +151,53 @@ describe('synthesizeWhiteSpaceGap', () => {
     );
   });
 });
+
+import { synthesizeOfferStatements } from '../cards/offer-statements';
+
+const offerMockPack: EvidencePack = {
+  cardName: 'offer-statement',
+  section: 'offerAnalysis',
+  entries: [
+    {
+      topic: 'offer_value_prop',
+      content: 'Automate status reporting for ops teams',
+      source_runner: 'offerAnalysis',
+      provenance: 'ai_synthesis',
+      confidence: 82,
+    },
+    {
+      topic: 'icp_trigger',
+      content: 'Ops lead sees another 4hr Friday lost to status reports',
+      source_runner: 'icpValidation',
+      provenance: 'meeting_intel',
+      confidence: 85,
+    },
+  ],
+  entryIds: ['offer_value_prop#1', 'icp_trigger#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+describe('synthesizeOfferStatements', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        statements: [
+          {
+            value: {
+              type: 'hero',
+              statement: 'Never lose another Friday to status reports',
+              valueEquationAxis: 'time_delay',
+              awarenessLevel: 'problem_aware',
+            },
+            evidenceIds: ['icp_trigger#1'],
+            confidence: 82,
+          },
+        ],
+      }),
+    );
+    const result = await synthesizeOfferStatements(offerMockPack, { client });
+    expect(result.statements).toHaveLength(1);
+    expect(result.statements[0].value.type).toBe('hero');
+  });
+});
