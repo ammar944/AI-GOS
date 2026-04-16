@@ -291,10 +291,15 @@ export async function writeWikiEntries(
   if (entries.length === 0) return;
 
   const client = getClient();
+  // IMPORTANT: pass the array directly. Supabase client serializes to JSON
+  // and Postgres receives jsonb ARRAY. JSON.stringify'ing first turned it
+  // into a jsonb STRING scalar, which `jsonb_array || jsonb_string` then
+  // concatenated as a single-string element — so every runner's batch
+  // became one unreadable string in research_wiki.entries.
   const { error } = await client.rpc('append_research_wiki_entries', {
     p_user_id: userId,
     p_run_id: runId,
-    p_entries: JSON.stringify(entries),
+    p_entries: entries,
   });
 
   if (error) {
