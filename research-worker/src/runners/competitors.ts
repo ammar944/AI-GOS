@@ -1,18 +1,19 @@
-import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
   ADVISOR_PROMPT_ADDENDUM,
   ADVISOR_TOOL,
   buildRunnerTelemetry,
-  createClient,
   emitRunnerProgress,
-  extractJson,
   isAdvisorEnabled,
-  runStreamedToolRunner,
-  runWithBackoff,
-  type RunnerProgressUpdate,
   type RunnerProgressReporter,
+  type RunnerProgressUpdate,
 } from '../runner';
-import { finalizeRunnerResult } from '../contracts';
+import {
+  runWithCascade,
+  type CascadeAttemptConfig,
+  type CascadeAttemptResult,
+  type CascadeDeps,
+  type CascadeStage,
+} from '../runner-cascade';
 import { adLibraryTool, spyfuTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 import { COMPETITORS_INTELLIGENCE_SKILL, COMPETITORS_INTELLIGENCE_SKILL_COMPACT } from '../skills/intelligence-skill';
@@ -274,7 +275,6 @@ ${COMPETITORS_OUTPUT_FORMAT}
 ${COMPETITORS_INTELLIGENCE_SKILL_COMPACT}`;
 
 type CompetitorAttemptMode = 'primary' | 'repair' | 'rescue';
-type CompetitorTimeoutSource = 'worker_timeout' | 'request_timeout' | 'network_timeout';
 
 interface CompetitorAttemptConfig {
   mode: CompetitorAttemptMode;
@@ -313,20 +313,6 @@ interface RunResearchCompetitorsDeps {
     resultText: string;
     telemetry: ReturnType<typeof buildRunnerTelemetry>;
   }>;
-}
-
-interface CompetitorRecoveryContextStats {
-  businessLineCount: number;
-  searchCount: number;
-  sourceCount: number;
-  analysisCount: number;
-  partialDraftChars: number;
-  totalChars: number;
-}
-
-interface CompetitorRecoveryContextResult {
-  context: string;
-  stats: CompetitorRecoveryContextStats;
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -409,7 +395,7 @@ function buildCompetitorRecoveryContext(input: {
   context: string;
   partialDraft?: string;
   progressUpdates: RunnerProgressUpdate[];
-}): CompetitorRecoveryContextResult {
+}): string {
   const limits =
     input.mode === 'rescue'
       ? {
@@ -459,7 +445,8 @@ function buildCompetitorRecoveryContext(input: {
     typeof input.partialDraft === 'string' && input.partialDraft.trim().length > 0
       ? input.partialDraft.trim().slice(0, limits.partialDraftChars)
       : null;
-  const context = [
+
+  return [
     'PRIMARY PASS EVIDENCE PACKAGE:',
     businessSnapshot,
     '',
@@ -478,80 +465,14 @@ function buildCompetitorRecoveryContext(input: {
   ]
     .filter((value): value is string => Boolean(value))
     .join('\n');
-
-  return {
-    context,
-    stats: {
-      businessLineCount: businessSnapshot
-        ? businessSnapshot
-            .split('\n')
-            .filter((line) => line.trim().startsWith('- ')).length
-        : 0,
-      searchCount: searches.length,
-      sourceCount: sources.length,
-      analysisCount: analysisNotes.length,
-      partialDraftChars: partialDraft?.length ?? 0,
-      totalChars: context.length,
-    },
-  };
 }
 
-function hasCompetitorRecoveryEvidence(input: {
-  partialDraft?: string;
-  progressUpdates: RunnerProgressUpdate[];
-}): boolean {
-  const hasPartialDraft =
-    typeof input.partialDraft === 'string' && input.partialDraft.trim().length > 0;
-  const sourceCount = input.progressUpdates.filter(
-    (update) => update.phase === 'tool' && update.message.startsWith('source: '),
-  ).length;
-
-  return hasPartialDraft || sourceCount >= 3;
-}
-
-function getCompetitorAttemptConfig(
-  mode: CompetitorAttemptMode,
-): CompetitorAttemptConfig {
-  if (mode === 'rescue') {
-    return {
-      mode,
-      model: COMPETITORS_RESCUE_MODEL,
-      maxTokens: COMPETITORS_RESCUE_MAX_TOKENS,
-      timeoutMs: COMPETITORS_RESCUE_TIMEOUT_MS,
-      tools: [],
-      system: COMPETITORS_RESCUE_SYSTEM_PROMPT,
-      synthesisMessage: 'synthesizing ultra-compact competitor rescue',
-    };
-  }
-
-  if (mode === 'repair') {
-    return {
-      mode,
-      model: COMPETITORS_REPAIR_MODEL,
-      maxTokens: COMPETITORS_REPAIR_MAX_TOKENS,
-      timeoutMs: COMPETITORS_REPAIR_TIMEOUT_MS,
-      tools: [],
-      system: COMPETITORS_REPAIR_SYSTEM_PROMPT,
-      synthesisMessage: 'repairing competitor artifact from captured evidence',
-    };
-  }
-
-  return {
-    mode,
-    model: COMPETITORS_PRIMARY_MODEL,
-    maxTokens: COMPETITORS_PRIMARY_MAX_TOKENS,
-    timeoutMs: COMPETITORS_PRIMARY_TIMEOUT_MS,
-    tools: [
-      WEB_SEARCH_TOOL,
-      adLibraryTool,
-      spyfuTool,
-      firecrawlExtractTool,
-      ...(isAdvisorEnabled() ? [ADVISOR_TOOL as unknown as CompetitorTool] : []),
-    ],
-    system: `${isAdvisorEnabled() ? ADVISOR_PROMPT_ADDENDUM : ''}${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`,
-    synthesisMessage: 'synthesizing competitor landscape',
-  };
-}
+// ---------------------------------------------------------------------------
+// Retained for test-signature compatibility. These helpers no longer drive the
+// cascade flow (runWithCascade advances on parse-failure OR max_tokens OR
+// timeout internally); they stay exported because existing unit tests verify
+// their contracts directly.
+// ---------------------------------------------------------------------------
 
 export function isCompetitorTimeoutError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -564,416 +485,244 @@ export function isCompetitorTimeoutError(error: unknown): boolean {
   );
 }
 
-function getCompetitorTimeoutSource(
-  error: unknown,
-): CompetitorTimeoutSource | null {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes('sub-agent timed out after')) {
-    return 'worker_timeout';
-  }
-
-  if (normalized.includes('request timed out')) {
-    return 'request_timeout';
-  }
-
-  if (normalized.includes('network timeout')) {
-    return 'network_timeout';
-  }
-
-  return normalized.includes('timeout') ? 'request_timeout' : null;
-}
-
 export function shouldRetryCompetitorsWithFallback(input: {
   parseError: unknown;
   telemetry: ReturnType<typeof buildRunnerTelemetry>;
 }): boolean {
-  if (!input.parseError) {
-    return false;
-  }
-
-  // Retry on truncation (max_tokens) OR when the model finished but
-  // produced non-JSON output (end_turn / tool_use). The repair pass
-  // uses a no-tool prompt with the captured evidence, which is far
-  // more likely to produce valid JSON than the primary tool-using pass.
-  return true;
+  return Boolean(input.parseError);
 }
 
 export function shouldRetryCompetitorsWithRescue(input: {
   parseError: unknown;
   telemetry: ReturnType<typeof buildRunnerTelemetry>;
 }): boolean {
-  if (!input.parseError) {
-    return false;
-  }
-
-  // Same rationale: always attempt rescue when repair also fails to
-  // parse. The rescue pass uses an ultra-compact prompt with hard
-  // word limits, maximizing the chance of a complete JSON response.
-  return true;
+  return Boolean(input.parseError);
 }
 
-function getCompetitorResultText(finalMsg: { content: BetaContentBlock[] }): string {
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return textBlock && 'text' in textBlock ? textBlock.text : '';
+// ---------------------------------------------------------------------------
+// Cascade stage builders
+// ---------------------------------------------------------------------------
+
+const PRIMARY_MODE_LABEL = 'competitor analysis with live data';
+const REPAIR_MODE_LABEL = 'competitor analysis (repair pass) from context';
+const RESCUE_MODE_LABEL = 'competitor analysis (rescue pass) from context';
+const USER_MESSAGE_PREFIX = 'Research competitors for:\n\n';
+
+function buildPrimaryTools(): CompetitorTool[] {
+  return [
+    WEB_SEARCH_TOOL,
+    adLibraryTool,
+    spyfuTool,
+    firecrawlExtractTool,
+    ...(isAdvisorEnabled() ? [ADVISOR_TOOL as unknown as CompetitorTool] : []),
+  ];
 }
 
-function areCompetitorToolsEnabled(config: CompetitorAttemptConfig): boolean {
-  return config.tools.length > 0;
-}
-
-function buildCompetitorAttemptLabel(config: CompetitorAttemptConfig): string {
-  const modeLabel =
-    config.mode === 'primary'
-      ? 'competitor analysis'
-      : config.mode === 'repair'
-        ? 'competitor analysis (repair pass)'
-        : 'competitor analysis (rescue pass)';
-  const toolsLabel = areCompetitorToolsEnabled(config) ? 'with live data' : 'from context';
-  return `${modeLabel} ${toolsLabel}`;
-}
-
-function buildCompetitorRecoveryStatsMessage(
-  _mode: Exclude<CompetitorAttemptMode, 'primary'>,
-  _stats: CompetitorRecoveryContextStats,
-): string {
-  return 'preparing additional competitor analysis';
-}
-
-async function runCompetitorToolAttempt(
-  context: string,
-  config: CompetitorAttemptConfig,
-  onProgress?: RunnerProgressReporter,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const client = createClient();
-  const finalMsg = await runWithBackoff(
-    () => {
-      const runner = client.beta.messages.toolRunner({
-        model: config.model,
-        max_tokens: config.maxTokens,
-        stream: true,
-        tools: config.tools,
-        system: config.system,
-        messages: [{ role: 'user', content: `Research competitors for:\n\n${context}` }],
-      });
-      return Promise.race([
-        runStreamedToolRunner(runner, {
-          onProgress,
-          synthesisMessage: config.synthesisMessage,
-          maxToolIterations: 3,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Sub-agent timed out after ${config.timeoutMs / 1000}s`)),
-            config.timeoutMs,
-          ),
-        ),
-      ]);
+function buildPrimaryStage(): CascadeStage {
+  return {
+    config: {
+      mode: PRIMARY_MODE_LABEL,
+      model: COMPETITORS_PRIMARY_MODEL,
+      maxTokens: COMPETITORS_PRIMARY_MAX_TOKENS,
+      timeoutMs: COMPETITORS_PRIMARY_TIMEOUT_MS,
+      tools: buildPrimaryTools(),
+      system: `${isAdvisorEnabled() ? ADVISOR_PROMPT_ADDENDUM : ''}${COMPETITOR_ANALYSIS_SKILL}\n\n---\n\n${COMPETITORS_PRIMARY_SYSTEM_PROMPT}`,
+      synthesisMessage: 'synthesizing competitor landscape',
+      maxToolIterations: 3,
+      userMessage: '{{context}}',
     },
-    `researchCompetitors:${config.mode}`,
-  );
-
-  return {
-    resultText: getCompetitorResultText(finalMsg),
-    telemetry: buildRunnerTelemetry(finalMsg),
+    buildContext: (originalContext) => `${USER_MESSAGE_PREFIX}${originalContext}`,
   };
 }
 
-async function runCompetitorMessageAttempt(
-  context: string,
-  config: CompetitorAttemptConfig,
-  onProgress?: RunnerProgressReporter,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const client = createClient();
-  await emitRunnerProgress(onProgress, 'analysis', config.synthesisMessage);
-
-  const finalMsg = await runWithBackoff(
-    () =>
-      Promise.race([
-        client.messages.create({
-          model: config.model,
-          max_tokens: config.maxTokens,
-          system: config.system,
-          messages: [{ role: 'user', content: `Research competitors for:\n\n${context}` }],
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Sub-agent timed out after ${config.timeoutMs / 1000}s`)),
-            config.timeoutMs,
-          ),
-        ),
-      ]),
-    `researchCompetitors:${config.mode}`,
-  );
-
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return {
-    resultText: textBlock?.type === 'text' ? textBlock.text : '',
-    telemetry: buildRunnerTelemetry(finalMsg),
-  };
-}
-
-async function runCompetitorAttemptWithObservability(
-  context: string,
-  config: CompetitorAttemptConfig,
-  onProgress: RunnerProgressReporter | undefined,
-  deps: RunResearchCompetitorsDeps,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const runAttempt =
-    deps.runAttempt ??
-    (areCompetitorToolsEnabled(config)
-      ? deps.runToolAttempt ?? runCompetitorToolAttempt
-      : deps.runMessageAttempt ?? runCompetitorMessageAttempt);
-
-  await emitRunnerProgress(
-    onProgress,
-    'runner',
-    `${buildCompetitorAttemptLabel(config)} started`,
-  );
-
-  try {
-    const attemptResult = await runAttempt(context, config, onProgress);
-    await emitRunnerProgress(
-      onProgress,
-      'runner',
-      `${buildCompetitorAttemptLabel(config)} complete`,
-    );
-    return attemptResult;
-  } catch (error) {
-    const timeoutSource = getCompetitorTimeoutSource(error);
-    if (timeoutSource) {
-      await emitRunnerProgress(
-        onProgress,
-        'runner',
-        `${buildCompetitorAttemptLabel(config)} timed out`,
-      );
-    }
-
-    throw error;
-  }
-}
-
-async function runCompetitorRepairWithTimeoutFallback(input: {
-  context: string;
-  partialDraft?: string;
-  progressUpdates: RunnerProgressUpdate[];
+function buildRecoveryStage(input: {
+  mode: Exclude<CompetitorAttemptMode, 'primary'>;
+  modeLabel: string;
+  model: string;
+  maxTokens: number;
+  timeoutMs: number;
+  system: string;
+  synthesisMessage: string;
+  originalContextRef: { value: string };
   reportProgress: RunnerProgressReporter;
-  deps: RunResearchCompetitorsDeps;
-}): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const repairContext = buildCompetitorRecoveryContext({
-    mode: 'repair',
-    context: input.context,
-    partialDraft: input.partialDraft,
-    progressUpdates: input.progressUpdates,
-  });
-
-  await emitRunnerProgress(
-    input.reportProgress,
-    'runner',
-    buildCompetitorRecoveryStatsMessage('repair', repairContext.stats),
-  );
-
-  try {
-    return await runCompetitorAttemptWithObservability(
-      repairContext.context,
-      getCompetitorAttemptConfig('repair'),
-      input.reportProgress,
-      input.deps,
-    );
-  } catch (error) {
-    if (!isCompetitorTimeoutError(error)) {
-      throw error;
-    }
-
-    const rescueContext = buildCompetitorRecoveryContext({
-      mode: 'rescue',
-      context: input.context,
-      partialDraft: input.partialDraft,
-      progressUpdates: input.progressUpdates,
-    });
-
-    await emitRunnerProgress(
-      input.reportProgress,
-      'runner',
-      'competitor repair pass timed out — retrying with ultra-compact rescue',
-    );
-    await emitRunnerProgress(
-      input.reportProgress,
-      'runner',
-      buildCompetitorRecoveryStatsMessage('rescue', rescueContext.stats),
-    );
-
-    return runCompetitorAttemptWithObservability(
-      rescueContext.context,
-      getCompetitorAttemptConfig('rescue'),
-      input.reportProgress,
-      input.deps,
-    );
-  }
+  /** Bridge message emitted when the previous stage timed out. */
+  timeoutBridgeMessage: string;
+  /** Bridge message emitted when the previous stage hit the token limit / parse failure. */
+  tokenLimitBridgeMessage: string;
+}): CascadeStage {
+  return {
+    config: {
+      mode: input.modeLabel,
+      model: input.model,
+      maxTokens: input.maxTokens,
+      timeoutMs: input.timeoutMs,
+      tools: [],
+      system: input.system,
+      synthesisMessage: input.synthesisMessage,
+      userMessage: '{{context}}',
+    },
+    buildContext: (originalContext, capturedProgress, partialDraft) => {
+      // Decide which bridge message to emit based on whether a partial draft was captured.
+      // A truthy partialDraft indicates the previous stage produced text (token-limit / parse
+      // failure path). An empty partialDraft means the previous stage timed out.
+      const hadPartialDraft =
+        typeof partialDraft === 'string' && partialDraft.trim().length > 0;
+      const bridgeMessage = hadPartialDraft
+        ? input.tokenLimitBridgeMessage
+        : input.timeoutBridgeMessage;
+      // Fire-and-forget — the wrapped progress reporter is synchronous so messages
+      // land in order before the observability wrapper emits `${mode} started`.
+      void emitRunnerProgress(input.reportProgress, 'runner', bridgeMessage);
+      void emitRunnerProgress(
+        input.reportProgress,
+        'runner',
+        'preparing additional competitor analysis',
+      );
+      // Use the original context captured before stage entry so recovery context
+      // builders see the full business snapshot, not the rewritten user message.
+      const recoveryContext = buildCompetitorRecoveryContext({
+        mode: input.mode,
+        context: input.originalContextRef.value,
+        partialDraft,
+        progressUpdates: capturedProgress,
+      });
+      return `${USER_MESSAGE_PREFIX}${recoveryContext}`;
+    },
+  };
 }
+
+// ---------------------------------------------------------------------------
+// Bridge: adapt legacy (context, config, onProgress) deps to CascadeDeps
+// ---------------------------------------------------------------------------
+
+function extractRawContext(userMessage: string): string {
+  return userMessage.startsWith(USER_MESSAGE_PREFIX)
+    ? userMessage.slice(USER_MESSAGE_PREFIX.length)
+    : userMessage;
+}
+
+function toCompetitorAttemptConfig(
+  config: CascadeAttemptConfig,
+): CompetitorAttemptConfig {
+  const mode: CompetitorAttemptMode =
+    config.mode === PRIMARY_MODE_LABEL
+      ? 'primary'
+      : config.mode === REPAIR_MODE_LABEL
+        ? 'repair'
+        : 'rescue';
+  return {
+    mode,
+    model: config.model,
+    maxTokens: config.maxTokens,
+    timeoutMs: config.timeoutMs,
+    tools: config.tools as CompetitorTool[],
+    system: config.system,
+    synthesisMessage: config.synthesisMessage,
+  };
+}
+
+function bridgeLegacyDeps(
+  deps: RunResearchCompetitorsDeps,
+): CascadeDeps {
+  const toolBridge =
+    deps.runAttempt ?? deps.runToolAttempt
+      ? async (
+          config: CascadeAttemptConfig,
+          onProgress?: RunnerProgressReporter,
+        ): Promise<CascadeAttemptResult> => {
+          const runner = deps.runAttempt ?? deps.runToolAttempt!;
+          return runner(
+            extractRawContext(config.userMessage),
+            toCompetitorAttemptConfig(config),
+            onProgress,
+          );
+        }
+      : undefined;
+  const messageBridge =
+    deps.runAttempt ?? deps.runMessageAttempt
+      ? async (
+          config: CascadeAttemptConfig,
+          onProgress?: RunnerProgressReporter,
+        ): Promise<CascadeAttemptResult> => {
+          const runner = deps.runAttempt ?? deps.runMessageAttempt!;
+          return runner(
+            extractRawContext(config.userMessage),
+            toCompetitorAttemptConfig(config),
+            onProgress,
+          );
+        }
+      : undefined;
+
+  return {
+    now: deps.now,
+    parseJson: deps.parseJson,
+    runToolAttempt: toolBridge,
+    runMessageAttempt: messageBridge,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export async function runResearchCompetitorsWithDeps(
   context: string,
   onProgress?: RunnerProgressReporter,
   deps: RunResearchCompetitorsDeps = {},
 ): Promise<ResearchResult> {
-  const now = deps.now ?? (() => Date.now());
-  const parseJson = deps.parseJson ?? extractJson;
-  const startTime = now();
   const capturedProgressUpdates: RunnerProgressUpdate[] = [];
   const reportProgress: RunnerProgressReporter = async (update) => {
     capturedProgressUpdates.push(update);
     await onProgress?.(update);
   };
 
-  try {
-    await emitRunnerProgress(reportProgress, 'runner', 'preparing competitor research brief');
+  // Closure-captured context ref so recovery stages can rebuild their evidence
+  // package from the ORIGINAL business context, not the rewritten user message.
+  const originalContextRef = { value: context };
 
-    let resultText: string;
-    let telemetry: ReturnType<typeof buildRunnerTelemetry>;
-    let alreadyRecovered = false;
-    try {
-      const attemptResult = await runCompetitorAttemptWithObservability(
-        context,
-        getCompetitorAttemptConfig('primary'),
-        reportProgress,
-        deps,
-      );
-      resultText = attemptResult.resultText;
-      telemetry = attemptResult.telemetry;
-    } catch (error) {
-      if (!isCompetitorTimeoutError(error)) {
-        throw error;
-      }
+  const primaryStage = buildPrimaryStage();
+  const repairStage = buildRecoveryStage({
+    mode: 'repair',
+    modeLabel: REPAIR_MODE_LABEL,
+    model: COMPETITORS_REPAIR_MODEL,
+    maxTokens: COMPETITORS_REPAIR_MAX_TOKENS,
+    timeoutMs: COMPETITORS_REPAIR_TIMEOUT_MS,
+    system: COMPETITORS_REPAIR_SYSTEM_PROMPT,
+    synthesisMessage: 'repairing competitor artifact from captured evidence',
+    originalContextRef,
+    reportProgress,
+    timeoutBridgeMessage:
+      'primary competitor pass timed out — repairing artifact from captured evidence',
+    tokenLimitBridgeMessage:
+      'primary competitor pass hit token limit — repairing artifact from captured evidence',
+  });
+  const rescueStage = buildRecoveryStage({
+    mode: 'rescue',
+    modeLabel: RESCUE_MODE_LABEL,
+    model: COMPETITORS_RESCUE_MODEL,
+    maxTokens: COMPETITORS_RESCUE_MAX_TOKENS,
+    timeoutMs: COMPETITORS_RESCUE_TIMEOUT_MS,
+    system: COMPETITORS_RESCUE_SYSTEM_PROMPT,
+    synthesisMessage: 'synthesizing ultra-compact competitor rescue',
+    originalContextRef,
+    reportProgress,
+    timeoutBridgeMessage:
+      'competitor repair pass timed out — retrying with ultra-compact rescue',
+    tokenLimitBridgeMessage:
+      'competitor repair pass hit token limit — retrying with ultra-compact rescue',
+  });
 
-      await emitRunnerProgress(
-        reportProgress,
-        'runner',
-        hasCompetitorRecoveryEvidence({
-          progressUpdates: capturedProgressUpdates,
-        })
-          ? 'primary competitor pass timed out — repairing artifact from captured evidence'
-          : 'primary competitor pass timed out — retrying with compact repair',
-      );
-      const attemptResult = await runCompetitorRepairWithTimeoutFallback({
-        context,
-        progressUpdates: capturedProgressUpdates,
-        reportProgress,
-        deps,
-      });
-      resultText = attemptResult.resultText;
-      telemetry = attemptResult.telemetry;
-      alreadyRecovered = true;
-    }
-
-    let parsed: unknown;
-    let parseError: unknown;
-    try {
-      parsed = parseJson(resultText);
-    } catch (error) {
-      console.error('[competitors] JSON extraction failed:', resultText.slice(0, 300));
-      parseError = error;
-    }
-
-    // Only attempt repair if the PRIMARY pass completed (not timed out).
-    // The timeout handler above already runs repair → rescue, so retrying
-    // here would create an infinite loop.
-    if (!alreadyRecovered && shouldRetryCompetitorsWithFallback({ parseError, telemetry })) {
-      const retryReason =
-        telemetry.stopReason === 'max_tokens'
-          ? 'primary competitor pass hit token limit'
-          : 'primary competitor pass produced non-JSON output';
-      await emitRunnerProgress(
-        reportProgress,
-        'runner',
-        `${retryReason} — repairing artifact from captured evidence`,
-      );
-      const repairAttempt = await runCompetitorRepairWithTimeoutFallback({
-        context,
-        partialDraft: resultText,
-        progressUpdates: capturedProgressUpdates,
-        reportProgress,
-        deps,
-      });
-      resultText = repairAttempt.resultText;
-      telemetry = repairAttempt.telemetry;
-      parsed = undefined;
-      parseError = undefined;
-
-      try {
-        parsed = parseJson(resultText);
-      } catch (error) {
-        console.error('[competitors:repair] JSON extraction failed:', resultText.slice(0, 300));
-        parseError = error;
-      }
-    }
-
-    if (!alreadyRecovered && shouldRetryCompetitorsWithRescue({ parseError, telemetry })) {
-      const recoveryContext = buildCompetitorRecoveryContext({
-        mode: 'rescue',
-        context,
-        partialDraft: resultText,
-        progressUpdates: capturedProgressUpdates,
-      });
-
-      await emitRunnerProgress(
-        reportProgress,
-        'runner',
-        'competitor repair pass hit token limit — retrying with ultra-compact rescue',
-      );
-      await emitRunnerProgress(
-        reportProgress,
-        'runner',
-        buildCompetitorRecoveryStatsMessage('rescue', recoveryContext.stats),
-      );
-      const rescueAttempt = await runCompetitorAttemptWithObservability(
-        recoveryContext.context,
-        getCompetitorAttemptConfig('rescue'),
-        reportProgress,
-        deps,
-      );
-      resultText = rescueAttempt.resultText;
-      telemetry = rescueAttempt.telemetry;
-      parsed = undefined;
-      parseError = undefined;
-
-      try {
-        parsed = parseJson(resultText);
-      } catch (error) {
-        console.error('[competitors:rescue] JSON extraction failed:', resultText.slice(0, 300));
-        parseError = error;
-      }
-    }
-
-    return finalizeRunnerResult({
+  return runWithCascade(
+    context,
+    {
       section: 'competitorIntel',
-      durationMs: now() - startTime,
-      parsed,
-      rawText: resultText,
-      parseError,
-      telemetry,
-    });
-  } catch (error) {
-    return {
-      status: 'error',
-      section: 'competitorIntel',
-      error: error instanceof Error ? error.message : String(error),
-      durationMs: now() - startTime,
-    };
-  }
+      errorSection: 'competitorIntel',
+      initMessage: 'preparing competitor research brief',
+      stages: [primaryStage, repairStage, rescueStage],
+    },
+    reportProgress,
+    bridgeLegacyDeps(deps),
+  );
 }
 
 export async function runResearchCompetitors(
