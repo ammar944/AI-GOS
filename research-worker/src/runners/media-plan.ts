@@ -3,6 +3,7 @@
 // Produces 6 blocks sequentially, writing partial results to Supabase after each.
 // No live API calls — all evidence comes from vendored reference data + approved research.
 
+import type { RunnerCtx, RunnerDeps, RunnerFn } from './base';
 import { generateObject } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
@@ -416,3 +417,10 @@ export async function runMediaPlan(
     };
   }
 }
+
+// Type-check: runMediaPlan conforms to RunnerFn when called with a RunnerCtx.
+// This is a compile-time assertion — it catches drift between runner signatures
+// and the unified contract without forcing immediate migration.
+const _runnerFnCheck: (ctx: RunnerCtx, onProgress?: Parameters<RunnerFn>[1]) => ReturnType<RunnerFn> =
+  (ctx, onProgress) => runMediaPlan(ctx.context, onProgress);
+void _runnerFnCheck;

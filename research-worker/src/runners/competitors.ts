@@ -1,3 +1,4 @@
+import type { RunnerCtx, RunnerDeps, RunnerFn } from './base';
 import {
   ADVISOR_PROMPT_ADDENDUM,
   ADVISOR_TOOL,
@@ -630,3 +631,10 @@ export async function runResearchCompetitors(
 ): Promise<ResearchResult> {
   return runResearchCompetitorsWithDeps(context, onProgress);
 }
+
+// Type-check: runResearchCompetitors conforms to RunnerFn when called with a RunnerCtx.
+// This is a compile-time assertion — it catches drift between runner signatures
+// and the unified contract without forcing immediate migration.
+const _runnerFnCheck: (ctx: RunnerCtx, onProgress?: Parameters<RunnerFn>[1]) => ReturnType<RunnerFn> =
+  (ctx, onProgress) => runResearchCompetitors(ctx.context, onProgress);
+void _runnerFnCheck;

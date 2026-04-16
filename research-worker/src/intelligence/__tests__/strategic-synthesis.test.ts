@@ -29,13 +29,14 @@ const allSectionsEntries: WikiEntry[] = [
   makeEntry('keyword_negative', 'free project management'),
 ];
 
-// Only market + icp — no competitor, offer, keyword
+// market + icp + competitor — no offer, no keyword (3 sections present, 2 forced to 0)
 const partialEntries: WikiEntry[] = [
   makeEntry('market_size', '$12B TAM growing at 18% YoY per Gartner 2024'),
   makeEntry('market_trend', 'SMBs moving to cloud-first ops tooling in 2024'),
   makeEntry('icp_persona', 'Ops director, 50-200 person B2B SaaS, fires status meetings'),
   makeEntry('icp_pain', 'Loses 4hr/wk on manual status updates'),
   makeEntry('icp_objection', 'Migration complexity from existing tools'),
+  makeEntry('competitor_name', 'Monday.com'),
 ];
 
 // ---------------------------------------------------------------------------
@@ -308,7 +309,7 @@ describe('synthesizeStrategicSynthesis', () => {
 
   describe('DIMENSION_SOURCE_MAP enforcement', () => {
     it('forces score=0/verdict=red for dimensions with no matching wiki entries', async () => {
-      // partialEntries has only market_ and icp_ — no competitor_, offer_, keyword_
+      // partialEntries has market_, icp_, competitor_ — no offer_, no keyword_
       const pack = buildEvidencePack(
         'strategic-synthesis',
         'crossAnalysis',
@@ -334,24 +335,24 @@ describe('synthesizeStrategicSynthesis', () => {
       expect(byName['Audience Clarity'].score).toBe(8);
       expect(byName['Audience Clarity'].verdict).toBe('green');
 
-      // Forced — no competitor_ entries
-      expect(byName['Competitive Position'].score).toBe(0);
-      expect(byName['Competitive Position'].verdict).toBe('red');
-      expect(byName['Competitive Position'].summary).toContain('Insufficient data');
+      // Preserved — competitor_ entry present
+      expect(byName['Competitive Position'].score).toBe(6);
+      expect(byName['Competitive Position'].verdict).toBe('yellow');
 
       // Forced — no offer_ entries
       expect(byName['Offer Strength'].score).toBe(0);
       expect(byName['Offer Strength'].verdict).toBe('red');
+      expect(byName['Offer Strength'].summary).toContain('Insufficient data');
 
       // Forced — no keyword_ entries
       expect(byName['Keyword Coverage'].score).toBe(0);
       expect(byName['Keyword Coverage'].verdict).toBe('red');
 
-      // overallScore = mean(7, 8, 0, 0, 0) = 3
-      expect(result!.readinessScorecard.overallScore).toBe(3);
+      // overallScore = mean(7, 8, 6, 0, 0) = 4.2
+      expect(result!.readinessScorecard.overallScore).toBe(4.2);
 
-      // overallVerdict = red (3 < 4)
-      expect(result!.readinessScorecard.overallVerdict).toBe('red');
+      // overallVerdict = yellow (4.2 >= 4)
+      expect(result!.readinessScorecard.overallVerdict).toBe('yellow');
     });
   });
 
@@ -406,6 +407,142 @@ describe('synthesizeStrategicSynthesis', () => {
 
       const result = await synthesizeStrategicSynthesis(pack, { client: client as never });
 
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('section-count gate (Phase 6.3.2)', () => {
+    it('returns null without calling client when 5 entries all belong to the same section', async () => {
+      // All entries use the market_ prefix — only 1 distinct section present
+      const singleSectionEntries: WikiEntry[] = [
+        makeEntry('market_size', '$12B TAM growing at 18% YoY per Gartner 2024'),
+        makeEntry('market_trend', 'SMBs moving to cloud-first ops tooling in 2024'),
+        makeEntry('market_segment', 'Mid-market B2B SaaS is the primary growth segment'),
+        makeEntry('market_driver', 'Remote-first work increases async tooling demand'),
+        makeEntry('market_forecast', 'Market projected to reach $20B by 2027'),
+      ];
+      const pack = buildEvidencePack(
+        'strategic-synthesis',
+        'crossAnalysis',
+        singleSectionEntries,
+        'run-1',
+        'user-1',
+      );
+      const client = makeThrowingClient();
+
+      const result = await synthesizeStrategicSynthesis(pack, { client: client as never });
+
+      expect(result).toBeNull();
+      expect(client.messages.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('post-score threshold gate (Phase 6.3.2)', () => {
+    it('returns null when overallScore < 2 after DIMENSION_SOURCE_MAP enforcement', async () => {
+      // 6 entries spanning 4 distinct sections (market, icp, competitor, offer — no keyword)
+      const fourSectionEntries: WikiEntry[] = [
+        makeEntry('market_size', '$12B TAM growing at 18% YoY'),
+        makeEntry('icp_persona', 'Ops director, 50-200 person B2B SaaS'),
+        makeEntry('competitor_name', 'Monday.com'),
+        makeEntry('offer_value_prop', 'Automated status bot'),
+        makeEntry('market_trend', 'Cloud-first macro'),
+        makeEntry('icp_pain', 'Loses 4hr/wk on manual updates'),
+      ];
+      const pack = buildEvidencePack(
+        'strategic-synthesis',
+        'crossAnalysis',
+        fourSectionEntries,
+        'run-1',
+        'user-1',
+      );
+
+      // Mock returns all 5 dimensions with score=1 each (mean = 1 < 2)
+      const allOnesJson = JSON.stringify({
+        readinessScorecard: {
+          overallScore: 1.0,
+          overallVerdict: 'red',
+          dimensions: [
+            {
+              value: {
+                dimension: 'Market Opportunity',
+                score: 1,
+                verdict: 'red',
+                summary: 'Very thin market data available',
+                topSignals: ['limited signals'],
+              },
+              evidenceIds: ['market_size#1'],
+              confidence: 30,
+            },
+            {
+              value: {
+                dimension: 'Audience Clarity',
+                score: 1,
+                verdict: 'red',
+                summary: 'Minimal audience definition',
+                topSignals: ['sparse persona data'],
+              },
+              evidenceIds: ['icp_persona#1'],
+              confidence: 25,
+            },
+            {
+              value: {
+                dimension: 'Competitive Position',
+                score: 1,
+                verdict: 'red',
+                summary: 'No meaningful competitive differentiation found',
+                topSignals: ['competitor name only'],
+              },
+              evidenceIds: ['competitor_name#1'],
+              confidence: 20,
+            },
+            {
+              value: {
+                dimension: 'Offer Strength',
+                score: 1,
+                verdict: 'red',
+                summary: 'Offer concept present but underdeveloped',
+                topSignals: ['basic value prop only'],
+              },
+              evidenceIds: ['offer_value_prop#1'],
+              confidence: 20,
+            },
+            {
+              value: {
+                dimension: 'Keyword Coverage',
+                score: 1,
+                verdict: 'red',
+                summary: 'No keyword data available',
+                topSignals: ['no keyword entries'],
+              },
+              evidenceIds: ['market_size#1'],
+              confidence: 10,
+            },
+          ],
+        },
+        topActions: [
+          {
+            value: {
+              action: 'Complete all research sections before synthesis',
+              category: 'strategic',
+              effort: 'high',
+              impact: 'high',
+              rationale: 'Insufficient data across all dimensions',
+            },
+            evidenceIds: ['market_size#1'],
+            confidence: 90,
+          },
+        ],
+        strategicNarrative:
+          'Research data is critically thin across all dimensions. Complete all research sections before attempting strategic synthesis to produce a meaningful readiness assessment.',
+      });
+
+      const client = makeMockClient(allOnesJson);
+
+      const result = await synthesizeStrategicSynthesis(pack, { client: client as never });
+
+      // Client was called (gate fires post-score, not pre-call)
+      expect(client.messages.create).toHaveBeenCalledOnce();
+      // But result is null because overallScore (1) < 2
       expect(result).toBeNull();
     });
   });

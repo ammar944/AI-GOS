@@ -2,6 +2,7 @@
 // Uses Vercel AI SDK generateObject for guaranteed valid JSON, matching
 // the pattern used by media-plan.ts and all other runners.
 
+import type { RunnerCtx, RunnerDeps, RunnerFn } from './base';
 import { generateObject } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
@@ -259,3 +260,10 @@ export async function runSynthesizeResearch(
     };
   }
 }
+
+// Type-check: runSynthesizeResearch conforms to RunnerFn when called with a RunnerCtx.
+// This is a compile-time assertion — it catches drift between runner signatures
+// and the unified contract without forcing immediate migration.
+const _runnerFnCheck: (ctx: RunnerCtx, onProgress?: Parameters<RunnerFn>[1]) => ReturnType<RunnerFn> =
+  (ctx, onProgress) => runSynthesizeResearch(ctx.context, onProgress);
+void _runnerFnCheck;

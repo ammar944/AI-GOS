@@ -82,6 +82,14 @@ export async function synthesizeStrategicSynthesis(
     }
   }
 
+  // Phase 6.3.2 — require at least 3 distinct sections have wiki entries.
+  // Sections are keyed by dimension name; each maps to a unique topic prefix.
+  // Fewer than 3 sections means the synthesis would span too narrow a base to
+  // produce a meaningful cross-dimensional scorecard.
+  if (sectionsPresent.size < 3) {
+    return null;
+  }
+
   const client = deps?.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const methodology = loadMethodology('readiness-scorecard.md');
 
@@ -194,7 +202,7 @@ export async function synthesizeStrategicSynthesis(
 
   const overallVerdict = verdictFromScore(overallScore);
 
-  return {
+  const finalCard: StrategicSynthesisCard = {
     ...validated,
     readinessScorecard: {
       overallScore,
@@ -202,4 +210,13 @@ export async function synthesizeStrategicSynthesis(
       dimensions: enforcedDimensions,
     },
   };
+
+  // Phase 6.3.2 — if overall readiness is critically low, don't render a card.
+  // An inferred synthesis from thin data degrades the user's trust more than
+  // showing no card at all.
+  if (finalCard.readinessScorecard.overallScore < 2) {
+    return null;
+  }
+
+  return finalCard;
 }

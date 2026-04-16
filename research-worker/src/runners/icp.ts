@@ -1,3 +1,4 @@
+import type { RunnerCtx, RunnerDeps, RunnerFn } from './base';
 import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
   createClient,
@@ -77,3 +78,10 @@ export async function runResearchICP(
     };
   }
 }
+
+// Type-check: runResearchICP conforms to RunnerFn when called with a RunnerCtx.
+// This is a compile-time assertion — it catches drift between runner signatures
+// and the unified contract without forcing immediate migration.
+const _runnerFnCheck: (ctx: RunnerCtx, onProgress?: Parameters<RunnerFn>[1]) => ReturnType<RunnerFn> =
+  (ctx, onProgress) => runResearchICP(ctx.context, onProgress);
+void _runnerFnCheck;

@@ -1,3 +1,4 @@
+import type { RunnerCtx, RunnerDeps, RunnerFn } from './base';
 import {
   buildRunnerTelemetry,
   emitRunnerProgress,
@@ -507,3 +508,10 @@ export async function runResearchIndustry(
 ): Promise<import('../supabase').ResearchResult> {
   return runResearchIndustryWithDeps(context, onProgress);
 }
+
+// Type-check: runResearchIndustry conforms to RunnerFn when called with a RunnerCtx.
+// This is a compile-time assertion — it catches drift between runner signatures
+// and the unified contract without forcing immediate migration.
+const _runnerFnCheck: (ctx: RunnerCtx, onProgress?: Parameters<RunnerFn>[1]) => ReturnType<RunnerFn> =
+  (ctx, onProgress) => runResearchIndustry(ctx.context, onProgress);
+void _runnerFnCheck;

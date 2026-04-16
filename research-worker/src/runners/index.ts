@@ -7,3 +7,5 @@ export { runResearchKeywords } from './keywords';
 export { runMediaPlan } from './media-plan';
 export { resolveProductIdentity } from '../identity/resolve-identity';
 export { runMeetingExtraction } from './meeting-extract';
+export type { RunnerCtx, RunnerDeps, RunnerFn } from './base';
+export { toRunnerCtx } from './base';
