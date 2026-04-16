@@ -98,21 +98,24 @@ export function loadMethodology(filename: string): string {
   return content;
 }
 
+// Lazy cache for Haynes frameworks (outside standard cache dirs)
+let haynesFrameworksCache: string | null = null;
+
 /**
- * Returns the Jeremy Haynes direct response frameworks. These are already
- * in scripts/refs/ for the ad scripts pipeline. This re-exports them for
- * use in media plan creative system skills.
+ * Returns the Jeremy Haynes direct response frameworks. These live in
+ * scripts/refs/ for the ad scripts pipeline. Cached at first call since
+ * the worker is a long-running process.
  */
 export function loadHaynesFrameworks(): string {
-  // Haynes frameworks live in scripts/refs/, not skills/refs/
-  // Read at call time since they're outside our cache directories
+  if (haynesFrameworksCache !== null) return haynesFrameworksCache;
   try {
-    return readFileSync(
+    haynesFrameworksCache = readFileSync(
       join(__dirname, '..', 'scripts', 'refs', 'haynes-frameworks.md'),
       'utf-8',
     );
   } catch {
     console.warn('[loader] Failed to load haynes-frameworks.md');
-    return '';
+    haynesFrameworksCache = '';
   }
+  return haynesFrameworksCache;
 }

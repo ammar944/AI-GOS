@@ -335,7 +335,11 @@ export async function POST(req: Request) {
   }
 
   // --- Conditional runner instruction for meeting intelligence priority ---
-  if (enrichedContext.includes('MEETING INTELLIGENCE')) {
+  // Use explicit flag set when meeting block is built (above), not string scan —
+  // wiki entries can contain similar strings.
+  const hasMeetingIntelligence = enrichedContext.startsWith('══ MEETING INTELLIGENCE ══') ||
+    /\n══ MEETING INTELLIGENCE ══/.test(enrichedContext);
+  if (hasMeetingIntelligence) {
     const meetingInstruction = `\n\n# Meeting Intelligence Priority\nIf "MEETING INTELLIGENCE" blocks appear below, these contain data extracted from actual client conversations.\n- Fields with direct quotes (marked with "—") are HIGH CONFIDENCE — prioritize over web-scraped data.\n- Fields WITHOUT quotes are AI-inferred summaries — treat as MEDIUM CONFIDENCE, on par with web research.\n- When meeting data contradicts web research, note the discrepancy. Prefer the meeting version ONLY if it includes a direct quote.\n- Cite meeting quotes using format: [Meeting: "exact quote"].\n- Use pain points to inform targeting, budget signals to ground spend, competitor mentions to focus competitive analysis.\n`;
     enrichedContext = meetingInstruction + enrichedContext;
   }

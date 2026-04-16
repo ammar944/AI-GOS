@@ -290,7 +290,7 @@ export async function runWithCascade(
     await emitRunnerProgress(reportProgress, 'runner', config.initMessage);
 
     let resultText = '';
-    let telemetry!: ReturnType<typeof buildRunnerTelemetry>;
+    let telemetry: ReturnType<typeof buildRunnerTelemetry> | undefined;
 
     // Run through stages sequentially. On timeout, advance to the next stage.
     // On parse failure after a completed attempt, also advance to the next stage.
@@ -304,10 +304,11 @@ export async function runWithCascade(
         capturedProgressUpdates,
         partialDraft,
       );
+      // Inject the built context into the userMessage if it uses a placeholder.
+      // For flexibility, runners embed context directly in userMessage via buildContext.
       const stageConfig: CascadeAttemptConfig = {
         ...stage.config,
-        // Inject the built context into the userMessage if it uses a placeholder.
-        // For flexibility, runners embed context directly in userMessage via buildContext.
+        userMessage: stage.config.userMessage.replace('{{context}}', stageContext),
       };
 
       if (stage.recoveryMessage) {
@@ -317,7 +318,7 @@ export async function runWithCascade(
       let stageTimedOut = false;
       try {
         const result = await runCascadeAttemptWithObservability(
-          { ...stageConfig, userMessage: stage.config.userMessage.replace('{{context}}', stageContext) },
+          stageConfig,
           reportProgress,
           deps,
         );
@@ -349,7 +350,7 @@ export async function runWithCascade(
         }
 
         const needsNextStage =
-          parseError !== undefined || telemetry.stopReason === 'max_tokens';
+          parseError !== undefined || telemetry?.stopReason === 'max_tokens';
 
         if (!needsNextStage || stageIndex === config.stages.length - 1) {
           // Either parsed successfully or no more stages left.

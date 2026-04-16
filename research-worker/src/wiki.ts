@@ -170,10 +170,13 @@ function extractCompetitors(data: Record<string, unknown>): WikiEntry[] {
       const name = safeStr(c.name ?? c.companyName ?? '');
       if (!name) continue;
 
-      entries.push(entry('competitor_name', name, r, 'tool_output', 85));
-      if (c.domain) entries.push(entry('competitor_domain', `${name}: ${safeStr(c.domain)}`, r, 'tool_output', 90));
-      if (c.positioning) entries.push(entry('competitor_positioning', `${name}: ${safeStr(c.positioning)}`, r, 'tool_output', 75));
-      if (c.pricing) entries.push(entry('competitor_pricing', `${name}: ${safeStr(c.pricing)}`, r, 'tool_output', 70));
+      // Competitors come from the Sonar discovery + parallel-fetch pipeline;
+      // name/domain are tool-backed, positioning/pricing may be inferred.
+      const compProv = inferProvenance(data);
+      entries.push(entry('competitor_name', name, r, compProv, 85));
+      if (c.domain) entries.push(entry('competitor_domain', `${name}: ${safeStr(c.domain)}`, r, compProv, 90));
+      if (c.positioning) entries.push(entry('competitor_positioning', `${name}: ${safeStr(c.positioning)}`, r, 'ai_synthesis', 70));
+      if (c.pricing) entries.push(entry('competitor_pricing', `${name}: ${safeStr(c.pricing)}`, r, compProv, 75));
       if (c.weakness) entries.push(entry('competitor_weakness', `${name}: ${safeStr(c.weakness)}`, r, 'ai_synthesis', 65));
       if (c.adActivity) entries.push(entry('competitor_ad_activity', `${name}: ${safeStr(c.adActivity)}`, r, 'tool_output', 75));
     }
