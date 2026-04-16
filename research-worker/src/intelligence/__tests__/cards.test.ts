@@ -95,3 +95,59 @@ describe('synthesizeOpportunity', () => {
     );
   });
 });
+
+import { synthesizeWhiteSpaceGap } from '../cards/white-space-gap';
+
+const gapMockPack: EvidencePack = {
+  cardName: 'white-space-gap',
+  section: 'competitorIntel',
+  entries: [
+    {
+      topic: 'competitor_name',
+      content: 'Asana',
+      source_runner: 'competitorIntel',
+      provenance: 'tool_output',
+      confidence: 95,
+    },
+    {
+      topic: 'competitor_positioning',
+      content: 'Asana targets large teams; pricing starts at $13/user/mo',
+      source_runner: 'competitorIntel',
+      provenance: 'web_search',
+      confidence: 80,
+    },
+  ],
+  entryIds: ['competitor_name#1', 'competitor_positioning#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+describe('synthesizeWhiteSpaceGap', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        gaps: [
+          {
+            value: {
+              gap: 'SMB-friendly pricing under $10/user',
+              targetCompetitor: 'Asana',
+              type: 'price',
+            },
+            evidenceIds: ['competitor_positioning#1'],
+            confidence: 78,
+          },
+        ],
+      }),
+    );
+    const result = await synthesizeWhiteSpaceGap(gapMockPack, { client });
+    expect(result.gaps).toHaveLength(1);
+    expect(result.gaps[0].value.targetCompetitor).toBe('Asana');
+  });
+
+  it('throws on non-JSON response', async () => {
+    const client = mockAnthropicClient('nope');
+    await expect(synthesizeWhiteSpaceGap(gapMockPack, { client })).rejects.toThrow(
+      /white-space-gap: no json/i,
+    );
+  });
+});
