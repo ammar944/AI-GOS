@@ -17,8 +17,9 @@ import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
 import { loadRefFile } from '../skills/loader';
 import { getStrategicPlan } from '../planning/opus-planner';
+import { MODELS } from '../models';
 
-const SCRIPT_MODEL = 'claude-sonnet-4-6';
+const SCRIPT_MODEL = MODELS.STANDARD;
 const PER_CALL_TIMEOUT_MS = 180_000;
 const MAX_OUTPUT_TOKENS = 4000;
 const SCRIPTS_PER_LEVEL = 3;

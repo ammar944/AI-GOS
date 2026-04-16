@@ -18,6 +18,9 @@ import { writeDeadLetter } from './dead-letter';
 import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
 import { authorizeWorkerRequest } from './auth';
+import { extractWikiEntries, writeWikiEntries } from './wiki';
+import { workerBus } from './events';
+import { dispatchIntelligenceCards } from './intelligence/dispatcher';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -210,7 +213,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     // anchor for the research-fabrication fix.
     const baselineBlock = `${renderBaselineMetricsBlock(baselineMetrics)}\n\n`;
 
-    const contextWithDate = sanitizeForJson(dateContext + baselineBlock + context);
+    // Provenance tracking instruction — tells every runner to tag data sources.
+    const provenanceInstruction = `SOURCE TRACKING: Include a "_provenance" array in your JSON output. For each significant field, add: {"field": "dotPath", "source": "user_data|web_search|tool_output|template_default|ai_synthesis", "sourceDetail": "url or description", "confidence": 0-100}. Any number from reference/template data MUST be tagged "template_default".\n\n`;
+
+    const contextWithDate = sanitizeForJson(dateContext + baselineBlock + provenanceInstruction + context);
     let statusWriteChain = Promise.resolve();
     let lastProgressSignature: string | null = null;
     let jobFinalized = false;
@@ -304,6 +310,29 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           writeError,
         );
         writeDeadLetter(userId, result.section, result, String(writeError));
+      }
+
+      // Write structured wiki entries for downstream runner context sharing.
+      // Non-fatal — wiki is an enhancement layer, not critical path.
+      if (result.status === 'complete' && result.data && runId) {
+        try {
+          const wikiEntries = extractWikiEntries(result.section, result.data);
+          if (wikiEntries.length > 0) {
+            await writeWikiEntries(userId, runId, wikiEntries);
+
+            // Phase 7.1 — emit so the intelligence dispatcher can fan out
+            // cards for any section the wiki write unlocks. Listeners run
+            // via setImmediate, so this emit does not block the worker.
+            workerBus.emit('wiki:section-complete', {
+              userId,
+              runId,
+              section: result.section,
+              entries: wikiEntries,
+            });
+          }
+        } catch (wikiErr) {
+          console.warn(`[wiki] Non-fatal wiki write failure for ${result.section}:`, wikiErr);
+        }
       }
 
       // For meeting extraction: write extracted fields back to business_profile_documents

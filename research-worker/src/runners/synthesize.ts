@@ -13,9 +13,10 @@ import { SYNTHESIS_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
 import type { RunnerTelemetry } from '../telemetry';
+import { MODELS } from '../models';
 
 const SYNTHESIS_MODEL =
-  process.env.RESEARCH_SYNTHESIS_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_SYNTHESIS_MODEL ?? MODELS.STANDARD;
 const SYNTHESIS_MAX_TOKENS = 8000;
 const SYNTHESIS_TIMEOUT_MS = 180_000;
 
@@ -248,6 +249,33 @@ export async function runSynthesizeResearch(
           estimatedDemoPageCvr: 5,
         },
       };
+    }
+
+    // --- Scorecard enforcement: force score=0 for missing upstream sections ---
+    if (object.readinessScorecard?.dimensions) {
+      const DIMENSION_SOURCE: Record<string, string> = {
+        'Market Opportunity': 'industryResearch',
+        'Audience Clarity': 'icpValidation',
+        'Competitive Position': 'competitorIntel',
+        'Offer Strength': 'offerAnalysis',
+        'Keyword Coverage': 'keywordIntel',
+      };
+      const contextLower = context.toLowerCase();
+      for (const dim of object.readinessScorecard.dimensions) {
+        const requiredSection = DIMENSION_SOURCE[dim.name];
+        if (requiredSection && !contextLower.includes(requiredSection.toLowerCase())) {
+          dim.score = 0;
+          dim.summary = 'Insufficient data — section not completed';
+        }
+      }
+      // Recalculate overall score and verdict
+      const scores = object.readinessScorecard.dimensions.map((d: { score: number }) => d.score);
+      const avg = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+      object.readinessScorecard.overallScore = Math.round(avg * 10) / 10;
+      object.readinessScorecard.verdict =
+        avg >= 8 ? 'ready' : avg >= 5 ? 'fix-gaps-first' : 'needs-work';
+      object.readinessScorecard.verdictLabel =
+        avg >= 8 ? 'Ready to launch' : avg >= 5 ? 'Fix gaps first' : 'Needs significant work';
     }
 
     await emitRunnerProgress(onProgress, 'runner', 'strategic synthesis complete');

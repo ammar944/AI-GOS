@@ -1040,11 +1040,25 @@ function splitPayload(
   data: Record<string, unknown>;
   citations: ResearchCitation[];
   provenance?: ResearchResult['provenance'];
+  fieldProvenance?: ResearchResult['fieldProvenance'];
 } {
   const data: Record<string, unknown> = {};
 
+  let fieldProvenance: ResearchResult['fieldProvenance'] | undefined;
+
   for (const [key, value] of Object.entries(parsed)) {
     if (key === 'citations' || key === 'sources' || key === 'provenance') {
+      continue;
+    }
+    // Extract per-field provenance tracking from runner output
+    if (key === '_provenance' && Array.isArray(value)) {
+      fieldProvenance = value.filter(
+        (v): v is NonNullable<ResearchResult['fieldProvenance']>[number] =>
+          typeof v === 'object' &&
+          v !== null &&
+          typeof (v as Record<string, unknown>).field === 'string' &&
+          typeof (v as Record<string, unknown>).source === 'string',
+      );
       continue;
     }
 
@@ -1082,6 +1096,7 @@ function splitPayload(
     data,
     citations,
     provenance,
+    ...(fieldProvenance && fieldProvenance.length > 0 ? { fieldProvenance } : {}),
   };
 }
 
@@ -1191,7 +1206,7 @@ export function finalizeRunnerResult(
     );
   }
 
-  const { data, citations, provenance } = splitPayload(
+  const { data, citations, provenance, fieldProvenance } = splitPayload(
     input.parsed as Record<string, unknown>,
   );
   const normalizedData = normalizeSectionData(section, data);
@@ -1238,6 +1253,7 @@ export function finalizeRunnerResult(
     rawText: input.rawText,
     citations,
     provenance,
+    ...(fieldProvenance && fieldProvenance.length > 0 ? { fieldProvenance } : {}),
     telemetry,
   };
 }

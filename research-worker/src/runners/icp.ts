@@ -11,8 +11,9 @@ import {
 import { finalizeRunnerResult } from '../contracts';
 import type { ResearchResult } from '../supabase';
 import { ICP_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
+import { MODELS } from '../models';
 
-const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? 'claude-sonnet-4-6';
+const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? MODELS.STANDARD;
 const ICP_MAX_TOKENS = 10000;
 const ICP_TIMEOUT_MS = 120_000;
 

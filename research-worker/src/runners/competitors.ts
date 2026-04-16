@@ -16,13 +16,14 @@ import { finalizeRunnerResult } from '../contracts';
 import { adLibraryTool, spyfuTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 import { COMPETITORS_INTELLIGENCE_SKILL, COMPETITORS_INTELLIGENCE_SKILL_COMPACT } from '../skills/intelligence-skill';
+import { MODELS } from '../models';
 
 const COMPETITORS_PRIMARY_MODEL =
-  process.env.RESEARCH_COMPETITORS_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_COMPETITORS_MODEL ?? MODELS.STANDARD;
 const COMPETITORS_REPAIR_MODEL =
   process.env.RESEARCH_COMPETITORS_REPAIR_MODEL ??
   process.env.RESEARCH_COMPETITORS_FALLBACK_MODEL ??
-  'claude-sonnet-4-6';
+  MODELS.STANDARD;
 const COMPETITORS_RESCUE_MODEL =
   process.env.RESEARCH_COMPETITORS_RESCUE_MODEL ?? COMPETITORS_REPAIR_MODEL;
 const COMPETITORS_PRIMARY_MAX_TOKENS = 4200;

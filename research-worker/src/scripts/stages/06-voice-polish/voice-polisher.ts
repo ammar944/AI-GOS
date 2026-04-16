@@ -19,8 +19,9 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { stripNumericConstraints } from '../../../utils/strip-numeric-constraints';
 import type { QualityReport } from '../05-quality-gate/quality-gate';
+import { MODELS } from '../../../models';
 
-const POLISH_MODEL = 'claude-sonnet-4-6';
+const POLISH_MODEL = MODELS.STANDARD;
 const POLISH_TIMEOUT_MS = 90_000;
 const POLISH_MAX_TOKENS = 2500;
 
