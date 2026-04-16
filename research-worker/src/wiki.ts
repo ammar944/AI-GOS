@@ -223,19 +223,48 @@ function extractKeywords(data: Record<string, unknown>): WikiEntry[] {
   const entries: WikiEntry[] = [];
   const r = 'keywordIntel';
 
+  // Runner output: campaignGroups[].adGroups[].keywords[]{keyword:string,...}
+  // grp.campaign is the group name; keywords are nested under adGroups, not directly on grp.
   const groups = data.campaignGroups ?? data.keywordGroups;
   if (Array.isArray(groups)) {
     for (const g of groups.slice(0, 5)) {
       const grp = g as Record<string, unknown>;
-      const name = safeStr(grp.name ?? grp.theme ?? '');
-      const kws = Array.isArray(grp.keywords) ? grp.keywords.slice(0, 5).join(', ') : '';
-      entries.push(entry('keyword_group', `${name}: ${kws}`, r, 'tool_output', 75));
+      const name = safeStr(grp.campaign ?? grp.name ?? grp.theme ?? '');
+      const kwStrings: string[] = [];
+      // Primary path: adGroups → keywords[].keyword
+      if (Array.isArray(grp.adGroups)) {
+        for (const ag of grp.adGroups as Record<string, unknown>[]) {
+          if (Array.isArray(ag.keywords)) {
+            for (const kw of ag.keywords as Record<string, unknown>[]) {
+              const s = typeof kw === 'string' ? kw : safeStr(kw.keyword ?? kw.term ?? '');
+              if (s) kwStrings.push(s);
+            }
+          }
+        }
+      }
+      // Fallback: flat keywords[] on the group (model sometimes flattens structure)
+      if (kwStrings.length === 0 && Array.isArray(grp.keywords)) {
+        for (const kw of grp.keywords as Record<string, unknown>[]) {
+          const s = typeof kw === 'string' ? kw : safeStr(kw.keyword ?? kw.term ?? '');
+          if (s) kwStrings.push(s);
+        }
+      }
+      if (name || kwStrings.length > 0) {
+        entries.push(entry('keyword_group', `${name}: ${kwStrings.slice(0, 8).join(', ')}`, r, 'tool_output', 75));
+      }
     }
   }
 
+  // negativeKeywords is Array<{keyword:string, reason:string}>, not string[]
   const negatives = data.negativeKeywords;
   if (Array.isArray(negatives)) {
-    entries.push(entry('keyword_negatives', negatives.slice(0, 15).join(', '), r, 'tool_output', 80));
+    const negStrs = (negatives as Record<string, unknown>[])
+      .map(n => typeof n === 'string' ? n : safeStr(n.keyword ?? n.term ?? ''))
+      .filter(Boolean)
+      .slice(0, 15);
+    if (negStrs.length > 0) {
+      entries.push(entry('keyword_negatives', negStrs.join(', '), r, 'tool_output', 80));
+    }
   }
 
   return entries;
