@@ -47,10 +47,11 @@ const mockPack: EvidencePack = {
   userId: 'u1',
 };
 
-function mockAnthropicClient(responseText: string) {
+function mockAnthropicClient(responseText: string, stopReason = 'end_turn') {
   return {
     messages: {
       create: async () => ({
+        stop_reason: stopReason,
         content: [{ type: 'text', text: responseText }],
       }),
     },
@@ -260,5 +261,71 @@ describe('synthesizeStrategicSynthesis', () => {
     const result = await synthesizeStrategicSynthesis(synthMockPack, { client });
     expect(result.readinessScorecard.overallScore).toBe(7);
     expect(result.topActions).toHaveLength(1);
+  });
+});
+
+describe('callCardLLM truncation guard', () => {
+  it('throws when stop_reason is max_tokens', async () => {
+    const client = mockAnthropicClient('{"opportunities":[', 'max_tokens');
+    await expect(synthesizeOpportunity(mockPack, { client })).rejects.toThrow(
+      /truncated at max_tokens/i,
+    );
+  });
+});
+
+import { assertEvidenceIdsValid } from '../cards/_evidence-check';
+
+describe('assertEvidenceIdsValid', () => {
+  it('accepts all valid IDs', () => {
+    const card = { opportunities: [{ evidenceIds: ['market_size#1', 'pain_point#1'], confidence: 80 }] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1', 'pain_point#1'])).not.toThrow();
+  });
+
+  it('throws on a fabricated ID', () => {
+    const card = { opportunities: [{ evidenceIds: ['invented#99'], confidence: 80 }] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1'])).toThrow(/fabricated evidenceIds: invented#99/);
+  });
+
+  it('throws on mixed valid + fabricated IDs', () => {
+    const card = { opportunities: [{ evidenceIds: ['market_size#1', 'invented#99'], confidence: 80 }] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1'])).toThrow(/invented#99/);
+  });
+
+  it('handles nested evidenceIds arrays', () => {
+    const card = {
+      section1: { evidenceIds: ['a#1'] },
+      section2: { nested: { evidenceIds: ['b#1'] } },
+    };
+    expect(() => assertEvidenceIdsValid(card, ['a#1', 'b#1'])).not.toThrow();
+    expect(() => assertEvidenceIdsValid(card, ['a#1'])).toThrow(/b#1/);
+  });
+
+  it('throws on non-string IDs', () => {
+    const card = { evidenceIds: [123] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1'])).toThrow(/fabricated evidenceIds/);
+  });
+});
+
+describe('synthesizeOpportunity — evidence-ID cross-check', () => {
+  it('rejects a response with a fabricated evidenceId', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        opportunities: [
+          {
+            value: {
+              opportunity: 'Fabricated opportunity',
+              size: 'large',
+              timing: 'now',
+              difficulty: 'low',
+            },
+            evidenceIds: ['invented#99'],
+            confidence: 90,
+          },
+        ],
+      }),
+    );
+    await expect(synthesizeOpportunity(mockPack, { client })).rejects.toThrow(
+      /fabricated evidenceIds: invented#99/,
+    );
   });
 });

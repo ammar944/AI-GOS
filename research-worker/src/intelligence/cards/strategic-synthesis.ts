@@ -14,6 +14,7 @@ import {
 } from '../schemas/synthesis';
 import type { EvidencePack } from '../types';
 import { callCardLLM, extractJsonObject, parseCardOutput } from './_shared';
+import { assertEvidenceIdsValid } from './_evidence-check';
 
 const SYSTEM_PROMPT = `You are a CMO-level strategy synthesist. Produce a readiness scorecard + top-5 actions across the whole research corpus.
 
@@ -66,5 +67,7 @@ export async function synthesizeStrategicSynthesis(
   const raw = extractJsonObject(text);
   if (!raw) throw new Error('strategic-synthesis: no json in model response');
 
-  return parseCardOutput(strategicSynthesisCardSchema, raw);
+  const draft = parseCardOutput(strategicSynthesisCardSchema, raw);
+  assertEvidenceIdsValid(draft, pack.entryIds);
+  return draft;
 }

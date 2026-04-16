@@ -12,6 +12,7 @@ import { formatEvidencePack } from '../evidence-packer';
 import { whiteSpaceGapCardSchema, type WhiteSpaceGapCard } from '../schemas/gap';
 import type { EvidencePack } from '../types';
 import { callCardLLM, extractJsonObject, parseCardOutput } from './_shared';
+import { assertEvidenceIdsValid } from './_evidence-check';
 
 const SYSTEM_PROMPT = `You are a competitive-positioning analyst. From the EVIDENCE PACK, extract 3-5 positioning gaps in the competitor set that our company could exploit.
 
@@ -59,5 +60,7 @@ export async function synthesizeWhiteSpaceGap(
   const raw = extractJsonObject(text);
   if (!raw) throw new Error('white-space-gap: no json in model response');
 
-  return parseCardOutput(whiteSpaceGapCardSchema, raw);
+  const draft = parseCardOutput(whiteSpaceGapCardSchema, raw);
+  assertEvidenceIdsValid(draft, pack.entryIds);
+  return draft;
 }

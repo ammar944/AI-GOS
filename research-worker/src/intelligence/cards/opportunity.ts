@@ -11,6 +11,7 @@ import { formatEvidencePack } from '../evidence-packer';
 import { opportunityCardSchema, type OpportunityCard } from '../schemas/opportunity';
 import type { EvidencePack } from '../types';
 import { callCardLLM, extractJsonObject, parseCardOutput } from './_shared';
+import { assertEvidenceIdsValid } from './_evidence-check';
 
 const SYSTEM_PROMPT = `You are a market-opportunity analyst using Blue Ocean ERRC (Eliminate, Reduce, Raise, Create) and Jobs-To-Be-Done frameworks.
 
@@ -57,5 +58,7 @@ export async function synthesizeOpportunity(
   const raw = extractJsonObject(text);
   if (!raw) throw new Error('opportunity: no json in model response');
 
-  return parseCardOutput(opportunityCardSchema, raw);
+  const draft = parseCardOutput(opportunityCardSchema, raw);
+  assertEvidenceIdsValid(draft, pack.entryIds);
+  return draft;
 }

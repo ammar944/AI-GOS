@@ -15,6 +15,7 @@ import {
 } from '../schemas/offer-statement';
 import type { EvidencePack } from '../types';
 import { callCardLLM, extractJsonObject, parseCardOutput } from './_shared';
+import { assertEvidenceIdsValid } from './_evidence-check';
 
 const SYSTEM_PROMPT = `You are a direct-response copy strategist trained on Hormozi's Value Equation (dream_outcome, likelihood, time_delay, effort_sacrifice) and Eugene Schwartz's 5 levels of awareness (unaware, problem_aware, solution_aware, product_aware, most_aware).
 
@@ -68,5 +69,7 @@ export async function synthesizeOfferStatements(
   const raw = extractJsonObject(text);
   if (!raw) throw new Error('offer-statement: no json in model response');
 
-  return parseCardOutput(offerStatementCardSchema, raw);
+  const draft = parseCardOutput(offerStatementCardSchema, raw);
+  assertEvidenceIdsValid(draft, pack.entryIds);
+  return draft;
 }
