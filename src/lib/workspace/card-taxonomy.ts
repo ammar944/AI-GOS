@@ -320,7 +320,19 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
 
       const gapIntelligence = asRecord(reviews.gapIntelligence);
 
-      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link || hasCapterraData || hasCapterraLink || negativeReviews.length > 0 || gapIntelligence) {
+      // Phase 6.3.1 — require first-party review evidence OR a resolved platform
+      // link before rendering the review card. An inferred gapIntelligence block
+      // alone is not enough: the reviews analyzer needs real review text to be trusted.
+      const hasReviewsCorpus =
+        hasTrustpilotData ||
+        hasTrustpilotLink ||
+        hasG2Data ||
+        hasG2Link ||
+        hasCapterraData ||
+        hasCapterraLink ||
+        negativeReviews.length > 0;
+
+      if (hasReviewsCorpus) {
         cards.push(makeCard(section, 'review-card', `${name} Reviews`, {
           competitorName: name,
           trustpilot: (hasTrustpilotData || hasTrustpilotLink) ? {
@@ -342,7 +354,13 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
             url: asString(capterra!.url),
           } : null,
           negativeReviews,
-          gapIntelligence: gapIntelligence ?? null,
+          // Phase 6.3.1 — only surface gapIntelligence when we have real review content
+          // (not just resolved links). Link-only corpus lacks the text the analyzer
+          // needs; the intelligence is likely stale/hallucinated in that case.
+          gapIntelligence:
+            (hasTrustpilotData || hasG2Data || hasCapterraData || negativeReviews.length > 0)
+              ? (gapIntelligence ?? null)
+              : null,
           testimonials: asRecordArray(reviews.testimonials).map((t) => ({
             quote: asString(t.quote) ?? '',
             author: asString(t.author),
@@ -679,16 +697,51 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
     }, 'High-priority issues that could undermine campaign performance'));
   }
 
+  // Phase 6.2.3 — offer-statements card produces a richer, grounded version.
+  // Prefer it when present; fall back to the legacy generatedOfferStatements.
+  const offerStatementBlock = asRecord(data.offerAnalysisIntelligence)
+    ? (data.offerAnalysisIntelligence as Record<string, unknown>)['offer-statement']
+    : null;
+  const offerStatementNode = asRecord(offerStatementBlock);
+  const intelligenceStatements = offerStatementNode
+    ? asRecordArray(offerStatementNode.statements)
+    : [];
+
+  const unwrappedStatements =
+    intelligenceStatements.length > 0
+      ? intelligenceStatements
+          .map((item) => {
+            const value = asRecord(item.value);
+            if (!value) return null;
+            return {
+              type: asString(value.type),
+              statement: asString(value.statement),
+              valueEquationAxis: asString(value.valueEquationAxis),
+              awarenessLevel: asString(value.awarenessLevel),
+              rationale: asString(value.rationale),
+              evidence: asString(value.evidence),
+              targetEmotion: asString(value.targetEmotion),
+              _evidenceIds: Array.isArray(item.evidenceIds) ? item.evidenceIds : undefined,
+              _confidence: typeof item.confidence === 'number' ? item.confidence : undefined,
+            };
+          })
+          .filter((s): s is NonNullable<typeof s> => s !== null)
+      : [];
+
   // Generated Offer Statements (intelligence feature)
-  const offerStatements = asRecordArray(data.generatedOfferStatements);
+  const offerStatements =
+    unwrappedStatements.length > 0
+      ? unwrappedStatements
+      : asRecordArray(data.generatedOfferStatements).map((s) => ({
+          type: asString(s.type) || 'headline',
+          statement: asString(s.statement),
+          rationale: asString(s.rationale),
+          targetEmotion: asString(s.targetEmotion),
+        })).filter((s) => s.statement);
+
   if (offerStatements.length > 0) {
     cards.push(makeCard(section, 'offer-statement-list', 'Generated Offer Statements', {
-      statements: offerStatements.map((s) => ({
-        type: asString(s.type) || 'headline',
-        statement: asString(s.statement),
-        rationale: asString(s.rationale),
-        targetEmotion: asString(s.targetEmotion),
-      })).filter((s) => s.statement),
+      statements: offerStatements,
     }, 'AI-generated headlines and hooks ready to test in ad copy'));
   }
 
