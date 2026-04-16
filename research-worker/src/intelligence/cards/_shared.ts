@@ -12,6 +12,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import type { ZodTypeAny, z } from 'zod';
+import { runWithBackoff } from '../../runner';
 
 export interface CardLLMParams {
   model: string;
@@ -29,12 +30,15 @@ export async function callCardLLM(params: CardLLMParams): Promise<string> {
   const client =
     params.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000 });
 
-  const response = await client.messages.create({
-    model: params.model,
-    max_tokens: params.maxTokens,
-    system: params.system,
-    messages: [{ role: 'user', content: params.user }],
-  });
+  const response = await runWithBackoff(
+    () => client.messages.create({
+      model: params.model,
+      max_tokens: params.maxTokens,
+      system: params.system,
+      messages: [{ role: 'user', content: params.user }],
+    }),
+    'callCardLLM',
+  );
 
   const textBlock = response.content.findLast((b) => b.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
