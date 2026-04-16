@@ -69,5 +69,13 @@ export async function synthesizeStrategicSynthesis(
 
   const draft = parseCardOutput(strategicSynthesisCardSchema, raw);
   assertEvidenceIdsValid(draft, pack.entryIds);
+
+  // Gate empty-shell output — if both scorecard and actions are empty the
+  // card has nothing to say. The dispatcher converts this into a gated
+  // status so Supabase never receives a placeholder card.
+  if (draft.readinessScorecard.dimensions.length === 0 && draft.topActions.length === 0) {
+    throw new Error('GATED:empty_output');
+  }
+
   return draft;
 }

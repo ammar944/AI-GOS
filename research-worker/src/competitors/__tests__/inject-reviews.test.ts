@@ -147,41 +147,6 @@ describe('injectReviews via postProcessSynthesis', () => {
     expect(comp.reviews).toBeDefined();
   });
 
-  it('injects gapIntelligence by competitor name', () => {
-    const parsed = makeParsedOutput(['Acme']);
-    const input = makeBaseSynthInput([{
-      competitorName: 'Acme',
-      domain: 'acme.com',
-      trustpilot: { rating: 4.0, reviewCount: 50, recentThemes: [], url: '' },
-      g2: null,
-      capterra: null,
-      testimonials: [],
-      testimonialPages: [],
-      negativeReviews: [],
-    }]);
-
-    const gapIntelligence = {
-      Acme: {
-        recurringComplaints: ['slow onboarding'],
-        exploitAngles: [{
-          gap: 'Slow onboarding',
-          whyItMatters: 'Cited by 3 reviewers',
-          positioningAngle: 'Position as instant setup',
-          adHook: 'Stop waiting. Start selling.',
-          confidence: 'high' as const,
-          evidenceQuotes: ['Took 3 weeks to get started'],
-        }],
-      },
-    };
-
-    postProcessSynthesis(parsed as Record<string, unknown>, input, gapIntelligence);
-
-    const comp = (parsed.competitors[0] as Record<string, unknown>);
-    const reviews = comp.reviews as Record<string, unknown>;
-    expect(reviews.gapIntelligence).toBeDefined();
-    expect((reviews.gapIntelligence as { exploitAngles: unknown[] }).exploitAngles).toHaveLength(1);
-  });
-
   it('skips competitors with no review data', () => {
     const parsed = makeParsedOutput(['Acme']);
     const input = makeBaseSynthInput([{

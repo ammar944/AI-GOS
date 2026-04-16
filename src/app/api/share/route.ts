@@ -69,6 +69,26 @@ export async function POST(request: Request) {
     resetCardIdCounter();
     const built: Record<string, CardState[]> = {};
 
+    // Phase 6.3: extract intelligence card synthesizer output once (shared across sections)
+    const intelData = {
+      opportunityIntel:
+        rawResults?.opportunityIntel?.status === 'complete'
+          ? rawResults.opportunityIntel.data
+          : undefined,
+      whiteSpaceGapIntel:
+        rawResults?.whiteSpaceGapIntel?.status === 'complete'
+          ? rawResults.whiteSpaceGapIntel.data
+          : undefined,
+      offerStatementIntel:
+        rawResults?.offerStatementIntel?.status === 'complete'
+          ? rawResults.offerStatementIntel.data
+          : undefined,
+      strategicSynthesisIntel:
+        rawResults?.strategicSynthesisIntel?.status === 'complete'
+          ? rawResults.strategicSynthesisIntel.data
+          : undefined,
+    };
+
     for (const section of SECTION_PIPELINE) {
       let result = rawResults[section];
       if (!result) {
@@ -80,7 +100,7 @@ export async function POST(request: Request) {
         }
       }
       if (result?.status === 'complete' && result.data) {
-        const cards = parseResearchToCards(section as SectionKey, result.data);
+        const cards = parseResearchToCards(section as SectionKey, result.data, intelData);
         if (cards.length > 0) built[section] = cards;
       }
     }

@@ -52,9 +52,29 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
         const res = await fetch(`/api/journey/session?runId=${runId}`, { credentials: 'same-origin' });
         if (!res.ok) return;
         const json = await res.json();
-        const mp = json?.researchResults?.mediaPlan as { status?: string; data?: Record<string, unknown> } | undefined;
+        const results = json?.researchResults as Record<string, { status?: string; data?: Record<string, unknown> } | undefined> | null;
+        const mp = results?.mediaPlan;
         if (mp?.status === 'complete' && mp.data) {
-          const cards = parseResearchToCards('mediaPlan', mp.data);
+          // Phase 6.3: extract intelligence card synthesizer output once (shared across sections)
+          const intelData = {
+            opportunityIntel:
+              results?.opportunityIntel?.status === 'complete'
+                ? results.opportunityIntel.data
+                : undefined,
+            whiteSpaceGapIntel:
+              results?.whiteSpaceGapIntel?.status === 'complete'
+                ? results.whiteSpaceGapIntel.data
+                : undefined,
+            offerStatementIntel:
+              results?.offerStatementIntel?.status === 'complete'
+                ? results.offerStatementIntel.data
+                : undefined,
+            strategicSynthesisIntel:
+              results?.strategicSynthesisIntel?.status === 'complete'
+                ? results.strategicSynthesisIntel.data
+                : undefined,
+          };
+          const cards = parseResearchToCards('mediaPlan', mp.data, intelData);
           setMediaPlanCards(cards);
           setMediaPlanGenerating(false);
         }
@@ -443,19 +463,8 @@ export function cardToMarkdown(card: CardState): string[] {
           lines.push(`  ${stars}${src} "${nr.text as string}"`);
         }
       }
-      const gapIntel = c.gapIntelligence as Record<string, unknown> | null;
-      if (gapIntel) {
-        const angles = Array.isArray(gapIntel.exploitAngles) ? gapIntel.exploitAngles as Array<Record<string, unknown>> : [];
-        if (angles.length > 0) {
-          lines.push(`- Exploit Angles:`);
-          for (const angle of angles) {
-            const conf = angle.confidence ? ` [${(angle.confidence as string).toUpperCase()}]` : '';
-            lines.push(`  ${angle.gap as string}${conf}`);
-            lines.push(`    Position: ${angle.positioningAngle as string}`);
-            lines.push(`    Ad hook: "${angle.adHook as string}"`);
-          }
-        }
-      }
+      // Per-competitor gapIntelligence was removed in Phase 6.3 —
+      // whiteSpaceGapIntel (cross-competitor card) subsumes it.
       break;
     }
     case 'gap-card': {

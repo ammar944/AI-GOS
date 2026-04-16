@@ -44,6 +44,26 @@ export default async function ResearchPage({ params }: PageProps) {
   const cardsBySection: Record<string, CardState[]> = {};
   const availableSections: SectionKey[] = [];
 
+  // Phase 6.3: extract intelligence card synthesizer output once (shared across sections)
+  const intelData = {
+    opportunityIntel:
+      researchResults?.opportunityIntel?.status === 'complete'
+        ? researchResults.opportunityIntel.data
+        : undefined,
+    whiteSpaceGapIntel:
+      researchResults?.whiteSpaceGapIntel?.status === 'complete'
+        ? researchResults.whiteSpaceGapIntel.data
+        : undefined,
+    offerStatementIntel:
+      researchResults?.offerStatementIntel?.status === 'complete'
+        ? researchResults.offerStatementIntel.data
+        : undefined,
+    strategicSynthesisIntel:
+      researchResults?.strategicSynthesisIntel?.status === 'complete'
+        ? researchResults.strategicSynthesisIntel.data
+        : undefined,
+  };
+
   for (const section of SECTION_PIPELINE) {
     // Try boundary name first, then check all canonical names that map to this boundary
     let sectionResult = researchResults[section];
@@ -58,7 +78,7 @@ export default async function ResearchPage({ params }: PageProps) {
     }
 
     if (sectionResult?.status === 'complete' && sectionResult.data) {
-      const cards = parseResearchToCards(section, sectionResult.data);
+      const cards = parseResearchToCards(section, sectionResult.data, intelData);
       cardsBySection[section] = cards;
       availableSections.push(section);
     }

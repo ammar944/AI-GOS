@@ -124,10 +124,24 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         cost: undefined,
       };
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Synthesizers can throw `GATED:<reason>` to indicate the card had
+      // nothing meaningful to emit (e.g., empty scorecard + no actions).
+      // Convert these to a gated status instead of failed — Supabase stays
+      // clean and the frontend simply doesn't render an empty shell.
+      if (message.startsWith('GATED:')) {
+        return {
+          cardName,
+          status: 'gated',
+          gateReason: message.slice('GATED:'.length) || 'empty_output',
+          durationMs: Date.now() - start,
+          model: CARD_MODEL[cardName] ?? 'n/a',
+        };
+      }
       return {
         cardName,
         status: 'failed',
-        error: err instanceof Error ? err.message : String(err),
+        error: message,
         durationMs: Date.now() - start,
         model: 'n/a',
       };
