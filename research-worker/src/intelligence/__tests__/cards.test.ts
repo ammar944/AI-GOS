@@ -201,3 +201,64 @@ describe('synthesizeOfferStatements', () => {
     expect(result.statements[0].value.type).toBe('hero');
   });
 });
+
+import { synthesizeStrategicSynthesis } from '../cards/strategic-synthesis';
+
+const synthMockPack: EvidencePack = {
+  cardName: 'strategic-synthesis',
+  section: 'crossAnalysis',
+  entries: [
+    {
+      topic: 'market_size',
+      content: '$12B TAM',
+      source_runner: 'industryResearch',
+      provenance: 'web_search',
+      confidence: 80,
+    },
+    {
+      topic: 'competitor_name',
+      content: 'Asana',
+      source_runner: 'competitorIntel',
+      provenance: 'tool_output',
+      confidence: 95,
+    },
+    {
+      topic: 'offer_value_prop',
+      content: 'Automate status reporting',
+      source_runner: 'offerAnalysis',
+      provenance: 'ai_synthesis',
+      confidence: 80,
+    },
+  ],
+  entryIds: ['market_size#1', 'competitor_name#1', 'offer_value_prop#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+describe('synthesizeStrategicSynthesis', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        readinessScorecard: {
+          dimensions: [
+            { dimension: 'Market', score: 8, summary: 'Large growing market', blockers: [] },
+            { dimension: 'Offer', score: 6, summary: 'Clear value prop', blockers: ['pricing not validated'] },
+          ],
+          overallScore: 7,
+          verdict: 'Ready for pilot',
+        },
+        topActions: [
+          {
+            value: { action: 'Validate pricing with 5 design partners', impact: 'high' },
+            evidenceIds: ['offer_value_prop#1'],
+            confidence: 75,
+          },
+        ],
+        strategicNarrative: 'Proceed to design-partner phase.',
+      }),
+    );
+    const result = await synthesizeStrategicSynthesis(synthMockPack, { client });
+    expect(result.readinessScorecard.overallScore).toBe(7);
+    expect(result.topActions).toHaveLength(1);
+  });
+});
