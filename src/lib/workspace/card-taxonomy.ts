@@ -869,37 +869,74 @@ function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'crossAnalysis';
 
+  // Phase 6.2.4 — strategic-synthesis card produces scorecard + actions + narrative
+  // via the intelligence layer. Prefer it when present; fall back to legacy runner
+  // output fields (readinessScorecard, topActions, strategicNarrative).
+  const strategicBlock = asRecord(data.crossAnalysisIntelligence)
+    ? (data.crossAnalysisIntelligence as Record<string, unknown>)['strategic-synthesis']
+    : null;
+  const strategicNode = asRecord(strategicBlock);
+
+  const preferredReadiness = strategicNode?.readinessScorecard ?? null;
+  const preferredActions = strategicNode?.topActions ?? null;
+  const preferredNarrative = asString(strategicNode?.strategicNarrative);
+
+  // Use preferred paths if present, else legacy fields from runner
+  const readinessScorecardSource = preferredReadiness ?? data.readinessScorecard;
+  const topActionsSource = preferredActions ?? data.topActions;
+
   // Intelligence: Readiness Scorecard
-  const scorecard = asRecord(data.readinessScorecard);
+  const scorecard = asRecord(readinessScorecardSource);
   if (scorecard) {
-    const dims = asRecordArray(scorecard.dimensions);
+    const rawDims = asRecordArray(scorecard.dimensions);
+    // Unwrap EvidenceCited wrapper (.value) when produced by intelligence layer
+    const dims = rawDims.map((d) => asRecord(d.value) ?? d);
     if (dims.length > 0) {
       cards.push(makeCard(section, 'readiness-scorecard', 'Media Launch Readiness', {
         overallScore: asNumber(scorecard.overallScore) ?? 0,
-        verdict: asString(scorecard.verdict) ?? 'needs-work',
+        verdict: asString(scorecard.overallVerdict) ?? asString(scorecard.verdict) ?? 'needs-work',
         verdictLabel: asString(scorecard.verdictLabel) ?? 'Needs assessment',
         dimensions: dims.map((d) => ({
-          name: asString(d.name) ?? '',
+          name: asString(d.dimension) ?? asString(d.name) ?? '',
           score: asNumber(d.score) ?? 0,
           summary: asString(d.summary) ?? '',
+          verdict: asString(d.verdict) ?? undefined,
+          topSignals: Array.isArray(d.topSignals) ? d.topSignals : undefined,
         })).filter((d) => d.name),
       }, 'Overall paid media readiness score across market, offer, audience, and creative dimensions'));
     }
   }
 
   // Intelligence: Top Actions
-  const topActions = asRecord(data.topActions);
-  if (topActions) {
-    const actions = asRecordArray(topActions.actions);
-    if (actions.length > 0) {
-      cards.push(makeCard(section, 'priority-actions', 'Top Actions', {
-        actions: actions.map((a) => ({
-          action: asString(a.action) ?? '',
-          source: asString(a.source) ?? '',
-          priority: asString(a.priority) ?? 'medium',
-        })).filter((a) => a.action),
-      }, 'Highest-leverage actions to take before launching your first campaign'));
-    }
+  const topActionsRaw = asRecord(topActionsSource);
+  // Intelligence layer produces topActions as an array directly; legacy produces { actions: [...] }
+  const topActionsArr = Array.isArray(topActionsSource)
+    ? (topActionsSource as unknown[])
+    : topActionsRaw
+      ? asRecordArray(topActionsRaw.actions)
+      : [];
+  // Unwrap EvidenceCited wrapper (.value) when produced by intelligence layer
+  const unwrappedActions = topActionsArr.map((a) => {
+    const rec = asRecord(a);
+    return rec ? (asRecord(rec.value) ?? rec) : null;
+  }).filter((a): a is Record<string, unknown> => a !== null);
+
+  if (unwrappedActions.length > 0) {
+    cards.push(makeCard(section, 'priority-actions', 'Top Actions', {
+      actions: unwrappedActions.map((a) => ({
+        action: asString(a.action) ?? '',
+        source: asString(a.source) ?? asString(a.category) ?? '',
+        priority: asString(a.priority) ?? asString(a.impact) ?? 'medium',
+      })).filter((a) => a.action),
+    }, 'Highest-leverage actions to take before launching your first campaign'));
+  }
+
+  // Strategic Narrative (intelligence layer only — no legacy equivalent)
+  const narrativeText = preferredNarrative ?? asString(data.strategicNarrative);
+  if (narrativeText && narrativeText.length >= 10) {
+    cards.push(makeCard(section, 'strategic-narrative', 'Strategic Narrative', {
+      narrative: narrativeText,
+    }, 'Overall strategic summary distilled from all research sections'));
   }
 
   // Positioning Strategy
