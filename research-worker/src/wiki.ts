@@ -9,19 +9,7 @@
  * always produces the same wiki entries.
  */
 
-import { getClient } from './supabase';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type ProvenanceSource =
-  | 'user_data'
-  | 'tool_output'
-  | 'template_default'
-  | 'ai_synthesis'
-  | 'meeting_intel'
-  | 'web_search';
+import { getClient, type ProvenanceSource } from './supabase';
 
 export interface WikiEntry {
   topic: string;

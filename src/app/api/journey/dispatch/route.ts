@@ -336,7 +336,7 @@ export async function POST(req: Request) {
 
   // --- Conditional runner instruction for meeting intelligence priority ---
   if (enrichedContext.includes('MEETING INTELLIGENCE')) {
-    const meetingInstruction = `\n\n# Meeting Intelligence Priority\nIf "MEETING INTELLIGENCE" blocks appear below, these contain verified first-party data from actual client conversations. Prioritize meeting data over web-scraped or inferred data. When meeting data contradicts web research, note the discrepancy and prefer the meeting version. Cite meeting quotes using format: [Meeting: "exact quote"]. Use pain points to inform targeting, budget signals to ground spend recommendations, and competitor mentions to focus competitive analysis.\n`;
+    const meetingInstruction = `\n\n# Meeting Intelligence Priority\nIf "MEETING INTELLIGENCE" blocks appear below, these contain data extracted from actual client conversations.\n- Fields with direct quotes (marked with "—") are HIGH CONFIDENCE — prioritize over web-scraped data.\n- Fields WITHOUT quotes are AI-inferred summaries — treat as MEDIUM CONFIDENCE, on par with web research.\n- When meeting data contradicts web research, note the discrepancy. Prefer the meeting version ONLY if it includes a direct quote.\n- Cite meeting quotes using format: [Meeting: "exact quote"].\n- Use pain points to inform targeting, budget signals to ground spend, competitor mentions to focus competitive analysis.\n`;
     enrichedContext = meetingInstruction + enrichedContext;
   }
 

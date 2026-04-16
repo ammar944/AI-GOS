@@ -21,17 +21,19 @@ CONTEXT: This data feeds into an AI research pipeline that produces paid media s
 
 Extract the following categories from the transcript and return them as a JSON object:
 
-1. businessHealthSummary (string): General summary of how the business is going based on the conversation
+1. businessHealthSummary (string): General summary ONLY if explicitly discussed. If not directly stated, return empty string.
 2. callType (enum: discovery | demo | follow_up | closing | other)
-3. painPoints (array): Each has pain, severity (critical|moderate|minor), and optional quote
-4. budgetSignals (object): mentionedSpend, willingnessToPay, priceSensitivity (low|medium|high), quotes array
-5. competitorMentions (array): Each has name, sentiment (positive|negative|neutral), context, optional quote
-6. buyingTriggers (array): Each has trigger, urgency (immediate|near_term|exploratory), optional quote
-7. objections (array): Each has objection, optional resolution, optional quote
-8. icpSignals (object): companySize, role, industry, decisionProcess, decisionTimeline — all optional strings
-9. currentMarketing (object): channels array, whatWorks, whatFails, monthlySpend, quotes array
-10. goalsAndOutcomes (object): primaryGoal, successMetrics, desiredTransformation, quotes array
+3. painPoints (array): Each has pain, severity (critical|moderate|minor), and quote (REQUIRED — must be verbatim from transcript)
+4. budgetSignals (object): mentionedSpend, willingnessToPay, priceSensitivity (low|medium|high), quotes array (REQUIRED if any budget data present)
+5. competitorMentions (array): Each has name, sentiment (positive|negative|neutral), context, quote (REQUIRED)
+6. buyingTriggers (array): Each has trigger, urgency (immediate|near_term|exploratory), quote (REQUIRED)
+7. objections (array): Each has objection, optional resolution, quote (REQUIRED)
+8. icpSignals (object): companySize, role, industry — ONLY fields explicitly stated. Omit decisionProcess and decisionTimeline unless directly quoted.
+9. currentMarketing (object): channels array, monthlySpend, quotes array. Omit whatWorks/whatFails unless directly quoted — do NOT infer effectiveness.
+10. goalsAndOutcomes (object): primaryGoal, successMetrics (ONLY if stated with specific numbers), quotes array (REQUIRED if any goals present). Omit desiredTransformation unless explicitly stated.
 11. notableQuotes (array): Each has quote (verbatim), context, relevance
+
+CRITICAL: Quotes are REQUIRED (not optional) for painPoints, competitorMentions, buyingTriggers, objections, and goalsAndOutcomes. If you cannot find a supporting quote in the transcript, do NOT include that entry.
 
 Return ONLY valid JSON matching this schema. No markdown, no explanation, just the JSON object.`;
 
