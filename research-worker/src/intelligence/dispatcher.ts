@@ -170,7 +170,7 @@ workerBus.on('wiki:section-complete', async (payload) => {
     wikiEntries: payload.entries,
     identityCard: payload.identityCard,
   });
-  for (const r of results) {
+  const tasks = results.map(async (r) => {
     if (r.status === 'rendered') {
       await writeIntelligenceCard({
         userId: payload.userId,
@@ -198,5 +198,6 @@ workerBus.on('wiki:section-complete', async (payload) => {
         `[intelligence] card ${r.cardName} failed in ${r.durationMs}ms: ${r.error ?? 'unknown'}`,
       );
     }
-  }
+  });
+  await Promise.allSettled(tasks);
 });
