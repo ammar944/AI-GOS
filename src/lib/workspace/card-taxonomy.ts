@@ -357,25 +357,38 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
   }
 
   // White-Space Gaps (consolidated into one card)
-  const gaps = asRecordArray(data.whiteSpaceGaps);
-  const gapItems = gaps
-    .map((gap) => {
-      const gapName = asString(gap.gap);
-      if (!gapName) return null;
-      return {
-        gap: gapName,
-        type: asString(gap.type),
-        evidence: asString(gap.evidence),
-        exploitability: asNumber(gap.exploitability),
-        impact: asNumber(gap.impact),
-        recommendedAction: asString(gap.recommendedAction),
-      };
-    })
-    .filter((g): g is NonNullable<typeof g> => g !== null);
-  if (gapItems.length > 0) {
-    cards.push(makeCard(section, 'gap-card', 'White-Space Gaps', {
-      gaps: gapItems,
-    }, 'Underserved market positions no competitor currently owns'));
+  // Phase 6.2.2 — skip legacy render when the intelligence pipeline has
+  // written the new gap card to offerAnalysisIntelligence (parseOfferAnalysis
+  // renders that one). This prevents duplicate cards across two sections.
+  const intelligenceGapsPresent =
+    asRecord(data.offerAnalysisIntelligence) !== null &&
+    asRecord((data.offerAnalysisIntelligence as Record<string, unknown>).whiteSpaceGap) !== null &&
+    Array.isArray(
+      (asRecord((data.offerAnalysisIntelligence as Record<string, unknown>).whiteSpaceGap) as Record<string, unknown>).gaps,
+    ) &&
+    ((asRecord((data.offerAnalysisIntelligence as Record<string, unknown>).whiteSpaceGap) as Record<string, unknown>).gaps as unknown[]).length > 0;
+
+  if (!intelligenceGapsPresent) {
+    const gaps = asRecordArray(data.whiteSpaceGaps);
+    const gapItems = gaps
+      .map((gap) => {
+        const gapName = asString(gap.gap);
+        if (!gapName) return null;
+        return {
+          gap: gapName,
+          type: asString(gap.type),
+          evidence: asString(gap.evidence),
+          exploitability: asNumber(gap.exploitability),
+          impact: asNumber(gap.impact),
+          recommendedAction: asString(gap.recommendedAction),
+        };
+      })
+      .filter((g): g is NonNullable<typeof g> => g !== null);
+    if (gapItems.length > 0) {
+      cards.push(makeCard(section, 'gap-card', 'White-Space Gaps', {
+        gaps: gapItems,
+      }, 'Underserved market positions no competitor currently owns'));
+    }
   }
 
   // Cross-Competitor Review Analysis
@@ -523,6 +536,54 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
 function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'offerAnalysis';
+
+  // Phase 6.2.2 — white-space-gap card surfaces in the offer section when the
+  // intelligence path has produced it. Falls through to the legacy whiteSpaceGaps
+  // render (still handled by parseCompetitorIntel) when absent.
+  const whiteSpaceGapBlock = asRecord(data.offerAnalysisIntelligence)
+    ? (data.offerAnalysisIntelligence as Record<string, unknown>).whiteSpaceGap
+    : null;
+  const whiteSpaceGapNode = asRecord(whiteSpaceGapBlock);
+  const whiteSpaceGapItems = whiteSpaceGapNode
+    ? asRecordArray(whiteSpaceGapNode.gaps)
+    : [];
+
+  if (whiteSpaceGapItems.length > 0) {
+    const unwrappedGaps = whiteSpaceGapItems
+      .map((item) => {
+        const value = asRecord(item.value);
+        if (!value) return null;
+        return {
+          gap: asString(value.move) ?? asString(value.gap),
+          type: asString(value.type) ?? asString(value.archetype),
+          targetCompetitor: asString(value.targetCompetitor),
+          competitorWeakness: asString(value.competitorWeakness),
+          valueEquationAxis: asString(value.valueEquationAxis),
+          risk: asString(value.risk),
+          reward: asString(value.reward),
+          playbook: asString(value.playbook) ?? asString(value.recommendedAction),
+          evidence: asString(value.evidence),
+          exploitability: asNumber(value.exploitability),
+          impact: asNumber(value.impact),
+          recommendedAction: asString(value.recommendedAction) ?? asString(value.playbook),
+          _evidenceIds: Array.isArray(item.evidenceIds) ? item.evidenceIds : undefined,
+          _confidence: typeof item.confidence === 'number' ? item.confidence : undefined,
+        };
+      })
+      .filter((g): g is NonNullable<typeof g> => g !== null);
+
+    if (unwrappedGaps.length > 0) {
+      cards.push(
+        makeCard(
+          section,
+          'gap-card',
+          'White-Space Gaps',
+          { gaps: unwrappedGaps },
+          'Competitive positioning moves no competitor currently owns',
+        ),
+      );
+    }
+  }
 
   // Score + Status + Dimension breakdown
   const offerStrength = asRecord(data.offerStrength);

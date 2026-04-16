@@ -33,6 +33,22 @@ const SECTION_CARD_MAP: Record<string, string[]> = {
   crossAnalysis: ['strategic-synthesis'],
 };
 
+/**
+ * Override where a card's result is WRITTEN, independent of what section's
+ * wiki completion TRIGGERED the card. Default (not listed here) is to write
+ * under the trigger section, i.e. parentSection = input.section.
+ *
+ * The white-space-gap card is TRIGGERED by competitorIntel (it needs
+ * competitor wiki entries to analyze) but SURFACES in the offer section
+ * of the UI (it informs offer positioning moves). So the write section is
+ * 'offerAnalysis' even though the trigger is 'competitorIntel'.
+ */
+const CARD_RENDER_SECTION: Record<string, string> = {
+  'white-space-gap': 'offerAnalysis',
+  // 'offer-statement' also surfaces in offerAnalysis, but its trigger IS
+  // offerAnalysis so the default already sends it there — no override needed.
+};
+
 const CARD_IMPL: Record<string, (pack: ReturnType<typeof buildEvidencePack>) => Promise<unknown>> = {
   opportunity: synthesizeOpportunity,
   'white-space-gap': synthesizeWhiteSpaceGap,
@@ -110,7 +126,7 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         await writeIntelligenceCard(
           input.userId,
           input.runId,
-          input.section,
+          CARD_RENDER_SECTION[cardName] ?? input.section,
           cardName,
           validated,
           {
