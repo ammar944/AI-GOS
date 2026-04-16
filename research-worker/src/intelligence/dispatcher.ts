@@ -12,6 +12,7 @@
  *   crossAnalysis   → strategic-synthesis
  */
 import type { WikiEntry } from '../wiki';
+import { workerBus } from '../events';
 import type { CardResult } from './types';
 import { buildEvidencePack } from './evidence-packer';
 import { synthesizeOpportunity } from './cards/opportunity';
@@ -152,3 +153,44 @@ function parseAllowList(csv: string | undefined): Set<string> | null {
     .filter(Boolean);
   return values.length > 0 ? new Set(values) : null;
 }
+
+/**
+ * Subscribe the dispatcher to the worker event bus. Called once at module
+ * load — importing this file (e.g., from index.ts) wires everything up.
+ *
+ * Listener failures are isolated by workerBus (setImmediate + try/catch).
+ */
+workerBus.on('wiki:section-complete', async (payload) => {
+  if (process.env.INTELLIGENCE_PIPELINE === 'false') return;
+  const results = await dispatchIntelligenceCards({
+    section: payload.section,
+    runId: payload.runId,
+    userId: payload.userId,
+    wikiEntries: payload.entries,
+    identityCard: payload.identityCard,
+  });
+  for (const r of results) {
+    if (r.status === 'rendered') {
+      workerBus.emit('card:rendered', {
+        userId: payload.userId,
+        runId: payload.runId,
+        section: payload.section,
+        cardName: r.cardName,
+        durationMs: r.durationMs,
+        model: r.model,
+      });
+    } else if (r.status === 'gated') {
+      workerBus.emit('card:gated', {
+        userId: payload.userId,
+        runId: payload.runId,
+        section: payload.section,
+        cardName: r.cardName,
+        reason: r.gateReason ?? 'unknown',
+      });
+    } else if (r.status === 'failed') {
+      console.warn(
+        `[intelligence] card ${r.cardName} failed in ${r.durationMs}ms: ${r.error ?? 'unknown'}`,
+      );
+    }
+  }
+});

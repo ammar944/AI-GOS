@@ -19,6 +19,8 @@ import { sanitizeForJson, type RunnerProgressReporter } from './runner';
 import { TOOL_SECTION_MAP } from './section-map';
 import { authorizeWorkerRequest } from './auth';
 import { extractWikiEntries, writeWikiEntries } from './wiki';
+import { workerBus } from './events';
+import { dispatchIntelligenceCards } from './intelligence/dispatcher';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -317,6 +319,16 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
           const wikiEntries = extractWikiEntries(result.section, result.data);
           if (wikiEntries.length > 0) {
             await writeWikiEntries(userId, runId, wikiEntries);
+
+            // Phase 7.1 — emit so the intelligence dispatcher can fan out
+            // cards for any section the wiki write unlocks. Listeners run
+            // via setImmediate, so this emit does not block the worker.
+            workerBus.emit('wiki:section-complete', {
+              userId,
+              runId,
+              section: result.section,
+              entries: wikiEntries,
+            });
           }
         } catch (wikiErr) {
           console.warn(`[wiki] Non-fatal wiki write failure for ${result.section}:`, wikiErr);
