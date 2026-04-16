@@ -1,23 +1,26 @@
-import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
   buildRunnerTelemetry,
-  createClient,
   emitRunnerProgress,
-  extractJson,
-  runStreamedToolRunner,
-  runWithBackoff,
   type RunnerProgressReporter,
   type RunnerProgressUpdate,
 } from '../runner';
-import { finalizeRunnerResult } from '../contracts';
-import type { ResearchResult } from '../supabase';
+import {
+  isCascadeTimeoutError,
+  runWithCascade,
+  type CascadeAttemptConfig,
+  type CascadeAttemptResult,
+  type CascadeDeps,
+  type CascadeStage,
+} from '../runner-cascade';
 import { INDUSTRY_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
+import { loadRunnerPrompt } from '../skills/loader';
+import { MODELS } from '../models';
 
 const INDUSTRY_PRIMARY_MODEL =
-  process.env.RESEARCH_INDUSTRY_MODEL ?? 'claude-haiku-4-5-20251001';
+  process.env.RESEARCH_INDUSTRY_MODEL ?? MODELS.FAST;
 const INDUSTRY_REPAIR_MODEL =
-  process.env.RESEARCH_INDUSTRY_REPAIR_MODEL ?? 'claude-sonnet-4-6';
-const INDUSTRY_PRIMARY_MAX_TOKENS = 5000;
+  process.env.RESEARCH_INDUSTRY_REPAIR_MODEL ?? MODELS.STANDARD;
+const INDUSTRY_PRIMARY_MAX_TOKENS = 8000;
 const INDUSTRY_REPAIR_MAX_TOKENS = 4000;
 const INDUSTRY_PRIMARY_TIMEOUT_MS = 120_000;
 const INDUSTRY_REPAIR_TIMEOUT_MS = 90_000;
@@ -26,103 +29,8 @@ const WEB_SEARCH_TOOL = {
   name: 'web_search',
 } as const;
 
-export const INDUSTRY_PRIMARY_SYSTEM_PROMPT = `You are an expert market researcher with real-time web search capabilities.
-
-TASK: Research the industry and market landscape to inform a paid media strategy.
-
-RESEARCH FOCUS:
-- Current market trends and statistics (2024+)
-- Pain points sourced from G2, Capterra, Reddit, and community forums
-- Buying behaviors and triggers specific to this market
-- Seasonal patterns and sales cycles
-- Demand drivers and barriers
-
-TOOL USAGE:
-Use the web_search tool to gather live market data. Run up to 3 focused searches:
-1. Industry overview, market size, and key demand drivers
-2. Customer pain points and complaints (search G2/Reddit/forums)
-3. Buying behavior, decision process, and seasonal patterns
-
-SPEED RULES:
-- Optimize for a fast, decision-useful first pass instead of exhaustive coverage
-- Stop searching once you have enough evidence to fill the schema confidently
-- Prefer concise evidence over long narrative explanations
-- If 2 focused searches already support the schema, skip the third search
-
-QUALITY STANDARDS:
-- Be specific with real data points and statistics
-- Include statistics when available
-- Source pain points from actual customer feedback
-- Make insights actionable for paid media targeting
-- Derive the market category from the business context first. Use product description, ICP, pricing, and stated goals to scope the niche before researching market size.
-- Normalize categorical fields to the allowed enums instead of descriptive prose
-- For trendSignals, the enum key must be "direction" exactly. Never use "description", "status", or another alias for the trend direction field.
-- Market-size honesty rules:
-  - Prefer category-specific SAM first.
-  - If SAM is unavailable, use "Estimated SAM:" or "Proxy estimate:" with a brief derivation note.
-  - Use "TAM context:" only when citing a broader parent market, and explicitly note that it is not the direct niche size.
-  - Never serialize a parent-market TAM as the direct market size for the niche category.
-  - ARITHMETIC CHECK: After writing your market size derivation (e.g. "X establishments × $Y spend × Z% adoption"), multiply out each factor and confirm the final number matches. If the multiplication does not equal your stated figure, correct it before outputting.
-- Use these mappings:
-  - marketMaturity: early = category education still required, growing = active demand with expanding competition, saturated = mature crowded category
-  - buyingBehavior: impulsive = single-buyer / low-friction, committee_driven = multi-stakeholder consensus, roi_based = finance-led justification dominates, mixed = no single motion dominates
-  - awarenessLevel: low = unaware or problem-aware, medium = solution-aware, high = product-aware or most-aware
-
-SALES CYCLE CROSS-REFERENCE:
-If the client has provided their sales cycle length in the context above, use it as a baseline. Your estimated sales cycle should not exceed 2x the client's stated length without explicit market evidence justifying the difference. If no client-stated sales cycle is provided, estimate based on market research only.
-
-OUTPUT FORMAT:
-CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no explanation, no markdown code fences. Start your response with { and end with }.
-
-After completing your research, respond with a JSON object containing your findings. Structure:
-{
-  "categorySnapshot": {
-    "category": "string — specific market category name",
-    "marketSize": "string — MUST start with one of: 'SAM:', 'Estimated SAM:', 'Proxy estimate:', or 'TAM context:'",
-    "marketMaturity": "early | growing | saturated",
-    "buyingBehavior": "impulsive | committee_driven | roi_based | mixed",
-    "awarenessLevel": "low | medium | high",
-    "averageSalesCycle": "string — typical sales cycle length"
-  },
-  "painPoints": {
-    "primary": ["string — top pain points (4-6 items)"],
-    "secondary": ["string — secondary pain points (2-4 items)"],
-    "triggers": ["string — events that trigger purchase consideration"]
-  },
-  "marketDynamics": {
-    "demandDrivers": ["string — key demand drivers fueling the market (3-5 items)"],
-    "buyingTriggers": ["string — specific events/moments that trigger a purchase decision (3-5 items)"],
-    "barriersToPurchase": ["string — common objections and friction points that delay or prevent purchase (3-5 items)"]
-  },
-  "trendSignals": [
-    {
-      "trend": "string — name of the trend",
-      "direction": "rising | stable | declining",
-      "evidence": "string — brief supporting data point or source"
-    }
-  ],
-  "messagingOpportunities": {
-    "angles": ["string — strong messaging angles for paid ads"],
-    "summaryRecommendations": ["string — actionable recommendations for paid media strategy"]
-  },
-  "marketOpportunities": [
-    {
-      "opportunity": "string — 1 sentence: market gap or opening for paid media",
-      "size": "small | medium | large",
-      "timing": "now | 3-6 months | 6-12 months",
-      "difficulty": "low | medium | high",
-      "evidence": "string — 1 sentence: which research finding supports this"
-    }
-  ],
-  "citations": [
-    {
-      "url": "https://example.com/source",
-      "title": "Source title"
-    }
-  ]
-}
-
-${INDUSTRY_INTELLIGENCE_SKILL}`;
+export const INDUSTRY_PRIMARY_SYSTEM_PROMPT =
+  `${loadRunnerPrompt('industry-system')}\n${INDUSTRY_INTELLIGENCE_SKILL}`;
 
 const INDUSTRY_REPAIR_SYSTEM_PROMPT = `You are an expert market researcher repairing an incomplete market-overview artifact from captured evidence.
 
@@ -148,21 +56,17 @@ ${INDUSTRY_PRIMARY_SYSTEM_PROMPT.slice(
 
 ${INDUSTRY_INTELLIGENCE_SKILL}`;
 
-type IndustryAttemptMode = 'primary' | 'repair';
-
-interface IndustryAttemptConfig {
-  mode: IndustryAttemptMode;
-  model: string;
-  maxTokens: number;
-  timeoutMs: number;
-  tools: Array<typeof WEB_SEARCH_TOOL>;
-  system: string;
-  synthesisMessage: string;
-}
+// ---------------------------------------------------------------------------
+// Deps interface — preserves the existing WithDeps contract for tests
+// ---------------------------------------------------------------------------
 
 interface RunResearchIndustryDeps {
   now?: () => number;
   parseJson?: (text: string) => unknown;
+  /**
+   * Legacy injectable for tests. Signature: (context, config, onProgress).
+   * Bridged to CascadeDeps.runToolAttempt internally.
+   */
   runAttempt?: (
     context: string,
     config: IndustryAttemptConfig,
@@ -172,6 +76,21 @@ interface RunResearchIndustryDeps {
     telemetry: ReturnType<typeof buildRunnerTelemetry>;
   }>;
 }
+
+/** Internal config shape — kept for the runAttempt bridge. */
+interface IndustryAttemptConfig {
+  mode: 'primary' | 'repair';
+  model: string;
+  maxTokens: number;
+  timeoutMs: number;
+  tools: Array<typeof WEB_SEARCH_TOOL>;
+  system: string;
+  synthesisMessage: string;
+}
+
+// ---------------------------------------------------------------------------
+// Helper utilities
+// ---------------------------------------------------------------------------
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -326,30 +245,6 @@ function normalizeIndustryPayload(parsed: unknown): unknown {
   };
 }
 
-function getIndustryAttemptConfig(mode: IndustryAttemptMode): IndustryAttemptConfig {
-  if (mode === 'repair') {
-    return {
-      mode,
-      model: INDUSTRY_REPAIR_MODEL,
-      maxTokens: INDUSTRY_REPAIR_MAX_TOKENS,
-      timeoutMs: INDUSTRY_REPAIR_TIMEOUT_MS,
-      tools: [],
-      system: INDUSTRY_REPAIR_SYSTEM_PROMPT,
-      synthesisMessage: 'repairing market overview from captured evidence',
-    };
-  }
-
-  return {
-    mode,
-    model: INDUSTRY_PRIMARY_MODEL,
-    maxTokens: INDUSTRY_PRIMARY_MAX_TOKENS,
-    timeoutMs: INDUSTRY_PRIMARY_TIMEOUT_MS,
-    tools: [WEB_SEARCH_TOOL],
-    system: INDUSTRY_PRIMARY_SYSTEM_PROMPT,
-    synthesisMessage: 'synthesizing market overview',
-  };
-}
-
 function dedupeStrings(values: string[]): string[] {
   const seen = new Set<string>();
   const deduped: string[] = [];
@@ -429,193 +324,186 @@ function hasIndustryRecoveryEvidence(input: {
   return hasPartialDraft || sourceCount >= 3;
 }
 
-function isIndustryTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
+// ---------------------------------------------------------------------------
+// Cascade stage definitions
+// ---------------------------------------------------------------------------
 
-  return (
-    normalized.includes('request timed out') ||
-    normalized.includes('timed out') ||
-    normalized.includes('timeout')
-  );
-}
-
-function shouldRetryIndustryWithRepair(input: {
-  parseError: unknown;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}): boolean {
-  if (!input.parseError) {
-    return false;
-  }
-
-  // Repair on max_tokens (truncated JSON) OR any JSON parse failure
-  // (model returned prose instead of JSON — common with Haiku)
-  return true;
-}
-
-function getIndustryResultText(finalMsg: { content: BetaContentBlock[] }): string {
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return textBlock && 'text' in textBlock ? textBlock.text : '';
-}
-
-async function runIndustryAttempt(
-  context: string,
-  config: IndustryAttemptConfig,
-  onProgress?: RunnerProgressReporter,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const client = createClient();
-  const finalMsg = await runWithBackoff(
-    () => {
-      const runner = client.beta.messages.toolRunner({
-        model: config.model,
-        max_tokens: config.maxTokens,
-        stream: true,
-        tools: config.tools,
-        system: config.system,
-        messages: [
-          { role: 'user', content: `Research the industry and market for:\n\n${context}` },
-        ],
-      });
-      return Promise.race([
-        runStreamedToolRunner(runner, {
-          onProgress,
-          synthesisMessage: config.synthesisMessage,
-          maxToolIterations: 3,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Sub-agent timed out after ${config.timeoutMs / 1000}s`)),
-            config.timeoutMs,
-          ),
-        ),
-      ]);
-    },
-    `researchIndustry:${config.mode}`,
-  );
-
+function buildPrimaryStage(): CascadeStage {
   return {
-    resultText: getIndustryResultText(finalMsg),
-    telemetry: buildRunnerTelemetry(finalMsg),
+    config: {
+      mode: 'industry:primary',
+      model: INDUSTRY_PRIMARY_MODEL,
+      maxTokens: INDUSTRY_PRIMARY_MAX_TOKENS,
+      timeoutMs: INDUSTRY_PRIMARY_TIMEOUT_MS,
+      tools: [WEB_SEARCH_TOOL],
+      system: INDUSTRY_PRIMARY_SYSTEM_PROMPT,
+      synthesisMessage: 'synthesizing market overview',
+      maxToolIterations: 3,
+      userMessage: '{{context}}',
+    },
+    buildContext: (originalContext) =>
+      `Research the industry and market for:\n\n${originalContext}`,
   };
 }
+
+function buildRepairStage(): CascadeStage {
+  return {
+    config: {
+      mode: 'industry:repair',
+      model: INDUSTRY_REPAIR_MODEL,
+      maxTokens: INDUSTRY_REPAIR_MAX_TOKENS,
+      timeoutMs: INDUSTRY_REPAIR_TIMEOUT_MS,
+      tools: [],
+      system: INDUSTRY_REPAIR_SYSTEM_PROMPT,
+      synthesisMessage: 'repairing market overview from captured evidence',
+      userMessage: '{{context}}',
+    },
+    buildContext: (originalContext, capturedProgress, partialDraft) => {
+      const recoveryContext = buildIndustryRecoveryContext({
+        context: originalContext,
+        partialDraft,
+        progressUpdates: capturedProgress,
+      });
+      return `Research the industry and market for:\n\n${recoveryContext}`;
+    },
+    recoveryMessage: undefined, // emitted dynamically below
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Bridge: adapt legacy runAttempt(context, config, onProgress) to CascadeDeps
+// ---------------------------------------------------------------------------
+
+function bridgeLegacyRunAttempt(
+  legacyRunAttempt: NonNullable<RunResearchIndustryDeps['runAttempt']>,
+  capturedProgressRef: { updates: RunnerProgressUpdate[] },
+): CascadeDeps {
+  // The CascadeAttemptConfig uses userMessage as the full context string
+  // (built by stage.buildContext and substituted via {{context}}).
+  // We reconstruct an IndustryAttemptConfig for the legacy function.
+  return {
+    runToolAttempt: async (
+      config: CascadeAttemptConfig,
+      onProgress?: RunnerProgressReporter,
+    ): Promise<CascadeAttemptResult> => {
+      const legacyConfig: IndustryAttemptConfig = {
+        mode: 'primary',
+        model: config.model,
+        maxTokens: config.maxTokens,
+        timeoutMs: config.timeoutMs,
+        tools: config.tools.length > 0 ? [WEB_SEARCH_TOOL] : [],
+        system: config.system,
+        synthesisMessage: config.synthesisMessage,
+      };
+      // The context was embedded into userMessage by buildContext.
+      // Strip the "Research the industry and market for:\n\n" prefix to get
+      // the raw context that the legacy function expects.
+      const contextPrefix = 'Research the industry and market for:\n\n';
+      const rawContext = config.userMessage.startsWith(contextPrefix)
+        ? config.userMessage.slice(contextPrefix.length)
+        : config.userMessage;
+      return legacyRunAttempt(rawContext, legacyConfig, onProgress);
+    },
+    runMessageAttempt: async (
+      config: CascadeAttemptConfig,
+      onProgress?: RunnerProgressReporter,
+    ): Promise<CascadeAttemptResult> => {
+      const legacyConfig: IndustryAttemptConfig = {
+        mode: 'repair',
+        model: config.model,
+        maxTokens: config.maxTokens,
+        timeoutMs: config.timeoutMs,
+        tools: [],
+        system: config.system,
+        synthesisMessage: config.synthesisMessage,
+      };
+      const contextPrefix = 'Research the industry and market for:\n\n';
+      const rawContext = config.userMessage.startsWith(contextPrefix)
+        ? config.userMessage.slice(contextPrefix.length)
+        : config.userMessage;
+      return legacyRunAttempt(rawContext, legacyConfig, onProgress);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export async function runResearchIndustryWithDeps(
   context: string,
   onProgress?: RunnerProgressReporter,
   deps: RunResearchIndustryDeps = {},
-): Promise<ResearchResult> {
-  const now = deps.now ?? (() => Date.now());
-  const parseJson = deps.parseJson ?? extractJson;
-  const runAttempt = deps.runAttempt ?? runIndustryAttempt;
-  const startTime = now();
-  const capturedProgressUpdates: RunnerProgressUpdate[] = [];
-  const reportProgress: RunnerProgressReporter = async (update) => {
-    capturedProgressUpdates.push(update);
+): Promise<import('../supabase').ResearchResult> {
+  // Capture progress for recovery context builders.
+  const capturedProgressRef: { updates: RunnerProgressUpdate[] } = { updates: [] };
+  const wrappedProgress: RunnerProgressReporter = async (update) => {
+    capturedProgressRef.updates.push(update);
     await onProgress?.(update);
   };
 
-  try {
-    await emitRunnerProgress(reportProgress, 'runner', 'preparing market overview brief');
+  // Build CascadeDeps — either from a legacy runAttempt injection or defaults.
+  const cascadeDeps: CascadeDeps = deps.runAttempt
+    ? { ...bridgeLegacyRunAttempt(deps.runAttempt, capturedProgressRef), now: deps.now, parseJson: deps.parseJson }
+    : { now: deps.now, parseJson: deps.parseJson };
 
-    let resultText: string;
-    let telemetry: ReturnType<typeof buildRunnerTelemetry>;
-    try {
-      const attemptResult = await runAttempt(
-        context,
-        getIndustryAttemptConfig('primary'),
-        reportProgress,
-      );
-      resultText = attemptResult.resultText;
-      telemetry = attemptResult.telemetry;
-    } catch (error) {
-      if (!isIndustryTimeoutError(error)) {
-        throw error;
-      }
-
+  // Build stages with dynamic recovery messages.
+  // The repair stage recovery message depends on whether evidence was captured,
+  // so we override it after building via a closure over capturedProgressRef.
+  const primaryStage = buildPrimaryStage();
+  const repairStage: CascadeStage = {
+    ...buildRepairStage(),
+    buildContext: (originalContext, capturedProgress, partialDraft) => {
       const recoveryContext = buildIndustryRecoveryContext({
-        context,
-        progressUpdates: capturedProgressUpdates,
+        context: originalContext,
+        partialDraft,
+        progressUpdates: capturedProgress,
       });
+      return `Research the industry and market for:\n\n${recoveryContext}`;
+    },
+  };
 
-      await emitRunnerProgress(
-        reportProgress,
-        'runner',
-        hasIndustryRecoveryEvidence({ progressUpdates: capturedProgressUpdates })
+  // Emit the dynamic repair recovery message before the repair stage runs.
+  // We distinguish two transitions into repair:
+  //   - timeout (no partialDraft yet): "timed out — repairing..."
+  //   - token limit / parse failure (partialDraft present): "hit token limit — repairing..."
+  const repairStageWithMessage: CascadeStage = {
+    ...repairStage,
+    buildContext: (originalContext, capturedProgress, partialDraft) => {
+      const hasEvidence = hasIndustryRecoveryEvidence({
+        partialDraft,
+        progressUpdates: capturedProgress,
+      });
+      const isTokenLimitTransition = typeof partialDraft === 'string' && partialDraft.trim().length > 0;
+      const recoveryMessage = isTokenLimitTransition
+        ? 'market overview pass hit token limit — repairing artifact from captured evidence'
+        : hasEvidence
           ? 'primary market overview pass timed out — repairing artifact from captured evidence'
-          : 'primary market overview pass timed out — retrying with compact repair',
-      );
-      const attemptResult = await runAttempt(
-        recoveryContext,
-        getIndustryAttemptConfig('repair'),
-        reportProgress,
-      );
-      resultText = attemptResult.resultText;
-      telemetry = attemptResult.telemetry;
-    }
+          : 'primary market overview pass timed out — retrying with compact repair';
+      // Fire-and-forget — emitRunnerProgress is async but progress ordering is
+      // best-effort in the cascade; the message lands before the attempt starts.
+      void emitRunnerProgress(wrappedProgress, 'runner', recoveryMessage);
+      return repairStage.buildContext(originalContext, capturedProgress, partialDraft);
+    },
+  };
 
-    let parsed: unknown;
-    let parseError: unknown;
-    try {
-      parsed = normalizeIndustryPayload(parseJson(resultText));
-    } catch (error) {
-      console.error('[industry] JSON extraction failed:', resultText.slice(0, 300));
-      parseError = error;
-    }
-
-    if (shouldRetryIndustryWithRepair({ parseError, telemetry })) {
-      const recoveryContext = buildIndustryRecoveryContext({
-        context,
-        partialDraft: resultText,
-        progressUpdates: capturedProgressUpdates,
-      });
-
-      await emitRunnerProgress(
-        reportProgress,
-        'runner',
-        'market overview pass hit token limit — repairing artifact from captured evidence',
-      );
-      const repairAttempt = await runAttempt(
-        recoveryContext,
-        getIndustryAttemptConfig('repair'),
-        reportProgress,
-      );
-      resultText = repairAttempt.resultText;
-      telemetry = repairAttempt.telemetry;
-      parsed = undefined;
-      parseError = undefined;
-
-      try {
-        parsed = normalizeIndustryPayload(parseJson(resultText));
-      } catch (error) {
-        console.error('[industry:repair] JSON extraction failed:', resultText.slice(0, 300));
-        parseError = error;
-      }
-    }
-
-    return finalizeRunnerResult({
+  return runWithCascade(
+    context,
+    {
       section: 'industryResearch',
-      durationMs: now() - startTime,
-      parsed,
-      rawText: resultText,
-      parseError,
-      telemetry,
-    });
-  } catch (error) {
-    return {
-      status: 'error',
-      section: 'industryResearch',
-      error: error instanceof Error ? error.message : String(error),
-      durationMs: now() - startTime,
-    };
-  }
+      errorSection: 'industryResearch',
+      initMessage: 'preparing market overview brief',
+      stages: [primaryStage, repairStageWithMessage],
+      normalizePayload: normalizeIndustryPayload,
+    },
+    wrappedProgress,
+    cascadeDeps,
+  );
 }
 
 export async function runResearchIndustry(
   context: string,
   onProgress?: RunnerProgressReporter,
-): Promise<ResearchResult> {
+): Promise<import('../supabase').ResearchResult> {
   return runResearchIndustryWithDeps(context, onProgress);
 }

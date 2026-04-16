@@ -18,6 +18,7 @@ import { fetchSonarCompetitorResearch, type SonarCompetitorResult } from './sona
 import { fetchAllCompetitorData, type ParallelFetchResults } from './parallel-fetch';
 import { synthesizeCompetitorIntel, postProcessSynthesis, type SynthesisInput } from './synthesize';
 import { analyzeReviewGaps } from './review-gap-intelligence';
+import { MODELS } from '../models';
 import { analyzeReviewCrossPatterns } from './review-cross-analysis';
 
 export { parseCompetitorContext } from './parse-context';
@@ -235,7 +236,7 @@ export async function runResearchCompetitors(
     }
 
     const telemetry: RunnerTelemetry = {
-      model: 'claude-haiku-4-5-20251001',
+      model: MODELS.FAST,
       stopReason: pipelineResult.stopReason,
     };
 

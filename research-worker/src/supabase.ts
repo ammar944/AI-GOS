@@ -47,6 +47,21 @@ async function withSupabaseRetry<T>(
   throw new Error(`[supabase] ${label} failed after ${maxRetries} attempts: ${message}`);
 }
 
+export type ProvenanceSource =
+  | 'user_data'
+  | 'web_search'
+  | 'tool_output'
+  | 'template_default'
+  | 'ai_synthesis'
+  | 'meeting_intel';
+
+export interface FieldProvenance {
+  field: string;
+  source: ProvenanceSource;
+  sourceDetail?: string;
+  confidence: number;
+}
+
 export interface ResearchResult {
   runId?: string;
   status: 'complete' | 'partial' | 'error';
@@ -64,6 +79,7 @@ export interface ResearchResult {
     status: 'sourced' | 'missing';
     citationCount: number;
   };
+  fieldProvenance?: FieldProvenance[];
   validation?: {
     section?: string;
     issues?: Array<{

@@ -1,4 +1,4 @@
-import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import type { BetaContentBlock, BetaToolUnion } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import {
   ADVISOR_PROMPT_ADDENDUM,
   ADVISOR_TOOL,
@@ -12,15 +12,25 @@ import {
   type RunnerProgressReporter,
   type RunnerProgressUpdate,
 } from '../runner';
+import {
+  isCascadeTimeoutError,
+  runCascadeAttemptWithObservability,
+  runWithCascade,
+  type CascadeAttemptConfig,
+  type CascadeAttemptResult,
+  type CascadeDeps,
+} from '../runner-cascade';
 import { finalizeRunnerResult } from '../contracts';
 import { spyfuTool } from '../tools';
 import { KEYWORD_CAMPAIGN_SKILL, KEYWORD_CAMPAIGN_SKILL_COMPACT } from '../skills/keyword-campaign-skill';
+import { loadRunnerPrompt } from '../skills/loader';
 import type { ResearchResult } from '../supabase';
+import { MODELS } from '../models';
 
 const KEYWORDS_PRIMARY_MODEL =
-  process.env.RESEARCH_KEYWORDS_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_KEYWORDS_MODEL ?? MODELS.STANDARD;
 const KEYWORDS_REPAIR_MODEL =
-  process.env.RESEARCH_KEYWORDS_REPAIR_MODEL ?? 'claude-sonnet-4-6';
+  process.env.RESEARCH_KEYWORDS_REPAIR_MODEL ?? MODELS.STANDARD;
 const KEYWORDS_HEURISTIC_MODEL =
   process.env.RESEARCH_KEYWORDS_HEURISTIC_MODEL ?? KEYWORDS_REPAIR_MODEL;
 const KEYWORDS_RESCUE_MODEL =
@@ -109,45 +119,8 @@ Respond with JSON only. No preamble. No markdown fences. Start with { and end wi
   ]
 }`;
 
-const KEYWORDS_PRIMARY_SYSTEM_PROMPT = `You are a paid search keyword intelligence specialist.
-
-CRITICAL: You MUST respond with valid JSON only. Start your response with { and end with }. No preamble, no commentary, no narrative text before or after the JSON. If you write anything other than JSON, the system will fail.
-
-TASK: Find the highest-value paid search keyword opportunities for this business.
-
-RESEARCH FOCUS:
-1. Competitor alternative terms ("[competitor] alternative", "[competitor] vs [client]", "[competitor] pricing")
-2. Category-intent terms that match the business's actual industry and offer (e.g., "[industry] [service/product] near me", "[category] [solution] for [audience]")
-3. Pain-point terms tied to the specific buyer language found in the research context (use the ICP and offer analysis to identify real pain points, not generic ones)
-4. Long-tail terms with clear commercial intent relevant to this business type
-
-TOOL USAGE:
-- Use the spyfu tool up to 3 times — once per competitor domain — to gather live keyword data. Query the top 2-3 competitors by relevance. More SpyFu data = better keyword coverage.
-- If spyfu is unavailable, sparse, or errors, continue using the persisted industry, ICP, offer, strategic, and competitor context already provided
-
-DATA HONESTY:
-- Never invent verified search volume or CPC data
-- If a metric is unavailable, set "searchVolume" to 0, set "estimatedCpc" to "Not verified", set "confidence" to "low", and explain that in "confidenceNotes"
-- If live keyword coverage is sparse, return fewer terms instead of filler rows
-- "competitorGaps" may be an empty array when no source-backed gap data exists
-
-SIZE RULES:
-- Return exactly 3 campaignGroups (one per group type from the campaign group skill below)
-- Each campaignGroup may have at most 3 adGroups
-- Each adGroup may have at most 5 keywords
-- topOpportunities: max 6 entries
-- recommendedStartingSet: max 6 entries
-- competitorGaps: max 6 entries
-- negativeKeywords: max 10 entries
-- confidenceNotes: 2-4 entries
-- quickWins: exactly 3 entries
-- Keep every reason concise and specific
-- totalKeywordsFound must equal the total number of keyword objects returned across all campaignGroups
-- competitorGapCount must equal competitorGaps.length
-
-${KEYWORD_CAMPAIGN_SKILL}
-
-${KEYWORDS_OUTPUT_FORMAT}`;
+const KEYWORDS_PRIMARY_SYSTEM_PROMPT =
+  `${loadRunnerPrompt('keywords-system')}\n${KEYWORD_CAMPAIGN_SKILL}\n\n${KEYWORDS_OUTPUT_FORMAT}`;
 
 const KEYWORDS_REPAIR_SYSTEM_PROMPT = `You are a paid search keyword strategist repairing a keyword artifact from compact evidence only.
 
@@ -237,12 +210,7 @@ ${KEYWORD_CAMPAIGN_SKILL_COMPACT}
 
 ${KEYWORDS_OUTPUT_FORMAT}`;
 
-type KeywordTool = typeof spyfuTool;
 type KeywordAttemptMode = 'primary' | 'repair' | 'heuristic' | 'rescue';
-type KeywordTimeoutSource =
-  | 'worker_timeout'
-  | 'request_timeout'
-  | 'network_timeout';
 
 type KeywordProviderId =
   | 'spyfu'
@@ -257,44 +225,16 @@ interface KeywordProviderStatus {
   reason: string;
 }
 
-interface KeywordAttemptConfig {
-  mode: KeywordAttemptMode;
-  model: string;
-  maxTokens: number;
-  timeoutMs: number;
-  tools: KeywordTool[];
-  system: string;
-  synthesisMessage: string;
-  maxToolIterations?: number;
-}
+// KeywordAttemptConfig is an alias for CascadeAttemptConfig — mode is the
+// human-readable label forwarded to runCascadeAttemptWithObservability.
+type KeywordAttemptConfig = CascadeAttemptConfig;
 
-interface RunResearchKeywordsDeps {
-  now?: () => number;
-  parseJson?: (text: string) => unknown;
+interface RunResearchKeywordsDeps extends CascadeDeps {
+  /** Legacy injectable — bridged to CascadeDeps for tests. */
   runAttempt?: (
-    context: string,
-    config: KeywordAttemptConfig,
+    config: CascadeAttemptConfig,
     onProgress?: RunnerProgressReporter,
-  ) => Promise<{
-    resultText: string;
-    telemetry: ReturnType<typeof buildRunnerTelemetry>;
-  }>;
-  runToolAttempt?: (
-    context: string,
-    config: KeywordAttemptConfig,
-    onProgress?: RunnerProgressReporter,
-  ) => Promise<{
-    resultText: string;
-    telemetry: ReturnType<typeof buildRunnerTelemetry>;
-  }>;
-  runMessageAttempt?: (
-    context: string,
-    config: KeywordAttemptConfig,
-    onProgress?: RunnerProgressReporter,
-  ) => Promise<{
-    resultText: string;
-    telemetry: ReturnType<typeof buildRunnerTelemetry>;
-  }>;
+  ) => Promise<CascadeAttemptResult>;
 }
 
 interface KeywordRecoveryContextStats {
@@ -957,6 +897,7 @@ function getKeywordAttemptConfig(mode: KeywordAttemptMode): KeywordAttemptConfig
       tools: [],
       system: KEYWORDS_RESCUE_SYSTEM_PROMPT,
       synthesisMessage: 'synthesizing ultra-compact keyword rescue',
+      userMessage: '{{context}}',
     };
   }
 
@@ -969,6 +910,7 @@ function getKeywordAttemptConfig(mode: KeywordAttemptMode): KeywordAttemptConfig
       tools: [],
       system: KEYWORDS_HEURISTIC_SYSTEM_PROMPT,
       synthesisMessage: 'synthesizing heuristic keyword fallback',
+      userMessage: '{{context}}',
     };
   }
 
@@ -981,6 +923,7 @@ function getKeywordAttemptConfig(mode: KeywordAttemptMode): KeywordAttemptConfig
       tools: [],
       system: KEYWORDS_REPAIR_SYSTEM_PROMPT,
       synthesisMessage: 'repairing keyword artifact from compact evidence',
+      userMessage: '{{context}}',
     };
   }
 
@@ -991,50 +934,22 @@ function getKeywordAttemptConfig(mode: KeywordAttemptMode): KeywordAttemptConfig
     timeoutMs: KEYWORDS_PRIMARY_TIMEOUT_MS,
     tools: [
       spyfuTool,
-      ...(isAdvisorEnabled() ? [ADVISOR_TOOL as unknown as KeywordTool] : []),
+      ...(isAdvisorEnabled() ? [ADVISOR_TOOL as unknown as BetaToolUnion] : []),
     ],
     system: `${isAdvisorEnabled() ? ADVISOR_PROMPT_ADDENDUM : ''}${KEYWORDS_PRIMARY_SYSTEM_PROMPT}`,
     synthesisMessage: 'synthesizing keyword opportunities',
     maxToolIterations: 3,
+    userMessage: '{{context}}',
   };
 }
 
-function isKeywordTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  return (
-    normalized.includes('request timed out') ||
-    normalized.includes('timed out') ||
-    normalized.includes('timeout')
-  );
-}
-
-function getKeywordTimeoutSource(error: unknown): KeywordTimeoutSource | null {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes('sub-agent timed out after')) {
-    return 'worker_timeout';
-  }
-
-  if (normalized.includes('request timed out')) {
-    return 'request_timeout';
-  }
-
-  if (normalized.includes('network timeout')) {
-    return 'network_timeout';
-  }
-
-  return normalized.includes('timeout') ? 'request_timeout' : null;
-}
 
 export function shouldRetryKeywordsWithRepair(input: {
   parseError: unknown;
   parsed?: unknown;
   telemetry: ReturnType<typeof buildRunnerTelemetry>;
 }): boolean {
-  if (input.telemetry.stopReason !== 'max_tokens' && !input.parseError) {
+  if (input.telemetry.stopReason !== 'max_tokens') {
     return false;
   }
 
@@ -1054,7 +969,7 @@ export function shouldRetryKeywordsWithRescue(input: {
   parsed?: unknown;
   telemetry: ReturnType<typeof buildRunnerTelemetry>;
 }): boolean {
-  if (input.telemetry.stopReason !== 'max_tokens' && !input.parseError) {
+  if (input.telemetry.stopReason !== 'max_tokens') {
     return false;
   }
 
@@ -1067,11 +982,6 @@ export function shouldRetryKeywordsWithRescue(input: {
   }
 
   return false;
-}
-
-function getKeywordResultText(finalMsg: { content: BetaContentBlock[] }): string {
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return textBlock && 'text' in textBlock ? textBlock.text : '';
 }
 
 function areKeywordToolsEnabled(config: KeywordAttemptConfig): boolean {
@@ -1113,7 +1023,7 @@ async function runKeywordToolAttempt(
         model: config.model,
         max_tokens: config.maxTokens,
         stream: true,
-        tools: config.tools,
+        tools: config.tools as Parameters<typeof client.beta.messages.toolRunner>[0]['tools'],
         system: config.system,
         messages: [
           { role: 'user', content: `Find keyword opportunities for:\n\n${context}` },
@@ -1145,50 +1055,9 @@ async function runKeywordToolAttempt(
     `researchKeywords:${config.mode}`,
   );
 
+  const textBlock = finalMsg.content.findLast((b: BetaContentBlock) => b.type === 'text');
   return {
-    resultText: getKeywordResultText(finalMsg),
-    telemetry: buildRunnerTelemetry(finalMsg),
-  };
-}
-
-async function runKeywordMessageAttempt(
-  context: string,
-  config: KeywordAttemptConfig,
-  onProgress?: RunnerProgressReporter,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const client = createClient();
-  await emitRunnerProgress(onProgress, 'analysis', config.synthesisMessage);
-
-  const finalMsg = await runWithBackoff(
-    () =>
-      Promise.race([
-        client.messages.create({
-          model: config.model,
-          max_tokens: config.maxTokens,
-          system: config.system,
-          messages: [{ role: 'user', content: `Find keyword opportunities for:\n\n${context}` }],
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Sub-agent timed out after ${config.timeoutMs / 1000}s`,
-                ),
-              ),
-            config.timeoutMs,
-          ),
-        ),
-      ]),
-    `researchKeywords:${config.mode}`,
-  );
-
-  const textBlock = finalMsg.content.findLast((block) => block.type === 'text');
-  return {
-    resultText: textBlock?.type === 'text' ? textBlock.text : '',
+    resultText: textBlock && 'text' in textBlock ? textBlock.text : '',
     telemetry: buildRunnerTelemetry(finalMsg),
   };
 }
@@ -1198,42 +1067,40 @@ async function runKeywordAttemptWithObservability(
   config: KeywordAttemptConfig,
   onProgress: RunnerProgressReporter | undefined,
   deps: RunResearchKeywordsDeps,
-): Promise<{
-  resultText: string;
-  telemetry: ReturnType<typeof buildRunnerTelemetry>;
-}> {
-  const runAttempt =
-    deps.runAttempt ??
-    (areKeywordToolsEnabled(config)
-      ? deps.runToolAttempt ?? runKeywordToolAttempt
-      : deps.runMessageAttempt ?? runKeywordMessageAttempt);
-
-  await emitRunnerProgress(
-    onProgress,
-    'runner',
-    `${buildKeywordAttemptLabel(config)} started`,
-  );
-
-  try {
-    const attemptResult = await runAttempt(context, config, onProgress);
-    await emitRunnerProgress(
-      onProgress,
-      'runner',
-      `${buildKeywordAttemptLabel(config)} complete`,
-    );
-    return attemptResult;
-  } catch (error) {
-    const timeoutSource = getKeywordTimeoutSource(error);
-    if (timeoutSource) {
-      await emitRunnerProgress(
-        onProgress,
-        'runner',
-        `${buildKeywordAttemptLabel(config)} timed out`,
+): Promise<CascadeAttemptResult> {
+  // For tool-using passes (primary), use the keyword-specific tool attempt
+  // which sends a 2-message exchange to force JSON output. For no-tool passes
+  // (repair, heuristic, rescue), delegate to runCascadeAttemptWithObservability.
+  if (areKeywordToolsEnabled(config)) {
+    const label = buildKeywordAttemptLabel(config);
+    await emitRunnerProgress(onProgress, 'runner', `${label} started`);
+    try {
+      const runTool = deps.runAttempt ?? deps.runToolAttempt ?? (
+        (cfg: CascadeAttemptConfig, prog?: RunnerProgressReporter) =>
+          runKeywordToolAttempt(context, cfg, prog)
       );
+      const result = await runTool(config, onProgress);
+      await emitRunnerProgress(onProgress, 'runner', `${label} complete`);
+      return result;
+    } catch (error) {
+      if (isCascadeTimeoutError(error)) {
+        await emitRunnerProgress(onProgress, 'runner', `${label} timed out`);
+      }
+      throw error;
     }
-
-    throw error;
   }
+
+  // No-tool pass: populate userMessage with the context and delegate.
+  const resolvedConfig: CascadeAttemptConfig = {
+    ...config,
+    userMessage: `Find keyword opportunities for:\n\n${context}`,
+  };
+  const cascadeDeps: CascadeDeps = {
+    now: deps.now,
+    parseJson: deps.parseJson,
+    runMessageAttempt: deps.runAttempt ?? deps.runMessageAttempt,
+  };
+  return runCascadeAttemptWithObservability(resolvedConfig, onProgress, cascadeDeps);
 }
 
 export async function runResearchKeywordsWithDeps(
@@ -1303,7 +1170,7 @@ export async function runResearchKeywordsWithDeps(
         resultText = attemptResult.resultText;
         telemetry = attemptResult.telemetry;
       } catch (error) {
-        if (!isKeywordTimeoutError(error)) {
+        if (!isCascadeTimeoutError(error)) {
           throw error;
         }
 

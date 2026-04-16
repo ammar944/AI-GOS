@@ -19,7 +19,7 @@ import { writeResearchResult } from '../supabase';
 import type { ResearchResult } from '../supabase';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
-import { loadBlockRefs, loadIndustryTemplate } from '../skills/loader';
+import { loadBlockRefs, loadIndustryTemplate, loadRunnerPrompt } from '../skills/loader';
 import { CHANNEL_MIX_SKILL } from '../skills/channel-mix-skill';
 import { AUDIENCE_CAMPAIGN_SKILL } from '../skills/audience-campaign-skill';
 import { CREATIVE_SYSTEM_SKILL } from '../skills/creative-system-skill';
@@ -39,8 +39,9 @@ import {
 
 import { stripNumericConstraints } from '../utils/strip-numeric-constraints';
 import { getStrategicPlan } from '../planning/opus-planner';
+import { MODELS } from '../models';
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = MODELS.STANDARD;
 const MAX_TOKENS = 8000;
 
 const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data and research results. Do not infer unsupported facts. All benchmark numbers must be labeled as 'industry benchmark'.`;
@@ -49,8 +50,9 @@ const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data 
 // offer.ts (OFFER_CURRENT_ACTIVITIES_GUARDRAIL). All three runners react to
 // the same "Current Marketing Activities:" line in the context string.
 // See docs/superpowers/specs/2026-04-08-current-marketing-activities-design.md
-export const CURRENT_ACTIVITIES_GUARDRAIL = `
-
+export const CURRENT_ACTIVITIES_GUARDRAIL =
+  loadRunnerPrompt('media-plan-system') ||
+  `
 CURRENT MARKETING ACTIVITIES (anti-duplication rule):
 - The context may contain a "Current Marketing Activities:" line describing channels, budgets, and creatives the client is ALREADY running.
 - For Channel Mix & Budget: do not propose a budget allocation that mirrors the current one. If 60% of current spend is on Meta, your recommendation should either (a) cut Meta to open room for untested channels or (b) restructure the Meta spend into a materially different audience/creative mix, with explicit rationale.
@@ -115,7 +117,8 @@ export async function runMediaPlan(
 ): Promise<ResearchResult> {
   const startTime = Date.now();
   const industry = detectIndustry(context);
-  const industryTemplate = loadIndustryTemplate(industry);
+  const shouldInjectTemplates = process.env.INJECT_INDUSTRY_TEMPLATES !== 'false';
+  const industryTemplate = shouldInjectTemplates ? loadIndustryTemplate(industry) : '';
   const { userId } = extractMetadata(context);
 
   const completedBlocks: MediaPlanBlock[] = [];
@@ -152,8 +155,8 @@ export async function runMediaPlan(
     const refs = loadBlockRefs(block.name);
     const systemParts = [
       block.skill,
-      refs ? `\n\n## Reference Data\n\n${refs}` : '',
-      industryTemplate ? `\n\n## Industry Template (${industry})\n\n${industryTemplate}` : '',
+      refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nThe following are generic industry benchmarks for reference only. When using any number from this section, label it "(benchmark)" in your output. NEVER present these as client-specific research findings.\n\n${refs}` : '',
+      industryTemplate ? `\n\n## Industry Template (${industry}) — GENERIC DEFAULTS ONLY\nThese are category-level benchmarks, NOT client-specific research. When using ANY number from this section:\n1. Append "(industry default)" to the value in your output\n2. Only use when client-specific data is unavailable\nNEVER present these as client-specific findings.\n\n${industryTemplate}` : '',
       ANTI_HALLUCINATION,
       CURRENT_ACTIVITIES_GUARDRAIL,
     ];
@@ -348,7 +351,7 @@ export async function runMediaPlan(
       const refs = loadBlockRefs('strategySnapshot');
       const systemParts = [
         STRATEGY_SNAPSHOT_SKILL,
-        refs ? `\n\n## Reference Data\n\n${refs}` : '',
+        refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nGeneric industry benchmarks for reference only. Label any usage as "(benchmark)" in output.\n\n${refs}` : '',
         ANTI_HALLUCINATION,
         CURRENT_ACTIVITIES_GUARDRAIL,
         '\n\nCRITICAL: The snapshot numbers must EXACTLY match the validated block data provided. Do not round or approximate.',

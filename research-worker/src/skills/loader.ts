@@ -4,10 +4,13 @@ import type { MediaPlanBlock } from '../contracts';
 
 const REFS_DIR = join(__dirname, 'refs');
 const TEMPLATES_DIR = join(__dirname, 'templates');
+const METHODOLOGIES_DIR = join(__dirname, 'methodologies');
+const RUNNER_PROMPTS_DIR = join(__dirname, '..', 'prompts', 'runners');
 
 // Cache ref files at module load — worker is a long-running Express process
 const refCache = new Map<string, string>();
 const templateCache = new Map<string, string>();
+const methodologyCache = new Map<string, string>();
 
 function loadDir(dir: string, cache: Map<string, string>): void {
   try {
@@ -26,6 +29,10 @@ function loadDir(dir: string, cache: Map<string, string>): void {
 
 loadDir(REFS_DIR, refCache);
 loadDir(TEMPLATES_DIR, templateCache);
+loadDir(METHODOLOGIES_DIR, methodologyCache);
+
+const runnerPromptCache = new Map<string, string>();
+loadDir(RUNNER_PROMPTS_DIR, runnerPromptCache);
 
 const BLOCK_REFS: Record<MediaPlanBlock, string[]> = {
   channelMixBudget: ['benchmarks.md', 'budget-allocation.md', 'bidding-strategies.md'],
@@ -77,4 +84,58 @@ export function loadRefFile(filename: string): string {
 export function loadIndustryTemplate(industry: string): string {
   const file = `${industry}.md`;
   return templateCache.get(file) ?? templateCache.get('generic.md') ?? '';
+}
+
+/**
+ * Returns a methodology file (decision tree / scoring rubric / framework)
+ * from the methodologies/ directory. These teach HOW to think about a problem,
+ * not just what to output. Injected into skill prompts alongside refs.
+ *
+ * Example: loadMethodology('opportunity-identification.md')
+ */
+export function loadMethodology(filename: string): string {
+  const content = methodologyCache.get(filename);
+  if (!content) {
+    console.warn(`[loader] Missing methodology: ${filename}`);
+    return '';
+  }
+  return content;
+}
+
+/**
+ * Returns a runner system prompt by name (e.g., 'industry-system').
+ * The name must match a file in prompts/runners/ without the .md extension.
+ * Returns empty string if not found — callers should fall back to their
+ * inline constant when this returns empty (e.g. in tests without the file).
+ */
+export function loadRunnerPrompt(name: string): string {
+  const filename = `${name}.md`;
+  const content = runnerPromptCache.get(filename);
+  if (!content) {
+    console.warn(`[loader] Missing runner prompt: ${filename}`);
+    return '';
+  }
+  return content;
+}
+
+// Lazy cache for Haynes frameworks (outside standard cache dirs)
+let haynesFrameworksCache: string | null = null;
+
+/**
+ * Returns the Jeremy Haynes direct response frameworks. These live in
+ * scripts/refs/ for the ad scripts pipeline. Cached at first call since
+ * the worker is a long-running process.
+ */
+export function loadHaynesFrameworks(): string {
+  if (haynesFrameworksCache !== null) return haynesFrameworksCache;
+  try {
+    haynesFrameworksCache = readFileSync(
+      join(__dirname, '..', 'scripts', 'refs', 'haynes-frameworks.md'),
+      'utf-8',
+    );
+  } catch {
+    console.warn('[loader] Failed to load haynes-frameworks.md');
+    haynesFrameworksCache = '';
+  }
+  return haynesFrameworksCache;
 }

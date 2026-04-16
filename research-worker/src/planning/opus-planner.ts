@@ -5,8 +5,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
+import { MODELS } from '../models';
 
-const OPUS_MODEL = 'claude-opus-4-6';
+const OPUS_MODEL = MODELS.STRONG;
 const MAX_TOKENS = 2000;
 const TIMEOUT_MS = 45_000;
 

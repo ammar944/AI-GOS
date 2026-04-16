@@ -14,12 +14,13 @@ export {
   type RunnerTelemetry,
   type RunnerUsageTelemetry,
 } from './telemetry';
+import { MODELS } from './models';
 
 /** Advisor tool definition — shared by runners that opt into Opus guidance. */
 export const ADVISOR_TOOL = {
   type: 'advisor_20260301' as const,
   name: 'advisor' as const,
-  model: 'claude-opus-4-6',
+  model: MODELS.STRONG,
   max_uses: 2,
 };
 
