@@ -27,7 +27,7 @@ export interface CardLLMParams {
  */
 export async function callCardLLM(params: CardLLMParams): Promise<string> {
   const client =
-    params.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    params.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000 });
 
   const response = await client.messages.create({
     model: params.model,
@@ -41,43 +41,4 @@ export async function callCardLLM(params: CardLLMParams): Promise<string> {
     throw new Error('card LLM: no text block in response');
   }
   return textBlock.text;
-}
-
-/**
- * Extract a JSON object from a model text response. Handles:
- *   - bare JSON: `{"a":1}`
- *   - fenced JSON: ```json\n{...}\n```
- *   - leading/trailing prose around the braces
- * Returns null when no object can be parsed.
- */
-export function extractJsonObject(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : text;
-  const firstBrace = candidate.indexOf('{');
-  const lastBrace = candidate.lastIndexOf('}');
-  if (firstBrace < 0 || lastBrace < 0) return null;
-  try {
-    return JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Parse extracted JSON against a Zod schema. Throws on parse failure
- * so the dispatcher surfaces the error as a card failure.
- */
-export function parseCardOutput<S extends ZodTypeAny>(
-  schema: S,
-  raw: unknown,
-): z.infer<S> {
-  const result = schema.safeParse(raw);
-  if (!result.success) {
-    const firstIssue = result.error.issues[0];
-    const path = firstIssue?.path?.join('.') ?? '(root)';
-    throw new Error(
-      `card schema mismatch at ${path}: ${firstIssue?.message ?? 'unknown'}`,
-    );
-  }
-  return result.data;
 }
