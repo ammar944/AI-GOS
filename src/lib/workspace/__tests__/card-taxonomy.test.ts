@@ -368,11 +368,11 @@ describe('parseResearchToCards — crossAnalysis', () => {
 
   it('creates correct number of cards', () => {
     const cards = parseResearchToCards('crossAnalysis', mockData);
-    // strategy-card + stat-grid(planning) + chart-card + insight-card + angle-card + check-list(successFactors) = 6
+    // strategy-card + stat-grid(planning) + chart-card + insight-card + angle-card + check-list(successFactors) + strategic-narrative = 7
     // platform-card and nextSteps check-list removed in sprint overhaul
-    // strategicNarrative prose-card removed (no prose emitter for that field)
+    // strategic-narrative card added in Phase 6.2.4 (renders strategicNarrative prose when length >= 10)
     // downstreamSequence bullet removed (planningContext only emits stat-grid)
-    expect(cards.length).toBe(6);
+    expect(cards.length).toBe(7);
   });
 
   it('creates strategy-card with positioning', () => {
