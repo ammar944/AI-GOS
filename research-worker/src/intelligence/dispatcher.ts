@@ -20,6 +20,8 @@ import { synthesizeWhiteSpaceGap } from './cards/white-space-gap';
 import { synthesizeOfferStatements } from './cards/offer-statements';
 import { synthesizeStrategicSynthesis } from './cards/strategic-synthesis';
 import { validateCardClaims } from './validator';
+import { writeIntelligenceCard } from './write-card';
+import { MODELS } from '../models';
 
 /**
  * Which cards a given section unlocks. Multiple cards may fire for one
@@ -37,6 +39,13 @@ const CARD_IMPL: Record<string, (pack: ReturnType<typeof buildEvidencePack>) => 
   'white-space-gap': synthesizeWhiteSpaceGap,
   'offer-statement': synthesizeOfferStatements,
   'strategic-synthesis': synthesizeStrategicSynthesis,
+};
+
+const CARD_MODEL: Record<string, string> = {
+  opportunity: MODELS.FAST,
+  'white-space-gap': MODELS.FAST,
+  'offer-statement': MODELS.FAST,
+  'strategic-synthesis': MODELS.STANDARD,
 };
 
 interface DispatchInput {
@@ -111,7 +120,7 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         data: validated,
         claimsRejected: rejected,
         durationMs: Date.now() - start,
-        model: 'haiku', // cards override when they finalize — this is default
+        model: CARD_MODEL[cardName] ?? 'unknown',
         cost: undefined,
       };
     } catch (err) {
@@ -169,8 +178,13 @@ workerBus.on('wiki:section-complete', async (payload) => {
     wikiEntries: payload.entries,
     identityCard: payload.identityCard,
   });
-  for (const r of results) {
+  const tasks = results.map(async (r) => {
     if (r.status === 'rendered') {
+      await writeIntelligenceCard({
+        userId: payload.userId,
+        runId: payload.runId,
+        card: r,
+      });
       workerBus.emit('card:rendered', {
         userId: payload.userId,
         runId: payload.runId,
@@ -192,5 +206,6 @@ workerBus.on('wiki:section-complete', async (payload) => {
         `[intelligence] card ${r.cardName} failed in ${r.durationMs}ms: ${r.error ?? 'unknown'}`,
       );
     }
-  }
+  });
+  await Promise.allSettled(tasks);
 });

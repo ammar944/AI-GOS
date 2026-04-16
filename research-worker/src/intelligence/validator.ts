@@ -8,6 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { MODELS } from '../models';
 import { formatEvidencePack } from './evidence-packer';
+import { extractJsonObject } from './cards/_shared';
 import type { EvidencePack } from './types';
 
 export interface ValidationResult<T> {
@@ -82,7 +83,7 @@ Audit the DRAFT. Return the validated JSON.`;
       return { validated: draft, rejected: ['validator_no_output'], confidence: 50 };
     }
 
-    const parsed = extractJson(textBlock.text);
+    const parsed = extractJsonObject(textBlock.text);
     if (!parsed || typeof parsed !== 'object') {
       return { validated: draft, rejected: ['validator_parse_failed'], confidence: 50 };
     }
@@ -96,19 +97,5 @@ Audit the DRAFT. Return the validated JSON.`;
   } catch (err) {
     console.warn(`[validator] ${cardName}: non-fatal validator failure:`, err);
     return { validated: draft, rejected: ['validator_error'], confidence: 50 };
-  }
-}
-
-/** Extract JSON object from a model text response (handles fences and prose). */
-function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : text;
-  const firstBrace = candidate.indexOf('{');
-  const lastBrace = candidate.lastIndexOf('}');
-  if (firstBrace < 0 || lastBrace < 0) return null;
-  try {
-    return JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
-  } catch {
-    return null;
   }
 }

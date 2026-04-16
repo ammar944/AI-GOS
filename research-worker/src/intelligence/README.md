@@ -57,6 +57,19 @@ Supabase write — `research_results.<section>Intelligence.<cardName>`
 | `cards/*` | Per-card synthesize functions (stubs until 6.2) |
 | `__tests__/*` | Deterministic pack + validator tests |
 
+## Feature flags
+
+All intelligence flags are read at request time (not startup), so a redeploy is not required to flip them.
+
+| Env var | Default | Effect |
+|---------|---------|--------|
+| `INTELLIGENCE_PIPELINE` | **ON** (unset = on) | Set to `false` to fully disable card synthesis and persistence. Dispatcher short-circuits before any LLM call. |
+| `INTELLIGENCE_CARDS` | unset (all cards active) | Comma-separated allow-list of card names (`opportunity,white-space-gap,offer-statement,strategic-synthesis`). Unlisted cards are skipped. |
+| `INTELLIGENCE_PARALLEL` | **ON** (unset = parallel) | Set to `false` to run cards serially for diagnostic traces. |
+| `INTELLIGENCE_VALIDATOR` | **ON** (unset = validator runs) | Set to `false` to bypass the Haiku claim-audit step (returns draft as-is, confidence 100). Emergency rollback. |
+
+**Cost note:** the default configuration runs 3 Haiku calls (opportunity, white-space-gap, offer-statement) plus 1 Sonnet call (strategic-synthesis) plus 1 Haiku validator call per card — roughly 5 LLM calls per research run. To deploy with the pipeline off, set `INTELLIGENCE_PIPELINE=false` in the worker environment.
+
 ## Related
 
 - Wiki source: `../wiki.ts`

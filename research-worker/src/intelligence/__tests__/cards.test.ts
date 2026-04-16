@@ -1,0 +1,331 @@
+import { describe, expect, it } from 'vitest';
+import { extractJsonObject } from '../cards/_shared';
+
+describe('extractJsonObject', () => {
+  it('parses bare JSON', () => {
+    expect(extractJsonObject('{"a":1}')).toEqual({ a: 1 });
+  });
+  it('parses fenced JSON', () => {
+    expect(extractJsonObject('```json\n{"a":2}\n```')).toEqual({ a: 2 });
+  });
+  it('parses JSON with leading prose', () => {
+    expect(extractJsonObject('Here is the result:\n{"a":3}\nEnd.')).toEqual({ a: 3 });
+  });
+  it('returns null on invalid JSON', () => {
+    expect(extractJsonObject('nope')).toBeNull();
+    expect(extractJsonObject('{ bad json }')).toBeNull();
+  });
+});
+
+import { synthesizeOpportunity } from '../cards/opportunity';
+import type { EvidencePack } from '../types';
+import type { WikiEntry } from '../../wiki';
+
+const mockEntries: WikiEntry[] = [
+  {
+    topic: 'market_size',
+    content: '$12B TAM growing 18% YoY',
+    source_runner: 'industryResearch',
+    provenance: 'web_search',
+    confidence: 80,
+  },
+  {
+    topic: 'pain_point',
+    content: 'Ops teams lose 4hr/wk to status updates',
+    source_runner: 'industryResearch',
+    provenance: 'web_search',
+    confidence: 75,
+  },
+];
+
+const mockPack: EvidencePack = {
+  cardName: 'opportunity',
+  section: 'industryMarket',
+  entries: mockEntries,
+  entryIds: ['market_size#1', 'pain_point#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+function mockAnthropicClient(responseText: string, stopReason = 'end_turn') {
+  return {
+    messages: {
+      create: async () => ({
+        stop_reason: stopReason,
+        content: [{ type: 'text', text: responseText }],
+      }),
+    },
+  } as unknown as import('@anthropic-ai/sdk').default;
+}
+
+describe('synthesizeOpportunity', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        opportunities: [
+          {
+            value: {
+              opportunity: 'Automated status update tool',
+              size: 'large',
+              timing: 'now',
+              difficulty: 'medium',
+            },
+            evidenceIds: ['market_size#1', 'pain_point#1'],
+            confidence: 85,
+          },
+        ],
+      }),
+    );
+    const result = await synthesizeOpportunity(mockPack, { client });
+    expect(result.opportunities).toHaveLength(1);
+    expect(result.opportunities[0].value.opportunity).toContain('Automated');
+    expect(result.opportunities[0].evidenceIds).toEqual(['market_size#1', 'pain_point#1']);
+  });
+
+  it('throws when response is not valid JSON', async () => {
+    const client = mockAnthropicClient('no json here');
+    await expect(synthesizeOpportunity(mockPack, { client })).rejects.toThrow(
+      /opportunity: no json/i,
+    );
+  });
+
+  it('throws when schema validation fails', async () => {
+    const client = mockAnthropicClient(JSON.stringify({ opportunities: 'not-an-array' }));
+    await expect(synthesizeOpportunity(mockPack, { client })).rejects.toThrow(
+      /schema mismatch/i,
+    );
+  });
+});
+
+import { synthesizeWhiteSpaceGap } from '../cards/white-space-gap';
+
+const gapMockPack: EvidencePack = {
+  cardName: 'white-space-gap',
+  section: 'competitorIntel',
+  entries: [
+    {
+      topic: 'competitor_name',
+      content: 'Asana',
+      source_runner: 'competitorIntel',
+      provenance: 'tool_output',
+      confidence: 95,
+    },
+    {
+      topic: 'competitor_positioning',
+      content: 'Asana targets large teams; pricing starts at $13/user/mo',
+      source_runner: 'competitorIntel',
+      provenance: 'web_search',
+      confidence: 80,
+    },
+  ],
+  entryIds: ['competitor_name#1', 'competitor_positioning#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+describe('synthesizeWhiteSpaceGap', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        gaps: [
+          {
+            value: {
+              gap: 'SMB-friendly pricing under $10/user',
+              targetCompetitor: 'Asana',
+              type: 'price',
+            },
+            evidenceIds: ['competitor_positioning#1'],
+            confidence: 78,
+          },
+        ],
+      }),
+    );
+    const result = await synthesizeWhiteSpaceGap(gapMockPack, { client });
+    expect(result.gaps).toHaveLength(1);
+    expect(result.gaps[0].value.targetCompetitor).toBe('Asana');
+  });
+
+  it('throws on non-JSON response', async () => {
+    const client = mockAnthropicClient('nope');
+    await expect(synthesizeWhiteSpaceGap(gapMockPack, { client })).rejects.toThrow(
+      /white-space-gap: no json/i,
+    );
+  });
+});
+
+import { synthesizeOfferStatements } from '../cards/offer-statements';
+
+const offerMockPack: EvidencePack = {
+  cardName: 'offer-statement',
+  section: 'offerAnalysis',
+  entries: [
+    {
+      topic: 'offer_value_prop',
+      content: 'Automate status reporting for ops teams',
+      source_runner: 'offerAnalysis',
+      provenance: 'ai_synthesis',
+      confidence: 82,
+    },
+    {
+      topic: 'icp_trigger',
+      content: 'Ops lead sees another 4hr Friday lost to status reports',
+      source_runner: 'icpValidation',
+      provenance: 'meeting_intel',
+      confidence: 85,
+    },
+  ],
+  entryIds: ['offer_value_prop#1', 'icp_trigger#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+describe('synthesizeOfferStatements', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        statements: [
+          {
+            value: {
+              type: 'hero',
+              statement: 'Never lose another Friday to status reports',
+              valueEquationAxis: 'time_delay',
+              awarenessLevel: 'problem_aware',
+            },
+            evidenceIds: ['icp_trigger#1'],
+            confidence: 82,
+          },
+        ],
+      }),
+    );
+    const result = await synthesizeOfferStatements(offerMockPack, { client });
+    expect(result.statements).toHaveLength(1);
+    expect(result.statements[0].value.type).toBe('hero');
+  });
+});
+
+import { synthesizeStrategicSynthesis } from '../cards/strategic-synthesis';
+
+const synthMockPack: EvidencePack = {
+  cardName: 'strategic-synthesis',
+  section: 'crossAnalysis',
+  entries: [
+    {
+      topic: 'market_size',
+      content: '$12B TAM',
+      source_runner: 'industryResearch',
+      provenance: 'web_search',
+      confidence: 80,
+    },
+    {
+      topic: 'competitor_name',
+      content: 'Asana',
+      source_runner: 'competitorIntel',
+      provenance: 'tool_output',
+      confidence: 95,
+    },
+    {
+      topic: 'offer_value_prop',
+      content: 'Automate status reporting',
+      source_runner: 'offerAnalysis',
+      provenance: 'ai_synthesis',
+      confidence: 80,
+    },
+  ],
+  entryIds: ['market_size#1', 'competitor_name#1', 'offer_value_prop#1'],
+  runId: 'r1',
+  userId: 'u1',
+};
+
+describe('synthesizeStrategicSynthesis', () => {
+  it('parses a valid model response', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        readinessScorecard: {
+          dimensions: [
+            { dimension: 'Market', score: 8, summary: 'Large growing market', blockers: [] },
+            { dimension: 'Offer', score: 6, summary: 'Clear value prop', blockers: ['pricing not validated'] },
+          ],
+          overallScore: 7,
+          verdict: 'Ready for pilot',
+        },
+        topActions: [
+          {
+            value: { action: 'Validate pricing with 5 design partners', impact: 'high' },
+            evidenceIds: ['offer_value_prop#1'],
+            confidence: 75,
+          },
+        ],
+        strategicNarrative: 'Proceed to design-partner phase.',
+      }),
+    );
+    const result = await synthesizeStrategicSynthesis(synthMockPack, { client });
+    expect(result.readinessScorecard.overallScore).toBe(7);
+    expect(result.topActions).toHaveLength(1);
+  });
+});
+
+describe('callCardLLM truncation guard', () => {
+  it('throws when stop_reason is max_tokens', async () => {
+    const client = mockAnthropicClient('{"opportunities":[', 'max_tokens');
+    await expect(synthesizeOpportunity(mockPack, { client })).rejects.toThrow(
+      /truncated at max_tokens/i,
+    );
+  });
+});
+
+import { assertEvidenceIdsValid } from '../cards/_evidence-check';
+
+describe('assertEvidenceIdsValid', () => {
+  it('accepts all valid IDs', () => {
+    const card = { opportunities: [{ evidenceIds: ['market_size#1', 'pain_point#1'], confidence: 80 }] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1', 'pain_point#1'])).not.toThrow();
+  });
+
+  it('throws on a fabricated ID', () => {
+    const card = { opportunities: [{ evidenceIds: ['invented#99'], confidence: 80 }] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1'])).toThrow(/fabricated evidenceIds: invented#99/);
+  });
+
+  it('throws on mixed valid + fabricated IDs', () => {
+    const card = { opportunities: [{ evidenceIds: ['market_size#1', 'invented#99'], confidence: 80 }] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1'])).toThrow(/invented#99/);
+  });
+
+  it('handles nested evidenceIds arrays', () => {
+    const card = {
+      section1: { evidenceIds: ['a#1'] },
+      section2: { nested: { evidenceIds: ['b#1'] } },
+    };
+    expect(() => assertEvidenceIdsValid(card, ['a#1', 'b#1'])).not.toThrow();
+    expect(() => assertEvidenceIdsValid(card, ['a#1'])).toThrow(/b#1/);
+  });
+
+  it('throws on non-string IDs', () => {
+    const card = { evidenceIds: [123] };
+    expect(() => assertEvidenceIdsValid(card, ['market_size#1'])).toThrow(/fabricated evidenceIds/);
+  });
+});
+
+describe('synthesizeOpportunity — evidence-ID cross-check', () => {
+  it('rejects a response with a fabricated evidenceId', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        opportunities: [
+          {
+            value: {
+              opportunity: 'Fabricated opportunity',
+              size: 'large',
+              timing: 'now',
+              difficulty: 'low',
+            },
+            evidenceIds: ['invented#99'],
+            confidence: 90,
+          },
+        ],
+      }),
+    );
+    await expect(synthesizeOpportunity(mockPack, { client })).rejects.toThrow(
+      /fabricated evidenceIds: invented#99/,
+    );
+  });
+});
