@@ -16,14 +16,14 @@ interface OpportunityCardProps {
 
 const SIZE_ORDER = { large: 3, medium: 2, small: 1 };
 const BADGE_COLORS: Record<string, string> = {
-  large: 'var(--accent-green, #22c55e)',
-  medium: 'var(--accent-blue, #3b82f6)',
-  small: 'var(--text-quaternary)',
-  now: 'var(--accent-green, #22c55e)',
-  '3-6 months': 'var(--accent-blue, #3b82f6)',
-  '6-12 months': 'var(--text-quaternary)',
-  low: 'var(--accent-green, #22c55e)',
-  high: 'var(--accent-red, #ef4444)',
+  large: 'var(--accent-green)',
+  medium: 'var(--accent-amber)',
+  small: 'var(--text-tertiary)',
+  now: 'var(--accent-green)',
+  '3-6 months': 'var(--accent-amber)',
+  '6-12 months': 'var(--text-tertiary)',
+  low: 'var(--accent-green)',
+  high: 'var(--accent-red)',
 };
 
 function Badge({ value }: { value: string }) {

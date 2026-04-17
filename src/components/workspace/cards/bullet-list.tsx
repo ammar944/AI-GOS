@@ -21,7 +21,7 @@ export function BulletList({
   title,
   items,
   groups,
-  accent = 'var(--accent-blue)',
+  accent = 'var(--text-tertiary)',
   isEditing = false,
   onItemsChange,
 }: BulletListProps) {

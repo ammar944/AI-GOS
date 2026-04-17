@@ -54,11 +54,22 @@ export function StatGrid({
     onStatsChange?.(editedStats);
   }
 
+  const isShortValue = (value: string) =>
+    value.length <= 40 && !value.includes('\n');
+
   const valueClass = (value: string) =>
     cn(
-      'text-sm font-medium text-[var(--text-primary)] w-full min-w-0',
+      'text-[var(--text-primary)] w-full min-w-0',
+      isShortValue(value)
+        ? 'text-[28px] italic font-normal leading-[1.05] tracking-tight'
+        : 'text-sm font-medium',
       value.length > 72 && 'max-w-prose text-balance',
     );
+
+  const valueStyle = (value: string): React.CSSProperties | undefined =>
+    isShortValue(value)
+      ? { fontFamily: 'var(--font-instrument-sans)' }
+      : undefined;
 
   // Auto-detect: if any value is long prose (>100 chars), switch to definition layout
   const effectiveLayout =
@@ -90,12 +101,14 @@ export function StatGrid({
                   className={cn(valueClass(stat.value), 'bg-transparent border-b border-[var(--text-tertiary)] outline-none')}
                 />
               ) : (
-                <span className={valueClass(stat.value)}>{stat.value}</span>
+                <span className={valueClass(stat.value)} style={valueStyle(stat.value)}>
+                  {stat.value}
+                </span>
               )}
               {stat.badge && (
                 <span
-                  className="block text-[10px] font-mono tabular-nums"
-                  style={{ color: stat.badgeColor ?? 'var(--accent-blue)' }}
+                  className="block text-[10px] font-mono tabular-nums uppercase tracking-[0.1em]"
+                  style={{ color: stat.badgeColor ?? 'var(--text-secondary)' }}
                 >
                   {stat.badge}
                 </span>
@@ -117,9 +130,9 @@ export function StatGrid({
       {editedStats.map((stat, index) => (
         <div
           key={stat.label}
-          className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 self-start h-auto min-h-0"
+          className="rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3.5 self-start h-auto min-h-0"
         >
-          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
+          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em] block mb-1.5">
             {stat.label}
           </span>
           {isEditing ? (
@@ -129,14 +142,20 @@ export function StatGrid({
               onChange={(e) => handleValueChange(index, e.target.value)}
               onBlur={handleBlur}
               className={cn(valueClass(stat.value), 'bg-transparent border-b border-[var(--text-tertiary)] outline-none')}
+              style={valueStyle(stat.value)}
             />
           ) : (
-            <span className={cn(valueClass(stat.value), 'tabular-nums')}>{stat.value}</span>
+            <span
+              className={cn(valueClass(stat.value), 'tabular-nums')}
+              style={valueStyle(stat.value)}
+            >
+              {stat.value}
+            </span>
           )}
           {stat.badge && (
             <span
-              className="mt-1 block text-[10px] font-mono tabular-nums"
-              style={{ color: stat.badgeColor ?? 'var(--accent-blue)' }}
+              className="mt-1 block text-[10px] font-mono tabular-nums uppercase tracking-[0.1em]"
+              style={{ color: stat.badgeColor ?? 'var(--text-secondary)' }}
             >
               {stat.badge}
             </span>

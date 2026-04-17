@@ -27,8 +27,8 @@ export function ProseCard({ title, text, isEditing: isEditingProp = false, onTex
     .filter(Boolean);
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
-      <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2.5">
+    <div>
+      <h4 className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em] mb-2.5">
         {title}
       </h4>
       {isEditing ? (
@@ -41,7 +41,7 @@ export function ProseCard({ title, text, isEditing: isEditingProp = false, onTex
             onTextChange?.(newText);
             updateDraft({ text: newText });
           }}
-          className="text-sm leading-relaxed text-[var(--text-secondary)] border border-dashed border-[var(--accent-blue-subtle)] rounded-[var(--radius-sm)] px-2 py-1.5 outline-none min-h-[3rem] focus:border-[var(--accent-blue)]"
+          className="text-sm leading-relaxed text-[var(--text-secondary)] border border-dashed border-[var(--border-subtle)] rounded-[4px] px-2 py-1.5 outline-none min-h-[3rem] focus:border-[var(--border-default)]"
         >
           {localText}
         </p>
