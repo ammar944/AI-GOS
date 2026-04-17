@@ -80,9 +80,9 @@ export function FollowUpSuggestions({
           }}
           onMouseEnter={(e) => {
             if (!disabled) {
-              e.currentTarget.style.borderColor = 'var(--accent-blue)';
-              e.currentTarget.style.color = 'var(--accent-blue)';
-              e.currentTarget.style.background = 'rgba(54,94,255,0.05)';
+              e.currentTarget.style.borderColor = 'var(--border-default)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+              e.currentTarget.style.background = 'var(--bg-hover)';
             }
           }}
           onMouseLeave={(e) => {
