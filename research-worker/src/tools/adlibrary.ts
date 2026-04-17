@@ -318,8 +318,18 @@ export function isAdvertiserMatch(
   const advFirst = advWords[0] ?? '';
   const compFirst = compWords[0] ?? '';
 
-  if (advFirst === compFirst && advFirst.length > 0) {
-    // First words match — use Jaro-Winkler at standard threshold
+  if (advFirst === compFirst && advFirst.length > 0 && !isShortName) {
+    // First words match — use Jaro-Winkler at standard threshold.
+    // SHORT NAMES ARE EXCLUDED: for ≤6-char companies (Fathom, Gong, Drift,
+    // Atlas…) the Jaro-Winkler prefix bonus makes "Fathom Digital
+    // Manufacturing" match "Fathom" at ~0.85 — same first word, tons of
+    // prefix overlap. Layer 2 already accepts the legitimate short-name
+    // variants ("Fathom", "Fathom Inc") via the corporate-suffix guard.
+    // Falling through to Layer 4 domain fallback here is the right call —
+    // it matches only if the advertiser's first word IS the domain base
+    // and all extra words are corporate suffixes, which rejects
+    // multi-company-same-name leaks (Fathom Digital Manufacturing vs
+    // fathom.ai). Source: 2026-04-18 live run showed wrong Fathom ads.
     if (calculateSimilarity(advertiserName, companyName) >= 0.8) return true;
   }
 

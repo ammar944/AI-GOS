@@ -30,6 +30,27 @@ describe('isAdvertiserMatch', () => {
     expect(isAdvertiserMatch('AR Funnel.io', 'Funnel.io')).toBe(false);
   });
 
+  it('rejects multi-company-same-name leak for short names (Fathom Digital Manufacturing vs Fathom)', () => {
+    // 2026-04-18 live run surfaced the wrong Fathom's LinkedIn ads.
+    // First word matches + Jaro-Winkler similarity is too generous for
+    // short names — Layer 3 must skip them. Legitimate Fathom variants
+    // still pass via Layer 1 (exact) or Layer 2 (corporate suffix).
+    expect(isAdvertiserMatch('Fathom Digital Manufacturing', 'Fathom')).toBe(false);
+    expect(isAdvertiserMatch('Fathom Holdings', 'Fathom')).toBe(false);
+    expect(isAdvertiserMatch('Fathom Analytics', 'Fathom')).toBe(false);
+  });
+
+  it('still accepts legitimate short-name variants via Layer 1/2', () => {
+    expect(isAdvertiserMatch('Fathom', 'Fathom')).toBe(true);
+    expect(isAdvertiserMatch('Fathom Inc', 'Fathom')).toBe(true);
+    expect(isAdvertiserMatch('Fathom LLC', 'Fathom')).toBe(true);
+  });
+
+  it('still accepts short-name match via domain fallback (Layer 4)', () => {
+    // Advertiser name is the domain base — Layer 4 domain fallback handles it.
+    expect(isAdvertiserMatch('fathom', 'Fathom AI', 'fathom.ai')).toBe(true);
+  });
+
   it('rejects records without advertiser name (no name = not verified)', () => {
     expect(isAdvertiserMatch(undefined, 'Funnel.io')).toBe(false);
   });
