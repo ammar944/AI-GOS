@@ -14,25 +14,28 @@ export function SectionHeader({ section, mode = 'workspace' }: SectionHeaderProp
   if (mode === 'document') {
     return (
       <div className="mb-8">
-        <span className="bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] text-[10px] font-mono px-2 py-0.5 rounded-full inline-block">
+        <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em]">
           Module {meta.moduleNumber}
         </span>
-        <h2 className="text-xl font-heading font-semibold text-[var(--text-primary)] mt-1.5">
+        <h2
+          className="text-[28px] italic font-normal leading-[1.1] tracking-tight text-[var(--text-primary)] mt-1"
+          style={{ fontFamily: 'var(--font-instrument-sans)' }}
+        >
           {meta.label}
         </h2>
         {meta.description && (
-          <p className="text-sm text-[var(--text-tertiary)] mt-1 leading-relaxed">
+          <p className="text-sm text-[var(--text-tertiary)] mt-1.5 leading-relaxed">
             {meta.description}
           </p>
         )}
-        <div className="h-px bg-gradient-to-r from-[var(--accent-blue)]/20 to-transparent mt-4" />
+        <div className="h-px bg-[var(--border-subtle)] mt-5" />
       </div>
     );
   }
 
   return (
     <div className="mb-6">
-      <span className="text-[11px] font-mono text-[var(--accent-blue)] uppercase tracking-[0.06em]">
+      <span className="text-[11px] font-mono text-[var(--text-secondary)] uppercase tracking-[0.12em]">
         {meta.moduleNumber} &middot; {meta.label}
       </span>
       {meta.description && (

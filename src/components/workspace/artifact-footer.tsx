@@ -46,10 +46,10 @@ export function ArtifactFooter({
               onClick={onGenerateMediaPlan}
               disabled={mediaPlanGenerating}
               className={cn(
-                'cursor-pointer rounded-[var(--radius-md)] px-5 py-2.5',
+                'cursor-pointer rounded-[6px] px-5 py-2.5',
                 'text-sm font-semibold text-white',
-                'bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple,#8b5cf6)]',
-                'transition-all hover:opacity-90',
+                'bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/90',
+                'transition-colors',
                 mediaPlanGenerating && 'opacity-50 cursor-not-allowed',
               )}
             >
@@ -80,10 +80,10 @@ export function ArtifactFooter({
         onClick={onApprove}
         disabled={disabled}
         className={cn(
-          'rounded-[var(--radius-md)] bg-[var(--accent-blue)] px-5 py-2.5',
+          'rounded-[6px] bg-[var(--accent-green)] px-5 py-2.5',
           'text-sm font-medium text-white',
-          'transition-colors hover:bg-[var(--accent-blue)]/90',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'transition-colors hover:bg-[var(--accent-green)]/90',
+          'disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer',
         )}
       >
         {approveLabel}
