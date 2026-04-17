@@ -175,7 +175,36 @@ Domain stats: ${data}
 Top keywords: ${kw}${sf.error ? `\nError: ${sf.error}` : ''}`);
   }
 
-  // 5. Ad Library data
+  // 5. Keyword-anchored ads (fallback when name-search on ad libraries misses)
+  // Source: Google SERP probe seeded with SpyFu top paid keywords. Matches ad
+  // slot landing pages against competitor domain for deterministic discovery.
+  const keywordAdEvidence = Array.isArray(fetchResults.keywordAds)
+    ? fetchResults.keywordAds.filter((k) => k && k.adsFound && k.adsFound.length > 0)
+    : [];
+  if (keywordAdEvidence.length > 0) {
+    sections.push(
+      '## Keyword-anchored Ads (Google SERP probed via SpyFu keywords — domain-verified)',
+    );
+    for (const k of keywordAdEvidence) {
+      const adLines = k.adsFound
+        .map((ad) => {
+          const headline = ad.headline ? ad.headline : '(no headline)';
+          const desc = ad.description ? ` — ${ad.description}` : '';
+          const lp = ad.landingPage ? `\n    landing: ${ad.landingPage}` : '';
+          return `  • [${ad.keyword}] ${headline}${desc}${lp}`;
+        })
+        .join('\n');
+      sections.push(
+        `### ${k.competitorName} (${k.domain}) — ${k.adsFound.length} domain-matched ad(s) across ${k.keywordsProbed} keyword(s)\n${adLines}`,
+      );
+    }
+  } else {
+    sections.push(
+      '## Keyword-anchored Ads\nNo domain-matched ads recovered from SpyFu keyword SERP probe (either no SpyFu keywords available or no competitor ads ran on those terms).',
+    );
+  }
+
+  // 6. Ad Library data
   sections.push('## Ad Library Data (creative intelligence)');
   for (const ad of fetchResults.adLibrary) {
     const data = truncate(JSON.stringify(ad.adInsight ?? {}), 800);

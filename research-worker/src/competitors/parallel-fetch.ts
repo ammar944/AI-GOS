@@ -6,6 +6,7 @@ import type { BetaToolResultContentBlockParam } from '@anthropic-ai/sdk/resource
 import Firecrawl from '@mendable/firecrawl-js';
 import { firecrawlTool } from '../tools/firecrawl';
 import { spyfuTool } from '../tools/spyfu';
+import { probeKeywordAds, type KeywordAdProbeResult } from '../tools/keyword-ad-probe';
 import { fetchCompetitorAds } from '../tools/apify-ads';
 import { fetchReviews, type ReviewResult } from '../tools/reviews';
 import type { WorkerAdInsight } from '../tools/adlibrary-types';
@@ -49,9 +50,12 @@ export interface ParallelFetchResults {
   spyfu: SpyfuResult[];
   adLibrary: AdLibraryResult[];
   reviews: ReviewResult[];
+  keywordAds: KeywordAdProbeResult[];
   clientAdLibrary: AdLibraryResult | null;
   durationMs: number;
 }
+
+export type { KeywordAdProbeResult } from '../tools/keyword-ad-probe';
 
 /**
  * betaZodTool.run() is typed as Promise<string | Array<BetaToolResultContentBlockParam>>.
@@ -445,6 +449,23 @@ export async function fetchAllCompetitorData(
     };
   }
 
+  function extractKeywordAds(
+    settled: PromiseSettledResult<KeywordAdProbeResult>,
+    index: number,
+  ): KeywordAdProbeResult {
+    if (settled.status === 'fulfilled') return settled.value;
+    return {
+      competitorName: capped[index]?.name ?? 'Unknown',
+      domain: capped[index]?.domain ?? '',
+      keywordsProbed: 0,
+      adsFound: [],
+      error:
+        settled.reason instanceof Error
+          ? settled.reason.message
+          : String(settled.reason),
+    };
+  }
+
   function extractReviews(
     settled: PromiseSettledResult<ReviewResult>,
     index: number,
@@ -500,6 +521,12 @@ export async function fetchAllCompetitorData(
         negativeReviews: [],
         error: reason,
       })),
+      keywordAds: empty.map((e) => ({
+        ...e,
+        keywordsProbed: 0,
+        adsFound: [],
+        error: reason,
+      })),
       clientAdLibrary: null,
       durationMs: Date.now() - startTime,
     };
@@ -523,17 +550,46 @@ export async function fetchAllCompetitorData(
   let spyfuSettled: PromiseSettledResult<SpyfuResult>[] = [];
   let adLibrarySettled: PromiseSettledResult<AdLibraryResult>[] = [];
   let reviewsSettled: PromiseSettledResult<ReviewResult>[] = [];
+  let keywordAdsSettled: PromiseSettledResult<KeywordAdProbeResult>[] = [];
   let clientAdResult: AdLibraryResult | null = null;
 
   const pricingPromise = Promise.allSettled(capped.map(fetchPricing)).then(r => { pricingSettled = r; });
-  const spyfuPromise = Promise.allSettled(capped.map(fetchSpyfu)).then(r => { spyfuSettled = r; });
+
+  // Split SpyFu into per-competitor promises so keyword-ad-probe can chain
+  // off each result without blocking the spyfu orchestration.
+  const spyfuPerCompetitor = capped.map(fetchSpyfu);
+  const spyfuPromise = Promise.allSettled(spyfuPerCompetitor).then(r => { spyfuSettled = r; });
+
+  // Keyword-seeded ad discovery chains after each competitor's SpyFu resolves.
+  // Mahdy 2026-04-03: pull ads via the competitor's paid keywords as a
+  // fallback when name-search on Meta/LinkedIn/Google misses.
+  const keywordAdPerCompetitor = spyfuPerCompetitor.map((spyfuP, i) => {
+    const competitor = capped[i];
+    return spyfuP.then(
+      (spyfu) =>
+        probeKeywordAds({
+          competitorName: competitor.name,
+          domain: competitor.domain ?? '',
+          spyfuKeywords: spyfu.keywords,
+        }),
+      () => ({
+        competitorName: competitor.name,
+        domain: competitor.domain ?? '',
+        keywordsProbed: 0,
+        adsFound: [],
+        error: 'SpyFu fetch failed — skipping keyword-ad probe',
+      }),
+    );
+  });
+  const keywordAdPromise = Promise.allSettled(keywordAdPerCompetitor).then(r => { keywordAdsSettled = r; });
+
   const adLibraryPromise = Promise.allSettled(capped.map(c => fetchAdLibrary(c, categoryKeywords))).then(r => { adLibrarySettled = r; });
   const reviewsPromise = Promise.allSettled(capped.map(fetchReviews)).then(r => { reviewsSettled = r; });
   const clientAdCaptured = clientAdPromise.then(r => { clientAdResult = r; });
 
   try {
     await Promise.race([
-      Promise.all([pricingPromise, spyfuPromise, adLibraryPromise, reviewsPromise, clientAdCaptured]),
+      Promise.all([pricingPromise, spyfuPromise, keywordAdPromise, adLibraryPromise, reviewsPromise, clientAdCaptured]),
       new Promise<never>((_, reject) =>
         setTimeout(
           () =>
@@ -555,6 +611,7 @@ export async function fetchAllCompetitorData(
     spyfu: spyfuSettled.length > 0 ? spyfuSettled.map(extractSpyfu) : buildTimeoutResults('timeout').spyfu,
     adLibrary: adLibrarySettled.length > 0 ? adLibrarySettled.map(extractAdLibrary) : buildTimeoutResults('timeout').adLibrary,
     reviews: reviewsSettled.length > 0 ? reviewsSettled.map(extractReviews) : buildTimeoutResults('timeout').reviews,
+    keywordAds: keywordAdsSettled.length > 0 ? keywordAdsSettled.map(extractKeywordAds) : buildTimeoutResults('timeout').keywordAds,
     clientAdLibrary: clientAdResult,
     durationMs: Date.now() - startTime,
   };
