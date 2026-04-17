@@ -8,6 +8,7 @@ import type { ParallelFetchResults } from './parallel-fetch';
 import type { SonarCompetitorResult } from './sonar-research';
 import { buildLibraryLinks } from '../tools/adlibrary';
 import { MODELS } from '../models';
+import { buildRunnerTelemetry, type RunnerTelemetry } from '../telemetry';
 
 const SYNTHESIS_MODEL =
   process.env.RESEARCH_COMPETITORS_SYNTHESIS_MODEL ?? MODELS.FAST;
@@ -317,7 +318,7 @@ function injectLibraryLinks(
  */
 export async function synthesizeCompetitorIntel(
   input: SynthesisInput,
-): Promise<{ resultText: string; stopReason: string | null }> {
+): Promise<{ resultText: string; stopReason: string | null; telemetry: RunnerTelemetry }> {
   const client = new Anthropic({ maxRetries: 0 });
   const evidence = buildEvidencePackage(input);
   const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -349,6 +350,7 @@ export async function synthesizeCompetitorIntel(
   return {
     resultText,
     stopReason: result.stop_reason,
+    telemetry: buildRunnerTelemetry(result),
   };
 }
 

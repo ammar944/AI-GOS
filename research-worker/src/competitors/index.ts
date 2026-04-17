@@ -17,7 +17,6 @@ import { parseCompetitorContext } from './parse-context';
 import { fetchSonarCompetitorResearch, type SonarCompetitorResult } from './sonar-research';
 import { fetchAllCompetitorData, type ParallelFetchResults } from './parallel-fetch';
 import { synthesizeCompetitorIntel, postProcessSynthesis, type SynthesisInput } from './synthesize';
-import { MODELS } from '../models';
 import { analyzeReviewCrossPatterns } from './review-cross-analysis';
 
 export { parseCompetitorContext } from './parse-context';
@@ -34,6 +33,7 @@ interface CompetitorSourceTag {
 interface PipelineResult {
   resultText: string;
   stopReason: string | null;
+  telemetry: RunnerTelemetry;
   fetchDurationMs: number;
   synthesisDurationMs: number;
   synthInput: SynthesisInput;
@@ -135,7 +135,7 @@ async function runValidateThenFetch(
 async function runSynthesis(
   input: SynthesisInput,
   onProgress?: RunnerProgressReporter,
-): Promise<{ resultText: string; stopReason: string | null }> {
+): Promise<{ resultText: string; stopReason: string | null; telemetry: RunnerTelemetry }> {
   await emitRunnerProgress(onProgress, 'analysis', 'building competitor landscape');
 
   const result = await synthesizeCompetitorIntel(input);
@@ -179,10 +179,10 @@ async function runPipeline(
     runSynthesis(synthInput, onProgress),
     analyzeReviewCrossPatterns(fetchResults.reviews).catch(() => null),
   ]);
-  const { resultText, stopReason } = synthesisResult;
+  const { resultText, stopReason, telemetry } = synthesisResult;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
-  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, crossAnalysis, competitorSources };
+  return { resultText, stopReason, telemetry, fetchDurationMs, synthesisDurationMs, synthInput, crossAnalysis, competitorSources };
 }
 
 /**
@@ -233,18 +233,13 @@ export async function runResearchCompetitors(
       );
     }
 
-    const telemetry: RunnerTelemetry = {
-      model: MODELS.FAST,
-      stopReason: pipelineResult.stopReason,
-    };
-
     return finalizeRunnerResult({
       section: 'competitorIntel',
       durationMs: Date.now() - startTime,
       parsed,
       rawText: pipelineResult.resultText,
       parseError,
-      telemetry,
+      telemetry: pipelineResult.telemetry,
     });
   } catch (error) {
     await emitRunnerProgress(onProgress, 'error',
