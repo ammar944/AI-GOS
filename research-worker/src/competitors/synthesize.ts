@@ -212,8 +212,8 @@ Top keywords: ${kw}${sf.error ? `\nError: ${sf.error}` : ''}`);
 ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
   }
 
-  // 6. Review Intelligence (Trustpilot + G2)
-  sections.push('## Review Intelligence (Trustpilot + G2)');
+  // 6. Review Intelligence (Trustpilot + G2 + Google)
+  sections.push('## Review Intelligence (Trustpilot + G2 + Google Business)');
   for (const rev of fetchResults.reviews) {
     const parts: string[] = [`### ${rev.competitorName} (${rev.domain})`];
 
@@ -235,6 +235,15 @@ ${data}${ad.error ? `\nError: ${ad.error}` : ''}`);
       parts.push(`G2: ${ratingStr} (${countStr})${catsStr}`);
     } else {
       parts.push('G2: No data available');
+    }
+
+    if (rev.google) {
+      const g = rev.google;
+      const ratingStr = g.rating !== null ? `${g.rating}/5` : 'N/A';
+      const countStr = g.reviewCount !== null ? `${g.reviewCount.toLocaleString()} reviews` : 'count unknown';
+      parts.push(`Google Business: ${ratingStr} (${countStr}) — ${g.url}`);
+    } else {
+      parts.push('Google Business: No data available');
     }
 
     if (rev.testimonials && rev.testimonials.length > 0) {
