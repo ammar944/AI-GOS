@@ -22,6 +22,7 @@ import { synthesizeStrategicSynthesis } from './cards/strategic-synthesis';
 import { validateCardClaims } from './validator';
 import { writeIntelligenceCard } from './write-card';
 import { MODELS } from '../models';
+import { emitTelemetry } from '../telemetry';
 
 /**
  * Which cards a given section unlocks. Multiple cards may fire for one
@@ -80,7 +81,16 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
 
   const runCard = async (cardName: string): Promise<CardResult> => {
     const start = Date.now();
+    const telemetryBase = {
+      runId: input.runId,
+      userId: input.userId,
+      section: input.section,
+      card: cardName,
+      model: CARD_MODEL[cardName],
+    };
+    emitTelemetry({ ...telemetryBase, event: 'card.synthesize.start' });
     try {
+      const packStart = Date.now();
       const pack = buildEvidencePack(
         cardName,
         input.section,
@@ -89,30 +99,64 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         input.userId,
         input.identityCard,
       );
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'evidence.pack',
+        durationMs: Date.now() - packStart,
+        extra: { entryCount: pack.entries.length },
+      });
 
       if (pack.entries.length === 0) {
+        const durationMs = Date.now() - start;
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.gated',
+          durationMs,
+          extra: { reason: 'no_evidence_in_wiki' },
+        });
         return {
           cardName,
           status: 'gated',
           gateReason: 'no_evidence_in_wiki',
-          durationMs: Date.now() - start,
+          durationMs,
           model: 'n/a',
         };
       }
 
       const impl = CARD_IMPL[cardName];
       if (!impl) {
+        const durationMs = Date.now() - start;
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.error',
+          durationMs,
+          errorMessage: `no implementation for card ${cardName}`,
+        });
         return {
           cardName,
           status: 'failed',
           error: `no implementation for card ${cardName}`,
-          durationMs: Date.now() - start,
+          durationMs,
           model: 'n/a',
         };
       }
 
       const draft = await impl(pack);
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'card.synthesize.end',
+        durationMs: Date.now() - start,
+      });
+
+      const validateStart = Date.now();
+      emitTelemetry({ ...telemetryBase, event: 'card.validate.start' });
       const { validated, rejected, confidence } = await validateCardClaims(cardName, draft, pack);
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'card.validate.end',
+        durationMs: Date.now() - validateStart,
+        extra: { rejectedCount: rejected?.length ?? 0, confidence },
+      });
 
       return {
         cardName,
@@ -125,24 +169,38 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      const durationMs = Date.now() - start;
       // Synthesizers can throw `GATED:<reason>` to indicate the card had
       // nothing meaningful to emit (e.g., empty scorecard + no actions).
       // Convert these to a gated status instead of failed — Supabase stays
       // clean and the frontend simply doesn't render an empty shell.
       if (message.startsWith('GATED:')) {
+        const reason = message.slice('GATED:'.length) || 'empty_output';
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.gated',
+          durationMs,
+          extra: { reason },
+        });
         return {
           cardName,
           status: 'gated',
-          gateReason: message.slice('GATED:'.length) || 'empty_output',
-          durationMs: Date.now() - start,
+          gateReason: reason,
+          durationMs,
           model: CARD_MODEL[cardName] ?? 'n/a',
         };
       }
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'card.error',
+        durationMs,
+        errorMessage: message,
+      });
       return {
         cardName,
         status: 'failed',
         error: message,
-        durationMs: Date.now() - start,
+        durationMs,
         model: 'n/a',
       };
     }
@@ -194,10 +252,20 @@ workerBus.on('wiki:section-complete', async (payload) => {
   });
   const tasks = results.map(async (r) => {
     if (r.status === 'rendered') {
+      const writeStart = Date.now();
       await writeIntelligenceCard({
         userId: payload.userId,
         runId: payload.runId,
         card: r,
+      });
+      emitTelemetry({
+        event: 'card.write',
+        runId: payload.runId,
+        userId: payload.userId,
+        section: payload.section,
+        card: r.cardName,
+        durationMs: Date.now() - writeStart,
+        model: r.model,
       });
       workerBus.emit('card:rendered', {
         userId: payload.userId,

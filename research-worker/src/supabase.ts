@@ -310,3 +310,37 @@ export async function writeScriptPackUpdate(
     if (error) throw error;
   }, `writeScriptPackUpdate(${packId})`);
 }
+
+// ---------------------------------------------------------------------------
+// Telemetry persister (Phase 0.4)
+// Registered with the telemetry module via lazy-binding to avoid a circular
+// import. Writes are fire-and-forget; failures are logged by the telemetry
+// module and never propagate to the caller.
+// ---------------------------------------------------------------------------
+
+import { registerTelemetryPersister, type TelemetryEvent } from './telemetry';
+
+async function persistTelemetryEvent(event: TelemetryEvent): Promise<void> {
+  const client = getClient();
+  const { error } = await client.from('research_telemetry').insert({
+    run_id: event.runId,
+    user_id: event.userId,
+    event: event.event,
+    section: event.section,
+    card: event.card,
+    phase: event.phase,
+    duration_ms: event.durationMs,
+    model: event.model,
+    input_tokens: event.inputTokens,
+    output_tokens: event.outputTokens,
+    cache_creation_tokens: event.cacheCreationTokens,
+    cache_read_tokens: event.cacheReadTokens,
+    estimated_cost_usd: event.estimatedCostUsd,
+    error_message: event.errorMessage,
+    extra: event.extra ?? null,
+    event_timestamp: event.timestamp,
+  });
+  if (error) throw new Error(`research_telemetry insert failed: ${error.message}`);
+}
+
+registerTelemetryPersister(persistTelemetryEvent);
