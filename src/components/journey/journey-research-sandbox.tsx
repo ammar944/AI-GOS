@@ -956,7 +956,7 @@ export function JourneyResearchSandbox({
 
                 {canUseJourneyArtifactRenderer(section) ? (
                   hasSelectedArtifact ? (
-                    <div className="h-[760px] overflow-hidden rounded-[24px] border border-[var(--border-default)]">
+                    <div className="h-[760px] overflow-hidden rounded-[6px] border border-[var(--border-default)]">
                       <ArtifactPanel
                         section={section}
                         status={selectedStatus}
@@ -1021,7 +1021,7 @@ function MetricCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] px-5 py-4">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] px-5 py-4">
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">
         {label}
       </div>
@@ -1041,7 +1041,7 @@ function InfoCard({
   onRowClick?: (label: string) => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-text-tertiary">
         {title}
       </h3>
@@ -1097,7 +1097,7 @@ function JsonCard({
   body: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-4">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-4">
       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
         {title}
       </h3>
@@ -1127,7 +1127,7 @@ function BackendStatusCard({
   ];
 
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-text-tertiary">
         <Server className="h-4 w-4 text-[var(--accent-cyan)]" />
         Backend readiness
@@ -1185,7 +1185,7 @@ function SectionReadinessCard({
   return (
     <div
       className={cn(
-        'rounded-[24px] border p-5',
+        'rounded-[6px] border p-5',
         missingPrerequisites.length > 0
           ? 'border-[rgba(255,186,59,0.2)] bg-[rgba(255,186,59,0.08)]'
           : 'border-[rgba(30,170,95,0.2)] bg-[rgba(30,170,95,0.08)]',

@@ -41,9 +41,9 @@ export function ArtifactTriggerCard({
       <div className="flex items-center gap-4">
         {/* Status indicator */}
         {isError ? (
-          <div className="w-2.5 h-2.5 rounded-full bg-accent-red shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-accent-red" />
         ) : isComplete ? (
-          <div className="w-2.5 h-2.5 rounded-full bg-accent-green shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-accent-green" />
         ) : (
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--section-market)] animate-subtle-pulse" />

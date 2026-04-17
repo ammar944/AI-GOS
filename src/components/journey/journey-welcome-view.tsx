@@ -52,7 +52,7 @@ export function JourneyWelcomeView({ onSubmit, isLoading }: JourneyWelcomeViewPr
           <div className="glass-surface p-6 rounded-module relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-tighter">Module 01</span>
-              <div className="w-2 h-2 rounded-full bg-brand-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+              <div className="w-2 h-2 rounded-full bg-brand-success" />
             </div>
             <h3 className="text-lg font-medium mb-2">Market Overview</h3>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">

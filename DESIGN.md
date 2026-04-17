@@ -1,5 +1,12 @@
 # Design System — AIGOS by SaaSLaunch
 
+> **v3 update 2026-04-17 (Phase 1 of journey-workspace-v3)**
+> Typography: DM Sans → **Geist**, Instrument Sans → **Instrument Serif** (display), JetBrains Mono → **Geist Mono**. Variables `--font-dm-sans` / `--font-instrument-sans` / `--font-jetbrains-mono` kept as aliases for back-compat; fonts behind them are new.
+> Radius: `--radius-module` tightened from 24px → **6px** (biggest anti-AI-slop move). `rounded-[24px]` purged from 7 journey components.
+> Motion: glow shadows (`shadow-[0_0_Npx_...]`) removed from journey/workspace surfaces. Decorative gradient backgrounds removed from `journey/page.tsx`. `ui/glow-card.tsx` retained (separate component, not used in workspace).
+> Palette: unchanged in Phase 1 (OKLCH token migration deferred to Phase 2).
+> Full rationale: `docs/superpowers/plans/2026-04-17-journey-workspace-v3.md`.
+
 ## Product Context
 - **What this is:** Paid media research command center — users enter a company URL, AIGOS runs 7 AI research sections, produces a strategic media blueprint
 - **Who it's for:** Agency media buyers and strategists who research 2-3 new clients per week

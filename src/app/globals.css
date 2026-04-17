@@ -102,8 +102,10 @@
   --color-brand-surface: var(--bg-glass);
   --color-brand-border: var(--border-default);
 
-  /* V2 Command Center — Border Radius Scale */
-  --radius-module: 24px;
+  /* V3 Journey Workspace — Border Radius Scale (2026-04-17)
+     Tightened from 24px -> 6px for the module radius (biggest AI-slop signal
+     per design review). Control radius unchanged. */
+  --radius-module: 6px;
   --radius-control: 12px;
 }
 

@@ -230,7 +230,7 @@ export function PrefillStreamView({
                   data-field-key={field.key}
                   className="flex items-start gap-3 rounded-xl px-4 py-3 border border-[var(--border-glass)] bg-[var(--bg-surface)]"
                 >
-                  <div className="w-2 h-2 rounded-full shrink-0 mt-1.5 bg-emerald-400 shadow-[0_0_6px_rgba(34,197,94,0.3)]" />
+                  <div className="w-2 h-2 rounded-full shrink-0 mt-1.5 bg-emerald-400" />
                   <div className="min-w-0 flex-1">
                     <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-quaternary)]">
                       {field.label}

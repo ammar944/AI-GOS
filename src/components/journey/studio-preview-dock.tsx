@@ -36,12 +36,12 @@ export function JourneyStudioPreviewDock({
             ) : null}
           </div>
 
-          <div className="mt-1 h-2.5 w-2.5 rounded-full bg-brand-accent/80 shadow-[0_0_18px_rgba(60,131,246,0.5)]" />
+          <div className="mt-1 h-2.5 w-2.5 rounded-full bg-brand-accent/80" />
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
-        <div className="h-full min-h-0 overflow-hidden rounded-[24px] border border-[var(--border-glass)] bg-[var(--bg-surface)]">
+        <div className="h-full min-h-0 overflow-hidden rounded-[6px] border border-[var(--border-glass)] bg-[var(--bg-surface)]">
           {children}
         </div>
       </div>

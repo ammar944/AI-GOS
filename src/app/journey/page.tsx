@@ -1839,7 +1839,7 @@ function JourneyPageContent() {
   );
 
   const renderStudioStateFrame = (content: React.ReactNode): React.ReactNode => (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.08),transparent_34%),linear-gradient(180deg,rgba(17,16,13,0.92),rgba(9,9,8,0.96))]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
       <JourneyStepper
         currentPhase={currentPhase}
         completedPhases={completedPhases}
@@ -1892,7 +1892,7 @@ function JourneyPageContent() {
           className={cn(
             'relative flex flex-col min-h-0 transition-all duration-300',
             showStudioPreview
-              ? 'min-h-0 flex-1 bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.08),transparent_34%),linear-gradient(180deg,rgba(17,16,13,0.92),rgba(9,9,8,0.96))]'
+              ? 'min-h-0 flex-1 bg-[var(--bg-base)]'
               : artifactOpen
                 ? 'w-[40%]'
                 : 'w-full',
@@ -2403,9 +2403,7 @@ function JourneyPageContent() {
 
         <main className={cn(
           'relative flex flex-1 flex-col min-h-0 min-w-0',
-          showStudioPreview
-            ? 'bg-[radial-gradient(circle_at_top_left,rgba(60,131,246,0.04),transparent_32%),linear-gradient(180deg,rgba(8,8,7,0.98),rgba(4,4,3,1))]'
-            : 'bg-gradient-to-b from-transparent to-white/[0.01]',
+          "bg-[var(--bg-base)]",
         )}>
           {showStudioPreview ? (
             <JourneyStudioPreviewShell
@@ -2838,7 +2836,7 @@ function WelcomeForm({
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
                 style={{
-                  background: 'linear-gradient(90deg, var(--accent-blue) 0%, rgb(0, 111, 255) 50%, rgb(120, 80, 255) 100%)',
+                  background: 'var(--accent-blue)',
                   originX: 0.5,
                 }}
                 animate={{ scaleX: urlFocused ? 1 : 0, opacity: urlFocused ? 1 : 0 }}
@@ -2871,7 +2869,7 @@ function WelcomeForm({
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
                 style={{
-                  background: 'linear-gradient(90deg, var(--accent-blue) 0%, rgb(0, 111, 255) 50%, rgb(120, 80, 255) 100%)',
+                  background: 'var(--accent-blue)',
                   originX: 0.5,
                 }}
                 animate={{ scaleX: linkedinFocused ? 1 : 0, opacity: linkedinFocused ? 1 : 0 }}

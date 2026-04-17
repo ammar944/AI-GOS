@@ -90,7 +90,7 @@ export function JourneyResearchSandboxChecklist({
   });
 
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">

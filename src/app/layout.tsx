@@ -1,38 +1,36 @@
 import type { Metadata } from "next";
-import { DM_Sans, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
-// AIGOS v2 Typography System
-// Body font - DM Sans
-const dmSans = DM_Sans({
+// AIGOS v3 Typography System — Journey Workspace redesign (2026-04-17)
+// Var names kept as --font-dm-sans / --font-instrument-sans / --font-jetbrains-mono
+// for backward compatibility; the fonts BEHIND them are now Geist / Instrument Serif /
+// Geist Mono. Rename pass will happen in Phase 2.
+const dmSans = Geist({
   variable: "--font-dm-sans",
   subsets: ["latin"],
   display: "swap",
   weight: ["300", "400", "500", "600"],
 });
 
-// Heading font - Instrument Sans
-const instrumentSans = Instrument_Sans({
+const instrumentSans = Instrument_Serif({
   variable: "--font-instrument-sans",
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "500", "600", "700"],
+  weight: ["400"],
+  style: ["normal", "italic"],
 });
 
-// Mono font for data/code
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = Geist_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
   display: "swap",
   weight: ["400", "500"],
 });
-
-// Note: Cabinet Grotesk (display font) requires self-hosting or purchase
-// Using Instrument Sans as fallback for display text
 
 export const metadata: Metadata = {
   title: "AIGOS | AI-Powered Marketing Platform",

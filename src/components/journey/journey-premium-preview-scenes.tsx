@@ -137,7 +137,7 @@ function PremiumPreviewSidebar(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="mt-6 rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="mt-6 rounded-[6px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
             Current cycle
@@ -184,7 +184,7 @@ function PremiumPreviewSidebar(): React.JSX.Element {
         ))}
       </nav>
 
-      <div className="mt-auto rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="mt-auto rounded-[6px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
           Operator posture
         </p>
@@ -242,7 +242,7 @@ function PremiumPreviewDock(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="mt-4 rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="mt-4 rounded-[6px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
           Evidence health
         </p>
@@ -263,7 +263,7 @@ function PremiumPreviewDock(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="mt-4 rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
+      <div className="mt-4 rounded-[6px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
           Next move
         </p>
@@ -420,7 +420,7 @@ function WelcomeScene(): React.JSX.Element {
             ))}
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[var(--border-default)] bg-black/18 p-5">
+          <div className="mt-4 rounded-[6px] border border-[var(--border-default)] bg-black/18 p-5">
             <div className="flex items-center justify-between gap-3">
               <label className="text-[11px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
                 Company footprint
@@ -460,7 +460,7 @@ function WelcomeScene(): React.JSX.Element {
         </section>
 
         <section className="space-y-4">
-          <aside className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
+          <aside className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
                 Launch plan
@@ -539,7 +539,7 @@ function EvidenceModuleCard({
   card: EvidenceCard;
 }): React.JSX.Element {
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
       <div className="flex items-start justify-between gap-3">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-brand-accent">
           {card.module}
@@ -596,7 +596,7 @@ function CompactEvidenceModuleCard({
   card: EvidenceCard;
 }): React.JSX.Element {
   return (
-    <div className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+    <div className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
       <div className="flex items-start justify-between gap-3">
         <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-brand-accent">
           {card.module}
@@ -642,7 +642,7 @@ function CompactEvidenceModuleCard({
 
 function ReviewRoutingPanel(): React.JSX.Element {
   return (
-    <aside className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.22)]">
+    <aside className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.22)]">
       <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
         Review routing
       </p>
@@ -783,7 +783,7 @@ function ArtifactScene(): React.JSX.Element {
         </section>
 
         <aside className="space-y-4">
-          <div className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.26)]">
+          <div className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.26)]">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
               Actions
             </p>
@@ -803,7 +803,7 @@ function ArtifactScene(): React.JSX.Element {
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
+          <div className="rounded-[6px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
               Review routing
             </p>
@@ -837,7 +837,7 @@ function ChatScene(): React.JSX.Element {
     >
       <div className="space-y-4">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
-          <div className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.3)]">
+          <div className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.3)]">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
               Strategist note
             </p>
@@ -846,7 +846,7 @@ function ChatScene(): React.JSX.Element {
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
+          <div className="rounded-[6px] border border-[var(--border-default)] bg-[var(--bg-surface)] p-5">
             <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
               Live context
             </p>
@@ -873,7 +873,7 @@ function ChatScene(): React.JSX.Element {
           ))}
         </div>
 
-        <div className="rounded-[24px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
+        <div className="rounded-[6px] border border-[var(--border-default)] bg-[linear-gradient(180deg,rgba(16,18,22,0.94),rgba(10,10,12,0.9))] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
           <JourneyChatInput
             onSubmit={() => {}}
             isLoading={false}

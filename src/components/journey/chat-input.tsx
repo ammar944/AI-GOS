@@ -176,7 +176,7 @@ export function JourneyChatInput({
                 ]
               : variant === 'premium'
                 ? [
-                    'overflow-hidden rounded-[24px] border-[var(--border-default)]',
+                    'overflow-hidden rounded-[6px] border-[var(--border-default)]',
                     'bg-[linear-gradient(180deg,rgba(14,14,12,0.96),rgba(7,7,6,0.98))]',
                     'shadow-[0_26px_72px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.04)]',
                   ]

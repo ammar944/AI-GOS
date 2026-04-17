@@ -388,7 +388,7 @@ function ManusChatScene(): React.JSX.Element {
           ))}
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="paper-surface rounded-[24px] p-5">
+            <div className="paper-surface rounded-[6px] p-5">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[#918b81]">Evidence</p>
               <h3 className="mt-2 text-[1.1rem] font-medium text-[#1f1d18]">
                 Category pressure is speed and certainty
@@ -398,7 +398,7 @@ function ManusChatScene(): React.JSX.Element {
                 and less lead chaos. That is the anchor opportunity.
               </p>
             </div>
-            <div className="paper-surface rounded-[24px] p-5">
+            <div className="paper-surface rounded-[6px] p-5">
               <p className="text-[11px] uppercase tracking-[0.18em] text-[#918b81]">Decision</p>
               <h3 className="mt-2 text-[1.1rem] font-medium text-[#1f1d18]">
                 Choose the first ICP branch

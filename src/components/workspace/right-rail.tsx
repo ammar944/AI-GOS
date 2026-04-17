@@ -340,7 +340,7 @@ export function RightRail({ className }: RightRailProps) {
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
         <div className="flex items-center gap-2">
           <div className={cn(
-            'w-2 h-2 rounded-full shadow-[0_0_6px_rgba(54,94,255,0.4)]',
+            'w-2 h-2 rounded-full',
             deepResearch ? 'bg-[var(--accent-cyan)]' : 'bg-[var(--accent-blue)]',
           )} />
           <span className="text-[13px] font-medium text-[var(--text-secondary)]">
@@ -520,7 +520,7 @@ export function RightRail({ className }: RightRailProps) {
               'flex items-end gap-2 rounded-xl border bg-[var(--bg-surface)] px-3 py-2',
               'transition-all duration-200',
               isRecording
-                ? 'border-orange-500/40 shadow-[0_0_8px_rgba(249,115,22,0.15)]'
+                ? 'border-orange-500/40'
                 : 'border-[var(--border-default)] focus-within:border-[var(--accent-blue)]/40 focus-within:shadow-[0_0_8px_rgba(54,94,255,0.08)]',
             )}
           >

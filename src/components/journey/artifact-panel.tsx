@@ -1309,7 +1309,7 @@ export function ArtifactPanel({
       <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-glass)]">
         <div className="flex items-center gap-3">
           {approved ? (
-            <div className="w-2.5 h-2.5 rounded-full bg-accent-green shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-accent-green" />
           ) : isComplete ? (
             <div className="w-2.5 h-2.5 rounded-full bg-[var(--section-market)]" style={{ boxShadow: '0 0 10px color-mix(in srgb, var(--section-market) 30%, transparent)' }} />
           ) : (

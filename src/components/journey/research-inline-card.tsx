@@ -195,7 +195,7 @@ function LoadingCard({
   const latestUpdateAge = formatElapsed(latestUpdate?.at, now);
 
   return (
-    <div className="glass-surface p-6 rounded-[24px] border-brand-accent/30 bg-brand-accent/[0.01]">
+    <div className="glass-surface p-6 rounded-[6px] border-brand-accent/30 bg-brand-accent/[0.01]">
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-mono text-brand-accent uppercase tracking-tighter">
           Module {meta.moduleNumber}
@@ -243,13 +243,13 @@ function CompleteCard({
   const description = extractDescription(section, data);
 
   return (
-    <div className="glass-surface p-6 rounded-[24px] relative overflow-hidden">
+    <div className="glass-surface p-6 rounded-[6px] relative overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-tighter">
           Module {meta.moduleNumber}
         </span>
         {/* Green completed dot */}
-        <div className="w-2 h-2 rounded-full bg-brand-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+        <div className="w-2 h-2 rounded-full bg-brand-success" />
       </div>
       <h3 className="text-lg font-medium mb-2">{meta.label}</h3>
       {description && (
@@ -306,7 +306,7 @@ function CompleteCard({
 
 function ErrorCard({ meta, error }: { meta: SectionMeta; error?: string }) {
   return (
-    <div className="glass-surface p-6 rounded-[24px] border-red-500/20">
+    <div className="glass-surface p-6 rounded-[6px] border-red-500/20">
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-mono text-red-400/60 uppercase tracking-tighter">
           Module {meta.moduleNumber}
