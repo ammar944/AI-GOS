@@ -81,3 +81,82 @@ export async function dispatchWithIdentity(
   // Step 3: Dispatch the target section (with or without identity)
   return dispatchResearchSection(targetSection, runId, context);
 }
+
+/**
+ * Sections that fan out in parallel after identity resolves.
+ * All four only strictly require the identity card + raw onboarding context —
+ * upstream wiki enrichment is a quality lift, not a correctness gate.
+ * keywordIntel / crossAnalysis / mediaPlan stay sequential because they
+ * need the full research picture.
+ */
+export const WAVE_1_PARALLEL_SECTIONS = [
+  'industryMarket',
+  'icpValidation',
+  'competitors',
+  'offerAnalysis',
+] as const;
+
+export type Wave1Section = (typeof WAVE_1_PARALLEL_SECTIONS)[number];
+
+export interface ParallelDispatchResult {
+  identity: ClientDispatchResult;
+  wave1: Record<Wave1Section, ClientDispatchResult>;
+}
+
+/**
+ * Dispatch identity first, then fan out the four independent research
+ * stages in parallel. Cuts the critical path from ~350s sequential to
+ * ~max(industry, icp, competitors, offer) ≈ 130s.
+ */
+export async function dispatchAllResearchParallel(
+  runId: string,
+  context: string,
+): Promise<ParallelDispatchResult> {
+  // Step 1: Dispatch identity and wait until it writes a complete row.
+  // Identity is still a blocking pre-step because the wave-1 runners use
+  // the identityCard in their context construction.
+  const identityResult = await dispatchResearchSection(
+    'identityResolution',
+    runId,
+    context,
+  );
+
+  if (identityResult.status === 'error') {
+    console.warn(
+      '[dispatch-client] Identity dispatch failed — firing wave-1 without identity:',
+      identityResult.error,
+    );
+  } else {
+    const pollStart = Date.now();
+    while (Date.now() - pollStart < IDENTITY_POLL_MAX_WAIT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, IDENTITY_POLL_INTERVAL_MS));
+      try {
+        const checkRes = await fetch(
+          `/api/journey/research-status?runId=${encodeURIComponent(runId)}&section=identityResolution`,
+        );
+        if (checkRes.ok) {
+          const status = (await checkRes.json()) as { complete: boolean };
+          if (status.complete) break;
+        }
+      } catch {
+        // keep trying — poll failures are non-fatal
+      }
+    }
+  }
+
+  // Step 2: Fan out wave-1 sections in parallel. Each returns its own
+  // { status, section, jobId } — callers can correlate with realtime events.
+  const wave1Entries = await Promise.all(
+    WAVE_1_PARALLEL_SECTIONS.map(
+      async (section) =>
+        [section, await dispatchResearchSection(section, runId, context)] as const,
+    ),
+  );
+
+  const wave1 = Object.fromEntries(wave1Entries) as Record<
+    Wave1Section,
+    ClientDispatchResult
+  >;
+
+  return { identity: identityResult, wave1 };
+}

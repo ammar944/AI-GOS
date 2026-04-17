@@ -20,6 +20,7 @@ import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
+import { ParallelAgentBoard } from './parallel-agent-board';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -413,6 +414,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
       <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
       <WorkspaceNavBar companyName={companyName} onBack={onBack} />
+      <ParallelAgentBoard userId={userId} activeRunId={activeRunId} />
       <div className="flex flex-1 min-h-0">
         {showAssetCollection && state.currentSection !== 'scripts' ? (
           <div className="flex flex-1 flex-col min-h-0">

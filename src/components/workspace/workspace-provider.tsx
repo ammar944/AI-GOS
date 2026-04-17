@@ -26,10 +26,25 @@ interface WorkspaceProviderProps {
   children: React.ReactNode;
 }
 
+// Sections that fan out in parallel after identity resolves. Mirrors
+// WAVE_1_PARALLEL_SECTIONS in dispatch-client.ts — kept inline here to
+// avoid coupling the workspace provider to the dispatch layer.
+const WAVE_1_SECTION_KEYS: SectionKey[] = [
+  'industryMarket',
+  'icpValidation',
+  'competitors',
+  'offerAnalysis',
+];
+
 function createFreshState(sessionId: string, startInWorkspace = false, initialSection?: SectionKey): WorkspaceState {
   const sectionStates = createInitialSectionStates();
   if (startInWorkspace) {
-    sectionStates[SECTION_PIPELINE[0]] = 'researching';
+    // All four wave-1 stages kick off in parallel immediately after identity
+    // resolves. Mark them all as 'researching' so the UI reflects that four
+    // agents are working at once, not one.
+    for (const key of WAVE_1_SECTION_KEYS) {
+      sectionStates[key] = 'researching';
+    }
   }
   // If an initial section is specified (e.g. mediaPlan from deep-link),
   // set it to researching
@@ -66,15 +81,24 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
   }, [state]);
 
   const enterWorkspace = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      phase: 'workspace',
-      currentSection: SECTION_PIPELINE[0],
-      sectionStates: {
-        ...prev.sectionStates,
-        [SECTION_PIPELINE[0]]: 'researching',
-      },
-    }));
+    setState((prev) => {
+      // Respect existing approved/review sections on resume; only nudge
+      // non-terminal wave-1 sections up to 'researching' to mirror the
+      // parallel dispatch that the journey page fires at entry.
+      const sectionStates = { ...prev.sectionStates };
+      for (const key of WAVE_1_SECTION_KEYS) {
+        const current = sectionStates[key];
+        if (current !== 'approved' && current !== 'review') {
+          sectionStates[key] = 'researching';
+        }
+      }
+      return {
+        ...prev,
+        phase: 'workspace',
+        currentSection: SECTION_PIPELINE[0],
+        sectionStates,
+      };
+    });
   }, []);
 
   const setSectionPhase = useCallback((section: SectionKey, phase: SectionPhase, error?: string) => {
