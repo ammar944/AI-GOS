@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { TopBar, type Crumb } from "./top-bar";
 import { PeekRail, type PeekNavGroup } from "./peek-rail";
 import { ChatChip } from "./chat-chip";
+import { CommandMenu, type CommandAction } from "./command-menu";
+import { ChatPanel, type ChatMessage } from "./chat-panel";
+import {
+  ViewModeProvider,
+  useViewMode,
+  type ViewMode,
+} from "./view-mode";
 import "./workspace-shell.css";
 
 export type ThemeMode = "dark" | "light";
@@ -14,29 +21,29 @@ export interface WorkspaceShellProps {
   peekGroups: PeekNavGroup[];
   usage?: string;
   children: ReactNode;
-  onCommandMenuOpen?: () => void;
-  onChatToggle?: () => void;
+  commandActions?: CommandAction[];
+  chatMessages?: ChatMessage[];
+  onChatSubmit?: (text: string) => void;
   defaultTheme?: ThemeMode;
 }
 
-/**
- * AIGOS v3 workspace shell.
- * - 44px top bar (breadcrumb + center slot + chips)
- * - 8px peek rail left edge (hover-expands to 220px)
- * - 880px centered canvas
- * - Floating ⌘; chat chip bottom-right
- * - Cmd/Ctrl+K opens command menu
- * - Cmd/Ctrl+; toggles side chat
- * - data-theme persisted to localStorage
- */
-export function WorkspaceShell({
+export function WorkspaceShell(props: WorkspaceShellProps) {
+  return (
+    <ViewModeProvider>
+      <WorkspaceShellInner {...props} />
+    </ViewModeProvider>
+  );
+}
+
+function WorkspaceShellInner({
   crumbs,
   topBarCenter,
   peekGroups,
   usage,
   children,
-  onCommandMenuOpen,
-  onChatToggle,
+  commandActions = [],
+  chatMessages,
+  onChatSubmit,
   defaultTheme = "dark",
 }: WorkspaceShellProps) {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -64,32 +71,94 @@ export function WorkspaceShell({
     [],
   );
 
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const { mode, setMode, cycle: cycleView } = useViewMode();
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        onCommandMenuOpen?.();
+        setCommandOpen((o) => !o);
       } else if (mod && e.key === ";") {
         e.preventDefault();
-        onChatToggle?.();
+        setChatOpen((o) => !o);
+      } else if (!mod && !isTyping && e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        cycleView();
+      } else if (e.key === "Escape") {
+        if (commandOpen) setCommandOpen(false);
+        else if (chatOpen) setChatOpen(false);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onCommandMenuOpen, onChatToggle]);
+  }, [commandOpen, chatOpen, cycleView]);
+
+  const builtInActions: CommandAction[] = [
+    {
+      id: "view-normal",
+      group: "View",
+      label: "Normal mode",
+      shortcut: mode === "normal" ? "active" : undefined,
+      onSelect: () => setMode("normal"),
+    },
+    {
+      id: "view-verbose",
+      group: "View",
+      label: "Verbose mode — show agent board + source log",
+      shortcut: mode === "verbose" ? "active" : undefined,
+      onSelect: () => setMode("verbose"),
+    },
+    {
+      id: "view-summary",
+      group: "View",
+      label: "Summary mode — collapse cards to takeaways",
+      shortcut: mode === "summary" ? "active" : undefined,
+      onSelect: () => setMode("summary"),
+    },
+    {
+      id: "toggle-theme",
+      group: "View",
+      label: `Toggle theme (currently ${theme})`,
+      onSelect: toggleTheme,
+    },
+    {
+      id: "open-chat",
+      group: "Actions",
+      label: "Open chat",
+      shortcut: "⌘;",
+      onSelect: () => setChatOpen(true),
+    },
+  ];
+
+  const actions = [...commandActions, ...builtInActions];
 
   return (
-    <div data-v3 data-v3-theme={theme} className="v3-root" suppressHydrationWarning>
+    <div
+      data-v3
+      data-v3-theme={theme}
+      data-v3-view={mode}
+      className="v3-root"
+      suppressHydrationWarning
+    >
       <TopBar
         crumbs={crumbs}
         center={topBarCenter}
         usage={usage}
-        onCommandMenuOpen={onCommandMenuOpen}
+        onCommandMenuOpen={() => setCommandOpen(true)}
       />
       <PeekRail groups={peekGroups} />
       <main className="v3-canvas">{children}</main>
-      <ChatChip onClick={onChatToggle} />
+      <ChatChip onClick={() => setChatOpen(true)} />
 
       <button
         type="button"
@@ -99,6 +168,20 @@ export function WorkspaceShell({
       >
         {theme === "dark" ? "light mode" : "dark mode"}
       </button>
+
+      <CommandMenu
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        actions={actions}
+      />
+      <ChatPanel
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        messages={chatMessages}
+        onSubmit={onChatSubmit}
+      />
     </div>
   );
 }
+
+export type { ViewMode };
