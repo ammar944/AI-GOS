@@ -71,6 +71,159 @@ function estimateModelCost(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Structured pipeline telemetry events (Phase 0.4)
+//
+// Emits structured JSON events to stdout for log-based analysis, and optionally
+// persists to Supabase `research_telemetry` table for queryable dashboards.
+//
+// Env flags:
+//   RESEARCH_TELEMETRY_VERBOSE=true  -> JSON line per event on stdout
+//   RESEARCH_TELEMETRY_PERSIST=true  -> fire-and-forget write to Supabase
+//
+// Both flags are off by default so existing logs remain quiet.
+// ---------------------------------------------------------------------------
+
+export type TelemetryEventName =
+  | 'runner.start'
+  | 'runner.end'
+  | 'runner.error'
+  | 'tool.call'
+  | 'wiki.extract'
+  | 'wiki.write'
+  | 'card.synthesize.start'
+  | 'card.synthesize.end'
+  | 'card.validate.start'
+  | 'card.validate.end'
+  | 'card.write'
+  | 'card.gated'
+  | 'card.error'
+  | 'evidence.pack'
+  | 'pipeline.start'
+  | 'pipeline.end';
+
+export interface TelemetryEvent {
+  event: TelemetryEventName;
+  runId: string;
+  userId?: string;
+  section?: string;
+  card?: string;
+  phase?: 'primary' | 'repair' | 'rescue' | 'heuristic';
+  durationMs?: number;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  estimatedCostUsd?: number;
+  errorMessage?: string;
+  extra?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface TelemetryEventInput {
+  event: TelemetryEventName;
+  runId: string;
+  userId?: string;
+  section?: string;
+  card?: string;
+  phase?: TelemetryEvent['phase'];
+  durationMs?: number;
+  model?: string;
+  usage?: RunnerUsageTelemetry;
+  estimatedCostUsd?: number;
+  errorMessage?: string;
+  extra?: Record<string, unknown>;
+}
+
+function toEvent(input: TelemetryEventInput): TelemetryEvent {
+  return {
+    event: input.event,
+    runId: input.runId,
+    userId: input.userId,
+    section: input.section,
+    card: input.card,
+    phase: input.phase,
+    durationMs: input.durationMs,
+    model: input.model,
+    inputTokens: input.usage?.inputTokens,
+    outputTokens: input.usage?.outputTokens,
+    cacheCreationTokens: input.usage?.cacheCreationInputTokens,
+    cacheReadTokens: input.usage?.cacheReadInputTokens,
+    estimatedCostUsd: input.estimatedCostUsd,
+    errorMessage: input.errorMessage,
+    extra: input.extra,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+let persistFn: ((e: TelemetryEvent) => Promise<void>) | null = null;
+
+/**
+ * Lazy-registered persister. Wired from supabase.ts to avoid a circular import.
+ * If not registered or if RESEARCH_TELEMETRY_PERSIST is not "true", events are
+ * only logged (if verbose) and never written to a DB.
+ */
+export function registerTelemetryPersister(
+  fn: (event: TelemetryEvent) => Promise<void>,
+): void {
+  persistFn = fn;
+}
+
+/**
+ * Emit a structured telemetry event. Fire-and-forget for persistence;
+ * never blocks the caller or throws.
+ */
+export function emitTelemetry(input: TelemetryEventInput): void {
+  const event = toEvent(input);
+
+  if (process.env.RESEARCH_TELEMETRY_VERBOSE === 'true') {
+    // eslint-disable-next-line no-console
+    console.log(`[telemetry] ${JSON.stringify(event)}`);
+  }
+
+  if (process.env.RESEARCH_TELEMETRY_PERSIST === 'true' && persistFn) {
+    persistFn(event).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[telemetry] persist failed (non-fatal):', err?.message ?? err);
+    });
+  }
+}
+
+/**
+ * Measure an async operation and emit start/end events.
+ * Returns the operation's result; on throw, emits an error event and rethrows.
+ */
+export async function withTelemetry<T>(
+  startEvent: TelemetryEventName,
+  endEvent: TelemetryEventName,
+  errorEvent: TelemetryEventName,
+  base: Omit<TelemetryEventInput, 'event' | 'durationMs'>,
+  fn: () => Promise<T>,
+): Promise<T> {
+  emitTelemetry({ ...base, event: startEvent });
+  const t0 = Date.now();
+  try {
+    const result = await fn();
+    emitTelemetry({
+      ...base,
+      event: endEvent,
+      durationMs: Date.now() - t0,
+    });
+    return result;
+  } catch (err) {
+    emitTelemetry({
+      ...base,
+      event: errorEvent,
+      durationMs: Date.now() - t0,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 export function buildRunnerTelemetry(
   finalMessage: TelemetryMessageLike,
 ): RunnerTelemetry {

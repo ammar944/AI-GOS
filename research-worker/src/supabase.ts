@@ -310,3 +310,120 @@ export async function writeScriptPackUpdate(
     if (error) throw error;
   }, `writeScriptPackUpdate(${packId})`);
 }
+
+// ---------------------------------------------------------------------------
+// Shadow mode writers (Phase 0.2)
+//
+// RESEARCH_SHADOW_MODE=true enables dual-write: primary output goes to
+// journey_sessions.research_results (user-visible), shadow output goes to
+// research_results_shadow (never shown to users). Diff pipeline writes to
+// research_eval_diffs for regression detection.
+// ---------------------------------------------------------------------------
+
+export interface ShadowRunInput {
+  userId: string;
+  runId: string;
+  section: string;
+  result: unknown;
+  pipelineVersion?: string;
+  durationMs?: number;
+}
+
+/**
+ * Write a shadow-pipeline result. Safe no-op if RESEARCH_SHADOW_MODE is not
+ * 'true'. Fire-and-forget at the call site — failures log but don't throw.
+ */
+export async function writeResearchResultShadow(input: ShadowRunInput): Promise<void> {
+  if (process.env.RESEARCH_SHADOW_MODE !== 'true') return;
+  const client = getClient();
+  const { error } = await client.from('research_results_shadow').upsert(
+    {
+      user_id: input.userId,
+      run_id: input.runId,
+      section: input.section,
+      result: input.result as Record<string, unknown>,
+      pipeline_version: input.pipelineVersion ?? process.env.PIPELINE_VERSION ?? null,
+      duration_ms: input.durationMs ?? null,
+    },
+    { onConflict: 'user_id,run_id,section,pipeline_version' },
+  );
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn('[shadow] writeResearchResultShadow failed (non-fatal):', error.message);
+  }
+}
+
+export interface EvalDiffInput {
+  userId: string;
+  runId: string;
+  section: string;
+  card?: string;
+  diffScore?: number;
+  fieldRecall?: number;
+  citationDelta?: number;
+  fabricationDelta?: number;
+  phase?: string;
+  pipelineVersionPrimary?: string;
+  pipelineVersionShadow?: string;
+  diffPayload?: unknown;
+}
+
+/**
+ * Record a structured diff between primary and shadow pipelines. Used by the
+ * nightly eval job + ad-hoc regression runs. Fire-and-forget.
+ */
+export async function writeEvalDiff(input: EvalDiffInput): Promise<void> {
+  const client = getClient();
+  const { error } = await client.from('research_eval_diffs').insert({
+    user_id: input.userId,
+    run_id: input.runId,
+    section: input.section,
+    card: input.card ?? null,
+    diff_score: input.diffScore ?? null,
+    field_recall: input.fieldRecall ?? null,
+    citation_delta: input.citationDelta ?? null,
+    fabrication_delta: input.fabricationDelta ?? null,
+    phase: input.phase ?? null,
+    pipeline_version_primary: input.pipelineVersionPrimary ?? null,
+    pipeline_version_shadow: input.pipelineVersionShadow ?? null,
+    diff_payload: (input.diffPayload as Record<string, unknown> | undefined) ?? null,
+  });
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn('[shadow] writeEvalDiff failed (non-fatal):', error.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Telemetry persister (Phase 0.4)
+// Registered with the telemetry module via lazy-binding to avoid a circular
+// import. Writes are fire-and-forget; failures are logged by the telemetry
+// module and never propagate to the caller.
+// ---------------------------------------------------------------------------
+
+import { registerTelemetryPersister, type TelemetryEvent } from './telemetry';
+
+async function persistTelemetryEvent(event: TelemetryEvent): Promise<void> {
+  const client = getClient();
+  const { error } = await client.from('research_telemetry').insert({
+    run_id: event.runId,
+    user_id: event.userId,
+    event: event.event,
+    section: event.section,
+    card: event.card,
+    phase: event.phase,
+    duration_ms: event.durationMs,
+    model: event.model,
+    input_tokens: event.inputTokens,
+    output_tokens: event.outputTokens,
+    cache_creation_tokens: event.cacheCreationTokens,
+    cache_read_tokens: event.cacheReadTokens,
+    estimated_cost_usd: event.estimatedCostUsd,
+    error_message: event.errorMessage,
+    extra: event.extra ?? null,
+    event_timestamp: event.timestamp,
+  });
+  if (error) throw new Error(`research_telemetry insert failed: ${error.message}`);
+}
+
+registerTelemetryPersister(persistTelemetryEvent);

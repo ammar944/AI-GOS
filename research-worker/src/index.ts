@@ -21,6 +21,7 @@ import { authorizeWorkerRequest } from './auth';
 import { extractWikiEntries, writeWikiEntries } from './wiki';
 import { workerBus } from './events';
 import { dispatchIntelligenceCards } from './intelligence/dispatcher';
+import { emitTelemetry } from './telemetry';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -199,6 +200,13 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
   // already committed the job to Supabase above, so crashes are observable.
   void (async () => {
     console.log(`[worker] Starting ${tool} for user ${userId} (job ${jobId})`);
+    emitTelemetry({
+      event: 'runner.start',
+      runId: runId ?? jobId,
+      userId,
+      section: TOOL_SECTION_MAP[tool] ?? tool,
+      extra: { tool, jobId },
+    });
 
     // Inject current date into context so research models use up-to-date information.
     // Without this, models default to their training cutoff and return stale data.
@@ -280,6 +288,18 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       const result = await runner(contextWithDate, emitProgress);
       const runnerDurationMs = Date.now() - runnerStartMs;
       console.log(`[timing] ${tool} runner completed in ${(runnerDurationMs / 1000).toFixed(1)}s`);
+      emitTelemetry({
+        event: result.status === 'complete' ? 'runner.end' : 'runner.error',
+        runId: runId ?? jobId,
+        userId,
+        section: result.section,
+        durationMs: runnerDurationMs,
+        model: result.telemetry?.model,
+        usage: result.telemetry?.usage,
+        estimatedCostUsd: result.telemetry?.estimatedCostUsd,
+        errorMessage: result.status === 'complete' ? undefined : result.error,
+        extra: { tool, stopReason: result.telemetry?.stopReason },
+      });
 
       // Compression disabled — raw runner data flows through to Supabase
       // so artifact-panel.tsx and research-inline-card.tsx can render
@@ -385,12 +405,22 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[worker] Unhandled error in ${tool}:`, error);
       const section = TOOL_SECTION_MAP[tool] ?? tool;
+      const errorDurationMs = Date.now() - startMs;
+      emitTelemetry({
+        event: 'runner.error',
+        runId: runId ?? jobId,
+        userId,
+        section,
+        durationMs: errorDurationMs,
+        errorMessage: errorMsg,
+        extra: { tool, unhandled: true },
+      });
       const errorResult = {
         runId,
         status: 'error' as const,
         section,
         error: errorMsg,
-        durationMs: Date.now() - startMs,
+        durationMs: errorDurationMs,
       };
       try {
         await writeResearchResult(userId, section, errorResult);

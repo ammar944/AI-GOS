@@ -7,7 +7,10 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "eval:snapshot": "ts-node-dev --transpile-only evals/snapshot.ts",
+    "eval:research": "ts-node-dev --transpile-only evals/run-eval.ts",
+    "eval:baseline": "ts-node-dev --transpile-only evals/baseline-run.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

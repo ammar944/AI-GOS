@@ -19,9 +19,11 @@ import { synthesizeOpportunity } from './cards/opportunity';
 import { synthesizeWhiteSpaceGap } from './cards/white-space-gap';
 import { synthesizeOfferStatements } from './cards/offer-statements';
 import { synthesizeStrategicSynthesis } from './cards/strategic-synthesis';
-import { validateCardClaims } from './validator';
+import { validateCardClaims, validateCardsBatch, type BatchValidationInput } from './validator';
 import { writeIntelligenceCard } from './write-card';
 import { MODELS } from '../models';
+import { emitTelemetry } from '../telemetry';
+import { sweepCard } from './fabrication-sweep';
 
 /**
  * Which cards a given section unlocks. Multiple cards may fire for one
@@ -78,9 +80,21 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
 
   if (selectedCards.length === 0) return [];
 
+  const batchValidate = process.env.INTELLIGENCE_VALIDATOR_BATCH === 'true';
+  const cardPacks = new Map<string, ReturnType<typeof buildEvidencePack>>();
+
   const runCard = async (cardName: string): Promise<CardResult> => {
     const start = Date.now();
+    const telemetryBase = {
+      runId: input.runId,
+      userId: input.userId,
+      section: input.section,
+      card: cardName,
+      model: CARD_MODEL[cardName],
+    };
+    emitTelemetry({ ...telemetryBase, event: 'card.synthesize.start' });
     try {
+      const packStart = Date.now();
       const pack = buildEvidencePack(
         cardName,
         input.section,
@@ -89,30 +103,114 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         input.userId,
         input.identityCard,
       );
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'evidence.pack',
+        durationMs: Date.now() - packStart,
+        extra: { entryCount: pack.entries.length },
+      });
 
       if (pack.entries.length === 0) {
+        const durationMs = Date.now() - start;
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.gated',
+          durationMs,
+          extra: { reason: 'no_evidence_in_wiki' },
+        });
         return {
           cardName,
           status: 'gated',
           gateReason: 'no_evidence_in_wiki',
-          durationMs: Date.now() - start,
+          durationMs,
           model: 'n/a',
         };
       }
 
       const impl = CARD_IMPL[cardName];
       if (!impl) {
+        const durationMs = Date.now() - start;
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.error',
+          durationMs,
+          errorMessage: `no implementation for card ${cardName}`,
+        });
         return {
           cardName,
           status: 'failed',
           error: `no implementation for card ${cardName}`,
-          durationMs: Date.now() - start,
+          durationMs,
           model: 'n/a',
         };
       }
 
       const draft = await impl(pack);
-      const { validated, rejected, confidence } = await validateCardClaims(cardName, draft, pack);
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'card.synthesize.end',
+        durationMs: Date.now() - start,
+      });
+
+      let validated: unknown;
+      let rejected: string[] = [];
+      let confidence = 100;
+
+      if (batchValidate) {
+        // Skip per-card validation; batched at the end of dispatch.
+        cardPacks.set(cardName, pack);
+        validated = draft;
+      } else {
+        const validateStart = Date.now();
+        emitTelemetry({ ...telemetryBase, event: 'card.validate.start' });
+        const r = await validateCardClaims(cardName, draft, pack);
+        validated = r.validated;
+        rejected = r.rejected;
+        confidence = r.confidence;
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.validate.end',
+          durationMs: Date.now() - validateStart,
+          extra: { rejectedCount: rejected.length, confidence },
+        });
+      }
+
+      // Phase 0.3 — deterministic fabrication sweep across all string fields.
+      // Default: detect + log (soft). Set INTELLIGENCE_FABRICATION_GATE=strict
+      // to gate the card when un-cited growth/ARR claims are found.
+      if (process.env.INTELLIGENCE_FABRICATION_SWEEP !== 'false') {
+        const sweepResult = sweepCard(validated, {
+          allowGrowthClaims: false,
+          userGrowthRate: null,
+        });
+        if (sweepResult.fabricated) {
+          emitTelemetry({
+            ...telemetryBase,
+            event: 'card.gated',
+            durationMs: Date.now() - start,
+            extra: {
+              reason: 'fabrication_detected',
+              matchCount: sweepResult.matches.length,
+              patterns: sweepResult.matches.map((m) => m.pattern),
+              paths: sweepResult.matches.map((m) => m.path),
+            },
+          });
+          if (process.env.INTELLIGENCE_FABRICATION_GATE === 'strict') {
+            return {
+              cardName,
+              status: 'gated',
+              gateReason: 'fabrication_detected',
+              durationMs: Date.now() - start,
+              model: CARD_MODEL[cardName] ?? 'n/a',
+            };
+          }
+          console.warn(
+            `[fabrication-sweep] ${cardName} has ${sweepResult.matches.length} un-cited match(es) ` +
+              `(soft mode — use INTELLIGENCE_FABRICATION_GATE=strict to block): ` +
+              sweepResult.matches.map((m) => `${m.pattern}@${m.path}`).join(', '),
+          );
+        }
+      }
 
       return {
         cardName,
@@ -125,47 +223,99 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      const durationMs = Date.now() - start;
       // Synthesizers can throw `GATED:<reason>` to indicate the card had
       // nothing meaningful to emit (e.g., empty scorecard + no actions).
       // Convert these to a gated status instead of failed — Supabase stays
       // clean and the frontend simply doesn't render an empty shell.
       if (message.startsWith('GATED:')) {
+        const reason = message.slice('GATED:'.length) || 'empty_output';
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.gated',
+          durationMs,
+          extra: { reason },
+        });
         return {
           cardName,
           status: 'gated',
-          gateReason: message.slice('GATED:'.length) || 'empty_output',
-          durationMs: Date.now() - start,
+          gateReason: reason,
+          durationMs,
           model: CARD_MODEL[cardName] ?? 'n/a',
         };
       }
+      emitTelemetry({
+        ...telemetryBase,
+        event: 'card.error',
+        durationMs,
+        errorMessage: message,
+      });
       return {
         cardName,
         status: 'failed',
         error: message,
-        durationMs: Date.now() - start,
+        durationMs,
         model: 'n/a',
       };
     }
   };
 
+  let results: CardResult[];
   if (process.env.INTELLIGENCE_PARALLEL === 'false') {
-    const out: CardResult[] = [];
-    for (const c of selectedCards) out.push(await runCard(c));
-    return out;
+    results = [];
+    for (const c of selectedCards) results.push(await runCard(c));
+  } else {
+    const settled = await Promise.allSettled(selectedCards.map(runCard));
+    results = settled.map((s, i) =>
+      s.status === 'fulfilled'
+        ? s.value
+        : {
+            cardName: selectedCards[i],
+            status: 'failed' as const,
+            error: s.reason instanceof Error ? s.reason.message : String(s.reason),
+            durationMs: 0,
+            model: 'n/a',
+          },
+    );
   }
 
-  const settled = await Promise.allSettled(selectedCards.map(runCard));
-  return settled.map((s, i) =>
-    s.status === 'fulfilled'
-      ? s.value
-      : {
-          cardName: selectedCards[i],
-          status: 'failed' as const,
-          error: s.reason instanceof Error ? s.reason.message : String(s.reason),
-          durationMs: 0,
-          model: 'n/a',
-        },
-  );
+  // Phase 2.5 — one batched Haiku audit for all rendered cards.
+  if (batchValidate) {
+    const batchInputs: BatchValidationInput<unknown>[] = results
+      .filter((r) => r.status === 'rendered' && cardPacks.has(r.cardName))
+      .map((r) => ({
+        cardName: r.cardName,
+        draft: r.data,
+        pack: cardPacks.get(r.cardName)!,
+      }));
+    if (batchInputs.length > 0) {
+      const batchStart = Date.now();
+      const validated = await validateCardsBatch(batchInputs);
+      const batchDurationMs = Date.now() - batchStart;
+      for (const r of results) {
+        if (r.status !== 'rendered') continue;
+        const v = validated[r.cardName];
+        if (!v) continue;
+        r.data = v.validated;
+        r.claimsRejected = v.rejected;
+        emitTelemetry({
+          event: 'card.validate.end',
+          runId: input.runId,
+          userId: input.userId,
+          section: input.section,
+          card: r.cardName,
+          durationMs: batchDurationMs,
+          extra: {
+            rejectedCount: v.rejected?.length ?? 0,
+            confidence: v.confidence,
+            batched: true,
+          },
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 function parseAllowList(csv: string | undefined): Set<string> | null {
@@ -194,10 +344,20 @@ workerBus.on('wiki:section-complete', async (payload) => {
   });
   const tasks = results.map(async (r) => {
     if (r.status === 'rendered') {
+      const writeStart = Date.now();
       await writeIntelligenceCard({
         userId: payload.userId,
         runId: payload.runId,
         card: r,
+      });
+      emitTelemetry({
+        event: 'card.write',
+        runId: payload.runId,
+        userId: payload.userId,
+        section: payload.section,
+        card: r.cardName,
+        durationMs: Date.now() - writeStart,
+        model: r.model,
       });
       workerBus.emit('card:rendered', {
         userId: payload.userId,
