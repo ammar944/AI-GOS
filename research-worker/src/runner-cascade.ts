@@ -26,6 +26,7 @@ import {
 } from './runner';
 import { finalizeRunnerResult } from './contracts';
 import type { ResearchResult } from './supabase';
+import { maybeCachedSystem } from './utils/prompt-cache';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -149,7 +150,7 @@ export async function runCascadeToolAttempt(
         max_tokens: config.maxTokens,
         stream: true,
         tools: config.tools as Parameters<typeof client.beta.messages.toolRunner>[0]['tools'],
-        system: config.system,
+        system: maybeCachedSystem(config.system) as Parameters<typeof client.beta.messages.toolRunner>[0]['system'],
         messages: [{ role: 'user', content: config.userMessage }],
       });
       return Promise.race([
@@ -195,7 +196,7 @@ export async function runCascadeMessageAttempt(
         client.messages.create({
           model: config.model,
           max_tokens: config.maxTokens,
-          system: config.system,
+          system: maybeCachedSystem(config.system) as Parameters<typeof client.messages.create>[0]['system'],
           messages: [{ role: 'user', content: config.userMessage }],
         }),
         new Promise<never>((_, reject) =>

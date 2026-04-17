@@ -1,0 +1,58 @@
+/**
+ * Anthropic prompt-caching helper (Phase 1.1).
+ *
+ * When RESEARCH_PROMPT_CACHE=true and the system prompt is large enough to
+ * cross the cache min-token threshold (~1024 chars ≈ 250 tokens is our rough
+ * gate), wrap the system string as a cached block. Otherwise pass-through as
+ * a plain string.
+ *
+ * Cache TTL defaults to '1h' for system prompts (reused across primary/
+ * repair/rescue attempts and across runners within one pipeline). Use '5m'
+ * for context blocks that turn over faster.
+ *
+ * Quality-neutral: same content, same tokens received by the model.
+ * Telemetry tracks cache_read_input_tokens / cache_creation_input_tokens
+ * (already exposed by buildRunnerTelemetry in ../telemetry.ts).
+ */
+
+export type EphemeralTtl = '5m' | '1h';
+
+export interface CachedTextBlock {
+  type: 'text';
+  text: string;
+  cache_control?: { type: 'ephemeral'; ttl?: EphemeralTtl };
+}
+
+const MIN_CACHE_CHARS = 1024;
+
+/**
+ * Return the system argument as-is (string) unless caching is enabled AND the
+ * prompt is long enough. When enabled, returns a single-element block array
+ * with cache_control attached.
+ */
+export function maybeCachedSystem(
+  system: string,
+  ttl: EphemeralTtl = '1h',
+): string | CachedTextBlock[] {
+  if (process.env.RESEARCH_PROMPT_CACHE !== 'true') return system;
+  if (!system || system.length < MIN_CACHE_CHARS) return system;
+  return [
+    {
+      type: 'text',
+      text: system,
+      cache_control: { type: 'ephemeral', ttl },
+    },
+  ];
+}
+
+/**
+ * For callers that always want block form (e.g., when they already have other
+ * structured system blocks). The block gets cache_control when the flag is on.
+ */
+export function systemBlock(text: string, ttl: EphemeralTtl = '1h'): CachedTextBlock {
+  const block: CachedTextBlock = { type: 'text', text };
+  if (process.env.RESEARCH_PROMPT_CACHE === 'true' && text.length >= MIN_CACHE_CHARS) {
+    block.cache_control = { type: 'ephemeral', ttl };
+  }
+  return block;
+}

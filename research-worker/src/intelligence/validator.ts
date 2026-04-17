@@ -99,3 +99,122 @@ Audit the DRAFT. Return the validated JSON.`;
     return { validated: draft, rejected: ['validator_error'], confidence: 50 };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Batch validator (Phase 2.5)
+//
+// Collapses up to N card-audit calls into a single Haiku request. Same auditor
+// semantics per card; the model returns an object keyed by cardName. Falls
+// back to per-card validation on parse failure so behavior degrades gracefully.
+//
+// Enable with INTELLIGENCE_VALIDATOR_BATCH=true. Dispatcher routes here when
+// the flag is set; otherwise it keeps calling validateCardClaims per card.
+// ---------------------------------------------------------------------------
+
+export interface BatchValidationInput<T> {
+  cardName: string;
+  draft: T;
+  pack: EvidencePack;
+}
+
+export type BatchValidationOutput<T> = Record<string, ValidationResult<T>>;
+
+export async function validateCardsBatch<T>(
+  inputs: BatchValidationInput<T>[],
+  deps: ValidatorDeps = {},
+): Promise<BatchValidationOutput<T>> {
+  if (process.env.INTELLIGENCE_VALIDATOR === 'false') {
+    const out: BatchValidationOutput<T> = {};
+    for (const i of inputs) {
+      out[i.cardName] = { validated: i.draft, rejected: [], confidence: 100 };
+    }
+    return out;
+  }
+
+  if (inputs.length === 0) return {};
+
+  const nonEmpty = inputs.filter((i) => i.pack.entries.length > 0);
+  if (nonEmpty.length === 0) {
+    const out: BatchValidationOutput<T> = {};
+    for (const i of inputs) {
+      out[i.cardName] = { validated: i.draft, rejected: ['no_evidence_available'], confidence: 0 };
+    }
+    return out;
+  }
+
+  const client = deps.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const system = `You are a claims auditor for marketing research synthesis, running a batch audit.
+
+You will receive multiple CARDS, each with its own EVIDENCE PACK and DRAFT JSON.
+For each card:
+1. Confirm each claim cites at least one evidenceId from its EVIDENCE PACK.
+2. Confirm the cited evidence actually supports the claim.
+3. Reject claims that fail either check.
+
+Return STRICT JSON only, keyed by cardName:
+{
+  "<cardName1>": { "validated": <draft with unsupported claims removed>, "rejected": [...], "confidence": 0-100 },
+  "<cardName2>": { ... },
+  ...
+}
+
+Confidence per card = overall evidence coverage for that card. Do not mix evidence across cards.`;
+
+  const userParts = nonEmpty.map((i) =>
+    `=== CARD: ${i.cardName} ===\n\nEVIDENCE PACK:\n${formatEvidencePack(i.pack)}\n\nDRAFT:\n${JSON.stringify(i.draft, null, 2)}`,
+  );
+  const user = `Audit the following ${nonEmpty.length} card(s). Return the batched JSON.\n\n${userParts.join('\n\n')}`;
+
+  try {
+    const response = await client.messages.create({
+      model: MODELS.FAST,
+      max_tokens: 8192,
+      system,
+      messages: [{ role: 'user', content: user }],
+    });
+
+    const textBlock = response.content.findLast((b) => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
+      return fallbackPerCard(inputs, deps);
+    }
+
+    const parsed = extractJsonObject(textBlock.text);
+    if (!parsed || typeof parsed !== 'object') {
+      return fallbackPerCard(inputs, deps);
+    }
+
+    const obj = parsed as Record<string, unknown>;
+    const out: BatchValidationOutput<T> = {};
+    for (const i of inputs) {
+      const cardOut = obj[i.cardName];
+      if (!cardOut || typeof cardOut !== 'object') {
+        // Missing this card in the batch response — degrade to draft passthrough.
+        out[i.cardName] = { validated: i.draft, rejected: ['validator_batch_missing'], confidence: 50 };
+        continue;
+      }
+      const c = cardOut as Record<string, unknown>;
+      out[i.cardName] = {
+        validated: (c.validated as T) ?? i.draft,
+        rejected: Array.isArray(c.rejected) ? (c.rejected as string[]) : [],
+        confidence: typeof c.confidence === 'number' ? c.confidence : 50,
+      };
+    }
+    return out;
+  } catch (err) {
+    console.warn('[validator:batch] non-fatal failure, falling back to per-card:', err);
+    return fallbackPerCard(inputs, deps);
+  }
+}
+
+async function fallbackPerCard<T>(
+  inputs: BatchValidationInput<T>[],
+  deps: ValidatorDeps,
+): Promise<BatchValidationOutput<T>> {
+  const entries = await Promise.all(
+    inputs.map(async (i) => [i.cardName, await validateCardClaims(i.cardName, i.draft, i.pack, deps)] as const),
+  );
+  const out: BatchValidationOutput<T> = {};
+  for (const [k, v] of entries) out[k] = v;
+  return out;
+}

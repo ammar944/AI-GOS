@@ -13,6 +13,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ZodTypeAny, z } from 'zod';
 import { runWithBackoff } from '../../runner';
+import { maybeCachedSystem } from '../../utils/prompt-cache';
 
 export interface CardLLMParams {
   model: string;
@@ -34,7 +35,7 @@ export async function callCardLLM(params: CardLLMParams): Promise<string> {
     () => client.messages.create({
       model: params.model,
       max_tokens: params.maxTokens,
-      system: params.system,
+      system: maybeCachedSystem(params.system) as Parameters<typeof client.messages.create>[0]['system'],
       messages: [{ role: 'user', content: params.user }],
     }),
     'callCardLLM',
