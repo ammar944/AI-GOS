@@ -236,17 +236,37 @@ export function isAdvertiserMatch(
   // When the company name is short and we have a verified domain, an ad URL
   // that points to a different domain is a hard reject — even if the name
   // matches exactly, the URL is the strongest disambiguator we have.
+  //
+  // Exception (2026-04-17 fix): when the URL is an ad-library/transparency-
+  // portal URL (linkedin.com/ad-library/..., facebook.com/ads/library/...,
+  // adstransparency.google.com/...), it's a pointer from the platform back
+  // to the ad record itself, NOT a redirect to the advertiser. Those URLs
+  // never contain the advertiser's domain, so the guard previously rejected
+  // 100% of LinkedIn ads for short-named advertisers (e.g. Fathom, Gong,
+  // Avoma). Skip the guard for those hosts and let name matching handle it.
+  // Detect ad-library / transparency-portal URLs by PATH (not host alone) so
+  // we still enforce the guard on redirect URLs like
+  // "linkedin.com/redirect?url=https%3A%2F%2Fcompetitor.io". Those have the
+  // same linkedin.com host but an embedded redirect target we MUST check.
+  const AD_LIBRARY_PATH_PATTERNS = /\/ad[-_]library\/|\/ads\/library\/|\/advertiser\//i;
   const compLenForGuard = compNorm.replace(/\s+/g, '').length;
   if (compLenForGuard <= 6 && domain && adUrl) {
     const url = adUrl.toLowerCase();
     const dom = normalizeDomain(domain).toLowerCase();
     let decodedUrl: string;
     try { decodedUrl = decodeURIComponent(url); } catch { decodedUrl = url; }
-    if (url.length > 0 && !decodedUrl.includes(dom)) {
-      // URL is non-empty AND doesn't contain our verified domain — reject
+    const isAdLibraryUrl = AD_LIBRARY_PATH_PATTERNS.test(decodedUrl);
+    if (url.length > 0 && !isAdLibraryUrl && !decodedUrl.includes(dom)) {
+      // URL is non-empty, NOT an ad-library/transparency URL, AND doesn't
+      // contain our verified domain — reject. This still catches LinkedIn
+      // redirect URLs (linkedin.com/redirect?url=competitor.io) whose encoded
+      // target is wrong, but allows ad-library pointer URLs
+      // (linkedin.com/ad-library/detail/123) which never contain the
+      // advertiser's domain by design.
       return false;
     }
-    // URL is empty or contains our domain — fall through to name checks
+    // URL is empty, an ad-library URL, or contains our domain — fall through
+    // to name checks.
   }
 
   // Layer 1: Exact match after normalization

@@ -45,6 +45,22 @@ describe('isAdvertiserMatch', () => {
       isAdvertiserMatch('Gong', 'Gong', 'gong.io', 'https://linkedin.com/redirect?url=https%3A%2F%2Fcompetitor%2Eio'),
     ).toBe(false);
   });
+
+  it('accepts ad-library pointer URLs even when they do not contain the advertiser domain', () => {
+    // LinkedIn ad-library URLs are pointers to the ad record, not redirects
+    // to the advertiser. They never contain the advertiser's domain. The
+    // short-name URL guard used to reject these wholesale, which zeroed out
+    // all LinkedIn ads for short-named advertisers like Fathom, Gong, Avoma.
+    expect(
+      isAdvertiserMatch('Fathom', 'Fathom', 'fathomthat.ai', 'https://www.linkedin.com/ad-library/detail/1216503643'),
+    ).toBe(true);
+    expect(
+      isAdvertiserMatch('Gong', 'Gong', 'gong.io', 'https://www.facebook.com/ads/library/?id=123'),
+    ).toBe(true);
+    expect(
+      isAdvertiserMatch('Atlas', 'Atlas', 'atlas.co', 'https://adstransparency.google.com/advertiser/AR987'),
+    ).toBe(true);
+  });
 });
 
 describe('normalizeSearchApiToCreatives', () => {

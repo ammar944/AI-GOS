@@ -12,8 +12,11 @@ import type { WorkerAdInsight } from '../tools/adlibrary-types';
 import type { CompetitorEntry } from './parse-context';
 
 // SearchAPI calls complete in 2-5s. Firecrawl + SpyFu may take up to 20s.
-// 30s is generous for the SearchAPI-only ad path + Firecrawl + SpyFu.
-const PARALLEL_TIMEOUT_MS = 45_000;
+// Bumped to 60s (was 45s) so the pricing path walker can explore all 5
+// paths + homepage fallback for 2+ enterprise-gated competitors in parallel
+// (Gong, Fathom-style) without the global timeout firing before reviews
+// finish scraping.
+const PARALLEL_TIMEOUT_MS = 60_000;
 
 // Maximum competitors to process — keeps API rate limits sane
 const MAX_COMPETITORS = 5;
@@ -164,8 +167,17 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
   // for enterprise products (Gong, Outreach, Drift, etc.) that never publish
   // list prices. Treat these as pricing intent when dollar amounts aren't
   // present, so downstream analysis gets "pricing is gated" rather than
-  // "pricing unavailable".
-  const ENTERPRISE_PRICING_SIGNALS = /contact (?:us for |sales for |our sales team|sales)|talk to sales|request (?:a )?(?:demo|quote|pricing)|get (?:a )?quote|custom pricing|enterprise pricing|book a demo/i;
+  // "pricing unavailable". Broadened (2026-04-17) after Gong's 11K-char
+  // pricing page still evaded the first pass — real pages use many variants.
+  const ENTERPRISE_PRICING_SIGNALS = /contact (?:us|sales|our (?:sales )?team)|talk to (?:us|sales|an expert|our team)|request (?:a )?(?:demo|quote|pricing|trial|consultation)|schedule (?:a )?(?:demo|call|consultation)|book (?:a )?(?:demo|call|consultation)|get (?:a )?(?:demo|quote|pricing)|custom pricing|enterprise pricing|tailored pricing|pricing (?:is )?(?:based on|tailored|customized)|see pricing|unlock pricing|reach out (?:to (?:us|sales|our team))?|let'?s talk/i;
+  // Substantial-content heuristic: if the primary /pricing path returns a
+  // long page (>= 4 kB) with actual paragraphs, treat that page as the
+  // definitive pricing surface and stop trying fallback paths — those
+  // fallbacks almost always 404 (200 with 238-char SPA shell) and just burn
+  // our parallel-fetch budget. Gong's /pricing returned 11K+ chars; Fathom's
+  // /pricing returned 462 chars (definitely not substantial). This kills a
+  // ton of wasted Firecrawl calls per run without sacrificing signal.
+  const SUBSTANTIAL_PAGE_MIN_CHARS = 4_000;
 
   for (const path of pricingPaths) {
     const url = `https://${competitor.domain}${path}`;
@@ -212,6 +224,21 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
             pricingMarkdown: extractPricingWindow(md, 4000),
             success: true,
             error: 'Pricing gated behind contact-sales / request-demo',
+          };
+        }
+        // If this was the primary /pricing path AND the page is substantial,
+        // treat it as authoritative even without explicit pricing/gate signals.
+        // Stops 4 × ~3s wasted Firecrawl calls trying /plans, /packages,
+        // /pricing-plans, /pricing-details (which all 404 to a 238-char SPA
+        // shell on most marketing sites).
+        if (path === '/pricing' && md.trim().length >= SUBSTANTIAL_PAGE_MIN_CHARS) {
+          console.log(`[pricing] ${competitor.name} /pricing: substantial page (${md.length} chars) but no explicit signals — using it anyway`);
+          return {
+            competitorName: competitor.name,
+            domain: competitor.domain,
+            pricingMarkdown: extractPricingWindow(md, 6000),
+            success: true,
+            error: 'Pricing page found but signals unclear — downstream model should infer tier structure from content',
           };
         }
         // Page exists but no dollar amounts and no enterprise gate — try next path
