@@ -499,3 +499,142 @@ describe('parseResearchToCards — mediaPlan charts', () => {
     expect(cards).toHaveLength(0);
   });
 });
+
+describe('parseResearchToCards — Phase 6.3 *Intel fallback wiring', () => {
+  it('prefers opportunityIntel over raw marketOpportunities when present', () => {
+    const cards = parseResearchToCards(
+      'industryMarket',
+      {
+        marketOpportunities: [{ opportunity: 'raw-fallback', size: 'small', timing: 'now', difficulty: 'low' }],
+      },
+      {
+        opportunityIntel: {
+          opportunities: [
+            {
+              value: { opportunity: 'intel-wins', size: 'large', timing: 'now', difficulty: 'medium' },
+              evidenceIds: ['market_trends#1'],
+              confidence: 80,
+            },
+          ],
+        },
+      },
+    );
+    const oppCard = cards.find((c) => c.cardType === 'opportunity-card');
+    expect(oppCard).toBeDefined();
+    const opps = oppCard!.content.opportunities as Array<{ opportunity: string }>;
+    expect(opps[0].opportunity).toBe('intel-wins');
+    expect(opps.find((o) => o.opportunity === 'raw-fallback')).toBeUndefined();
+  });
+
+  it('falls back to raw marketOpportunities when opportunityIntel is absent', () => {
+    const cards = parseResearchToCards('industryMarket', {
+      marketOpportunities: [{ opportunity: 'raw-wins', size: 'small', timing: 'now', difficulty: 'low' }],
+    });
+    const oppCard = cards.find((c) => c.cardType === 'opportunity-card');
+    expect(oppCard).toBeDefined();
+    const opps = oppCard!.content.opportunities as Array<{ opportunity: string }>;
+    expect(opps[0].opportunity).toBe('raw-wins');
+  });
+
+  it('prefers whiteSpaceGapIntel over raw whiteSpaceGaps when present', () => {
+    const cards = parseResearchToCards(
+      'competitors',
+      { whiteSpaceGaps: [{ gap: 'raw-gap', type: 'feature' }] },
+      {
+        whiteSpaceGapIntel: {
+          gaps: [
+            {
+              value: { gap: 'intel-gap', targetCompetitor: 'Acme', type: 'positioning', ourAdvantage: 'better-ux' },
+              evidenceIds: ['competitor_weakness#1'],
+              confidence: 75,
+            },
+          ],
+        },
+      },
+    );
+    const gapCard = cards.find((c) => c.cardType === 'gap-card');
+    expect(gapCard).toBeDefined();
+    const gaps = gapCard!.content.gaps as Array<{ gap: string; evidence?: string }>;
+    expect(gaps[0].gap).toBe('intel-gap');
+    expect(gaps[0].evidence).toBe('better-ux');
+  });
+
+  it('prefers offerStatementIntel over raw generatedOfferStatements when present', () => {
+    const cards = parseResearchToCards(
+      'offerAnalysis',
+      { generatedOfferStatements: [{ type: 'headline', statement: 'raw-statement' }] },
+      {
+        offerStatementIntel: {
+          statements: [
+            {
+              value: { type: 'hero', statement: 'intel-statement', rationale: 'data-driven' },
+              evidenceIds: ['offer_pain#1'],
+              confidence: 70,
+            },
+          ],
+        },
+      },
+    );
+    const stmtCard = cards.find((c) => c.cardType === 'offer-statement-list');
+    expect(stmtCard).toBeDefined();
+    const statements = stmtCard!.content.statements as Array<{ statement: string }>;
+    expect(statements[0].statement).toBe('intel-statement');
+  });
+
+  it('prefers strategicSynthesisIntel readiness + actions over raw keys when present', () => {
+    const cards = parseResearchToCards(
+      'crossAnalysis',
+      {
+        readinessScorecard: {
+          dimensions: [{ name: 'raw-dim', score: 1, summary: 'raw' }],
+          overallScore: 1,
+          verdict: 'raw',
+        },
+        topActions: { actions: [{ action: 'raw-action', source: 'raw', priority: 'low' }] },
+      },
+      {
+        strategicSynthesisIntel: {
+          readinessScorecard: {
+            dimensions: [{ dimension: 'Intel Market', score: 9, summary: 'strong', blockers: [] }],
+            overallScore: 9,
+            verdict: 'ship',
+          },
+          topActions: [
+            {
+              value: { action: 'intel-action', owner: 'cmo', timeline: 'Q1', impact: 'high' },
+              evidenceIds: ['synth#1'],
+              confidence: 90,
+            },
+          ],
+        },
+      },
+    );
+    const scorecard = cards.find((c) => c.cardType === 'readiness-scorecard');
+    expect(scorecard).toBeDefined();
+    expect(scorecard!.content.overallScore).toBe(9);
+    const dims = scorecard!.content.dimensions as Array<{ name: string }>;
+    expect(dims[0].name).toBe('Intel Market');
+
+    const actions = cards.find((c) => c.cardType === 'priority-actions');
+    expect(actions).toBeDefined();
+    const acts = actions!.content.actions as Array<{ action: string }>;
+    expect(acts[0].action).toBe('intel-action');
+  });
+
+  it('competitor review-card no longer emits gapIntelligence field (Phase 6.3 kill)', () => {
+    const cards = parseResearchToCards('competitors', {
+      competitors: [
+        {
+          name: 'Acme',
+          reviews: {
+            trustpilot: { rating: 4.0, reviewCount: 50, url: 'https://tp.example.com' },
+            gapIntelligence: { recurringComplaints: ['slow'], exploitAngles: [] },
+          },
+        },
+      ],
+    });
+    const review = cards.find((c) => c.cardType === 'review-card');
+    expect(review).toBeDefined();
+    expect(review!.content.gapIntelligence).toBeUndefined();
+  });
+});

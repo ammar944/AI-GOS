@@ -52,22 +52,46 @@ function makeCard(
   };
 }
 
-function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
+function parseIndustryMarket(
+  data: Record<string, unknown>,
+  opportunityIntel?: Record<string, unknown>,
+): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'industryMarket';
 
   // Intelligence: Market Opportunities
-  const opportunities = asRecordArray(data.marketOpportunities);
-  if (opportunities.length > 0) {
+  // Prefer opportunityIntel (Phase 6.2 synthesizer output) over raw data.marketOpportunities.
+  const intelOpportunities = opportunityIntel
+    ? asRecordArray(opportunityIntel.opportunities)
+    : [];
+  if (intelOpportunities.length > 0) {
     cards.push(makeCard(section, 'opportunity-card', 'Opportunities to Exploit', {
-      opportunities: opportunities.map((o) => ({
-        opportunity: asString(o.opportunity) ?? '',
-        size: asString(o.size) ?? 'medium',
-        timing: asString(o.timing) ?? 'now',
-        difficulty: asString(o.difficulty) ?? 'medium',
-        evidence: asString(o.evidence) ?? '',
-      })).filter((o) => o.opportunity),
+      opportunities: intelOpportunities
+        .map((item) => {
+          const value = asRecord(item.value) ?? {};
+          return {
+            opportunity: asString(value.opportunity) ?? '',
+            size: asString(value.size) ?? 'medium',
+            timing: asString(value.timing) ?? 'now',
+            difficulty: asString(value.difficulty) ?? 'medium',
+            evidence: asString(value.evidence) ?? '',
+          };
+        })
+        .filter((o) => o.opportunity),
     }, 'Actionable market gaps ranked by size, timing, and difficulty'));
+  } else {
+    const opportunities = asRecordArray(data.marketOpportunities);
+    if (opportunities.length > 0) {
+      cards.push(makeCard(section, 'opportunity-card', 'Opportunities to Exploit', {
+        opportunities: opportunities.map((o) => ({
+          opportunity: asString(o.opportunity) ?? '',
+          size: asString(o.size) ?? 'medium',
+          timing: asString(o.timing) ?? 'now',
+          difficulty: asString(o.difficulty) ?? 'medium',
+          evidence: asString(o.evidence) ?? '',
+        })).filter((o) => o.opportunity),
+      }, 'Actionable market gaps ranked by size, timing, and difficulty'));
+    }
   }
 
   // Category Snapshot StatGrid
@@ -155,7 +179,10 @@ function parseIndustryMarket(data: Record<string, unknown>): CardState[] {
 
 // -- Competitors ---------------------------------------------------------------
 
-function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
+function parseCompetitorIntel(
+  data: Record<string, unknown>,
+  whiteSpaceGapIntel?: Record<string, unknown>,
+): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'competitors';
 
@@ -295,9 +322,9 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
         }))
         .filter(r => r.text.length > 0);
 
-      const gapIntelligence = asRecord(reviews.gapIntelligence);
-
-      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link || hasCapterraData || hasCapterraLink || negativeReviews.length > 0 || gapIntelligence) {
+      // Phase 6.3: per-competitor gapIntelligence removed.
+      // whiteSpaceGapIntel (cross-competitor, evidence-cited) subsumes it.
+      if (hasTrustpilotData || hasTrustpilotLink || hasG2Data || hasG2Link || hasCapterraData || hasCapterraLink || negativeReviews.length > 0) {
         cards.push(makeCard(section, 'review-card', `${name} Reviews`, {
           competitorName: name,
           trustpilot: (hasTrustpilotData || hasTrustpilotLink) ? {
@@ -319,7 +346,6 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
             url: asString(capterra!.url),
           } : null,
           negativeReviews,
-          gapIntelligence: gapIntelligence ?? null,
           testimonials: asRecordArray(reviews.testimonials).map((t) => ({
             quote: asString(t.quote) ?? '',
             author: asString(t.author),
@@ -334,25 +360,53 @@ function parseCompetitorIntel(data: Record<string, unknown>): CardState[] {
   }
 
   // White-Space Gaps (consolidated into one card)
-  const gaps = asRecordArray(data.whiteSpaceGaps);
-  const gapItems = gaps
-    .map((gap) => {
-      const gapName = asString(gap.gap);
-      if (!gapName) return null;
-      return {
-        gap: gapName,
-        type: asString(gap.type),
-        evidence: asString(gap.evidence),
-        exploitability: asNumber(gap.exploitability),
-        impact: asNumber(gap.impact),
-        recommendedAction: asString(gap.recommendedAction),
-      };
-    })
-    .filter((g): g is NonNullable<typeof g> => g !== null);
-  if (gapItems.length > 0) {
-    cards.push(makeCard(section, 'gap-card', 'White-Space Gaps', {
-      gaps: gapItems,
-    }, 'Underserved market positions no competitor currently owns'));
+  // Prefer whiteSpaceGapIntel (Phase 6.2 synthesizer output) over raw data.whiteSpaceGaps.
+  const intelGaps = whiteSpaceGapIntel
+    ? asRecordArray(whiteSpaceGapIntel.gaps)
+    : [];
+  if (intelGaps.length > 0) {
+    const intelGapItems = intelGaps
+      .map((item) => {
+        const value = asRecord(item.value) ?? {};
+        const gapName = asString(value.gap);
+        if (!gapName) return null;
+        return {
+          gap: gapName,
+          type: asString(value.type),
+          // Map ourAdvantage into evidence (per Phase 6.3 spec)
+          evidence: asString(value.ourAdvantage),
+          exploitability: asNumber(value.exploitability),
+          impact: asNumber(value.impact),
+          recommendedAction: asString(value.recommendedAction),
+        };
+      })
+      .filter((g): g is NonNullable<typeof g> => g !== null);
+    if (intelGapItems.length > 0) {
+      cards.push(makeCard(section, 'gap-card', 'White-Space Gaps', {
+        gaps: intelGapItems,
+      }, 'Underserved market positions no competitor currently owns'));
+    }
+  } else {
+    const gaps = asRecordArray(data.whiteSpaceGaps);
+    const gapItems = gaps
+      .map((gap) => {
+        const gapName = asString(gap.gap);
+        if (!gapName) return null;
+        return {
+          gap: gapName,
+          type: asString(gap.type),
+          evidence: asString(gap.evidence),
+          exploitability: asNumber(gap.exploitability),
+          impact: asNumber(gap.impact),
+          recommendedAction: asString(gap.recommendedAction),
+        };
+      })
+      .filter((g): g is NonNullable<typeof g> => g !== null);
+    if (gapItems.length > 0) {
+      cards.push(makeCard(section, 'gap-card', 'White-Space Gaps', {
+        gaps: gapItems,
+      }, 'Underserved market positions no competitor currently owns'));
+    }
   }
 
   // Cross-Competitor Review Analysis
@@ -497,7 +551,10 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
 
 // -- Offer Analysis ------------------------------------------------------------
 
-function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
+function parseOfferAnalysis(
+  data: Record<string, unknown>,
+  offerStatementIntel?: Record<string, unknown>,
+): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'offerAnalysis';
 
@@ -596,16 +653,36 @@ function parseOfferAnalysis(data: Record<string, unknown>): CardState[] {
   }
 
   // Generated Offer Statements (intelligence feature)
-  const offerStatements = asRecordArray(data.generatedOfferStatements);
-  if (offerStatements.length > 0) {
+  // Prefer offerStatementIntel (Phase 6.2 synthesizer output) over raw data.generatedOfferStatements.
+  const intelStatements = offerStatementIntel
+    ? asRecordArray(offerStatementIntel.statements)
+    : [];
+  if (intelStatements.length > 0) {
     cards.push(makeCard(section, 'offer-statement-list', 'Generated Offer Statements', {
-      statements: offerStatements.map((s) => ({
-        type: asString(s.type) || 'headline',
-        statement: asString(s.statement),
-        rationale: asString(s.rationale),
-        targetEmotion: asString(s.targetEmotion),
-      })).filter((s) => s.statement),
+      statements: intelStatements
+        .map((item) => {
+          const value = asRecord(item.value) ?? {};
+          return {
+            type: asString(value.type) || 'headline',
+            statement: asString(value.statement),
+            rationale: asString(value.rationale),
+            targetEmotion: asString(value.targetEmotion),
+          };
+        })
+        .filter((s) => s.statement),
     }, 'AI-generated headlines and hooks ready to test in ad copy'));
+  } else {
+    const offerStatements = asRecordArray(data.generatedOfferStatements);
+    if (offerStatements.length > 0) {
+      cards.push(makeCard(section, 'offer-statement-list', 'Generated Offer Statements', {
+        statements: offerStatements.map((s) => ({
+          type: asString(s.type) || 'headline',
+          statement: asString(s.statement),
+          rationale: asString(s.rationale),
+          targetEmotion: asString(s.targetEmotion),
+        })).filter((s) => s.statement),
+      }, 'AI-generated headlines and hooks ready to test in ad copy'));
+    }
   }
 
   // ICE-scored fixes (intelligence feature)
@@ -728,40 +805,88 @@ function parseKeywordIntel(data: Record<string, unknown>): CardState[] {
 
 // -- Cross Analysis (Strategic Synthesis) --------------------------------------
 
-function parseCrossAnalysis(data: Record<string, unknown>): CardState[] {
+function parseCrossAnalysis(
+  data: Record<string, unknown>,
+  strategicSynthesisIntel?: Record<string, unknown>,
+): CardState[] {
   const cards: CardState[] = [];
   const section: SectionKey = 'crossAnalysis';
 
   // Intelligence: Readiness Scorecard
-  const scorecard = asRecord(data.readinessScorecard);
-  if (scorecard) {
-    const dims = asRecordArray(scorecard.dimensions);
+  // Prefer strategicSynthesisIntel.readinessScorecard (Phase 6.2 synthesizer output).
+  // Intel shape: dimensions[].dimension (mapped to name), score, summary, blockers
+  const intelScorecard = strategicSynthesisIntel
+    ? asRecord(strategicSynthesisIntel.readinessScorecard)
+    : null;
+  if (intelScorecard) {
+    const dims = asRecordArray(intelScorecard.dimensions);
     if (dims.length > 0) {
       cards.push(makeCard(section, 'readiness-scorecard', 'Media Launch Readiness', {
-        overallScore: asNumber(scorecard.overallScore) ?? 0,
-        verdict: asString(scorecard.verdict) ?? 'needs-work',
-        verdictLabel: asString(scorecard.verdictLabel) ?? 'Needs assessment',
-        dimensions: dims.map((d) => ({
-          name: asString(d.name) ?? '',
-          score: asNumber(d.score) ?? 0,
-          summary: asString(d.summary) ?? '',
-        })).filter((d) => d.name),
+        overallScore: asNumber(intelScorecard.overallScore) ?? 0,
+        verdict: asString(intelScorecard.verdict) ?? 'needs-work',
+        verdictLabel: asString(intelScorecard.verdictLabel) ?? 'Needs assessment',
+        dimensions: dims
+          .map((d) => ({
+            // Intel schema uses `dimension`; fall back to `name` for safety
+            name: asString(d.dimension) ?? asString(d.name) ?? '',
+            score: asNumber(d.score) ?? 0,
+            summary: asString(d.summary) ?? '',
+          }))
+          .filter((d) => d.name),
       }, 'Overall paid media readiness score across market, offer, audience, and creative dimensions'));
+    }
+  } else {
+    const scorecard = asRecord(data.readinessScorecard);
+    if (scorecard) {
+      const dims = asRecordArray(scorecard.dimensions);
+      if (dims.length > 0) {
+        cards.push(makeCard(section, 'readiness-scorecard', 'Media Launch Readiness', {
+          overallScore: asNumber(scorecard.overallScore) ?? 0,
+          verdict: asString(scorecard.verdict) ?? 'needs-work',
+          verdictLabel: asString(scorecard.verdictLabel) ?? 'Needs assessment',
+          dimensions: dims.map((d) => ({
+            name: asString(d.name) ?? '',
+            score: asNumber(d.score) ?? 0,
+            summary: asString(d.summary) ?? '',
+          })).filter((d) => d.name),
+        }, 'Overall paid media readiness score across market, offer, audience, and creative dimensions'));
+      }
     }
   }
 
   // Intelligence: Top Actions
-  const topActions = asRecord(data.topActions);
-  if (topActions) {
-    const actions = asRecordArray(topActions.actions);
-    if (actions.length > 0) {
-      cards.push(makeCard(section, 'priority-actions', 'Top Actions', {
-        actions: actions.map((a) => ({
-          action: asString(a.action) ?? '',
-          source: asString(a.source) ?? '',
-          priority: asString(a.priority) ?? 'medium',
-        })).filter((a) => a.action),
-      }, 'Highest-leverage actions to take before launching your first campaign'));
+  // Prefer strategicSynthesisIntel.topActions (Phase 6.2 synthesizer output).
+  // Intel shape: array at top level with { value: { action, owner?, timeline?, impact? }, evidenceIds, confidence }
+  const intelTopActions = strategicSynthesisIntel
+    ? asRecordArray(strategicSynthesisIntel.topActions)
+    : [];
+  if (intelTopActions.length > 0) {
+    cards.push(makeCard(section, 'priority-actions', 'Top Actions', {
+      actions: intelTopActions
+        .map((item) => {
+          const value = asRecord(item.value) ?? {};
+          return {
+            action: asString(value.action) ?? '',
+            // Intel schema has owner/timeline/impact; map impact to priority for card compatibility.
+            source: asString(value.owner) ?? asString(value.timeline) ?? '',
+            priority: asString(value.impact) ?? 'medium',
+          };
+        })
+        .filter((a) => a.action),
+    }, 'Highest-leverage actions to take before launching your first campaign'));
+  } else {
+    const topActions = asRecord(data.topActions);
+    if (topActions) {
+      const actions = asRecordArray(topActions.actions);
+      if (actions.length > 0) {
+        cards.push(makeCard(section, 'priority-actions', 'Top Actions', {
+          actions: actions.map((a) => ({
+            action: asString(a.action) ?? '',
+            source: asString(a.source) ?? '',
+            priority: asString(a.priority) ?? 'medium',
+          })).filter((a) => a.action),
+        }, 'Highest-leverage actions to take before launching your first campaign'));
+      }
     }
   }
 
@@ -1123,20 +1248,26 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
 export function parseResearchToCards(
   section: SectionKey,
   data: Record<string, unknown>,
+  intelData?: {
+    opportunityIntel?: Record<string, unknown>;
+    whiteSpaceGapIntel?: Record<string, unknown>;
+    offerStatementIntel?: Record<string, unknown>;
+    strategicSynthesisIntel?: Record<string, unknown>;
+  },
 ): CardState[] {
   switch (section) {
     case 'industryMarket':
-      return parseIndustryMarket(data);
+      return parseIndustryMarket(data, intelData?.opportunityIntel);
     case 'competitors':
-      return parseCompetitorIntel(data);
+      return parseCompetitorIntel(data, intelData?.whiteSpaceGapIntel);
     case 'icpValidation':
       return parseICPValidation(data);
     case 'offerAnalysis':
-      return parseOfferAnalysis(data);
+      return parseOfferAnalysis(data, intelData?.offerStatementIntel);
     case 'keywordIntel':
       return parseKeywordIntel(data);
     case 'crossAnalysis':
-      return parseCrossAnalysis(data);
+      return parseCrossAnalysis(data, intelData?.strategicSynthesisIntel);
     case 'mediaPlan':
       return parseMediaPlan(data);
     default:

@@ -17,7 +17,6 @@ import { parseCompetitorContext } from './parse-context';
 import { fetchSonarCompetitorResearch, type SonarCompetitorResult } from './sonar-research';
 import { fetchAllCompetitorData, type ParallelFetchResults } from './parallel-fetch';
 import { synthesizeCompetitorIntel, postProcessSynthesis, type SynthesisInput } from './synthesize';
-import { analyzeReviewGaps } from './review-gap-intelligence';
 import { MODELS } from '../models';
 import { analyzeReviewCrossPatterns } from './review-cross-analysis';
 
@@ -38,7 +37,6 @@ interface PipelineResult {
   fetchDurationMs: number;
   synthesisDurationMs: number;
   synthInput: SynthesisInput;
-  gapIntelligence: Record<string, import('./review-gap-intelligence').CompetitorGapIntelligence> | null;
   crossAnalysis: import('./review-cross-analysis').ReviewCrossAnalysis | null;
   competitorSources: CompetitorSourceTag[];
 }
@@ -172,18 +170,19 @@ async function runPipeline(
     ...(entry.domain ? { domain: entry.domain } : {}),
   }));
 
-  // Phase 2: Synthesis + gap intelligence in parallel
+  // Phase 2: Synthesis + cross-review pattern analysis in parallel.
+  // Per-competitor gap intelligence was removed in Phase 6.3 — the new
+  // whiteSpaceGapIntel card (cross-competitor, evidence-cited) subsumes it.
   const synthesisStart = Date.now();
   const synthInput: SynthesisInput = { parsed, fetchResults, sonarResults };
-  const [synthesisResult, gapIntelligence, crossAnalysis] = await Promise.all([
+  const [synthesisResult, crossAnalysis] = await Promise.all([
     runSynthesis(synthInput, onProgress),
-    analyzeReviewGaps(fetchResults.reviews, parsed.companyName ?? '').catch(() => null),
     analyzeReviewCrossPatterns(fetchResults.reviews).catch(() => null),
   ]);
   const { resultText, stopReason } = synthesisResult;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
-  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, gapIntelligence, crossAnalysis, competitorSources };
+  return { resultText, stopReason, fetchDurationMs, synthesisDurationMs, synthInput, crossAnalysis, competitorSources };
 }
 
 /**
@@ -229,7 +228,6 @@ export async function runResearchCompetitors(
       postProcessSynthesis(
         parsed as Record<string, unknown>,
         pipelineResult.synthInput,
-        pipelineResult.gapIntelligence,
         pipelineResult.crossAnalysis,
         pipelineResult.competitorSources,
       );

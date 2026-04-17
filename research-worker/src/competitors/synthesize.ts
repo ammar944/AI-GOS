@@ -359,7 +359,6 @@ export async function synthesizeCompetitorIntel(
 function injectReviews(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
-  gapIntelligence?: Record<string, unknown> | null,
 ): void {
   const competitors = parsed.competitors;
   if (!Array.isArray(competitors)) return;
@@ -427,21 +426,10 @@ function injectReviews(
       reviews.testimonialPages = reviewResult.testimonialPages;
     }
 
-    // Inject gap intelligence if available for this competitor
-    if (gapIntelligence) {
-      const gapKey = Object.keys(gapIntelligence).find(
-        k => k.toLowerCase() === name.toLowerCase(),
-      );
-      if (gapKey) {
-        reviews.gapIntelligence = gapIntelligence[gapKey];
-      }
-    }
-
     // Only inject if we actually have data from at least one source
     const hasAnyReviewData = reviews.trustpilot || reviews.g2 || reviews.capterra
       || (reviewResult.negativeReviews?.length ?? 0) > 0
-      || (reviewResult.testimonials?.length ?? 0) > 0
-      || reviews.gapIntelligence;
+      || (reviewResult.testimonials?.length ?? 0) > 0;
     if (hasAnyReviewData) {
       c.reviews = reviews;
       console.log(`[injectReviews] injected reviews for "${name}":`, JSON.stringify(reviews).slice(0, 500));
@@ -458,12 +446,11 @@ function injectReviews(
 export function postProcessSynthesis(
   parsed: Record<string, unknown>,
   input: SynthesisInput,
-  gapIntelligence?: Record<string, unknown> | null,
   crossAnalysis?: import('./review-cross-analysis').ReviewCrossAnalysis | null,
   competitorSources?: Array<{ name: string; source: 'user-provided' | 'ai-discovered'; domain?: string }> | null,
 ): void {
   injectLibraryLinks(parsed, input);
-  injectReviews(parsed, input, gapIntelligence);
+  injectReviews(parsed, input);
   if (crossAnalysis) {
     parsed.reviewCrossAnalysis = crossAnalysis;
     console.log(`[postProcess] injected reviewCrossAnalysis — ${crossAnalysis.commonWeaknesses.length} shared themes`);

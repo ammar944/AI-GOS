@@ -48,6 +48,27 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
         const results = json?.researchResults as Record<string, unknown> | null;
         if (!results) return;
 
+        // Phase 6.3: extract intelligence card synthesizer output once (shared across sections)
+        const typedResults = results as Record<string, { status?: string; data?: Record<string, unknown> } | undefined>;
+        const intelData = {
+          opportunityIntel:
+            typedResults?.opportunityIntel?.status === 'complete'
+              ? typedResults.opportunityIntel.data
+              : undefined,
+          whiteSpaceGapIntel:
+            typedResults?.whiteSpaceGapIntel?.status === 'complete'
+              ? typedResults.whiteSpaceGapIntel.data
+              : undefined,
+          offerStatementIntel:
+            typedResults?.offerStatementIntel?.status === 'complete'
+              ? typedResults.offerStatementIntel.data
+              : undefined,
+          strategicSynthesisIntel:
+            typedResults?.strategicSynthesisIntel?.status === 'complete'
+              ? typedResults.strategicSynthesisIntel.data
+              : undefined,
+        };
+
         // Hydrate section states + cards from Supabase for any section that has
         // complete data but whose workspace state is behind (queued/researching).
         for (const key of SECTION_PIPELINE) {
@@ -55,7 +76,7 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
           if (!entry || entry.status !== 'complete' || !entry.data) continue;
 
           const data = entry.data as Record<string, unknown>;
-          const cards = parseResearchToCards(key, data);
+          const cards = parseResearchToCards(key, data, intelData);
           if (cards.length > 0) {
             setCards(key, cards);
             setSectionPhase(key, 'review');

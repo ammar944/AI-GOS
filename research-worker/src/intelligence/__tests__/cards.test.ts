@@ -262,6 +262,16 @@ describe('synthesizeStrategicSynthesis', () => {
     expect(result.readinessScorecard.overallScore).toBe(7);
     expect(result.topActions).toHaveLength(1);
   });
+
+  it('throws GATED:empty_output when scorecard dimensions and topActions are both empty (Phase 6.3 gate)', async () => {
+    const client = mockAnthropicClient(
+      JSON.stringify({
+        readinessScorecard: { dimensions: [], overallScore: 0, verdict: 'insufficient data' },
+        topActions: [],
+      }),
+    );
+    await expect(synthesizeStrategicSynthesis(synthMockPack, { client })).rejects.toThrow('GATED:empty_output');
+  });
 });
 
 describe('callCardLLM truncation guard', () => {
