@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "description": "Seed golden set — add verified production runs here. Diverse by category.",
+  "urls": [
+    {
+      "slug": "fellow-ai",
+      "url": "https://fellow.app",
+      "category": "B2B SaaS",
+      "notes": "Meeting productivity tool — verified during the research-accuracy overhaul (2026-04-08)."
+    },
+    {
+      "slug": "saaslaunch",
+      "url": "https://saaslaunch.com",
+      "category": "B2B SaaS",
+      "notes": "Ad scripting baseline — source of 2026-03-22 baseline grade (C average, 39/70)."
+    }
+  ],
+  "targets": {
+    "fieldRecall": 0.90,
+    "minCitationsPerCard": 3,
+    "maxFabricationMatches": 0
+  }
+}
