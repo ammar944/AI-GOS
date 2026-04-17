@@ -90,7 +90,12 @@ import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
 import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-status';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
-import { dispatchResearchSection, dispatchWithIdentity } from '@/lib/journey/dispatch-client';
+import {
+  dispatchAllResearchParallel,
+  dispatchResearchSection,
+  dispatchWithIdentity,
+  WAVE_1_PARALLEL_SECTIONS,
+} from '@/lib/journey/dispatch-client';
 import { buildJourneyResearchContext } from '@/lib/journey/context-string';
 import { getNextSection } from '@/lib/workspace/pipeline';
 import { ProfileDropdown } from '@/components/journey/profile-dropdown';
@@ -1549,13 +1554,27 @@ function JourneyPageContent() {
           body: JSON.stringify({ sessionId: nextRunId }),
         }).catch(() => { /* non-critical */ });
 
-        addLog('run', 'Resolving product identity...');
-        return dispatchWithIdentity('industryMarket', nextRunId, context);
+        addLog('run', 'Resolving product identity + fanning out 4 agents in parallel...');
+        // Pre-register wave-1 sections so the per-section auto-advance handler
+        // doesn't try to re-dispatch them when each is approved.
+        for (const section of WAVE_1_PARALLEL_SECTIONS) {
+          dispatchedSectionsRef.current.add(section);
+        }
+        return dispatchAllResearchParallel(nextRunId, context);
       }).then((result) => {
-        if (result.status === 'error') {
-          addLog('err', `Market Overview dispatch failed: ${result.error ?? 'Unknown error'}`);
+        if (result.identity.status === 'error') {
+          addLog('err', `Identity dispatch failed: ${result.identity.error ?? 'Unknown error'}`);
         } else {
-          addLog('ok', `Market Overview dispatched (job: ${result.jobId ?? 'unknown'})`);
+          addLog('ok', `Identity resolved`);
+        }
+        for (const section of WAVE_1_PARALLEL_SECTIONS) {
+          const sectionResult = result.wave1[section];
+          const label = SECTION_META[section] ?? section;
+          if (sectionResult.status === 'error') {
+            addLog('err', `${label} dispatch failed: ${sectionResult.error ?? 'Unknown error'}`);
+          } else {
+            addLog('ok', `${label} dispatched (job: ${sectionResult.jobId ?? 'unknown'})`);
+          }
         }
       }).catch((err) => {
         addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -1644,13 +1663,27 @@ function JourneyPageContent() {
           }).catch(() => { /* non-critical */ });
         }
 
-        addLog('run', 'Resolving product identity...');
-        return dispatchWithIdentity('industryMarket', nextRunId, context);
+        addLog('run', 'Resolving product identity + fanning out 4 agents in parallel...');
+        // Pre-register wave-1 sections so the per-section auto-advance handler
+        // doesn't try to re-dispatch them when each is approved.
+        for (const section of WAVE_1_PARALLEL_SECTIONS) {
+          dispatchedSectionsRef.current.add(section);
+        }
+        return dispatchAllResearchParallel(nextRunId, context);
       }).then((result) => {
-        if (result.status === 'error') {
-          addLog('err', `Market Overview dispatch failed: ${result.error ?? 'Unknown error'}`);
+        if (result.identity.status === 'error') {
+          addLog('err', `Identity dispatch failed: ${result.identity.error ?? 'Unknown error'}`);
         } else {
-          addLog('ok', `Market Overview dispatched (job: ${result.jobId ?? 'unknown'})`);
+          addLog('ok', `Identity resolved`);
+        }
+        for (const section of WAVE_1_PARALLEL_SECTIONS) {
+          const sectionResult = result.wave1[section];
+          const label = SECTION_META[section] ?? section;
+          if (sectionResult.status === 'error') {
+            addLog('err', `${label} dispatch failed: ${sectionResult.error ?? 'Unknown error'}`);
+          } else {
+            addLog('ok', `${label} dispatched (job: ${sectionResult.jobId ?? 'unknown'})`);
+          }
         }
       }).catch((err) => {
         addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
