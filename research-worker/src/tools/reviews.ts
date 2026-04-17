@@ -27,6 +27,12 @@ export interface CapterraResult {
   url: string | null;
 }
 
+export interface GoogleReviewsResult {
+  rating: number | null;
+  reviewCount: number | null;
+  url: string;
+}
+
 export interface NegativeReview {
   text: string;
   rating: number;
@@ -48,6 +54,7 @@ export interface ReviewResult {
   trustpilot: TrustpilotResult | null;
   g2: G2Result | null;
   capterra: CapterraResult | null;
+  google: GoogleReviewsResult | null;
   testimonials: ExtractedTestimonial[];
   testimonialPages: string[];
   negativeReviews: NegativeReview[];
@@ -570,21 +577,42 @@ async function discoverAndExtractTestimonials(
   try {
     const mapResult = await Promise.race([
       client.map(`https://${domain}`, {
-        search: 'testimonials case studies reviews customers success stories',
-        limit: 8,
-      }),
+        search: 'testimonials case studies reviews customers success stories wins clients press',
+        limit: 25,
+        includeSubdomains: true,
+      } as Parameters<typeof client.map>[1]),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Firecrawl map timeout')), 15_000),
       ),
     ]);
-    discoveredPages = (mapResult as any)?.links ?? [];
+    // Firecrawl SDK has returned both string[] and { url: string }[] shapes
+    // across versions. Normalise defensively — this was previously silently
+    // dropping everything when the API returned objects instead of strings.
+    const rawLinks = (mapResult as any)?.links ?? [];
+    discoveredPages = rawLinks
+      .map((l: unknown) => {
+        if (typeof l === 'string') return l;
+        if (l && typeof l === 'object') {
+          const obj = l as Record<string, unknown>;
+          if (typeof obj.url === 'string') return obj.url;
+          if (typeof obj.link === 'string') return obj.link;
+        }
+        return null;
+      })
+      .filter((u: string | null): u is string => typeof u === 'string' && u.length > 0);
   } catch (error) {
     console.log(`[reviews] map() error for ${domain}: ${error instanceof Error ? error.message : error}`);
   }
 
-  // Filter to likely testimonial/case-study URLs
-  const testimonialPatterns = /testimonial|case.?stud|success.?stor|customer.?stor|review|clients?\/|customers?\//i;
-  const relevant = discoveredPages.filter(url => testimonialPatterns.test(url)).slice(0, 5);
+  // Filter to likely testimonial/case-study URLs.
+  // Expanded patterns: also catches /wins/, /press/, /stories/ which some
+  // brands use instead of /case-studies/ (Mahdy 2026-04-03 #6).
+  const testimonialPatterns =
+    /testimonial|case[-_]?stud|success[-_]?stor|customer[-_]?stor|review|clients?\/|customers?\/|wins?\/|press\/|stories\//i;
+  const relevant = discoveredPages.filter(url => testimonialPatterns.test(url)).slice(0, 10);
+  console.log(
+    `[reviews] ${domain}: map() returned ${discoveredPages.length} links, ${relevant.length} matched testimonial patterns`,
+  );
 
   if (relevant.length === 0) {
     return { pages: discoveredPages, testimonials: [] };
@@ -608,6 +636,113 @@ async function discoverAndExtractTestimonials(
 
   console.log(`[reviews] extracted ${testimonials.length} testimonials from ${relevant.length} pages for ${domain}`);
   return { pages: discoveredPages, testimonials: testimonials.slice(0, 10) };
+}
+
+/**
+ * Fetch Google Business / Maps reviews for a competitor domain.
+ *
+ * Two-step flow (per SearchAPI docs):
+ *   1. engine=google_local with `q="<domain> reviews"` → surfaces a business
+ *      listing with a `place_id`.
+ *   2. engine=google_maps_reviews with that `place_id` → returns
+ *      `place_result.rating` and `place_result.reviews` (review count).
+ *
+ * Returns null if SEARCHAPI_KEY is missing, the business has no Google
+ * Business presence, or any step fails. Never throws.
+ *
+ * Added 2026-04-17 for Mahdy #6 (testimonials + Google Reviews).
+ */
+async function fetchGoogleReviews(
+  domain: string,
+): Promise<GoogleReviewsResult | null> {
+  const apiKey = process.env.SEARCHAPI_KEY;
+  if (!apiKey || !domain) return null;
+
+  try {
+    // Step 1: resolve place_id via google_local.
+    const localParams = new URLSearchParams({
+      engine: 'google_local',
+      q: `${domain} reviews`,
+      api_key: apiKey,
+    });
+    const localRes = await fetch(
+      `https://www.searchapi.io/api/v1/search?${localParams.toString()}`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+    if (!localRes.ok) {
+      console.log(`[reviews:google] local ${localRes.status} for ${domain}`);
+      return null;
+    }
+    const localJson = (await localRes.json()) as {
+      local_results?: Array<{
+        place_id?: string;
+        data_id?: string;
+        title?: string;
+        rating?: number;
+        reviews?: number;
+      }>;
+    };
+    const firstLocal = localJson.local_results?.[0];
+    if (!firstLocal) return null;
+
+    // Some SearchAPI responses include rating/reviews directly on the local
+    // result (common for consumer brands with a single GMB profile) while
+    // others only expose them via a second `google_maps_reviews` call keyed
+    // by `place_id`. Try the direct path first and fall back to the reviews
+    // engine if a place_id is available but the local result lacked data.
+    const directRating = typeof firstLocal.rating === 'number' ? firstLocal.rating : null;
+    const directCount = typeof firstLocal.reviews === 'number' ? firstLocal.reviews : null;
+
+    const placeId = firstLocal.place_id ?? firstLocal.data_id;
+    if (!placeId) {
+      if (directRating === null && directCount === null) return null;
+      return {
+        rating: directRating,
+        reviewCount: directCount,
+        url: `https://www.google.com/search?q=${encodeURIComponent(domain)}+reviews`,
+      };
+    }
+
+    // Step 2: fetch richer review data via place_id.
+    const reviewParams = new URLSearchParams({
+      engine: 'google_maps_reviews',
+      place_id: placeId,
+      api_key: apiKey,
+    });
+    const reviewRes = await fetch(
+      `https://www.searchapi.io/api/v1/search?${reviewParams.toString()}`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+    if (!reviewRes.ok) {
+      if (directRating === null && directCount === null) return null;
+      return {
+        rating: directRating,
+        reviewCount: directCount,
+        url: `https://www.google.com/search?q=${encodeURIComponent(domain)}+reviews`,
+      };
+    }
+    const reviewJson = (await reviewRes.json()) as {
+      place_result?: { rating?: number; reviews?: number; title?: string };
+    };
+    const rating =
+      (typeof reviewJson.place_result?.rating === 'number' ? reviewJson.place_result.rating : null) ??
+      directRating;
+    const reviewCount =
+      (typeof reviewJson.place_result?.reviews === 'number' ? reviewJson.place_result.reviews : null) ??
+      directCount;
+    if (rating === null && reviewCount === null) return null;
+    return {
+      rating,
+      reviewCount,
+      url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(domain)}`,
+    };
+  } catch (err) {
+    console.warn(
+      `[reviews:google] ${domain} failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
 }
 
 // ── Public API ──
@@ -634,6 +769,7 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       trustpilot: null,
       g2: null,
       capterra: null,
+      google: null,
       testimonials: [],
       testimonialPages: [],
       negativeReviews: [],
@@ -644,12 +780,13 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
   console.log(`[reviews] fetching reviews for ${competitor.name} (${domain})`);
 
   try {
-    // Phase 1: Scrape all platforms + discover testimonials in parallel
-    const [tpData, g2Data, capData, testimonialData] = await Promise.all([
+    // Phase 1: Scrape all platforms + discover testimonials + Google reviews in parallel
+    const [tpData, g2Data, capData, testimonialData, google] = await Promise.all([
       scrapeTrustpilot(domain),
       scrapeG2(competitor.name),
       scrapeCapterra(competitor.name, domain),
       discoverAndExtractTestimonials(domain),
+      fetchGoogleReviews(domain),
     ]);
 
     const trustpilot = tpData.result;
@@ -689,6 +826,7 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       trustpilot: hasTrustpilot ? trustpilot : null,
       g2: (hasG2Data || hasG2Link) ? g2 : null,
       capterra: (hasCapterraData || hasCapterraLink) ? capterra : null,
+      google,
       testimonials,
       testimonialPages,
       negativeReviews,
@@ -701,6 +839,7 @@ export async function fetchReviews(competitor: ReviewInput): Promise<ReviewResul
       trustpilot: null,
       g2: null,
       capterra: null,
+      google: null,
       testimonials: [],
       testimonialPages: [],
       negativeReviews: [],
