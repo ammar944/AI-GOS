@@ -13,6 +13,7 @@ import { firecrawlTool, firecrawlExtractTool } from '../tools';
 import type { ResearchResult } from '../supabase';
 import { loadRunnerPrompt } from '../skills/loader';
 import { MODELS } from '../models';
+import { maybeCachedSystem } from '../utils/prompt-cache';
 
 const OFFER_MODEL = process.env.RESEARCH_OFFER_MODEL ?? MODELS.STANDARD;
 const OFFER_MAX_TOKENS = 8192;
@@ -106,7 +107,7 @@ async function runOfferAttempt(
         max_tokens: config.maxTokens,
         stream: true,
         tools: config.tools,
-        system: config.system,
+        system: maybeCachedSystem(config.system) as Parameters<typeof client.beta.messages.toolRunner>[0]['system'],
         messages: [{ role: 'user', content: `Analyze offer viability for paid media:\n\n${context}` }],
       });
       return Promise.race([

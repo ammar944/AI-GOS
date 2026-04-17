@@ -342,7 +342,11 @@ function buildPrimaryStage(): CascadeStage {
       userMessage: '{{context}}',
     },
     buildContext: (originalContext) =>
-      `Research the industry and market for:\n\n${originalContext}`,
+      // Trailing reinforcement: models follow recent instructions strongly, so
+      // repeating the JSON-only constraint at the END of the user message (in
+      // addition to the TOP of the system prompt) dramatically cuts the rate
+      // at which the primary pass drifts into markdown + forces a 90s repair.
+      `Research the industry and market for:\n\n${originalContext}\n\nOUTPUT REMINDER: Respond with ONLY the JSON object. Start the response with \`{\` and end with \`}\`. No markdown code fences. No preamble. No trailing commentary.`,
   };
 }
 

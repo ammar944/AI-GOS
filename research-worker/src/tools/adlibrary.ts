@@ -436,9 +436,17 @@ export function resolveBestCandidate(
   if (isShortName && isDomainVerified && domainBase) {
     const hasDomainCorroboration = scored.some(s => s.domainMatch);
     if (!hasDomainCorroboration) {
+      // Previously a hard reject. That was too aggressive: when domain-first
+      // search doesn't return any page and the fallback name search returns
+      // plausible candidates with no domain corroboration, we dropped 100% of
+      // ads (e.g. all of Fathom's Meta ads). Downgrade to `ambiguous` with the
+      // top candidate so callers can still try it — callers treat `ambiguous`
+      // as "try anyway" and downstream `isAdvertiserMatch` plus the short-name
+      // URL guard act as a second filter pass.
       return {
-        verdict: 'rejected',
-        reason: `Short name "${companyName}" (≤6 chars) with verified domain "${domain}": no candidate corroborates domain base "${domainBase}". Rejecting to prevent wrong-entity ads. Top name-match: "${top.name}" (${top.score.toFixed(2)})`,
+        verdict: 'ambiguous',
+        candidate: top.candidate,
+        reason: `Short name "${companyName}" (≤6 chars) with verified domain "${domain}": no candidate corroborates domain base "${domainBase}". Accepting top candidate "${top.name}" (${top.score.toFixed(2)}) provisionally — downstream guards will re-check.`,
         candidates: candidateLog,
       };
     }
@@ -723,17 +731,22 @@ export async function searchLinkedInAds(
     // Layer 4 post-filter: when we have a verified domain, drop ads ONLY when
     // we have STRONG evidence the destination is a different external domain.
     //
-    // Important behaviors (Wave 6e Hole 4 fix):
+    // Important behaviors (Wave 6e Hole 4 fix, revised 2026-04-17):
     //   - Missing link → KEEP (LinkedIn omits links on awareness ads).
-    //   - Link is a LinkedIn-internal URL (linkedin.com without an embedded
-    //     redirect target) → KEEP (we can't see the destination from here).
+    //   - Link is a LinkedIn-hosted URL (linkedin.com or lnkd.in) → KEEP
+    //     (we can't see the ultimate redirect target, and these are almost
+    //     always first-party LinkedIn post/campaign URLs).
     //   - Link contains the verified domain (either as the host or as a
     //     URL-encoded redirect target) → KEEP.
     //   - Link points to a clearly different external domain → DROP.
     //
-    // Trade-off: this is permissive by default. We'd rather keep a few wrong
-    // ads than drop all the right ones. The downstream `isAdvertiserMatch` +
+    // Trade-off: permissive by default. The downstream `isAdvertiserMatch` +
     // Hole 3 short-name URL guard provide a second filter pass.
+    //
+    // Historical note: the previous condition `decodedLink.includes('linkedin.com')
+    // && !decodedLink.includes('http')` was self-contradictory (every full URL
+    // includes 'http' in the scheme), so it dropped every LinkedIn-hosted ad
+    // and zeroed out LinkedIn ad data for all competitors.
     if (domain && isDomainVerified && allAds.length > 0) {
       const normalizedDomain = normalizeDomain(domain);
       const filtered = allAds.filter((ad) => {
@@ -746,12 +759,15 @@ export async function searchLinkedInAds(
         let decodedLink: string;
         try { decodedLink = decodeURIComponent(link); } catch { decodedLink = link; }
         if (decodedLink.includes(normalizedDomain)) return true;
-        // LinkedIn-internal URL without an obvious redirect target → keep
-        if (decodedLink.includes('linkedin.com') && !decodedLink.includes('redirect') && !decodedLink.includes('http')) {
-          return true;
-        }
-        // LinkedIn redirect WITH a discernible target — if target isn't us, drop
-        // (the link contains "http" but doesn't include our domain)
+        // LinkedIn-hosted URL → keep (can't see the ultimate destination from
+        // here and it's almost always a first-party campaign/post URL on
+        // linkedin.com or the lnkd.in shortener).
+        const host = (() => {
+          try { return new URL(decodedLink).hostname.toLowerCase(); } catch { return ''; }
+        })();
+        if (host.endsWith('linkedin.com') || host.endsWith('lnkd.in')) return true;
+        // Link is a clearly different external URL that doesn't contain our
+        // verified domain → drop.
         return false;
       });
       const dropped = allAds.length - filtered.length;

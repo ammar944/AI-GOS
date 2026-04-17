@@ -34,7 +34,10 @@ export function maybeCachedSystem(
   system: string,
   ttl: EphemeralTtl = '1h',
 ): string | CachedTextBlock[] {
-  if (process.env.RESEARCH_PROMPT_CACHE !== 'true') return system;
+  // Cache is ON by default. Set RESEARCH_PROMPT_CACHE=false to disable.
+  // Previously required opt-in via `=true`, but production never had the env
+  // set, so cacheReadTokens=0 across every run (cost + latency waste).
+  if (process.env.RESEARCH_PROMPT_CACHE === 'false') return system;
   if (!system || system.length < MIN_CACHE_CHARS) return system;
   return [
     {
@@ -51,7 +54,8 @@ export function maybeCachedSystem(
  */
 export function systemBlock(text: string, ttl: EphemeralTtl = '1h'): CachedTextBlock {
   const block: CachedTextBlock = { type: 'text', text };
-  if (process.env.RESEARCH_PROMPT_CACHE === 'true' && text.length >= MIN_CACHE_CHARS) {
+  // Cache is ON by default. Set RESEARCH_PROMPT_CACHE=false to disable.
+  if (process.env.RESEARCH_PROMPT_CACHE !== 'false' && text.length >= MIN_CACHE_CHARS) {
     block.cache_control = { type: 'ephemeral', ttl };
   }
   return block;

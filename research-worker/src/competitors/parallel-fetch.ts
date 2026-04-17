@@ -155,7 +155,17 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
   }
 
   const client = new Firecrawl({ apiKey });
-  const pricingPaths = ['/pricing', '/plans', '/packages'];
+  // Expanded path set covers common SaaS pricing page conventions. Enterprise
+  // tools (Gong, Outreach, etc.) often hide pricing behind /request-demo or
+  // /contact-sales; we still detect those below via the ENTERPRISE_PRICING_SIGNALS
+  // regex and surface the scraped page even without dollar amounts.
+  const pricingPaths = ['/pricing', '/plans', '/packages', '/pricing-plans', '/pricing-details'];
+  // "Contact sales" / "request a demo" style gates are a real pricing signal
+  // for enterprise products (Gong, Outreach, Drift, etc.) that never publish
+  // list prices. Treat these as pricing intent when dollar amounts aren't
+  // present, so downstream analysis gets "pricing is gated" rather than
+  // "pricing unavailable".
+  const ENTERPRISE_PRICING_SIGNALS = /contact (?:us for |sales for |our sales team|sales)|talk to sales|request (?:a )?(?:demo|quote|pricing)|get (?:a )?quote|custom pricing|enterprise pricing|book a demo/i;
 
   for (const path of pricingPaths) {
     const url = `https://${competitor.domain}${path}`;
@@ -182,7 +192,8 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
       const md = typeof result?.markdown === 'string' ? result.markdown : '';
       if (md.trim().length > 50) {
         const hasPricing = /\$\d+|starting at|\d+\/mo/i.test(md);
-        console.log(`[pricing] ${competitor.name} ${path}: OK (${elapsed}ms, ${md.length} chars, pricing=${hasPricing})`);
+        const hasEnterpriseGate = ENTERPRISE_PRICING_SIGNALS.test(md);
+        console.log(`[pricing] ${competitor.name} ${path}: OK (${elapsed}ms, ${md.length} chars, pricing=${hasPricing}, enterpriseGate=${hasEnterpriseGate})`);
         if (hasPricing) {
           return {
             competitorName: competitor.name,
@@ -191,8 +202,20 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
             success: true,
           };
         }
-        // Page exists but no dollar amounts — try next path
-        console.log(`[pricing] ${competitor.name} ${path}: no dollar amounts, trying next path`);
+        if (hasEnterpriseGate) {
+          // Enterprise-gated pricing page: capture the markdown so downstream
+          // analysis can say "pricing is gated behind contact-sales" rather
+          // than "no pricing found".
+          return {
+            competitorName: competitor.name,
+            domain: competitor.domain,
+            pricingMarkdown: extractPricingWindow(md, 4000),
+            success: true,
+            error: 'Pricing gated behind contact-sales / request-demo',
+          };
+        }
+        // Page exists but no dollar amounts and no enterprise gate — try next path
+        console.log(`[pricing] ${competitor.name} ${path}: no dollar amounts or enterprise gate, trying next path`);
       } else {
         console.log(`[pricing] ${competitor.name} ${path}: empty or failed (${elapsed}ms)`);
       }
@@ -227,12 +250,16 @@ async function fetchPricing(competitor: CompetitorEntry): Promise<PricingResult>
 
     const homeMd = typeof homepage?.markdown === 'string' ? homepage.markdown : '';
     const homeHasPricing = /\$\d+|starting at|\d+\/mo/i.test(homeMd);
+    const homeHasEnterpriseGate = ENTERPRISE_PRICING_SIGNALS.test(homeMd);
+    const homeIsUseful = (homeHasPricing || homeHasEnterpriseGate) && homeMd.trim().length > 50;
     return {
       competitorName: competitor.name,
       domain: competitor.domain,
-      pricingMarkdown: homeHasPricing && homeMd.trim().length > 50 ? extractPricingWindow(homeMd, 6000) : null,
-      success: homeHasPricing && homeMd.trim().length > 50,
-      error: 'Pricing page not found, used homepage',
+      pricingMarkdown: homeIsUseful ? extractPricingWindow(homeMd, homeHasPricing ? 6000 : 4000) : null,
+      success: homeIsUseful,
+      error: homeIsUseful
+        ? (homeHasPricing ? 'Pricing page not found, used homepage' : 'Pricing gated behind contact-sales — signals captured from homepage')
+        : 'Pricing page not found, used homepage',
     };
   } catch (error) {
     return {

@@ -380,17 +380,41 @@ async function scrapeG2(companyName: string): Promise<{ result: G2Result | null;
       return { result: null, negativeReviews: [] };
     }
 
-    const markdown = await firecrawlScrape(productUrl);
+    // Try the primary /reviews path first, then fall back to a couple of
+    // alternate G2 URL shapes before giving up. G2 frequently serves bot-
+    // blocked stubs (~43 chars) for high-traffic products; a second attempt
+    // at a different path occasionally punches through.
+    const pathCandidates = [productUrl];
+    const slugMatch = productUrl.match(/g2\.com\/products\/([a-z0-9-]+)/i);
+    if (slugMatch) {
+      const slug = slugMatch[1];
+      pathCandidates.push(`https://www.g2.com/products/${slug}/reviews?order=most_recent`);
+      pathCandidates.push(`https://www.g2.com/products/${slug}`);
+    }
+
+    let markdown = '';
+    let scrapedFromUrl = productUrl;
+    for (const candidate of pathCandidates) {
+      const attempt = await firecrawlScrape(candidate);
+      if (attempt.length >= 200) {
+        markdown = attempt;
+        scrapedFromUrl = candidate;
+        break;
+      }
+      console.log(`[reviews] G2 ${companyName}: ${candidate} too short (${attempt.length} chars) — trying next`);
+    }
 
     if (markdown.length < 200) {
-      console.log(`[reviews] G2 ${companyName}: product page too short (${markdown.length} chars)`);
-      return { result: { rating: null, reviewCount: null, categories: [], url: productUrl }, negativeReviews: [] };
+      // All paths returned bot-blocked / empty stubs. Return null instead of
+      // a link-only card so the UI doesn't show a broken G2 entry.
+      console.log(`[reviews] G2 ${companyName}: all paths blocked/empty — skipping G2`);
+      return { result: null, negativeReviews: [] };
     }
 
     for (const pattern of G2_NO_REVIEWS_PATTERNS) {
       if (pattern.test(markdown)) {
         console.log(`[reviews] G2 ${companyName}: no reviews on page`);
-        return { result: { rating: null, reviewCount: null, categories: [], url: productUrl }, negativeReviews: [] };
+        return { result: { rating: null, reviewCount: null, categories: [], url: scrapedFromUrl }, negativeReviews: [] };
       }
     }
 
@@ -416,7 +440,7 @@ async function scrapeG2(companyName: string): Promise<{ result: G2Result | null;
         rating: validRating,
         reviewCount,
         categories: category ? [category] : [],
-        url: productUrl,
+        url: scrapedFromUrl,
       },
       negativeReviews: dislikes,
     };

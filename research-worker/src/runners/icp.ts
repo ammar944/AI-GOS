@@ -13,6 +13,7 @@ import type { ResearchResult } from '../supabase';
 import { ICP_INTELLIGENCE_SKILL } from '../skills/intelligence-skill';
 import { loadRunnerPrompt } from '../skills/loader';
 import { MODELS } from '../models';
+import { maybeCachedSystem } from '../utils/prompt-cache';
 
 const ICP_MODEL = process.env.RESEARCH_ICP_MODEL ?? MODELS.STANDARD;
 const ICP_MAX_TOKENS = 10000;
@@ -36,7 +37,7 @@ export async function runResearchICP(
           max_tokens: ICP_MAX_TOKENS,
           stream: true,
           tools: [{ type: 'web_search_20250305' as const, name: 'web_search' }],
-          system: ICP_SYSTEM_PROMPT,
+          system: maybeCachedSystem(ICP_SYSTEM_PROMPT) as Parameters<typeof client.beta.messages.toolRunner>[0]['system'],
           messages: [{ role: 'user', content: `Validate the ICP for paid media:\n\n${context}` }],
         });
         return Promise.race([

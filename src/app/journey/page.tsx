@@ -92,6 +92,8 @@ import { buildJourneyWorkerStatusItems } from '@/lib/journey/research-worker-sta
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import {
   dispatchAllResearchParallel,
+  dispatchWave2Parallel,
+  WAVE_2_PARALLEL_SECTIONS,
   dispatchResearchSection,
   dispatchWithIdentity,
   WAVE_1_PARALLEL_SECTIONS,
@@ -2255,8 +2257,56 @@ function JourneyPageContent() {
       const nextSection = getNextSection(approvedSection);
       if (!nextSection || !activeRunId) return;
 
+      // Wave-2 fan-out: when the user approves offerAnalysis, fire BOTH
+      // keywordIntel AND crossAnalysis in parallel instead of walking them
+      // sequentially. They only depend on wave-1 artifacts (all approved at
+      // this point), and keywords' recovery-context extractor tolerates a
+      // missing Strategic Synthesis block, so parallelism is safe. This cuts
+      // ~117s off the post-offer tail.
+      if (approvedSection === 'offerAnalysis') {
+        const undispatched = WAVE_2_PARALLEL_SECTIONS.filter(
+          (s) => !dispatchedSectionsRef.current.has(s),
+        );
+        if (undispatched.length > 0) {
+          for (const s of WAVE_2_PARALLEL_SECTIONS) dispatchedSectionsRef.current.add(s);
+          const ctx = await (async () => {
+            try {
+              const res = await fetch(`/api/journey/session?runId=${activeRunId}`, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+              });
+              if (!res.ok) return 'Research context from onboarding session';
+              const data = await res.json();
+              const metadata = data?.metadata as Record<string, unknown> | null;
+              if (!metadata) return 'Research context from onboarding session';
+              const contextLines: string[] = [];
+              for (const [key, value] of Object.entries(metadata)) {
+                if (
+                  typeof value === 'string' &&
+                  value.trim() &&
+                  key !== 'activeJourneyRunId' &&
+                  key !== 'lastUpdated' &&
+                  key !== 'researchPipeline'
+                ) {
+                  contextLines.push(`${JOURNEY_FIELD_LABELS[key] ?? key}: ${value}`);
+                }
+              }
+              return contextLines.length > 0 ? contextLines.join('\n') : 'Research context from onboarding session';
+            } catch {
+              return 'Research context from onboarding session';
+            }
+          })();
+          addLog('run', `Dispatching wave-2 research (keywords + synthesis) in parallel...`);
+          void dispatchWave2Parallel(activeRunId, ctx);
+          return;
+        }
+        // All wave-2 already dispatched — fall through to the normal handler
+        // so nothing else breaks if the user re-approves the section.
+      }
+
       // Guard: skip if this section was already dispatched (prevents double dispatch
-      // when handleGenerateMediaPlan auto-approves crossAnalysis)
+      // when handleGenerateMediaPlan auto-approves crossAnalysis, or when wave-2
+      // parallel dispatch already covered this section)
       if (dispatchedSectionsRef.current.has(nextSection)) return;
       dispatchedSectionsRef.current.add(nextSection);
 

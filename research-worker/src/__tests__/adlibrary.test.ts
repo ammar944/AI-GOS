@@ -280,14 +280,20 @@ describe('resolveBestCandidate', () => {
     expect(result.verdict).toBe('rejected');
   });
 
-  it('REJECTED — short name with verified domain, candidates still below 0.8', () => {
+  it('AMBIGUOUS — short name with verified domain, no candidate corroborates domain base (was: rejected)', () => {
+    // Previously hard-rejected any short-name-with-verified-domain case lacking
+    // domain corroboration. That zeroed out 100% of ads for real cases like
+    // "Fathom" + fathom.video when Meta's domain-first search turned up nothing.
+    // Downgraded to `ambiguous` with the top candidate so callers can still try;
+    // downstream `isAdvertiserMatch` + short-name URL guard act as a second pass.
     const result = resolveBestCandidate(
       [mkCandidate('Atlas VPN'), mkCandidate('Atlas Copco')],
       'Atlas',
       'atlashq.io',
       true,
     );
-    expect(result.verdict).toBe('rejected');
+    expect(result.verdict).toBe('ambiguous');
+    expect(result.candidate).toBeDefined();
   });
 
   it('ACCEPTED — long name with clear winner (HubSpot)', () => {

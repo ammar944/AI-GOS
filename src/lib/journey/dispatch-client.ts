@@ -98,6 +98,26 @@ export const WAVE_1_PARALLEL_SECTIONS = [
 
 export type Wave1Section = (typeof WAVE_1_PARALLEL_SECTIONS)[number];
 
+/**
+ * Wave-2 sections that can run in parallel after wave-1 completes.
+ *
+ * `keywordIntel` consumes whatever snapshots exist in the context (its
+ * recovery context extractor tolerates a missing Strategic Synthesis block
+ * — see `summarizeKeywordStrategicSynthesis` in research-worker/src/runners/
+ * keywords.ts, which returns null when the block is absent). `crossAnalysis`
+ * (the synthesis runner) only needs the four wave-1 artifacts.
+ *
+ * Running them serially added ~117s of sequential tail after the user
+ * approved offerAnalysis (117s keywords + 117s synthesis). Running them in
+ * parallel cuts that tail to ~max(117, 117) ≈ 117s.
+ */
+export const WAVE_2_PARALLEL_SECTIONS = [
+  'keywordIntel',
+  'crossAnalysis',
+] as const;
+
+export type Wave2Section = (typeof WAVE_2_PARALLEL_SECTIONS)[number];
+
 export interface ParallelDispatchResult {
   identity: ClientDispatchResult;
   wave1: Record<Wave1Section, ClientDispatchResult>;
@@ -159,4 +179,26 @@ export async function dispatchAllResearchParallel(
   >;
 
   return { identity: identityResult, wave1 };
+}
+
+/**
+ * Fan out wave-2 sections (keywordIntel, crossAnalysis) in parallel.
+ *
+ * Called after the user approves `offerAnalysis` — at that point all four
+ * wave-1 artifacts exist in research_results, which is everything the two
+ * wave-2 runners need. Previously the approval handler ran them serially
+ * via the `getNextSection` walk (keywords → synthesis), which added ~117s
+ * of tail after offer approval. Firing both now overlaps the wall time.
+ */
+export async function dispatchWave2Parallel(
+  runId: string,
+  context: string,
+): Promise<Record<Wave2Section, ClientDispatchResult>> {
+  const entries = await Promise.all(
+    WAVE_2_PARALLEL_SECTIONS.map(
+      async (section) =>
+        [section, await dispatchResearchSection(section, runId, context)] as const,
+    ),
+  );
+  return Object.fromEntries(entries) as Record<Wave2Section, ClientDispatchResult>;
 }
