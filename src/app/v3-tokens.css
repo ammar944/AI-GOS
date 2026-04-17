@@ -1,59 +1,59 @@
 /* =========================================================================
-   AIGOS v3 — Foundational tokens — Phase 2c overhaul
+   AIGOS v3 — Foundational tokens (Phase 2 of journey-workspace-v3 redesign)
+   Source: ~/.gstack/projects/ammar944-AI-GOS/designs/claude-design-20260417/
+           project/colors_and_type.css
 
-   Fixes: reverting Pass 5 revision (serif back on card titles), dramatic
-   scale jumps, stronger accent presence.
-
-   Scope: ADDITIVE. Variables only. Components opt in via [data-v3].
+   Scope: ADDITIVE. Variables only. No element-level overrides. Components
+   opt in by using the v3 vars explicitly.
    ========================================================================= */
 
-:root[data-v3-theme="dark"], :root[data-theme="dark"][data-v3], :root:not([data-theme]):not([data-v3-theme]) {
-  --v3-bg-0: oklch(14% 0.011 255);          /* page — slightly deeper */
-  --v3-bg-1: oklch(19% 0.012 255);          /* card */
-  --v3-bg-2: oklch(23% 0.013 255);          /* elevated / hover */
-  --v3-bg-3: oklch(27% 0.014 255);          /* active / selected */
+/* Fonts already loaded via next/font in src/app/layout.tsx:
+   - --font-dm-sans         -> Geist
+   - --font-instrument-sans -> Instrument Serif
+   - --font-jetbrains-mono  -> Geist Mono
+   (var names kept for back-compat per Phase 1) */
 
-  --v3-text-1: oklch(95% 0.003 255);
-  --v3-text-2: oklch(66% 0.005 255);
+:root[data-v3-theme="dark"], :root[data-theme="dark"][data-v3], :root:not([data-theme]):not([data-v3-theme]) {
+  --v3-bg-0: oklch(16% 0.01 255);
+  --v3-bg-1: oklch(19% 0.012 255);
+  --v3-bg-2: oklch(22% 0.013 255);
+  --v3-bg-3: oklch(26% 0.014 255);
+
+  --v3-text-1: oklch(94% 0.003 255);
+  --v3-text-2: oklch(65% 0.005 255);
   --v3-text-3: oklch(48% 0.006 255);
 
-  --v3-hairline: oklch(28% 0.014 255 / 0.95);
-  --v3-hairline-soft: oklch(28% 0.014 255 / 0.55);
-  --v3-hairline-strong: oklch(40% 0.016 255 / 0.95);
+  --v3-hairline: oklch(26% 0.014 255 / 0.9);
+  --v3-hairline-soft: oklch(26% 0.014 255 / 0.5);
 
-  --v3-accent: oklch(72% 0.22 250);
-  --v3-accent-hi: oklch(82% 0.22 250);
-  --v3-accent-dim: oklch(72% 0.22 250 / 0.16);
-  --v3-accent-faint: oklch(72% 0.22 250 / 0.08);
-  --v3-accent-ink: oklch(14% 0.011 255);
+  --v3-accent: oklch(70% 0.2 250);
+  --v3-accent-dim: oklch(70% 0.2 250 / 0.15);
+  --v3-accent-ink: oklch(16% 0.01 255);
 
-  --v3-success: oklch(76% 0.18 145);
-  --v3-warning: oklch(80% 0.17 75);
-  --v3-error:   oklch(68% 0.22 25);
+  --v3-success: oklch(75% 0.18 145);
+  --v3-warning: oklch(78% 0.15 75);
+  --v3-error:   oklch(65% 0.22 25);
 }
 
 :root[data-v3-theme="light"], :root[data-theme="light"][data-v3] {
   --v3-bg-0: oklch(99% 0.002 255);
-  --v3-bg-1: oklch(97% 0.004 255);
-  --v3-bg-2: oklch(93% 0.006 255);
-  --v3-bg-3: oklch(89% 0.008 255);
+  --v3-bg-1: oklch(97% 0.003 255);
+  --v3-bg-2: oklch(94% 0.005 255);
+  --v3-bg-3: oklch(90% 0.007 255);
 
-  --v3-text-1: oklch(16% 0.012 255);
-  --v3-text-2: oklch(42% 0.01 255);
-  --v3-text-3: oklch(58% 0.008 255);
+  --v3-text-1: oklch(18% 0.012 255);
+  --v3-text-2: oklch(44% 0.01 255);
+  --v3-text-3: oklch(60% 0.008 255);
 
-  --v3-hairline: oklch(80% 0.008 255 / 0.95);
-  --v3-hairline-soft: oklch(80% 0.008 255 / 0.55);
-  --v3-hairline-strong: oklch(70% 0.009 255 / 0.95);
+  --v3-hairline: oklch(82% 0.008 255 / 0.9);
+  --v3-hairline-soft: oklch(82% 0.008 255 / 0.5);
 
-  --v3-accent: oklch(52% 0.24 250);
-  --v3-accent-hi: oklch(42% 0.26 250);
-  --v3-accent-dim: oklch(52% 0.24 250 / 0.12);
-  --v3-accent-faint: oklch(52% 0.24 250 / 0.06);
+  --v3-accent: oklch(55% 0.22 250);
+  --v3-accent-dim: oklch(55% 0.22 250 / 0.10);
   --v3-accent-ink: oklch(99% 0.002 255);
 
-  --v3-success: oklch(52% 0.18 145);
-  --v3-warning: oklch(62% 0.15 75);
+  --v3-success: oklch(55% 0.18 145);
+  --v3-warning: oklch(65% 0.15 75);
   --v3-error:   oklch(55% 0.22 25);
 }
 
@@ -62,44 +62,35 @@
   --v3-font-sans:    var(--font-dm-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --v3-font-mono:    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Display scale — DRAMATIC jumps per Bolder/Typeset guidance (3-5x, not 1.5x) */
-  --v3-display-hero: 400 72px/1.02 var(--v3-font-display);   /* page hero (/journey-v3 "Research") */
-  --v3-display-xl:   400 56px/1.05 var(--v3-font-display);   /* section title pages */
-  --v3-display-lg:   400 40px/1.08 var(--v3-font-display);   /* journey h1 */
-  --v3-display-md:   400 32px/1.05 var(--v3-font-display);   /* card h2 REVERTED BACK TO SERIF */
-  --v3-display-sm:   400 24px/1.10 var(--v3-font-display);
+  --v3-display-1: 400 56px/1.05 var(--v3-font-display);
+  --v3-display-2: 400 40px/1.10 var(--v3-font-display);
+  --v3-display-3: 400 32px/1.05 var(--v3-font-display);
+  --v3-display-4: 400 28px/1.00 var(--v3-font-display);
 
-  /* Stat value — serif + tabular-nums, dramatic scale */
-  --v3-stat-xl:  400 48px/1.00 var(--v3-font-display);       /* hero stats */
-  --v3-stat-lg:  400 40px/1.00 var(--v3-font-display);       /* stat row values REVERTED TO SERIF */
-  --v3-stat-md:  400 28px/1.05 var(--v3-font-display);
-
-  /* Body (Geist) */
   --v3-body-lg:   400 15px/1.55 var(--v3-font-sans);
   --v3-body:      400 14px/1.50 var(--v3-font-sans);
   --v3-body-sm:   400 13px/1.45 var(--v3-font-sans);
   --v3-body-xs:   400 12px/1.40 var(--v3-font-sans);
-  --v3-body-strong: 500 14px/1.50 var(--v3-font-sans);
 
-  /* Mono (Geist Mono) — status, labels, data, kbd */
+  --v3-card-title: 500 14px/1.2 var(--v3-font-sans);
+  --v3-stat-value: 400 20px/1.05 var(--v3-font-sans);
+
   --v3-mono:      500 12px/1.30 var(--v3-font-mono);
   --v3-mono-sm:   500 11px/1.25 var(--v3-font-mono);
-  --v3-mono-xs:   500 10px/1.20  var(--v3-font-mono);
+  --v3-mono-xs:   500 10.5px/1.20 var(--v3-font-mono);
 
-  --v3-ls-label: 0.1em;
+  --v3-ls-label: 0.08em;
   --v3-ls-mono:  0.04em;
-  --v3-ls-disp-tight: -0.02em;
-  --v3-ls-disp:       -0.01em;
+  --v3-ls-disp-tight: -0.01em;
+  --v3-ls-disp:       -0.005em;
 
-  /* Tighter spacing scale */
   --v3-s-1: 4px;
   --v3-s-2: 8px;
   --v3-s-3: 12px;
   --v3-s-4: 16px;
-  --v3-s-5: 20px;
-  --v3-s-6: 24px;
-  --v3-s-7: 32px;
-  --v3-s-8: 48px;
+  --v3-s-5: 24px;
+  --v3-s-6: 32px;
+  --v3-s-7: 48px;
 
   --v3-r-card:     6px;
   --v3-r-chip:     4px;
@@ -112,7 +103,7 @@
   --v3-dur-peek:   200ms;
 }
 
-/* ---------- Scoped opt-in ---------- */
+/* ---------- Scoped opt-in styles ---------- */
 
 [data-v3] {
   background: var(--v3-bg-0);
@@ -128,22 +119,18 @@
   color: var(--v3-text-1);
 }
 
-[data-v3] .v3-display-hero { font: var(--v3-display-hero); letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
-[data-v3] .v3-display-xl   { font: var(--v3-display-xl);   letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
-[data-v3] .v3-display-lg   { font: var(--v3-display-lg);   letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
-[data-v3] .v3-display-md   { font: var(--v3-display-md);   letter-spacing: var(--v3-ls-disp); color: var(--v3-text-1); }
-[data-v3] .v3-display-sm   { font: var(--v3-display-sm);   letter-spacing: var(--v3-ls-disp); color: var(--v3-text-1); }
-[data-v3] .v3-display      { font: var(--v3-display-lg);   letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
+[data-v3] .v3-display       { font: var(--v3-display-2); letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
+[data-v3] .v3-display-hero  { font: var(--v3-display-1); letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
+[data-v3] .v3-display-stat  { font: var(--v3-display-3); letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); }
+[data-v3] .v3-card-title    { font: var(--v3-card-title); letter-spacing: var(--v3-ls-disp); color: var(--v3-text-1); }
+[data-v3] .v3-stat-value    { font: var(--v3-stat-value); letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); font-variant-numeric: tabular-nums; }
 
-[data-v3] .v3-card-title   { font: var(--v3-display-md);   letter-spacing: var(--v3-ls-disp); color: var(--v3-text-1); margin: 0; }
-[data-v3] .v3-stat-value   { font: var(--v3-stat-lg);      letter-spacing: var(--v3-ls-disp-tight); color: var(--v3-text-1); font-variant-numeric: tabular-nums; }
+[data-v3] .v3-mono          { font: var(--v3-mono); letter-spacing: var(--v3-ls-mono); color: var(--v3-text-2); }
+[data-v3] .v3-mono-label    { font: var(--v3-mono-xs); letter-spacing: var(--v3-ls-label); text-transform: uppercase; color: var(--v3-text-3); }
+[data-v3] .v3-mono-meta     { font: var(--v3-mono-sm); letter-spacing: var(--v3-ls-mono); color: var(--v3-text-2); }
 
-[data-v3] .v3-mono         { font: var(--v3-mono); letter-spacing: var(--v3-ls-mono); color: var(--v3-text-2); }
-[data-v3] .v3-mono-label   { font: var(--v3-mono-xs); letter-spacing: var(--v3-ls-label); text-transform: uppercase; color: var(--v3-text-3); }
-[data-v3] .v3-mono-meta    { font: var(--v3-mono-sm); letter-spacing: var(--v3-ls-mono); color: var(--v3-text-2); }
-
-[data-v3] .v3-muted        { color: var(--v3-text-2); }
-[data-v3] .v3-tertiary     { color: var(--v3-text-3); }
+[data-v3] .v3-muted         { color: var(--v3-text-2); }
+[data-v3] .v3-tertiary      { color: var(--v3-text-3); }
 
 [data-v3] :where(button, a, input, textarea, select, [tabindex]):focus-visible {
   outline: 1px solid var(--v3-accent);

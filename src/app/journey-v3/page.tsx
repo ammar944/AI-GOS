@@ -5,15 +5,14 @@ import { WorkspaceShell } from "@/components/workspace-v3/workspace-shell";
 import { StatusStrip } from "@/components/workspace-v3/status-strip";
 import type { CommandAction } from "@/components/workspace-v3/command-menu";
 
-const AGENTS: { name: string; state: "done" | "running" | "queued" }[] = [
-  { name: "industryMarket", state: "done" },
-  { name: "competitors", state: "running" },
-  { name: "icpValidation", state: "running" },
-  { name: "offerAnalysis", state: "running" },
-  { name: "keywordIntel", state: "queued" },
-  { name: "crossAnalysis", state: "queued" },
-];
-
+/**
+ * Preview route for the journey-workspace-v3 redesign.
+ *
+ * Phase 2a: shell primitives (top bar, peek rail, canvas, chat chip)
+ * Phase 2b: command menu (⌘K), chat panel (⌘;), view modes (V)
+ *
+ * Compare against the production shell at /journey.
+ */
 export default function JourneyV3PreviewPage() {
   const [currentSection, setCurrentSection] = useState("research");
 
@@ -32,17 +31,11 @@ export default function JourneyV3PreviewPage() {
           active: currentSection === "research",
           onClick: () => setCurrentSection("research"),
         },
-        { label: "Media Plan", onClick: () => setCurrentSection("media-plan") },
+        {
+          label: "Media Plan",
+          onClick: () => setCurrentSection("media-plan"),
+        },
         { label: "Scripts", onClick: () => setCurrentSection("scripts") },
-      ],
-    },
-    {
-      label: "Sources",
-      items: [
-        { label: "g2.com · 47" },
-        { label: "linkedin.com · 23" },
-        { label: "apollo.io · 12" },
-        { label: "capterra.com · 8" },
       ],
     },
   ];
@@ -105,34 +98,37 @@ export default function JourneyV3PreviewPage() {
       usage="$0.42"
       commandActions={navigateActions}
     >
-      <div className="v3-page-head">
-        <h1>Research</h1>
-        <span className="v3-page-head-meta">
-          <strong>2</strong> of 8 complete · <strong>4</strong> in flight
-        </span>
+      <div className="v3-verbose-only v3-agent-board">
+        <div className="v3-mono-label" style={{ marginBottom: 10 }}>
+          Agent board · verbose mode
+        </div>
+        <div className="v3-agent-grid">
+          {[
+            { name: "industryMarket", state: "done" },
+            { name: "competitors", state: "running" },
+            { name: "icpValidation", state: "running" },
+            { name: "offerAnalysis", state: "running" },
+            { name: "keywordIntel", state: "queued" },
+            { name: "crossAnalysis", state: "queued" },
+          ].map((a) => (
+            <div key={a.name} className={`v3-agent-cell v3-agent-${a.state}`}>
+              <div className="v3-mono-xs">{a.name}</div>
+              <div className="v3-tertiary">{a.state}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="v3-verbose-only v3-agent-strip">
-        <span className="v3-agent-strip-label">Agents</span>
-        {AGENTS.map((a) => (
-          <span
-            key={a.name}
-            className={`v3-agent-pill v3-agent-${a.state}`}
-          >
-            <span
-              className={`v3-dot ${
-                a.state === "done"
-                  ? "v3-dot-green"
-                  : a.state === "running"
-                    ? "v3-dot-amber"
-                    : "v3-dot-idle"
-              }`}
-              aria-hidden="true"
-            />
-            {a.name}
-            <span className="v3-agent-state">{a.state}</span>
-          </span>
-        ))}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 14,
+          marginBottom: 32,
+        }}
+      >
+        <h1 className="v3-display">Research</h1>
+        <span className="v3-mono-label">2 of 8 complete</span>
       </div>
 
       <section className="v3-card">
@@ -145,20 +141,20 @@ export default function JourneyV3PreviewPage() {
           </span>
         </div>
         <div className="v3-stat-row">
-          <div className="v3-stat">
+          <div>
             <div className="v3-mono-label">Market size</div>
             <div className="v3-stat-value">
-              $50.3<small>B</small>
+              $50.3<small> B</small>
             </div>
           </div>
-          <div className="v3-stat">
+          <div>
             <div className="v3-mono-label">Category</div>
             <div className="v3-stat-value">SaaS</div>
           </div>
-          <div className="v3-stat">
+          <div>
             <div className="v3-mono-label">Growth YoY</div>
             <div className="v3-stat-value">
-              +12.4<small>%</small>
+              +12.4<small> %</small>
             </div>
           </div>
         </div>
@@ -174,7 +170,7 @@ export default function JourneyV3PreviewPage() {
         <div className="v3-card-head">
           <span className="v3-dot v3-dot-amber" aria-hidden="true" />
           <h2 className="v3-card-title">Competitors</h2>
-          <span className="v3-card-meta">researching · 00:42 · 3 of 5</span>
+          <span className="v3-card-meta">researching · 00:42 elapsed</span>
         </div>
         <div className="v3-skeleton-list">
           {[72, 58, 82, 64, 76].map((w, i) => (
@@ -191,14 +187,6 @@ export default function JourneyV3PreviewPage() {
         <div className="v3-card-head">
           <span className="v3-dot v3-dot-idle" aria-hidden="true" />
           <h2 className="v3-card-title">ICP Validation</h2>
-          <span className="v3-card-meta">queued</span>
-        </div>
-      </section>
-
-      <section className="v3-card v3-card-queued">
-        <div className="v3-card-head">
-          <span className="v3-dot v3-dot-idle" aria-hidden="true" />
-          <h2 className="v3-card-title">Offer Analysis</h2>
           <span className="v3-card-meta">queued</span>
         </div>
       </section>
