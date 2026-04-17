@@ -79,34 +79,53 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
 
   const hasVersions = card.versions.length > 0;
 
+  const statusDotClass =
+    card.status === 'approved'
+      ? 'bg-[var(--accent-green)]'
+      : card.status === 'edited'
+        ? 'bg-[var(--accent-amber)]'
+        : 'bg-[var(--text-tertiary)]';
+
   return (
     <div
       className={cn(
-        'group/card rounded-[var(--radius-lg)] border p-5',
+        'group/card rounded-[6px] border p-5',
         'transition-colors duration-150',
-        'border-[var(--border-subtle)] bg-[var(--bg-card)]',
+        'border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-[var(--border-default)]',
       )}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-[var(--text-quaternary)] uppercase tracking-wider">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+          <span
+            className={cn('h-2 w-2 rounded-full shrink-0 mt-[9px]', statusDotClass)}
+            aria-hidden="true"
+          />
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <h3
+              className="text-[22px] italic font-normal leading-[1.15] tracking-tight text-[var(--text-primary)] truncate"
+              style={{ fontFamily: 'var(--font-instrument-sans)' }}
+            >
               {card.label}
-            </span>
-            {showSaved && (
-              <span className="text-[10px] font-mono text-[var(--accent-green,#22c55e)] animate-pulse">
-                Saved
+            </h3>
+            {card.description && (
+              <span className="text-[12px] text-[var(--text-tertiary)] leading-snug">
+                {card.description}
               </span>
             )}
           </div>
-          {card.description && (
-            <span className="text-[11px] text-[var(--text-tertiary)] leading-snug">
-              {card.description}
-            </span>
-          )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {showSaved && (
+            <span className="text-[10px] font-mono text-[var(--accent-green)] animate-pulse uppercase tracking-[0.1em]">
+              Saved
+            </span>
+          )}
+          {!showSaved && card.status === 'approved' && (
+            <span className="text-[10px] font-mono uppercase tracking-[0.12em] px-2 py-0.5 rounded text-[var(--accent-green)] bg-[var(--accent-green)]/10">
+              Approved
+            </span>
+          )}
           {/* Inline edit controls */}
           {canEdit && !isEditing && (
             <button

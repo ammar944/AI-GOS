@@ -120,7 +120,7 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
         >
           <div className="px-4 py-2.5 flex items-center gap-2.5 overflow-x-auto scrollbar-hide">
             <div className="flex items-center gap-2 shrink-0">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-blue)] animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-amber)] animate-pulse" />
               <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
                 wave 1 · {activeCount} researching
               </span>
@@ -148,7 +148,7 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
                     : tone === 'error'
                       ? 'border-[var(--accent-red)]/45 bg-[var(--accent-red)]/[0.05] text-[var(--text-primary)]'
                       : tone === 'active'
-                        ? 'border-[var(--accent-blue)]/40 bg-[var(--accent-blue)]/[0.05] text-[var(--text-primary)]'
+                        ? 'border-[var(--accent-amber)]/40 bg-[var(--accent-amber)]/[0.05] text-[var(--text-primary)]'
                         : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)]';
 
               const dotClasses =
@@ -157,7 +157,7 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
                   : tone === 'error'
                     ? 'bg-[var(--accent-red)]'
                     : tone === 'active'
-                      ? 'bg-[var(--accent-blue)] animate-pulse'
+                      ? 'bg-[var(--accent-amber)] animate-pulse'
                       : 'bg-[var(--text-tertiary)]';
 
               return (
