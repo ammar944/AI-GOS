@@ -23,6 +23,7 @@ import { validateCardClaims } from './validator';
 import { writeIntelligenceCard } from './write-card';
 import { MODELS } from '../models';
 import { emitTelemetry } from '../telemetry';
+import { sweepCard } from './fabrication-sweep';
 
 /**
  * Which cards a given section unlocks. Multiple cards may fire for one
@@ -157,6 +158,43 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         durationMs: Date.now() - validateStart,
         extra: { rejectedCount: rejected?.length ?? 0, confidence },
       });
+
+      // Phase 0.3 — deterministic fabrication sweep across all string fields.
+      // Default: detect + log (soft). Set INTELLIGENCE_FABRICATION_GATE=strict
+      // to gate the card when un-cited growth/ARR claims are found.
+      if (process.env.INTELLIGENCE_FABRICATION_SWEEP !== 'false') {
+        const sweepResult = sweepCard(validated, {
+          allowGrowthClaims: false,
+          userGrowthRate: null,
+        });
+        if (sweepResult.fabricated) {
+          emitTelemetry({
+            ...telemetryBase,
+            event: 'card.gated',
+            durationMs: Date.now() - start,
+            extra: {
+              reason: 'fabrication_detected',
+              matchCount: sweepResult.matches.length,
+              patterns: sweepResult.matches.map((m) => m.pattern),
+              paths: sweepResult.matches.map((m) => m.path),
+            },
+          });
+          if (process.env.INTELLIGENCE_FABRICATION_GATE === 'strict') {
+            return {
+              cardName,
+              status: 'gated',
+              gateReason: 'fabrication_detected',
+              durationMs: Date.now() - start,
+              model: CARD_MODEL[cardName] ?? 'n/a',
+            };
+          }
+          console.warn(
+            `[fabrication-sweep] ${cardName} has ${sweepResult.matches.length} un-cited match(es) ` +
+              `(soft mode — use INTELLIGENCE_FABRICATION_GATE=strict to block): ` +
+              sweepResult.matches.map((m) => `${m.pattern}@${m.path}`).join(', '),
+          );
+        }
+      }
 
       return {
         cardName,
