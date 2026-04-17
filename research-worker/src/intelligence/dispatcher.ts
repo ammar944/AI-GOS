@@ -19,7 +19,7 @@ import { synthesizeOpportunity } from './cards/opportunity';
 import { synthesizeWhiteSpaceGap } from './cards/white-space-gap';
 import { synthesizeOfferStatements } from './cards/offer-statements';
 import { synthesizeStrategicSynthesis } from './cards/strategic-synthesis';
-import { validateCardClaims } from './validator';
+import { validateCardClaims, validateCardsBatch, type BatchValidationInput } from './validator';
 import { writeIntelligenceCard } from './write-card';
 import { MODELS } from '../models';
 import { emitTelemetry } from '../telemetry';
@@ -79,6 +79,9 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
     : cards;
 
   if (selectedCards.length === 0) return [];
+
+  const batchValidate = process.env.INTELLIGENCE_VALIDATOR_BATCH === 'true';
+  const cardPacks = new Map<string, ReturnType<typeof buildEvidencePack>>();
 
   const runCard = async (cardName: string): Promise<CardResult> => {
     const start = Date.now();
@@ -149,15 +152,28 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
         durationMs: Date.now() - start,
       });
 
-      const validateStart = Date.now();
-      emitTelemetry({ ...telemetryBase, event: 'card.validate.start' });
-      const { validated, rejected, confidence } = await validateCardClaims(cardName, draft, pack);
-      emitTelemetry({
-        ...telemetryBase,
-        event: 'card.validate.end',
-        durationMs: Date.now() - validateStart,
-        extra: { rejectedCount: rejected?.length ?? 0, confidence },
-      });
+      let validated: unknown;
+      let rejected: string[] = [];
+      let confidence = 100;
+
+      if (batchValidate) {
+        // Skip per-card validation; batched at the end of dispatch.
+        cardPacks.set(cardName, pack);
+        validated = draft;
+      } else {
+        const validateStart = Date.now();
+        emitTelemetry({ ...telemetryBase, event: 'card.validate.start' });
+        const r = await validateCardClaims(cardName, draft, pack);
+        validated = r.validated;
+        rejected = r.rejected;
+        confidence = r.confidence;
+        emitTelemetry({
+          ...telemetryBase,
+          event: 'card.validate.end',
+          durationMs: Date.now() - validateStart,
+          extra: { rejectedCount: rejected.length, confidence },
+        });
+      }
 
       // Phase 0.3 — deterministic fabrication sweep across all string fields.
       // Default: detect + log (soft). Set INTELLIGENCE_FABRICATION_GATE=strict
@@ -244,24 +260,62 @@ export async function dispatchIntelligenceCards(input: DispatchInput): Promise<C
     }
   };
 
+  let results: CardResult[];
   if (process.env.INTELLIGENCE_PARALLEL === 'false') {
-    const out: CardResult[] = [];
-    for (const c of selectedCards) out.push(await runCard(c));
-    return out;
+    results = [];
+    for (const c of selectedCards) results.push(await runCard(c));
+  } else {
+    const settled = await Promise.allSettled(selectedCards.map(runCard));
+    results = settled.map((s, i) =>
+      s.status === 'fulfilled'
+        ? s.value
+        : {
+            cardName: selectedCards[i],
+            status: 'failed' as const,
+            error: s.reason instanceof Error ? s.reason.message : String(s.reason),
+            durationMs: 0,
+            model: 'n/a',
+          },
+    );
   }
 
-  const settled = await Promise.allSettled(selectedCards.map(runCard));
-  return settled.map((s, i) =>
-    s.status === 'fulfilled'
-      ? s.value
-      : {
-          cardName: selectedCards[i],
-          status: 'failed' as const,
-          error: s.reason instanceof Error ? s.reason.message : String(s.reason),
-          durationMs: 0,
-          model: 'n/a',
-        },
-  );
+  // Phase 2.5 — one batched Haiku audit for all rendered cards.
+  if (batchValidate) {
+    const batchInputs: BatchValidationInput<unknown>[] = results
+      .filter((r) => r.status === 'rendered' && cardPacks.has(r.cardName))
+      .map((r) => ({
+        cardName: r.cardName,
+        draft: r.data,
+        pack: cardPacks.get(r.cardName)!,
+      }));
+    if (batchInputs.length > 0) {
+      const batchStart = Date.now();
+      const validated = await validateCardsBatch(batchInputs);
+      const batchDurationMs = Date.now() - batchStart;
+      for (const r of results) {
+        if (r.status !== 'rendered') continue;
+        const v = validated[r.cardName];
+        if (!v) continue;
+        r.data = v.validated;
+        r.claimsRejected = v.rejected;
+        emitTelemetry({
+          event: 'card.validate.end',
+          runId: input.runId,
+          userId: input.userId,
+          section: input.section,
+          card: r.cardName,
+          durationMs: batchDurationMs,
+          extra: {
+            rejectedCount: v.rejected?.length ?? 0,
+            confidence: v.confidence,
+            batched: true,
+          },
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 function parseAllowList(csv: string | undefined): Set<string> | null {
