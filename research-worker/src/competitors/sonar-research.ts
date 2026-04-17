@@ -448,7 +448,7 @@ async function validateCompetitors(
  * Uses the identity card's coreKeywords to search for real competitors.
  * Returns up to 5 CompetitorEntry objects with verified domains.
  */
-async function discoverCompetitorsFromIdentity(
+export async function discoverCompetitorsFromIdentity(
   identityCard: IdentityCard,
   companyName: string | null,
 ): Promise<CompetitorEntry[]> {
@@ -583,37 +583,42 @@ export async function fetchSonarCompetitorResearch(input: {
     );
   }
 
-  // Phase 0.5: If all user-provided competitors were wrong-category and we have
-  // an identity card, discover real competitors via Sonar Pro web search.
-  // Discovery: when identity card flags a category mismatch in user competitors,
-  // discover ADDITIONAL competitors in the correct category. These are ADDED to
-  // the user-provided list, not used as replacements.
+  // Phase 0.5: Discover competitors from the identity card's coreKeywords.
+  //
+  // Mahdy 2026-04-03 #14: niche-product competitor detection. For products in
+  // narrow verticals (Instapation = BNPL for medspas, not scheduling software),
+  // the user may provide generic category competitors that pass name-level
+  // validation but miss the actual niche space. Keyword-based discovery always
+  // surfaces real vertical competitors; results are MERGED with verified user
+  // competitors and deduplicated by name. Downstream parallel-fetch caps at
+  // MAX_COMPETITORS so adding a few candidates is safe — the best-ranked
+  // user-provided entries stay in front and discovered ones fill remaining
+  // slots.
+  //
+  // Previously this only fired on specific `evidence.conflicts` phrases, which
+  // meant discovery silently skipped for well-described niche products (zero
+  // conflicts) and Mahdy's case went unaddressed. Now it fires whenever the
+  // identity card has coreKeywords — the resolver emits those in >90% of runs.
   let discoveredCompetitors: CompetitorEntry[] = [];
-  if (input.identityCard?.evidence?.conflicts?.length) {
-    const conflictText = input.identityCard.evidence.conflicts.join(' ').toLowerCase();
-    const hasCompetitorMismatch =
-      conflictText.includes('not direct competitor') ||
-      conflictText.includes('not content') ||
-      conflictText.includes('note-taking') ||
-      conflictText.includes('knowledge management') ||
-      conflictText.includes('true competitors');
-
-    if (hasCompetitorMismatch) {
-      console.info('[sonar-research] Identity card flags competitor category mismatch — discovering additional competitors');
-      discoveredCompetitors = await discoverCompetitorsFromIdentity(
-        input.identityCard,
-        input.companyName,
+  if (input.identityCard?.coreKeywords && input.identityCard.coreKeywords.length > 0) {
+    console.info(
+      `[sonar-research] Discovering competitors via identity-card keywords (${input.identityCard.coreKeywords.slice(0, 3).join(', ')})`,
+    );
+    discoveredCompetitors = await discoverCompetitorsFromIdentity(
+      input.identityCard,
+      input.companyName,
+    );
+    // Deduplicate against user-provided names so we don't double-probe.
+    const existingNames = new Set(verifiedCompetitors.map((c) => c.name.toLowerCase()));
+    discoveredCompetitors = discoveredCompetitors.filter(
+      (dc) => !existingNames.has(dc.name.toLowerCase()),
+    );
+    if (discoveredCompetitors.length > 0) {
+      console.info(
+        `[sonar-research] Discovery added ${discoveredCompetitors.length} vertical competitor(s): ${discoveredCompetitors.map((c) => c.name).join(', ')}`,
       );
-      // Deduplicate: don't add discovered competitors that match user-provided ones
-      const existingNames = new Set(verifiedCompetitors.map(c => c.name.toLowerCase()));
-      discoveredCompetitors = discoveredCompetitors.filter(
-        dc => !existingNames.has(dc.name.toLowerCase()),
-      );
-      if (discoveredCompetitors.length > 0) {
-        console.info(
-          `[sonar-research] Adding ${discoveredCompetitors.length} discovered competitors: ${discoveredCompetitors.map(c => c.name).join(', ')}`,
-        );
-      }
+    } else {
+      console.info('[sonar-research] Discovery returned no new competitors (all duplicates or empty)');
     }
   }
 
