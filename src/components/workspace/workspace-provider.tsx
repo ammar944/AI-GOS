@@ -175,12 +175,28 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
         }
       }
 
+      // Wave-2 parallel dispatch: when the user approves offerAnalysis, the
+      // approval handler in journey/page.tsx fires BOTH keywordIntel AND
+      // crossAnalysis in parallel (see dispatchWave2Parallel). Mirror that in
+      // the UI state so both cards render as 'researching' concurrently
+      // instead of crossAnalysis staying 'idle' until keywordIntel completes.
+      const wave2Extra: Partial<Record<SectionKey, SectionPhase>> = {};
+      if (current === 'offerAnalysis') {
+        const crossHasCards = Object.values(updatedCards).some(
+          (card) => card.sectionKey === 'crossAnalysis',
+        );
+        if (!crossHasCards && prev.sectionStates.crossAnalysis !== 'approved') {
+          wave2Extra.crossAnalysis = 'researching';
+        }
+      }
+
       return {
         ...prev,
         sectionStates: {
           ...prev.sectionStates,
           [current]: 'approved',
           ...(next ? { [next]: nextPhase } : {}),
+          ...wave2Extra,
         },
         currentSection: next ?? current,
         cards: updatedCards,
