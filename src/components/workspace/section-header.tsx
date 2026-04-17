@@ -35,6 +35,11 @@ export function SectionHeader({ section, mode = 'workspace' }: SectionHeaderProp
       <span className="text-[11px] font-mono text-[var(--accent-blue)] uppercase tracking-[0.06em]">
         {meta.moduleNumber} &middot; {meta.label}
       </span>
+      {meta.description && (
+        <p className="mt-1 text-[12px] text-[var(--text-tertiary)] leading-relaxed">
+          {meta.description}
+        </p>
+      )}
     </div>
   );
 }

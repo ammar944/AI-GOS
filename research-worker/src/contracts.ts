@@ -268,7 +268,6 @@ const icpValidationDataSchema = z.object({
     validatedPersona: nonEmptyStringSchema,
     audienceSize: nonEmptyStringSchema,
     confidence: z.number().min(0).max(100),
-    channels: nonEmptyStringArraySchema,
     triggers: nonEmptyStringArraySchema,
     objections: nonEmptyStringArraySchema,
   })).optional(),

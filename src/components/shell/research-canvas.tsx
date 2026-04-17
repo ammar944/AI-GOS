@@ -162,16 +162,34 @@ function DataRow({ label, value }: { label: string; value: string | number | und
   );
 }
 
-function BulletList({ items, color = 'var(--accent-blue)' }: { items: string[]; color?: string }) {
+function BulletList({
+  items,
+  color = 'var(--accent-blue)',
+  highlightFirst = false,
+}: {
+  items: string[];
+  color?: string;
+  highlightFirst?: boolean;
+}) {
   if (!items?.length) return null;
   return (
     <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {items.map((item, i) => (
-        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 6 }} />
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{item}</span>
-        </li>
-      ))}
+      {items.map((item, i) => {
+        const isPrimary = highlightFirst && i === 0;
+        return (
+          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 6 }} />
+            <span style={{ fontSize: 12, color: isPrimary ? 'var(--text-primary)' : 'var(--text-secondary)', lineHeight: 1.5, fontWeight: isPrimary ? 600 : 400 }}>
+              {isPrimary && (
+                <span style={{ fontSize: 9, fontFamily: 'var(--font-mono, monospace)', color, letterSpacing: '0.06em', marginRight: 6, padding: '1px 5px', borderRadius: 3, border: `1px solid ${color}`, textTransform: 'uppercase' }}>
+                  Primary
+                </span>
+              )}
+              {item}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -331,7 +349,6 @@ function CompetitorsContent({ data }: { data: Record<string, unknown> }) {
 
 // ICP tab content
 function ICPSegmentView({ segment }: { segment: Record<string, unknown> }) {
-  const channels = arr(get(segment, 'channels')).map(str).filter(Boolean);
   const triggers = arr(get(segment, 'triggers')).map(str).filter(Boolean);
   const objections = arr(get(segment, 'objections')).map(str).filter(Boolean);
   const confidence = get<number>(segment, 'confidence');
@@ -350,22 +367,16 @@ function ICPSegmentView({ segment }: { segment: Record<string, unknown> }) {
       {confidence !== undefined && (
         <DataRow label="Confidence" value={`${confidence}%`} />
       )}
-      {channels.length > 0 && (
-        <div>
-          <SectionLabel>Top Channels</SectionLabel>
-          <BulletList items={channels} color="var(--accent-cyan, #06b6d4)" />
-        </div>
-      )}
       {triggers.length > 0 && (
         <div>
           <SectionLabel>Buying Triggers</SectionLabel>
-          <BulletList items={triggers} color="var(--accent-green, #22c55e)" />
+          <BulletList items={triggers} color="var(--accent-green, #22c55e)" highlightFirst />
         </div>
       )}
       {objections.length > 0 && (
         <div>
           <SectionLabel>Key Objections</SectionLabel>
-          <BulletList items={objections} color="#f59e0b" />
+          <BulletList items={objections} color="#f59e0b" highlightFirst />
         </div>
       )}
     </div>

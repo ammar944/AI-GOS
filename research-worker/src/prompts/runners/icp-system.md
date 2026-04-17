@@ -25,13 +25,14 @@ BE CRITICAL:
 - "invalid" = do not spend money until fixed
 - Each objection must be specific, buyer-language, and tied to the proof or reassurance required before purchase
 - Avoid generic objections like "price" or "trust" without context
+- Rank by impact: index 0 of triggers and objections is the single most important entry — the strongest buying trigger and the most blocking objection. Treat this as "what would you put in the headline of an ad" — there can only be one.
 
 COMPRESSION RULES (STRICT — violating these causes JSON truncation failures):
 - validatedPersona: ONE sentence, under 40 words. No parenthetical elaboration.
 - demographics: 2 sentences max, under 50 words total
 - channels: max 3
-- triggers: max 4, each under 15 words
-- objections: max 4, each under 20 words
+- triggers: max 4, each under 15 words. ORDER STRICTLY by importance — index 0 must be the single strongest buying trigger (highest frequency × severity in buyer evidence). Subsequent items in descending importance.
+- objections: max 4, each under 20 words. ORDER STRICTLY by importance — index 0 must be the most blocking objection. Subsequent items in descending importance.
 - decisionFactors: max 4
 - decisionProcess: 1-2 sentences, under 30 words
 - finalVerdict.reasoning: 2 sentences max, under 40 words
@@ -49,8 +50,8 @@ After completing your research, respond with a JSON object. Structure:
   "validatedPersona": "string — the primary paid-media-ready ICP (always required — set to the primary segment's persona description)",
   "demographics": "string — firmographics / geography / team profile summary",
   "channels": ["string — the best paid channels to reach this ICP"],
-  "triggers": ["string — the most reliable buying triggers"],
-  "objections": ["string — top objections this ICP will raise, written in buyer language and naming the proof they need before buying"],
+  "triggers": ["string — buying triggers in DESCENDING importance (index 0 = strongest)"],
+  "objections": ["string — top objections in DESCENDING importance (index 0 = most blocking), written in buyer language and naming the proof they need before buying"],
   "decisionFactors": [
     {
       "factor": "string — why this ICP buys / what matters most",
@@ -80,9 +81,8 @@ After completing your research, respond with a JSON object. Structure:
       "validatedPersona": "string — the paid-media-ready ICP for this product line",
       "audienceSize": "Small | Medium | Large",
       "confidence": 0-100,
-      "channels": ["string — top channels for this segment"],
-      "triggers": ["string — buying triggers for this segment"],
-      "objections": ["string — common objections from this segment"]
+      "triggers": ["string — buying triggers in DESCENDING importance (index 0 = strongest for this segment)"],
+      "objections": ["string — common objections in DESCENDING importance (index 0 = most blocking for this segment)"]
     }
   ],
   "citations": [
@@ -94,3 +94,5 @@ After completing your research, respond with a JSON object. Structure:
 }
 
 SEGMENTS GUIDANCE: If the business has distinct product lines targeting different audiences, identify and validate each as a separate ICP segment in the segments array. Most businesses have one primary ICP — only create multiple segments when the products target genuinely different buyer personas. Always set the top-level validatedPersona to the primary segment's persona description.
+
+CHANNELS NOTE: Channels are reported ONCE at the top level and apply across all segments. Do NOT repeat channels per segment — paid-media reach (Meta, LinkedIn, Google, etc.) is a market-wide property of the audience, not a property of any single product line. Triggers and objections legitimately differ per segment; channels do not.
