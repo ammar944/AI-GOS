@@ -121,3 +121,23 @@ These failures exist in `main` and were NOT introduced by the current research-f
 **Why:** `planningContext` has no CVR/percentage fields — CVR appears in free-text only. Prompt guardrails are the 80/20 fix, but a schema field enables deterministic validation.
 **Context:** User chose option B (structured field) over prompt-only. Outside voice identified that post-processing on a non-existent field does nothing.
 **Depends on:** Nothing — part of PR 7 implementation.
+
+## Journey Workspace v3 — Phase 3 prerequisite (added 2026-04-17 by /plan-design-review)
+
+**What:** Author HTML prototypes for all 8 section layouts (identityResolution, industryMarket, icpValidation, competitors, offerAnalysis, keywordIntel, crossAnalysis) + media plan dashboard, before Phase 3 implementation starts.
+
+**Why:** Plan `docs/superpowers/plans/2026-04-17-journey-workspace-v3.md` defines section grammars in prose but defers per-section mockups to Phase 3 itself. Engineers without visual references will guess at direction and create rework. `shell.html` at `~/.gstack/projects/ammar944-AI-GOS/designs/journey-workspace-shell-20260417/` is the canonical pattern to extend.
+
+**Pros:**
+- Prevents Phase 3 visual rework (~2-3 days saved)
+- Locks visual grammar before code commitment
+- Provides design QA anchor for `/design-review` post-implementation
+
+**Cons:**
+- ~1 day of design work before Phase 3 kickoff
+- Adds a gate between Phase 2 and Phase 3
+
+**Context:** Phase 1 (tokens) and Phase 2 (layout shell) can proceed without these mockups. Only Phase 3 (per-section visual grammar) needs them. Output directory: `~/.gstack/projects/ammar944-AI-GOS/designs/journey-workspace-shell-20260417/` (or a new dated subdirectory).
+
+**Blocks:** Phase 3 start.
+**Priority:** P1 (before Phase 3; not urgent for Phase 1/2).
