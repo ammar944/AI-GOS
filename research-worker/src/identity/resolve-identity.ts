@@ -15,7 +15,7 @@ import type { ResearchResult } from '../supabase';
 import { MODELS } from '../models';
 
 const IDENTITY_MODEL = process.env.IDENTITY_RESOLVER_MODEL ?? MODELS.FAST;
-const IDENTITY_MAX_TOKENS = 2000;
+const IDENTITY_MAX_TOKENS = 4000;
 const IDENTITY_TIMEOUT_MS = 45_000;
 
 const IDENTITY_SYSTEM_PROMPT = `You are a product classification specialist. Given research data about a company (website content, Perplexity intel, onboarding fields), produce a canonical product identity.
@@ -38,6 +38,16 @@ CONFIDENCE SCORING:
 - 70-89: Research data supports the category but some ambiguity exists
 - 50-69: Significant ambiguity — product could plausibly fit multiple categories
 - Below 50: Research data is insufficient or contradicts the user's description
+
+RESPONSE BUDGET (mandatory — enforce ruthlessly):
+- Total output must stay under 1500 tokens. Truncated JSON is unusable.
+- category / subcategory: max 6 words each
+- businessModel: max 20 words, one sentence
+- coreProduct: max 30 words, one sentence
+- buyer / jobToBeDone: max 15 words each
+- coreKeywords / negativeKeywords: max 8 items, max 4 words per item
+- evidence.websiteSignals / onboardingSignals / conflicts: max 5 items each, max 15 words per item
+- ambiguityFlags: max 4 items, short phrases
 
 OUTPUT FORMAT:
 Return ONLY a JSON object. No preamble, no markdown fences. Start with { end with }.
@@ -116,24 +126,42 @@ export async function resolveProductIdentity(
 
     const textBlock = response.content.findLast((b: { type: string }) => b.type === 'text');
     const resultText = textBlock && 'text' in textBlock ? (textBlock as { type: string; text: string }).text : '';
+    const stopReason = (response as { stop_reason?: string }).stop_reason;
+    const wasTruncated = stopReason === 'max_tokens';
+
+    if (wasTruncated) {
+      console.warn('[identity] hit max_tokens cap', {
+        stopReason,
+        length: resultText.length,
+        maxTokens: IDENTITY_MAX_TOKENS,
+      });
+    }
 
     let parsed: unknown;
     try {
       parsed = extractJson(resultText);
     } catch {
-      console.error('[identity] JSON extraction failed:', resultText.slice(0, 300));
+      console.error('[identity] JSON extraction failed', {
+        length: resultText.length,
+        stopReason,
+        head: resultText.slice(0, 200),
+        tail: resultText.slice(-200),
+      });
       parsed = null;
     }
 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      const fallbackCard = buildFallbackCard(context, 'json-parse-failed');
+      const flag = wasTruncated ? 'truncated-output' : 'json-parse-failed';
+      const fallbackCard = buildFallbackCard(context, flag);
       return {
         status: 'partial',
         section: 'identityResolution',
         durationMs: Date.now() - startTime,
         data: fallbackCard,
         rawText: resultText,
-        error: 'Identity resolver returned non-JSON response; fallback card used.',
+        error: wasTruncated
+          ? `Identity resolver hit max_tokens (${IDENTITY_MAX_TOKENS}); fallback card used.`
+          : 'Identity resolver returned non-JSON response; fallback card used.',
       };
     }
 
