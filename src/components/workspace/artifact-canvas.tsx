@@ -144,7 +144,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     });
   }, [allResearchApproved, state.cards, state.sessionId]);
 
-  const showCards = isReviewable || isApproved || allResearchApproved || researchAndPlanDone;
+  const showCards = phase === 'streaming' || isReviewable || isApproved || allResearchApproved || researchAndPlanDone;
 
   const sectionCards = useMemo(() => {
     return Object.values(state.cards)
