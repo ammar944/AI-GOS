@@ -1,8 +1,14 @@
 import type { CardState, SectionKey } from './types';
 
 let cardIdCounter = 0;
-function nextCardId(section: string, type: string): string {
-  return `${section}-${type}-${++cardIdCounter}`;
+function nextCardId(section: string, type: string, label: string): string {
+  // Deterministic slug from label so re-parses produce identical IDs and
+  // setCards overwrites instead of appending. Fixes media plan duplicate-render
+  // bug where cold-start + realtime polling each generated new IDs.
+  const slug = label
+    ? label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
+    : '';
+  return slug ? `${section}-${type}-${slug}` : `${section}-${type}-n${++cardIdCounter}`;
 }
 
 export function resetCardIdCounter() {
@@ -41,7 +47,7 @@ function makeCard(
   description?: string,
 ): CardState {
   return {
-    id: nextCardId(section, cardType),
+    id: nextCardId(section, cardType, label),
     sectionKey: section,
     cardType,
     label,
