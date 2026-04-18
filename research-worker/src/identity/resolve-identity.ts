@@ -15,8 +15,35 @@ import type { ResearchResult } from '../supabase';
 import { MODELS } from '../models';
 
 const IDENTITY_MODEL = process.env.IDENTITY_RESOLVER_MODEL ?? MODELS.FAST;
-const IDENTITY_MAX_TOKENS = 4000;
+// Bumped from 4000 → 5000 to accommodate 2 new classification fields
+// (businessModelType, awarenessLevel) without risking mid-JSON truncation.
+const IDENTITY_MAX_TOKENS = 5000;
 const IDENTITY_TIMEOUT_MS = 45_000;
+
+const VALID_BUSINESS_MODEL_TYPES = new Set([
+  'plg',
+  'slg',
+  'ecommerce',
+  'transactional',
+  'marketplace',
+  'unknown',
+]);
+
+const VALID_AWARENESS_LEVELS = new Set([
+  'unaware',
+  'problem-aware',
+  'solution-aware',
+  'product-aware',
+  'most-aware',
+  'unknown',
+]);
+
+/** Coerce a classification field to a valid enum value, defaulting to 'unknown'. */
+function coerceClassification(value: unknown, validSet: Set<string>): string {
+  if (typeof value !== 'string') return 'unknown';
+  const normalized = value.trim().toLowerCase();
+  return validSet.has(normalized) ? normalized : 'unknown';
+}
 
 const IDENTITY_SYSTEM_PROMPT = `You are a product classification specialist. Given research data about a company (website content, Perplexity intel, onboarding fields), produce a canonical product identity.
 
@@ -39,10 +66,31 @@ CONFIDENCE SCORING:
 - 50-69: Significant ambiguity — product could plausibly fit multiple categories
 - Below 50: Research data is insufficient or contradicts the user's description
 
+BUSINESS MODEL TYPE CLASSIFICATION (required):
+Classify into ONE of these enums. If signals are split or unclear, output 'unknown' — do NOT guess.
+
+- 'plg': product-led growth. Signals: free trial, freemium, self-serve signup, low-to-mid price ($5–$500/mo), no demo required.
+- 'slg': sales-led growth. Signals: demo required before purchase, dedicated sales team, mid-to-high ACV ($5k+/yr), committee buying.
+- 'ecommerce': direct online purchase. Signals: online store, product catalog, checkout on-site, AOV $20–$500.
+- 'transactional': local service or one-time booking. Signals: service-based, booking/appointment driven, one-off purchases.
+- 'marketplace': two-sided market. Signals: separate supply and demand sides, commission/transaction fee revenue model.
+- 'unknown': signals are genuinely ambiguous or missing.
+
+AWARENESS LEVEL CLASSIFICATION (required — Eugene Schwartz 5 levels):
+Classify the TARGET MARKET's awareness of the product category/problem.
+
+- 'unaware': market doesn't know the problem exists. New/emerging categories.
+- 'problem-aware': market knows the problem, doesn't know solution category exists.
+- 'solution-aware': market knows solution category exists, evaluating options.
+- 'product-aware': market knows your brand specifically, comparing alternatives.
+- 'most-aware': market has considered buying, needs trigger to close.
+- 'unknown': insufficient signal to classify.
+
 RESPONSE BUDGET (mandatory — enforce ruthlessly):
-- Total output must stay under 1500 tokens. Truncated JSON is unusable.
+- Total output must stay under 1800 tokens. Truncated JSON is unusable.
 - category / subcategory: max 6 words each
 - businessModel: max 20 words, one sentence
+- businessModelType / awarenessLevel: single enum token only (see lists above)
 - coreProduct: max 30 words, one sentence
 - buyer / jobToBeDone: max 15 words each
 - coreKeywords / negativeKeywords: max 8 items, max 4 words per item
@@ -56,7 +104,9 @@ Return ONLY a JSON object. No preamble, no markdown fences. Start with { end wit
   "schemaVersion": 1,
   "category": "string — specific product category",
   "subcategory": "string — narrower classification",
-  "businessModel": "string — how they make money",
+  "businessModel": "string — how they make money (free text)",
+  "businessModelType": "plg|slg|ecommerce|transactional|marketplace|unknown",
+  "awarenessLevel": "unaware|problem-aware|solution-aware|product-aware|most-aware|unknown",
   "coreProduct": "string — one sentence: what the customer actually buys",
   "coreKeywords": ["string — search terms for finding competitors in this exact space"],
   "negativeKeywords": ["string — search terms that lead to WRONG categories"],
@@ -165,13 +215,27 @@ export async function resolveProductIdentity(
       };
     }
 
+    // Coerce classification fields to valid enums — defends against the model
+    // returning "Product-led" or "PLG SaaS" when the schema expects the literal
+    // token 'plg'. Invalid values collapse to 'unknown' which downstream
+    // runners (e.g. media plan) treat as a classification-confidence flag.
+    const coerced = parsed as Record<string, unknown>;
+    coerced.businessModelType = coerceClassification(
+      coerced.businessModelType,
+      VALID_BUSINESS_MODEL_TYPES,
+    );
+    coerced.awarenessLevel = coerceClassification(
+      coerced.awarenessLevel,
+      VALID_AWARENESS_LEVELS,
+    );
+
     await emitRunnerProgress(onProgress, 'output', 'identity resolution complete');
 
     return {
       status: 'complete',
       section: 'identityResolution',
       durationMs: Date.now() - startTime,
-      data: parsed,
+      data: coerced,
       rawText: resultText,
     };
   } catch (error) {
@@ -195,6 +259,8 @@ function buildFallbackCard(context: string, flag: string): Record<string, unknow
     category: 'Unknown',
     subcategory: 'Unknown',
     businessModel: extractFieldFromContext(context, 'Business Model') ?? 'Unknown',
+    businessModelType: 'unknown',
+    awarenessLevel: 'unknown',
     coreProduct: extractFieldFromContext(context, 'Product') ?? 'Unknown',
     coreKeywords: [],
     negativeKeywords: [],

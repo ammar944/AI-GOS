@@ -383,6 +383,41 @@ export async function POST(req: Request) {
     enrichedContext = meetingInstruction + enrichedContext;
   }
 
+  // --- Identity card classifications injection ---
+  // The media-plan runner (and, in Phase 2, other runners) reads
+  // `[businessModelType:X]` and `[awarenessLevel:Y]` metadata lines to route
+  // funnel / channel / creative decisions. These classifications live on the
+  // identity card. Skip the fetch for the identityResolution section itself
+  // (it produces the card; doesn't consume it).
+  if (section !== 'identityResolution' && runId) {
+    try {
+      const metaSupabase = createAdminClient();
+      const { data: sessionRow } = await metaSupabase
+        .from('journey_sessions')
+        .select('research_results')
+        .eq('user_id', userId)
+        .eq('run_id', runId)
+        .maybeSingle();
+      const identityData = (
+        sessionRow?.research_results as
+          | { identityResolution?: { data?: Record<string, unknown> } }
+          | null
+      )?.identityResolution?.data;
+      if (identityData && typeof identityData === 'object') {
+        const bmType = typeof identityData.businessModelType === 'string'
+          ? identityData.businessModelType
+          : 'unknown';
+        const awareness = typeof identityData.awarenessLevel === 'string'
+          ? identityData.awarenessLevel
+          : 'unknown';
+        const metaLines = `[businessModelType:${bmType}]\n[awarenessLevel:${awareness}]\n\n`;
+        enrichedContext = metaLines + enrichedContext;
+      }
+    } catch (err) {
+      console.warn('[dispatch] Failed to inject identity classifications:', err);
+    }
+  }
+
   // Context hash for debugging non-determinism across runs
   const { createHash } = await import('crypto');
   const contextHash = createHash('sha256').update(enrichedContext).digest('hex').slice(0, 16);
