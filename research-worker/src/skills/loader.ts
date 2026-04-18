@@ -4,13 +4,17 @@ import type { MediaPlanBlock } from '../contracts';
 
 const REFS_DIR = join(__dirname, 'refs');
 const TEMPLATES_DIR = join(__dirname, 'templates');
+const BUSINESS_MODEL_TEMPLATES_DIR = join(__dirname, 'templates', 'business-models');
 const METHODOLOGIES_DIR = join(__dirname, 'methodologies');
+const MEDIA_PLAN_METHODOLOGIES_DIR = join(__dirname, 'methodologies', 'media-plan');
 const RUNNER_PROMPTS_DIR = join(__dirname, '..', 'prompts', 'runners');
 
 // Cache ref files at module load — worker is a long-running Express process
 const refCache = new Map<string, string>();
 const templateCache = new Map<string, string>();
+const businessModelTemplateCache = new Map<string, string>();
 const methodologyCache = new Map<string, string>();
+const mediaPlanMethodologyCache = new Map<string, string>();
 
 function loadDir(dir: string, cache: Map<string, string>): void {
   try {
@@ -29,7 +33,9 @@ function loadDir(dir: string, cache: Map<string, string>): void {
 
 loadDir(REFS_DIR, refCache);
 loadDir(TEMPLATES_DIR, templateCache);
+loadDir(BUSINESS_MODEL_TEMPLATES_DIR, businessModelTemplateCache);
 loadDir(METHODOLOGIES_DIR, methodologyCache);
+loadDir(MEDIA_PLAN_METHODOLOGIES_DIR, mediaPlanMethodologyCache);
 
 const runnerPromptCache = new Map<string, string>();
 loadDir(RUNNER_PROMPTS_DIR, runnerPromptCache);
@@ -97,6 +103,45 @@ export function loadMethodology(filename: string): string {
   const content = methodologyCache.get(filename);
   if (!content) {
     console.warn(`[loader] Missing methodology: ${filename}`);
+    return '';
+  }
+  return content;
+}
+
+/**
+ * Returns a media-plan-specific methodology file from
+ * methodologies/media-plan/. These teach the media plan runner how to think
+ * about business model routing, awareness-level routing, sales cycle bounding,
+ * and channel grounding. Injected into the runner's system prompt per block.
+ *
+ * Returns empty string if not found (caller can handle gracefully).
+ *
+ * Example: loadMediaPlanMethodology('business-model-routing.md')
+ */
+export function loadMediaPlanMethodology(filename: string): string {
+  const content = mediaPlanMethodologyCache.get(filename);
+  if (!content) {
+    console.warn(`[loader] Missing media plan methodology: ${filename}`);
+    return '';
+  }
+  return content;
+}
+
+/**
+ * Returns the business-model template for the given model type, falling back
+ * to empty string if not found. Business-model templates layer ON TOP of
+ * industry templates — they don't replace them.
+ *
+ * Valid types: 'plg' | 'slg' | 'ecommerce' | 'transactional' | 'marketplace'
+ *
+ * Example: loadBusinessModelTemplate('plg') → returns plg.md content
+ */
+export function loadBusinessModelTemplate(type: string): string {
+  if (!type || type === 'unknown') return '';
+  const file = `${type}.md`;
+  const content = businessModelTemplateCache.get(file);
+  if (!content) {
+    console.warn(`[loader] Missing business model template: ${file}`);
     return '';
   }
   return content;

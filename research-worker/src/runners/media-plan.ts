@@ -19,7 +19,13 @@ import { writeResearchResult } from '../supabase';
 import type { ResearchResult } from '../supabase';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
-import { loadBlockRefs, loadIndustryTemplate, loadRunnerPrompt } from '../skills/loader';
+import {
+  loadBlockRefs,
+  loadIndustryTemplate,
+  loadRunnerPrompt,
+  loadBusinessModelTemplate,
+  loadMediaPlanMethodology,
+} from '../skills/loader';
 import { CHANNEL_MIX_SKILL } from '../skills/channel-mix-skill';
 import { AUDIENCE_CAMPAIGN_SKILL } from '../skills/audience-campaign-skill';
 import { CREATIVE_SYSTEM_SKILL } from '../skills/creative-system-skill';
@@ -111,15 +117,58 @@ function extractMetadata(context: string): { userId: string; sessionId?: string 
   };
 }
 
+// Business model classification — populated by the identity resolver and
+// prepended to the context string by the dispatch route as `[businessModelType:X]`.
+// Defaults to 'unknown' if the field is missing, causing the runner to flag
+// classificationConfidence: low and default the funnel to SLG.
+type BusinessModelType = 'plg' | 'slg' | 'ecommerce' | 'transactional' | 'marketplace' | 'unknown';
+
+function extractBusinessModel(context: string): BusinessModelType {
+  const match = context.match(/\[businessModelType:([^\]]+)\]/);
+  const value = match?.[1]?.trim().toLowerCase();
+  const valid: BusinessModelType[] = ['plg', 'slg', 'ecommerce', 'transactional', 'marketplace', 'unknown'];
+  if (value && (valid as string[]).includes(value)) return value as BusinessModelType;
+  return 'unknown';
+}
+
+// Awareness level classification — Schwartz 5 levels. Drives channel, funnel
+// split, and creative approach routing.
+type AwarenessLevel = 'unaware' | 'problem-aware' | 'solution-aware' | 'product-aware' | 'most-aware' | 'unknown';
+
+function extractAwarenessLevel(context: string): AwarenessLevel {
+  const match = context.match(/\[awarenessLevel:([^\]]+)\]/);
+  const value = match?.[1]?.trim().toLowerCase();
+  const valid: AwarenessLevel[] = ['unaware', 'problem-aware', 'solution-aware', 'product-aware', 'most-aware', 'unknown'];
+  if (value && (valid as string[]).includes(value)) return value as AwarenessLevel;
+  return 'unknown';
+}
+
 export async function runMediaPlan(
   context: string,
   onProgress?: RunnerProgressReporter,
 ): Promise<ResearchResult> {
   const startTime = Date.now();
   const industry = detectIndustry(context);
+  const businessModelType = extractBusinessModel(context);
+  const awarenessLevel = extractAwarenessLevel(context);
   const shouldInjectTemplates = process.env.INJECT_INDUSTRY_TEMPLATES !== 'false';
   const industryTemplate = shouldInjectTemplates ? loadIndustryTemplate(industry) : '';
+  const businessModelTemplate = shouldInjectTemplates ? loadBusinessModelTemplate(businessModelType) : '';
   const { userId } = extractMetadata(context);
+
+  // Load media-plan methodologies once — these frame every block's reasoning.
+  // Methodologies = "how to think"; skills = "what to output".
+  const bmRouting = loadMediaPlanMethodology('business-model-routing.md');
+  const awarenessRouting = loadMediaPlanMethodology('awareness-level-routing.md');
+  const salesCycleBounding = loadMediaPlanMethodology('sales-cycle-bounding.md');
+  const channelGrounding = loadMediaPlanMethodology('channel-grounding.md');
+  const mediaPlanMethodologies = [bmRouting, awarenessRouting, salesCycleBounding, channelGrounding]
+    .filter(Boolean)
+    .join('\n\n---\n\n');
+
+  console.log(
+    `[media-plan] businessModel=${businessModelType} awarenessLevel=${awarenessLevel} industry=${industry}`,
+  );
 
   const completedBlocks: MediaPlanBlock[] = [];
   const blockResults: Record<string, unknown> = {};
@@ -155,6 +204,8 @@ export async function runMediaPlan(
     const refs = loadBlockRefs(block.name);
     const systemParts = [
       block.skill,
+      mediaPlanMethodologies ? `\n\n## Media Plan Methodologies (how to think)\n\nThese decision frameworks frame the whole plan. Apply them before the block-specific instructions above.\n\n${mediaPlanMethodologies}` : '',
+      businessModelTemplate ? `\n\n## Business Model Template (${businessModelType})\nModel-specific funnel, KPIs, default channel mix, and forbidden campaign types. Overrides any default in the block skill when they conflict.\n\n${businessModelTemplate}` : '',
       refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nThe following are generic industry benchmarks for reference only. When using any number from this section, label it "(benchmark)" in your output. NEVER present these as client-specific research findings.\n\n${refs}` : '',
       industryTemplate ? `\n\n## Industry Template (${industry}) — GENERIC DEFAULTS ONLY\nThese are category-level benchmarks, NOT client-specific research. When using ANY number from this section:\n1. Append "(industry default)" to the value in your output\n2. Only use when client-specific data is unavailable\nNEVER present these as client-specific findings.\n\n${industryTemplate}` : '',
       ANTI_HALLUCINATION,
