@@ -21,9 +21,25 @@ const WAVE_1_AGENTS: SectionKey[] = [
   'offerAnalysis',
 ];
 
+/**
+ * Wave 2 fires after wave 1 approval — keywordIntel + crossAnalysis
+ * dispatch in parallel. Mirrors WAVE_2_PARALLEL_SECTIONS in dispatch-client.ts.
+ */
+const WAVE_2_AGENTS: SectionKey[] = [
+  'keywordIntel',
+  'crossAnalysis',
+];
+
 type Tone = 'queued' | 'active' | 'review' | 'done' | 'error';
 
-interface ParallelAgentBoardProps {
+interface AgentWaveBoardProps {
+  userId?: string | null;
+  activeRunId?: string | null;
+  agents: SectionKey[];
+  waveLabel: string;
+}
+
+interface WaveBoardProps {
   userId?: string | null;
   activeRunId?: string | null;
 }
@@ -57,7 +73,7 @@ function phaseTone(phase: SectionPhase | undefined): Tone {
   }
 }
 
-export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardProps) {
+function AgentWaveBoard({ userId, activeRunId, agents, waveLabel }: AgentWaveBoardProps) {
   const { state } = useWorkspace();
   const jobActivity = useResearchJobActivity({
     userId: userId ?? undefined,
@@ -67,7 +83,7 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
   // Re-render every second so elapsed time ticks live.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const anyActive = WAVE_1_AGENTS.some(
+    const anyActive = agents.some(
       (key) =>
         state.sectionStates[key] === 'researching' ||
         state.sectionStates[key] === 'streaming',
@@ -75,18 +91,18 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
     if (!anyActive) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [state.sectionStates]);
+  }, [state.sectionStates, agents]);
 
-  const anyWave1Live = WAVE_1_AGENTS.some((key) => {
+  const anyLive = agents.some((key) => {
     const phase = state.sectionStates[key];
     return phase === 'researching' || phase === 'streaming' || phase === 'review';
   });
-  const allWave1Approved = WAVE_1_AGENTS.every(
+  const allApproved = agents.every(
     (key) => state.sectionStates[key] === 'approved',
   );
-  const isVisible = Boolean(activeRunId) && anyWave1Live && !allWave1Approved;
+  const isVisible = Boolean(activeRunId) && anyLive && !allApproved;
 
-  const activeCount = WAVE_1_AGENTS.filter((key) => {
+  const activeCount = agents.filter((key) => {
     const p = state.sectionStates[key];
     return p === 'researching' || p === 'streaming';
   }).length;
@@ -94,7 +110,7 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
   // Pick the currently-active agent with the freshest message for the
   // ticker line below the pills. Falls back to nothing if no narration.
   const tickerLine = useMemo(() => {
-    for (const key of WAVE_1_AGENTS) {
+    for (const key of agents) {
       const phase = state.sectionStates[key];
       if (phase !== 'researching' && phase !== 'streaming') continue;
       const msg = latestMessage(jobActivity[key]);
@@ -105,13 +121,13 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
       }
     }
     return null;
-  }, [state.sectionStates, jobActivity]);
+  }, [state.sectionStates, jobActivity, agents]);
 
   return (
     <AnimatePresence initial={false}>
       {isVisible && (
         <motion.div
-          key="parallel-agent-board"
+          key={`agent-wave-board-${waveLabel}`}
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
@@ -122,11 +138,11 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
             <div className="flex items-center gap-2 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-amber)] animate-pulse" />
               <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                wave 1 · {activeCount} researching
+                {waveLabel} · {activeCount} researching
               </span>
             </div>
             <div className="h-3 w-px bg-[var(--border-subtle)] shrink-0" />
-            {WAVE_1_AGENTS.map((key) => {
+            {agents.map((key) => {
               const meta = SECTION_META[key] ?? DEFAULT_SECTION_META;
               const phase = state.sectionStates[key];
               const tone = phaseTone(phase);
@@ -191,5 +207,27 @@ export function ParallelAgentBoard({ userId, activeRunId }: ParallelAgentBoardPr
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+export function ParallelAgentBoard({ userId, activeRunId }: WaveBoardProps) {
+  return (
+    <AgentWaveBoard
+      userId={userId}
+      activeRunId={activeRunId}
+      agents={WAVE_1_AGENTS}
+      waveLabel="wave 1"
+    />
+  );
+}
+
+export function Wave2AgentBoard({ userId, activeRunId }: WaveBoardProps) {
+  return (
+    <AgentWaveBoard
+      userId={userId}
+      activeRunId={activeRunId}
+      agents={WAVE_2_AGENTS}
+      waveLabel="wave 2"
+    />
   );
 }
