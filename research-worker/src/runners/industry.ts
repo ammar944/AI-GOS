@@ -20,9 +20,14 @@ const INDUSTRY_PRIMARY_MODEL =
   process.env.RESEARCH_INDUSTRY_MODEL ?? MODELS.FAST;
 const INDUSTRY_REPAIR_MODEL =
   process.env.RESEARCH_INDUSTRY_REPAIR_MODEL ?? MODELS.STANDARD;
-const INDUSTRY_PRIMARY_MAX_TOKENS = 8000;
+// Primary budget raised from 8k→16k after observing consistent truncation:
+// model was spending ~4-6k tokens on web_search tool turns and running out of
+// budget before finishing the JSON payload. The resulting max_tokens stop
+// reason forced every run into the 90s repair fallback. 16k gives headroom
+// for tool turns + the ~3-5k token final JSON output.
+const INDUSTRY_PRIMARY_MAX_TOKENS = 16000;
 const INDUSTRY_REPAIR_MAX_TOKENS = 4000;
-const INDUSTRY_PRIMARY_TIMEOUT_MS = 120_000;
+const INDUSTRY_PRIMARY_TIMEOUT_MS = 150_000;
 const INDUSTRY_REPAIR_TIMEOUT_MS = 90_000;
 const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
