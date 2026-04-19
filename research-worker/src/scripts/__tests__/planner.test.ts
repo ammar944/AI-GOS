@@ -140,3 +140,28 @@ describe('validateMatrixDiversity', () => {
     expect(violations).toHaveLength(0);
   });
 });
+
+describe('buildScriptMatrix determinism', () => {
+  it('produces identical matrix for identical input across calls', () => {
+    const a = buildScriptMatrix(DEFAULT_INPUT);
+    const b = buildScriptMatrix(DEFAULT_INPUT);
+    expect(b).toEqual(a);
+  });
+
+  it('produces identical matrix when caller supplies the same explicit seed', () => {
+    const a = buildScriptMatrix(DEFAULT_INPUT, 42);
+    const b = buildScriptMatrix(DEFAULT_INPUT, 42);
+    expect(b).toEqual(a);
+  });
+
+  it('produces different framework order for different inputs (content-derived seed)', () => {
+    const baseline = buildScriptMatrix(DEFAULT_INPUT);
+    const variant = buildScriptMatrix({
+      ...DEFAULT_INPUT,
+      objections: ['Different objection set entirely', 'Another one', 'And another'],
+    });
+    const baselineFrameworks = baseline.map((p) => p.framework).join(',');
+    const variantFrameworks = variant.map((p) => p.framework).join(',');
+    expect(variantFrameworks).not.toBe(baselineFrameworks);
+  });
+});

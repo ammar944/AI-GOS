@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getProofSubset, detectUsedProofPoints } from '../runners/ad-scripts';
+import { getProofSubset, detectUsedProofPoints } from '../scripts/utils/post-process';
 
 describe('getProofSubset', () => {
   it('returns empty array for 0 proof points', () => {

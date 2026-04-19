@@ -1,13 +1,4 @@
-/**
- * Stage 02 — Claim Extractor (deterministic, 0 AI tokens)
- *
- * Pre-extracts structured citable claims from trimmed research context.
- * AI stages pick from this menu instead of mining raw JSON.
- *
- * ICM contract:
- *   Input:  TrimmedResearchContext (from trim-research-context.ts)
- *   Output: ExtractedClaim[] — structured, citable, source-attributed claims
- */
+// Stage 02 — Claim Extractor. See ./CONTEXT.md for the contract.
 
 export interface ExtractedClaim {
   id: number;

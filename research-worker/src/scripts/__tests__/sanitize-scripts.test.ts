@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeScript, dedupScripts } from '../runners/ad-scripts';
+import { sanitizeScript, dedupScripts } from '../utils/post-process';
 
 describe('sanitizeScript', () => {
   it('replaces spaced em dash with period and capitalizes next word', () => {
@@ -74,7 +74,6 @@ describe('sanitizeScript', () => {
     expect(result.subheadline).not.toContain('—');
     expect(result.title).not.toContain('—');
     expect(result.designDirection).not.toContain('—');
-    // Non-string fields preserved
     expect(result.angle).toBe('painPoint');
     expect(result.confidenceScore).toBe(8);
   });

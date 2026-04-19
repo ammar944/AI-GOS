@@ -16,33 +16,15 @@ import { buildScriptMatrix, validateMatrixDiversity, type ScriptPlan, type Aware
 import { extractClaims, type ExtractedClaim } from './stages/02-claims/claim-extractor';
 import { writeCreativeLevel } from './stages/03-write/creative-writer';
 import { runQualityGate } from './stages/05-quality-gate/quality-gate';
-import { getProofSubset, detectUsedProofPoints, sanitizeScript, dedupScripts } from '../runners/ad-scripts';
+import { getProofSubset, detectUsedProofPoints, sanitizeScript, dedupScripts } from './utils/post-process';
 import { loadRefFile } from '../skills/loader';
 import type { RunnerProgressReporter } from '../runner';
 import { emitRunnerProgress } from '../runner';
+import type { PipelineInput } from './types';
 
-// --- Types (unchanged from v2.0 — frontend compatibility) ---
+export type { PipelineInput } from './types';
 
-export interface PipelineInput {
-  companyName: string;
-  researchContext: Record<string, unknown>;
-  styleReferences: Array<{ name: string; content: string; source: string }>;
-  targetAudience: string;
-  brandVoiceNotes?: {
-    tone: string;
-    constraints: string;
-    goodExample: string;
-    badExample: string;
-  } | null;
-  proofPoints?: Array<{
-    id: string;
-    type: string;
-    headline: string;
-    detail: string;
-    clientName?: string;
-    verified: boolean;
-  }>;
-}
+// --- Types (frontend-compatible output shape, unchanged from v2.0) ---
 
 export interface AssembledScript {
   id: string;

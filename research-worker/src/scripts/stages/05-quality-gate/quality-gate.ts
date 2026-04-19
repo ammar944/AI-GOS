@@ -1,13 +1,4 @@
-/**
- * Stage 05 — Quality Gate (deterministic, 0 AI tokens)
- *
- * Code-based checks on every script. Auto-fixes what's fixable,
- * flags what needs AI re-intervention.
- *
- * ICM contract:
- *   Input:  Raw script body (from Stage 04)
- *   Output: QualityReport — violations, auto-fixes applied, pass/fail
- */
+// Stage C — Quality Gate (deterministic, mechanical). See ./CONTEXT.md for the contract.
 
 import { loadKillList, getCharLimit, type KillList } from '../../refs/loader';
 

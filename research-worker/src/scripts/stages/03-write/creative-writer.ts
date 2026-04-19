@@ -1,17 +1,4 @@
-/**
- * Stage B — Creative Writer (unified AI, full context)
- *
- * Single integrated generateObject() call per awareness level,
- * producing 3 complete scripts. Combines:
- * - v1's full-context creative depth (founder-to-founder voice)
- * - v2's Haynes frameworks + in-market tier targeting
- * - v2's pre-extracted claims as a supplemental grounding menu
- * - Cross-level angle/hook dedup tracking
- * - Integrated self-audit (v1 Pass 2's 43 checks in one pass)
- *
- * The AI conceives hook + body + CTA as ONE integrated thought per script.
- * The quality gate (Stage C) handles mechanical enforcement after.
- */
+// Stage B — Creative Writer (the only AI call site). See ./CONTEXT.md for the contract.
 
 import { generateObject } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
@@ -19,6 +6,7 @@ import { z } from 'zod';
 import type { ScriptPlan, AwarenessLevel } from '../01-plan/planner';
 import type { ExtractedClaim } from '../02-claims/claim-extractor';
 import { formatClaimsForScript } from '../02-claims/claim-extractor';
+import type { ProofPoint, BrandVoiceNotes } from '../../types';
 import { stripNumericConstraints } from '../../../utils/strip-numeric-constraints';
 import { loadRefFile } from '../../../skills/loader';
 import { MODELS } from '../../../models';
@@ -89,7 +77,7 @@ export interface CreativeWriterInput {
   targetAudience: string;
   targetAudienceMonologue?: string[];
   styleReferences: string | null;
-  proofPoints?: Array<{ type: string; headline: string; detail: string; clientName?: string; verified: boolean }>;
+  proofPoints?: ProofPoint[];
   usedProofPoints?: Map<string, number>;
   competitorAdIntel?: Array<{
     advertiser: string;
@@ -101,12 +89,7 @@ export interface CreativeWriterInput {
   allClaims: ExtractedClaim[];
   platformSpecs?: string;
   adCopyTemplates?: string;
-  brandVoiceNotes?: {
-    tone: string;
-    constraints: string;
-    goodExample: string;
-    badExample: string;
-  } | null;
+  brandVoiceNotes?: BrandVoiceNotes | null;
 }
 
 function buildCreativePrompt(input: CreativeWriterInput): { system: string; prompt: string } {

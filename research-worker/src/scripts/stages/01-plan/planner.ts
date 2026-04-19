@@ -1,14 +1,4 @@
-/**
- * Stage 01 — Script Matrix Planner (deterministic, 0 AI tokens)
- *
- * Pre-computes the 15-script matrix: assigns angle, platform, format,
- * framework, in-market tier, sub-segment, objection, and proof point
- * for each script. Guarantees diversity by construction.
- *
- * ICM contract:
- *   Input:  Research context (ICP objections, proof points, competitor intel)
- *   Output: ScriptPlan[] — one plan per script
- */
+// Stage 01 — Script Matrix Planner. See ./CONTEXT.md for the contract.
 
 // --- Types ---
 
@@ -112,6 +102,25 @@ function shuffled<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
+/**
+ * Stable, content-derived seed for the framework shuffle. Same input → same seed →
+ * same matrix. Avoids Date.now() so matrix generation is reproducible.
+ */
+function deriveSeed(input: PlannerInput): number {
+  const payload = [
+    input.objections.join('|'),
+    input.proofPointCount,
+    input.claimCount,
+    input.hasCompetitorAds ? 1 : 0,
+    input.hasCaseStudies ? 1 : 0,
+  ].join(':');
+  let hash = 0;
+  for (let i = 0; i < payload.length; i++) {
+    hash = (hash * 31 + payload.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % 100;
+}
+
 // --- Planner ---
 
 /**
@@ -127,11 +136,13 @@ function shuffled<T>(arr: T[], seed: number): T[] {
  * - Proof points: rotated via sliding window
  * - Claims: distributed evenly
  */
-export function buildScriptMatrix(input: PlannerInput): ScriptPlan[] {
+export function buildScriptMatrix(input: PlannerInput, seed?: number): ScriptPlan[] {
   const plans: ScriptPlan[] = [];
 
-  // Shuffle frameworks so the batch doesn't always start with talking-head
-  const frameworkOrder = shuffled(FRAMEWORKS, Date.now() % 100);
+  // Shuffle frameworks so the batch doesn't always start with talking-head.
+  // Seed is content-derived by default so the same input produces the same matrix.
+  const effectiveSeed = seed ?? deriveSeed(input);
+  const frameworkOrder = shuffled(FRAMEWORKS, effectiveSeed);
 
   // Pre-compute objection assignments: spread top objections across scripts
   const objections = input.objections.slice(0, 4);
