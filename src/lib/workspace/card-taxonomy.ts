@@ -475,8 +475,32 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   const validatedPersona = asString(data.validatedPersona);
   if (validatedPersona) {
     cards.push(
-      makeCard(section, 'prose-card', 'Validated Persona', { text: validatedPersona }, 'Primary ICP description from research'),
+      makeCard(section, 'prose-card', 'Primary ICP', { text: validatedPersona }, 'Primary ICP description from research'),
     );
+  }
+
+  // Additional Personas — iterate optional segments[] array from multi-persona research
+  const icpSegments = asRecordArray(data.segments);
+  if (icpSegments.length > 0) {
+    let emitted = 0;
+    for (const segment of icpSegments) {
+      if (emitted >= 3) break; // defensive cap matches prompt
+      const segPersona = asString(segment.validatedPersona);
+      // Dedupe against top-level primary persona
+      if (!segPersona || (validatedPersona && segPersona.trim() === validatedPersona.trim())) continue;
+      const productLine = asString(segment.productLine) ?? asString(segment.name);
+      const buyerRole = asString(segment.buyerRole);
+      const jtbd = asString(segment.jobToBeDone);
+      const bodyParts: string[] = [];
+      if (buyerRole) bodyParts.push(`Buyer: ${buyerRole}`);
+      if (jtbd) bodyParts.push(`Job-to-be-done: ${jtbd}`);
+      bodyParts.push(segPersona);
+      const label = productLine ? `Additional Persona: ${productLine}` : 'Additional Persona';
+      cards.push(
+        makeCard(section, 'prose-card', label, { text: bodyParts.join('\n\n') }, 'Additional validated ICP segment'),
+      );
+      emitted += 1;
+    }
   }
 
   const demographics = asString(data.demographics);

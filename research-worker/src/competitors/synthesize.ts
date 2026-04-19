@@ -480,6 +480,44 @@ function injectReviews(
 }
 
 /**
+ * Strip every `weaknesses[]` entry that does not carry a URL citation in the
+ * required `— source: https://...` pattern. The prompt instructs the model to
+ * always cite; this post-processor enforces it so generic/hallucinated
+ * weaknesses ("too complicated", "poor UX") can never leak through. Better to
+ * emit an empty weaknesses array than to invent claims.
+ */
+function enforceWeaknessCitations(parsed: Record<string, unknown>): void {
+  const competitors = parsed.competitors;
+  if (!Array.isArray(competitors)) return;
+
+  const CITATION_RE = /\bsource:\s*https?:\/\/\S+/i;
+
+  for (const comp of competitors) {
+    if (!comp || typeof comp !== 'object') continue;
+    const c = comp as Record<string, unknown>;
+    const name = typeof c.name === 'string' ? c.name : '';
+    const weaknesses = c.weaknesses;
+    if (!Array.isArray(weaknesses)) continue;
+
+    const kept: string[] = [];
+    const dropped: string[] = [];
+    for (const w of weaknesses) {
+      if (typeof w !== 'string') continue;
+      if (CITATION_RE.test(w)) {
+        kept.push(w);
+      } else {
+        dropped.push(w);
+      }
+    }
+
+    if (dropped.length > 0) {
+      console.log(`[weaknesses] dropped uncited for ${name}:`, dropped);
+    }
+    c.weaknesses = kept;
+  }
+}
+
+/**
  * Post-process the synthesis output: inject library links, ad creatives,
  * reviews, validate pricing confidence, and tag competitor sources.
  */
@@ -491,6 +529,7 @@ export function postProcessSynthesis(
 ): void {
   injectLibraryLinks(parsed, input);
   injectReviews(parsed, input);
+  enforceWeaknessCitations(parsed);
   if (crossAnalysis) {
     parsed.reviewCrossAnalysis = crossAnalysis;
     console.log(`[postProcess] injected reviewCrossAnalysis — ${crossAnalysis.commonWeaknesses.length} shared themes`);

@@ -47,7 +47,7 @@ CRITICAL: Your ENTIRE response MUST be the JSON object ONLY. No preamble, no exp
 
 After completing your research, respond with a JSON object. Structure:
 {
-  "validatedPersona": "string — the primary paid-media-ready ICP (always required — set to the primary segment's persona description)",
+  "validatedPersona": "string — the primary paid-media-ready ICP (highest-confidence segment's persona; always required even when segments[] contains additional ICPs)",
   "demographics": "string — firmographics / geography / team profile summary",
   "channels": ["string — the best paid channels to reach this ICP"],
   "triggers": ["string — buying triggers in DESCENDING importance (index 0 = strongest)"],
@@ -93,6 +93,6 @@ After completing your research, respond with a JSON object. Structure:
   ]
 }
 
-SEGMENTS GUIDANCE: If the business has distinct product lines targeting different audiences, identify and validate each as a separate ICP segment in the segments array. Most businesses have one primary ICP — only create multiple segments when the products target genuinely different buyer personas. Always set the top-level validatedPersona to the primary segment's persona description.
+SEGMENTS GUIDANCE: Identify ALL distinct ICPs the business credibly serves. If research supports 2–3 genuinely different buyer personas (different jobs-to-be-done, different buying contexts, different budgets, different buying cycles, or different product lines), populate the `segments[]` array with one entry per persona. Example: a product that serves both tradespeople and marketing agencies with distinct value props serves TWO distinct ICPs — both must be returned as separate segments. Do NOT collapse them into one generic persona. Cap at 3 segments to prevent drift. Always set the top-level validatedPersona to the single highest-confidence segment's persona description (frontend falls back to this when segments is empty, and surfaces additional segments as their own cards).
 
 CHANNELS NOTE: Channels are reported ONCE at the top level and apply across all segments. Do NOT repeat channels per segment — paid-media reach (Meta, LinkedIn, Google, etc.) is a market-wide property of the audience, not a property of any single product line. Triggers and objections legitimately differ per segment; channels do not.

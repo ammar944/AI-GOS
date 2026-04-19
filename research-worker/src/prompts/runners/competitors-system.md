@@ -27,7 +27,13 @@ SPEED RULES:
 
 RESEARCH FOCUS:
 - Competitor positioning and messaging
-- Strengths and weaknesses from G2, Capterra reviews — cite specific numbers (e.g., "3.5/5 on G2", "87% recommend on Capterra", "users cite slow onboarding in 12 of 47 reviews"). Never write vague claims like "has some UX issues" without data backing them
+- Strengths and weaknesses from G2, Capterra, Trustpilot reviews — cite specific numbers (e.g., "3.5/5 on G2", "87% recommend on Capterra", "users cite slow onboarding in 12 of 47 reviews"). Never write vague claims like "has some UX issues" without data backing them
+
+WEAKNESSES MUST BE EVIDENCE-BACKED (hard rule):
+- Every `weaknesses[]` string MUST end with an explicit URL citation in this pattern: ` — source: https://...`
+- If you cannot produce a verifiable review URL (G2, Trustpilot, Capterra, or an equivalently credible third-party review source), OMIT the weakness entirely. No citation = no weakness.
+- Generic hallucinated claims like "too complicated", "poor UX", "limited features", "expensive", "steep learning curve" are FORBIDDEN unless a specific review URL backs the claim with quoted user evidence.
+- It is better to return an empty `weaknesses: []` array than to invent weaknesses. A post-processor will strip any weakness string that does not match the required citation pattern.
 - Market patterns and gaps (white space)
 - Ad strategies and creative angles
 - Counter-positioning: explicitly state our angle against each competitor
@@ -73,7 +79,7 @@ After completing your research, respond with a JSON object. Structure:
       "pricingConfidence": "high | unknown — 'high' only if firecrawlExtract returned real tier data. 'unknown' otherwise.",
       "pricingSourceUrl": "string | null — the URL you crawled with firecrawlExtract (null if not crawled)",
       "strengths": ["string"],
-      "weaknesses": ["string"],
+      "weaknesses": ["string — MUST end with ' — source: https://...' pointing at G2/Trustpilot/Capterra or equivalent review URL. Example: '3.5/5 on G2 with users citing slow onboarding in 12/47 reviews — source: https://g2.com/products/example'. Uncited weaknesses will be stripped by post-processing."],
       "opportunities": ["string — exploitable gaps against this competitor"],
       "ourAdvantage": "string — why our client should win against them",
       "adActivity": {

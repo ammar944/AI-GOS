@@ -1038,9 +1038,14 @@ export function normalizeSearchApiToCreatives(
   sourcePlatform: WorkerAdPlatform,
   companyName: string,
   domain?: string,
+  opts?: { skipAdvertiserMatch?: boolean },
 ): WorkerAdCreative[] {
   return records
     .filter((record) => {
+      // Keyword-sourced ads are ads from OTHER advertisers in the same
+      // category — advertiser match would always reject them. Callers who
+      // source ads by category-keyword opt out of the safety net here.
+      if (opts?.skipAdvertiserMatch) return true;
       // With advertiser-first lookup, all platforms now return targeted results.
       // Still apply advertiser matching as a safety net.
       const advertiserName =
@@ -1315,7 +1320,9 @@ export function buildAdInsight(
 
   return {
     summary: {
-      activeAdCount: adCreatives.length || allRawAds.length,
+      // Never claim ads we can't show. If normalization drops all ads,
+      // reporting the raw count inflates the number with nothing to display.
+      activeAdCount: adCreatives.length,
       platforms: normalizedPlatforms,
       themes,
       evidence,

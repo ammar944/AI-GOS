@@ -559,13 +559,51 @@ export async function fetchCompetitorAds(
   const metaCount = metaRaw.length;
   const googleCount = googleRaw.length;
 
-  // Deduplicate, filter out shell/irrelevant ads, then cap at 60 total (20 per platform × 3)
-  const allCreatives = filterRelevantAds(
+  // Keyword-anchored discovery: when the identity card provides category
+  // keywords, run a second pass per platform using the top keyword as the
+  // advertiser query. This surfaces ads from other advertisers in the same
+  // category even when the primary name/domain lookup returns zero.
+  // Budget: 1 extra call per platform per competitor (top keyword only).
+  // Advertiser matching is skipped for keyword-sourced ads — by definition
+  // those ads belong to other advertisers in the same category.
+  let keywordSourcedCreatives: WorkerAdCreative[] = [];
+  const topKeyword = categoryKeywords?.find((k) => typeof k === 'string' && k.trim().length > 0);
+  if (topKeyword) {
+    const kw = topKeyword.trim();
+    try {
+      const [liKwRaw, metaKwRaw, googleKwRaw] = await Promise.all([
+        searchLinkedInAds(kw).catch(() => []),
+        searchMetaAds(kw).catch(() => []),
+        searchGoogleAds(kw).catch(() => []),
+      ]);
+      const liKw = normalizeSearchApiToCreatives(liKwRaw, 'linkedin', kw, undefined, { skipAdvertiserMatch: true });
+      const metaKw = normalizeSearchApiToCreatives(metaKwRaw, 'meta', kw, undefined, { skipAdvertiserMatch: true });
+      const googleKw = normalizeSearchApiToCreatives(googleKwRaw, 'google', kw, undefined, { skipAdvertiserMatch: true });
+      keywordSourcedCreatives = [...liKw, ...metaKw, ...googleKw];
+      console.log(`[apify-ads] keyword-anchored discovery for "${companyName}" (kw="${kw}"): li=${liKw.length} meta=${metaKw.length} google=${googleKw.length}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[apify-ads] keyword-anchored discovery for "${companyName}" failed: ${msg}`);
+    }
+  }
+
+  // Primary pass: run shell/advertiser-match filter on company-anchored ads only.
+  const primaryFiltered = filterRelevantAds(
     deduplicateCreatives([...metaCreatives, ...googleCreatives, ...linkedInCreatives]),
     companyName,
     domain,
     categoryKeywords,
-  ).slice(0, 60);
+  );
+
+  // Keyword-sourced ads skip the advertiser-match step (by design — they're
+  // category-matched, not company-matched). Still run the shell filter so we
+  // don't surface empty/template ads. Then merge + dedupe + cap at 60.
+  const keywordFiltered = keywordSourcedCreatives.filter((c) => {
+    const hasText = Boolean(c.headline) || Boolean(c.body);
+    const hasMedia = Boolean(c.imageUrl) || Boolean(c.videoUrl);
+    return hasText || hasMedia;
+  });
+  const allCreatives = deduplicateCreatives([...primaryFiltered, ...keywordFiltered]).slice(0, 60);
 
   // Build summary
   const allMessages = allCreatives
