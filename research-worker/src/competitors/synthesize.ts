@@ -347,6 +347,46 @@ function injectLibraryLinks(
       ? (adInsight as Record<string, unknown>).adCreatives
       : undefined;
     c.adCreatives = Array.isArray(adCreatives) ? adCreatives : [];
+
+    // Ground-truth override for adActivity so the model's guess can NEVER
+    // diverge from reality: activeAdCount must equal adCreatives.length, and
+    // platforms/themes/evidence/sourceConfidence come from the tool summary,
+    // not from the LLM. Prevents "5 Active Ads" with empty creatives list
+    // (Choros/10Web bug, 2026-04-19).
+    const summary = adInsight
+      ? ((adInsight as Record<string, unknown>).summary as Record<string, unknown> | undefined)
+      : undefined;
+    const creativesLen = Array.isArray(c.adCreatives) ? c.adCreatives.length : 0;
+    const existingAdActivity = (c.adActivity && typeof c.adActivity === 'object')
+      ? (c.adActivity as Record<string, unknown>)
+      : {};
+    if (creativesLen > 0 && summary) {
+      c.adActivity = {
+        ...existingAdActivity,
+        activeAdCount: creativesLen,
+        platforms: Array.isArray(summary.platforms) && summary.platforms.length > 0
+          ? summary.platforms
+          : ['Not verified'],
+        themes: Array.isArray(summary.themes) ? summary.themes : [],
+        evidence: typeof summary.evidence === 'string' && summary.evidence.length > 0
+          ? summary.evidence
+          : 'Verified via ad library API',
+        sourceConfidence: typeof summary.sourceConfidence === 'string'
+          ? summary.sourceConfidence
+          : 'medium',
+      };
+    } else {
+      // No creatives surfaced — force a conservative, honest signal so the UI
+      // can't show a count without anything to render.
+      c.adActivity = {
+        ...existingAdActivity,
+        activeAdCount: 0,
+        platforms: ['Not verified'],
+        themes: [],
+        evidence: 'Not verified — no ad creatives captured for this competitor',
+        sourceConfidence: 'low',
+      };
+    }
   }
 }
 
