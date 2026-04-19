@@ -37,7 +37,7 @@ export function StrategySnapshotCard({
     ...(budgetOverview?.timeToFirstResults || expectedSignals?.timeToFirstResults
       ? [{
           label: 'Time to Results',
-          value: budgetOverview?.timeToFirstResults ?? expectedSignals?.timeToFirstResults ?? '',
+          value: budgetOverview?.timeToFirstResults || expectedSignals?.timeToFirstResults || '',
         }]
       : []),
   ];

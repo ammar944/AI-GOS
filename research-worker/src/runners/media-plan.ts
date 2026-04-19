@@ -191,7 +191,7 @@ export async function runMediaPlan(
       channelMixBudget: ['Allocating budget across paid channels', 'Calculating channel-level CPM and CPC benchmarks'],
       audienceCampaign: ['Designing audience segments and targeting layers', 'Structuring campaign hierarchy and naming conventions'],
       creativeSystem: ['Defining ad format matrix and creative variants', 'Setting copy frameworks and CTA sequences'],
-      measurementGuardrails: ['Building KPI framework and CAC model', 'Setting performance guardrails and alert thresholds'],
+      measurementGuardrails: ['Building KPI driver framework', 'Setting performance guardrails and alert thresholds'],
       rolloutRoadmap: ['Planning phased launch timeline', 'Allocating budget across rollout phases'],
       strategySnapshot: ['Compiling executive strategy summary', 'Generating strategic recommendations'],
     };
@@ -224,7 +224,7 @@ export async function runMediaPlan(
       channelMixBudget: ['draft budget: modeling channel-level spend allocation', 'draft CPM: benchmarking cost-per-impression by platform'],
       audienceCampaign: ['draft audiences: building lookalike and interest segments', 'draft campaigns: structuring ad set hierarchy'],
       creativeSystem: ['draft formats: defining ad creative matrix', 'draft copy: generating headline and CTA variants'],
-      measurementGuardrails: ['draft KPIs: calculating target ROAS and CAC thresholds', 'draft alerts: setting performance guardrail triggers'],
+      measurementGuardrails: ['draft KPIs: defining drivers and improvement levers', 'draft alerts: setting performance guardrail triggers'],
       rolloutRoadmap: ['draft phases: planning budget ramp schedule', 'draft timeline: mapping launch milestones'],
       strategySnapshot: ['draft summary: compiling executive strategy overview', 'draft recommendations: prioritizing action items'],
     };

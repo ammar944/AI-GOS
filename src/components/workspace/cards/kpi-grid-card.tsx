@@ -1,10 +1,25 @@
 'use client';
 
+import { BulletList } from './bullet-list';
+
+/**
+ * Qualitative KPI shape (2026-04-19) — matches the new
+ * measurementGuardrailsSchema in research-worker/src/contracts.ts.
+ *
+ * Numeric client-specific fields (target, industryBenchmark) were removed
+ * per Mahdy feedback. We now render drivers + improvement levers + an
+ * optional industry benchmark range (labeled).
+ */
 interface KPI {
   metric?: string;
-  target?: number | string;
-  platform?: string;
-  frequency?: string;
+  drivers?: string[];
+  improvementLevers?: string[];
+  benchmarkRange?: {
+    low?: number;
+    high?: number;
+    source?: string;
+  };
+  measurementMethod?: string;
 }
 
 interface KpiGridCardProps {
@@ -17,38 +32,52 @@ export function KpiGridCard({ kpis }: KpiGridCardProps) {
   if (typed.length === 0) return null;
 
   return (
-    <div className="space-y-2">
-      {typed.map((kpi, i) => (
-        <div
-          key={i}
-          className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2"
-        >
-          <span className="text-sm text-[var(--text-primary)] truncate">
-            {kpi.metric ?? '—'}
-          </span>
-          {kpi.target !== undefined ? (
-            <span className="text-sm font-semibold text-[var(--text-primary)] tabular-nums">
-              {kpi.target}
-            </span>
-          ) : (
-            <span className="text-sm text-[var(--text-tertiary)]">—</span>
-          )}
-          {kpi.platform ? (
-            <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)]">
-              {kpi.platform}
-            </span>
-          ) : (
-            <span />
-          )}
-          {kpi.frequency ? (
-            <span className="text-[11px] text-[var(--text-tertiary)] font-mono">
-              {kpi.frequency}
-            </span>
-          ) : (
-            <span />
-          )}
-        </div>
-      ))}
+    <div className="space-y-4">
+      {typed.map((kpi, i) => {
+        const drivers = (kpi.drivers ?? []).filter(Boolean);
+        const levers = (kpi.improvementLevers ?? []).filter(Boolean);
+        const range = kpi.benchmarkRange;
+        const showRange =
+          range?.low != null &&
+          range?.high != null &&
+          Number.isFinite(range.low) &&
+          Number.isFinite(range.high);
+
+        return (
+          <div
+            key={i}
+            className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
+                {kpi.metric ?? '—'}
+              </span>
+              {kpi.measurementMethod && (
+                <span className="text-[11px] font-mono text-[var(--text-tertiary)]">
+                  {kpi.measurementMethod}
+                </span>
+              )}
+            </div>
+            {drivers.length > 0 && <BulletList title="Drivers" items={drivers} />}
+            {levers.length > 0 && (
+              <BulletList title="Improvement levers" items={levers} />
+            )}
+            {showRange && (
+              <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 py-1 text-xs text-[var(--text-secondary)]">
+                Industry benchmark range:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {range!.low}–{range!.high}
+                </span>
+                {range?.source && (
+                  <span className="ml-1 text-[var(--text-tertiary)]">
+                    ({range.source})
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

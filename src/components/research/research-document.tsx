@@ -765,36 +765,53 @@ export function cardToMarkdown(card: CardState): string[] {
       break;
     }
     case 'kpi-grid': {
+      // Qualitative KPI shape (2026-04-19) — metric + drivers +
+      // improvementLevers + optional benchmarkRange. Numeric target fields
+      // were removed per Mahdy feedback.
       const kpis = (c.kpis ?? []) as Array<Record<string, unknown>>;
       for (const k of kpis) {
-        const parts: string[] = [(k.metric as string) ?? ''];
-        if (k.target != null) parts.push(`Target: ${k.target}`);
-        if (k.industryBenchmark != null) parts.push(`Benchmark: ${k.industryBenchmark}`);
-        lines.push(`- ${parts.join(' | ')}`);
+        const metric = (k.metric as string) ?? '';
+        lines.push(`- **${metric}**`);
+        const drivers = (k.drivers ?? []) as string[];
+        if (drivers.length > 0) {
+          lines.push(`  - Drivers: ${drivers.join('; ')}`);
+        }
+        const levers = (k.improvementLevers ?? []) as string[];
+        if (levers.length > 0) {
+          lines.push(`  - Improvement levers: ${levers.join('; ')}`);
+        }
+        const range = k.benchmarkRange as
+          | { low?: number; high?: number; source?: string }
+          | undefined;
+        if (range?.low != null && range?.high != null) {
+          const src = range.source ? ` (${range.source})` : '';
+          lines.push(`  - Industry benchmark: ${range.low}–${range.high}${src}`);
+        }
+        if (k.measurementMethod) {
+          lines.push(`  - Measured via: ${k.measurementMethod as string}`);
+        }
       }
       break;
     }
-    case 'cac-model': {
-      // Wave 6: ltvCacRatio is a pre-formatted string from the worker
-      // (e.g. "5.2:1 — Healthy"), not a number — render it verbatim
-      // and skip the unit suffix.
-      const fields: [string, string, string][] = [
-        ['targetCAC', 'Target CAC', '$'],
-        ['expectedCPL', 'Expected CPL', '$'],
-        ['leadToSqlRate', 'Lead→SQL Rate', '%'],
-        ['sqlToCustomerRate', 'SQL→Customer Rate', '%'],
-        ['expectedLeadsPerMonth', 'Leads/Month', ''],
-        ['expectedSQLsPerMonth', 'SQLs/Month', ''],
-        ['expectedCustomersPerMonth', 'Customers/Month', ''],
-        ['ltv', 'LTV', '$'],
-        ['ltvCacRatio', 'LTV:CAC Ratio', ''],
-      ];
-      for (const [key, label, unit] of fields) {
-        if (c[key] != null && c[key] !== '') {
-          const val = c[key] as number | string;
-          const formatted = unit === '$' ? `$${val}` : unit ? `${val}${unit}` : `${val}`;
-          lines.push(`- ${label}: ${formatted}`);
-        }
+    case 'cac-framework': {
+      // Replaces legacy 'cac-model' card (2026-04-19). Qualitative only:
+      // drivers + improvement levers + optional industry benchmark range.
+      const drivers = (c.drivers ?? []) as string[];
+      if (drivers.length > 0) {
+        lines.push(`**What drives CAC:**`);
+        for (const d of drivers) lines.push(`- ${d}`);
+      }
+      const levers = (c.improvementLevers ?? []) as string[];
+      if (levers.length > 0) {
+        lines.push(`**How to improve CAC:**`);
+        for (const l of levers) lines.push(`- ${l}`);
+      }
+      const range = c.benchmarkRange as
+        | { low?: number; high?: number; source?: string }
+        | undefined;
+      if (range?.low != null && range?.high != null) {
+        const src = range.source ? ` (${range.source})` : '';
+        lines.push(`Industry benchmark CAC range: $${range.low}–$${range.high}${src}`);
       }
       break;
     }
