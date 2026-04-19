@@ -572,24 +572,13 @@ async function discoverAndExtractTestimonials(
 
   const client = new Firecrawl({ apiKey });
 
-  // Step 1: Discover testimonial/case-study pages via map()
-  let discoveredPages: string[] = [];
-  try {
-    const mapResult = await Promise.race([
-      client.map(`https://${domain}`, {
-        search: 'testimonials case studies reviews customers success stories wins clients press',
-        limit: 25,
-        includeSubdomains: true,
-      } as Parameters<typeof client.map>[1]),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firecrawl map timeout')), 15_000),
-      ),
-    ]);
-    // Firecrawl SDK has returned both string[] and { url: string }[] shapes
-    // across versions. Normalise defensively — this was previously silently
-    // dropping everything when the API returned objects instead of strings.
+  // Step 1: Discover testimonial/case-study pages via two parallel map() calls.
+  // Complementary queries hedge against Firecrawl's search-ranking preferring
+  // blog/help pages for one query (HubSpot pattern) over customer-story landing
+  // pages for the other (Notion pattern). Cost: +1 map call per competitor.
+  const normaliseLinks = (mapResult: unknown): string[] => {
     const rawLinks = (mapResult as any)?.links ?? [];
-    discoveredPages = rawLinks
+    return rawLinks
       .map((l: unknown) => {
         if (typeof l === 'string') return l;
         if (l && typeof l === 'object') {
@@ -600,6 +589,55 @@ async function discoverAndExtractTestimonials(
         return null;
       })
       .filter((u: string | null): u is string => typeof u === 'string' && u.length > 0);
+  };
+
+  const mapOpts = (search: string) =>
+    ({ search, limit: 25, includeSubdomains: true }) as Parameters<typeof client.map>[1];
+
+  const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error(label)), ms)),
+    ]);
+
+  let discoveredPages: string[] = [];
+  try {
+    // Parallel fetch: query A targets testimonial/case-study content, query B
+    // targets customer-story landing pages (/customers/*, /enterprise/*).
+    // allSettled so one query's timeout doesn't nuke the other's results.
+    const [a, b] = await Promise.allSettled([
+      withTimeout(
+        client.map(`https://${domain}`, mapOpts('testimonials case studies reviews customers success stories wins clients press')),
+        15_000,
+        'Firecrawl map A timeout',
+      ),
+      // Query B is narrower — bias toward /customers/* and /enterprise/* landing
+      // pages which query A's broad word-match sometimes demotes behind help/blog
+      // articles (observed on notion.so).
+      withTimeout(
+        client.map(`https://${domain}`, mapOpts('customer stories enterprise')),
+        15_000,
+        'Firecrawl map B timeout',
+      ),
+    ]);
+
+    const aLinks = a.status === 'fulfilled' ? normaliseLinks(a.value) : [];
+    const bLinks = b.status === 'fulfilled' ? normaliseLinks(b.value) : [];
+    if (a.status === 'rejected') {
+      console.log(`[reviews] map A error for ${domain}: ${a.reason instanceof Error ? a.reason.message : a.reason}`);
+    }
+    if (b.status === 'rejected') {
+      console.log(`[reviews] map B error for ${domain}: ${b.reason instanceof Error ? b.reason.message : b.reason}`);
+    }
+
+    // Dedupe preserving order (A first, then B-only).
+    const seen = new Set<string>();
+    for (const u of [...aLinks, ...bLinks]) {
+      if (!seen.has(u)) {
+        seen.add(u);
+        discoveredPages.push(u);
+      }
+    }
   } catch (error) {
     console.log(`[reviews] map() error for ${domain}: ${error instanceof Error ? error.message : error}`);
   }
