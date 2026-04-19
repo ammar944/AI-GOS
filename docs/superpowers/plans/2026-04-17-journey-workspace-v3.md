@@ -437,7 +437,22 @@ This plan proposes replacing large parts of DESIGN.md. Below is the explicit tok
 - Components referencing `--radius-lg: 8px` will render 6px — intentional, visually tighter.
 - Components using `font-sans` (DM Sans) will switch to Geist — metrics differ slightly, may reflow. Acceptable.
 - Components using `Instrument Sans` (display) will switch to `Instrument Serif` — more visible change. Any place this font is used needs design review.
-- **Display typography locked**: serif on titles + tagline only (Instrument Serif 28-40px), sans everywhere else (Geist). Shell HTML prototype already demonstrates this.
+
+### Pass 5 revision 2026-04-17 (post Claude Design review)
+
+Claude Design generated a full system (16 preview cards + 4-view workspace + SKILL.md) stored at `~/.gstack/projects/ammar944-AI-GOS/designs/claude-design-20260417/`. Visual eval confirmed **sans-on-cards reads better than serif in context** (dense workspace with 8 stacked cards).
+
+**New Display typography rule (supersedes original Pass 5):**
+- **Instrument Serif** reserved for: hero tagline (identityResolution card), media-plan exec summary h1/h2, approval gate h3, journey page title. That's it — ~4 surfaces.
+- **Card h2 titles** (section cards): **Geist sans 14px 500** (dense, Bloomberg-y).
+- **Stat values**: **Geist sans 20px 400** with `tabular-nums`.
+- Mono (Geist Mono) usage unchanged: status, labels, data, kbd, right-meta.
+
+Canonical token + component source of truth: `~/.gstack/projects/ammar944-AI-GOS/designs/claude-design-20260417/project/colors_and_type.css` and the 16 `preview/component-*.html` files. Import colors_and_type.css into globals.css during Phase 2.
+
+### Phase 2 spec source
+
+`claude-design-20260417/project/ui_kits/workspace/index.html` is the canonical 4-view prototype (Home / Research / Generating / Media Plan). Implementation in Phase 2 should port this to React + the existing Next.js + Tailwind + CSS-var setup. Per-component detail lives in `preview/component-*.html`.
 
 ## Responsive & accessibility (Pass 6 addition)
 
@@ -451,8 +466,10 @@ This plan proposes replacing large parts of DESIGN.md. Below is the explicit tok
 
 ### Keyboard navigation
 
-- `⌘K` — command menu (all actions searchable)
-- `⌘;` — toggle side chat
+Cross-platform: all `⌘` bindings also accept `Ctrl` (Windows/Linux). Handler pattern: `e.metaKey || e.ctrlKey`. **Kbd chips render the platform-appropriate glyph** — `⌘` on Mac, `Ctrl+` on Windows/Linux. Detection: `/Mac|iPhone|iPad|iPod/.test(navigator.platform)`. Implementation: small `<Kbd>` component that consumes a single key prop and prepends the right modifier.
+
+- `⌘K` / `Ctrl+K` — command menu (all actions searchable)
+- `⌘;` / `Ctrl+;` — toggle side chat
 - `V` — cycle view modes (Normal → Verbose → Summary)
 - `J` / `K` — next / previous card (focuses card, scrolls into view)
 - `A` — approve/unapprove focused card
