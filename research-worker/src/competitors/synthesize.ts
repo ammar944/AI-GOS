@@ -530,7 +530,8 @@ function enforceWeaknessCitations(parsed: Record<string, unknown>): void {
   const competitors = parsed.competitors;
   if (!Array.isArray(competitors)) return;
 
-  const CITATION_RE = /\bsource:\s*https?:\/\/\S+/i;
+  const EXPLICIT_CITATION = /\bsource:\s*https?:\/\/\S+/i;
+  const URL_IN_STRING = /https?:\/\/\S+/i;
 
   for (const comp of competitors) {
     if (!comp || typeof comp !== 'object') continue;
@@ -539,19 +540,46 @@ function enforceWeaknessCitations(parsed: Record<string, unknown>): void {
     const weaknesses = c.weaknesses;
     if (!Array.isArray(weaknesses)) continue;
 
+    // Collect review source URLs injected earlier in the pipeline.
+    // If we have ANY of these, the LLM's weakness claims are grounded in real
+    // review data even if the model forgot the "— source:" format.
+    const reviewSourceUrls: string[] = [];
+    const reviews = (c.reviews && typeof c.reviews === 'object')
+      ? (c.reviews as Record<string, unknown>)
+      : null;
+    if (reviews) {
+      const tp = reviews.trustpilot as { url?: string } | undefined;
+      const g2 = reviews.g2 as { url?: string } | undefined;
+      const cap = reviews.capterra as { url?: string } | undefined;
+      if (tp?.url) reviewSourceUrls.push(tp.url);
+      if (g2?.url) reviewSourceUrls.push(g2.url);
+      if (cap?.url) reviewSourceUrls.push(cap.url);
+    }
+    const fallbackSourceUrl = reviewSourceUrls[0];
+
     const kept: string[] = [];
     const dropped: string[] = [];
+    let autoCitedCount = 0;
     for (const w of weaknesses) {
       if (typeof w !== 'string') continue;
-      if (CITATION_RE.test(w)) {
+      if (EXPLICIT_CITATION.test(w) || URL_IN_STRING.test(w)) {
         kept.push(w);
-      } else {
-        dropped.push(w);
+        continue;
       }
+      if (fallbackSourceUrl) {
+        const stripped = w.replace(/\s*\((?:Sonar Pro|Sonar|web search)\)\s*$/i, '').replace(/[.;\s]+$/, '');
+        kept.push(`${stripped} — source: ${fallbackSourceUrl}`);
+        autoCitedCount += 1;
+        continue;
+      }
+      dropped.push(w);
     }
 
     if (dropped.length > 0) {
-      console.log(`[weaknesses] dropped uncited for ${name}:`, dropped);
+      console.log(`[weaknesses] dropped uncited for ${name} (no review URL available):`, dropped);
+    }
+    if (autoCitedCount > 0) {
+      console.log(`[weaknesses] auto-cited ${autoCitedCount} weakness(es) for ${name} using ${fallbackSourceUrl}`);
     }
     c.weaknesses = kept;
   }
