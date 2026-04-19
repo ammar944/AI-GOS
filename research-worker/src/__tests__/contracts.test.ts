@@ -290,7 +290,7 @@ describe('finalizeRunnerResult', () => {
         strategicNarrative: 'Lead with trust and accountability.',
         planningContext: {
           monthlyBudget: '$5,000/month',
-          downstreamSequence: ['keywordIntel', 'mediaPlan'],
+          downstreamSequence: ['mediaPlan'],
         },
         citations: [
           {
@@ -611,7 +611,7 @@ describe('finalizeRunnerResult', () => {
         strategicNarrative: 'Lead with trust and accountability.',
         planningContext: {
           monthlyBudget: '$5,000/month',
-          downstreamSequence: ['keywordIntel', 'mediaPlan'],
+          downstreamSequence: ['mediaPlan'],
         },
         charts: [
           {

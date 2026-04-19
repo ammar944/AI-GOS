@@ -10,10 +10,22 @@ import {
 
 type ChannelMixBudget = z.infer<typeof channelMixBudgetSchema>;
 type AudienceCampaign = z.infer<typeof audienceCampaignSchema>;
-type CreativeSystem = z.infer<typeof creativeSystemSchema>;
 type MeasurementGuardrails = z.infer<typeof measurementGuardrailsSchema>;
 type RolloutRoadmap = z.infer<typeof rolloutRoadmapSchema>;
 type StrategySnapshot = z.infer<typeof strategySnapshotSchema>;
+// creativeSystemSchema intentionally imported for future extension — the
+// previous validateFormatSpecs was removed 2026-04-19 per Mahdy round 2
+// (formatSpecs deleted from schema).
+type _CreativeSystem = z.infer<typeof creativeSystemSchema>;
+void (null as unknown as _CreativeSystem);
+
+// Lightweight warning shape used by the round-2 validators added 2026-04-19.
+// (Older validators still return { data, warnings: string[] } — that signature
+// is unchanged to avoid rippling edits into the runner.)
+export interface Warning {
+  code: string;
+  message: string;
+}
 
 // Percentage tolerance: abs(a - b) / max(a, 1) < threshold
 function withinRelativeTolerance(a: number, b: number, threshold: number): boolean {
@@ -31,24 +43,6 @@ function normalizeToHundred(values: number[]): number[] {
   if (total === 0) return values;
   return values.map((v) => (v / total) * 100);
 }
-
-// Known valid ad creative dimensions
-const KNOWN_DIMENSIONS = new Set([
-  '1080x1080',
-  '1200x628',
-  '1080x1920',
-  '1200x1200',
-  '1280x720',
-  '1920x1080',
-  '600x314',
-  '1200x630',
-  '900x900',
-  '320x50',
-  '728x90',
-  '300x250',
-  '160x600',
-  '970x250',
-]);
 
 // ── Block-level validators ──────────────────────────────────────────────────
 
@@ -151,25 +145,16 @@ export function validateBudgetMath(
 
 /**
  * Validates Block 2 (Audience & Campaign) targeting heuristics.
- * Clamps retargeting windows, priority values, and warns on oversized segment lists.
+ *
+ * 2026-04-19 (Mahdy round 2): retargeting-window clamping removed —
+ * `retargetingSegments` no longer exists in the schema. Keeps segment count /
+ * ad-set / priority checks.
  */
 export function validateTargetingHeuristics(
   data: AudienceCampaign,
 ): { data: AudienceCampaign; warnings: string[] } {
   const warnings: string[] = [];
   const result = structuredClone(data) as AudienceCampaign;
-
-  // Clamp retargeting window to 1-180 days
-  result.retargetingSegments = result.retargetingSegments.map((seg) => {
-    if (seg.windowDays < 1 || seg.windowDays > 180) {
-      const clamped = Math.min(Math.max(seg.windowDays, 1), 180);
-      warnings.push(
-        `Retargeting window for "${seg.name}" (${seg.windowDays} days) is outside 1-180 day limit — clamping to ${clamped}.`,
-      );
-      return { ...seg, windowDays: clamped };
-    }
-    return seg;
-  });
 
   // Warn if segment count exceeds 10
   if (result.segments.length > 10) {
@@ -197,106 +182,6 @@ export function validateTargetingHeuristics(
         `Campaign "${campaign.name}" on ${campaign.platform} has no ad sets — at least 1 required.`,
       );
     }
-  }
-
-  return { data: result, warnings };
-}
-
-/**
- * Validates Block 3 (Creative System) format specs and copy limits.
- * Warns on unrecognized dimensions, copy overages, and thin testing plans.
- */
-export function validateFormatSpecs(
-  data: CreativeSystem,
-): { data: CreativeSystem; warnings: string[] } {
-  const warnings: string[] = [];
-  const result = structuredClone(data) as CreativeSystem;
-
-  const COPY_LIMITS: Record<string, { headline: number; description: number }> = {
-    google: { headline: 30, description: 90 },
-    meta: { headline: 40, description: 125 },
-    linkedin: { headline: 200, description: 600 },
-  };
-
-  for (const spec of result.formatSpecs) {
-    // Validate dimensions
-    if (spec.dimensions && !KNOWN_DIMENSIONS.has(spec.dimensions)) {
-      warnings.push(
-        `Format spec for ${spec.platform} "${spec.format}" has unrecognized dimensions "${spec.dimensions}".`,
-      );
-    }
-
-    // Check copy limits against platform maximums
-    const platformKey = spec.platform.toLowerCase();
-    const limits = COPY_LIMITS[platformKey];
-    if (limits) {
-      if (spec.copyLimits.headline > limits.headline) {
-        warnings.push(
-          `${spec.platform} headline copy limit (${spec.copyLimits.headline}) exceeds platform maximum of ${limits.headline} chars.`,
-        );
-      }
-      if (spec.copyLimits.description > limits.description) {
-        warnings.push(
-          `${spec.platform} description copy limit (${spec.copyLimits.description}) exceeds platform maximum of ${limits.description} chars.`,
-        );
-      }
-    }
-  }
-
-  // Warn if testing plan has no tests
-  if (result.testingPlan.firstTests.length === 0) {
-    warnings.push('Testing plan has no first tests defined — at least 1 test required.');
-  }
-
-  // Check refresh cadence
-  const { frequencyDays } = result.refreshCadence;
-  if (frequencyDays < 7 || frequencyDays > 90) {
-    warnings.push(
-      `Refresh cadence frequencyDays (${frequencyDays}) is outside the recommended 7-90 day range.`,
-    );
-  }
-
-  return { data: result, warnings };
-}
-
-/**
- * Block 4 validator — qualitative-only KPI check (2026-04-19).
- *
- * Previously this ran CAC-model math (ltvCacRatio, expectedLeadsPerMonth,
- * etc.). All those fields were removed from the schema per Mahdy feedback:
- * paid media cannot guarantee those numbers, so publishing them is a trap.
- *
- * This stub just verifies each KPI has the qualitative guidance fields
- * populated (drivers + improvementLevers). It is kept as a no-op that may
- * be expanded later to audit KPI quality (e.g., flag empty drivers lists).
- */
-export function validateMeasurementQualitative(
-  data: MeasurementGuardrails,
-): { data: MeasurementGuardrails; warnings: string[] } {
-  const warnings: string[] = [];
-  const result = structuredClone(data) as MeasurementGuardrails;
-
-  for (const kpi of result.kpis) {
-    if (!kpi.drivers || kpi.drivers.length === 0) {
-      warnings.push(`KPI "${kpi.metric}" has no drivers listed — add at least one.`);
-    }
-    if (!kpi.improvementLevers || kpi.improvementLevers.length === 0) {
-      warnings.push(
-        `KPI "${kpi.metric}" has no improvement levers — add at least one actionable lever.`,
-      );
-    }
-  }
-
-  if (!result.cacFramework.drivers || result.cacFramework.drivers.length === 0) {
-    warnings.push('cacFramework.drivers is empty — describe what influences CAC for this business.');
-  }
-  if (
-    !result.cacFramework.improvementLevers ||
-    result.cacFramework.improvementLevers.length === 0
-  ) {
-    warnings.push(
-      'cacFramework.improvementLevers is empty — describe concrete actions the client can take.',
-    );
   }
 
   return { data: result, warnings };
@@ -411,4 +296,85 @@ export function validateSnapshotConsistency(
   }
 
   return { needsRegeneration, warnings };
+}
+
+// ── Round-2 validators (2026-04-19, Mahdy full-section-removal) ─────────────
+
+/**
+ * Enforce DR cold-launch max 2 campaigns. Splitting budget across 6 campaign
+ * types is "super, super thin" per Mahdy.
+ */
+export function validateCampaignCount(audienceCampaign: AudienceCampaign): Warning[] {
+  const count = audienceCampaign.campaigns?.length ?? 0;
+  if (count > 2) {
+    return [
+      {
+        code: 'too_many_campaigns',
+        message: `Campaign count ${count} exceeds the max of 2 for DR cold-launch. Consolidate.`,
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * DR default: conversion must be ≥ 85% of the funnel split. Cold-pool
+ * accounts have no awareness/retargeting pool, so most budget goes to
+ * conversion.
+ */
+export function validateFunnelSplitDR(channelMixBudget: ChannelMixBudget): Warning[] {
+  const split = channelMixBudget.budgetSummary?.funnelSplit;
+  if (!split) return [];
+  if (split.conversion < 85) {
+    return [
+      {
+        code: 'funnel_split_too_diffuse',
+        message: `DR default requires conversion >= 85% of budget. Got ${split.conversion}%.`,
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * Double-check guard: the `retargeting` role was removed from the schema,
+ * but models may still sneak retargeting language into segment names or
+ * descriptions. Flag any such case.
+ */
+export function validateNoRetargetingWithoutPool(
+  audienceCampaign: AudienceCampaign,
+  _channelMixBudget: ChannelMixBudget,
+): Warning[] {
+  const warnings: Warning[] = [];
+  for (const segment of audienceCampaign.segments ?? []) {
+    if (
+      /retargeting|remarketing|pixel audience|visitor retarget/i.test(segment.name ?? '') ||
+      /retargeting|remarketing|pixel audience/i.test(segment.description ?? '')
+    ) {
+      warnings.push({
+        code: 'retargeting_without_pool',
+        message: `Segment "${segment.name}" references retargeting but no pool was confirmed. Remove.`,
+      });
+    }
+  }
+  return warnings;
+}
+
+/**
+ * industryBenchmarks replaces the deleted KPI/CAC framework. Must have at
+ * least one benchmark entry for the measurement block to be meaningful.
+ */
+export function validateIndustryBenchmarks(
+  measurement: MeasurementGuardrails,
+): Warning[] {
+  const benchmarks = measurement.industryBenchmarks ?? [];
+  if (benchmarks.length === 0) {
+    return [
+      {
+        code: 'missing_industry_benchmarks',
+        message: 'industryBenchmarks must have at least 1 entry.',
+      },
+    ];
+  }
+  return [];
 }

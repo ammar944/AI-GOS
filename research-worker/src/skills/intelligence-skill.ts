@@ -58,7 +58,7 @@ export const SYNTHESIS_INTELLIGENCE_SKILL =
   loadMethodology('readiness-scorecard.md') || `
 ## Intelligence: Readiness Scorecard & Top Actions
 
-Score launch readiness across 5 dimensions (0-10 each). Missing upstream sections MUST score 0 with summary "Insufficient data — section not completed". Be honest — do not inflate scores.
+Score launch readiness across 4 dimensions (0-10 each): Market Opportunity, Audience Clarity, Competitive Position, Offer Strength. Keyword Coverage is NOT scored because keywordIntel runs in parallel with synthesis (see WAVE_2_PARALLEL_SECTIONS) — its data is not in the synthesis context. Missing upstream sections MUST score 0 with summary "Insufficient data — section not completed". Be honest — do not inflate scores.
 
 Generate 3-7 top actions grounded in specific research findings. If fewer than 3 grounded actions exist, return fewer.
 `;

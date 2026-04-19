@@ -35,11 +35,13 @@ import { STRATEGY_SNAPSHOT_SKILL } from '../skills/strategy-snapshot-skill';
 import {
   validateBudgetMath,
   validateTargetingHeuristics,
-  validateFormatSpecs,
-  validateMeasurementQualitative,
   validatePhaseBudgets,
   reconcileBudgetAcrossBlocks,
   validateSnapshotConsistency,
+  validateCampaignCount,
+  validateFunnelSplitDR,
+  validateNoRetargetingWithoutPool,
+  validateIndustryBenchmarks,
 } from '../validators/media-plan';
 
 import { stripNumericConstraints } from '../utils/strip-numeric-constraints';
@@ -190,8 +192,8 @@ export async function runMediaPlan(
     const blockDescriptions: Record<string, string[]> = {
       channelMixBudget: ['Allocating budget across paid channels', 'Calculating channel-level CPM and CPC benchmarks'],
       audienceCampaign: ['Designing audience segments and targeting layers', 'Structuring campaign hierarchy and naming conventions'],
-      creativeSystem: ['Defining ad format matrix and creative variants', 'Setting copy frameworks and CTA sequences'],
-      measurementGuardrails: ['Building KPI driver framework', 'Setting performance guardrails and alert thresholds'],
+      creativeSystem: ['Defining creative angles and testing plan', 'Setting copy frameworks and CTA sequences'],
+      measurementGuardrails: ['Building measurement guidance', 'Setting performance guardrails and alert thresholds'],
       rolloutRoadmap: ['Planning phased launch timeline', 'Allocating budget across rollout phases'],
       strategySnapshot: ['Compiling executive strategy summary', 'Generating strategic recommendations'],
     };
@@ -223,8 +225,8 @@ export async function runMediaPlan(
     const blockProgressMessages: Record<string, string[]> = {
       channelMixBudget: ['draft budget: modeling channel-level spend allocation', 'draft CPM: benchmarking cost-per-impression by platform'],
       audienceCampaign: ['draft audiences: building lookalike and interest segments', 'draft campaigns: structuring ad set hierarchy'],
-      creativeSystem: ['draft formats: defining ad creative matrix', 'draft copy: generating headline and CTA variants'],
-      measurementGuardrails: ['draft KPIs: defining drivers and improvement levers', 'draft alerts: setting performance guardrail triggers'],
+      creativeSystem: ['draft angles: defining creative messaging directions', 'draft copy: generating headline and CTA variants'],
+      measurementGuardrails: ['draft measurement guidance: industry benchmarks + sales process', 'draft alerts: setting performance guardrail triggers'],
       rolloutRoadmap: ['draft phases: planning budget ramp schedule', 'draft timeline: mapping launch milestones'],
       strategySnapshot: ['draft summary: compiling executive strategy overview', 'draft recommendations: prioritizing action items'],
     };
@@ -275,6 +277,9 @@ export async function runMediaPlan(
         const result = validateBudgetMath(validatedData as z.infer<typeof channelMixBudgetSchema>);
         validatedData = result.data;
         blockWarnings = result.warnings;
+        // Round-2 check: DR default requires conversion >= 85%.
+        const funnelWarnings = validateFunnelSplitDR(result.data);
+        blockWarnings.push(...funnelWarnings.map((w) => w.message));
         break;
       }
       case 'audienceCampaign': {
@@ -282,22 +287,30 @@ export async function runMediaPlan(
         const result = validateTargetingHeuristics(validatedData as z.infer<typeof audienceCampaignSchema>);
         validatedData = result.data;
         blockWarnings = result.warnings;
+        // Round-2 checks: max 2 campaigns; no retargeting language without pool.
+        const campaignCountWarnings = validateCampaignCount(result.data);
+        blockWarnings.push(...campaignCountWarnings.map((w) => w.message));
+        const prevChannelMix = blockResults.channelMixBudget as
+          | z.infer<typeof channelMixBudgetSchema>
+          | undefined;
+        if (prevChannelMix) {
+          const retargetingWarnings = validateNoRetargetingWithoutPool(result.data, prevChannelMix);
+          blockWarnings.push(...retargetingWarnings.map((w) => w.message));
+        }
         break;
       }
       case 'creativeSystem': {
-        await emitRunnerProgress(onProgress, 'tool', 'validating creative format specifications');
-        const result = validateFormatSpecs(validatedData as z.infer<typeof creativeSystemSchema>);
-        validatedData = result.data;
-        blockWarnings = result.warnings;
+        // formatSpecs validator removed 2026-04-19 per Mahdy round 2 —
+        // formatSpecs deleted from schema. Creative system block now relies
+        // on schema validation alone (angles + testingPlan + refreshCadence).
         break;
       }
       case 'measurementGuardrails': {
-        await emitRunnerProgress(onProgress, 'tool', 'validating KPI drivers and cacFramework');
-        const result = validateMeasurementQualitative(
+        await emitRunnerProgress(onProgress, 'tool', 'validating industry benchmarks and sales process guidance');
+        const benchmarkWarnings = validateIndustryBenchmarks(
           validatedData as z.infer<typeof measurementGuardrailsSchema>,
         );
-        validatedData = result.data;
-        blockWarnings = result.warnings;
+        blockWarnings = benchmarkWarnings.map((w) => w.message);
         break;
       }
       case 'rolloutRoadmap': {

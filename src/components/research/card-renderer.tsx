@@ -29,10 +29,9 @@ import { CampaignCard } from '@/components/workspace/cards/campaign-card';
 import { CreativeAngleCard } from '@/components/workspace/cards/creative-angle-card';
 import { IcpMetricsCard } from '@/components/workspace/cards/icp-metrics-card';
 import { RiskCard } from '@/components/workspace/cards/risk-card';
-import { FormatSpecCard } from '@/components/workspace/cards/format-spec-card';
 import { TestingPlanCard } from '@/components/workspace/cards/testing-plan-card';
-import { KpiGridCard } from '@/components/workspace/cards/kpi-grid-card';
-import { CacFrameworkCard } from '@/components/workspace/cards/cac-framework-card';
+import { IndustryBenchmarksCard } from '@/components/workspace/cards/industry-benchmarks-card';
+import { SalesProcessCard } from '@/components/workspace/cards/sales-process-card';
 import { PhaseCard } from '@/components/workspace/cards/phase-card';
 import {
   PlatformBudgetPieChart,
@@ -391,8 +390,6 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           targetSegment={card.content.targetSegment as string | undefined}
         />
       );
-    case 'format-spec':
-      return <FormatSpecCard specs={card.content.specs as Array<Record<string, unknown>>} />;
     case 'testing-plan':
       return (
         <TestingPlanCard
@@ -401,14 +398,14 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           minBudgetPerTest={card.content.minBudgetPerTest as number | undefined}
         />
       );
-    case 'kpi-grid':
-      return <KpiGridCard kpis={card.content.kpis as Array<Record<string, unknown>>} />;
-    case 'cac-framework':
+    case 'industry-benchmarks':
+      return <IndustryBenchmarksCard benchmarks={card.content.benchmarks as Array<{metric?: string; range?: string; source?: string; note?: string}>} />;
+    case 'sales-process':
       return (
-        <CacFrameworkCard
-          drivers={card.content.drivers as string[] | undefined}
+        <SalesProcessCard
+          diagnosticNote={card.content.diagnosticNote as string | undefined}
           improvementLevers={card.content.improvementLevers as string[] | undefined}
-          benchmarkRange={card.content.benchmarkRange as {low?: number; high?: number; source?: string} | undefined}
+          sopReference={card.content.sopReference as string | undefined}
         />
       );
     case 'risk-card':

@@ -1,7 +1,9 @@
 export const CREATIVE_SYSTEM_SKILL = `
 ## Block 3: Creative System & Testing Plan
 
-You are designing the creative strategy, format specifications, and A/B testing plan.
+Focus on creative ANGLES (theme + hook + messaging) and a testing plan. Don't output ad format specifications — formats are a mix across platforms and documenting them is not useful to the buyer.
+
+You are designing the creative strategy and A/B testing plan.
 
 ### Inputs to analyze
 - Competitor intel: ad themes, creative formats active in market, white-space gaps
@@ -21,16 +23,6 @@ Angle diversity rules:
 - Minimum 3 distinct angles covering at least 2 different pain points
 - At least 1 angle should exploit a white-space gap identified in competitorIntel
 - At least 1 angle should use social proof or specificity (numbers, logos, case studies)
-
-### Format specifications
-Reference platform-specs.md for exact dimensions, character limits, and duration constraints.
-For each approved platform from Block 1, specify:
-- All viable formats (static image, carousel, video, text/responsive)
-- Dimensions in pixels, aspect ratios
-- Duration limits for video (seconds)
-- Copy limits: headline character max, description character max
-
-Never specify dimensions outside what is listed in platform-specs.md.
 
 ### A/B testing plan
 First tests must be highest-impact variables:
@@ -53,8 +45,7 @@ Fatigue signals to monitor: CTR declining >20% week-over-week, frequency >3 (Met
 
 ### Anti-hallucination contract
 Use only the provided reference data and research results. Do not infer unsupported facts.
-All benchmark numbers must be labeled as "industry benchmark". Format specs must reference
-platform-specs.md exactly — do not invent dimensions or character limits. Ad hooks must be
+All benchmark numbers must be labeled as "industry benchmark". Ad hooks must be
 grounded in research findings (competitor themes, ICP pain points, offer strengths) — do not
 generate generic copy. Reference ad-copy-templates.md for copy structure formulas.
 `;

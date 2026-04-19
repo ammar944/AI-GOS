@@ -3,7 +3,7 @@ name: readiness-scorecard
 version: 1.0.0
 category: intelligence
 domain: synthesis
-description: Methodology for scoring a client's paid media launch readiness across 5 dimensions. Grounded in Hormozi Value Equation, Kennedy 10 Rules, Dunford Positioning, and Schwartz Awareness.
+description: Methodology for scoring a client's paid media launch readiness across 4 dimensions. Grounded in Hormozi Value Equation, Kennedy 10 Rules, Dunford Positioning, and Schwartz Awareness.
 triggers:
   - readinessScorecard
   - synthesis readiness
@@ -14,7 +14,9 @@ triggers:
 
 ## Purpose
 
-Score a client's paid media launch readiness across 5 dimensions (0-10 each). Each dimension must be scored HONESTLY — a low score is more valuable than a fabricated high score because it reveals what to fix.
+Score a client's paid media launch readiness across 4 dimensions (0-10 each). Each dimension must be scored HONESTLY — a low score is more valuable than a fabricated high score because it reveals what to fix.
+
+Note: Keyword Coverage is NOT scored here because `keywordIntel` runs in parallel with synthesis (see `WAVE_2_PARALLEL_SECTIONS` in `src/lib/journey/dispatch-client.ts`). Keyword data is not present in the synthesis context, so scoring it would always produce an "Insufficient data" dimension that drags the overall average down.
 
 ## Frameworks Applied
 
@@ -24,7 +26,7 @@ Score a client's paid media launch readiness across 5 dimensions (0-10 each). Ea
 - **Schwartz Awareness** — audience understanding depth
 - **Perry Marshall 80/20** — cohort identification depth
 
-## The 5 Dimensions
+## The 4 Dimensions
 
 ### 1. Market Opportunity (0-10)
 Source section: industryResearch
@@ -66,16 +68,6 @@ Scores (Hormozi Value Equation-based):
 - **7-8**: Offer with all 4 Value Equation levers + at least 2 bonuses/guarantees
 - **9-10**: Grand Slam Offer structure (scarcity + urgency + bonuses + guarantee), differentiated mechanism, Kennedy 10-rule compliant
 
-### 5. Keyword Coverage (0-10)
-Source section: keywordIntel
-
-Scores:
-- **0**: Section not completed
-- **1-3**: Basic keywords listed, no grouping
-- **4-6**: Campaign groups + negatives, no intent mapping
-- **7-8**: Campaign groups + negatives + Schwartz awareness-level mapping
-- **9-10**: Full awareness-stage keyword matrix + competitor keyword gaps + 80/20 priority ranking
-
 ## SCORING RULES (STRICT)
 
 1. **Missing section = 0.** If the upstream research section is not in context OR failed, the dimension scores 0 with summary "Insufficient data — section not completed." Do NOT interpolate.
@@ -110,7 +102,7 @@ Based on the scorecard, generate 3-7 highest-impact actions:
 ```json
 {
   "action": "Specific executable sentence (what to do, not a goal)",
-  "source": "industry|icp|competitors|offer|keywords",
+  "source": "industry|icp|competitors|offer",
   "priority": "high|medium|low",
   "rationale": "One sentence: which research finding supports this action"
 }

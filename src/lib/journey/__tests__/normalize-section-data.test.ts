@@ -84,7 +84,7 @@ describe('normalizeSectionData', () => {
       ],
       planningContext: {
         monthlyBudget: '$5,000/month',
-        downstreamSequence: ['keywordIntel', 'mediaPlan'],
+        downstreamSequence: ['mediaPlan'],
       },
       criticalSuccessFactors: ['Tight CRM attribution'],
       nextSteps: ['Package stronger customer proof before campaign launch'],

@@ -3,11 +3,23 @@ export const ROLLOUT_SKILL = `
 
 You are designing the phased launch sequence and 90-day roadmap.
 
+### Awareness-gated platform phasing (HARD RULE)
+
+Read \`[awarenessLevel:X]\` metadata from the context.
+
+If awarenessLevel is 'unaware' or 'problem-aware':
+- Google Search and Performance Max CANNOT appear in Phase 1. Unaware audiences aren't searching yet — Google captures bottom-of-funnel intent they don't generate.
+- Phase 1 should prioritize Meta / YouTube / TikTok (education-led creative).
+- Google can appear in Phase 2 or later, once Meta testing has built brand recall.
+
+If awarenessLevel is 'solution-aware', 'product-aware', or 'most-aware':
+- Google Search may lead Phase 1.
+
 ### Inputs to analyze
 - Channel mix from Block 1: platforms, total monthly budget, rampUpWeeks, daily ceilings
 - Audience and campaign structure from Block 2
 - Creative system from Block 3: testing plan, refresh cadence
-- Measurement framework from Block 4: go/no-go KPIs, risk register
+- Measurement framework from Block 4: industry benchmarks, sales process guidance, risk register
 - Offer analysis: offer readiness, red flags (launchBlocker items must be resolved before Phase 1)
 
 ### Phase design rules
@@ -33,25 +45,25 @@ the monthly budget × number of months covered. Flag any discrepancy.
 
 ### Go/no-go criteria
 Each phase must have a concrete go/no-go decision gate. Gates must reference:
-- A KPI metric from Block 4 with a specific threshold (e.g. "CPL < $80 on Google Search")
+- An observable platform signal (e.g. "CTR on primary creative >= platform median" or "frequency does not exceed 2.5 on Meta before exhaustion test")
 - A time condition (e.g. "after 14 days and minimum 100 clicks")
 - A data sufficiency check (e.g. "minimum 20 conversions for algorithm learning phase")
+- An industry benchmark reference from Block 4's \`industryBenchmarks[]\` (e.g. "funnel performance within the SaaS MQL-to-SQL benchmark range from Block 4") — use benchmark RANGES, never client-specific targets.
 
-Never use vague criteria like "performance is satisfactory" — always a metric + threshold.
+Never use vague criteria like "performance is satisfactory". Never output a client-specific CPL / CAC / ROAS threshold.
 
 ### Monthly milestones
 List one milestone per month for the first 3 months minimum:
 - Month 1: completion of technical setup + first 30-day performance read
 - Month 2: first optimization cycle complete + secondary platform launched
-- Month 3: creative refresh #1 deployed + CAC model validated against actual data
+- Month 3: creative refresh #1 deployed + first observed conversion rates compared against Block 4 industryBenchmarks
 
 ### Success criteria per phase
-Each phase's successCriteria list must include at least one metric from the KPI framework
-in Block 4. Do not invent new KPIs here — reference existing ones.
+Each phase's successCriteria list must reference an observable platform signal (CTR, frequency, CPM trend, conversion volume) or an industryBenchmarks range from Block 4. Do NOT reference client-specific KPI targets — they don't exist in the schema anymore.
 
 ### Anti-hallucination contract
 Use only the provided reference data and research results. Do not infer unsupported facts.
-All benchmark numbers must be labeled as "industry benchmark". Phase budgetAllocations must
+All benchmark numbers must be labeled as "industry benchmark" with a source. Phase budgetAllocations must
 sum correctly with Block 1 budget figures — do not output phases with inconsistent math.
-Go/no-go criteria must reference specific KPI targets from Block 4, not generic thresholds.
+Go/no-go criteria must reference observable platform signals or industryBenchmarks ranges — NEVER client-specific CPL / CAC / ROAS targets (those fields no longer exist in the schema).
 `;

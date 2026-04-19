@@ -1,51 +1,56 @@
 export const MEASUREMENT_SKILL = `
-## Block 4: Measurement Framework, CAC Model & Risk Register
+## Block 4: Measurement Framework, Industry Benchmarks & Risk Register
 
-You are building the measurement plan, CAC model, and risk register for the media plan.
+You are building the measurement plan for the media plan. You do NOT output client-specific KPI targets or CAC numbers. Instead, you produce industry benchmark ranges as context, plus qualitative guidance on how the sales process can be improved to boost conversion.
 
 ### Inputs to analyze
-- Channel mix from Block 1: platforms, budgets, expected CPL ranges
+- Channel mix from Block 1: platforms, budgets
 - ICP validation: audience size, confidence score, conversion factors
 - Offer analysis: offer strength scores, red flags, pricing analysis
+- Business model metadata from context (\`[businessModelType:X]\`)
 - Industry benchmarks from benchmarks.md
 
-### KPI definition rules — qualitative guidance only (NO client-specific targets)
-For each KPI:
-1. Specify the metric name (adapt to business model — see business-model routing):
-   - PLG: cost per signup, activation rate, free-to-paid rate
-   - SLG: CPL, MQL rate, SQL rate, sales cycle length
-   - E-commerce: CPC, CTR, ATC rate, ROAS, MER
-   - Transactional: CPL, show rate, cost per completed job
-2. List the DRIVERS — what influences this metric (e.g. "sales close rate", "offer strength",
-   "creative quality", "targeting precision", "landing page conversion")
-3. List the IMPROVEMENT LEVERS — what the client can change to improve this metric
-   (e.g. "follow the sales process in the onboarding doc", "strengthen the offer with
-   bonus + guarantee", "A/B test hook variations", "improve onboarding email flow")
-4. Optional benchmarkRange: a low/high industry-benchmark range, ALWAYS labeled with source.
-   Do NOT set a client-specific target. Benchmarks are for context, not promises.
-5. Define the measurement method: which platform dashboard, which attribution window, which conversion event
+### Industry Benchmarks (REPLACES client-specific KPI targets)
 
-Required KPIs depend on business model (see templates/business-models/<type>.md).
-Do NOT force lead-to-SQL metrics on PLG accounts — they have no SQL stage.
+Produce 3-4 industry-typical benchmark ranges. These are NOT client targets — they're context.
 
-### CAC framework — qualitative, NO numeric targets
-Paid media does not determine CAC on its own. CAC is the output of a system:
-creative quality × targeting precision × offer strength × sales close rate × retention.
+Each benchmark = {
+  metric: string,   // e.g. "MQL-to-SQL conversion rate", "Cold-to-booked rate on paid demo intake", "7-day trial-to-paid for B2B SaaS"
+  range: string,    // "15-25%", "2-4%", etc. Use a range, never a single number
+  source: string,   // "SaaS industry benchmark", "HubSpot 2024 State of Marketing", "ConvertKit creator benchmark" — cite where the range comes from
+  note: string,     // 1-2 sentence context on variability / assumptions
+}
 
-Your cacFramework output has THREE fields:
-- drivers: [] — list what influences CAC for this business (e.g. "close rate
-  in the demo-to-customer stage", "offer-market fit", "creative winning rate")
-- improvementLevers: [] — list concrete actions the client can take to improve
-  CAC (e.g. "follow the sales process SOP", "strengthen the offer with case
-  studies + guarantee", "rotate creative every 21 days to fight fatigue")
-- benchmarkRange: optional — industry benchmark CAC range labeled with source,
-  for context only. Never present as a client-specific target.
+Pick metrics that are relevant to THIS business model (read \`[businessModelType:X]\` metadata).
+- PLG: trial-to-paid %, activation %, time-to-first-value
+- SLG: MQL-to-SQL %, SQL-to-opportunity %, demo-to-close %
+- E-commerce: site conversion %, ROAS ranges, first-order AOV
+- Transactional: lead-to-booking %, no-show %
+- Marketplace: take rate, seller acquisition cost, buyer retention
 
-NEVER output a specific target CAC number, expected CPL number, lead count,
-SQL count, or customer count. These fields have been removed from the schema
-because they cause harm: they anchor the client on numbers paid media cannot
-deliver alone, and if reality diverges, the media plan takes blame for a
-sales/offer/retention problem.
+Rules:
+- ALL ranges must be cited with a source label. No ranges without a source.
+- NO single-number targets. If you're tempted to write "Target: 3%", write "2-4% (SaaS average)" instead.
+- 3-4 benchmarks total. More is noise.
+
+### Sales Process Guidance (REPLACES CAC framework)
+
+Produce ONE object: {
+  diagnosticNote: string,   // what the buyer should audit in their current sales process (1-3 sentences)
+  improvementLevers: string[],  // 3-5 specific levers they can pull to improve conversion WITHOUT touching paid media
+  sopReference: string?,    // if the context mentions an SOP, Google Doc, playbook, training — reference it
+}
+
+The logic: paid media CANNOT drive CAC down on its own. CAC is driven by sales process, offer, retention. Our job is to tell the buyer HOW to improve conversion without blaming ads.
+
+Example diagnosticNote: "Your MQL-to-SQL conversion depends on how quickly sales follows up on ad-generated leads and whether the call framework handles the top objections from cold traffic. Audit: median time to first outreach, show rate on first call, and whether discovery questions address pricing sensitivity early."
+
+Example improvementLevers:
+- "Reduce time-to-first-touch on ad leads to under 5 minutes (inbound-lead studies show ~21x contact rate vs 30-min delay)"
+- "Add a pre-call qualifier in the form (budget range or team size) to filter before the call"
+- "Follow the sales SOP / call framework in your Google Doc — specifically the objection-handling section for 'we need to think about it'"
+- "Re-score MQLs on demo show rate, not form submit — gate paid spend against show rate signal"
+- "Strengthen the offer with a bonus or guarantee to reduce friction at closing"
 
 ### Risk register — 7 categories required
 For each risk, provide:
@@ -69,10 +74,7 @@ data privacy constraints (GDPR, CCPA, iOS ATT impact).
 
 ### Anti-hallucination contract
 Use only the provided reference data and research results. Do not infer unsupported facts.
-All benchmark numbers must be labeled as "industry benchmark" (in benchmarkRange.source).
-Do NOT output client-specific CAC, CPL, ROAS, or customer-count targets — these fields
-have been stripped from the schema. Output drivers + improvement levers + optional
-benchmark ranges only. Conversion rates mentioned in reasoning must cite icpValidation
-or offer analysis data; if not available, use industry defaults and label as "industry
-default estimate".
+All benchmark numbers must be labeled as "industry benchmark" in the \`source\` field.
+Do NOT output client-specific CAC, CPL, ROAS, or customer-count targets — the schema has
+no field for those. Output industryBenchmarks + salesProcessGuidance + risks + trackingRequirements only.
 `;

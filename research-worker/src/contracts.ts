@@ -372,7 +372,7 @@ const strategicSynthesisDataSchema = z.object({
     targetCpl: z.string().optional(),
     targetCac: z.string().optional(),
     estimatedDemoPageCvr: z.number().min(0).max(10).optional().describe('Estimated demo/trial page conversion rate as a percentage (e.g. 3.5 for 3.5%). Must be within industry benchmarks: 2-5% for B2B SaaS demo pages.'),
-    downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])).default(['keywordIntel', 'mediaPlan']),
+    downstreamSequence: z.array(z.string()).default(['mediaPlan']),
   }),
   criticalSuccessFactors: nonEmptyStringArraySchema,
   nextSteps: nonEmptyStringArraySchema,
@@ -492,7 +492,9 @@ const keywordIntelDataSchema = z.object({
 export const channelMixBudgetSchema = z.object({
   platforms: z.array(z.object({
     name: z.string(),
-    role: flexibleEnum(['primary-acquisition', 'retargeting', 'awareness', 'testing'] as const, 'primary-acquisition'),
+    // 'retargeting' removed 2026-04-19 per Mahdy round 2 — cold-DR default,
+    // no retargeting without a confirmed audience pool.
+    role: flexibleEnum(['primary-acquisition', 'awareness', 'testing'] as const, 'primary-acquisition'),
     monthlySpend: z.number().min(0),
     percentage: z.number().min(0).max(100),
     // expectedCPL (client-specific target) removed 2026-04-19 per Mahdy feedback —
@@ -522,9 +524,13 @@ export const audienceCampaignSchema = z.object({
     description: z.string(),
     targetingParams: z.record(z.string(), z.unknown()),
     estimatedReach: z.string(),
-    funnelPosition: flexibleEnum(['top', 'mid', 'bottom'] as const, 'top'),
+    // 'mid' funnel position removed 2026-04-19 per Mahdy round 2 — cold-DR
+    // default, middle-of-funnel segments require a confirmed audience pool.
+    funnelPosition: flexibleEnum(['top', 'bottom'] as const, 'top'),
     priority: z.number().int().min(1).max(10),
   })),
+  // Max 2 campaigns for DR cold-launch — budget-splitting across 6 campaign
+  // types is "super, super thin" per Mahdy.
   campaigns: z.array(z.object({
     platform: z.string(),
     name: z.string(),
@@ -535,13 +541,10 @@ export const audienceCampaignSchema = z.object({
       budget: z.number().min(0),
     })),
     namingConvention: z.string(),
-  })),
-  retargetingSegments: z.array(z.object({
-    name: z.string(),
-    source: z.string(),
-    windowDays: z.number().int().min(1).max(180),
-    estimatedSize: z.string(),
-  })),
+  })).max(2),
+  // retargetingSegments removed 2026-04-19 per Mahdy round 2 — no audience
+  // pool means no retargeting. Re-introduce behind [hasRetargetingPool:true]
+  // metadata flag if/when relevant.
 });
 
 export const creativeSystemSchema = z.object({
@@ -551,16 +554,9 @@ export const creativeSystemSchema = z.object({
     messagingApproach: z.string(),
     targetSegment: z.string(),
   })),
-  formatSpecs: z.array(z.object({
-    platform: z.string(),
-    format: z.string(),
-    dimensions: z.string(),
-    duration: z.string().optional(),
-    copyLimits: z.object({
-      headline: z.number().int().min(1),
-      description: z.number().int().min(1),
-    }),
-  })),
+  // formatSpecs removed 2026-04-19 per Mahdy round 2 — "this is quite useless,
+  // there's gonna be a mix of everything." Creative format is a production
+  // detail, not a media plan deliverable.
   testingPlan: z.object({
     firstTests: z.array(z.string()),
     methodology: z.string(),
@@ -573,30 +569,23 @@ export const creativeSystemSchema = z.object({
 });
 
 export const measurementGuardrailsSchema = z.object({
-  // Numeric client-specific targets removed 2026-04-19 per Mahdy feedback.
-  // Publishing CAC/CPL/ROAS targets is a trap — they depend on sales process,
-  // offer, retention, and creative. Paid media alone cannot guarantee them.
-  // We now publish qualitative guidance ONLY (drivers, improvement levers,
-  // and optional industry benchmark ranges labeled as benchmarks).
-  kpis: z.array(z.object({
-    metric: z.string(),
-    drivers: z.array(z.string()),
-    improvementLevers: z.array(z.string()),
-    benchmarkRange: z.object({
-      low: z.number(),
-      high: z.number(),
-      source: z.string(),
-    }).optional(),
-    measurementMethod: z.string(),
-  })),
-  cacFramework: z.object({
-    drivers: z.array(z.string()),
-    improvementLevers: z.array(z.string()),
-    benchmarkRange: z.object({
-      low: z.number(),
-      high: z.number(),
-      source: z.string(),
-    }).optional(),
+  // 2026-04-19 (Mahdy round 2): kpis + cacFramework REMOVED entirely. Even
+  // qualitative KPI drivers are "too much" — publishing anything that looks
+  // like a client target is a trap. Replaced with:
+  //   - industryBenchmarks: clearly-labeled external ranges (e.g., "MQL-to-SQL
+  //     conversion rate: 15-25%, SaaS benchmark"). Max 4.
+  //   - salesProcessGuidance: prose on how the CLIENT can improve conversion
+  //     via their own sales process (not paid media).
+  industryBenchmarks: z.array(z.object({
+    metric: z.string(),  // e.g. "MQL-to-SQL conversion rate"
+    range: z.string(),   // e.g. "15-25%"
+    source: z.string(),  // label like "Industry benchmark" or "SaaS average (HubSpot 2024)"
+    note: z.string(),    // context / caveat
+  })).max(4),
+  salesProcessGuidance: z.object({
+    diagnosticNote: z.string(),              // what to look for in current sales process
+    improvementLevers: z.array(z.string()),  // how to boost conversion via process
+    sopReference: z.string().optional(),     // e.g. "Follow the sales SOP in the shared Google Doc"
   }),
   risks: z.array(z.object({
     risk: z.string(),
@@ -1268,5 +1257,3 @@ export function finalizeRunnerResult(
   };
 }
 
-export { adScriptGenerateSchema, awarenessLevelOutputSchema } from './schemas/ad-scripts';
-export type { AdScriptGenerate } from './schemas/ad-scripts';

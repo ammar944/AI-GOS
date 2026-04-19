@@ -1057,6 +1057,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   if (audience) {
     const segments = asRecordArray(audience.segments);
     for (const segment of segments) {
+      if (asString(segment.funnelPosition) === 'mid') continue;
       const name = asString(segment.name);
       if (name) {
         cards.push(makeCard(section, 'segment-card', name, {
@@ -1100,11 +1101,6 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
       }
     }
 
-    const formatSpecs = asRecordArray(creative.formatSpecs);
-    if (formatSpecs.length > 0) {
-      cards.push(makeCard(section, 'format-spec', 'Ad Format Specifications', { specs: formatSpecs }, 'Required ad dimensions, formats, and platform-specific creative specs'));
-    }
-
     const testingPlan = asRecord(creative.testingPlan);
     if (testingPlan) {
       cards.push(makeCard(section, 'testing-plan', 'Creative Testing Plan', {
@@ -1118,28 +1114,30 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   // Block 4: Measurement & Guardrails
   const measurement = asRecord(data.measurementGuardrails);
   if (measurement) {
-    // KPIs now carry drivers + improvementLevers (qualitative) instead of
-    // numeric targets. The 'kpi-grid' card renders them; rendering component
-    // reads the new shape directly from the kpis array.
-    const kpis = asRecordArray(measurement.kpis);
-    if (kpis.length > 0) {
-      cards.push(makeCard(section, 'kpi-grid', 'KPI Framework', { kpis }, 'Key performance indicators with drivers and improvement levers'));
+    const industryBenchmarks = asRecordArray(measurement.industryBenchmarks);
+    if (industryBenchmarks.length > 0) {
+      cards.push(makeCard(section, 'industry-benchmarks', 'Industry Benchmarks', {
+        benchmarks: industryBenchmarks.map((b) => ({
+          metric: asString(b.metric),
+          range: asString(b.range),
+          source: asString(b.source),
+          note: asString(b.note),
+        })),
+      }, 'Industry-typical performance ranges as context — not client-specific targets'));
     }
 
-    // cac-model card removed 2026-04-19. Replaced with cac-framework card that
-    // renders the qualitative drivers + improvement levers from cacFramework.
-    const cacFramework = asRecord(measurement.cacFramework);
-    if (cacFramework) {
-      const benchmarkRange = asRecord(cacFramework.benchmarkRange);
-      cards.push(makeCard(section, 'cac-framework', 'CAC Framework', {
-        drivers: asStringArray(cacFramework.drivers),
-        improvementLevers: asStringArray(cacFramework.improvementLevers),
-        benchmarkRange: benchmarkRange ? {
-          low: asNumber(benchmarkRange.low),
-          high: asNumber(benchmarkRange.high),
-          source: asString(benchmarkRange.source),
-        } : undefined,
-      }, 'What drives CAC for this business and levers the client can pull to improve it'));
+    const salesProcessGuidance = asRecord(measurement.salesProcessGuidance);
+    if (salesProcessGuidance) {
+      const diagnosticNote = asString(salesProcessGuidance.diagnosticNote);
+      const improvementLevers = asStringArray(salesProcessGuidance.improvementLevers);
+      const sopReference = asString(salesProcessGuidance.sopReference);
+      if (diagnosticNote || improvementLevers.length > 0 || sopReference) {
+        cards.push(makeCard(section, 'sales-process', 'Sales Process Guidance', {
+          diagnosticNote,
+          improvementLevers,
+          sopReference,
+        }, 'How to improve conversion without touching paid media — process and offer levers'));
+      }
     }
 
     const risks = asRecordArray(measurement.risks);

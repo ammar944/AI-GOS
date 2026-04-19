@@ -78,7 +78,7 @@ describe('research-result-contract', () => {
         planningContext: {
           monthlyBudget: '$5,000/month',
           targetCpl: '$300',
-          downstreamSequence: ['keywordIntel', 'mediaPlan'],
+          downstreamSequence: ['mediaPlan'],
         },
       },
     });
@@ -184,7 +184,7 @@ describe('research-result-contract', () => {
         strategicNarrative: 'Timed out while building the artifact.',
         planningContext: {
           monthlyBudget: '$2,000/month',
-          downstreamSequence: ['keywordIntel', 'mediaPlan'],
+          downstreamSequence: ['mediaPlan'],
         },
       },
     });

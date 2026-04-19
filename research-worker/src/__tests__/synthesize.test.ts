@@ -83,7 +83,7 @@ function makeSynthesisResult() {
       targetCpl: '$250',
       targetCac: '$2,000',
       estimatedDemoPageCvr: undefined as number | undefined,
-      downstreamSequence: ['keywordIntel' as const, 'mediaPlan' as const],
+      downstreamSequence: ['mediaPlan'],
     },
     strategicNarrative:
       'SaaSLaunch should lead with pipeline accountability.',

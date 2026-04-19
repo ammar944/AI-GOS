@@ -210,7 +210,7 @@ describe('JOURNEY_SECTION_DATA_SCHEMAS', () => {
           monthlyBudget: '$5,000/month',
           targetCpl: '$300',
           targetCac: '$2,000',
-          downstreamSequence: ['keywordIntel', 'mediaPlan'],
+          downstreamSequence: ['mediaPlan'],
         },
         nextSteps: ['Refresh proof and case studies before scaling spend'],
         criticalSuccessFactors: ['Thin proof library for cold traffic'],

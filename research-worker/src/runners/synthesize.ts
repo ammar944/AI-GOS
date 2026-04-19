@@ -68,7 +68,10 @@ const synthesisGenerateSchema = z.object({
     targetCpl: z.string().optional(),
     targetCac: z.string().optional(),
     estimatedDemoPageCvr: z.number().optional().describe('Estimated demo/trial page conversion rate as a percentage (e.g. 3.5 for 3.5%). Must be within industry benchmarks: 2-5% for B2B SaaS demo pages.'),
-    downstreamSequence: z.array(z.enum(['keywordIntel', 'mediaPlan'])),
+    // downstreamSequence is not emitted by the model — it's a deterministic
+    // UI label filled in by the contracts layer. Keywords run in parallel
+    // with synthesis (see WAVE_2_PARALLEL_SECTIONS), so mediaPlan is the
+    // only genuine downstream stage.
   }),
   criticalSuccessFactors: z.array(z.string()),
   nextSteps: z.array(z.string()),
@@ -222,7 +225,6 @@ export async function runSynthesizeResearch(
         'Audience Clarity': ['icpvalidation', '[icp_'],
         'Competitive Position': ['## competitors', '[competitor_'],
         'Offer Strength': ['offeranalysis', '[offer_'],
-        'Keyword Coverage': ['keywordintel', '[keyword_'],
       };
       const contextLower = context.toLowerCase();
       for (const dim of object.readinessScorecard.dimensions) {

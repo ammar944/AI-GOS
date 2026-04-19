@@ -741,15 +741,15 @@ export function cardToMarkdown(card: CardState): string[] {
       if (c.targetSegment) lines.push(`Target: ${c.targetSegment as string}`);
       break;
     }
-    case 'format-spec': {
-      const specs = (c.specs ?? []) as Array<Record<string, unknown>>;
-      for (const spec of specs) {
-        const format = (spec.format ?? spec.name ?? 'Format') as string;
-        lines.push(`- ${format}`);
-        for (const [key, val] of Object.entries(spec)) {
-          if (key !== 'format' && key !== 'name' && val != null) {
-            lines.push(`  ${key}: ${val}`);
-          }
+    case 'industry-benchmarks': {
+      const benchmarks = (c.benchmarks ?? []) as Array<{metric?: string; range?: string; source?: string; note?: string}>;
+      if (benchmarks.length > 0) {
+        lines.push('*Industry benchmark ranges — not client targets.*');
+        lines.push('');
+        for (const b of benchmarks) {
+          if (!b.metric || !b.range) continue;
+          lines.push(`- **${b.metric}**: ${b.range}${b.source ? ` _(${b.source})_` : ''}`);
+          if (b.note) lines.push(`  ${b.note}`);
         }
       }
       break;
@@ -764,54 +764,19 @@ export function cardToMarkdown(card: CardState): string[] {
       }
       break;
     }
-    case 'kpi-grid': {
-      // Qualitative KPI shape (2026-04-19) — metric + drivers +
-      // improvementLevers + optional benchmarkRange. Numeric target fields
-      // were removed per Mahdy feedback.
-      const kpis = (c.kpis ?? []) as Array<Record<string, unknown>>;
-      for (const k of kpis) {
-        const metric = (k.metric as string) ?? '';
-        lines.push(`- **${metric}**`);
-        const drivers = (k.drivers ?? []) as string[];
-        if (drivers.length > 0) {
-          lines.push(`  - Drivers: ${drivers.join('; ')}`);
-        }
-        const levers = (k.improvementLevers ?? []) as string[];
-        if (levers.length > 0) {
-          lines.push(`  - Improvement levers: ${levers.join('; ')}`);
-        }
-        const range = k.benchmarkRange as
-          | { low?: number; high?: number; source?: string }
-          | undefined;
-        if (range?.low != null && range?.high != null) {
-          const src = range.source ? ` (${range.source})` : '';
-          lines.push(`  - Industry benchmark: ${range.low}–${range.high}${src}`);
-        }
-        if (k.measurementMethod) {
-          lines.push(`  - Measured via: ${k.measurementMethod as string}`);
-        }
+    case 'sales-process': {
+      const diagnosticNote = c.diagnosticNote as string | undefined;
+      const improvementLevers = c.improvementLevers as string[] | undefined;
+      const sopReference = c.sopReference as string | undefined;
+      if (diagnosticNote) lines.push(diagnosticNote);
+      if (improvementLevers && improvementLevers.length > 0) {
+        lines.push('');
+        lines.push('**Improvement levers:**');
+        for (const lever of improvementLevers) lines.push(`- ${lever}`);
       }
-      break;
-    }
-    case 'cac-framework': {
-      // Replaces legacy 'cac-model' card (2026-04-19). Qualitative only:
-      // drivers + improvement levers + optional industry benchmark range.
-      const drivers = (c.drivers ?? []) as string[];
-      if (drivers.length > 0) {
-        lines.push(`**What drives CAC:**`);
-        for (const d of drivers) lines.push(`- ${d}`);
-      }
-      const levers = (c.improvementLevers ?? []) as string[];
-      if (levers.length > 0) {
-        lines.push(`**How to improve CAC:**`);
-        for (const l of levers) lines.push(`- ${l}`);
-      }
-      const range = c.benchmarkRange as
-        | { low?: number; high?: number; source?: string }
-        | undefined;
-      if (range?.low != null && range?.high != null) {
-        const src = range.source ? ` (${range.source})` : '';
-        lines.push(`Industry benchmark CAC range: $${range.low}–$${range.high}${src}`);
+      if (sopReference) {
+        lines.push('');
+        lines.push(`**Reference:** ${sopReference}`);
       }
       break;
     }

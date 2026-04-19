@@ -138,7 +138,7 @@ const synthesisData = {
   planningContext: {
     monthlyBudget: '$5,000/month',
     targetCpl: '$300',
-    downstreamSequence: ['keywordIntel', 'mediaPlan'],
+    downstreamSequence: ['mediaPlan'],
   },
   criticalSuccessFactors: ['Tight CRM attribution', 'Message-platform fit'],
   nextSteps: ['Ship the LinkedIn hero campaign', 'Build search landing pages by use case'],

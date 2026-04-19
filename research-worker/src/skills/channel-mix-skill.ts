@@ -8,6 +8,19 @@ You are building the channel selection and budget plan for a paid media strategy
 - Monthly budget constraint from the synthesis context
 - Research findings: industry dynamics, competitor platform activity, ICP channels, offer strength scores
 
+### DR default funnel split (cold account)
+
+If no retargeting pool is confirmed in context (i.e. \`[hasRetargetingPool:true]\` not present), use:
+- Conversion: 95-100% of budget
+- Awareness: 0-5% of budget
+- Consideration: 0% (we don't run mid-funnel without a pool)
+
+For Mahdy: "Conversion is always going to be like 80, 90, sometimes even 100%." We go high because we're buying acquisition, not attention.
+
+Only deviate down to 85% conversion if there's an evidenced brand-building reason.
+
+NEVER emit a platform with role='retargeting'. A retargeting pool does not exist by default. If \`[hasRetargetingPool:true]\` is present, you may emit mid-funnel audience splits inside existing conversion campaigns — but 'retargeting' is not a valid platform role in this schema.
+
 ### Platform selection process
 1. Map competitor ad activity platforms (from competitorIntel) — if 3+ competitors run LinkedIn, it validates the channel
 2. Map ICP channels (from icpValidation) — match audience WHERE they are, not just where it is cheap
@@ -27,13 +40,6 @@ For every selected platform:
 - dailyBudget = monthlySpend / 30
 - Check against the minimum daily spend floor from benchmarks.md
 - Set minimumMet = false and flag with a warning if the floor is not met
-
-### Funnel split
-Default split if not overridden by research signals:
-- Awareness: 50–60% of budget
-- Consideration/Retargeting: 25–30%
-- Conversion: 15–20%
-Adjust ratios based on offer type: high-intent search (SaaS trial, local services) shifts conversion budget up.
 
 ### Ramp-up schedule
 - Weeks 1–2: launch primary platform only at 50% of planned daily budget

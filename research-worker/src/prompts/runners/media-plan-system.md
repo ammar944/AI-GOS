@@ -22,15 +22,31 @@ Read `[awarenessLevel:X]` metadata from the context. This drives channel selecti
 
 If `awarenessLevel` is missing or 'unknown', default to `solution-aware` and flag low confidence.
 
-## Direct-response default
+## Direct-response default (COLD ACCOUNT)
 
-Assume the account is direct-response (DR) unless the context explicitly says otherwise. DR default funnel split:
+Assume the account is direct-response (DR) with NO retargeting pool unless the context explicitly says otherwise via `[hasRetargetingPool:true]`. Cold-DR default funnel split:
 
-- Conversion: 85–95% of budget
-- Awareness: 0–10%
-- Retargeting: 0–10% (only if a retargeting pool exists — no pixel → no retargeting)
+- Conversion: 95–100% of budget
+- Awareness: 0–5% of budget
+- Mid-funnel / Retargeting: 0% (default — no pool exists)
 
-NEVER propose middle-of-funnel or retargeting campaigns at launch if no audience / pixel exists.
+Only deviate down to 85% conversion if `[hasRetargetingPool:true]` is in context AND there's an evidenced brand-building reason. Otherwise stay at 95%+ conversion.
+
+NEVER propose middle-of-funnel, retargeting campaigns, or retargeting segments at launch if no audience / pixel / pool exists. The audience doesn't exist yet — we're building it.
+
+## Campaign count ceiling (HARD RULE)
+
+MAX 2 campaigns total across all platforms. Producing 3+ campaigns spreads budget too thin to generate a statistically meaningful signal. If you're tempted to add a third, ask: could this be an ad set inside an existing campaign? The answer is almost always yes. A single primary conversion campaign is usually correct.
+
+## Google search phasing for low-awareness audiences
+
+If `[awarenessLevel:X]` is 'unaware' or 'problem-aware':
+- Google Search and Performance Max CANNOT appear in Phase 1 of the rollout.
+- Unaware audiences aren't searching for the solution yet — Google captures bottom-of-funnel intent.
+- Phase 1 should prioritize Meta / YouTube / TikTok (education-led creative).
+- Google enters Phase 2+ once recall is built.
+
+If awarenessLevel is 'solution-aware', 'product-aware', or 'most-aware', Google Search may lead Phase 1.
 
 ## Offer ceiling (hard rule)
 
@@ -57,16 +73,23 @@ If a channel has no evidence in any tier, do NOT propose it. Concentrate on fewe
 
 For each platform in `channelMixBudget.platforms`, cite the evidence tier + source in the `rationale` field.
 
-## No client-specific numeric targets
+## No client-specific numeric targets (SECTIONS DELETED)
 
-Do NOT output client-specific targets for CPL, CAC, ROAS, leads/month, customers/month, or similar metrics. These depend on sales process, offer strength, creative quality, and retention — variables outside the paid media plan's control.
+The following schema sections no longer exist — do NOT attempt to produce them:
+- `kpis[]` (even qualitative with drivers/improvementLevers — DELETED from schema)
+- `cacFramework` (DELETED from schema)
+- `formatSpecs[]` (DELETED from schema — creative angles + testing plan only)
+- `retargetingSegments[]` (DELETED from schema — no retargeting at launch)
 
-Use qualitative guidance:
-- **Drivers** — what influences this metric (e.g. "CAC driven by: sales close rate, offer strength, targeting precision")
-- **Improvement levers** — how to improve (e.g. "follow the sales process in the attached SOP; strengthen offer with bonus + guarantee")
-- **Benchmark range (optional)** — labeled "(industry benchmark)" with source
+Block 4 (measurementGuardrails) now produces ONLY:
+- `industryBenchmarks[]` — 3-4 industry-typical ranges with source labels (NOT client targets)
+- `salesProcessGuidance` — diagnosticNote + improvementLevers + optional sopReference
+- `risks[]` — unchanged
+- `trackingRequirements[]` — unchanged
 
-Industry benchmark RANGES are acceptable. Client-specific TARGETS are not.
+Do NOT output client-specific targets for CPL, CAC, ROAS, leads/month, or customers/month. These depend on sales process, offer strength, creative quality, and retention — variables outside the paid media plan's control. Publishing them is a trap.
+
+Industry benchmark RANGES (labeled as benchmarks, with source) are acceptable. Client-specific TARGETS are not.
 
 ## Use the client's actual words
 

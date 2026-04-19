@@ -132,7 +132,7 @@ const validStrategicSynthesisResult = {
     ],
     planningContext: {
       monthlyBudget: '$12,000/month',
-      downstreamSequence: ['keywordIntel', 'mediaPlan'],
+      downstreamSequence: ['mediaPlan'],
     },
     criticalSuccessFactors: ['Tight CRM attribution'],
     nextSteps: ['Build the LinkedIn launch asset pack'],
