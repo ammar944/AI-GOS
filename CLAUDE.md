@@ -1,5 +1,23 @@
 # CLAUDE.md
 
+## Session Startup Protocol (MANDATORY)
+
+Before responding to any user message, classify the ask and state the classification in one line. Only then act.
+
+Classification types:
+- `quick-question`: pure Q&A, no tools needed. Answer directly.
+- `10-min-fix`: one file, obvious change, low ambiguity. Skip discover, jump to implement with a verification check.
+- `half-day` / `day` / `week+`: route through `.claude/workspaces/aigos-feature-dev/` starting at `stages/01-discover/CONTEXT.md`. Never skip discover on these.
+- `production-bug`: run `.claude/rules/bug-triage.md` Step Zero FIRST. Do not load source until infra clears.
+- `skill-invocation`: if the user types `/design`, `/review`, `/ship` etc. on a task larger than 10-min, wrap the skill inside a `/feature` call. Never invoke a skill directly on week+ work without classification.
+
+Rules that apply to every classification:
+- Never dispatch an `Explore`, `Task`, or `Agent` subagent without stating a time budget and a max tool-call count up front. See `.claude/rules/exploration-budget.md`.
+- Never run a paid API (Firecrawl, Perplexity) in a loop without an abort condition.
+- `/clear` between unrelated features. Compact at 70% context with a feature focus.
+
+If the ask is ambiguous, state one assumption and proceed, or ask ONE clarifying question. Never ask more than one.
+
 ## Design System
 Read DESIGN.md before any visual/UI work. Do not deviate without user approval.
 

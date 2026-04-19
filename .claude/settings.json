@@ -36,6 +36,11 @@
             "type": "command",
             "command": "node .claude/helpers/hook-handler.cjs route",
             "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "echo '[session-protocol] Classify this ask (quick-question / 10-min-fix / half-day / day / week+ / production-bug / skill-invocation). State classification in one line before acting. Budget any subagent with time + tool-call cap per .claude/rules/exploration-budget.md. Route week+ through .claude/workspaces/aigos-feature-dev/.'",
+            "timeout": 2000
           }
         ]
       }
