@@ -10,7 +10,7 @@ If a number cannot be directly traced to a prior block, do not include it.
 
 ### Inputs to extract from
 - Block 1 (channelMixBudget): totalMonthly, topPlatform (highest percentage platform), rampUpWeeks
-- Block 4 (measurementGuardrails): CAC model (leadsPerMonth, estimatedCAC, ltvCacRatio), risk top-line
+- Block 4 (measurementGuardrails): KPI drivers, improvement levers, risk top-line — qualitative only
 - Block 5 (rolloutRoadmap): first milestone as "timeToFirstResults"
 - All blocks: identify the top 3 priorities
 
@@ -33,17 +33,26 @@ Extract directly from Block 1:
 - topPlatform: the platform with highest monthlySpend percentage
 - timeToFirstResults: Block 5 Phase 1 duration + "for initial performance read"
 
-### Expected outcomes
-Extract directly from Block 4 CAC model:
-- leadsPerMonth: cacModel.expectedLeadsPerMonth
-- estimatedCAC: cacModel.targetCAC
-- expectedROAS: include ONLY if the business is direct e-commerce (not lead gen, not SaaS trials,
-  not service businesses). If the business model does not have direct purchase conversions,
-  omit expectedROAS entirely from the output — do not set it to 0 or "N/A", just exclude the field.
+### Expected signals (qualitative — NO numeric forecasts)
+Numeric forecasts (leads/month, estimated CAC, expected ROAS) have been removed
+from the schema per 2026-04-19 Mahdy feedback. Output qualitative signals instead.
+
+- timeToFirstResults: string (e.g. "2–4 weeks for initial performance read") — OPTIONAL
+- qualitativeOutcomes: array of strings describing what the client will SEE
+  during/after the plan, not what they'll GET. Examples:
+  - "Initial lead flow established on primary platform"
+  - "Creative winners identified from first 3 tests"
+  - "CPL baseline established; improvement levers visible in data"
+  - "Funnel-stage drop-offs become measurable, enabling sales-process tuning"
+  - "Creative fatigue signals surfaced for refresh planning"
+
+DO NOT output a number for leads, customers, CAC, or ROAS. Those forecasts
+are traps because paid media cannot guarantee them — sales process, offer,
+and retention all intervene.
 
 ### Anti-hallucination contract
 Use only the provided reference data and research results. Do not infer unsupported facts.
-All numbers must be extracted verbatim from prior blocks — do not recalculate or adjust.
-The headline must not make claims not supported by the research. expectedROAS must only appear
-for direct e-commerce conversion models. This block adds zero new analysis.
+All numbers in budgetOverview.total must be extracted verbatim from Block 1 — do not
+recalculate or adjust. The headline must not make claims not supported by the research.
+This block adds zero new analysis — it is a summary only.
 `;

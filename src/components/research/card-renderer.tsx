@@ -32,13 +32,11 @@ import { RiskCard } from '@/components/workspace/cards/risk-card';
 import { FormatSpecCard } from '@/components/workspace/cards/format-spec-card';
 import { TestingPlanCard } from '@/components/workspace/cards/testing-plan-card';
 import { KpiGridCard } from '@/components/workspace/cards/kpi-grid-card';
-import { CacModelCard } from '@/components/workspace/cards/cac-model-card';
+import { CacFrameworkCard } from '@/components/workspace/cards/cac-framework-card';
 import { PhaseCard } from '@/components/workspace/cards/phase-card';
 import {
   PlatformBudgetPieChart,
   FunnelSplitBarChart,
-  CACFunnelChart,
-  KPIBenchmarkChart,
   PhaseBudgetChart,
 } from '@/components/workspace/cards/media-plan-charts';
 import {
@@ -298,18 +296,8 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           funnelSplit={card.content.funnelSplit as {awareness: number; consideration: number; conversion: number}}
         />
       );
-    case 'cac-funnel-chart':
-      return (
-        <CACFunnelChart
-          cacModel={card.content.cacModel as {expectedLeadsPerMonth: number; expectedSQLsPerMonth: number; expectedCustomersPerMonth: number}}
-        />
-      );
-    case 'kpi-benchmark-chart':
-      return (
-        <KPIBenchmarkChart
-          kpis={card.content.kpis as Array<{metric: string; target: number; industryBenchmark: number}>}
-        />
-      );
+    // cac-funnel-chart and kpi-benchmark-chart removed 2026-04-19 per Mahdy
+    // feedback — they visualized numeric forecast fields that no longer exist.
     case 'phase-budget-chart':
       return (
         <PhaseBudgetChart
@@ -364,7 +352,7 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           headline={card.content.headline as string | undefined}
           topPriorities={card.content.topPriorities as Array<{label?: string; description?: string}> | undefined}
           budgetOverview={card.content.budgetOverview as {total?: number; topPlatform?: string; timeToFirstResults?: string} | undefined}
-          expectedOutcomes={card.content.expectedOutcomes as {leadsPerMonth?: number; estimatedCAC?: number; expectedROAS?: number} | undefined}
+          expectedSignals={card.content.expectedSignals as {timeToFirstResults?: string; qualitativeOutcomes?: string[]} | undefined}
         />
       );
     case 'budget-summary':
@@ -415,23 +403,12 @@ export function CardContentSwitch({ card }: { card: CardState }) {
       );
     case 'kpi-grid':
       return <KpiGridCard kpis={card.content.kpis as Array<Record<string, unknown>>} />;
-    case 'cac-model':
+    case 'cac-framework':
       return (
-        <CacModelCard
-          targetCAC={card.content.targetCAC as number | null | undefined}
-          expectedCPL={card.content.expectedCPL as number | null | undefined}
-          leadToSqlRate={card.content.leadToSqlRate as number | null | undefined}
-          sqlToCustomerRate={card.content.sqlToCustomerRate as number | null | undefined}
-          expectedLeadsPerMonth={card.content.expectedLeadsPerMonth as number | null | undefined}
-          expectedSQLsPerMonth={card.content.expectedSQLsPerMonth as number | null | undefined}
-          expectedCustomersPerMonth={card.content.expectedCustomersPerMonth as number | null | undefined}
-          ltv={card.content.ltv as number | null | undefined}
-          // Wave 6: ltvCacRatio is a pre-formatted string from the worker
-          // (e.g. "5.2:1 — Healthy"), not a number. The card renders it as-is.
-          ltvCacRatio={card.content.ltvCacRatio as string | null | undefined}
-          // Wave 6: insufficientData drives the card's empty-state CTA when
-          // baseline metrics weren't provided.
-          insufficientData={card.content.insufficientData as string[] | undefined}
+        <CacFrameworkCard
+          drivers={card.content.drivers as string[] | undefined}
+          improvementLevers={card.content.improvementLevers as string[] | undefined}
+          benchmarkRange={card.content.benchmarkRange as {low?: number; high?: number; source?: string} | undefined}
         />
       );
     case 'risk-card':

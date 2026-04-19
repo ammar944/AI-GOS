@@ -36,8 +36,7 @@ import {
   validateBudgetMath,
   validateTargetingHeuristics,
   validateFormatSpecs,
-  validateCACModel,
-  reconcileKPIs,
+  validateMeasurementQualitative,
   validatePhaseBudgets,
   reconcileBudgetAcrossBlocks,
   validateSnapshotConsistency,
@@ -293,11 +292,12 @@ export async function runMediaPlan(
         break;
       }
       case 'measurementGuardrails': {
-        await emitRunnerProgress(onProgress, 'tool', 'validating CAC model and KPI framework');
-        const cacResult = validateCACModel(validatedData as z.infer<typeof measurementGuardrailsSchema>);
-        const kpiResult = reconcileKPIs(cacResult.data);
-        validatedData = kpiResult.data;
-        blockWarnings = [...cacResult.warnings, ...kpiResult.warnings];
+        await emitRunnerProgress(onProgress, 'tool', 'validating KPI drivers and cacFramework');
+        const result = validateMeasurementQualitative(
+          validatedData as z.infer<typeof measurementGuardrailsSchema>,
+        );
+        validatedData = result.data;
+        blockWarnings = result.warnings;
         break;
       }
       case 'rolloutRoadmap': {

@@ -495,7 +495,9 @@ export const channelMixBudgetSchema = z.object({
     role: flexibleEnum(['primary-acquisition', 'retargeting', 'awareness', 'testing'] as const, 'primary-acquisition'),
     monthlySpend: z.number().min(0),
     percentage: z.number().min(0).max(100),
-    expectedCPL: z.object({ low: z.number().min(0), high: z.number().min(0) }),
+    // expectedCPL (client-specific target) removed 2026-04-19 per Mahdy feedback —
+    // CPL targets depend on offer/creative/sales process, not paid media. Use
+    // benchmarkRange on individual KPIs if a range is genuinely useful.
     rationale: z.string(),
   })),
   budgetSummary: z.object({
@@ -571,23 +573,30 @@ export const creativeSystemSchema = z.object({
 });
 
 export const measurementGuardrailsSchema = z.object({
+  // Numeric client-specific targets removed 2026-04-19 per Mahdy feedback.
+  // Publishing CAC/CPL/ROAS targets is a trap — they depend on sales process,
+  // offer, retention, and creative. Paid media alone cannot guarantee them.
+  // We now publish qualitative guidance ONLY (drivers, improvement levers,
+  // and optional industry benchmark ranges labeled as benchmarks).
   kpis: z.array(z.object({
     metric: z.string(),
-    target: z.number(),
-    industryBenchmark: z.number(),
-    benchmarkSource: z.string(),
+    drivers: z.array(z.string()),
+    improvementLevers: z.array(z.string()),
+    benchmarkRange: z.object({
+      low: z.number(),
+      high: z.number(),
+      source: z.string(),
+    }).optional(),
     measurementMethod: z.string(),
   })),
-  cacModel: z.object({
-    targetCAC: z.number().min(0),
-    expectedCPL: z.number().min(0),
-    leadToSqlRate: z.number().min(0).max(1),
-    sqlToCustomerRate: z.number().min(0).max(1),
-    expectedLeadsPerMonth: z.number().min(0),
-    expectedSQLsPerMonth: z.number().min(0),
-    expectedCustomersPerMonth: z.number().min(0),
-    ltv: z.number().min(0),
-    ltvCacRatio: z.number().min(0),
+  cacFramework: z.object({
+    drivers: z.array(z.string()),
+    improvementLevers: z.array(z.string()),
+    benchmarkRange: z.object({
+      low: z.number(),
+      high: z.number(),
+      source: z.string(),
+    }).optional(),
   }),
   risks: z.array(z.object({
     risk: z.string(),
@@ -630,14 +639,16 @@ export const strategySnapshotSchema = z.object({
     rationale: z.string(),
   })).max(3),
   budgetOverview: z.object({
-    total: z.number().min(0),
+    total: z.number().min(0), // user's own budget input — NOT a forecast, safe to display
     topPlatform: z.string(),
     timeToFirstResults: z.string(),
   }),
-  expectedOutcomes: z.object({
-    leadsPerMonth: z.number().min(0),
-    estimatedCAC: z.number().min(0),
-    expectedROAS: z.number().min(0).optional(),
+  // expectedOutcomes numeric forecasts removed 2026-04-19 per Mahdy feedback.
+  // Replaced with qualitative signals the user can evaluate without being
+  // anchored to guesses that depend on the sales process.
+  expectedSignals: z.object({
+    timeToFirstResults: z.string().optional(),
+    qualitativeOutcomes: z.array(z.string()),
   }),
 });
 

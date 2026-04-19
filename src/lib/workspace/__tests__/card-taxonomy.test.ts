@@ -460,9 +460,13 @@ describe('parseResearchToCards — mediaPlan charts', () => {
     expect(funnelChart!.content.funnelSplit).toEqual({ awareness: 30, consideration: 45, conversion: 25 });
   });
 
-  it('creates cac-funnel-chart from measurementGuardrails', () => {
+  // cac-funnel-chart removed 2026-04-19 per Mahdy feedback — it visualized
+  // numeric forecast fields (expectedLeadsPerMonth/SQLs/Customers) that no
+  // longer exist in the schema. This test guards against its re-introduction.
+  it('does NOT create cac-funnel-chart or cac-model card even if legacy fields present', () => {
     const mockData = {
       measurementGuardrails: {
+        // Legacy shape — should be ignored by the new parser.
         cacModel: {
           expectedLeadsPerMonth: 100,
           expectedSQLsPerMonth: 15,
@@ -472,14 +476,9 @@ describe('parseResearchToCards — mediaPlan charts', () => {
     };
 
     const cards = parseResearchToCards('mediaPlan', mockData);
-    const cacChart = cards.find((c) => c.cardType === 'cac-funnel-chart');
-
-    expect(cacChart).toBeDefined();
-    expect(cacChart!.content.cacModel).toEqual({
-      expectedLeadsPerMonth: 100,
-      expectedSQLsPerMonth: 15,
-      expectedCustomersPerMonth: 4,
-    });
+    expect(cards.find((c) => c.cardType === 'cac-funnel-chart')).toBeUndefined();
+    expect(cards.find((c) => c.cardType === 'cac-model')).toBeUndefined();
+    expect(cards.find((c) => c.cardType === 'kpi-benchmark-chart')).toBeUndefined();
   });
 
   it('handles empty block data without chart cards', () => {

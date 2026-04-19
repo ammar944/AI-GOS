@@ -997,7 +997,7 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   const snapshot = asRecord(data.strategySnapshot);
   if (snapshot) {
     const budgetOverview = asRecord(snapshot.budgetOverview);
-    const expectedOutcomes = asRecord(snapshot.expectedOutcomes);
+    const expectedSignals = asRecord(snapshot.expectedSignals);
     cards.push(makeCard(section, 'strategy-snapshot', asString(snapshot.headline) ?? 'Strategy Snapshot', {
       headline: asString(snapshot.headline),
       topPriorities: asRecordArray(snapshot.topPriorities),
@@ -1006,12 +1006,15 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
         topPlatform: asString(budgetOverview.topPlatform),
         timeToFirstResults: asString(budgetOverview.timeToFirstResults),
       } : undefined,
-      expectedOutcomes: expectedOutcomes ? {
-        leadsPerMonth: asNumber(expectedOutcomes.leadsPerMonth),
-        estimatedCAC: asNumber(expectedOutcomes.estimatedCAC),
-        expectedROAS: asNumber(expectedOutcomes.expectedROAS),
+      // Numeric forecast fields (leadsPerMonth, estimatedCAC, expectedROAS)
+      // removed 2026-04-19 per Mahdy feedback. Replaced with qualitative
+      // signals that describe what the client will see, not numbers paid
+      // media cannot guarantee.
+      expectedSignals: expectedSignals ? {
+        timeToFirstResults: asString(expectedSignals.timeToFirstResults),
+        qualitativeOutcomes: asStringArray(expectedSignals.qualitativeOutcomes),
       } : undefined,
-    }, 'High-level strategy overview with budget, priorities, and expected outcomes'));
+    }, 'High-level strategy overview with budget, priorities, and qualitative signals'));
   }
 
   // Block 1: Channel Mix — one card per platform + budget summary
@@ -1021,15 +1024,16 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
     for (const platform of platforms) {
       const name = asString(platform.name);
       if (name) {
-        const expectedCPL = asRecord(platform.expectedCPL);
+        // expectedCPL (client-specific forecast) removed 2026-04-19 per Mahdy
+        // feedback. The rationale carries the qualitative reasoning that used
+        // to anchor the CPL guess.
         cards.push(makeCard(section, 'platform-card', name, {
           name,
           role: asString(platform.role),
           monthlySpend: asNumber(platform.monthlySpend),
           percentage: asNumber(platform.percentage),
-          expectedCPL: expectedCPL ? { low: asNumber(expectedCPL.low), high: asNumber(expectedCPL.high) } : undefined,
           rationale: asString(platform.rationale),
-        }, 'Advertising platform with spend allocation, role, and expected cost per lead'));
+        }, 'Advertising platform with spend allocation, role, and rationale'));
       }
     }
 
@@ -1114,34 +1118,28 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   // Block 4: Measurement & Guardrails
   const measurement = asRecord(data.measurementGuardrails);
   if (measurement) {
+    // KPIs now carry drivers + improvementLevers (qualitative) instead of
+    // numeric targets. The 'kpi-grid' card renders them; rendering component
+    // reads the new shape directly from the kpis array.
     const kpis = asRecordArray(measurement.kpis);
     if (kpis.length > 0) {
-      cards.push(makeCard(section, 'kpi-grid', 'KPI Targets', { kpis }, 'Key performance indicators with targets and industry benchmarks'));
+      cards.push(makeCard(section, 'kpi-grid', 'KPI Framework', { kpis }, 'Key performance indicators with drivers and improvement levers'));
     }
 
-    const cacModel = asRecord(measurement.cacModel);
-    if (cacModel) {
-      // Schema field names (cacModelSchema in src/lib/media-plan/schemas.ts):
-      //   targetCAC, targetCPL, leadToSqlRate, sqlToCustomerRate,
-      //   expectedMonthlyLeads, expectedMonthlySQLs, expectedMonthlyCustomers,
-      //   estimatedLTV, ltvToCacRatio (STRING, e.g. "5.2:1 — Healthy"),
-      //   insufficientData (string[])
-      // Card prop names (CacModelCardProps in cac-model-card.tsx) are remapped
-      // here to: expectedCPL, expectedLeadsPerMonth, expectedSQLsPerMonth,
-      // expectedCustomersPerMonth, ltv, ltvCacRatio. Keep this mapping in sync
-      // with both files when the schema or card props change.
-      cards.push(makeCard(section, 'cac-model', 'CAC Model', {
-        targetCAC: asNumber(cacModel.targetCAC),
-        expectedCPL: asNumber(cacModel.targetCPL),
-        leadToSqlRate: asNumber(cacModel.leadToSqlRate),
-        sqlToCustomerRate: asNumber(cacModel.sqlToCustomerRate),
-        expectedLeadsPerMonth: asNumber(cacModel.expectedMonthlyLeads),
-        expectedSQLsPerMonth: asNumber(cacModel.expectedMonthlySQLs),
-        expectedCustomersPerMonth: asNumber(cacModel.expectedMonthlyCustomers),
-        ltv: asNumber(cacModel.estimatedLTV),
-        ltvCacRatio: asString(cacModel.ltvToCacRatio),
-        insufficientData: asStringArray(cacModel.insufficientData),
-      }, 'Customer acquisition cost model with conversion rates and LTV ratio'));
+    // cac-model card removed 2026-04-19. Replaced with cac-framework card that
+    // renders the qualitative drivers + improvement levers from cacFramework.
+    const cacFramework = asRecord(measurement.cacFramework);
+    if (cacFramework) {
+      const benchmarkRange = asRecord(cacFramework.benchmarkRange);
+      cards.push(makeCard(section, 'cac-framework', 'CAC Framework', {
+        drivers: asStringArray(cacFramework.drivers),
+        improvementLevers: asStringArray(cacFramework.improvementLevers),
+        benchmarkRange: benchmarkRange ? {
+          low: asNumber(benchmarkRange.low),
+          high: asNumber(benchmarkRange.high),
+          source: asString(benchmarkRange.source),
+        } : undefined,
+      }, 'What drives CAC for this business and levers the client can pull to improve it'));
     }
 
     const risks = asRecordArray(measurement.risks);
@@ -1203,31 +1201,10 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
     }
   }
 
-  if (measurement) {
-    const cacModel = asRecord(measurement.cacModel);
-    if (cacModel) {
-      const leads = asNumber(cacModel.expectedLeadsPerMonth);
-      const sqls = asNumber(cacModel.expectedSQLsPerMonth);
-      const customers = asNumber(cacModel.expectedCustomersPerMonth);
-      if (leads != null && sqls != null && customers != null) {
-        cards.push(makeCard(section, 'cac-funnel-chart', 'CAC Conversion Funnel', {
-          cacModel: { expectedLeadsPerMonth: leads, expectedSQLsPerMonth: sqls, expectedCustomersPerMonth: customers },
-        }, 'Lead-to-customer conversion funnel with expected volume at each stage'));
-      }
-    }
-
-    const kpis = asRecordArray(measurement.kpis);
-    const kpiChartData = kpis
-      .map(k => ({
-        metric: asString(k.metric) ?? '',
-        target: asNumber(k.target) ?? 0,
-        industryBenchmark: asNumber(k.industryBenchmark) ?? 0,
-      }))
-      .filter(k => k.metric);
-    if (kpiChartData.length > 0) {
-      cards.push(makeCard(section, 'kpi-benchmark-chart', 'KPI Targets vs Benchmarks', { kpis: kpiChartData }, 'Your target KPIs compared against industry benchmark values'));
-    }
-  }
+  // CAC funnel chart + KPI benchmark chart removed 2026-04-19 per Mahdy feedback.
+  // Both charted numeric forecast fields (expectedLeadsPerMonth, target,
+  // industryBenchmark) that no longer exist in the schema. If we later want a
+  // visual for the qualitative KPI framework, introduce a driver/lever diagram.
 
   if (roadmap) {
     const phases = asRecordArray(roadmap.phases);

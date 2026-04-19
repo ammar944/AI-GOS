@@ -260,121 +260,43 @@ export function validateFormatSpecs(
 }
 
 /**
- * Validates Block 4 (Measurement & Guardrails) CAC model math.
- * Corrects derived fields and warns on unhealthy LTV:CAC ratios.
+ * Block 4 validator — qualitative-only KPI check (2026-04-19).
+ *
+ * Previously this ran CAC-model math (ltvCacRatio, expectedLeadsPerMonth,
+ * etc.). All those fields were removed from the schema per Mahdy feedback:
+ * paid media cannot guarantee those numbers, so publishing them is a trap.
+ *
+ * This stub just verifies each KPI has the qualitative guidance fields
+ * populated (drivers + improvementLevers). It is kept as a no-op that may
+ * be expanded later to audit KPI quality (e.g., flag empty drivers lists).
  */
-export function validateCACModel(
+export function validateMeasurementQualitative(
   data: MeasurementGuardrails,
 ): { data: MeasurementGuardrails; warnings: string[] } {
   const warnings: string[] = [];
   const result = structuredClone(data) as MeasurementGuardrails;
-  const m = result.cacModel;
 
-  // Clamp conversion rates to 0-1
-  if (m.leadToSqlRate < 0 || m.leadToSqlRate > 1) {
-    const clamped = Math.min(Math.max(m.leadToSqlRate, 0), 1);
-    warnings.push(
-      `leadToSqlRate (${m.leadToSqlRate}) is outside 0-1 range — clamping to ${clamped.toFixed(4)}.`,
-    );
-    result.cacModel = { ...result.cacModel, leadToSqlRate: clamped };
-  }
-  if (m.sqlToCustomerRate < 0 || m.sqlToCustomerRate > 1) {
-    const clamped = Math.min(Math.max(m.sqlToCustomerRate, 0), 1);
-    warnings.push(
-      `sqlToCustomerRate (${m.sqlToCustomerRate}) is outside 0-1 range — clamping to ${clamped.toFixed(4)}.`,
-    );
-    result.cacModel = { ...result.cacModel, sqlToCustomerRate: clamped };
-  }
-
-  // Re-read after potential clamping
-  const r = result.cacModel;
-
-  // Check expectedSQLsPerMonth = expectedLeadsPerMonth × leadToSqlRate
-  const expectedSQLs = r.expectedLeadsPerMonth * r.leadToSqlRate;
-  if (!withinRelativeTolerance(r.expectedSQLsPerMonth, expectedSQLs, 0.05)) {
-    warnings.push(
-      `expectedSQLsPerMonth (${r.expectedSQLsPerMonth.toFixed(2)}) does not match expectedLeadsPerMonth × leadToSqlRate (${expectedSQLs.toFixed(2)}) — correcting.`,
-    );
-    result.cacModel = {
-      ...result.cacModel,
-      expectedSQLsPerMonth: parseFloat(expectedSQLs.toFixed(2)),
-    };
-  }
-
-  // Check expectedCustomersPerMonth = expectedSQLsPerMonth × sqlToCustomerRate
-  const correctedSQLs = result.cacModel.expectedSQLsPerMonth;
-  const expectedCustomers = correctedSQLs * r.sqlToCustomerRate;
-  if (!withinRelativeTolerance(r.expectedCustomersPerMonth, expectedCustomers, 0.05)) {
-    warnings.push(
-      `expectedCustomersPerMonth (${r.expectedCustomersPerMonth.toFixed(2)}) does not match expectedSQLsPerMonth × sqlToCustomerRate (${expectedCustomers.toFixed(2)}) — correcting.`,
-    );
-    result.cacModel = {
-      ...result.cacModel,
-      expectedCustomersPerMonth: parseFloat(expectedCustomers.toFixed(2)),
-    };
-  }
-
-  // Check ltvCacRatio = ltv / targetCAC
-  if (r.targetCAC > 0) {
-    const expectedRatio = r.ltv / r.targetCAC;
-    if (!withinRelativeTolerance(r.ltvCacRatio, expectedRatio, 0.05)) {
+  for (const kpi of result.kpis) {
+    if (!kpi.drivers || kpi.drivers.length === 0) {
+      warnings.push(`KPI "${kpi.metric}" has no drivers listed — add at least one.`);
+    }
+    if (!kpi.improvementLevers || kpi.improvementLevers.length === 0) {
       warnings.push(
-        `ltvCacRatio (${r.ltvCacRatio.toFixed(2)}) does not match ltv / targetCAC (${expectedRatio.toFixed(2)}) — correcting.`,
+        `KPI "${kpi.metric}" has no improvement levers — add at least one actionable lever.`,
       );
-      result.cacModel = {
-        ...result.cacModel,
-        ltvCacRatio: parseFloat(expectedRatio.toFixed(2)),
-      };
     }
   }
 
-  // Warn if LTV:CAC is unhealthy
-  if (result.cacModel.ltvCacRatio < 3) {
+  if (!result.cacFramework.drivers || result.cacFramework.drivers.length === 0) {
+    warnings.push('cacFramework.drivers is empty — describe what influences CAC for this business.');
+  }
+  if (
+    !result.cacFramework.improvementLevers ||
+    result.cacFramework.improvementLevers.length === 0
+  ) {
     warnings.push(
-      `LTV:CAC ratio (${result.cacModel.ltvCacRatio.toFixed(2)}) is below 3.0 — this is generally considered unhealthy for sustainable growth.`,
+      'cacFramework.improvementLevers is empty — describe concrete actions the client can take.',
     );
-  }
-
-  return { data: result, warnings };
-}
-
-/**
- * Validates Block 4 KPI consistency against the CAC model.
- * Warns when KPI targets diverge from model-derived values by more than 20%.
- */
-export function reconcileKPIs(
-  data: MeasurementGuardrails,
-): { data: MeasurementGuardrails; warnings: string[] } {
-  const warnings: string[] = [];
-  const result = structuredClone(data) as MeasurementGuardrails;
-  const { cacModel, kpis } = result;
-
-  for (const kpi of kpis) {
-    const metric = kpi.metric.toLowerCase();
-
-    if (metric.includes('cpl') || metric.includes('cost per lead')) {
-      if (!withinRelativeTolerance(kpi.target, cacModel.expectedCPL, 0.2)) {
-        warnings.push(
-          `KPI "${kpi.metric}" target (${kpi.target}) differs from cacModel.expectedCPL (${cacModel.expectedCPL}) by more than 20%.`,
-        );
-      }
-    }
-
-    if (metric === 'cac' || metric.includes('customer acquisition cost')) {
-      if (!withinRelativeTolerance(kpi.target, cacModel.targetCAC, 0.2)) {
-        warnings.push(
-          `KPI "${kpi.metric}" target (${kpi.target}) differs from cacModel.targetCAC (${cacModel.targetCAC}) by more than 20%.`,
-        );
-      }
-    }
-
-    if (metric === 'leads' || metric.includes('leads per month')) {
-      if (!withinRelativeTolerance(kpi.target, cacModel.expectedLeadsPerMonth, 0.2)) {
-        warnings.push(
-          `KPI "${kpi.metric}" target (${kpi.target}) differs from cacModel.expectedLeadsPerMonth (${cacModel.expectedLeadsPerMonth}) by more than 20%.`,
-        );
-      }
-    }
   }
 
   return { data: result, warnings };
@@ -441,23 +363,16 @@ export function validatePhaseBudgets(
  */
 export function reconcileBudgetAcrossBlocks(
   block1: ChannelMixBudget,
-  block4: MeasurementGuardrails,
+  _block4: MeasurementGuardrails,
   block5: RolloutRoadmap,
 ): string[] {
   const warnings: string[] = [];
   const totalMonthly = block1.budgetSummary.totalMonthly;
-  const { expectedCPL, expectedLeadsPerMonth } = block4.cacModel;
 
-  // Block 1 totalMonthly vs Block 4 CAC math:
-  // totalMonthly / expectedCPL should approximately equal expectedLeadsPerMonth
-  if (expectedCPL > 0) {
-    const impliedLeads = totalMonthly / expectedCPL;
-    if (!withinRelativeTolerance(impliedLeads, expectedLeadsPerMonth, 0.2)) {
-      warnings.push(
-        `Cross-block budget check: totalMonthly ($${totalMonthly}) / expectedCPL ($${expectedCPL}) = ${impliedLeads.toFixed(1)} leads, but Block 4 expects ${expectedLeadsPerMonth} leads/month (>20% divergence).`,
-      );
-    }
-  }
+  // The previous check (totalMonthly / expectedCPL ≈ expectedLeadsPerMonth)
+  // has been removed — those numeric fields no longer exist. The qualitative
+  // budget reconciliation remaining here compares Block 1 totalMonthly with
+  // Block 5 phase allocations.
 
   // Block 5 phase allocations reference: check if they are at least in the same ballpark
   const phaseTotal = block5.phases.reduce((sum, p) => sum + p.budgetAllocation, 0);
@@ -476,29 +391,18 @@ export function reconcileBudgetAcrossBlocks(
  */
 export function validateSnapshotConsistency(
   block1: ChannelMixBudget,
-  block4: MeasurementGuardrails,
+  _block4: MeasurementGuardrails,
   block6: StrategySnapshot,
 ): { needsRegeneration: boolean; warnings: string[] } {
   const warnings: string[] = [];
   let needsRegeneration = false;
 
-  // leadsPerMonth: block6 vs block4
-  if (block6.expectedOutcomes.leadsPerMonth !== block4.cacModel.expectedLeadsPerMonth) {
-    warnings.push(
-      `Snapshot leadsPerMonth (${block6.expectedOutcomes.leadsPerMonth}) does not match Block 4 cacModel.expectedLeadsPerMonth (${block4.cacModel.expectedLeadsPerMonth}).`,
-    );
-    needsRegeneration = true;
-  }
+  // leadsPerMonth / estimatedCAC consistency checks removed 2026-04-19 —
+  // those numeric forecast fields were stripped from expectedOutcomes.
+  // Block 6 now has expectedSignals (qualitative) with no cross-block math.
 
-  // estimatedCAC: block6 vs block4
-  if (block6.expectedOutcomes.estimatedCAC !== block4.cacModel.targetCAC) {
-    warnings.push(
-      `Snapshot estimatedCAC (${block6.expectedOutcomes.estimatedCAC}) does not match Block 4 cacModel.targetCAC (${block4.cacModel.targetCAC}).`,
-    );
-    needsRegeneration = true;
-  }
-
-  // budgetOverview.total: block6 vs block1
+  // budgetOverview.total: block6 vs block1 — this is a USER-INPUT number
+  // (their monthly budget), so consistency still matters.
   if (block6.budgetOverview.total !== block1.budgetSummary.totalMonthly) {
     warnings.push(
       `Snapshot budgetOverview.total (${block6.budgetOverview.total}) does not match Block 1 totalMonthly (${block1.budgetSummary.totalMonthly}).`,
