@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown } from "lucide-react";
 import { EditableList } from "@/components/strategic-research/editable/editable-list";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { RiskMonitoring } from "@/lib/media-plan/types";
 import {
-  SubSection,
   StatusBadge,
   ListItem,
   EditableText,
@@ -14,6 +15,39 @@ import {
   type EditingProps,
 } from "./shared";
 
+function CollapsibleSubSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible defaultOpen={defaultOpen}>
+      <div className="mb-6 space-y-3">
+        <CollapsibleTrigger className="group flex w-full items-center justify-between border-l-4 pl-3 text-sm font-semibold uppercase tracking-wide"
+          style={{
+            color: "var(--text-tertiary)",
+            borderColor: "var(--accent-blue)",
+            fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
+            letterSpacing: "0.05em",
+          }}
+        >
+          <span>{title}</span>
+          <ChevronDown
+            className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="space-y-3 pt-1">{children}</div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
 export function RiskMonitoringContent({
   data,
   isEditing,
@@ -21,8 +55,8 @@ export function RiskMonitoringContent({
 }: { data: RiskMonitoring } & EditingProps) {
   return (
     <div className="space-y-6">
-      {/* Risks */}
-      <SubSection title="Identified Risks">
+      {/* Risks — default open so card isn't empty on load */}
+      <CollapsibleSubSection title="Identified Risks" defaultOpen>
         <div className="space-y-3">
           {data.risks.map((r, rIdx) => (
             <div key={rIdx} className="p-4 space-y-2">
@@ -110,11 +144,11 @@ export function RiskMonitoringContent({
             </div>
           ))}
         </div>
-      </SubSection>
+      </CollapsibleSubSection>
 
-      {/* Key Assumptions */}
+      {/* Key Assumptions — default collapsed */}
       {data.assumptions.length > 0 && (
-        <SubSection title="Key Assumptions">
+        <CollapsibleSubSection title="Key Assumptions">
           {isEditing ? (
             <EditableList
               items={data.assumptions}
@@ -127,7 +161,7 @@ export function RiskMonitoringContent({
               ))}
             </ul>
           )}
-        </SubSection>
+        </CollapsibleSubSection>
       )}
     </div>
   );

@@ -549,9 +549,22 @@ export async function runMediaPlanPipeline(
       campaignPhases: sweepCampaignPhases(mediaPlan.campaignPhases, false, null),
     };
 
-    // --- Persist all validation warnings on the output ---
+    // --- Persist user-facing validation warnings on the output ---
+    // Internal telemetry (budget-math reconciliation, dimension bookkeeping, etc.)
+    // is logged for ops but filtered out of the user-facing "Validation Notes" card.
     if (allValidationWarnings.length > 0) {
-      mediaPlan.validationWarnings = allValidationWarnings;
+      const INTERNAL_WARNING_PATTERNS = [
+        /differs from totalMonthly/i,
+        /percentages?.+sum to/i,
+        /daily ceiling/i,
+        /unrecognized dimensions?/i,
+        /phase budget.+differs/i,
+      ];
+      const userFacingWarnings = allValidationWarnings.filter(
+        (w) => !INTERNAL_WARNING_PATTERNS.some((p) => p.test(w)),
+      );
+      console.log('[MediaPlan:Validators] All warnings (internal telemetry):', allValidationWarnings);
+      mediaPlan.validationWarnings = userFacingWarnings;
     }
 
     onProgress?.('Media plan complete!', 100);
