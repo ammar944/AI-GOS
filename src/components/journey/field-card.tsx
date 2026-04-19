@@ -55,7 +55,7 @@ export function FieldCard({
 
   const sharedInputClasses = cn(
     'w-full bg-transparent border-none outline-none text-[14px] leading-relaxed placeholder:text-[var(--text-quaternary)]',
-    'caret-[var(--accent-blue)]',
+    'caret-[var(--text-primary)]',
   );
 
   return (
@@ -71,8 +71,8 @@ export function FieldCard({
       <div className="flex items-center gap-2 px-4 pt-3 pb-1">
         <label
           htmlFor={fieldKey}
-          className="text-[11px] font-mono uppercase tracking-[0.14em] cursor-pointer"
-          style={{ color: focused ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}
+          className="text-[10px] font-mono uppercase tracking-[0.14em] cursor-pointer transition-colors"
+          style={{ color: focused ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
           onClick={() => textareaRef.current?.focus()}
         >
           {label}
@@ -100,9 +100,9 @@ export function FieldCard({
             <span
               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider"
               style={{
-                color: 'var(--accent-blue)',
-                background: 'rgba(54, 94, 255, 0.08)',
-                border: '1px solid rgba(54, 94, 255, 0.15)',
+                color: 'var(--text-secondary)',
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border-subtle)',
               }}
             >
               <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -137,10 +137,10 @@ export function FieldCard({
         <motion.div
           className="h-px mt-1 rounded-full"
           style={{
-            background: 'var(--accent-blue)',
+            background: 'var(--text-primary)',
             transformOrigin: 'left',
           }}
-          animate={{ scaleX: focused ? 1 : 0, opacity: focused ? 0.5 : 0 }}
+          animate={{ scaleX: focused ? 1 : 0, opacity: focused ? 0.4 : 0 }}
           transition={{ duration: durations.normal }}
         />
 

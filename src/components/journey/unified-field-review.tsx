@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Users, Package, TrendingUp, Target, Gauge, FileUp, Loader2, FileText, X, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building2, Users, Package, TrendingUp, Target, Gauge, FileUp, Loader2, FileText, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { PendingMeeting, MeetingType } from '@/lib/meeting-intel/types';
 import { cn } from '@/lib/utils';
 import { FieldCard } from '@/components/journey/field-card';
@@ -65,7 +65,10 @@ export function UnifiedFieldReview({
   }
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'signing' | 'uploading' | 'parsing'>('idle');
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isQueueingMeeting, setIsQueueingMeeting] = useState(false);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   // Meeting transcript state
@@ -87,7 +90,8 @@ export function UnifiedFieldReview({
   const canSubmitMeeting = meetingTitle.trim().length > 0 && meetingTranscript.trim().length >= 50;
 
   const handleAddMeeting = useCallback(async () => {
-    if (!canSubmitMeeting) return;
+    if (!canSubmitMeeting || isQueueingMeeting) return;
+    setIsQueueingMeeting(true);
     const newMeeting: PendingMeeting = {
       id: crypto.randomUUID(),
       title: meetingTitle.trim(),
@@ -95,16 +99,22 @@ export function UnifiedFieldReview({
       transcript: meetingTranscript.trim(),
       dateAdded: new Date().toISOString(),
     };
+    // Brief tokenize + validate beat so the user sees real processing feedback
+    // before the meeting lands in the pending list. Backend extraction fires
+    // on Start Research via /api/meetings/submit (fire-and-forget).
+    await new Promise((r) => setTimeout(r, 700));
     onPendingMeetingsChange?.([...pendingMeetings, newMeeting]);
     setMeetingTitle('');
     setMeetingTranscript('');
     setMeetingType('discovery');
-  }, [canSubmitMeeting, meetingTitle, meetingType, meetingTranscript, pendingMeetings, onPendingMeetingsChange]);
+    setIsQueueingMeeting(false);
+  }, [canSubmitMeeting, isQueueingMeeting, meetingTitle, meetingType, meetingTranscript, pendingMeetings, onPendingMeetingsChange]);
 
   const handleDocUpload = useCallback(async (files: FileList) => {
     if (isUploading || files.length === 0) return;
     setIsUploading(true);
     setUploadError(null);
+    setUploadProgress({ current: 0, total: files.length });
 
     try {
       const filePayloads: { storagePath: string; fileName: string; mimeType: string }[] = [];
@@ -118,7 +128,10 @@ export function UnifiedFieldReview({
         md: 'text/markdown',
       };
 
-      for (const file of Array.from(files)) {
+      const fileArray = Array.from(files);
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        setUploadProgress({ current: i + 1, total: fileArray.length });
         if (file.size > 15 * 1024 * 1024) {
           skipped.push(`${file.name} exceeds 15MB limit`);
           continue;
@@ -132,6 +145,7 @@ export function UnifiedFieldReview({
             : 'application/octet-stream';
 
         // 1. Get a signed upload URL from the server
+        setUploadPhase('signing');
         const urlRes = await fetch('/api/documents/signed-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -149,6 +163,7 @@ export function UnifiedFieldReview({
         };
 
         // 2. Upload file directly to Supabase Storage (bypasses Vercel body limit)
+        setUploadPhase('uploading');
         const uploadRes = await fetch(signedUrl, {
           method: 'PUT',
           headers: {
@@ -171,6 +186,7 @@ export function UnifiedFieldReview({
       }
 
       // 3. Send storage paths to the parsing API
+      setUploadPhase('parsing');
       const res = await fetch('/api/documents/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,6 +211,8 @@ export function UnifiedFieldReview({
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setIsUploading(false);
+      setUploadPhase('idle');
+      setUploadProgress({ current: 0, total: 0 });
     }
   }, [isUploading]);
 
@@ -277,6 +295,7 @@ export function UnifiedFieldReview({
   }, [gateStatus.ready, isStarting, fieldValues, onStart]);
 
   const activeGroup = JOURNEY_FIELD_GROUPS[activeGroupIndex];
+  const isLastStep = activeGroupIndex === JOURNEY_FIELD_GROUPS.length - 1;
 
   return (
     <section className="flex-1 flex flex-col min-h-0">
@@ -290,7 +309,10 @@ export function UnifiedFieldReview({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.21, 0.45, 0.27, 0.9] }}
           >
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-foreground">
+            <h2
+              className="text-[34px] sm:text-[44px] italic font-normal leading-[1.05] tracking-tight text-[var(--text-primary)]"
+              style={{ fontFamily: 'var(--font-instrument-sans)' }}
+            >
               Review your data
             </h2>
             <p className="mt-2 text-sm text-[var(--text-tertiary)]">
@@ -314,10 +336,10 @@ export function UnifiedFieldReview({
                 {progress.percent}% complete
               </span>
             </div>
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
               <motion.div
                 className="h-full rounded-full"
-                style={{ background: 'var(--gradient-primary)' }}
+                style={{ background: 'var(--accent-green)' }}
                 initial={{ width: 0 }}
                 animate={{ width: `${progress.percent}%` }}
                 transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
@@ -344,13 +366,15 @@ export function UnifiedFieldReview({
 
                 return (
                   <div key={group.id} className="flex flex-col items-center gap-2 flex-1 relative z-10">
-                    {/* Connector line (between circles) */}
+                    {/* Connector line — inset 18px on each side so it stops at the circle edges */}
                     {index > 0 && (
                       <div
-                        className="absolute top-4 right-1/2 w-full h-0.5 -z-10"
+                        className="absolute top-[15px] h-px -z-10"
                         style={{
+                          left: 'calc(-50% + 18px)',
+                          right: 'calc(50% + 18px)',
                           background: groupProgress[index - 1].filled === groupProgress[index - 1].total
-                            ? 'var(--accent-blue)'
+                            ? 'var(--accent-green)'
                             : 'var(--border-hover)',
                         }}
                       />
@@ -365,22 +389,22 @@ export function UnifiedFieldReview({
                       onClick={() => setActiveGroupIndex(index)}
                       className={cn(
                         'relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-200 cursor-pointer',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]',
                         'hover:scale-110',
                       )}
                       style={{
                         borderColor: isActive
-                          ? 'var(--text-secondary)'
+                          ? 'var(--text-primary)'
                           : isComplete
-                            ? 'var(--accent-blue)'
+                            ? 'var(--accent-green)'
                             : 'var(--border-hover)',
                         background: isActive
-                          ? 'var(--text-secondary)'
+                          ? 'var(--text-primary)'
                           : isComplete
-                            ? 'var(--accent-blue)'
+                            ? 'var(--accent-green)'
                             : 'var(--bg-hover)',
                         color: isActive
-                          ? 'var(--bg-hover)'
+                          ? 'var(--bg-base)'
                           : isComplete
                             ? '#fff'
                             : 'var(--text-tertiary)',
@@ -398,8 +422,8 @@ export function UnifiedFieldReview({
                       {isActive && (
                         <motion.div
                           className="absolute inset-0 rounded-full"
-                          style={{ border: '2px solid var(--text-secondary)' }}
-                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                          style={{ border: '2px solid var(--text-primary)' }}
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] }}
                           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                         />
                       )}
@@ -414,7 +438,7 @@ export function UnifiedFieldReview({
                         color: isActive
                           ? 'var(--text-primary)'
                           : isComplete
-                            ? 'var(--accent-blue)'
+                            ? 'var(--text-secondary)'
                             : 'var(--text-tertiary)',
                       }}
                     >
@@ -471,11 +495,11 @@ export function UnifiedFieldReview({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -12 }}
               transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-              className="rounded-2xl overflow-hidden"
+              className="rounded-[6px] overflow-hidden"
               style={{
                 background: 'var(--bg-card)',
-                border: '1px solid var(--accent-blue-subtle)',
-                boxShadow: 'var(--shadow-glow-blue), var(--shadow-elevated)',
+                border: '1px solid var(--border-default)',
+                boxShadow: 'var(--shadow-elevated)',
               }}
             >
               {/* Group header */}
@@ -483,22 +507,22 @@ export function UnifiedFieldReview({
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
-                    background: 'var(--accent-blue-glow)',
-                    border: '1px solid var(--accent-blue-subtle)',
+                    background: 'var(--bg-hover)',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
-                  <span style={{ color: 'var(--accent-blue)' }}>
+                  <span style={{ color: 'var(--text-primary)' }}>
                     {GROUP_ICONS[activeGroupIndex]}
                   </span>
                 </div>
                 <div className="flex-1">
                   <h3
-                    className="text-[15px] font-semibold tracking-[-0.01em]"
-                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
+                    className="text-[22px] italic font-normal leading-[1.15] tracking-tight"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-instrument-sans)' }}
                   >
                     {activeGroup.label}
                   </h3>
-                  <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.12em] mt-1" style={{ color: 'var(--text-tertiary)' }}>
                     {groupProgress[activeGroupIndex].filled} of {groupProgress[activeGroupIndex].total} filled
                   </p>
                 </div>
@@ -533,15 +557,17 @@ export function UnifiedFieldReview({
             </motion.div>
           </AnimatePresence>
 
-          {/* Document upload section */}
+          {/* Document upload section — gates the run only on the final step */}
+          {isLastStep && (
           <motion.div
-            className="mt-8 rounded-2xl overflow-hidden"
+            key="supporting-docs-gate"
+            className="mt-8 rounded-[6px] overflow-hidden"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
+            transition={{ delay: 0.15, duration: 0.35 }}
             style={{
               background: 'var(--bg-card)',
-              border: '1px solid var(--border-default)',
+              border: '1px solid var(--border-subtle)',
             }}
           >
             <div className="px-5 pt-5 pb-2">
@@ -550,22 +576,22 @@ export function UnifiedFieldReview({
                   className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
                     background: 'var(--bg-hover)',
-                    border: '1px solid var(--border-default)',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
                   <FileText className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
                 </div>
                 <div className="flex-1">
                   <h3
-                    className="text-[15px] font-semibold tracking-[-0.01em]"
-                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}
+                    className="text-[22px] italic font-normal leading-[1.15] tracking-tight"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-instrument-sans)' }}
                   >
                     Supporting Documents
-                    <span className="ml-2 text-[11px] font-normal" style={{ color: 'var(--text-quaternary)' }}>
+                    <span className="ml-2 text-[10px] font-mono uppercase tracking-[0.14em] font-normal align-middle" style={{ color: 'var(--text-quaternary)' }}>
                       optional
                     </span>
                   </h3>
-                  <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.12em] mt-1" style={{ color: 'var(--text-tertiary)' }}>
                     Sales decks, brand books, ICP docs, case studies — enriches research quality
                   </p>
                 </div>
@@ -582,7 +608,7 @@ export function UnifiedFieldReview({
                       className="flex items-center gap-3 rounded-xl px-4 py-3"
                       style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-default)' }}
                     >
-                      <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--accent-blue)' }} />
+                      <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--text-secondary)' }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
                           {doc.fileName}
@@ -591,11 +617,11 @@ export function UnifiedFieldReview({
                           {doc.sectionTags.map((tag) => (
                             <span
                               key={tag}
-                              className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                              className="text-[10px] font-mono px-2 py-0.5 rounded-full uppercase tracking-[0.12em]"
                               style={{
-                                background: 'var(--accent-blue-glow)',
-                                color: 'var(--accent-blue)',
-                                border: '1px solid var(--accent-blue-subtle)',
+                                background: 'var(--bg-hover)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-subtle)',
                               }}
                             >
                               {TAG_LABELS[tag] ?? tag}
@@ -643,7 +669,7 @@ export function UnifiedFieldReview({
                 disabled={isUploading}
                 className={cn(
                   'cursor-pointer w-full h-12 rounded-xl border border-dashed transition-all duration-200 text-[13px] font-medium',
-                  'hover:border-[var(--accent-blue)]/40 hover:text-[var(--text-secondary)]',
+                  'hover:border-[var(--border-default)] hover:text-[var(--text-secondary)]',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
                 )}
                 style={{
@@ -655,7 +681,16 @@ export function UnifiedFieldReview({
                 {isUploading ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
+                    {uploadPhase === 'signing' && (
+                      <>Requesting upload slot{uploadProgress.total > 1 ? ` · ${uploadProgress.current}/${uploadProgress.total}` : ''}…</>
+                    )}
+                    {uploadPhase === 'uploading' && (
+                      <>Uploading{uploadProgress.total > 1 ? ` ${uploadProgress.current}/${uploadProgress.total}` : ''} to secure storage…</>
+                    )}
+                    {uploadPhase === 'parsing' && (
+                      <>Parsing &amp; extracting fields…</>
+                    )}
+                    {uploadPhase === 'idle' && <>Processing…</>}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
@@ -664,6 +699,32 @@ export function UnifiedFieldReview({
                   </span>
                 )}
               </button>
+              {isUploading && (
+                <div className="mt-3">
+                  <div className="h-px rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: 'var(--accent-amber)' }}
+                      initial={{ width: '8%' }}
+                      animate={{
+                        width: uploadPhase === 'signing' ? '33%' : uploadPhase === 'uploading' ? '66%' : uploadPhase === 'parsing' ? '92%' : '100%',
+                      }}
+                      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.12em]" style={{ color: 'var(--text-quaternary)' }}>
+                    <span style={{ color: uploadPhase === 'signing' ? 'var(--accent-amber)' : uploadPhase === 'uploading' || uploadPhase === 'parsing' ? 'var(--accent-green)' : 'var(--text-quaternary)' }}>
+                      {uploadPhase === 'uploading' || uploadPhase === 'parsing' ? '✓' : '·'} Sign
+                    </span>
+                    <span style={{ color: uploadPhase === 'uploading' ? 'var(--accent-amber)' : uploadPhase === 'parsing' ? 'var(--accent-green)' : 'var(--text-quaternary)' }}>
+                      {uploadPhase === 'parsing' ? '✓' : '·'} Upload
+                    </span>
+                    <span style={{ color: uploadPhase === 'parsing' ? 'var(--accent-amber)' : 'var(--text-quaternary)' }}>
+                      · Parse
+                    </span>
+                  </div>
+                </div>
+              )}
               <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-quaternary)' }}>
                 PDF, DOCX, TXT, MD &middot; up to 15MB each &middot; max 10 files
               </p>
@@ -692,7 +753,7 @@ export function UnifiedFieldReview({
                       onChange={(e) => setMeetingTitle(e.target.value)}
                       className={cn(
                         'w-full h-12 rounded-xl border pl-9 pr-3 text-[13px] font-medium transition-all duration-200',
-                        'focus:outline-none focus:border-[var(--accent-blue)]/40',
+                        'focus:outline-none focus:border-[var(--text-primary)]/40',
                         'disabled:opacity-50 disabled:cursor-not-allowed',
                       )}
                       style={{
@@ -709,7 +770,7 @@ export function UnifiedFieldReview({
                     disabled={false}
                     className={cn(
                       'h-12 px-3 rounded-xl border text-[13px] font-medium transition-all duration-200',
-                      'focus:outline-none focus:border-[var(--accent-blue)]/40',
+                      'focus:outline-none focus:border-[var(--text-primary)]/40',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
                     )}
                     style={{
@@ -732,7 +793,7 @@ export function UnifiedFieldReview({
                     rows={6}
                     className={cn(
                       'w-full rounded-xl border p-3 text-[13px] font-medium transition-all duration-200 resize-y min-h-[120px]',
-                      'focus:outline-none focus:border-[var(--accent-blue)]/40',
+                      'focus:outline-none focus:border-[var(--text-primary)]/40',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
                     )}
                     style={{
@@ -763,18 +824,27 @@ export function UnifiedFieldReview({
                 <button
                   type="button"
                   onClick={handleAddMeeting}
-                  disabled={!canSubmitMeeting}
+                  disabled={!canSubmitMeeting || isQueueingMeeting}
                   className={cn(
-                    'w-full h-12 rounded-xl text-[13px] font-medium transition-all duration-200',
+                    'cursor-pointer w-full h-11 rounded-[6px] text-[13px] font-medium transition-all duration-200',
                     'disabled:opacity-30 disabled:cursor-not-allowed',
+                    'hover:bg-[var(--accent-green)]/90',
+                    'flex items-center justify-center gap-2',
                   )}
                   style={{
-                    background: 'var(--accent-blue-glow)',
-                    color: 'var(--accent-blue)',
-                    border: '1px solid var(--accent-blue-subtle)',
+                    background: 'var(--accent-green)',
+                    color: '#fff',
+                    border: '1px solid var(--accent-green)',
                   }}
                 >
-                  Add Meeting
+                  {isQueueingMeeting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Queuing transcript for extraction…
+                    </>
+                  ) : (
+                    <>Add Meeting</>
+                  )}
                 </button>
               </div>
 
@@ -786,7 +856,7 @@ export function UnifiedFieldReview({
 
                     return (
                       <div key={meeting.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-default)' }}>
-                        <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--accent-blue)' }} />
+                        <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--text-secondary)' }} />
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
                             {meeting.title}
@@ -795,8 +865,9 @@ export function UnifiedFieldReview({
                             {typeLabel} · ~{Math.ceil(meeting.transcript.length / 4).toLocaleString()} tokens
                           </span>
                         </div>
-                        <span className="flex items-center gap-1 text-[10px] font-mono" style={{ color: 'var(--status-green, #22c55e)' }}>
-                          <CheckCircle2 className="h-3 w-3" /> Saved
+                        <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-[0.12em]" style={{ color: 'var(--accent-amber)' }}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-amber)] animate-pulse" />
+                          Queued
                         </span>
                         <button
                           type="button"
@@ -812,6 +883,7 @@ export function UnifiedFieldReview({
               )}
             </div>
           </motion.div>
+          )}
         </div>
       </div>
 
