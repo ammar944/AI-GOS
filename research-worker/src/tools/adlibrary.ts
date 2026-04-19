@@ -779,23 +779,51 @@ export async function searchLinkedInAds(
     // and zeroed out LinkedIn ad data for all competitors.
     if (domain && isDomainVerified && allAds.length > 0) {
       const normalizedDomain = normalizeDomain(domain);
+      const domainBase = normalizedDomain.split('.')[0] ?? '';
+      const domainTld = normalizedDomain.split('.').slice(1).join('').toLowerCase();
+      // Short-name companies (≤6 chars) require POSITIVE domain corroboration
+      // to avoid wrong-company ads. "Fathom" is ambiguous — fathom.ai (meeting
+      // tool) vs fathom.com (flood risk) both have LinkedIn pages named "Fathom"
+      // that return ads via the advertiser= param. The permissive default
+      // (keep-on-missing-link, keep-on-linkedin-host) let 24 wrong-company
+      // Fathom Global Flood Risk ads slip through. Tighten for short names.
+      const isShortName = companyName.trim().length <= 6;
       const filtered = allAds.filter((ad) => {
         const rawLink = ad.link ?? '';
         const link = String(rawLink).toLowerCase();
-        if (!link) return true; // no link → can't disambiguate, keep
+        let decodedLink: string;
+        try { decodedLink = decodeURIComponent(link); } catch { decodedLink = link; }
         // Link contains our verified domain (raw or URL-decoded inside a redirect).
         // LinkedIn redirect URLs encode dots as %2E (e.g. gong%2Eio vs gong.io),
         // so we must check both the raw link AND the decoded version.
-        let decodedLink: string;
-        try { decodedLink = decodeURIComponent(link); } catch { decodedLink = link; }
-        if (decodedLink.includes(normalizedDomain)) return true;
-        // LinkedIn-hosted URL → keep (can't see the ultimate destination from
-        // here and it's almost always a first-party campaign/post URL on
-        // linkedin.com or the lnkd.in shortener).
+        if (decodedLink && decodedLink.includes(normalizedDomain)) return true;
+        // LinkedIn-hosted URL: try to extract the company/showcase slug and
+        // cross-check against our domain. Slugs like "fathom-ai" corroborate
+        // fathom.ai; plain "fathom" does NOT (could be fathom.com).
         const host = (() => {
-          try { return new URL(decodedLink).hostname.toLowerCase(); } catch { return ''; }
+          try { return decodedLink ? new URL(decodedLink).hostname.toLowerCase() : ''; } catch { return ''; }
         })();
-        if (host.endsWith('linkedin.com') || host.endsWith('lnkd.in')) return true;
+        if (host.endsWith('linkedin.com') || host.endsWith('lnkd.in')) {
+          const slugMatch = decodedLink.match(/linkedin\.com\/(?:company|showcase|in)\/([a-z0-9-]+)/i);
+          if (slugMatch) {
+            const slug = slugMatch[1].toLowerCase();
+            // Slug contains base AND TLD → strong match: fathom.ai → fathom-ai
+            if (domainBase && slug.includes(domainBase) && domainTld && slug.includes(domainTld)) {
+              return true;
+            }
+            // Slug equals bare base only → ambiguous. Short-name: DROP.
+            if (slug === domainBase || slug.startsWith(domainBase + '-') || slug.endsWith('-' + domainBase)) {
+              return !isShortName;
+            }
+            // Slug doesn't corroborate base → wrong company, DROP.
+            return false;
+          }
+          // LinkedIn URL with no extractable slug (feed post, search, etc.).
+          // Short-name: drop (can't verify). Long-name: keep (existing behavior).
+          return !isShortName;
+        }
+        // Missing link: short-name can't disambiguate → DROP. Long-name → KEEP.
+        if (!link) return !isShortName;
         // Link is a clearly different external URL that doesn't contain our
         // verified domain → drop.
         return false;
