@@ -435,7 +435,12 @@ export function resolveBestCandidate(
           }
         }
       } else {
-        domainMatch = candidateNorm.includes(base);
+        // Whole-word match for long names too. Substring-matching "framer" against
+        // "Frameries Atout-Commereces" was accepting unrelated Belgian merchants as
+        // Framer Inc. Word boundaries prevent partial-prefix collisions while still
+        // allowing hyphenated matches ("framer-studio" → match, "frameries" → no match).
+        const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        domainMatch = new RegExp(`\\b${escaped}\\b`).test(candidateNorm);
       }
     }
     return { candidate: c, name: c.name, score, exactMatch, domainMatch };
