@@ -26,7 +26,7 @@ export function CampaignPhasesContent({
           <div className="flex flex-wrap items-center gap-3">
             <span
               className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium"
-              style={{ background: "rgba(54,94,255,0.15)", color: "var(--accent-blue)" }}
+              style={{ background: "var(--bg-hover)", color: "var(--text-secondary)" }}
             >
               {phase.phase}
             </span>
@@ -109,9 +109,9 @@ export function CampaignPhasesContent({
           {phase.scenarioAdjustment && (
             <div
               className="flex items-start gap-3 p-3"
-              style={{ borderColor: "rgba(54,94,255,0.3)" }}
+              style={{ borderColor: "var(--border-default)" }}
             >
-              <span className="mt-0.5 shrink-0 text-sm" style={{ color: "var(--accent-blue)" }}>i</span>
+              <span className="mt-0.5 shrink-0 text-sm" style={{ color: "var(--text-secondary)" }}>i</span>
               <div>
                 <p className="mb-0.5 text-xs font-medium uppercase" style={{ color: "var(--text-tertiary)" }}>
                   Scenario Adjustment

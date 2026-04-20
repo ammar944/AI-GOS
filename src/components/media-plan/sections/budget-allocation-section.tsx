@@ -28,7 +28,7 @@ export function BudgetAllocationContent({
           </p>
           <p
             className="text-3xl font-bold"
-            style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono), monospace" }}
+            style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace" }}
           >
             {fmt$(data.totalMonthlyBudget)}
           </p>
@@ -84,7 +84,7 @@ export function BudgetAllocationContent({
           {data.funnelSplit.map((fs, fsIdx) => {
             const borderColor =
               fs.stage === "cold"
-                ? "rgba(54,94,255,0.4)"
+                ? "var(--border-default)"
                 : fs.stage === "warm"
                   ? "rgba(245,158,11,0.4)"
                   : "rgba(239,68,68,0.4)";
@@ -128,7 +128,7 @@ export function BudgetAllocationContent({
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium"
-                  style={{ background: "rgba(54,94,255,0.15)", color: "var(--accent-blue)" }}
+                  style={{ background: "var(--bg-hover)", color: "var(--text-secondary)" }}
                 >
                   M{mr.month}
                 </span>

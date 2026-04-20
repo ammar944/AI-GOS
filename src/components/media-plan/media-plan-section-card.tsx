@@ -30,11 +30,11 @@ export function MediaPlanSectionCard({
       <div className="mb-6 flex items-center gap-4 border-b border-[var(--border-subtle)] pb-5">
         <span
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium"
-          style={{ background: "var(--accent-blue)", color: "white" }}
+          style={{ background: "var(--text-primary)", color: "white" }}
         >
           {sectionNumber}
         </span>
-        <Icon className="h-5 w-5 shrink-0" style={{ color: "var(--accent-blue)" }} />
+        <Icon className="h-5 w-5 shrink-0" style={{ color: "var(--text-primary)" }} />
         <h2
           className="text-xl font-semibold leading-tight"
           style={{

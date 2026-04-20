@@ -130,8 +130,8 @@ export function AdCopyView({ adCopy }: AdCopyViewProps) {
                   layoutId="ad-copy-tab-pill"
                   className="absolute inset-0 rounded-lg"
                   style={{
-                    background: "linear-gradient(135deg, rgba(54,94,255,0.35), rgba(99,60,255,0.25))",
-                    border: "1px solid rgba(54,94,255,0.3)",
+                    background: "var(--bg-hover)",
+                    border: "1px solid var(--border-subtle)",
                   }}
                   transition={{ type: "spring", stiffness: 500, damping: 35 }}
                 />

@@ -326,8 +326,8 @@ export function MediaPlanDocument({
                 "border border-[var(--border-subtle)]",
                 "opacity-0 group-hover:opacity-80 hover:!opacity-100",
                 "transition-all duration-200",
-                "hover:scale-110 hover:border-[var(--accent-blue)]",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                "hover:bg-[var(--bg-hover)] hover:border-[var(--text-primary)]",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
               )}
               style={{
                 background: "rgba(12, 14, 19, 0.7)",
@@ -383,8 +383,8 @@ export function MediaPlanDocument({
                 "border border-[var(--border-subtle)]",
                 "opacity-0 group-hover:opacity-80 hover:!opacity-100",
                 "transition-all duration-200",
-                "hover:scale-110 hover:border-[var(--accent-blue)]",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                "hover:bg-[var(--bg-hover)] hover:border-[var(--text-primary)]",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
               )}
               style={{
                 background: "rgba(12, 14, 19, 0.7)",

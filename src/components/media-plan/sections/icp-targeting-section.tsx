@@ -188,9 +188,9 @@ export function ICPTargetingContent({
       {data.reachabilityAssessment && (
         <div
           className="flex items-start gap-3 p-4"
-          style={{ borderColor: "rgba(54,94,255,0.3)" }}
+          style={{ borderColor: "var(--border-default)" }}
         >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--accent-blue)" }} />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--accent-amber)" }} />
           {isEditing ? (
             <EditableText
               value={data.reachabilityAssessment}

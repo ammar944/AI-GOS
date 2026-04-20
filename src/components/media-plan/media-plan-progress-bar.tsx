@@ -26,7 +26,7 @@ export function MediaPlanProgressBar({
       <span
         className="text-[11px] font-medium tabular-nums shrink-0"
         style={{
-          color: "var(--accent-blue)",
+          color: "var(--accent-amber)",
           fontFamily: "var(--font-mono), monospace",
         }}
       >

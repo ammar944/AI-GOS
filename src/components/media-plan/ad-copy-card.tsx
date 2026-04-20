@@ -138,8 +138,8 @@ function CtaBadge({ label }: { label: string }) {
     <span
       className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium"
       style={{
-        background: "rgba(54,94,255,0.14)",
-        borderColor: "rgba(54,94,255,0.34)",
+        background: "var(--bg-hover)",
+        borderColor: "var(--border-default)",
         color: "rgb(147,197,253)",
       }}
     >
@@ -422,7 +422,7 @@ export function AdCopyCard({ variant, angleName, funnelStage }: AdCopyCardProps)
 // =============================================================================
 
 const STATUS_BADGE_COLORS = {
-  info: "bg-[rgba(54,94,255,0.14)] text-[rgb(147,197,253)] border-[rgba(54,94,255,0.34)]",
+  info: "bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-subtle)]",
   warning: "bg-[rgba(245,158,11,0.14)] text-[rgb(253,186,116)] border-[rgba(245,158,11,0.34)]",
   danger: "bg-[rgba(239,68,68,0.14)] text-[rgb(252,165,165)] border-[rgba(239,68,68,0.34)]",
   neutral: "bg-[var(--bg-elevated)] text-[var(--text-secondary)] border-[var(--border-default)]",

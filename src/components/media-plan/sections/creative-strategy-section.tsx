@@ -38,7 +38,7 @@ export function CreativeStrategyContent({
               )}
               {/* Hook in quote block */}
               {isEditing ? (
-                <div className="border-l-2 pl-3" style={{ borderColor: "var(--accent-blue)" }}>
+                <div className="border-l-2 pl-3" style={{ borderColor: "var(--border-default)" }}>
                   <EditableText
                     value={a.exampleHook}
                     onSave={(v) => onFieldChange?.(`angles.${aIdx}.exampleHook`, v)}
@@ -48,7 +48,7 @@ export function CreativeStrategyContent({
               ) : (
                 <blockquote
                   className="border-l-2 pl-3 text-sm italic"
-                  style={{ borderColor: "var(--accent-blue)", color: "var(--text-heading)" }}
+                  style={{ borderColor: "var(--border-default)", color: "var(--text-heading)" }}
                 >
                   &ldquo;{a.exampleHook}&rdquo;
                 </blockquote>

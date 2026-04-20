@@ -75,12 +75,12 @@ export function MediaPlanPaginationNav({
                   <TooltipTrigger asChild>
                     <motion.button
                       onClick={() => onGoToPage(i)}
-                      className="relative flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                      className="relative flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
                       style={{
                         width: isActive ? 24 : 8,
                         height: 8,
                         background: isActive
-                          ? "var(--accent-blue)"
+                          ? "var(--text-primary)"
                           : isReviewed
                             ? "var(--success)"
                             : "var(--border-default)",
@@ -183,7 +183,7 @@ export function MediaPlanPaginationNav({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                    className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--text-primary)]"
                     style={{
                       color: copied
                         ? "var(--success)"
@@ -217,7 +217,7 @@ export function MediaPlanPaginationNav({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+              className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--text-primary)]"
               style={{
                 color: "var(--text-secondary)",
                 borderColor: "var(--border-default)",
@@ -235,7 +235,7 @@ export function MediaPlanPaginationNav({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--accent-blue)]"
+                className="h-8 gap-1.5 rounded-lg border transition-all duration-200 hover:border-[var(--text-primary)]"
                 style={{
                   color: "var(--text-secondary)",
                   borderColor: "var(--border-default)",

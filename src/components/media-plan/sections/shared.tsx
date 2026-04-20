@@ -30,7 +30,7 @@ export function SubSection({ title, children }: { title: string; children: React
         className="border-l-4 pl-3 text-sm font-semibold uppercase tracking-wide"
         style={{
           color: "var(--text-tertiary)",
-          borderColor: "var(--accent-blue)",
+          borderColor: "var(--text-secondary)",
           fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
           letterSpacing: "0.05em",
         }}
@@ -128,7 +128,7 @@ export function Chip({ children }: { children: React.ReactNode }) {
 export function ListItem({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2">
-      <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--accent-blue)" }} />
+      <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--text-secondary)" }} />
       <span style={{ color: "var(--text-secondary)" }}>{children}</span>
     </li>
   );
@@ -178,7 +178,7 @@ export function NamingRow({ label, pattern }: { label: string; pattern: string }
 export function MonitoringColumn({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="p-4 space-y-2">
-      <p className="text-xs font-semibold uppercase" style={{ color: "var(--accent-blue)" }}>
+      <p className="text-xs font-semibold uppercase" style={{ color: "var(--text-secondary)" }}>
         {title}
       </p>
       <ul className="space-y-1">
@@ -221,7 +221,7 @@ export function KPITable({
               <React.Fragment key={k.metric}>
                 <tr className={cn("border-b border-[var(--border-subtle)]", hasEnrichedData && "border-b-0")}>
                   <td className="py-2 pr-4 font-medium" style={{ color: "var(--text-heading)" }}>{k.metric}</td>
-                  <td className="py-2 pr-4 font-mono text-xs" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--accent-blue)" }}>
+                  <td className="py-2 pr-4 font-mono text-xs" style={{ fontFamily: "var(--font-mono), monospace", color: "var(--text-secondary)" }}>
                     {isEditing ? (
                       <EditableText
                         value={k.target}

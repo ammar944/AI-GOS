@@ -52,7 +52,7 @@ export function MediaPlanDocumentSection({
                     border: '1px solid rgba(34, 197, 94, 0.3)',
                   }
                 : {
-                    background: 'var(--accent-blue)',
+                    background: 'var(--text-primary)',
                     color: 'white',
                   }
             }
@@ -116,8 +116,8 @@ export function MediaPlanDocumentSection({
             className={cn(
               "gap-1.5 rounded-full border px-3 text-sm transition-colors duration-200",
               isEditing
-                ? "border-transparent shadow-[0_0_15px_rgba(54,94,255,0.2)]"
-                : "border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                ? "border-[var(--border-default)]"
+                : "border-[var(--border-default)] text-[var(--text-tertiary)] hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]"
             )}
             style={isEditing ? {
               background: 'var(--gradient-primary)',

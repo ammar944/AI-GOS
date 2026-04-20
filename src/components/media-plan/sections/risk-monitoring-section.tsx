@@ -30,7 +30,7 @@ function CollapsibleSubSection({
         <CollapsibleTrigger className="group flex w-full items-center justify-between border-l-4 pl-3 text-sm font-semibold uppercase tracking-wide"
           style={{
             color: "var(--text-tertiary)",
-            borderColor: "var(--accent-blue)",
+            borderColor: "var(--border-default)",
             fontFamily: 'var(--font-heading), "Instrument Sans", sans-serif',
             letterSpacing: "0.05em",
           }}

@@ -33,7 +33,7 @@ export function ExecutiveSummaryContent({
           ) : (
             <p
               className="text-3xl font-bold"
-              style={{ color: "var(--accent-blue)", fontFamily: "var(--font-mono), monospace" }}
+              style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono), monospace" }}
             >
               {fmt$(data.recommendedMonthlyBudget)}
             </p>
@@ -96,7 +96,7 @@ export function ExecutiveSummaryContent({
             renderPrefix={(i) => (
               <span
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
-                style={{ background: "rgba(54,94,255,0.15)", color: "var(--accent-blue)" }}
+                style={{ background: "var(--bg-hover)", color: "var(--text-secondary)" }}
               >
                 {i + 1}
               </span>
@@ -108,7 +108,7 @@ export function ExecutiveSummaryContent({
               <li key={i} className="flex items-start gap-3 text-sm" style={{ color: "var(--text-secondary)" }}>
                 <span
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
-                  style={{ background: "rgba(54,94,255,0.15)", color: "var(--accent-blue)" }}
+                  style={{ background: "var(--bg-hover)", color: "var(--text-secondary)" }}
                 >
                   {i + 1}
                 </span>
