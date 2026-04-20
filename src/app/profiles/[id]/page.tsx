@@ -140,7 +140,7 @@ export default function ProfileDetailPage() {
             </Link>
 
             <div className="flex items-center gap-3">
-              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] text-xl font-bold shrink-0">
+              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] text-xl font-bold shrink-0">
                 {profile.companyName?.[0]?.toUpperCase() ?? 'B'}
               </span>
               <div>
@@ -167,7 +167,7 @@ export default function ProfileDetailPage() {
                   onClick={() => switchTab(tab.id)}
                   className={`flex items-center gap-1.5 pb-2.5 text-xs font-mono font-medium tracking-wider cursor-pointer transition-colors ${
                     isActive
-                      ? 'text-[var(--text-primary)] border-b-[1.5px] border-[var(--accent-blue)]'
+                      ? 'text-[var(--text-primary)] border-b-[1.5px] border-[var(--text-primary)]'
                       : 'text-[var(--text-quaternary)] hover:text-[var(--text-tertiary)]'
                   }`}
                 >
@@ -275,7 +275,7 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
         </p>
         <Link
           href="/journey"
-          className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-md bg-[var(--accent-green)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
         >
           <Compass className="size-3.5" />
           Start Journey
@@ -295,7 +295,7 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
         {offerScore && (
           <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="size-3.5 text-[var(--accent-blue)]" />
+              <TrendingUp className="size-3.5 text-[var(--text-secondary)]" />
               <p className="text-[10px] uppercase tracking-wider font-mono text-[var(--text-tertiary)]">
                 Offer Score
               </p>
@@ -320,7 +320,7 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
         {positioning && (
           <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Target className="size-3.5 text-[var(--accent-blue)]" />
+              <Target className="size-3.5 text-[var(--text-secondary)]" />
               <p className="text-[10px] uppercase tracking-wider font-mono text-[var(--text-tertiary)]">
                 Positioning
               </p>
@@ -346,7 +346,7 @@ function InsightsSection({ profile }: { profile: BusinessProfile }) {
           {(insights.keyInsights as string[]).map((insight, i) => (
             <div
               key={i}
-              className="border-l-2 border-[var(--accent-blue)] pl-3 py-1"
+              className="border-l-2 border-[var(--text-primary)] pl-3 py-1"
             >
               <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{insight}</p>
             </div>
@@ -394,7 +394,7 @@ function ResearchTab({
         </p>
         <Link
           href="/journey"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--accent-blue)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--accent-green)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
         >
           <Compass className="size-3.5" />
           Start Journey
@@ -447,7 +447,7 @@ function SectionProgress({ count, total }: { count: number; total: number }) {
                 i < count
                   ? isComplete
                     ? 'var(--accent-green)'
-                    : 'var(--accent-blue)'
+                    : 'var(--text-secondary)'
                   : 'var(--border-default)',
             }}
           />

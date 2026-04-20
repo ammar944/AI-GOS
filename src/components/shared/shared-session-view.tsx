@@ -99,7 +99,7 @@ export function SharedSessionView({
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
                     activeTab === 'research'
-                      ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
+                      ? 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)]'
                       : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
                   )}
                 >
@@ -112,7 +112,7 @@ export function SharedSessionView({
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
                     activeTab === 'mediaPlan'
-                      ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
+                      ? 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)]'
                       : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
                   )}
                 >
@@ -140,7 +140,7 @@ export function SharedSessionView({
                       className={cn(
                         'w-full text-left px-3 py-2 rounded-md text-xs transition-colors',
                         activeSection === key
-                          ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
+                          ? 'bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)]'
                           : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-white/5',
                       )}
                     >

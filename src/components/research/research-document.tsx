@@ -183,7 +183,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
                 onClick={() => handleShare(runId, title)}
                 disabled={isSharing}
                 title={shareError ?? 'Share research with a public link'}
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/10 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--text-secondary)]/10 transition-colors disabled:opacity-50"
               >
                 {isSharing ? <Loader2 className="size-3.5 animate-spin" /> : <Share2 className="size-3.5" />}
                 <span className="hidden sm:inline">Share</span>
@@ -243,14 +243,14 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
                       setScriptsTabActive(true);
                       setCurrentSection('scripts');
                     }}
-                    className="cursor-pointer inline-flex items-center gap-2 rounded-full text-[13px] font-semibold px-5 h-9 transition-all bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple,#8b5cf6)] text-white hover:opacity-90"
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-full text-[13px] font-semibold px-5 h-9 transition-all bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/90 text-white hover:opacity-90"
                   >
                     Generate Scripts
                   </button>
                 )}
               </div>
             )}
-            <div className="h-px bg-gradient-to-r from-[var(--accent-blue)]/20 to-transparent mt-4" />
+            <div className="h-px bg-[var(--border-subtle)] mt-4" />
           </div>
 
           {/* Interactive section content (screen only) */}
@@ -259,7 +259,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
               <ScriptsPhaseContent activeRunId={runId} autoGenerate />
             ) : currentSection === 'mediaPlan' && mediaPlanGenerating && sectionCards.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-blue)]" />
+                <Loader2 className="h-6 w-6 animate-spin text-[var(--text-secondary)]" />
                 <p className="text-sm text-[var(--text-tertiary)] font-mono">
                   Generating media plan...
                 </p>

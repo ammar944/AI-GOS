@@ -26,8 +26,8 @@ export function MediaPlanButton({ sessionId, hasMediaPlan, onDispatched }: Media
 
   if (dispatched) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 px-3 py-1.5 text-xs font-medium text-[var(--accent-blue)]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)] animate-pulse" />
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--accent-amber)]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-amber)] animate-pulse" />
         Generating Media Plan...
       </span>
     );
@@ -54,7 +54,7 @@ export function MediaPlanButton({ sessionId, hasMediaPlan, onDispatched }: Media
         disabled={isPending}
         className={cn(
           'cursor-pointer inline-flex items-center gap-2 rounded-full text-[13px] font-semibold px-5 h-9 transition-all',
-          'bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple,#8b5cf6)]',
+          'bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/90',
           'text-white hover:opacity-90',
           isPending && 'opacity-50 cursor-not-allowed',
         )}

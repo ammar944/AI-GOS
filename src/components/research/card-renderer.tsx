@@ -499,12 +499,12 @@ export function CardRenderer({ card, mode, index = 0 }: CardRendererProps) {
       className={cn(
         'rounded-[var(--radius-lg)] bg-[var(--bg-card)]',
         isHero
-          ? 'border border-[var(--border-subtle)] border-l-2 border-l-[var(--accent-blue)]/40 p-6 print-card-hero'
+          ? 'border border-[var(--border-subtle)] border-l border-l-[var(--border-default)] p-6 print-card-hero'
           : 'border border-[var(--border-glass)] p-5',
       )}
     >
       <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-        <span className="w-1 h-1 rounded-full bg-[var(--accent-blue)] shrink-0" />
+        <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)] shrink-0" />
         {card.label}
       </span>
       <CardEditingContext value={readOnlyContext}>

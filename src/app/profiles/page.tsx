@@ -147,7 +147,7 @@ export default function ProfilesPage() {
               </p>
               <Link
                 href="/journey"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent-blue)] text-white text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent-green)] text-white text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
               >
                 <Compass className="size-4" />
                 Start a Journey
@@ -171,7 +171,7 @@ export default function ProfilesPage() {
                     {/* Top row: company name + edit/date */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] text-lg font-bold shrink-0">
+                        <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] text-lg font-bold shrink-0">
                           {profile.companyName?.[0]?.toUpperCase() ?? 'B'}
                         </span>
                         <div>
@@ -200,7 +200,7 @@ export default function ProfilesPage() {
                           </span>
                           <button
                             onClick={(e) => { e.stopPropagation(); startEdit(profile); }}
-                            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--accent-blue)] bg-[rgba(54,94,255,0.08)] hover:bg-[rgba(54,94,255,0.15)] cursor-pointer transition-colors"
+                            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] bg-[var(--bg-hover)] hover:bg-[var(--bg-active)] border border-[var(--border-subtle)] cursor-pointer transition-colors"
                           >
                             <Pencil className="size-3" />
                             Edit
@@ -224,7 +224,7 @@ export default function ProfilesPage() {
                                 const baseClasses = `w-full rounded-md border px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-base)] outline-none transition-colors ${
                                   isCompanyName
                                     ? 'border-transparent opacity-50 cursor-not-allowed'
-                                    : 'border-[var(--border-subtle)] focus:border-[var(--accent-blue)]'
+                                    : 'border-[var(--border-subtle)] focus:border-[var(--text-primary)]'
                                 }`;
                                 return (
                                   <div key={key} className={isMultiline ? 'sm:col-span-2' : ''}>
@@ -278,7 +278,7 @@ export default function ProfilesPage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); saveEdit(profile.id); }}
                             disabled={saving}
-                            className="rounded-md bg-[var(--accent-blue)] px-4 py-1.5 text-xs text-white font-medium hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-50"
+                            className="rounded-md bg-[var(--accent-green)] px-4 py-1.5 text-xs text-white font-medium hover:bg-[var(--accent-green)]/90 cursor-pointer transition-colors disabled:opacity-50"
                           >
                             {saving ? (
                               <Loader2 className="size-3.5 animate-spin" />
