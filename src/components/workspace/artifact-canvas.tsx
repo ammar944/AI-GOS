@@ -12,7 +12,8 @@ import { ArtifactFooter } from './artifact-footer';
 import { CardGrid } from './card-grid';
 import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
-import { MediaPlanCta } from './media-plan-cta';
+import { ApprovalGate } from './approval-gate';
+import { RESEARCH_SECTIONS as GATE_RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import { PhaseTransitionCard } from './phase-transition-card';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
 import { parseOfferScoreFromStats } from '@/lib/workspace/parse-offer-score-stats';
@@ -252,14 +253,27 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                   </div>
                 )}
 
-              {/* Media plan CTA — shown when all 6 research sections complete and media plan not yet started */}
-              {allResearchComplete && !mediaPlanActive && state.currentSection !== 'mediaPlan' && onGenerateMediaPlan && (
-                <MediaPlanCta
-                  sectionStates={state.sectionStates}
-                  onGenerateMediaPlan={onGenerateMediaPlan}
-                  mediaPlanGenerating={mediaPlanGenerating}
-                />
-              )}
+              {/* Approval gate — bundle spec: 3-state gate (complete / partial / failure).
+                  Shown whenever research is close to done or has failed, and media plan
+                  hasn't started. Bundle ref: preview/component-approval-gate.html */}
+              {(() => {
+                if (!onGenerateMediaPlan) return null;
+                if (mediaPlanActive) return null;
+                if (state.currentSection === 'mediaPlan') return null;
+                const anyFailed = GATE_RESEARCH_SECTIONS.some(
+                  (k) => state.sectionStates[k] === 'error',
+                );
+                // Show gate when complete OR any failure happened
+                if (!allResearchComplete && !anyFailed) return null;
+                return (
+                  <ApprovalGate
+                    researchSections={GATE_RESEARCH_SECTIONS}
+                    onGenerate={onGenerateMediaPlan}
+                    onRetryFailed={onRetrySection}
+                    isGenerating={mediaPlanGenerating}
+                  />
+                );
+              })()}
 
               {/* Scripts CTA — shown on any tab when media plan is complete and scripts not yet started */}
               {mediaPlanComplete && !scriptsActive && state.currentSection !== 'scripts' && (
