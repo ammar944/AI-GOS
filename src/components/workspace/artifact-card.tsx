@@ -5,7 +5,6 @@ import { Check, Clock, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { CardEditingContext } from '@/lib/workspace/card-editing-context';
-import { InlineRefine } from './inline-refine';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -214,17 +213,6 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
       <CardEditingContext value={editingContext}>
         {children}
       </CardEditingContext>
-
-      {/* Inline refine trigger — hidden while the user is in contentEditable mode */}
-      {!isEditing && (
-        <div className="mt-3 flex items-center justify-end border-t border-[var(--border-subtle)] pt-3">
-          <InlineRefine
-            cardId={card.id}
-            section={card.sectionKey}
-            cardLabel={card.label}
-          />
-        </div>
-      )}
     </div>
   );
 }

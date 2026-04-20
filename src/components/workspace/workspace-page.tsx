@@ -20,7 +20,6 @@ import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
-import { ParallelAgentBoard, Wave2AgentBoard } from './parallel-agent-board';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -216,7 +215,17 @@ function ShareButton() {
   );
 }
 
-function WorkspaceNavBar({ companyName, onBack }: { companyName?: string | null; onBack?: () => void }) {
+function WorkspaceNavBar({
+  companyName,
+  onBack,
+  userId,
+  activeRunId,
+}: {
+  companyName?: string | null;
+  onBack?: () => void;
+  userId?: string | null;
+  activeRunId?: string | null;
+}) {
   const { state, navigateToSection } = useWorkspace();
 
   // Show all 8 sections so users see the full pipeline upfront.
@@ -233,6 +242,8 @@ function WorkspaceNavBar({ companyName, onBack }: { companyName?: string | null;
           sectionStates={state.sectionStates}
           onNavigate={navigateToSection}
           mode="workspace"
+          userId={userId}
+          activeRunId={activeRunId}
         />
       </div>
       <div className="flex shrink-0 items-center gap-3 pr-4">
@@ -413,9 +424,12 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
       <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
-      <WorkspaceNavBar companyName={companyName} onBack={onBack} />
-      <ParallelAgentBoard userId={userId} activeRunId={activeRunId} />
-      <Wave2AgentBoard userId={userId} activeRunId={activeRunId} />
+      <WorkspaceNavBar
+        companyName={companyName}
+        onBack={onBack}
+        userId={userId}
+        activeRunId={activeRunId}
+      />
       <div className="flex flex-1 min-h-0">
         {showAssetCollection && state.currentSection !== 'scripts' ? (
           <div className="flex flex-1 flex-col min-h-0">
