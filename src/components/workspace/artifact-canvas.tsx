@@ -264,12 +264,12 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
               {/* Scripts CTA — shown on any tab when media plan is complete and scripts not yet started */}
               {mediaPlanComplete && !scriptsActive && state.currentSection !== 'scripts' && (
                 <div className={cn(
-                  'rounded-lg border-l-2 border-l-[var(--accent-blue)]',
+                  'rounded-[6px] border border-[var(--border-default)]',
                   'border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5',
                 )}>
                   <div className="flex justify-between items-center">
                     <div>
-                      <div className="text-[11px] uppercase tracking-[1.5px] text-[var(--accent-blue)] font-mono mb-1">Next Phase</div>
+                      <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)] font-mono mb-1">Next Phase</div>
                       <div className="text-sm font-medium text-[var(--text-primary)]">Enhance & generate your ad scripts</div>
                       <div className="text-xs text-[var(--text-secondary)] mt-1">Add reference ads, proof points, and voice guidelines — or skip straight to generation.</div>
                     </div>
@@ -277,7 +277,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                       {onNavigateToAssets && (
                         <button
                           onClick={onNavigateToAssets}
-                          className="px-4 py-2 rounded-md text-sm font-medium bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity"
+                          className="cursor-pointer px-4 py-2 rounded-[6px] text-sm font-medium bg-[var(--accent-green)] text-white hover:bg-[var(--accent-green)]/90 transition-colors"
                         >
                           Add Assets
                         </button>

@@ -229,8 +229,8 @@ export function CompetitorCard({
 
       {/* Top Ad Hooks — callout block with 2px left accent */}
       {topAdHooks.length > 0 && (
-        <div className="border-l-2 border-[var(--accent-cyan)] pl-4">
-          <BulletList title="Top Ad Hooks" items={topAdHooks} accent="var(--accent-cyan)" />
+        <div className="border-l border-[var(--border-default)] pl-4">
+          <BulletList title="Top Ad Hooks" items={topAdHooks} accent="var(--text-secondary)" />
         </div>
       )}
 

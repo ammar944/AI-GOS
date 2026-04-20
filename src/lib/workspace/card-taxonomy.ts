@@ -547,7 +547,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   if (channels.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Best Channels', {
       items: channels,
-      accent: 'var(--accent-cyan)',
+      accent: 'var(--text-secondary)',
     }, 'Recommended paid advertising platforms ranked by expected ROI'));
   }
 
@@ -555,7 +555,7 @@ function parseICPValidation(data: Record<string, unknown>): CardState[] {
   if (triggers.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Buying Triggers', {
       items: triggers,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--text-primary)',
     }, 'Events or situations that make this ICP ready to purchase'));
   }
 
@@ -657,7 +657,7 @@ function parseOfferAnalysis(
   if (actionItems.length > 0) {
     cards.push(makeCard(section, 'bullet-list', 'Recommended Actions', {
       items: actionItems,
-      accent: 'var(--accent-blue)',
+      accent: 'var(--text-primary)',
     }, 'Prioritized steps to strengthen offer-market fit and improve conversion'));
   }
 

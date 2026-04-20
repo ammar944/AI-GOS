@@ -28,7 +28,7 @@ export function StatusStrip() {
           )}
           style={{
             backgroundColor: isActive
-              ? 'var(--accent-blue)'
+              ? 'var(--accent-amber)'
               : state.sectionStates[state.currentSection] === 'review'
                 ? 'var(--accent-green)'
                 : 'var(--text-tertiary)',
@@ -52,7 +52,7 @@ export function StatusStrip() {
       <div className="flex-1 mx-4">
         <div className="h-1 rounded-full bg-[var(--bg-hover)]">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--brand-sky)]"
+            className="h-full rounded-full bg-[var(--accent-amber)]"
             initial={false}
             animate={{ width: `${((approvedCount + (state.sectionStates[state.currentSection] === 'review' ? 0.5 : 0)) / RESEARCH_SECTIONS.length) * 100}%` }}
             transition={springs.snappy}
@@ -70,7 +70,7 @@ export function StatusStrip() {
         className={cn(
           'rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider',
           isActive
-            ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
+            ? 'bg-[var(--bg-hover)] text-[var(--accent-amber)] border border-[var(--border-subtle)]'
             : 'bg-[var(--bg-hover)] text-[var(--text-tertiary)]',
         )}
       >

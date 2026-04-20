@@ -49,7 +49,7 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
           if (isActive) return 'text-[var(--text-primary)]';
           if (isApproved) return 'text-[var(--accent-green)]';
           if (isError) return 'text-[var(--accent-red)]';
-          if (isResearching) return 'text-[var(--accent-blue)]';
+          if (isResearching) return 'text-[var(--accent-amber)]';
           return 'text-[var(--text-quaternary)]';
         })();
 
@@ -58,8 +58,8 @@ export function SectionTabs({ sections, currentSection, sectionStates, onNavigat
           if (!isActive) return 'border-transparent';
           if (isApproved) return 'border-[var(--accent-green)]';
           if (isError) return 'border-[var(--accent-red)]';
-          if (isResearching) return 'border-[var(--accent-blue)]';
-          return 'border-[var(--accent-blue)]';
+          if (isResearching) return 'border-[var(--text-primary)]';
+          return 'border-[var(--text-primary)]';
         })();
 
         return (

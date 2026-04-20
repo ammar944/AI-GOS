@@ -72,7 +72,7 @@ const DEFAULT_ACTIVITIES = [
 
 // Phase icon mapping for visual distinction
 const PHASE_COLORS: Record<string, string> = {
-  runner: 'var(--accent-blue)',
+  runner: 'var(--text-secondary)',
   tool: 'rgb(168, 85, 247)', // purple
   analysis: 'rgb(234, 179, 8)', // amber
   output: 'rgb(52, 211, 153)', // emerald
@@ -213,8 +213,8 @@ function AgentBrowser({
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="w-5 h-5 rounded bg-[var(--accent-blue)]/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-[var(--accent-blue)]">
+                  <div className="w-5 h-5 rounded bg-[var(--text-secondary)]/20 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-[var(--text-secondary)]">
                       {(displayHost ?? '?')[0].toUpperCase()}
                     </span>
                   </div>
@@ -326,7 +326,7 @@ function AgentBrowser({
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
-                    className="w-2 h-2 rounded-full bg-[var(--accent-blue)]"
+                    className="w-2 h-2 rounded-full bg-[var(--text-secondary)]"
                     animate={{ scale: [0.8, 1.2, 0.8] }}
                     transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
                   />
@@ -342,7 +342,7 @@ function AgentBrowser({
         {/* Scanning line overlay */}
         {currentUrl && (
           <motion.div
-            className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-[var(--accent-blue)]/30 to-transparent pointer-events-none z-10"
+            className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-[var(--text-secondary)]/30 to-transparent pointer-events-none z-10"
             animate={{ top: ['0%', '100%'] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
           />
@@ -552,11 +552,11 @@ function ActivityEntryCard({ entry }: { entry: ActivityEntry }) {
         initial={{ opacity: 0, y: 6, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-        className="relative rounded-md border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/5 px-2.5 py-1.5 overflow-hidden"
+        className="relative rounded-md border border-[var(--text-secondary)]/20 bg-[var(--text-secondary)]/5 px-2.5 py-1.5 overflow-hidden"
       >
         {/* Shimmer sweep */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--accent-blue)]/[0.06] to-transparent"
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--text-secondary)]/[0.06] to-transparent"
           initial={{ x: '-100%' }}
           animate={{ x: '200%' }}
           transition={{ duration: 1.5, ease: 'easeInOut' }}
@@ -570,7 +570,7 @@ function ActivityEntryCard({ entry }: { entry: ActivityEntry }) {
           >
             {icon}
           </motion.span>
-          <span className="text-[9px] font-mono font-medium text-[var(--accent-blue)] uppercase tracking-wider">
+          <span className="text-[9px] font-mono font-medium text-[var(--text-secondary)] uppercase tracking-wider">
             {displayName}
           </span>
           {entry.isLive && (
@@ -578,7 +578,7 @@ function ActivityEntryCard({ entry }: { entry: ActivityEntry }) {
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-0.5 rounded-full bg-[var(--accent-blue)]"
+                  className="w-0.5 rounded-full bg-[var(--text-secondary)]"
                   animate={{ height: ['3px', '8px', '3px'] }}
                   transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
                 />
@@ -691,7 +691,7 @@ function ActivityEntryCard({ entry }: { entry: ActivityEntry }) {
         {entry.isLive ? (
           <motion.div
             className="w-1 h-1 rounded-full"
-            style={{ backgroundColor: PHASE_COLORS[entry.phase] ?? 'var(--accent-blue)' }}
+            style={{ backgroundColor: PHASE_COLORS[entry.phase] ?? 'var(--text-secondary)' }}
             animate={{ opacity: [1, 0.3, 1], scale: [1, 1.5, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
           />
@@ -763,7 +763,7 @@ function LiveDataAssembly({ cards, latestMessage, entries }: LiveDataAssemblyPro
             className={cn(
               'rounded-lg border p-3 transition-colors',
               card.isActive
-                ? 'border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/5'
+                ? 'border-[var(--text-secondary)]/30 bg-[var(--text-secondary)]/5'
                 : 'border-[var(--border-glass)] bg-[var(--bg-glass-panel)]',
             )}
           >
@@ -771,7 +771,7 @@ function LiveDataAssembly({ cards, latestMessage, entries }: LiveDataAssemblyPro
             <div className="flex items-center gap-2 mb-2">
               {card.isActive ? (
                 <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)]"
+                  className="w-1.5 h-1.5 rounded-full bg-[var(--text-secondary)]"
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 />
@@ -841,7 +841,7 @@ function LiveDataAssembly({ cards, latestMessage, entries }: LiveDataAssemblyPro
         >
           <div className="flex items-center gap-2">
             <motion.div
-              className="w-1 h-1 rounded-full bg-[var(--accent-blue)] shrink-0"
+              className="w-1 h-1 rounded-full bg-[var(--text-secondary)] shrink-0"
               animate={{ opacity: [1, 0.3, 1] }}
               transition={{ duration: 0.8, repeat: Infinity }}
             />
@@ -1047,7 +1047,7 @@ function HyperAgentLayout({
       {/* Status header */}
       <div className="flex items-center gap-3 px-2">
         <motion.div
-          className={cn('w-2 h-2 rounded-full', isSynthesizing ? 'bg-amber-400' : 'bg-[var(--accent-blue)]')}
+          className={cn('w-2 h-2 rounded-full', isSynthesizing ? 'bg-amber-400' : 'bg-[var(--text-secondary)]')}
           animate={isSynthesizing
             ? { opacity: [1, 0.4, 1], scale: [1, 1.3, 1] }
             : { opacity: [1, 0.3, 1] }
@@ -1056,7 +1056,7 @@ function HyperAgentLayout({
         />
         <span className={cn(
           'text-[12px] font-mono uppercase tracking-[0.14em]',
-          isSynthesizing ? 'text-amber-400' : 'text-[var(--accent-blue)]',
+          isSynthesizing ? 'text-amber-400' : 'text-[var(--text-secondary)]',
         )}>
           {isSynthesizing
             ? 'Synthesizing report'

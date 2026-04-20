@@ -43,7 +43,7 @@ export function MediaPlanCta({ onGenerateMediaPlan, mediaPlanGenerating }: Media
               className={cn(
                 'inline-flex items-center justify-center gap-2 cursor-pointer rounded-[var(--radius-md)] px-5 py-2.5',
                 'text-[13px] font-semibold text-white',
-                'bg-[var(--accent-blue)]',
+                'bg-[var(--accent-green)]',
                 'transition-opacity duration-150 hover:opacity-90',
                 mediaPlanGenerating && 'opacity-50 cursor-not-allowed',
               )}

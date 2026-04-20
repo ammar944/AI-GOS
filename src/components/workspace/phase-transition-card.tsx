@@ -30,14 +30,14 @@ export function PhaseTransitionCard({
     <div
       className={cn(
         'mt-8 mb-2 rounded-[var(--radius-lg)]',
-        'border-l-2 border-l-[var(--accent-blue)] border border-[var(--border-subtle)]',
+        'border border-[var(--border-default)]',
         'bg-[var(--bg-card)]',
       )}
     >
       <div className="px-6 py-5">
         <div className="flex items-start justify-between gap-6">
           <div className="flex-1">
-            <span className="text-[11px] font-mono text-[var(--accent-blue)] uppercase tracking-[0.06em]">
+            <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em]">
               {tag}
             </span>
 
@@ -58,7 +58,7 @@ export function PhaseTransitionCard({
               className={cn(
                 'inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] px-5 py-2.5',
                 'text-[13px] font-semibold text-white cursor-pointer',
-                'bg-[var(--accent-blue)]',
+                'bg-[var(--accent-green)]',
                 'transition-opacity duration-150 hover:opacity-90',
                 isButtonDisabled && 'opacity-50 cursor-not-allowed hover:opacity-50',
               )}

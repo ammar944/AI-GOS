@@ -208,7 +208,7 @@ function ShareButton() {
       onClick={() => handleShare(state.sessionId)}
       disabled={isSharing}
       title={error ?? 'Share this session'}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/20 disabled:opacity-50"
+      className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] disabled:opacity-50"
     >
       {isSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
       Share
@@ -513,8 +513,8 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
                 onMouseDown={handleResizeStart}
                 className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-10 group"
               >
-                <div className="absolute inset-y-0 -left-0.5 w-2 transition-colors group-hover:bg-[var(--accent-blue,#365eff)]/20 group-active:bg-[var(--accent-blue,#365eff)]/30" />
-                <div className="absolute top-1/2 -translate-y-1/2 -left-[3px] w-[7px] h-8 rounded-full bg-zinc-700/60 group-hover:bg-[var(--accent-blue,#365eff)]/60 transition-all opacity-0 group-hover:opacity-100" />
+                <div className="absolute inset-y-0 -left-0.5 w-2 transition-colors group-hover:bg-[var(--border-default)]/40 group-active:bg-[var(--border-default)]/60" />
+                <div className="absolute top-1/2 -translate-y-1/2 -left-[3px] w-[7px] h-8 rounded-full bg-zinc-700/60 group-hover:bg-[var(--text-tertiary)]/60 transition-all opacity-0 group-hover:opacity-100" />
               </div>
               <UnifiedChat
                 section={state.currentSection}

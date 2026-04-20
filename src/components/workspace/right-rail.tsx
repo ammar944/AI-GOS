@@ -81,7 +81,7 @@ function renderInline(text: string) {
       parts.push(
         <code
           key={keyIdx++}
-          className="px-1 py-0.5 rounded bg-white/5 text-[var(--accent-cyan)] text-[12px] font-mono"
+          className="px-1 py-0.5 rounded bg-white/5 text-[var(--text-secondary)] text-[12px] font-mono"
         >
           {first.match![1]}
         </code>,
@@ -341,7 +341,7 @@ export function RightRail({ className }: RightRailProps) {
         <div className="flex items-center gap-2">
           <div className={cn(
             'w-2 h-2 rounded-full',
-            deepResearch ? 'bg-[var(--accent-cyan)]' : 'bg-[var(--accent-blue)]',
+            deepResearch ? 'bg-[var(--text-secondary)]' : 'bg-[var(--text-secondary)]',
           )} />
           <span className="text-[13px] font-medium text-[var(--text-secondary)]">
             {meta.label}
@@ -351,7 +351,7 @@ export function RightRail({ className }: RightRailProps) {
           {isStreaming && (
             <span className={cn(
               'text-[10px] font-mono animate-pulse',
-              deepResearch ? 'text-[var(--accent-cyan)]' : 'text-[var(--accent-blue)]',
+              deepResearch ? 'text-[var(--text-secondary)]' : 'text-[var(--text-secondary)]',
             )}>
               {deepResearch ? 'deep thinking...' : 'thinking...'}
             </span>
@@ -364,7 +364,7 @@ export function RightRail({ className }: RightRailProps) {
             className={cn(
               'rounded-md px-2 py-1 text-[10px] font-mono uppercase tracking-wider transition-all',
               deepResearch
-                ? 'bg-[var(--accent-cyan)]/15 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/25'
+                ? 'bg-[var(--text-secondary)]/15 text-[var(--text-secondary)] border border-[var(--text-secondary)]/25'
                 : 'text-[var(--text-quaternary)] hover:text-[var(--text-tertiary)] hover:bg-white/5',
             )}
           >
@@ -378,8 +378,8 @@ export function RightRail({ className }: RightRailProps) {
         <div className="px-4 py-4 space-y-4">
           {!hasMessages && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-[var(--accent-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="w-10 h-10 rounded-xl bg-[var(--text-secondary)]/10 border border-[var(--text-secondary)]/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                 </svg>
               </div>
@@ -405,7 +405,7 @@ export function RightRail({ className }: RightRailProps) {
                   className={cn(
                     'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed',
                     msg.role === 'user'
-                      ? 'bg-[var(--accent-blue)] text-white rounded-br-md'
+                      ? 'bg-[var(--text-secondary)] text-white rounded-br-md'
                       : 'bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] rounded-bl-md',
                   )}
                 >
@@ -423,10 +423,10 @@ export function RightRail({ className }: RightRailProps) {
               animate={{ opacity: 1, y: 0 }}
               className="flex justify-start"
             >
-              <div className="max-w-[90%] rounded-2xl rounded-bl-md border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/[0.04] p-3.5 space-y-2.5">
+              <div className="max-w-[90%] rounded-2xl rounded-bl-md border border-[var(--text-secondary)]/30 bg-[var(--text-secondary)]/[0.04] p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)]" />
-                  <span className="text-[11px] font-mono text-[var(--accent-blue)] uppercase tracking-wider">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--text-secondary)]" />
+                  <span className="text-[11px] font-mono text-[var(--text-secondary)] uppercase tracking-wider">
                     Proposed Edit
                   </span>
                 </div>
@@ -447,7 +447,7 @@ export function RightRail({ className }: RightRailProps) {
                   <button
                     type="button"
                     onClick={() => handleApproveEdit(toolCallId)}
-                    className="flex-1 rounded-lg bg-[var(--accent-blue)] text-white text-[12px] font-semibold py-1.5 transition-all hover:bg-[var(--accent-blue)]/90"
+                    className="flex-1 rounded-lg bg-[var(--text-secondary)] text-white text-[12px] font-semibold py-1.5 transition-all hover:bg-[var(--text-secondary)]/90"
                   >
                     Apply
                   </button>
@@ -472,17 +472,17 @@ export function RightRail({ className }: RightRailProps) {
             >
               <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
                 <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)]"
+                  className="w-1.5 h-1.5 rounded-full bg-[var(--text-secondary)]"
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
                 />
                 <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)]"
+                  className="w-1.5 h-1.5 rounded-full bg-[var(--text-secondary)]"
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
                 />
                 <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)]"
+                  className="w-1.5 h-1.5 rounded-full bg-[var(--text-secondary)]"
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
                 />
@@ -521,7 +521,7 @@ export function RightRail({ className }: RightRailProps) {
               'transition-all duration-200',
               isRecording
                 ? 'border-orange-500/40'
-                : 'border-[var(--border-default)] focus-within:border-[var(--accent-blue)]/40 focus-within:shadow-[0_0_8px_rgba(54,94,255,0.08)]',
+                : 'border-[var(--border-default)] focus-within:border-[var(--text-secondary)]/40 focus-within:shadow-[0_0_8px_rgba(54,94,255,0.08)]',
             )}
           >
             {/* Voice button */}
@@ -557,7 +557,7 @@ export function RightRail({ className }: RightRailProps) {
               className={cn(
                 'shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all',
                 input.trim() && !isStreaming
-                  ? 'bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue)]/90'
+                  ? 'bg-[var(--text-secondary)] text-white hover:bg-[var(--text-secondary)]/90'
                   : 'text-[var(--text-quaternary)]',
               )}
             >

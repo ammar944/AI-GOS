@@ -98,7 +98,7 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:underline"
-                          style={{ color: 'var(--accent-blue)' }}
+                          style={{ color: 'var(--text-secondary)' }}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {card.label}
