@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  memo,
   useState,
   useRef,
   useEffect,
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ThinkingBlock } from '@/components/chat/thinking-block';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 
 // ---------------------------------------------------------------------------
@@ -208,7 +210,7 @@ function renderInline(text: string): React.ReactNode[] {
       parts.push(
         <code
           key={key++}
-          className="px-1 py-0.5 rounded text-[var(--accent-cyan,#22d3ee)] text-[12px]"
+          className="px-1 py-0.5 rounded text-[var(--text-secondary)] text-[12px]"
           style={{ background: 'var(--bg-hover)', fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)' }}
         >
           {first.match![1]}
@@ -441,10 +443,17 @@ interface MessageRowProps {
   userName?: string;
 }
 
-function MessageRow({ message, isStreaming, isLast, mode, userName }: MessageRowProps) {
+function MessageRowImpl({ message, isStreaming, isLast, mode, userName }: MessageRowProps) {
   const isUser = message.role === 'user';
-  const text = getTextFromParts(message.parts);
-  const reasoning = !isUser ? getReasoningFromParts(message.parts) : null;
+  // Memoize text + reasoning extraction — these walk `message.parts` on every render.
+  // During streaming the last message's parts array is mutated in place, so we intentionally
+  // depend on parts-reference AND length: the memo invalidates when parts change identity
+  // or grow, which is the only thing callers see during streaming.
+  const text = useMemo(() => getTextFromParts(message.parts), [message.parts]);
+  const reasoning = useMemo(
+    () => (isUser ? null : getReasoningFromParts(message.parts)),
+    [isUser, message.parts],
+  );
 
   // For thinking mode: always show; normal/research: only show if present
   const showThinking = reasoning !== null && (mode === 'thinking' || reasoning.length > 0);
@@ -543,6 +552,26 @@ function MessageRow({ message, isStreaming, isLast, mode, userName }: MessageRow
   );
 }
 
+// Memoized wrapper — avoids re-rendering every message on each streaming chunk.
+// During streaming, `useChat` mutates the last message's `parts` array in place; the
+// comparator below detects that via (isStreaming && isLast) and forces a re-render on
+// only that one row. All other rows skip.
+const MessageRow = memo(MessageRowImpl, (prev, next) => {
+  // Force re-render on the streaming last message — parts array is mutated in place,
+  // so reference-equality on parts won't catch it.
+  if (next.isStreaming && next.isLast) return false;
+
+  return (
+    prev.message.id === next.message.id &&
+    prev.message.parts.length === next.message.parts.length &&
+    prev.message.parts === next.message.parts &&
+    prev.isStreaming === next.isStreaming &&
+    prev.isLast === next.isLast &&
+    prev.mode === next.mode &&
+    prev.userName === next.userName
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Streaming status bar (below messages, above input)
 // ---------------------------------------------------------------------------
@@ -626,6 +655,13 @@ export function UnifiedChat({
     cardLabel: string;
   }>>(new Map());
 
+  // Pending updateField proposals (onboarding profile fields) waiting for approval
+  const [pendingFieldEdits, setPendingFieldEdits] = useState<Map<string, {
+    key: string;
+    value: string;
+    reason: string;
+  }>>(new Map());
+
   // Local confirmation messages (edit applied/rejected)
   const [localMessages, setLocalMessages] = useState<Array<{
     id: string;
@@ -678,23 +714,6 @@ export function UnifiedChat({
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
 
-  // Inline-refine bridge: cards dispatch a `aigos:refine-card` CustomEvent,
-  // we translate it to a chat message that triggers the existing editCard tool.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as
-        | { cardId: string; section: string; cardLabel?: string; prompt: string }
-        | undefined;
-      if (!detail?.prompt?.trim()) return;
-      const label = detail.cardLabel ? `"${detail.cardLabel}"` : `card ${detail.cardId}`;
-      sendMessage({
-        text: `Refine ${label} in ${detail.section}: ${detail.prompt.trim()}`,
-      });
-    };
-    window.addEventListener('aigos:refine-card', handler as EventListener);
-    return () => window.removeEventListener('aigos:refine-card', handler as EventListener);
-  }, [sendMessage]);
-
   // Scan message parts for editCard tool results and populate pendingEdits.
   // In AI SDK v6, tool parts have type `tool-{toolName}` (e.g., `tool-editCard`).
   // The part has: type, toolCallId, state ('input-streaming'|'input-available'|'output-available'), input, output.
@@ -745,6 +764,44 @@ export function UnifiedChat({
       }
     }
   }, [messages, workspaceState.cards, pendingEdits]);
+
+  // Scan message parts for updateField tool results and populate pendingFieldEdits.
+  // Mirror of the editCard scanner above — different part type + payload shape.
+  const processedFieldCallsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue;
+      for (const part of msg.parts) {
+        if (typeof part !== 'object' || part === null || !('type' in part)) continue;
+        const typed = part as Record<string, unknown>;
+        const partType = String(typed.type ?? '');
+        if (partType !== 'tool-updateField') continue;
+
+        const toolCallId = typed.toolCallId as string | undefined;
+        const partState = typed.state as string | undefined;
+        if (!toolCallId) continue;
+        if (partState !== 'output-available') continue;
+
+        const output = (typed.output ?? typed.result) as Record<string, unknown> | undefined;
+        if (!output || output.status !== 'proposed') continue;
+
+        if (processedFieldCallsRef.current.has(toolCallId)) continue;
+        if (pendingFieldEdits.has(toolCallId)) continue;
+
+        processedFieldCallsRef.current.add(toolCallId);
+        setPendingFieldEdits((prev) => {
+          const next = new Map(prev);
+          next.set(toolCallId, {
+            key: String(output.key ?? ''),
+            value: String(output.value ?? ''),
+            reason: String(output.reason ?? ''),
+          });
+          return next;
+        });
+      }
+    }
+  }, [messages, pendingFieldEdits]);
+
   const isLoading = isStreaming || isSubmitted;
 
   // Track streaming start time for "thinking for N seconds" display
@@ -925,7 +982,69 @@ export function UnifiedChat({
     [pendingEdits],
   );
 
-  const hasMessages = messages.length > 0 || pendingEdits.size > 0 || localMessages.length > 0;
+  // Profile field update approval — PATCH the onboarding session with the new value.
+  const handleApproveFieldEdit = useCallback(
+    (toolCallId: string) => {
+      const edit = pendingFieldEdits.get(toolCallId);
+      if (!edit) return;
+
+      const label = JOURNEY_FIELD_LABELS[edit.key] ?? edit.key;
+
+      fetch('/api/journey/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: { [edit.key]: edit.value },
+          activeRunId,
+        }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('patch failed');
+          setLocalMessages((prev) => [
+            ...prev,
+            { id: crypto.randomUUID(), role: 'assistant', text: `${label} updated` },
+          ]);
+        })
+        .catch(() => {
+          setLocalMessages((prev) => [
+            ...prev,
+            { id: crypto.randomUUID(), role: 'assistant', text: `Failed to update ${label}` },
+          ]);
+        });
+
+      setPendingFieldEdits((prev) => {
+        const next = new Map(prev);
+        next.delete(toolCallId);
+        return next;
+      });
+    },
+    [pendingFieldEdits, activeRunId],
+  );
+
+  const handleRejectFieldEdit = useCallback(
+    (toolCallId: string) => {
+      const edit = pendingFieldEdits.get(toolCallId);
+      setPendingFieldEdits((prev) => {
+        const next = new Map(prev);
+        next.delete(toolCallId);
+        return next;
+      });
+      if (edit) {
+        const label = JOURNEY_FIELD_LABELS[edit.key] ?? edit.key;
+        setLocalMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: 'assistant', text: `${label} change rejected` },
+        ]);
+      }
+    },
+    [pendingFieldEdits],
+  );
+
+  const hasMessages =
+    messages.length > 0 ||
+    pendingEdits.size > 0 ||
+    pendingFieldEdits.size > 0 ||
+    localMessages.length > 0;
   const sectionLabel = (SECTION_META[section] ?? DEFAULT_SECTION_META).label;
 
   return (
@@ -1151,6 +1270,65 @@ export function UnifiedChat({
                 </div>
               </div>
             ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Pending profile field updates — onboarding data changes            */}
+      {/* ------------------------------------------------------------------ */}
+      <AnimatePresence>
+        {pendingFieldEdits.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-t border-emerald-500/30 bg-emerald-500/[0.03] px-3 py-2.5 shrink-0 space-y-2 overflow-hidden"
+          >
+            {Array.from(pendingFieldEdits.entries()).map(([toolCallId, edit]) => {
+              const label = JOURNEY_FIELD_LABELS[edit.key] ?? edit.key;
+              return (
+                <div key={toolCallId} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-wider">
+                      Profile Update Proposed
+                    </span>
+                    <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                      {label}
+                    </span>
+                  </div>
+                  <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    {edit.reason}
+                  </p>
+                  <div
+                    className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 max-h-[80px] overflow-y-auto whitespace-pre-wrap"
+                    style={{ color: 'var(--text-tertiary)', background: 'var(--bg-hover)' }}
+                  >
+                    <span style={{ color: 'var(--text-quaternary)' }}>{edit.key}:</span>{' '}
+                    {edit.value.length > 300 ? edit.value.slice(0, 300) + '...' : edit.value}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveFieldEdit(toolCallId)}
+                      className="flex-1 rounded-lg bg-emerald-600 text-white text-[12px] font-semibold py-2 transition-colors hover:bg-emerald-500"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectFieldEdit(toolCallId)}
+                      className="flex-1 rounded-lg border text-[12px] font-medium py-2 transition-colors"
+                      style={{ borderColor: 'var(--border-default)', color: 'var(--text-tertiary)' }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
