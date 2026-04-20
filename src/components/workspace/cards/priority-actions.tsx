@@ -12,7 +12,7 @@ interface PriorityActionsProps {
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: 'var(--accent-red, #ef4444)',
-  medium: 'var(--accent-blue, #3b82f6)',
+  medium: 'var(--accent-amber)',
   low: 'var(--text-quaternary)',
 };
 

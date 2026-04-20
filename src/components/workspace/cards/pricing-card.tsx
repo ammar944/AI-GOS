@@ -12,7 +12,7 @@ function positionColor(pos: string): string {
   const lower = pos.toLowerCase();
   if (lower.includes('premium') || lower.includes('high')) return 'var(--accent-amber)';
   if (lower.includes('budget') || lower.includes('low')) return 'var(--accent-green)';
-  return 'var(--accent-blue)';
+  return 'var(--text-secondary)';
 }
 
 export function PricingCard({ pricingSource, pricingPosition, coldTrafficViability }: PricingCardProps) {

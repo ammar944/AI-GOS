@@ -53,7 +53,7 @@ export function PhaseCard({
         <BulletList
           title="Success Criteria"
           items={successCriteria}
-          accent="var(--accent-blue)"
+          accent="var(--text-primary)"
         />
       )}
       {summaryStats.length > 0 && <StatGrid stats={summaryStats} columns={2} />}

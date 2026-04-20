@@ -15,7 +15,7 @@ interface ReadinessScorecardProps {
 
 function scoreColor(score: number): string {
   if (score >= 8) return 'var(--accent-green, #22c55e)';
-  if (score >= 5) return 'var(--accent-blue, #3b82f6)';
+  if (score >= 5) return 'var(--accent-amber)';
   return 'var(--accent-red, #ef4444)';
 }
 

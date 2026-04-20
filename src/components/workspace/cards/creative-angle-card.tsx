@@ -16,7 +16,7 @@ export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: Cr
   return (
     <div className="space-y-4">
       {targetSegment?.trim() ? (
-        <div className="border-l-2 border-[var(--accent-blue)] pl-3 py-0.5">
+        <div className="border-l border-[var(--border-default)] pl-3 py-0.5">
           <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
             Target segment
           </span>
@@ -26,7 +26,7 @@ export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: Cr
         </div>
       ) : null}
       {hook?.trim() ? (
-        <blockquote className="border-l-2 border-[var(--accent-blue)] pl-3">
+        <blockquote className="border-l border-[var(--border-default)] pl-3">
           <p className="text-sm italic leading-relaxed text-[var(--text-secondary)]">
             &ldquo;{hook.trim()}&rdquo;
           </p>
@@ -37,10 +37,11 @@ export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: Cr
           {blocks.map((block, i) => (
             <div key={i} className="space-y-1">
               {block.heading ? (
-                <span className="inline-block text-[10px] font-mono font-medium uppercase tracking-[0.06em] rounded-full px-2 py-0.5 tabular-nums"
+                <span className="inline-block text-[10px] font-mono font-medium uppercase tracking-[0.12em] rounded-[4px] px-2 py-0.5 tabular-nums"
                   style={{
-                    color: 'var(--accent-blue)',
-                    background: 'var(--accent-blue-subtle)',
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-hover)',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
                   {block.heading}

@@ -90,7 +90,7 @@ export function CompetitorCard({
             target="_blank"
             rel="noopener noreferrer"
             className="mt-1 inline-flex items-center gap-1 text-xs font-mono hover:underline"
-            style={{ color: 'var(--accent-blue)' }}
+            style={{ color: 'var(--text-secondary)' }}
           >
             {website}
             <svg
@@ -189,7 +189,7 @@ export function CompetitorCard({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] font-mono hover:underline"
-              style={{ color: 'var(--accent-blue)' }}
+              style={{ color: 'var(--text-secondary)' }}
             >
               View pricing source
               <svg
@@ -236,7 +236,7 @@ export function CompetitorCard({
 
       {/* Our Advantage — callout block */}
       {ourAdvantage && (
-        <div className="border-l-2 border-[var(--accent-blue)] pl-4">
+        <div className="border-l border-[var(--border-default)] pl-4">
           <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2">
             {`Our Advantage vs ${name}`}
           </h4>
@@ -275,7 +275,7 @@ export function CompetitorCard({
 
           {/* Themes — callout style with 2px left accent, no bg */}
           {adActivity.themes.length > 0 && (
-            <div className="border-l-2 border-[var(--accent-blue)] pl-3">
+            <div className="border-l border-[var(--border-default)] pl-3">
               <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
                 Themes
               </span>
@@ -310,7 +310,7 @@ export function CompetitorCard({
 
       {/* Counter Positioning — callout block */}
       {counterPositioning && (
-        <div className="border-l-2 border-[var(--accent-blue)] pl-4">
+        <div className="border-l border-[var(--border-default)] pl-4">
           <h4 className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] mb-2">
             Counter Positioning
           </h4>

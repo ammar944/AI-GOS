@@ -26,7 +26,7 @@ function normalizeInsights(props: InsightCardProps): InsightRow[] {
 
 function InsightBlock({ row }: { row: InsightRow }) {
   return (
-    <div className="border-l-2 border-l-[var(--accent-blue)] py-2.5 pl-4 pr-2">
+    <div className="border-l border-l-[var(--border-default)] py-3 pl-4 pr-2">
       {row.source ? (
         <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--text-quaternary)]">
           Key Insight — {row.source}

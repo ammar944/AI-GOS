@@ -55,7 +55,7 @@ function OfferRow({ statement, isLast }: { statement: OfferStatement; isLast: bo
     >
       <span
         className="mt-0.5 shrink-0 rounded-[3px] px-1.5 py-px font-mono text-[10px] font-medium uppercase tracking-wider"
-        style={{ color: 'var(--accent-blue)', background: 'var(--accent-blue-subtle, rgba(54,94,255,0.08))' }}
+        style={{ color: 'var(--text-secondary)', background: 'var(--bg-hover)', border: '1px solid var(--border-subtle)' }}
       >
         {statement.type}
       </span>

@@ -17,7 +17,7 @@ interface RefinementCardProps {
 const LIFT_ORDER = { high: 3, moderate: 2, low: 1 };
 
 function LiftBadge({ value }: { value: string }) {
-  const color = value === 'high' ? 'var(--accent-green, #22c55e)' : value === 'moderate' ? 'var(--accent-blue, #3b82f6)' : 'var(--text-quaternary)';
+  const color = value === 'high' ? 'var(--accent-green)' : value === 'moderate' ? 'var(--accent-amber)' : 'var(--text-quaternary)';
   return (
     <span className="inline-block rounded px-1.5 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider"
       style={{ color, background: 'rgba(255,255,255,0.04)' }}

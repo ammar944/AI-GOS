@@ -24,7 +24,7 @@ export function IndustryBenchmarksCard({ benchmarks }: IndustryBenchmarksCardPro
           <div key={i} className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 space-y-1">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-sm font-semibold text-[var(--text-primary)]">{b.metric}</span>
-              <span className="text-sm font-mono text-[var(--accent-blue)]">{b.range}</span>
+              <span className="text-sm font-mono text-[var(--text-primary)]">{b.range}</span>
             </div>
             {b.source && (
               <p className="text-[11px] font-mono text-[var(--text-tertiary)]">Source: {b.source}</p>
