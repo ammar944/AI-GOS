@@ -16,21 +16,26 @@ interface KeywordGapCardProps {
 
 function PriorityBadge({ value }: { value: string }) {
   const normalized = value?.toLowerCase() ?? '';
-  const tone =
+  const color =
     normalized === 'high'
-      ? 'bg-[rgba(239,68,68,0.10)] text-[var(--accent-red)]'
+      ? 'var(--accent-red)'
       : normalized === 'medium'
-        ? 'bg-[rgba(245,158,11,0.10)] text-[var(--accent-amber)]'
+        ? 'var(--accent-amber)'
         : normalized === 'low'
-          ? 'bg-[rgba(34,197,94,0.10)] text-[var(--accent-green)]'
-          : 'bg-[var(--bg-hover)] text-[var(--text-secondary)]';
+          ? 'var(--accent-green)'
+          : 'var(--text-secondary)';
 
   return (
     <span
       className={cn(
-        'inline-flex text-[10px] font-mono font-medium rounded-full px-2 py-0.5',
-        tone,
+        'inline-flex text-[10px] font-mono font-medium uppercase tracking-[0.12em]',
+        'rounded-[3px] px-1.5 py-0.5',
       )}
+      style={{
+        color,
+        background: 'var(--bg-hover)',
+        border: '1px solid var(--border-subtle)',
+      }}
     >
       {value}
     </span>
@@ -45,7 +50,7 @@ export function KeywordGapCard({ gaps }: KeywordGapCardProps) {
       {gaps.map((g, i) => (
         <div
           key={i}
-          className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3"
+          className="rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="text-sm font-medium text-[var(--text-primary)]">
@@ -57,7 +62,7 @@ export function KeywordGapCard({ gaps }: KeywordGapCardProps) {
             </div>
           </div>
           {g.estimatedVolume > 0 && (
-            <div className="mt-1 text-[11px] font-mono tabular-nums text-[var(--text-tertiary)] tracking-[0.06em]">
+            <div className="mt-1 text-[10px] font-mono tabular-nums text-[var(--text-tertiary)] uppercase tracking-[0.12em]">
               ~{g.estimatedVolume.toLocaleString()} monthly volume
             </div>
           )}
@@ -65,7 +70,7 @@ export function KeywordGapCard({ gaps }: KeywordGapCardProps) {
             {g.suggestedKeywords.map((kw, j) => (
               <span
                 key={j}
-                className="text-[10px] font-mono font-medium rounded-full px-2 py-0.5 bg-[var(--bg-hover)] text-[var(--text-secondary)]"
+                className="text-[11px] font-mono rounded-[3px] px-1.5 py-0.5 bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)]"
               >
                 {kw}
               </span>

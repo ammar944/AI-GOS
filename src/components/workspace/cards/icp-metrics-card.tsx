@@ -27,21 +27,26 @@ export function IcpMetricsCard({ audienceSize, confidenceScore }: IcpMetricsCard
     <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
       {audienceSize?.trim() ? (
         <div className="space-y-1">
-          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block">
+          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em] block">
             Audience size
           </span>
-          <p className="text-[20px] font-mono font-semibold text-[var(--text-primary)] tabular-nums leading-tight">{audienceSize.trim()}</p>
+          <p
+            className="text-[28px] italic font-normal leading-[1.05] tracking-tight text-[var(--text-primary)] tabular-nums"
+            style={{ fontFamily: 'var(--font-instrument-sans)' }}
+          >
+            {audienceSize.trim()}
+          </p>
         </div>
       ) : null}
       {pct !== null ? (
         <div className="space-y-2.5 min-w-0">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em]">
+            <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em]">
               Confidence
             </span>
             <span
-              className="text-[20px] font-mono font-semibold tabular-nums leading-tight"
-              style={{ color: barColor }}
+              className="text-[28px] italic font-normal leading-[1.05] tracking-tight tabular-nums"
+              style={{ color: barColor, fontFamily: 'var(--font-instrument-sans)' }}
             >
               {pct}
             </span>

@@ -51,7 +51,12 @@ export function StrategySnapshotCard({
   return (
     <div className="space-y-4">
       {headline && (
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">{headline}</h3>
+        <h3
+          className="text-[22px] italic font-normal leading-[1.15] tracking-tight text-[var(--text-primary)]"
+          style={{ fontFamily: 'var(--font-instrument-sans)' }}
+        >
+          {headline}
+        </h3>
       )}
       {budgetStats.length > 0 && <StatGrid stats={budgetStats} columns={3} />}
       {priorityItems.length > 0 && (

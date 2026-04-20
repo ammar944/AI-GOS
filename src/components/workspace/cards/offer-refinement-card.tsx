@@ -82,7 +82,7 @@ export function OfferScoreBarPanel({
 
   return (
     <div
-      className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] p-5"
+      className="rounded-[6px] border border-[var(--border-subtle)] p-5"
       style={{ background: 'var(--bg-card)' }}
     >
       <div
@@ -135,7 +135,7 @@ export function OfferScoreBarPanel({
 function RecommendationCard({ dimension, score, fix }: { dimension: string; score: number; fix: string }) {
   return (
     <div
-      className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] p-4 transition-colors duration-150 hover:border-[var(--border-hover)]"
+      className="rounded-[6px] border border-[var(--border-subtle)] p-4 transition-colors duration-150 hover:border-[var(--border-default)]"
       style={{ background: 'var(--bg-card)' }}
     >
       <div className="flex items-center gap-2 mb-2">

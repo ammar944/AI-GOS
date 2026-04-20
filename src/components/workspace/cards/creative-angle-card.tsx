@@ -17,7 +17,7 @@ export function CreativeAngleCard({ hook, messagingApproach, targetSegment }: Cr
     <div className="space-y-4">
       {targetSegment?.trim() ? (
         <div className="border-l border-[var(--border-default)] pl-3 py-0.5">
-          <span className="text-[11px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.06em] block mb-1">
+          <span className="text-[10px] font-mono text-[var(--text-tertiary)] uppercase tracking-[0.12em] block mb-1">
             Target segment
           </span>
           <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
