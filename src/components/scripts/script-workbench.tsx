@@ -63,7 +63,7 @@ function StatusBadge({ status }: { status: PackListItem['status'] }) {
     },
     generating: {
       bg: 'rgba(54,94,255,0.12)',
-      color: 'var(--accent-blue, #365eff)',
+      color: 'var(--text-secondary)',
       label: 'Generating',
     },
     partial: {
@@ -635,7 +635,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
               disabled={anyGenerating || !selectedSessionRunId || !canGenerateFromSession}
               className={cn(
                 'text-[13px] font-medium px-[14px] py-[6px] rounded-[5px] text-white',
-                'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',
+                'bg-[var(--accent-green)] hover:opacity-90',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
               )}
             >
@@ -745,7 +745,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
           disabled={anyGenerating}
           className={cn(
             'inline-flex items-center gap-1.5 text-[13px] font-medium px-[14px] py-[6px] rounded-[5px] text-white cursor-pointer',
-            'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',
+            'bg-[var(--accent-green)] hover:opacity-90',
             'transition-colors duration-100',
             anyGenerating && 'opacity-50 cursor-not-allowed',
           )}
@@ -811,7 +811,7 @@ export function ScriptWorkbench({ profileId }: ScriptWorkbenchProps) {
             disabled={anyGenerating}
             className={cn(
               'w-full inline-flex items-center justify-center gap-1.5 text-[13px] font-medium px-[14px] py-[10px] rounded-[5px] text-white',
-              'bg-[var(--accent-blue,#365eff)] hover:bg-[var(--accent-blue-hover,#2563eb)]',
+              'bg-[var(--accent-green)] hover:opacity-90',
               'transition-colors duration-100',
               anyGenerating && 'opacity-50 cursor-not-allowed',
             )}

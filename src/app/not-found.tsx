@@ -15,7 +15,7 @@ export default function NotFound() {
         >
           <Compass
             className="w-8 h-8"
-            style={{ color: "var(--accent-blue)" }}
+            style={{ color: "var(--text-primary)" }}
             strokeWidth={1.5}
           />
         </div>
@@ -41,7 +41,7 @@ export default function NotFound() {
         <Link
           href="/dashboard"
           className="inline-flex items-center justify-center h-10 px-6 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
-          style={{ backgroundColor: "var(--accent-blue)" }}
+          style={{ backgroundColor: "var(--accent-green)" }}
         >
           Back to Dashboard
         </Link>

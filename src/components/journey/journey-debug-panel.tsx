@@ -100,7 +100,7 @@ export function JourneyDebugPanel({
           fontWeight: 700,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: 'var(--accent-blue)',
+          color: 'var(--text-secondary)',
         }}
       >
         Dev debug
@@ -198,7 +198,7 @@ export function JourneyDebugPanel({
                     className="cursor-pointer list-none"
                     style={{ fontSize: 12, color: 'var(--text-secondary)' }}
                   >
-                    <span style={{ color: 'var(--accent-blue)' }}>{event.type}</span> {event.detail}
+                    <span style={{ color: 'var(--text-secondary)' }}>{event.type}</span> {event.detail}
                   </summary>
                   <div className="mt-2">
                     <DebugRow label="At" value={event.at} mono />

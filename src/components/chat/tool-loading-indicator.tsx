@@ -28,7 +28,7 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     label: 'Searching blueprint...',
     description: 'Finding relevant sections and data',
     icon: Search,
-    color: 'var(--accent-blue)',
+    color: 'var(--text-secondary)',
   },
   editBlueprint: {
     label: 'Proposing edits...',
@@ -40,19 +40,19 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     label: 'Analyzing section...',
     description: 'Building explanation with evidence',
     icon: Lightbulb,
-    color: 'var(--accent-cyan)',
+    color: 'var(--text-secondary)',
   },
   webResearch: {
     label: 'Searching the web...',
     description: 'Querying live data sources',
     icon: Globe,
-    color: 'var(--accent-blue)',
+    color: 'var(--text-secondary)',
   },
   deepResearch: {
     label: 'Researching 5 sub-queries...',
     description: 'Running multi-step investigation',
     icon: Search,
-    color: 'var(--accent-blue)',
+    color: 'var(--text-secondary)',
   },
   generateSection: {
     label: 'Generating section...',
@@ -70,7 +70,7 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     label: 'Scoring section...',
     description: 'Evaluating across quality dimensions',
     icon: Activity,
-    color: 'var(--accent-cyan)',
+    color: 'var(--text-secondary)',
   },
   createVisualization: {
     label: 'Creating chart...',
@@ -82,7 +82,7 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     label: 'Searching media plan...',
     description: 'Finding relevant sections and data',
     icon: Search,
-    color: 'var(--accent-blue)',
+    color: 'var(--text-secondary)',
   },
   editMediaPlan: {
     label: 'Proposing edits...',
@@ -94,7 +94,7 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     label: 'Analyzing section...',
     description: 'Building explanation with evidence',
     icon: Lightbulb,
-    color: 'var(--accent-cyan)',
+    color: 'var(--text-secondary)',
   },
   recalculate: {
     label: 'Running validation...',
@@ -112,7 +112,7 @@ const TOOL_CONFIG: Record<string, ToolConfig> = {
     label: 'Running research...',
     description: 'Executing market research with Perplexity',
     icon: Search,
-    color: 'var(--accent-blue)',
+    color: 'var(--text-secondary)',
   },
 };
 

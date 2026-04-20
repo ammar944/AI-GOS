@@ -93,7 +93,7 @@ export function ChatPanel({ isOpen, onClose, children, undoRedo }: ChatPanelProp
                         <span
                           className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
                           style={{
-                            background: "var(--accent-blue, #3b82f6)",
+                            background: "var(--accent-green)",
                             color: "#ffffff",
                           }}
                         >

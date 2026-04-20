@@ -27,7 +27,7 @@ export function TypingIndicator({ className }: TypingIndicatorProps) {
           style={{
             width: '5px',
             height: '5px',
-            background: 'var(--accent-blue)',
+            background: 'var(--text-secondary)',
           }}
         />
       ))}

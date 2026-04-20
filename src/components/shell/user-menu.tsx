@@ -38,7 +38,7 @@ function UserAvatar({ user }: { user: ReturnType<typeof useUser>['user'] }) {
         width: '28px',
         height: '28px',
         borderRadius: '7px',
-        background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))',
+        background: 'var(--bg-hover)',
         color: 'var(--text-white)',
         fontSize: '11px',
         fontWeight: 600,

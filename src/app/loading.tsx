@@ -8,7 +8,7 @@ export default function Loading() {
     >
       <Loader2
         className="w-7 h-7 animate-spin"
-        style={{ color: "var(--accent-blue)" }}
+        style={{ color: "var(--text-secondary)" }}
         strokeWidth={1.75}
       />
       <p

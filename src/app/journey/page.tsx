@@ -2610,7 +2610,7 @@ function PrefillReviewView({
                   {isEditing ? (
                     <input
                       autoFocus
-                      className="w-full mt-1.5 bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none focus:border-[var(--accent-blue)]/40"
+                      className="w-full mt-1.5 bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none focus:border-[var(--text-primary)]"
                       value={displayValue}
                       onChange={(e) => setEditedFields((prev) => ({ ...prev, [key]: e.target.value }))}
                       onBlur={() => setEditingKey(null)}
@@ -2713,7 +2713,7 @@ function PrefillReviewView({
                       }
                       className={cn(
                         'mt-3 w-full resize-none rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none transition-colors',
-                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--accent-blue)]/40',
+                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--text-primary)]',
                       )}
                       placeholder={field.placeholder}
                     />
@@ -2725,7 +2725,7 @@ function PrefillReviewView({
                       }
                       className={cn(
                         'mt-3 w-full rounded-lg border bg-[var(--bg-surface)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-quaternary)] outline-none transition-colors',
-                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--accent-blue)]/40',
+                        isMissing ? 'border-amber-500/20 focus:border-amber-500/40' : 'border-[var(--border-default)] focus:border-[var(--text-primary)]',
                       )}
                       placeholder={field.placeholder}
                     />
@@ -2864,12 +2864,12 @@ function WelcomeForm({
                 }}
                 placeholder="https://yourcompany.com"
                 autoFocus
-                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
+                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--text-primary)]"
               />
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
                 style={{
-                  background: 'var(--accent-blue)',
+                  background: 'var(--accent-green)',
                   originX: 0.5,
                 }}
                 animate={{ scaleX: urlFocused ? 1 : 0, opacity: urlFocused ? 1 : 0 }}
@@ -2897,12 +2897,12 @@ function WelcomeForm({
                 onFocus={() => setLinkedinFocused(true)}
                 onBlur={() => setLinkedinFocused(false)}
                 placeholder="https://linkedin.com/company/your-company"
-                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--accent-blue)]/40"
+                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--text-primary)]"
               />
               <motion.div
                 className="absolute bottom-0 left-3 right-3 h-px rounded-full"
                 style={{
-                  background: 'var(--accent-blue)',
+                  background: 'var(--accent-green)',
                   originX: 0.5,
                 }}
                 animate={{ scaleX: linkedinFocused ? 1 : 0, opacity: linkedinFocused ? 1 : 0 }}
@@ -2961,7 +2961,7 @@ function WelcomeForm({
                 disabled={isUploading}
                 className={cn(
                   'cursor-pointer h-10 rounded-full border border-[var(--border-default)] text-[var(--text-tertiary)] font-medium text-[13px] px-6 transition-all duration-200',
-                  'hover:border-[var(--accent-blue)]/30 hover:text-[var(--text-secondary)]',
+                  'hover:border-[var(--border-hover)] hover:text-[var(--text-secondary)]',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
                 )}
                 whileHover={!isUploading ? { scale: 1.01 } : {}}

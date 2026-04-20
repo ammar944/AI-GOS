@@ -215,7 +215,7 @@ export function StepAssetsProof({
         variants={staggerItem}
       >
         <div className="flex gap-3">
-          <FileCheck className="h-5 w-5 mt-0.5" style={{ color: 'var(--accent-blue)' }} />
+          <FileCheck className="h-5 w-5 mt-0.5" style={{ color: 'var(--text-secondary)' }} />
           <div className="space-y-1">
             <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               Why we ask for these

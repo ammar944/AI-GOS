@@ -38,7 +38,7 @@ export function FloatingLabelInput({
           className="absolute left-0 top-0 text-[14px] font-medium pointer-events-none origin-left z-10"
           animate={{
             y: isActive ? 0 : 24,
-            color: isActive ? "var(--accent-blue)" : "var(--text-tertiary)",
+            color: isActive ? "var(--text-primary)" : "var(--text-tertiary)",
           }}
           transition={{ duration: durations.normal }}
         >
@@ -66,7 +66,7 @@ export function FloatingLabelInput({
         className="absolute bottom-0 left-0 right-0 h-[2px]"
         style={{
           background:
-            "linear-gradient(90deg, var(--accent-blue), var(--accent-purple))",
+            "var(--text-primary)",
           transformOrigin: "left",
         }}
         animate={{

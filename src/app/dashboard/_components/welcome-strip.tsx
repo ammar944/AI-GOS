@@ -80,7 +80,7 @@ export function WelcomeStrip({
                     href={websiteUrl?.startsWith("http") ? websiteUrl : `https://${websiteUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-sm text-[var(--text-tertiary)] hover:text-blue-400 transition-colors"
+                    className="flex items-center gap-1.5 text-sm text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                   >
                     <Globe className="size-3.5" />
                     <span>{displayUrl}</span>

@@ -60,8 +60,8 @@ export function TwoColumnLayout({
               onClick={toggleDesktop}
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg",
-                "transition-all duration-200 hover:scale-105",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                "transition-opacity duration-200 hover:opacity-90 cursor-pointer",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
               )}
               style={{
                 background: "var(--bg-elevated)",
@@ -92,7 +92,7 @@ export function TwoColumnLayout({
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]"
                   style={{
                     background:
-                      "linear-gradient(135deg, var(--accent-blue) 0%, #6366f1 100%)",
+                      "var(--bg-card)",
                   }}
                 >
                   <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -121,7 +121,7 @@ export function TwoColumnLayout({
                 className={cn(
                   "flex h-7 w-7 items-center justify-center rounded-md shrink-0",
                   "transition-all duration-200 hover:bg-[var(--bg-hover)]",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
                 )}
                 style={{ color: "var(--text-tertiary)" }}
                 aria-label="Minimize chat"
@@ -158,10 +158,10 @@ export function TwoColumnLayout({
             className={cn(
               "absolute bottom-4 left-4 z-20",
               "flex h-12 w-12 items-center justify-center rounded-full",
-              "shadow-lg transition-all duration-200 hover:scale-105",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+              "shadow-lg transition-opacity duration-200 hover:opacity-90 cursor-pointer",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
             )}
-            style={{ background: "var(--accent-blue)", color: "white" }}
+            style={{ background: "var(--accent-green)", color: "white" }}
             aria-label="Open chat"
           >
             <MessageSquare className="h-5 w-5" />
@@ -181,7 +181,7 @@ export function TwoColumnLayout({
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]"
                   style={{
                     background:
-                      "linear-gradient(135deg, var(--accent-blue) 0%, #6366f1 100%)",
+                      "var(--bg-card)",
                   }}
                 >
                   <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -207,7 +207,7 @@ export function TwoColumnLayout({
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-md",
                   "transition-all duration-200 hover:bg-[var(--bg-hover)]",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
                 )}
                 style={{ color: "var(--text-secondary)" }}
                 aria-label="Close chat"

@@ -10,7 +10,7 @@ export interface ListCardProps {
 }
 
 export function ListCard({ sectionKey, title, items }: ListCardProps) {
-  const meta = SECTION_META[sectionKey] ?? { color: 'var(--accent-blue)' };
+  const meta = SECTION_META[sectionKey] ?? { color: 'var(--text-secondary)' };
   return (
     <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--bg-hover)', border: '1px solid var(--border-subtle)' }}>
       <IntelCardHeader sectionKey={sectionKey} label={title} />

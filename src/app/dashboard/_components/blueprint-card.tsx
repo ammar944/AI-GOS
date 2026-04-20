@@ -58,7 +58,7 @@ export function BlueprintCard({
               {/* Header row */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="inline-flex items-center justify-center size-8 rounded-full bg-blue-500/[0.08] text-blue-400/80 shrink-0">
+                  <div className="inline-flex items-center justify-center size-8 rounded-full bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] shrink-0">
                     <BarChart3 className="size-3.5" />
                   </div>
                   <div className="min-w-0 pt-0.5">
@@ -67,7 +67,7 @@ export function BlueprintCard({
                         {blueprint.title}
                       </h3>
                       {showTypeBadge && (
-                        <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-blue-400/60 bg-blue-500/[0.06] px-1.5 py-0.5 rounded">
+                        <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] bg-[var(--bg-hover)] border border-[var(--border-subtle)] px-1.5 py-0.5 rounded">
                           Blueprint
                         </span>
                       )}
@@ -126,7 +126,7 @@ export function BlueprintCard({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 text-[11px] text-[var(--text-tertiary)] hover:text-blue-400 transition-colors"
+                    className="inline-flex items-center gap-1 text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();

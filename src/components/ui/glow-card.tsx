@@ -6,7 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const glowCardVariants = cva(
-  "relative rounded-xl border transition-all duration-200 hover:scale-[1.02]",
+  "relative rounded-xl border transition-opacity duration-200 hover:opacity-95",
   {
     variants: {
       variant: {

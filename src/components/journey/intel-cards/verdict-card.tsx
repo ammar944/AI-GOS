@@ -5,10 +5,10 @@ import { IntelCardHeader } from './intel-card-header';
 function getVerdictColor(status: string): string {
   const s = status.toUpperCase();
   if (s.includes('VALIDATED') || (s.includes('PROCEED') && !s.includes('REFINEMENT'))) return 'var(--accent-green, #22c55e)';
-  if (s.includes('GROWING') || s.includes('STRONG')) return 'var(--accent-blue)';
-  if (s.includes('CAUTION') || s.includes('REFINEMENT') || s.includes('MATURE')) return '#f59e0b';
+  if (s.includes('GROWING') || s.includes('STRONG')) return 'var(--accent-green, #22c55e)';
+  if (s.includes('CAUTION') || s.includes('REFINEMENT') || s.includes('MATURE')) return 'var(--accent-amber, #f59e0b)';
   if (s.includes('NEEDS WORK') || s.includes('INVALID') || s.includes('DECLINING')) return 'var(--status-error, #ef4444)';
-  return 'var(--accent-blue)';
+  return 'var(--text-secondary)';
 }
 
 export interface VerdictCardProps {

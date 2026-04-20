@@ -47,7 +47,7 @@ export function JourneyHeader({
         </button>
         <button
           onClick={onNewJourney}
-          className="bg-brand-accent hover:bg-blue-600 px-4 py-2 rounded-control text-xs font-medium transition-all text-white"
+          className="bg-[var(--accent-green)] hover:opacity-90 px-4 py-2 rounded-control text-xs font-medium transition-opacity text-white cursor-pointer"
         >
           New Journey
         </button>

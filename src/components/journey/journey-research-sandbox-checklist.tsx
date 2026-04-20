@@ -93,7 +93,7 @@ export function JourneyResearchSandboxChecklist({
     <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
             Smoke checklist
           </h3>
           <p className="mt-1 text-xs leading-5 text-text-tertiary">

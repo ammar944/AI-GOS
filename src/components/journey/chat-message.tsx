@@ -113,7 +113,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
           className="px-1.5 py-0.5 rounded text-xs font-mono"
           style={{
             background: 'var(--bg-code-inline)',
-            color: 'var(--accent-cyan)',
+            color: 'var(--text-secondary)',
           }}
         >
           {part.slice(1, -1)}
@@ -131,7 +131,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
           target="_blank"
           rel="noopener noreferrer"
           className="underline underline-offset-2 hover:opacity-80 transition-opacity"
-          style={{ color: 'var(--accent-blue)' }}
+          style={{ color: 'var(--text-primary)' }}
         >
           {linkMatch[1]}
         </a>

@@ -46,10 +46,10 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
             <Link
               href="/journey"
-              className="group flex items-center gap-4 rounded-xl border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/[0.04] p-5 transition-all hover:border-[var(--accent-blue)]/40 hover:bg-[var(--accent-blue)]/[0.08] cursor-pointer"
+              className="group flex items-center gap-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)] cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-[var(--accent-blue)]/10 flex items-center justify-center shrink-0">
-                <Compass className="size-5 text-[var(--accent-blue)]" />
+              <div className="w-10 h-10 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
+                <Compass className="size-5 text-[var(--text-secondary)]" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--text-primary)] transition-colors">
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
                   Start a strategic research session
                 </p>
               </div>
-              <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--accent-blue)] transition-colors shrink-0" />
+              <ArrowRight className="size-4 text-[var(--text-quaternary)] group-hover:text-[var(--text-primary)] transition-colors shrink-0" />
             </Link>
 
             <Link
@@ -90,7 +90,7 @@ export default async function DashboardPage() {
               {recentSessions.length > 0 && (
                 <Link
                   href="/research"
-                  className="text-xs text-[var(--accent-blue)] hover:text-[var(--accent-blue)]/80 transition-colors"
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                 >
                   View all
                 </Link>

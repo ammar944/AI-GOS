@@ -31,7 +31,7 @@ function PhaseDot({ status }: { status: ResearchPhase['status'] }) {
     return (
       <motion.span
         className="flex-shrink-0 rounded-full"
-        style={{ width: 7, height: 7, background: 'var(--accent-blue)' }}
+        style={{ width: 7, height: 7, background: 'var(--accent-amber)' }}
         animate={{ opacity: [0.3, 1, 0.3] }}
         transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -94,11 +94,11 @@ export function ResearchProgressCard({ phases, className }: ResearchProgressCard
       >
         <Search
           className="flex-shrink-0"
-          style={{ width: 13, height: 13, color: 'var(--accent-blue)' }}
+          style={{ width: 13, height: 13, color: 'var(--accent-amber)' }}
         />
         <span
           className="font-semibold uppercase tracking-wider"
-          style={{ fontSize: '11px', letterSpacing: '0.06em', color: 'var(--accent-blue)' }}
+          style={{ fontSize: '11px', letterSpacing: '0.06em', color: 'var(--accent-amber)' }}
         >
           Researching
         </span>
@@ -106,7 +106,7 @@ export function ResearchProgressCard({ phases, className }: ResearchProgressCard
         {/* Pulsing blue live dot */}
         <motion.span
           className="rounded-full flex-shrink-0"
-          style={{ width: 6, height: 6, background: 'var(--accent-blue)' }}
+          style={{ width: 6, height: 6, background: 'var(--accent-amber)' }}
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
         />

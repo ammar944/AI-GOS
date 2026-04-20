@@ -54,7 +54,7 @@ export function CitationMarker({
   return (
     <span className="relative inline-block">
       <sup
-        className="cursor-pointer text-blue-400 hover:text-blue-300 text-xs font-medium ml-0.5 transition-colors"
+        className="cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium ml-0.5 transition-colors"
         onMouseEnter={() => setShowPreview(true)}
         onMouseLeave={() => setShowPreview(false)}
         aria-describedby={source ? `source-${index}` : undefined}

@@ -705,7 +705,7 @@ function QuickWinsSection({
       {wins.map((win) => (
         <div
           key={win}
-          className="border-l-2 border-[var(--accent-blue)] pl-4 py-1"
+          className="border-l border-[var(--border-default)] pl-4 py-1"
         >
           <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
             {win}

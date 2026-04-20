@@ -21,7 +21,7 @@ interface ChatInputProps {
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-blue)' },
+  { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-amber)' },
   { name: 'edit', description: 'Edit a blueprint section', icon: 'Pencil', color: '#f59e0b' },
   { name: 'compare', description: 'Compare competitors or strategies', icon: 'GitCompare', color: '#a855f7' },
   { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: '#06b6d4' },
@@ -353,7 +353,7 @@ export function ChatInput({
               className="w-7 h-7 rounded-[7px] flex items-center justify-center flex-shrink-0"
               style={{
                 background:
-                  canSend ? 'var(--accent-blue)' : 'transparent',
+                  canSend ? 'var(--accent-green)' : 'transparent',
                 color:
                   canSend ? '#ffffff' : 'var(--text-quaternary)',
                 opacity: !canSend ? 0.4 : 1,

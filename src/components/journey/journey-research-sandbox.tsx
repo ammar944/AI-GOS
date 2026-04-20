@@ -592,7 +592,7 @@ export function JourneyResearchSandbox({
       <div className="relative z-10 mx-auto max-w-[1600px] px-6 py-10 lg:px-8">
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.22em] text-[var(--accent-cyan)]">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-1 text-[11px] font-mono uppercase tracking-[0.22em] text-[var(--text-secondary)]">
               <FlaskConical className="h-3.5 w-3.5" />
               Journey Research Sandbox
             </div>
@@ -641,7 +641,7 @@ export function JourneyResearchSandbox({
             <div className="rounded-[28px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
                     Controls
                   </h2>
                   <p className="mt-1 text-xs leading-5 text-text-tertiary">
@@ -665,7 +665,7 @@ export function JourneyResearchSandbox({
                   <input
                     value={sandboxKey}
                     onChange={(event) => setSandboxKey(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--text-primary)]"
                     placeholder="default"
                   />
                 </label>
@@ -679,7 +679,7 @@ export function JourneyResearchSandbox({
                     onChange={(event) =>
                       setSection(event.target.value as JourneyResearchSandboxSection)
                     }
-                    className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="h-11 w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 text-sm text-text-primary outline-none transition-colors focus:border-[var(--text-primary)]"
                   >
                     {JOURNEY_RESEARCH_SANDBOX_SECTIONS.map((config) => (
                       <option key={config.section} value={config.section}>
@@ -701,7 +701,7 @@ export function JourneyResearchSandbox({
                     className={cn(
                       'rounded-xl border px-4 py-3 text-left transition-colors',
                       contextSource === 'live'
-                        ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]/10'
+                        ? 'border-[var(--text-primary)] bg-[var(--bg-active)]'
                         : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
                     )}
                   >
@@ -728,7 +728,7 @@ export function JourneyResearchSandbox({
                     className={cn(
                       'rounded-xl border px-4 py-3 text-left transition-colors',
                       contextSource === 'sandbox'
-                        ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10'
+                        ? 'border-[var(--text-primary)] bg-[var(--bg-active)]'
                         : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
                     )}
                   >
@@ -753,7 +753,7 @@ export function JourneyResearchSandbox({
                     value={context}
                     onChange={(event) => setContext(event.target.value)}
                     rows={18}
-                    className="min-h-[340px] w-full rounded-2xl border border-[var(--border-default)] bg-[#06101c] px-4 py-4 font-mono text-xs leading-6 text-text-primary outline-none transition-colors focus:border-[var(--accent-blue)]"
+                    className="min-h-[340px] w-full rounded-2xl border border-[var(--border-default)] bg-[#06101c] px-4 py-4 font-mono text-xs leading-6 text-text-primary outline-none transition-colors focus:border-[var(--text-primary)]"
                     placeholder="Paste the exact research context you want to send to the worker."
                   />
                 </label>
@@ -942,7 +942,7 @@ export function JourneyResearchSandbox({
               <div className="rounded-[30px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.84)] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                       Rendered preview
                     </h2>
                     <p className="mt-1 text-xs text-text-tertiary">
@@ -1098,7 +1098,7 @@ function JsonCard({
 }) {
   return (
     <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-4">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
         {title}
       </h3>
       <p className="mt-2 text-xs leading-5 text-text-tertiary">{subtitle}</p>
@@ -1129,7 +1129,7 @@ function BackendStatusCard({
   return (
     <div className="rounded-[6px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5">
       <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-text-tertiary">
-        <Server className="h-4 w-4 text-[var(--accent-cyan)]" />
+        <Server className="h-4 w-4 text-[var(--text-secondary)]" />
         Backend readiness
       </div>
       <div className="mt-4 space-y-2">

@@ -10,9 +10,8 @@ export function StreamingCursor() {
       style={{
         width: 2,
         height: 16,
-        background: 'var(--accent-blue)',
+        background: 'var(--text-primary)',
         borderRadius: 1,
-        boxShadow: '0 0 6px var(--accent-blue-glow)',
       }}
       animate={{ opacity: [1, 0.3, 1] }}
       transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}

@@ -79,7 +79,7 @@ export function JourneyPrefillReview({
           onClick={() => onApplyReview(acceptAllDecisions)}
           className="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
           style={{
-            background: 'var(--accent-blue)',
+            background: 'var(--accent-amber)',
             color: 'var(--text-white)',
           }}
         >

@@ -439,7 +439,7 @@ export function UnifiedFieldReview({
                       className={cn(
                         'relative flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-200 cursor-pointer',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]',
-                        'hover:scale-110',
+                        'hover:opacity-80 transition-opacity',
                       )}
                       style={{
                         borderColor: isActive

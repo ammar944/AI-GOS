@@ -28,7 +28,7 @@ export function EvidenceChain({ groundedIn }: EvidenceChainProps) {
         {groundedIn.map((item, i) => (
           <div
             key={i}
-            className="border-l-2 border-[var(--accent-blue)]/40 pl-3 py-0.5"
+            className="border-l border-[var(--border-default)] pl-3 py-0.5"
           >
             <p className="text-[11px] font-mono uppercase tracking-[0.04em] text-[var(--text-tertiary)] mb-0.5">
               {SECTION_LABELS[item.section] ?? item.section}

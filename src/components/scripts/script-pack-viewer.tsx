@@ -175,7 +175,7 @@ export function ScriptPackViewer({
                 className={cn(
                   'px-2.5 py-1 rounded-md text-xs font-medium transition-colors duration-100',
                   isActive
-                    ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
+                    ? 'bg-[var(--bg-active)] text-[var(--text-primary)] border border-[var(--border-default)]'
                     : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]',
                 )}
               >
@@ -217,9 +217,9 @@ export function ScriptPackViewer({
 
       {/* Generation progress */}
       {isGenerating && (
-        <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/5 px-5 py-4">
+        <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-5 py-4">
           <div className="flex items-center gap-3 mb-3">
-            <Loader2 className="size-4 animate-spin text-[var(--accent-blue)]" />
+            <Loader2 className="size-4 animate-spin text-[var(--accent-amber)]" />
             <span className="text-sm font-medium text-[var(--text-primary)]">
               Generating scripts...
             </span>
@@ -237,7 +237,7 @@ export function ScriptPackViewer({
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: i < completedLevels ? '100%' : i === completedLevels ? '50%' : '0%',
-                    background: 'var(--accent-blue)',
+                    background: 'var(--accent-amber)',
                   }}
                 />
               </div>

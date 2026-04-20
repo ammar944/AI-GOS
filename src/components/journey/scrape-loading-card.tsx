@@ -82,10 +82,10 @@ export function ScrapeLoadingCard({
           style={{
             width: 28,
             height: 28,
-            background: 'color-mix(in srgb, var(--accent-blue) 12%, transparent)',
+            background: 'color-mix(in srgb, var(--accent-amber) 12%, transparent)',
           }}
         >
-          <Globe style={{ width: 14, height: 14, color: 'var(--accent-blue)' }} />
+          <Globe style={{ width: 14, height: 14, color: 'var(--accent-amber)' }} />
         </div>
         <div className="flex-1 min-w-0">
           <p
@@ -93,7 +93,7 @@ export function ScrapeLoadingCard({
             style={{ fontSize: '12.5px', color: 'var(--text-primary)' }}
           >
             {copy.heading}{' '}
-            <span style={{ color: 'var(--accent-blue)' }}>{domain}</span>
+            <span style={{ color: 'var(--text-primary)' }}>{domain}</span>
           </p>
           <p
             className="truncate mt-0.5"
@@ -117,7 +117,7 @@ export function ScrapeLoadingCard({
               width: '40%',
               height: '100%',
               borderRadius: '999px',
-              background: 'var(--accent-blue)',
+              background: 'var(--accent-amber)',
             }}
             animate={{ x: ['-100%', '220%'] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
@@ -163,7 +163,7 @@ export function ScrapeLoadingCard({
                       animate={{ rotate: 360 }}
                       transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                     >
-                      <StepIcon style={{ width: 13, height: 13, color: 'var(--accent-blue)' }} />
+                      <StepIcon style={{ width: 13, height: 13, color: 'var(--accent-amber)' }} />
                     </motion.div>
                   ) : (
                     <StepIcon style={{ width: 13, height: 13, color: 'var(--text-tertiary)' }} />

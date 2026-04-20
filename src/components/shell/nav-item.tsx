@@ -30,8 +30,8 @@ export function NavItem({ icon: Icon, label, href, locked = false, collapsed }: 
   // Compute text color — active state only; hover handled by CSS
   const color = isActive ? 'var(--text-primary)' : 'var(--text-tertiary)';
 
-  // Icon color is accent-blue when active, otherwise inherits from parent
-  const iconColor = isActive ? 'var(--accent-blue)' : 'currentColor';
+  // Icon color emphasizes text-primary when active, otherwise inherits from parent
+  const iconColor = isActive ? 'var(--text-primary)' : 'currentColor';
 
   // Icon opacity: active = 1, default = 0.5
   const iconOpacity = isActive ? 1 : 0.5;

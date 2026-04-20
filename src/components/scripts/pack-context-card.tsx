@@ -43,7 +43,7 @@ export function PackContextCard({ context }: PackContextCardProps) {
   return (
     <div
       className="border-l-2 pl-3 py-1"
-      style={{ borderColor: 'var(--accent-blue)' }}
+      style={{ borderColor: 'var(--border-default)' }}
     >
       <p
         className="text-[12px] leading-snug"

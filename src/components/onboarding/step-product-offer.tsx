@@ -307,8 +307,8 @@ export function StepProductOffer({
                 className="rounded-lg p-4 space-y-3 transition-all"
                 style={{
                   border: '1px solid',
-                  borderColor: tier.isPrimary ? 'var(--accent-blue)' : 'var(--border-default)',
-                  background: tier.isPrimary ? 'var(--accent-blue-subtle)' : 'rgba(255, 255, 255, 0.02)',
+                  borderColor: tier.isPrimary ? 'var(--text-primary)' : 'var(--border-default)',
+                  background: tier.isPrimary ? 'var(--bg-active)' : 'rgba(255, 255, 255, 0.02)',
                 }}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -388,11 +388,11 @@ export function StepProductOffer({
                       name="primaryTier"
                       checked={tier.isPrimary === true}
                       onChange={() => setPrimaryTier(index)}
-                      className="h-4 w-4 accent-blue-500"
+                      className="h-4 w-4"
                     />
                     <span
                       className="text-[12px] font-medium"
-                      style={{ color: tier.isPrimary ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}
+                      style={{ color: tier.isPrimary ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
                     >
                       Primary
                     </span>
@@ -468,10 +468,10 @@ export function StepProductOffer({
                 style={{
                   border: '1px solid',
                   borderColor: currentFunnelType.includes(option.value)
-                    ? 'var(--accent-blue)'
+                    ? 'var(--text-primary)'
                     : 'var(--border-default)',
                   background: currentFunnelType.includes(option.value)
-                    ? 'var(--accent-blue-subtle)'
+                    ? 'var(--bg-active)'
                     : 'transparent',
                 }}
               >

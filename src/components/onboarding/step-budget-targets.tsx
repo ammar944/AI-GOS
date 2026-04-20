@@ -104,7 +104,7 @@ export function StepBudgetTargets({
         {/* Budget Section */}
         <motion.div className="space-y-4" variants={staggerItem}>
           <h3 className="flex items-center gap-2 text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
-            <DollarSign className="h-5 w-5" style={{ color: 'var(--accent-blue)' }} />
+            <DollarSign className="h-5 w-5" style={{ color: 'var(--text-secondary)' }} />
             Budget
           </h3>
 
@@ -208,7 +208,7 @@ export function StepBudgetTargets({
         <motion.div className="space-y-4" variants={staggerItem}>
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
-              <Target className="h-5 w-5" style={{ color: 'var(--accent-blue)' }} />
+              <Target className="h-5 w-5" style={{ color: 'var(--text-secondary)' }} />
               Target Outcomes
             </h3>
             <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>

@@ -6,10 +6,10 @@ import { cn } from '@/lib/utils';
 import { SlashCommandPalette, type SlashCommand } from '@/components/chat/slash-command-palette';
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-blue)' },
+  { name: 'research', description: 'Research a topic with live data', icon: 'Search', color: 'var(--accent-amber)' },
   { name: 'edit', description: 'Edit a blueprint section', icon: 'Pencil', color: 'var(--accent-amber)' },
   { name: 'compare', description: 'Compare competitors or strategies', icon: 'GitCompare', color: 'var(--accent-purple)' },
-  { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: 'var(--accent-cyan)' },
+  { name: 'analyze', description: 'Deep-dive analysis of metrics', icon: 'BarChart3', color: 'var(--text-secondary)' },
   { name: 'visualize', description: 'Generate visual breakdowns', icon: 'Eye', color: 'var(--accent-green)' },
 ];
 
@@ -309,7 +309,7 @@ export function JourneyChatInput({
                   className={cn(
                     'mr-1 rounded-lg p-2 transition-all',
                     isUploading
-                      ? 'text-[var(--accent-blue)] animate-pulse'
+                      ? 'text-[var(--accent-amber)] animate-pulse'
                       : 'text-[var(--text-quaternary)] hover:text-[var(--text-secondary)] hover:bg-white/5',
                   )}
                 >

@@ -18,8 +18,8 @@ interface AnalysisScoreCardProps {
 
 // Colors cycling through accent palette by dimension index
 const DIMENSION_COLORS = [
-  'var(--accent-blue)',
-  'var(--accent-cyan)',
+  'var(--text-primary)',
+  'var(--text-secondary)',
   'var(--accent-green)',
   'var(--accent-amber)',
   'var(--accent-purple)',
@@ -120,10 +120,10 @@ export function AnalysisScoreCard({ data }: AnalysisScoreCardProps) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <Activity className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent-cyan)' }} />
+              <Activity className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
               <span
                 className="font-semibold uppercase tracking-wider"
-                style={{ fontSize: '11px', letterSpacing: '0.05em', color: 'var(--accent-cyan)' }}
+                style={{ fontSize: '11px', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}
               >
                 Section Analysis
               </span>
@@ -194,7 +194,7 @@ export function AnalysisScoreCard({ data }: AnalysisScoreCardProps) {
               <div key={i} className="flex items-start gap-2">
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
-                  style={{ background: 'var(--accent-cyan)' }}
+                  style={{ background: 'var(--text-secondary)' }}
                 />
                 <p
                   className="leading-relaxed"

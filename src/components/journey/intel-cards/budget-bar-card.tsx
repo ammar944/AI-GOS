@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { IntelCardHeader } from './intel-card-header';
 
 const PLATFORM_COLORS: Record<string, string> = {
-  LinkedIn:  'var(--accent-blue)',
+  LinkedIn:  'var(--text-secondary)',
   Google:    '#ef4444',
   Meta:      '#3b5998',
   Facebook:  '#3b5998',

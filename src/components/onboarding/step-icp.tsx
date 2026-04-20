@@ -272,10 +272,10 @@ export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepI
                 style={{
                   border: '1px solid',
                   borderColor: formData.companySize.includes(option.value)
-                    ? 'var(--accent-blue)'
+                    ? 'var(--text-primary)'
                     : 'var(--border-default)',
                   background: formData.companySize.includes(option.value)
-                    ? 'var(--accent-blue-subtle)'
+                    ? 'var(--bg-active)'
                     : 'transparent',
                 }}
               >
@@ -417,10 +417,10 @@ export function StepICP({ initialData, onSubmit, onBack, wizardFormData }: StepI
                 style={{
                   border: '1px solid',
                   borderColor: formData.bestClientSources.includes(option.value)
-                    ? 'var(--accent-blue)'
+                    ? 'var(--text-primary)'
                     : 'var(--border-default)',
                   background: formData.bestClientSources.includes(option.value)
-                    ? 'var(--accent-blue-subtle)'
+                    ? 'var(--bg-active)'
                     : 'transparent',
                 }}
               >

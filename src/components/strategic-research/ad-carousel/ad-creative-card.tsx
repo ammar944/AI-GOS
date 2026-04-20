@@ -148,7 +148,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
                 className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/50 transition-colors group"
                 aria-label="Play video"
               >
-                <div className="w-20 h-20 rounded-full bg-white/95 flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                <div className="w-20 h-20 rounded-full bg-white/95 flex items-center justify-center shadow-2xl group-hover:opacity-90 transition-opacity">
                   <Play className="h-10 w-10 text-gray-900 ml-1" fill="currentColor" />
                 </div>
               </button>

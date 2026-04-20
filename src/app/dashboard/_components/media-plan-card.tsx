@@ -115,7 +115,7 @@ export function MediaPlanCard({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <span className="text-[var(--text-tertiary)] opacity-60">from</span>
-                  <span className="text-[var(--text-tertiary)] group-hover/link:text-blue-400 truncate max-w-[180px] transition-colors">
+                  <span className="text-[var(--text-tertiary)] group-hover/link:text-[var(--text-primary)] truncate max-w-[180px] transition-colors">
                     {blueprintTitle}
                   </span>
                   <ArrowUpRight className="size-2.5 text-[var(--text-tertiary)] opacity-0 group-hover/link:opacity-100 transition-opacity" />
@@ -134,7 +134,7 @@ export function MediaPlanCard({
                     {isApproved ? "Approved" : "Draft"}
                   </span>
                   {hasAdCopy && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-400/60">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--text-quaternary)]">
                       <Sparkles className="size-2.5" />
                       Ad Copy
                     </span>

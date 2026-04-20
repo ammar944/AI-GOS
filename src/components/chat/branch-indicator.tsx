@@ -15,9 +15,9 @@ import type { ConversationBranch } from '@/lib/chat/branching';
  * Intentionally kept as a small, finite palette so the UI stays coherent.
  */
 const BRANCH_COLORS = [
-  'var(--accent-blue)',
+  'var(--text-primary)',
   'var(--accent-purple)',
-  'var(--accent-cyan)',
+  'var(--text-secondary)',
   'var(--accent-amber)',
 ] as const;
 

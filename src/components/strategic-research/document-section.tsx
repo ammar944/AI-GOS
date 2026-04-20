@@ -180,7 +180,7 @@ export function DocumentSection({
             <Button
               variant="outline"
               onClick={onMarkReviewed}
-              className="gap-2 px-6 py-2.5 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+              className="gap-2 px-6 py-2.5 text-sm font-medium transition-opacity duration-200 hover:opacity-90 cursor-pointer"
               style={{
                 borderColor: 'var(--success)',
                 color: 'var(--success)',

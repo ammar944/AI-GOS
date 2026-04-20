@@ -75,8 +75,8 @@ export function EmptyState({
       transition={springs.gentle}
     >
       {/* Icon container */}
-      <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-blue-500/[0.06] border border-blue-500/[0.08] mb-5">
-        <Icon className="size-7 text-blue-400/60" />
+      <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-[var(--bg-hover)] border border-[var(--border-subtle)] mb-5">
+        <Icon className="size-7 text-[var(--text-tertiary)]" />
       </div>
 
       <h3 className="font-heading font-semibold text-lg text-[var(--text-primary)]">{title}</h3>

@@ -87,7 +87,7 @@ export function PrefillStreamView({
                 ? 'border border-emerald-500/25 bg-emerald-500/[0.08]'
                 : isFailed || error
                   ? 'border border-red-500/25 bg-red-500/[0.08]'
-                  : 'border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/[0.06]',
+                  : 'border border-[var(--accent-amber)]/30 bg-[var(--accent-amber)]/[0.06]',
             )}
           >
             <motion.div
@@ -97,7 +97,7 @@ export function PrefillStreamView({
                   ? 'bg-emerald-400'
                   : isFailed || error
                     ? 'bg-red-400'
-                    : 'bg-[var(--accent-blue)]',
+                    : 'bg-[var(--accent-amber)]',
               )}
               animate={isPrefilling ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
               transition={{
@@ -113,7 +113,7 @@ export function PrefillStreamView({
                   ? 'text-emerald-400'
                   : isFailed || error
                     ? 'text-red-400'
-                    : 'text-[var(--accent-blue)]',
+                    : 'text-[var(--accent-amber)]',
               )}
             >
               {isComplete ? 'Extraction Complete' : isFailed || error ? 'Extraction Failed' : 'Extracting Context'}
@@ -133,7 +133,7 @@ export function PrefillStreamView({
             <span
               className={cn(
                 'text-[12px] font-mono tabular-nums',
-                isComplete ? 'text-emerald-400' : 'text-[var(--accent-blue)]',
+                isComplete ? 'text-[var(--accent-green)]' : 'text-[var(--accent-amber)]',
               )}
             >
               {fieldsFound} {fieldsFound === 1 ? 'field' : 'fields'} found
@@ -148,7 +148,7 @@ export function PrefillStreamView({
             style={{
               background: isComplete
                 ? 'rgb(34, 197, 94)'
-                : 'linear-gradient(90deg, var(--accent-blue) 0%, rgb(0, 111, 255) 100%)',
+                : 'var(--accent-amber)',
               boxShadow: isComplete
                 ? '0 0 8px rgba(34, 197, 94, 0.3)'
                 : '0 0 8px rgba(54, 94, 255, 0.3)',

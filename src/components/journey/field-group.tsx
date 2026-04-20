@@ -170,7 +170,7 @@ export function FieldGroup({
                   boxShadow: '0 0 12px rgba(54, 94, 255, 0.15)',
                 }}
               >
-                <span className="text-[11px] font-mono font-semibold" style={{ color: 'var(--accent-blue)' }}>
+                <span className="text-[11px] font-mono font-semibold" style={{ color: 'var(--text-secondary)' }}>
                   {groupIndex + 1}
                 </span>
               </div>

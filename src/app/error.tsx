@@ -102,7 +102,7 @@ export default function Error({ error, reset }: ErrorProps) {
               "flex-1 h-10 rounded-full text-sm font-medium transition-opacity hover:opacity-90 active:opacity-80",
               "text-white"
             )}
-            style={{ backgroundColor: "var(--accent-blue)" }}
+            style={{ backgroundColor: "var(--accent-green)" }}
           >
             Try Again
           </button>

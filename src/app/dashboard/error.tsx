@@ -61,7 +61,7 @@ export default function DashboardError({ error, reset }: DashboardErrorProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={reset}
-            className="rounded-full bg-[var(--accent-blue)] px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+            className="rounded-full bg-[var(--accent-green)] px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 cursor-pointer"
           >
             Try Again
           </button>

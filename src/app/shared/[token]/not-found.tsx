@@ -29,7 +29,7 @@ export default function SharedSessionNotFound() {
         </div>
         <Link
           href="/journey"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 hover:opacity-90 bg-gradient-to-r from-blue-600 to-blue-500 text-white"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-opacity hover:opacity-90 cursor-pointer bg-[var(--accent-green)] text-white"
         >
           Create Your Own
         </Link>

@@ -365,7 +365,7 @@ function AdCreativeCard({ creative }: { creative: AdCreative }) {
               className={cn(
                 'ml-auto inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs transition-all duration-200',
               )}
-              style={{ color: 'var(--accent-blue)' }}
+              style={{ color: 'var(--text-primary)' }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLAnchorElement).style.opacity = '0.75';
               }}
@@ -474,7 +474,7 @@ export function CompetitorAdEvidence({
             className={cn(
               'rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150 cursor-pointer border',
               !platformFilter && !formatFilter
-                ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] border-[var(--accent-blue)]/30'
+                ? 'bg-[var(--bg-active)] text-[var(--text-primary)] border-[var(--border-default)]'
                 : 'bg-transparent text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-[var(--text-secondary)] hover:border-[var(--border-default)]',
             )}
           >

@@ -47,7 +47,7 @@ function PhaseDot({ status }: { status: DeepResearchPhase['status'] }) {
     return (
       <motion.span
         className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ background: 'var(--accent-blue)' }}
+        style={{ background: 'var(--accent-amber)' }}
         animate={{ opacity: [0.3, 1, 0.3] }}
         transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -97,7 +97,7 @@ function FindingBlock({ finding }: { finding: DeepResearchFinding }) {
               className="inline-flex items-center justify-center w-4 h-4 rounded font-mono cursor-pointer mx-0.5 align-middle"
               style={{
                 fontSize: '9px',
-                background: 'var(--accent-blue)',
+                background: 'var(--accent-amber)',
                 color: '#ffffff',
                 border: 'none',
                 verticalAlign: 'super',
@@ -134,7 +134,7 @@ function FindingBlock({ finding }: { finding: DeepResearchFinding }) {
         <button
           onClick={() => setExpanded(!expanded)}
           className="mt-1.5 flex items-center gap-1 cursor-pointer"
-          style={{ fontSize: '11px', color: 'var(--accent-blue)', background: 'none', border: 'none', padding: 0 }}
+          style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'none', border: 'none', padding: 0 }}
         >
           {expanded ? (
             <>
@@ -184,17 +184,17 @@ export function DeepResearchCard({ data, isStreaming = false }: DeepResearchCard
         style={{ background: 'rgba(54,94,255,0.04)' }}
       >
         <div className="flex items-center gap-2 mb-1">
-          <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent-blue)' }} />
+          <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent-amber)' }} />
           <span
             className="font-semibold uppercase tracking-wider"
-            style={{ fontSize: '11px', letterSpacing: '0.05em', color: 'var(--accent-blue)' }}
+            style={{ fontSize: '11px', letterSpacing: '0.05em', color: 'var(--accent-amber)' }}
           >
             Deep Research
           </span>
           {isStreaming && (
             <motion.span
               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ background: 'var(--accent-blue)' }}
+              style={{ background: 'var(--accent-amber)' }}
               animate={{ opacity: [0.3, 1, 0.3] }}
               transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
             />

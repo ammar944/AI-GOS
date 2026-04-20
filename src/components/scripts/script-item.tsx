@@ -16,13 +16,13 @@ function getScriptType(script: AdScript): ScriptType {
 }
 
 const TYPE_COLORS: Record<ScriptType, string> = {
-  video: 'text-blue-500',
+  video: 'text-[var(--text-secondary)]',
   static: 'text-amber-500',
   email: 'text-green-500',
 };
 
 const TYPE_BG: Record<ScriptType, string> = {
-  video: 'bg-blue-500/10',
+  video: 'bg-[var(--bg-hover)]',
   static: 'bg-amber-500/10',
   email: 'bg-green-500/10',
 };
@@ -243,7 +243,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
               size="sm"
               onClick={handleSave}
               disabled={saving}
-              className="text-xs px-3 py-1.5 rounded-md bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)]"
+              className="text-xs px-3 py-1.5 rounded-md bg-[var(--accent-green)] text-white hover:opacity-90 transition-opacity cursor-pointer"
             >
               {saving ? 'Saving...' : 'Save'}
             </Button>
@@ -265,7 +265,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
 
       {/* CTA */}
       {script.cta && (
-        <p className="text-sm font-medium text-[var(--accent-blue)] mb-3">{script.cta}</p>
+        <p className="text-sm font-medium text-[var(--text-primary)] mb-3">{script.cta}</p>
       )}
 
       {/* Hook variants (video) */}
@@ -278,7 +278,7 @@ export function ScriptItem({ script, packId, onUpdate }: ScriptItemProps) {
             {script.hookVariants.map((hook, i) => (
               <li
                 key={i}
-                className="border-l-2 border-[var(--accent-blue)]/30 pl-3 text-sm text-[var(--text-secondary)] leading-relaxed"
+                className="border-l border-[var(--border-default)] pl-3 text-sm text-[var(--text-secondary)] leading-relaxed"
               >
                 {hook}
               </li>

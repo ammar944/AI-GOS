@@ -44,7 +44,7 @@ function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) 
       )}
     >
       {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-[var(--accent-blue)]" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-[var(--text-primary)]" />
       )}
       <Icon size={18} className="shrink-0" />
       {expanded && (

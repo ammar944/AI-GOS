@@ -14,8 +14,8 @@ export function QuoteCard({ sectionKey, quote }: QuoteCardProps) {
       <blockquote style={{
         margin: 0,
         padding: '10px 14px',
-        borderLeft: '3px solid var(--accent-blue)',
-        background: 'color-mix(in srgb, var(--accent-blue) 6%, transparent)',
+        borderLeft: '3px solid var(--border-default)',
+        background: 'var(--bg-hover)',
         borderRadius: '0 8px 8px 0',
       }}>
         <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, fontStyle: 'italic', margin: 0 }}>

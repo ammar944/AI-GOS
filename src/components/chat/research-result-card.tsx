@@ -33,7 +33,7 @@ export function ResearchResultCard({ research, cost }: ResearchResultCardProps) 
         className="w-full px-3 py-2 flex items-center gap-2 text-left cursor-pointer"
         style={{ background: 'transparent', border: 'none' }}
       >
-        <Globe className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent-blue)' }} />
+        <Globe className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
         <span className="text-xs font-medium flex-1" style={{ color: 'var(--text-secondary)' }}>
           Web Research Result
         </span>

@@ -86,7 +86,7 @@ export function VoiceInputButton({ onTranscript, onRecordingChange, stopRecordin
     if (isError) return '#ef4444';
     if (isRecording) return '#f97316';
     if (isTranscribing) return '#f97316';
-    if (hasTranscript) return 'var(--accent-blue)';
+    if (hasTranscript) return 'var(--accent-green)';
     if (!isSupported) return 'var(--text-quaternary)';
     return 'var(--text-tertiary)';
   };
@@ -114,7 +114,7 @@ export function VoiceInputButton({ onTranscript, onRecordingChange, stopRecordin
         background: getBackground(),
         border: compact
           ? 'none'
-          : `1px solid ${isRecording ? '#f97316' : hasTranscript ? 'var(--accent-blue)' : 'var(--border-subtle)'}`,
+          : `1px solid ${isRecording ? 'var(--accent-amber)' : hasTranscript ? 'var(--accent-green)' : 'var(--border-subtle)'}`,
         color: getColor(),
         opacity: isDisabledState && !isTranscribing ? 0.5 : 1,
         transition: 'all 0.2s ease',

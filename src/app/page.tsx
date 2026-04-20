@@ -58,9 +58,9 @@ export default function Home() {
       <main className="relative z-10 flex-1 flex items-center justify-center">
         <div className="mx-auto max-w-[1200px] px-6 text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/[0.08] px-5 py-2 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-backwards shadow-[0_0_20px_rgba(54,94,255,0.08)]">
-            <span className="size-2 rounded-full bg-[var(--accent-blue)] shadow-[0_0_6px_var(--accent-blue)]" />
-            <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-blue)]">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-5 py-2 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-backwards">
+            <span className="size-2 rounded-full bg-[var(--accent-green)]" />
+            <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
               AI-Powered Marketing Intelligence
             </span>
           </div>
@@ -69,7 +69,7 @@ export default function Home() {
           <h1 className="font-heading text-4xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-5xl md:text-6xl lg:text-7xl animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 fill-mode-backwards">
             Your paid media
             <br />
-            <span className="text-[var(--accent-blue)]">command center.</span>
+            <span className="italic font-[family-name:var(--font-display)] text-[var(--text-primary)]">command center.</span>
           </h1>
 
           {/* Subtitle */}

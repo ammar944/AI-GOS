@@ -103,7 +103,7 @@ export function CitationHoverCard({
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 hover:opacity-70 transition-opacity"
-          style={{ fontSize: '11px', color: 'var(--accent-blue)' }}
+          style={{ fontSize: '11px', color: 'var(--text-secondary)' }}
           onClick={(e) => e.stopPropagation()}
         >
           <ExternalLink className="w-3 h-3 flex-shrink-0" />

@@ -22,9 +22,9 @@ interface SectionTab {
 }
 
 const TABS: SectionTab[] = [
-  { key: 'industryMarket', label: 'Industry & Market', shortLabel: 'Industry', icon: Globe,    color: 'var(--accent-blue)' },
+  { key: 'industryMarket', label: 'Industry & Market', shortLabel: 'Industry', icon: Globe,    color: 'var(--text-secondary)' },
   { key: 'competitors',    label: 'Competitor Analysis', shortLabel: 'Competitors', icon: Users, color: 'var(--accent-purple, #a855f7)' },
-  { key: 'icpValidation',  label: 'ICP Validation',     shortLabel: 'ICP',       icon: Target,  color: 'var(--accent-cyan, #06b6d4)' },
+  { key: 'icpValidation',  label: 'ICP Validation',     shortLabel: 'ICP',       icon: Target,  color: 'var(--text-secondary)' },
   { key: 'offerAnalysis',  label: 'Offer Analysis',     shortLabel: 'Offer',     icon: Package, color: 'var(--accent-green, #22c55e)' },
   { key: 'crossAnalysis',  label: 'Synthesis',          shortLabel: 'Synthesis', icon: Layers,  color: '#f59e0b' },
 ];
@@ -164,7 +164,7 @@ function DataRow({ label, value }: { label: string; value: string | number | und
 
 function BulletList({
   items,
-  color = 'var(--accent-blue)',
+  color = 'var(--text-secondary)',
   highlightFirst = false,
 }: {
   items: string[];
@@ -196,7 +196,7 @@ function BulletList({
 
 function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
   const pct = Math.round((score / max) * 100);
-  const color = pct >= 70 ? 'var(--accent-blue)' : pct >= 50 ? '#f59e0b' : 'var(--status-error)';
+  const color = pct >= 70 ? 'var(--accent-green)' : pct >= 50 ? 'var(--accent-amber)' : 'var(--status-error)';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--border-default)' }}>
@@ -257,7 +257,7 @@ function IndustryContent({ data }: { data: Record<string, unknown> }) {
       {trends.length > 0 && (
         <div>
           <SectionLabel>Market Trends</SectionLabel>
-          <BulletList items={trends} color="var(--accent-blue)" />
+          <BulletList items={trends} color="var(--text-secondary)" />
         </div>
       )}
       {angles.length > 0 && (
@@ -336,7 +336,7 @@ function CompetitorsContent({ data }: { data: Record<string, unknown> }) {
                   <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{get<string>(g, 'evidence')}</p>
                 )}
                 {get<string>(g, 'recommendedAction') && (
-                  <p style={{ fontSize: 11, color: 'var(--accent-blue)', marginTop: 4 }}>&rarr; {get<string>(g, 'recommendedAction')}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>&rarr; {get<string>(g, 'recommendedAction')}</p>
                 )}
               </div>
             );
@@ -425,9 +425,9 @@ function ICPContent({ data }: { data: Record<string, unknown> }) {
                     borderRadius: 6,
                     fontSize: 11,
                     fontWeight: isActive ? 600 : 400,
-                    border: `1px solid ${isActive ? 'var(--accent-cyan, #06b6d4)' : 'var(--border-subtle)'}`,
-                    background: isActive ? 'color-mix(in srgb, var(--accent-cyan, #06b6d4) 12%, transparent)' : 'transparent',
-                    color: isActive ? 'var(--accent-cyan, #06b6d4)' : 'var(--text-tertiary)',
+                    border: `1px solid ${isActive ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                    background: isActive ? 'var(--bg-active)' : 'transparent',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -537,7 +537,7 @@ function OfferContent({ data }: { data: Record<string, unknown> }) {
       {recommendations.length > 0 && (
         <div>
           <SectionLabel>Recommendations</SectionLabel>
-          <BulletList items={recommendations} color="var(--accent-blue)" />
+          <BulletList items={recommendations} color="var(--text-secondary)" />
         </div>
       )}
     </div>
@@ -572,7 +572,7 @@ function SynthesisContent({ data }: { data: Record<string, unknown> }) {
       {positioning && (
         <div>
           <SectionLabel>Positioning Statement</SectionLabel>
-          <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, fontStyle: 'italic', padding: '10px 12px', borderLeft: '3px solid var(--accent-blue)', background: 'var(--bg-hover)', borderRadius: '0 6px 6px 0' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, fontStyle: 'italic', padding: '10px 12px', borderLeft: '3px solid var(--border-default)', background: 'var(--bg-hover)', borderRadius: '0 6px 6px 0' }}>
             &ldquo;{positioning}&rdquo;
           </p>
         </div>
@@ -580,7 +580,7 @@ function SynthesisContent({ data }: { data: Record<string, unknown> }) {
       {insights.length > 0 && (
         <div>
           <SectionLabel>Key Insights</SectionLabel>
-          <BulletList items={insights} color="var(--accent-blue)" />
+          <BulletList items={insights} color="var(--text-secondary)" />
         </div>
       )}
       {hooks.length > 0 && (
@@ -598,7 +598,7 @@ function SynthesisContent({ data }: { data: Record<string, unknown> }) {
           <SectionLabel>Recommended Platforms</SectionLabel>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {platforms.map((p, i) => (
-              <span key={i} style={{ padding: '4px 10px', borderRadius: 12, background: 'color-mix(in srgb, var(--accent-blue) 12%, transparent)', color: 'var(--accent-blue)', fontSize: 11, fontWeight: 500 }}>
+              <span key={i} style={{ padding: '4px 10px', borderRadius: 12, background: 'var(--bg-hover)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 500, border: '1px solid var(--border-subtle)' }}>
                 {p}
               </span>
             ))}

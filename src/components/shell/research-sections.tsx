@@ -85,13 +85,13 @@ function StatusDot({ status }: StatusDotProps) {
       <div className="relative flex-shrink-0" style={{ width: 7, height: 7 }}>
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{ background: 'var(--accent-blue)', opacity: 0.3 }}
+          style={{ background: 'var(--border-default)', opacity: 0.55 }}
           animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
         />
         <div
           className="absolute inset-0 rounded-full"
-          style={{ background: 'var(--accent-blue)' }}
+          style={{ background: 'var(--text-primary)' }}
         />
       </div>
     );
@@ -122,7 +122,7 @@ function ResearchRow({ item, status }: ResearchRowProps) {
       : status === 'error'
         ? 'var(--status-error)'
         : status === 'running'
-          ? 'var(--accent-blue)'
+          ? 'var(--text-primary)'
           : 'var(--text-quaternary)';
 
   const labelWeight = status === 'running' ? 500 : 400;
@@ -153,7 +153,7 @@ function ResearchRow({ item, status }: ResearchRowProps) {
           <span
             style={{
               fontSize: 11,
-              color: 'var(--accent-blue)',
+              color: 'var(--text-primary)',
               fontWeight: 500,
               opacity: 0.5,
               transition: 'opacity var(--transition-normal)',
@@ -167,7 +167,7 @@ function ResearchRow({ item, status }: ResearchRowProps) {
           <span
             style={{
               fontSize: 11,
-              color: 'var(--accent-blue)',
+              color: 'var(--text-primary)',
               opacity: 0.7,
             }}
           >

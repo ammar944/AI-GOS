@@ -97,14 +97,14 @@ export function SectionCard({
         'rounded-3xl border p-5 transition-all',
         status === 'pending' && 'border-zinc-800 opacity-40',
         (status === 'queued' || status === 'running') &&
-          'border-blue-500/50 bg-blue-500/5',
+          'border-amber-500/50 bg-amber-500/5',
         status === 'complete' && 'border-zinc-600',
         status === 'approved' && 'border-green-500/30 bg-green-500/5',
         status === 'editing' && 'border-purple-500/50 bg-purple-500/5',
         status === 'stale' && 'border-amber-500/50 bg-amber-500/5',
         status === 'error' && 'border-red-500/50 bg-red-500/5',
         isActive && 'ring-1 ring-zinc-500/60',
-        isGated && 'ring-2 ring-blue-500/40',
+        isGated && 'ring-2 ring-green-500/40',
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -168,8 +168,8 @@ export function SectionCard({
       </div>
 
       {status === 'queued' || status === 'running' ? (
-        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-blue-500/20 bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300">
-          <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300">
+          <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
           <span>{latestActivityMessage}</span>
         </div>
       ) : null}

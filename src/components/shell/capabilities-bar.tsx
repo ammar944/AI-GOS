@@ -39,7 +39,7 @@ function CapabilityTag({ capability }: CapabilityTagProps) {
           ? '1px solid var(--border-chip-selected)'
           : '1px solid var(--border-subtle)',
         color: capability.active
-          ? 'var(--accent-blue)'
+          ? 'var(--text-primary)'
           : 'var(--text-tertiary)',
         lineHeight: '16px',
         whiteSpace: 'nowrap',

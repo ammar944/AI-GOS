@@ -43,8 +43,8 @@ const sizeConfig = {
 
 function getBrandGradient() {
   return {
-    from: "var(--accent-blue)",
-    to: "var(--accent-blue-hover)",
+    from: "var(--accent-green)",
+    to: "var(--accent-green)",
   };
 }
 

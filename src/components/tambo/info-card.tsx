@@ -33,9 +33,9 @@ const variantStyles = {
     iconColor: "text-red-500",
   },
   info: {
-    border: "border-blue-500/30",
+    border: "border-[var(--border-default)]",
     icon: Info,
-    iconColor: "text-blue-500",
+    iconColor: "text-[var(--text-secondary)]",
   },
 };
 

@@ -63,7 +63,7 @@ export function EditOnboardingClient({ initialData }: Props) {
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <MagneticButton
-              className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+              className="h-9 px-4 rounded-md text-sm font-medium flex items-center gap-2 transition-colors duration-200 hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] cursor-pointer"
               onClick={() => router.push("/dashboard")}
               style={{
                 border: "1px solid var(--border-default)",

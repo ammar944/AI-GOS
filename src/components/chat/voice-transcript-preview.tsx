@@ -66,7 +66,7 @@ export function VoiceTranscriptPreview({
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <Mic className="w-3 h-3" style={{ color: 'var(--accent-blue)' }} />
+          <Mic className="w-3 h-3" style={{ color: 'var(--accent-amber)' }} />
           <span
             className="text-[11px] font-medium"
             style={{ color: 'var(--text-tertiary)' }}

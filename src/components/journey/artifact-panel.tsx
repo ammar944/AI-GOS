@@ -448,10 +448,10 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-8 pb-8">
       {/* Your Ads section — client's own ads */}
       {clientAdInsight && (
-        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-4 border border-[var(--accent-blue)]/20">
+        <section className="glass-surface rounded-[var(--radius-control)] p-4 space-y-4 border border-[var(--border-default)]">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-text-primary">Your Ads</h3>
-            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]">
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
               {asNumber(clientAdInsight.activeAdCount) ?? 0} active
             </span>
           </div>
@@ -586,8 +586,8 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
 
             <SimpleList title="Strengths" items={strengths} accent="var(--accent-green)" />
             <SimpleList title="Weaknesses" items={weaknesses} accent="var(--accent-red)" />
-            <SimpleList title="Opportunities" items={opportunities} accent="var(--accent-blue)" />
-            <SimpleList title="Top Ad Hooks" items={hooks} accent="var(--accent-cyan)" />
+            <SimpleList title="Opportunities" items={opportunities} accent="var(--text-secondary)" />
+            <SimpleList title="Top Ad Hooks" items={hooks} accent="var(--text-secondary)" />
 
             {ourAdvantage && (
               <div>
@@ -620,12 +620,12 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
                 <SimpleList
                   title="Platforms"
                   items={getAdActivityPlatforms(adActivity)}
-                  accent="var(--accent-cyan)"
+                  accent="var(--text-secondary)"
                 />
                 <SimpleList
                   title="Themes"
                   items={asStringArray(adActivity.themes)}
-                  accent="var(--accent-blue)"
+                  accent="var(--text-secondary)"
                 />
                 {asString(adActivity.evidence) && (
                   <p className="text-sm leading-relaxed text-text-secondary">
@@ -686,7 +686,7 @@ function CompetitorIntelDocument({ data }: { data: Record<string, unknown> }) {
         );
       })}
 
-      <SimpleList title="Market Patterns" items={marketPatterns} accent="var(--accent-cyan)" />
+      <SimpleList title="Market Patterns" items={marketPatterns} accent="var(--text-secondary)" />
 
       {whiteSpaceGaps.length > 0 && (
         <section>
@@ -785,8 +785,8 @@ function ICPValidationDocument({ data }: { data: Record<string, unknown> }) {
         </section>
       )}
 
-      <SimpleList title="Best Channels" items={channels} accent="var(--accent-cyan)" />
-      <SimpleList title="Buying Triggers" items={triggers} accent="var(--accent-blue)" />
+      <SimpleList title="Best Channels" items={channels} accent="var(--text-secondary)" />
+      <SimpleList title="Buying Triggers" items={triggers} accent="var(--text-secondary)" />
       <SimpleList title="Core Objections" items={objections} accent="var(--accent-red)" />
       <SimpleList title="Recommendations" items={recommendations} accent="var(--accent-green)" />
     </div>
@@ -872,11 +872,11 @@ function OfferAnalysisDocument({ data }: { data: Record<string, unknown> }) {
 
       <SimpleList title="Strengths" items={strengths} accent="var(--accent-green)" />
       <SimpleList title="Weaknesses" items={weaknesses} accent="var(--accent-red)" />
-      <SimpleList title="Recommended Actions" items={actionItems} accent="var(--accent-blue)" />
+      <SimpleList title="Recommended Actions" items={actionItems} accent="var(--text-secondary)" />
       <SimpleList
         title="Messaging Recommendations"
         items={messagingRecommendations}
-        accent="var(--accent-cyan)"
+        accent="var(--text-secondary)"
       />
 
       {marketFitAssessment && (
@@ -1001,7 +1001,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
           <SimpleList
             title="Downstream Sequence"
             items={asStringArray(planningContext.downstreamSequence)}
-            accent="var(--accent-blue)"
+            accent="var(--text-secondary)"
           />
         </section>
       )}
@@ -1145,7 +1145,7 @@ function CrossAnalysisDocument({ data }: { data: Record<string, unknown> }) {
       )}
 
       <SimpleList title="Critical Success Factors" items={criticalSuccessFactors} accent="var(--accent-green)" />
-      <SimpleList title="Next Steps" items={nextSteps} accent="var(--accent-blue)" />
+      <SimpleList title="Next Steps" items={nextSteps} accent="var(--text-secondary)" />
     </div>
   );
 }
@@ -1245,7 +1245,7 @@ function MediaPlanDocument({ data }: { data: Record<string, unknown> }) {
         </section>
       )}
 
-      <SimpleList title="Launch Sequence" items={launchItems} accent="var(--accent-blue)" />
+      <SimpleList title="Launch Sequence" items={launchItems} accent="var(--text-secondary)" />
       <SimpleList title="Weekly Review" items={weeklyReview} accent="var(--accent-green)" />
     </div>
   );

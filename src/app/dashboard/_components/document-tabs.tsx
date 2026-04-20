@@ -312,7 +312,7 @@ export function DocumentTabs({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-[var(--border-default)] placeholder:text-[var(--text-quaternary)] focus:border-primary/40 focus:bg-[var(--bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-blue-glow)] transition-all"
+                className="pl-9 pr-8 h-9 text-[13px] rounded-lg bg-[var(--bg-surface)] border-[var(--border-default)] placeholder:text-[var(--text-quaternary)] focus:border-[var(--text-primary)] focus:bg-[var(--bg-hover)] transition-colors"
               />
               {searchQuery && (
                 <button

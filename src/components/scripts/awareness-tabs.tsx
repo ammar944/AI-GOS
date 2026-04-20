@@ -33,7 +33,7 @@ export function AwarenessTabs({ active, counts, total, onChange }: AwarenessTabs
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-100',
               isActive
-                ? 'bg-[var(--accent-blue)] text-white'
+                ? 'bg-[var(--bg-active)] text-[var(--text-primary)] border border-[var(--border-default)]'
                 : 'bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
             )}
           >

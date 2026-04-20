@@ -200,13 +200,13 @@ export function ShortcutsHelp({ isOpen, onClose }: ShortcutsHelpProps) {
               <div
                 className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{
-                  background: 'var(--accent-blue-subtle)',
+                  background: 'var(--bg-hover)',
                   border: '1px solid rgba(54, 94, 255, 0.2)',
                 }}
               >
                 <Keyboard
                   size={14}
-                  style={{ color: 'var(--accent-blue)' }}
+                  style={{ color: 'var(--text-secondary)' }}
                 />
               </div>
 

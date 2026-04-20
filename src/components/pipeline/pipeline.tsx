@@ -108,7 +108,7 @@ export function Pipeline({ stages, currentStageIndex, className }: PipelineProps
                   color: isComplete
                     ? "rgb(34, 197, 94)"
                     : isActive
-                      ? "var(--accent-blue)"
+                      ? "var(--text-primary)"
                       : "var(--text-tertiary)",
                   fontFamily: "var(--font-mono)",
                 }}

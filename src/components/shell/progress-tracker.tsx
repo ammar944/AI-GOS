@@ -37,19 +37,19 @@ function StageDot({ status }: StageDotProps) {
         {/* Pulsing outer ring */}
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{ background: 'var(--accent-blue)', opacity: 0.25 }}
+          style={{ background: 'var(--border-default)', opacity: 0.55 }}
           animate={{ scale: [1, 1.5, 1], opacity: [0.25, 0, 0.25] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         />
         {/* Solid ring */}
         <div
           className="absolute inset-0 rounded-full"
-          style={{ border: '2px solid var(--accent-blue)' }}
+          style={{ border: '2px solid var(--text-primary)' }}
         />
         {/* Inner dot */}
         <div
           className="rounded-full"
-          style={{ width: 6, height: 6, background: 'var(--accent-blue)' }}
+          style={{ width: 6, height: 6, background: 'var(--text-primary)' }}
         />
       </div>
     );

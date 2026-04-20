@@ -29,7 +29,7 @@ export function ResumePrompt({
         style={{
           width: '24px',
           height: '24px',
-          background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover))',
+          background: 'var(--accent-green)',
           marginTop: '1px',
         }}
         aria-hidden="true"
@@ -71,7 +71,7 @@ export function ResumePrompt({
             onClick={onContinue}
             className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all focus-ring press-scale hover:opacity-90"
             style={{
-              background: 'var(--accent-blue)',
+              background: 'var(--accent-green)',
               color: 'var(--text-white)',
               border: 'none',
               cursor: 'pointer',

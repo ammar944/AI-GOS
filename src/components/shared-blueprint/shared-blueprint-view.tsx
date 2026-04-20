@@ -43,7 +43,7 @@ export function SharedBlueprintView({
           <div className="container mx-auto px-4">
             <div className="flex h-12 items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
-                <Share2 className="h-4 w-4 text-blue-400 shrink-0" />
+                <Share2 className="h-4 w-4 text-[var(--text-secondary)] shrink-0" />
                 <h1 className="text-[var(--text-primary)] text-sm font-semibold font-[family-name:var(--font-heading)] truncate">
                   {title || "Strategic Blueprint"}
                 </h1>
@@ -77,7 +77,7 @@ export function SharedBlueprintView({
               </p>
               <a
                 href="/generate"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 hover:opacity-90 bg-gradient-to-r from-blue-600 to-blue-500 text-white ml-auto"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-opacity duration-200 hover:opacity-90 cursor-pointer bg-[var(--accent-green)] text-white ml-auto"
               >
                 Get Started
                 <ExternalLink className="h-3 w-3" />

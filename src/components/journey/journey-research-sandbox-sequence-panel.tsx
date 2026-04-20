@@ -88,7 +88,7 @@ export function JourneyResearchSandboxSequencePanel({
     <div className="rounded-[28px] border border-[var(--border-default)] bg-[rgba(8,12,20,0.82)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-cyan)]">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
             Unified observability
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">
@@ -159,7 +159,7 @@ export function JourneyResearchSandboxSequencePanel({
               className={cn(
                 'w-full rounded-2xl border px-4 py-4 text-left transition-colors',
                 isActive
-                  ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10'
+                  ? 'border-[var(--text-primary)] bg-[var(--bg-active)]'
                   : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]',
               )}
               aria-label={section.label}
@@ -197,7 +197,7 @@ export function JourneyResearchSandboxSequencePanel({
                           key={log.id}
                           className="flex items-start gap-2 text-[11px] leading-5 text-text-tertiary"
                         >
-                          <span className="font-mono uppercase text-[var(--accent-cyan)]">
+                          <span className="font-mono uppercase text-[var(--text-secondary)]">
                             {log.phase}
                           </span>
                           <span>{log.message}</span>
@@ -232,7 +232,7 @@ export function JourneyResearchSandboxSequencePanel({
       <div className="mt-5 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent-blue)]">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
               Unified persisted output
             </h3>
             <p className="mt-2 text-xs leading-5 text-text-tertiary">

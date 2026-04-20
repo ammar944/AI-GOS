@@ -18,7 +18,7 @@ export function CarouselNavigation({ total }: { total: number }) {
           className={cn(
             "h-12 w-12 rounded-full flex items-center justify-center transition-all shadow-sm",
             canScrollPrev
-              ? "bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] hover:scale-105 active:scale-95 border border-[var(--border-default)]"
+              ? "bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-default)] cursor-pointer transition-colors"
               : "bg-[var(--bg-surface)] text-[var(--text-quaternary)] cursor-not-allowed opacity-50"
           )}
           aria-label="Previous ad"
@@ -44,7 +44,7 @@ export function CarouselNavigation({ total }: { total: number }) {
           className={cn(
             "h-12 w-12 rounded-full flex items-center justify-center transition-all shadow-sm",
             canScrollNext
-              ? "bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] hover:scale-105 active:scale-95 border border-[var(--border-default)]"
+              ? "bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-default)] cursor-pointer transition-colors"
               : "bg-[var(--bg-surface)] text-[var(--text-quaternary)] cursor-not-allowed opacity-50"
           )}
           aria-label="Next ad"

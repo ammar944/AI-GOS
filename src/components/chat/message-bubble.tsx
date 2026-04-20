@@ -541,7 +541,7 @@ export function MessageBubble({
       {/* Avatar */}
       <div
         className="flex-shrink-0 w-6 h-6 rounded-[7px] flex items-center justify-center mt-0.5"
-        style={{ background: "linear-gradient(135deg, var(--accent-blue), #006fff)" }}
+        style={{ background: "var(--accent-green)" }}
       >
         <Sparkles className="w-3 h-3" style={{ color: "#ffffff" }} />
       </div>

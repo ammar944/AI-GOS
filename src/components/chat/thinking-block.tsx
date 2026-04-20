@@ -63,7 +63,7 @@ export function ThinkingBlock({
   return (
     <div
       style={{
-        borderLeft: "2px solid var(--accent-blue, rgb(54, 94, 255))",
+        borderLeft: "2px solid var(--border-default)",
         paddingLeft: "12px",
         margin: "8px 0",
       }}
@@ -87,7 +87,7 @@ export function ThinkingBlock({
             <ChevronRight
               className="w-3 h-3"
               style={{
-                color: "var(--accent-blue, rgb(54, 94, 255))",
+                color: "var(--text-secondary)",
                 transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
                 transition: "transform 0.2s ease",
               }}
@@ -106,7 +106,7 @@ export function ThinkingBlock({
         <span
           style={{
             fontSize: "11.5px",
-            color: state === 'streaming' ? "var(--accent-blue, rgb(54, 94, 255))" : "var(--text-tertiary, #666666)",
+            color: state === 'streaming' ? "var(--accent-amber)" : "var(--text-tertiary, #666666)",
           }}
         >
           {label}

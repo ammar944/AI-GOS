@@ -85,13 +85,13 @@ export function ProfileDropdown({ onSelect }: ProfileDropdownProps) {
           'w-full cursor-pointer rounded-lg border px-4 py-3 text-left transition-colors',
           'flex items-center justify-between',
           open
-            ? 'border-[var(--accent-blue)] bg-[var(--bg-surface)]'
+            ? 'border-[var(--text-primary)] bg-[var(--bg-surface)]'
             : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--border-hover)]',
         )}
       >
         {selected ? (
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] text-xs font-bold shrink-0">
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] text-xs font-bold shrink-0">
               {selected.companyName?.[0]?.toUpperCase() ?? 'B'}
             </span>
             <div className="min-w-0">
@@ -132,7 +132,7 @@ export function ProfileDropdown({ onSelect }: ProfileDropdownProps) {
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] text-[10px] font-bold shrink-0">
+                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-subtle)] text-[10px] font-bold shrink-0">
                   {p.companyName?.[0]?.toUpperCase() ?? 'B'}
                 </span>
                 <div className="min-w-0">
@@ -145,7 +145,7 @@ export function ProfileDropdown({ onSelect }: ProfileDropdownProps) {
                 </div>
               </div>
               {selected?.id === p.id && (
-                <span className="text-[var(--accent-blue)] text-xs shrink-0">&#10003;</span>
+                <span className="text-[var(--accent-green)] text-xs shrink-0">&#10003;</span>
               )}
             </button>
           ))}

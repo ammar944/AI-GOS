@@ -85,7 +85,7 @@ export function StyleRefsTab({ profileId, initialRefs, initialProofPoints, initi
             className={cn(
               'px-5 py-2.5 text-[13px] font-medium transition-colors border-b-2',
               activeTab === tab.id
-                ? 'text-[var(--text-primary)] border-[var(--accent-blue)]'
+                ? 'text-[var(--text-primary)] border-[var(--text-primary)]'
                 : 'text-[var(--text-muted)] border-transparent hover:text-[var(--text-secondary)]',
             )}
           >

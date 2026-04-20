@@ -118,7 +118,7 @@ function Chip({
         border: isOther
           ? '1.5px dashed var(--border-default)'
           : isSelected
-            ? '1.5px solid var(--accent-blue)'
+            ? '1.5px solid var(--text-primary)'
             : '1px solid var(--border-default)',
         color: isOther && !isSelected
           ? 'var(--text-tertiary)'
@@ -139,9 +139,9 @@ function Chip({
             className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center transition-colors"
             style={{
               border: isSelected
-                ? '1.5px solid var(--accent-blue)'
+                ? '1.5px solid var(--text-primary)'
                 : '1.5px solid var(--border-default)',
-              background: isSelected ? 'var(--accent-blue)' : 'transparent',
+              background: isSelected ? 'var(--text-primary)' : 'transparent',
             }}
           >
             {isSelected && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
@@ -171,7 +171,7 @@ function Chip({
             animate={{ scale: 1 }}
             transition={springs.snappy}
             className="flex-shrink-0 w-2 h-2 rounded-full"
-            style={{ background: 'var(--accent-blue)' }}
+            style={{ background: 'var(--text-primary)' }}
           />
         )}
       </div>
@@ -229,7 +229,7 @@ function OtherInput({ onSubmit, isPill, isDisabled }: OtherInputProps) {
         style={{
           borderRadius: isPill ? '999px' : '12px',
           background: 'var(--bg-input)',
-          border: '1.5px solid var(--accent-blue)',
+          border: '1.5px solid var(--text-primary)',
           padding: '6px 12px',
         }}
       >
@@ -250,7 +250,7 @@ function OtherInput({ onSubmit, isPill, isDisabled }: OtherInputProps) {
           disabled={isDisabled || !text.trim()}
           className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-opacity disabled:opacity-30 focus-ring"
           style={{
-            background: 'var(--accent-blue)',
+            background: 'var(--accent-green)',
             color: 'var(--text-white)',
           }}
         >
@@ -501,7 +501,7 @@ export function AskUserCard({
               onClick={handleMultiDone}
               className="px-5 py-1.5 rounded-full text-sm font-medium transition-all hover:brightness-110 focus-ring"
               style={{
-                background: 'var(--accent-blue)',
+                background: 'var(--accent-green)',
                 color: 'var(--text-white)',
               }}
             >

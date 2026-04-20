@@ -163,7 +163,7 @@ export function GateControls({
             <Button
               type="submit"
               disabled={isSending || input.trim().length === 0}
-              className="bg-blue-600 text-white hover:bg-blue-500"
+              className="bg-[var(--accent-green)] text-white hover:opacity-90 cursor-pointer"
             >
               <Send className="h-4 w-4" />
               Send

@@ -533,7 +533,7 @@ export function MediaPlanAgentChat({
                   <div className="p-3 space-y-1.5" style={{ background: 'var(--bg-surface)' }}>
                     <div
                       className="text-[10px] font-medium uppercase tracking-wider"
-                      style={{ color: 'var(--accent-blue)' }}
+                      style={{ color: 'var(--text-secondary)' }}
                     >
                       Proposed
                     </div>
@@ -799,7 +799,7 @@ export function MediaPlanAgentChat({
                 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{
                   background: input.trim() && !isLoading
-                    ? 'var(--accent-blue)'
+                    ? 'var(--text-primary)'
                     : 'transparent',
                   color: input.trim() && !isLoading ? '#ffffff' : 'var(--text-quaternary)',
                   opacity: !input.trim() || isLoading ? 0.4 : 1,
