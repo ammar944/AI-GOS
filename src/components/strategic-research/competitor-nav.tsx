@@ -158,7 +158,7 @@ export function CompetitorTabStrip({
               className={cn(
                 "group relative flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs rounded-md cursor-pointer",
                 "transition-all duration-150",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-blue)]",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--text-primary)]",
                 isActive
                   ? "text-[#fbbf24] font-medium"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-heading)]"
@@ -263,7 +263,7 @@ export function CompetitorFooterNav({
     "text-[var(--text-secondary)] hover:text-[var(--text-heading)]",
     "transition-all duration-150",
     "hover:bg-[rgba(255,255,255,0.06)]",
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
   );
 
   return (

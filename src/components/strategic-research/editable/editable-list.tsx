@@ -98,15 +98,15 @@ export function EditableList({
         onClick={handleAddItem}
         className="h-7 px-2 mt-1 transition-colors"
         style={{
-          color: 'var(--accent-blue)',
+          color: 'var(--text-secondary)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'var(--accent-blue-subtle)';
-          e.currentTarget.style.color = 'var(--accent-blue-hover)';
+          e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+          e.currentTarget.style.color = 'var(--text-primary)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.color = 'var(--accent-blue)';
+          e.currentTarget.style.color = 'var(--text-secondary)';
         }}
       >
         <Plus className="h-3 w-3 mr-1" />

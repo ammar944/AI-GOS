@@ -75,7 +75,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
         isLowRelevance
           ? "ring-2 ring-amber-500/50"
           : hasEnrichment
-            ? "ring-1 ring-[var(--accent-blue)]/30"
+            ? "ring-1 ring-[var(--text-secondary)]/30"
             : "ring-1 ring-[var(--border-default)]"
       )}
       style={{
@@ -203,7 +203,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
         {hasEnrichment && (
           <div
             className="absolute bottom-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-md shadow-lg"
-            style={{ backgroundColor: 'var(--accent-blue)' }}
+            style={{ backgroundColor: 'var(--text-secondary)' }}
             title="Foreplay Enriched"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -273,12 +273,12 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
               <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {hasEnrichment ? (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2">
                       <path d="M12 2L2 7l10 5 10-5-10-5z" />
                       <path d="m2 17 10 5 10-5" />
                       <path d="m2 12 10 5 10-5" />
                     </svg>
-                    <span style={{ color: 'var(--accent-blue)' }}>View Intelligence & Details</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>View Intelligence & Details</span>
                   </>
                 ) : (
                   'View Details'
@@ -332,7 +332,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
                     className="p-4 rounded-xl"
                     style={{ backgroundColor: 'rgba(54, 94, 255, 0.05)' }}
                   >
-                    <p className="text-xs font-medium mb-3" style={{ color: 'var(--accent-blue)' }}>
+                    <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
                       Foreplay Intelligence
                     </p>
 
@@ -344,7 +344,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
                           &ldquo;{ad.foreplay.hook.text}&rdquo;
                         </p>
                         <div className="flex gap-2">
-                          <span className="px-2.5 py-1 rounded-md text-xs font-medium" style={{ backgroundColor: 'var(--accent-blue)', color: 'white' }}>
+                          <span className="px-2.5 py-1 rounded-md text-xs font-medium" style={{ backgroundColor: 'var(--text-secondary)', color: 'white' }}>
                             {ad.foreplay.hook.type}
                           </span>
                           <span
@@ -366,7 +366,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
                             <span
                               key={i}
                               className="px-2.5 py-1 rounded-full text-xs font-medium"
-                              style={{ backgroundColor: 'var(--accent-cyan)', color: 'white' }}
+                              style={{ backgroundColor: 'var(--text-primary)', color: 'white' }}
                             >
                               {tone}
                             </span>
@@ -417,7 +417,7 @@ export function AdCreativeCard({ ad }: AdCreativeCardProps) {
               size="lg"
               className="flex-1 text-sm h-11"
               style={{
-                backgroundColor: 'var(--accent-blue)',
+                backgroundColor: 'var(--text-secondary)',
                 color: 'white'
               }}
             >

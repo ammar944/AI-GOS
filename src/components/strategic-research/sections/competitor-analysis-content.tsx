@@ -1125,7 +1125,7 @@ export function CompetitorAnalysisContent({
                 const typeConfig: Record<string, { text: string }> = {
                   messaging: { text: "text-emerald-400/70" },
                   feature: { text: "text-[#f59e0b]/70" },
-                  audience: { text: "text-violet-400/70" },
+                  audience: { text: "text-[var(--text-tertiary)]" },
                   channel: { text: "text-amber-400/70" },
                 };
                 const config =
@@ -1269,7 +1269,7 @@ export function CompetitorAnalysisContent({
                 )}
               </div>
               <div className="pt-3">
-                <h4 className="mb-2 font-medium text-violet-400/70">
+                <h4 className="mb-2 font-medium text-[var(--text-tertiary)]">
                   Funnel Opportunities
                 </h4>
                 {isEditing && onFieldChange ? (

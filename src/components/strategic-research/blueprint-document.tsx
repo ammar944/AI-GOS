@@ -328,7 +328,7 @@ export function BlueprintDocument({
                 "opacity-0 group-hover:opacity-80 hover:!opacity-100",
                 "transition-all duration-200",
                 "hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
               )}
               aria-label="Previous section"
             >
@@ -381,7 +381,7 @@ export function BlueprintDocument({
                 "opacity-0 group-hover:opacity-80 hover:!opacity-100",
                 "transition-all duration-200",
                 "hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
               )}
               aria-label="Next section"
             >

@@ -296,10 +296,10 @@ export function StrategicResearchReview({
       <Card
         style={{
           background: 'var(--bg-surface)',
-          borderColor: 'var(--accent-blue)',
+          borderColor: 'var(--text-primary)',
           borderWidth: '1px',
         }}
-        className="shadow-[0_0_30px_var(--accent-blue-glow)]"
+        className="shadow-[0_0_30px_transparent]"
       >
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -344,7 +344,7 @@ export function StrategicResearchReview({
                     fontFamily: 'var(--font-mono), "JetBrains Mono", monospace',
                   }}
                 >
-                  <span style={{ color: 'var(--accent-blue)' }}>{reviewedSections.size}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{reviewedSections.size}</span>
                   <span style={{ color: 'var(--text-heading)' }}> of 5 reviewed</span>
                 </div>
               </div>
@@ -362,7 +362,7 @@ export function StrategicResearchReview({
                 style={{
                   width: `${reviewProgress}%`,
                   background: 'var(--gradient-primary)',
-                  boxShadow: '0 0 10px var(--accent-blue-glow)',
+                  boxShadow: '0 0 10px transparent',
                 }}
               />
             </div>
@@ -417,7 +417,7 @@ export function StrategicResearchReview({
                     <span
                       className="font-medium"
                       style={{
-                        color: 'var(--accent-blue)',
+                        color: 'var(--text-primary)',
                         fontFamily: 'var(--font-mono), "JetBrains Mono", monospace'
                       }}
                     >
@@ -533,7 +533,7 @@ export function StrategicResearchReview({
                   size="sm"
                   onClick={handleApprove}
                   disabled={!allReviewed}
-                  className="h-9 sm:h-8 gap-1.5 rounded-full shadow-[0_0_20px_var(--accent-blue-glow)]"
+                  className="h-9 sm:h-8 gap-1.5 rounded-full shadow-[0_0_20px_transparent]"
                   style={{
                     background: allReviewed
                       ? 'var(--gradient-primary)'

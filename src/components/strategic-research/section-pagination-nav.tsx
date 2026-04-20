@@ -84,17 +84,17 @@ export function SectionPaginationNav({
                   <TooltipTrigger asChild>
                     <motion.button
                       onClick={() => onGoToPage(i)}
-                      className="relative flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]"
+                      className="relative flex items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
                       style={{
                         width: isActive ? 24 : 8,
                         height: 8,
                         background: isActive
-                          ? "var(--accent-blue)"
+                          ? "var(--text-primary)"
                           : isReviewed
                             ? "var(--success)"
                             : "var(--border-default)",
                         boxShadow: isActive
-                          ? "0 0 10px var(--accent-blue-glow)"
+                          ? "0 0 10px transparent"
                           : "none",
                         opacity: isActive ? 1 : isReviewed ? 0.9 : 0.5,
                       }}

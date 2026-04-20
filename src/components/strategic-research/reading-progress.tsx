@@ -36,7 +36,7 @@ export function ReadingProgress() {
         style={{
           width: `${progress}%`,
           background: 'var(--gradient-primary)',
-          boxShadow: '0 0 10px var(--accent-blue-glow)'
+          boxShadow: '0 0 10px transparent'
         }}
       />
     </div>

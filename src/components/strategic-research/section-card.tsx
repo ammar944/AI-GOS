@@ -77,10 +77,10 @@ export function SectionCard({
         isReviewed
           ? "border-[var(--success)]"
           : isEditing
-          ? "border-[var(--accent-blue)]"
+          ? "border-[var(--text-primary)]"
           : "border-[var(--border-default)]",
         isReviewed && "shadow-[0_0_20px_rgba(34,197,94,0.1)]",
-        isEditing && "shadow-[0_0_20px_var(--accent-blue-glow)] ring-1 ring-[var(--accent-blue)]/20"
+        isEditing && "shadow-[0_0_20px_transparent] ring-1 ring-[var(--text-primary)]/20"
       )}
     >
       <CardHeader className="pb-0">
@@ -101,7 +101,7 @@ export function SectionCard({
             {/* Section icon */}
             <div
               className="flex items-center gap-2"
-              style={{ color: isReviewed ? 'var(--success)' : 'var(--accent-blue)' }}
+              style={{ color: isReviewed ? 'var(--success)' : 'var(--text-primary)' }}
             >
               {sectionIcon}
             </div>
@@ -129,9 +129,9 @@ export function SectionCard({
                 variant="outline"
                 className="gap-1"
                 style={{
-                  borderColor: 'var(--accent-blue)',
-                  color: 'var(--accent-blue)',
-                  background: 'var(--accent-blue-subtle)',
+                  borderColor: 'var(--text-primary)',
+                  color: 'var(--text-primary)',
+                  background: 'var(--bg-hover)',
                   fontFamily: 'var(--font-sans), Inter, sans-serif',
                 }}
               >
@@ -163,8 +163,8 @@ export function SectionCard({
                 onClick={onToggleEdit}
                 className={cn(
                   "gap-1.5 transition-all duration-200",
-                  isEditing && "shadow-[0_0_20px_color-mix(in_srgb,var(--accent-blue)_30%,transparent)]",
-                  !isEditing && "hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+                  isEditing && "shadow-[0_0_20px_color-mix(in_srgb,var(--text-primary)_30%,transparent)]",
+                  !isEditing && "hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]"
                 )}
                 style={isEditing ? {
                   background: 'var(--gradient-primary)',

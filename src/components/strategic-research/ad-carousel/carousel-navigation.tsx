@@ -59,7 +59,7 @@ export function CarouselNavigation({ total }: { total: number }) {
           className="h-full rounded-full transition-all duration-300 ease-out"
           style={{
             width: `${((selectedIndex + 1) / total) * 100}%`,
-            backgroundColor: 'var(--accent-blue)'
+            backgroundColor: 'var(--text-primary)'
           }}
         />
       </div>

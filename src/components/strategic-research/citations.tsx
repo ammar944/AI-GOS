@@ -65,7 +65,7 @@ export function CitationBadge({ count }: CitationBadgeProps) {
   return (
     <Badge
       variant="outline"
-      className="gap-1 rounded-full border-[var(--border-subtle)] bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]"
+      className="gap-1 rounded-full border-[var(--border-subtle)] bg-[var(--bg-hover)] text-[var(--text-secondary)]"
       style={{
         fontFamily: 'var(--font-sans), Inter, sans-serif',
       }}
@@ -104,10 +104,10 @@ export function SourcedText({ children, className }: SourcedTextProps) {
               "decoration-dotted underline underline-offset-2",
               className
             )}
-            style={{ textDecorationColor: 'color-mix(in srgb, var(--accent-blue) 40%, transparent)' }}
+            style={{ textDecorationColor: 'color-mix(in srgb, var(--text-secondary) 40%, transparent)' }}
           >
             {renderWithSubscripts(children)}
-            <Globe className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent-blue)' }} />
+            <Globe className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--text-secondary)' }} />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
@@ -133,7 +133,7 @@ export function SourcedListItem({ children, className }: SourcedTextProps) {
               "cursor-help border-b border-dotted",
               className
             )}
-            style={{ borderColor: 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' }}
+            style={{ borderColor: 'color-mix(in srgb, var(--text-secondary) 30%, transparent)' }}
           >
             {renderWithSubscripts(children)}
           </span>
@@ -225,7 +225,7 @@ export function SourcesList({ citations, sectionLabel }: SourcesListProps) {
                 href={citation.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-start gap-2 text-sm font-medium text-[var(--text-primary)] transition-colors duration-200 hover:text-[var(--accent-blue)]"
+                className="group flex items-start gap-2 text-sm font-medium text-[var(--text-primary)] transition-colors duration-200 hover:text-[var(--text-secondary)]"
                 style={{
                   fontFamily: 'var(--font-sans), Inter, sans-serif',
                 }}

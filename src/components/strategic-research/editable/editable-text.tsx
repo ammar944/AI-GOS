@@ -91,18 +91,18 @@ export function EditableText({
           className
         )}
         style={{
-          borderBottomColor: value ? 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' : 'var(--border-default)',
+          borderBottomColor: value ? 'color-mix(in srgb, var(--text-primary) 30%, transparent)' : 'var(--border-default)',
           color: value ? 'inherit' : 'var(--text-tertiary)',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
           e.currentTarget.style.borderBottomStyle = 'solid';
-          e.currentTarget.style.borderBottomColor = 'var(--accent-blue)';
+          e.currentTarget.style.borderBottomColor = 'var(--text-primary)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.borderBottomStyle = 'dashed';
-          e.currentTarget.style.borderBottomColor = value ? 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' : 'var(--border-default)';
+          e.currentTarget.style.borderBottomColor = value ? 'color-mix(in srgb, var(--text-primary) 30%, transparent)' : 'var(--border-default)';
         }}
         role="button"
         tabIndex={0}
@@ -115,13 +115,13 @@ export function EditableText({
         onFocus={(e) => {
           e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
           e.currentTarget.style.borderBottomStyle = 'solid';
-          e.currentTarget.style.borderBottomColor = 'var(--accent-blue)';
+          e.currentTarget.style.borderBottomColor = 'var(--text-primary)';
           e.currentTarget.style.outline = 'none';
         }}
         onBlur={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.borderBottomStyle = 'dashed';
-          e.currentTarget.style.borderBottomColor = value ? 'color-mix(in srgb, var(--accent-blue) 30%, transparent)' : 'var(--border-default)';
+          e.currentTarget.style.borderBottomColor = value ? 'color-mix(in srgb, var(--text-primary) 30%, transparent)' : 'var(--border-default)';
         }}
       >
         {value || placeholder}
@@ -149,8 +149,8 @@ export function EditableText({
             color: 'var(--text-heading)',
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-blue)';
-            e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--accent-blue) 20%, transparent)';
+            e.currentTarget.style.borderColor = 'var(--text-primary)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--text-primary) 20%, transparent)';
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = 'var(--border-default)';
@@ -172,8 +172,8 @@ export function EditableText({
             color: 'var(--text-heading)',
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-blue)';
-            e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--accent-blue) 20%, transparent)';
+            e.currentTarget.style.borderColor = 'var(--text-primary)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--text-primary) 20%, transparent)';
             e.currentTarget.style.outline = 'none';
           }}
           onBlur={(e) => {
@@ -190,15 +190,15 @@ export function EditableText({
         className="h-7 w-7 shrink-0 transition-colors"
         aria-label="Save"
         style={{
-          color: 'var(--accent-blue)',
+          color: 'var(--text-primary)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'var(--accent-blue-subtle)';
-          e.currentTarget.style.color = 'var(--accent-blue-hover)';
+          e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+          e.currentTarget.style.color = 'var(--text-primary)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.color = 'var(--accent-blue)';
+          e.currentTarget.style.color = 'var(--text-primary)';
         }}
       >
         <Check className="h-4 w-4" />

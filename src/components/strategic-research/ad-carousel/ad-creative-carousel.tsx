@@ -194,7 +194,7 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                       isActive
-                        ? "bg-[var(--accent-blue)] text-white shadow-sm"
+                        ? "bg-[var(--text-primary)] text-white shadow-sm"
                         : "bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                     )}
                   >
@@ -214,7 +214,7 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
                 const count = level === 'all' ? ads.length : relevanceCounts[level];
                 const colorClass = level === 'high' ? 'bg-green-600' :
                                   level === 'medium' ? 'bg-amber-600' :
-                                  level === 'low' ? 'bg-red-600' : 'bg-[var(--accent-blue)]';
+                                  level === 'low' ? 'bg-red-600' : 'bg-[var(--text-primary)]';
                 return (
                   <button
                     key={level}
@@ -251,7 +251,7 @@ export function AdCreativeCarousel({ ads, className }: AdCreativeCarouselProps) 
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                       isActive
-                        ? cn(key === 'all' ? 'bg-[var(--accent-blue)]' : colorClass, "text-white shadow-sm")
+                        ? cn(key === 'all' ? 'bg-[var(--text-primary)]' : colorClass, "text-white shadow-sm")
                         : "bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                     )}
                   >
