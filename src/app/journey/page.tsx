@@ -2536,6 +2536,36 @@ function PrefillReviewView({
 
   const canStartResearch = missingManualBlockers.length === 0;
 
+  // First pricing-group field when the group is unsatisfied — acts as the
+  // single "Required" anchor in the UI so visible Required pills match the
+  // `missingManualBlockers` count (group counts as 1 slot, not N).
+  const pricingAnchorKey = useMemo<string | null>(() => {
+    if (pricingContextReady) return null;
+    const first = JOURNEY_MANUAL_BLOCKER_FIELDS.find(
+      (f) => f.requiredGroup === 'pricingContext',
+    );
+    return first?.key ?? null;
+  }, [pricingContextReady]);
+
+  const handleJumpToFirstMissing = useCallback(() => {
+    for (const field of JOURNEY_MANUAL_BLOCKER_FIELDS) {
+      const isMissing = field.requiredGroup === 'pricingContext'
+        ? field.key === pricingAnchorKey
+        : Boolean(field.required && !(resolvedManualFieldValues[field.key] ?? '').trim());
+      if (!isMissing) continue;
+
+      const key = field.key;
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-field-key="${key}"]`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const input = el.querySelector<HTMLElement>('input, textarea');
+        input?.focus();
+      });
+      return;
+    }
+  }, [pricingAnchorKey, resolvedManualFieldValues]);
+
   return (
     <section
       data-testid="prefill-review"
@@ -2612,32 +2642,34 @@ function PrefillReviewView({
           </div>
 
           {/* Status banner */}
-          <div
-            className={cn(
-              'rounded-xl border px-4 py-3',
-              canStartResearch
-                ? 'border-emerald-500/20 bg-emerald-500/[0.06]'
-                : 'border-amber-500/20 bg-amber-500/[0.06]',
-            )}
-          >
-            <p className={cn('text-sm font-medium', canStartResearch ? 'text-emerald-300' : 'text-amber-300')}>
-              {canStartResearch
-                ? 'Ready to start research.'
-                : `${missingManualBlockers.length} required field${missingManualBlockers.length > 1 ? 's' : ''} missing`}
-            </p>
-            {!canStartResearch && (
+          {canStartResearch ? (
+            <div className="rounded-xl border px-4 py-3 border-emerald-500/20 bg-emerald-500/[0.06]">
+              <p className="text-sm font-medium text-emerald-300">
+                Ready to start research.
+              </p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleJumpToFirstMissing}
+              title="Jump to first missing required field"
+              className="w-full text-left rounded-xl border px-4 py-3 border-amber-500/20 bg-amber-500/[0.06] hover:bg-amber-500/[0.1] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+            >
+              <p className="text-sm font-medium text-amber-300 underline decoration-dotted underline-offset-2">
+                {missingManualBlockers.length} required field{missingManualBlockers.length > 1 ? 's' : ''} missing
+              </p>
               <p className="mt-1 text-xs text-[var(--text-tertiary)]">
                 {missingManualBlockers.join(' · ')}
               </p>
-            )}
-          </div>
+            </button>
+          )}
 
           {/* Manual fields */}
           <div className="grid gap-3">
             {JOURNEY_MANUAL_BLOCKER_FIELDS.map((field) => {
               const value = resolvedManualFieldValues[field.key] ?? '';
               const isMissing = field.requiredGroup === 'pricingContext'
-                ? !pricingContextReady
+                ? field.key === pricingAnchorKey
                 : Boolean(field.required && !value.trim());
               const extractedValue = readJourneyPrefillFieldValue(
                 partialResult as Record<string, unknown>,
@@ -2654,6 +2686,7 @@ function PrefillReviewView({
                       : 'border-[var(--border-default)] bg-[var(--bg-surface)]',
                   )}
                   data-testid={`manual-blocker-${field.key}`}
+                  data-field-key={field.key}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-tertiary)]">

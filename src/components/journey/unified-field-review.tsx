@@ -241,6 +241,23 @@ export function UnifiedFieldReview({
     );
   }, [extractedFields]);
 
+  // Pricing "anchor": the single pricing field that represents the pricing-group
+  // requirement visually. Only this field gets the "Required" pill when the
+  // pricing group is unsatisfied, so the visible count matches gateStatus.
+  // When any pricing field is filled, no anchor is needed.
+  const pricingAnchorKey = useMemo<string | null>(() => {
+    const anyFilled = Array.from(JOURNEY_PRICING_GROUP_KEYS).some(
+      (k) => fieldValues[k]?.trim(),
+    );
+    if (anyFilled) return null;
+    for (const group of JOURNEY_FIELD_GROUPS) {
+      for (const key of group.fieldKeys) {
+        if (JOURNEY_PRICING_GROUP_KEYS.has(key)) return key;
+      }
+    }
+    return null;
+  }, [fieldValues]);
+
   // Gate logic — all required fields must be filled
   const gateStatus = useMemo(() => {
     const missing: string[] = [];
@@ -283,6 +300,38 @@ export function UnifiedFieldReview({
   const handleFieldChange = useCallback((key: string, value: string) => {
     setUserEdits((prev) => ({ ...prev, [key]: value }));
   }, []);
+
+  const handleJumpToFirstMissing = useCallback(() => {
+    let targetKey: string | null = null;
+    let targetGroupIndex = 0;
+
+    for (let i = 0; i < JOURNEY_FIELD_GROUPS.length; i++) {
+      const group = JOURNEY_FIELD_GROUPS[i];
+      for (const key of group.fieldKeys) {
+        const isAnchor = key === pricingAnchorKey;
+        const isIndividuallyRequired = JOURNEY_REQUIRED_FIELD_KEYS.has(key);
+        if (!isIndividuallyRequired && !isAnchor) continue;
+        if (!fieldValues[key]?.trim()) {
+          targetKey = key;
+          targetGroupIndex = i;
+          break;
+        }
+      }
+      if (targetKey) break;
+    }
+
+    if (!targetKey) return;
+    const key = targetKey;
+
+    setActiveGroupIndex(targetGroupIndex);
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-field-key="${key}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = el.querySelector<HTMLElement>('input, textarea');
+      input?.focus();
+    });
+  }, [fieldValues, pricingAnchorKey]);
 
   const handleStart = useCallback(async () => {
     if (!gateStatus.ready || isStarting) return;
@@ -532,7 +581,8 @@ export function UnifiedFieldReview({
               <div className="px-5 pb-4 space-y-1.5">
                 {activeGroup.fieldKeys.map((key, i) => {
                   const fieldLabel = JOURNEY_FIELD_LABELS[key] || key;
-                  const isRequired = JOURNEY_REQUIRED_FIELD_KEYS.has(key) || JOURNEY_PRICING_GROUP_KEYS.has(key);
+                  const isRequired =
+                    JOURNEY_REQUIRED_FIELD_KEYS.has(key) || key === pricingAnchorKey;
                   const isScraped = scrapedKeys.has(key);
                   const isMultiline = JOURNEY_MULTILINE_FIELDS.has(key);
                   const blockerMeta = getManualBlockerMeta(key);
@@ -898,10 +948,17 @@ export function UnifiedFieldReview({
                 Profile complete
               </p>
             ) : (
-              <p className="text-[13px] flex items-center gap-2 text-amber-400">
+              <button
+                type="button"
+                onClick={handleJumpToFirstMissing}
+                className="text-[13px] flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-colors cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
+                title="Jump to first missing required field"
+              >
                 <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                {gateStatus.missing.length} required field{gateStatus.missing.length !== 1 ? 's' : ''} remaining
-              </p>
+                <span className="underline decoration-dotted underline-offset-2">
+                  {gateStatus.missing.length} required field{gateStatus.missing.length !== 1 ? 's' : ''} remaining
+                </span>
+              </button>
             )}
           </div>
 

@@ -58,8 +58,11 @@ export function FieldCard({
     'caret-[var(--text-primary)]',
   );
 
+  const filled = value.trim().length > 0;
+
   return (
     <div
+      data-field-key={fieldKey}
       className={cn(
         'group relative rounded-xl transition-all duration-200',
         focused
@@ -79,24 +82,45 @@ export function FieldCard({
         </label>
 
         <div className="flex items-center gap-1.5 ml-auto">
-          {isRequired && (
+          {isRequired ? (
             <span
               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider"
               style={{
-                color: value.trim() ? 'var(--accent-green)' : 'var(--accent-amber)',
-                background: value.trim() ? 'rgba(34, 197, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-                border: `1px solid ${value.trim() ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)'}`,
+                color: filled ? 'var(--accent-green)' : 'var(--accent-amber)',
+                background: filled ? 'rgba(34, 197, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                border: `1px solid ${filled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)'}`,
               }}
             >
               <span
                 className="w-1 h-1 rounded-full"
-                style={{ background: value.trim() ? 'var(--accent-green)' : 'var(--accent-amber)' }}
+                style={{ background: filled ? 'var(--accent-green)' : 'var(--accent-amber)' }}
               />
-              {value.trim() ? 'Done' : 'Required'}
+              {filled ? 'Done' : 'Required'}
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider"
+              style={{
+                color: filled ? 'var(--text-tertiary)' : 'var(--text-quaternary)',
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              {filled ? (
+                <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <span
+                  className="w-1 h-1 rounded-full"
+                  style={{ background: 'var(--text-quaternary)' }}
+                />
+              )}
+              {filled ? 'Filled' : 'Optional'}
             </span>
           )}
 
-          {isScraped && value.trim() && (
+          {isScraped && filled && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider"
               style={{
