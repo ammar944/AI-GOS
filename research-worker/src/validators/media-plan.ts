@@ -144,6 +144,99 @@ export function validateBudgetMath(
 }
 
 /**
+ * Validates the strategicFrame on channelMixBudget (added 2026-04-20).
+ * Enforces:
+ *  - inMarketTierMix percentages sum to 100 (±1 rounding tolerance)
+ *  - Budget-gated tier allocation per in-market-tier-routing.md:
+ *      <$2k  → must be 100/0/0 (single-tier discipline)
+ *      <$5k  → coldMass must be 0 (no cold-mass budget below multi-platform gate)
+ *      <$15k → coldMass capped at ~15% (same spirit as the 70/20/10 rule)
+ *  - Awareness-level × tier-mix coherence (flag but do not block)
+ *
+ * Non-mutating: returns warnings only. The runner retries block 1 on a
+ * schema/warning budget breach (see generateBlock retry loop in media-plan.ts).
+ */
+export function validateStrategicFrame(
+  data: ChannelMixBudget,
+): { warnings: string[] } {
+  const warnings: string[] = [];
+  const frame = data.strategicFrame;
+  if (!frame) {
+    warnings.push('strategicFrame missing from channelMixBudget output.');
+    return { warnings };
+  }
+
+  // Rule 1: tier percentages sum to 100
+  const tierSum =
+    frame.inMarketTierMix.inMarket +
+    frame.inMarketTierMix.needsConvinced +
+    frame.inMarketTierMix.coldMass;
+  if (!withinAbsolute(tierSum, 100, 1)) {
+    warnings.push(
+      `strategicFrame.inMarketTierMix percentages sum to ${tierSum.toFixed(1)}, expected 100 (±1).`,
+    );
+  }
+
+  // Rule 2: budget-gated allocation (in-market-tier-routing.md table)
+  const totalMonthly = data.budgetSummary?.totalMonthly ?? 0;
+  const { inMarket, needsConvinced, coldMass } = frame.inMarketTierMix;
+  if (totalMonthly < 2000) {
+    if (inMarket < 99 || needsConvinced > 1 || coldMass > 1) {
+      warnings.push(
+        `Budget gate violated: totalMonthly=$${totalMonthly} requires 100/0/0 tier mix (single-tier discipline). Got ${inMarket}/${needsConvinced}/${coldMass}. See in-market-tier-routing.md.`,
+      );
+    }
+  } else if (totalMonthly < 5000) {
+    if (coldMass > 1) {
+      warnings.push(
+        `Budget gate violated: totalMonthly=$${totalMonthly} forbids cold-mass allocation (coldMass must be 0 under $5k). Got coldMass=${coldMass}. See in-market-tier-routing.md.`,
+      );
+    }
+  } else if (totalMonthly < 15000) {
+    if (coldMass > 15) {
+      warnings.push(
+        `Budget gate violated: totalMonthly=$${totalMonthly} caps cold-mass at 15%. Got coldMass=${coldMass}. Concentrate in-market first per Haynes.`,
+      );
+    }
+  }
+
+  // Rule 3: equal-splits are Haynes-forbidden (concentration, not diversification)
+  if (totalMonthly >= 5000) {
+    const approxEqual =
+      withinAbsolute(inMarket, 33.3, 3) &&
+      withinAbsolute(needsConvinced, 33.3, 3) &&
+      withinAbsolute(coldMass, 33.3, 3);
+    if (approxEqual) {
+      warnings.push(
+        'Equal-split tier mix (33/33/33) violates Haynes concentration principle. Master in-market first, then expand outward.',
+      );
+    }
+  }
+
+  // Rule 4: awareness-level coherence (warn-only; some mixes are legitimate with rationale)
+  const level = frame.awarenessLevelApplied;
+  if (level === 'unaware' && totalMonthly < 5000 && coldMass > 0) {
+    warnings.push(
+      `Unaware market × under-$5k budget × coldMass>0: incoherent. Budget gate caps tier mix but awareness classification calls for cold-mass. Flag in funnelSplitRationale.`,
+    );
+  }
+  if ((level === 'product-aware' || level === 'most-aware') && inMarket < 50) {
+    warnings.push(
+      `Awareness level "${level}" expects in-market-dominant mix (per awareness-level-routing.md). Got inMarket=${inMarket}%. Review.`,
+    );
+  }
+
+  // Rule 5: sales-cycle ceiling must be positive and bounded
+  if (frame.salesCycleCeilingDays <= 0 || frame.salesCycleCeilingDays > 365) {
+    warnings.push(
+      `salesCycleCeilingDays=${frame.salesCycleCeilingDays} out of plausible range (1–365). See sales-cycle-bounding.md ceiling table.`,
+    );
+  }
+
+  return { warnings };
+}
+
+/**
  * Validates Block 2 (Audience & Campaign) targeting heuristics.
  *
  * 2026-04-19 (Mahdy round 2): retargeting-window clamping removed —
@@ -200,11 +293,48 @@ export function validatePhaseBudgets(
 
   // Check phase budget allocations vs totalMonthly
   const phaseTotal = result.phases.reduce((sum, p) => sum + p.budgetAllocation, 0);
-  if (!withinRelativeTolerance(phaseTotal, totalMonthly, 0.05)) {
-    warnings.push(
-      `Phase budget allocations sum ($${phaseTotal.toFixed(2)}) differs from totalMonthly ($${totalMonthly.toFixed(2)}) by more than 5% — phases may span different time periods but verify intent.`,
-    );
+  // 2026-04-20: fixed the apples/oranges comparison that used to compare the
+  // SUM of all phase budgets (which span multiple months) directly against
+  // the MONTHLY budget. A 4-phase rollout running Jan→May will naturally
+  // have phaseTotal ≫ totalMonthly. The honest check is per-phase burn-rate
+  // normalized to a monthly figure: no individual phase should burn at more
+  // than ~1.3× the monthly budget, and the FIRST phase should not exceed
+  // the monthly budget (soft-launch ramp discipline). Without this fix the
+  // validator emitted a warning on every well-formed plan.
+  for (const phase of result.phases) {
+    const weeks = (() => {
+      const m = /(\d+)\s*week/i.exec(phase.duration);
+      return m && m[1] ? parseInt(m[1], 10) : 0;
+    })();
+    if (weeks <= 0) continue; // duration not parseable; skip rate check for this phase
+    const monthlyEquivalent = (phase.budgetAllocation / weeks) * 4.33;
+    if (monthlyEquivalent > totalMonthly * 1.3) {
+      warnings.push(
+        `Phase "${phase.name}" burns $${monthlyEquivalent.toFixed(0)}/month-equivalent — exceeds 1.3× the planned monthly budget ($${totalMonthly.toFixed(0)}). Verify the phase budget or widen the duration.`,
+      );
+    }
   }
+  // Phase 1 (soft launch) additional check: should not exceed the monthly
+  // budget on a per-month-equivalent basis — the ramp-up rule says phase 1
+  // starts at ≤50% of daily ceiling.
+  const phase1 = result.phases[0];
+  if (phase1) {
+    const weeks = (() => {
+      const m = /(\d+)\s*week/i.exec(phase1.duration);
+      return m && m[1] ? parseInt(m[1], 10) : 0;
+    })();
+    if (weeks > 0) {
+      const phase1Monthly = (phase1.budgetAllocation / weeks) * 4.33;
+      if (phase1Monthly > totalMonthly) {
+        warnings.push(
+          `Phase 1 "${phase1.name}" runs at $${phase1Monthly.toFixed(0)}/month-equivalent, exceeding the planned monthly ($${totalMonthly.toFixed(0)}). Soft-launch should be at or below monthly budget, not above.`,
+        );
+      }
+    }
+  }
+  // Keep phaseTotal read for future use (e.g. total-campaign-cost surfacing);
+  // intentionally not comparing it to totalMonthly here.
+  void phaseTotal;
 
   // Parse duration strings and check against totalWeeks
   // Accepts formats like "4 weeks", "2 weeks", "1 week"

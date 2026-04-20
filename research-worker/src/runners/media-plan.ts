@@ -42,14 +42,35 @@ import {
   validateFunnelSplitDR,
   validateNoRetargetingWithoutPool,
   validateIndustryBenchmarks,
+  validateStrategicFrame,
 } from '../validators/media-plan';
 
 import { stripNumericConstraints } from '../utils/strip-numeric-constraints';
-import { getStrategicPlan } from '../planning/opus-planner';
+import { cachedSystemForAiSdk } from '../utils/prompt-cache';
 import { MODELS } from '../models';
+import { emitTelemetry } from '../telemetry';
 
 const MODEL = MODELS.STANDARD;
-const MAX_TOKENS = 8000;
+
+// Per-block maxOutputTokens caps. Infrastructure added 2026-04-20 so per-block
+// tightening is possible once real telemetry data shows p95 output size per
+// block. Initial cap-by-schema-guess broke measurementGuardrails (actual
+// output ~5-7k tokens) on 2026-04-20 18:06 UTC — Sonnet writes more verbose
+// structured output than schema shape predicts, particularly for arrays of
+// objects with detailed nested fields (risks, improvementLevers). All blocks
+// default to 8000 (the pre-session value) until research_telemetry.cache_creation_input_tokens
+// and output_tokens rows accumulate enough data for evidence-based tightening.
+// DO NOT tighten these caps without telemetry data — generation failures
+// cascade through retries and silently burn ~3 minutes + $0.30 per attempt.
+const BLOCK_MAX_TOKENS: Record<string, number> = {
+  channelMixBudget: 8000,
+  audienceCampaign: 8000,
+  creativeSystem: 8000,
+  measurementGuardrails: 8000,
+  rolloutRoadmap: 8000,
+  strategySnapshot: 8000,
+};
+const DEFAULT_MAX_TOKENS = 8000;
 
 const ANTI_HALLUCINATION = `\n\nIMPORTANT: Use only the provided reference data and research results. Do not infer unsupported facts. All benchmark numbers must be labeled as 'industry benchmark'.`;
 
@@ -107,14 +128,20 @@ function detectIndustry(context: string): string {
   return 'generic';
 }
 
-// Extract userId and sessionId from the context string
-// The dispatch system prepends these as metadata lines
-function extractMetadata(context: string): { userId: string; sessionId?: string } {
+// Extract userId, sessionId, and runId from the context string.
+// The dispatch system prepends these as metadata lines; the worker entry
+// (research-worker/src/index.ts) injects [runId:...] and [jobId:...] so
+// per-call telemetry emitted here can correlate with the parent run.
+function extractMetadata(
+  context: string,
+): { userId: string; sessionId?: string; runId?: string } {
   const userIdMatch = context.match(/\[userId:([^\]]+)\]/);
   const sessionIdMatch = context.match(/\[sessionId:([^\]]+)\]/);
+  const runIdMatch = context.match(/\[runId:([^\]]+)\]/);
   return {
     userId: userIdMatch?.[1] ?? '',
     sessionId: sessionIdMatch?.[1],
+    runId: runIdMatch?.[1],
   };
 }
 
@@ -155,7 +182,7 @@ export async function runMediaPlan(
   const shouldInjectTemplates = process.env.INJECT_INDUSTRY_TEMPLATES !== 'false';
   const industryTemplate = shouldInjectTemplates ? loadIndustryTemplate(industry) : '';
   const businessModelTemplate = shouldInjectTemplates ? loadBusinessModelTemplate(businessModelType) : '';
-  const { userId } = extractMetadata(context);
+  const { userId, runId } = extractMetadata(context);
 
   // Load media-plan methodologies once — these frame every block's reasoning.
   // Methodologies = "how to think"; skills = "what to output".
@@ -163,7 +190,14 @@ export async function runMediaPlan(
   const awarenessRouting = loadMediaPlanMethodology('awareness-level-routing.md');
   const salesCycleBounding = loadMediaPlanMethodology('sales-cycle-bounding.md');
   const channelGrounding = loadMediaPlanMethodology('channel-grounding.md');
-  const mediaPlanMethodologies = [bmRouting, awarenessRouting, salesCycleBounding, channelGrounding]
+  const inMarketTierRouting = loadMediaPlanMethodology('in-market-tier-routing.md');
+  const mediaPlanMethodologies = [
+    bmRouting,
+    awarenessRouting,
+    salesCycleBounding,
+    channelGrounding,
+    inMarketTierRouting,
+  ]
     .filter(Boolean)
     .join('\n\n---\n\n');
 
@@ -177,11 +211,13 @@ export async function runMediaPlan(
 
   console.log(`[media-plan] Starting 6-block generation for industry: ${industry}`);
 
-  // Opus planning pass — get strategic guidance before generating blocks
-  const strategicPlan = await getStrategicPlan(context, 'media-plan', onProgress);
-  const strategicContext = strategicPlan
-    ? `\n\n## Strategic Advisor Guidance\n\nThe following strategic plan was produced by a senior media strategist. Use it to guide your decisions — channel priorities, budget rationale, audience sequencing — but still fill in all schema fields with specifics.\n\n${strategicPlan}`
-    : '';
+  // Opus planning pass removed 2026-04-20. Previously a 30–45s Opus pre-pass
+  // produced advisory 500-word text injected into each block's user prompt.
+  // That advisory was never schema-validated or reconciled against block
+  // outputs, and its graceful-degradation path (timeout → empty string) made
+  // quality non-deterministic across runs. The strategic frame now lives
+  // inside block 1 (channelMixBudget.strategicFrame) and is propagated to
+  // downstream blocks via previousBlocksContext.
 
   // Block generation helper — generates, validates, and stores a single block
   const generateBlock = async (
@@ -203,14 +239,22 @@ export async function runMediaPlan(
     console.log(`[media-plan] Block ${blockNum}/6: ${block.label}`);
 
     const refs = loadBlockRefs(block.name);
+    // Ordering matters for Anthropic prompt caching. Stable content (shared
+    // across all 6 blocks in one run + across runs within the 1h TTL) goes
+    // FIRST so the cache prefix is identical block-to-block and run-to-run.
+    // Per-block variable content (block.skill, refs) goes LAST so only the
+    // tail is a cache miss. This unlocks cross-block cache hits from block 2
+    // onward — block 1 primes, blocks 2–6 hit.
     const systemParts = [
-      block.skill,
-      mediaPlanMethodologies ? `\n\n## Media Plan Methodologies (how to think)\n\nThese decision frameworks frame the whole plan. Apply them before the block-specific instructions above.\n\n${mediaPlanMethodologies}` : '',
+      // ── Stable prefix (identical across all 6 blocks + across runs) ──
+      mediaPlanMethodologies ? `\n\n## Media Plan Methodologies (how to think)\n\nThese decision frameworks frame the whole plan. Apply them before the block-specific instructions below.\n\n${mediaPlanMethodologies}` : '',
       businessModelTemplate ? `\n\n## Business Model Template (${businessModelType})\nModel-specific funnel, KPIs, default channel mix, and forbidden campaign types. Overrides any default in the block skill when they conflict.\n\n${businessModelTemplate}` : '',
-      refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nThe following are generic industry benchmarks for reference only. When using any number from this section, label it "(benchmark)" in your output. NEVER present these as client-specific research findings.\n\n${refs}` : '',
       industryTemplate ? `\n\n## Industry Template (${industry}) — GENERIC DEFAULTS ONLY\nThese are category-level benchmarks, NOT client-specific research. When using ANY number from this section:\n1. Append "(industry default)" to the value in your output\n2. Only use when client-specific data is unavailable\nNEVER present these as client-specific findings.\n\n${industryTemplate}` : '',
       ANTI_HALLUCINATION,
       CURRENT_ACTIVITIES_GUARDRAIL,
+      // ── Per-block tail (cache miss boundary; varies per block) ──
+      block.skill,
+      refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nThe following are generic industry benchmarks for reference only. When using any number from this section, label it "(benchmark)" in your output. NEVER present these as client-specific research findings.\n\n${refs}` : '',
     ];
 
     const previousBlocksContext = completedBlocks.length > 0
@@ -219,7 +263,7 @@ export async function runMediaPlan(
           .join('\n\n')}`
       : '';
 
-    const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${strategicContext}${previousBlocksContext}`;
+    const userPrompt = `Build the ${block.label} section of the media plan based on this context:\n\n${context}${previousBlocksContext}`;
 
     // Emit progress during generation so hyper-agent view stays active
     const blockProgressMessages: Record<string, string[]> = {
@@ -240,21 +284,60 @@ export async function runMediaPlan(
 
     let object: unknown;
     for (let attempt = 1; attempt <= 2; attempt++) {
+      const blockT0 = Date.now();
       try {
         const blockAbort = AbortSignal.timeout(180_000);
+        const blockMaxTokens = BLOCK_MAX_TOKENS[block.name] ?? DEFAULT_MAX_TOKENS;
         const result = await generateObject({
           model: anthropic(MODEL),
           schema: stripNumericConstraints(block.schema),
-          maxOutputTokens: MAX_TOKENS,
-          system: systemParts.filter(Boolean).join('\n'),
-          prompt: userPrompt,
+          maxOutputTokens: blockMaxTokens,
+          messages: [
+            cachedSystemForAiSdk(systemParts.filter(Boolean).join('\n')),
+            { role: 'user', content: userPrompt },
+          ],
           abortSignal: blockAbort,
         });
         object = result.object;
         clearInterval(blockProgressInterval);
+        if (runId) {
+          emitTelemetry({
+            event: 'tool.call',
+            runId,
+            userId,
+            section: 'mediaPlan',
+            card: block.name,
+            durationMs: Date.now() - blockT0,
+            model: MODEL,
+            extra: {
+              stage: blockNum <= 3 ? 'wave1' : 'wave2',
+              blockNum,
+              attempt,
+              outcome: 'success',
+            },
+          });
+        }
         break;
       } catch (err) {
         const isTimeout = err instanceof DOMException && err.name === 'TimeoutError';
+        if (runId) {
+          emitTelemetry({
+            event: 'tool.call',
+            runId,
+            userId,
+            section: 'mediaPlan',
+            card: block.name,
+            durationMs: Date.now() - blockT0,
+            model: MODEL,
+            errorMessage: err instanceof Error ? err.message : String(err),
+            extra: {
+              stage: blockNum <= 3 ? 'wave1' : 'wave2',
+              blockNum,
+              attempt,
+              outcome: isTimeout ? 'timeout' : 'error',
+            },
+          });
+        }
         if (isTimeout && attempt === 1) {
           console.warn(`[media-plan] Block ${blockNum} timed out — retrying (attempt 2)`);
           continue;
@@ -280,6 +363,11 @@ export async function runMediaPlan(
         // Round-2 check: DR default requires conversion >= 85%.
         const funnelWarnings = validateFunnelSplitDR(result.data);
         blockWarnings.push(...funnelWarnings.map((w) => w.message));
+        // 2026-04-20: strategicFrame sanity — tier mix sums to 100, budget
+        // gate from in-market-tier-routing.md respected, awareness×tier
+        // coherence. Non-mutating; emits warnings only.
+        const frameWarnings = validateStrategicFrame(result.data);
+        blockWarnings.push(...frameWarnings.warnings);
         break;
       }
       case 'audienceCampaign': {
@@ -370,10 +458,31 @@ export async function runMediaPlan(
       }
     }
 
-    // Wave 2-4: Blocks 4-6 sequential (depend on prior blocks)
-    for (let i = 3; i < BLOCK_SEQUENCE.length; i++) {
-      await generateBlock(BLOCK_SEQUENCE[i], i + 1);
+    // Wave 2a: Blocks 4+5 parallel — measurementGuardrails (industry
+    // benchmarks + salesProcessGuidance) and rolloutRoadmap (phased timeline)
+    // both consume wave-1 outputs but NOT each other. Confirmed by validator
+    // inspection 2026-04-20: validatePhaseBudgets only reads
+    // channelMixBudget.budgetSummary.totalMonthly, not block 4; block 4's
+    // validateIndustryBenchmarks only reads its own data. Parallelizing this
+    // pair saves ~60-100s off the critical path.
+    await emitRunnerProgress(onProgress, 'runner', 'generating blocks 4-5 in parallel: measurement, rollout');
+    const wave2aBlocks = BLOCK_SEQUENCE.slice(3, 5); // measurementGuardrails, rolloutRoadmap
+    const wave2aResults = await Promise.allSettled(
+      wave2aBlocks.map((block, i) => generateBlock(block, i + 4)),
+    );
+    for (let i = 0; i < wave2aResults.length; i++) {
+      if (wave2aResults[i].status === 'rejected') {
+        const failedBlock = wave2aBlocks[i];
+        console.warn(`[media-plan] Wave 2a block ${failedBlock.name} failed — retrying individually`);
+        await emitRunnerProgress(onProgress, 'runner', `retrying ${failedBlock.label} after parallel failure`);
+        await generateBlock(failedBlock, i + 4);
+      }
     }
+
+    // Wave 2b: Block 6 (strategySnapshot) serial — MUST run last because it
+    // summarizes blocks 1–5 and its validator (validateSnapshotConsistency)
+    // reads channelMixBudget, measurementGuardrails, and its own output.
+    await generateBlock(BLOCK_SEQUENCE[5], 6);
 
     // Final Supabase write with complete status
     if (userId) {
@@ -413,11 +522,14 @@ export async function runMediaPlan(
       await emitRunnerProgress(onProgress, 'runner', 'regenerating strategy snapshot for consistency');
 
       const refs = loadBlockRefs('strategySnapshot');
+      // Stable-prefix-first ordering (matches primary-pass assembly above) so
+      // the regen call can cache-hit the same prefix the original block-6
+      // primary call wrote, when available.
       const systemParts = [
-        STRATEGY_SNAPSHOT_SKILL,
-        refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nGeneric industry benchmarks for reference only. Label any usage as "(benchmark)" in output.\n\n${refs}` : '',
         ANTI_HALLUCINATION,
         CURRENT_ACTIVITIES_GUARDRAIL,
+        STRATEGY_SNAPSHOT_SKILL,
+        refs ? `\n\n## Reference Benchmarks (NOT client-specific)\nGeneric industry benchmarks for reference only. Label any usage as "(benchmark)" in output.\n\n${refs}` : '',
         '\n\nCRITICAL: The snapshot numbers must EXACTLY match the validated block data provided. Do not round or approximate.',
       ];
 
@@ -427,14 +539,32 @@ export async function runMediaPlan(
         .join('\n\n');
 
       const regenAbort = AbortSignal.timeout(120_000); // 2 min for regen
+      const regenT0 = Date.now();
       const { object: regenerated } = await generateObject({
         model: anthropic(MODEL),
         schema: stripNumericConstraints(strategySnapshotSchema),
-        maxOutputTokens: MAX_TOKENS,
-        system: systemParts.filter(Boolean).join('\n'),
-        prompt: `Create a strategy snapshot that exactly matches these validated block results:\n\n${correctedContext}`,
+        maxOutputTokens: BLOCK_MAX_TOKENS.strategySnapshot ?? DEFAULT_MAX_TOKENS,
+        messages: [
+          cachedSystemForAiSdk(systemParts.filter(Boolean).join('\n')),
+          {
+            role: 'user',
+            content: `Create a strategy snapshot that exactly matches these validated block results:\n\n${correctedContext}`,
+          },
+        ],
         abortSignal: regenAbort,
       });
+      if (runId) {
+        emitTelemetry({
+          event: 'tool.call',
+          runId,
+          userId,
+          section: 'mediaPlan',
+          card: 'strategySnapshot',
+          durationMs: Date.now() - regenT0,
+          model: MODEL,
+          extra: { stage: 'regen', blockNum: 6, outcome: 'success' },
+        });
+      }
 
       blockResults.strategySnapshot = regenerated;
     }

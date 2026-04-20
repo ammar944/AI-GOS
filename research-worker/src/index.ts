@@ -164,6 +164,35 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     return;
   }
 
+  // Idempotency guard — reject if an identical (userId, runId, tool) dispatch
+  // is already in flight. Frontend has been observed double-firing
+  // researchMediaPlan ~1s apart, producing two parallel 6-minute runs that
+  // double Anthropic spend and race on writeResearchResult. activeJobs is
+  // cleaned up in the runner's finally block (see below), so stale entries
+  // are not a concern. 15-minute window matches the longest runner timeout.
+  if (runId) {
+    const dupeWindowMs = 15 * 60 * 1000;
+    const cutoff = Date.now() - dupeWindowMs;
+    for (const [existingJobId, job] of activeJobs) {
+      if (
+        job.tool === tool &&
+        job.userId === userId &&
+        job.runId === runId &&
+        job.startedAt >= cutoff
+      ) {
+        console.warn(
+          `[worker] Rejecting duplicate dispatch: tool=${tool} userId=${userId} runId=${runId} — already running as jobId=${existingJobId}`,
+        );
+        res.status(409).json({
+          error: 'duplicate_dispatch',
+          message: `An identical job is already running for (userId, runId, tool)`,
+          activeJobId: existingJobId,
+        });
+        return;
+      }
+    }
+  }
+
   const startMs = Date.now();
 
   // Write job status to Supabase BEFORE returning 202.
@@ -223,7 +252,12 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     // Provenance tracking instruction — tells every runner to tag data sources.
     const provenanceInstruction = `SOURCE TRACKING: Include a "_provenance" array in your JSON output. For each significant field, add: {"field": "dotPath", "source": "user_data|web_search|tool_output|template_default|ai_synthesis", "sourceDetail": "url or description", "confidence": 0-100}. Any number from reference/template data MUST be tagged "template_default".\n\n`;
 
-    const contextWithDate = sanitizeForJson(dateContext + baselineBlock + provenanceInstruction + context);
+    // Metadata markers — runners extract these via regex to correlate
+    // per-call telemetry with the parent run. runId falls back to jobId so
+    // the marker is always present.
+    const metadataBlock = `[runId:${runId ?? jobId}]\n[jobId:${jobId}]\n\n`;
+
+    const contextWithDate = sanitizeForJson(metadataBlock + dateContext + baselineBlock + provenanceInstruction + context);
     let statusWriteChain = Promise.resolve();
     let lastProgressSignature: string | null = null;
     let jobFinalized = false;

@@ -2,6 +2,46 @@ export const CHANNEL_MIX_SKILL = `
 ## Block 1: Channel Mix & Budget Allocation
 
 You are building the channel selection and budget plan for a paid media strategy.
+You are also the strategic anchor for the rest of the media plan — your
+\`strategicFrame\` output surfaces the classifications the media-plan
+methodologies produce so blocks 2–6 can consume them as structured data
+rather than re-deriving them from prose.
+
+### Strategic Frame (REQUIRED — strategicFrame field)
+
+Fill \`strategicFrame\` with classifications the methodologies in your system
+prompt ALREADY produce. Do NOT invent new strategic concepts — cite the
+methodology authority for each field:
+
+- \`businessModelApplied\` + \`businessModelConfidence\`: classify per
+  \`business-model-routing.md\`. If \`[businessModelType:X]\` is present in the
+  context metadata, use X. If unclear, output \`unknown\` + \`low\` — do NOT
+  guess.
+- \`awarenessLevelApplied\` + \`awarenessLevelConfidence\`: classify per
+  Schwartz's 5 levels in \`awareness-level-routing.md\`. If
+  \`[awarenessLevel:X]\` is in context metadata, use X. Default to
+  \`solution-aware\` + \`low\` when unclear (safest middle).
+- \`salesCycleCeilingDays\` + \`salesCycleCeilingRationale\`: read the offer
+  structure from the identity card and apply the ceiling table in
+  \`sales-cycle-bounding.md\`. One-sentence rationale citing the offer physics
+  (e.g. "7-day free trial + one-call close → 7-day ceiling"). This ceiling
+  is LOAD-BEARING — blocks 4 (measurement windows) and 5 (phase durations)
+  are constrained by it.
+- \`funnelSplitRationale\`: one to two sentences explaining why the
+  \`budgetSummary.funnelSplit\` percentages you chose match the
+  awareness-level + business-model + budget combination. Cite the rule from
+  \`awareness-level-routing.md\` "Funnel Split Rules" section.
+- \`inMarketTierMix\`: budget allocation across Haynes' three tiers
+  (in-market / needs-convinced / cold-mass) per
+  \`in-market-tier-routing.md\`. The budget-gated table is load-bearing —
+  under $2k must be 100/0/0, $2k–$5k must keep cold-mass at 0, $5k–$15k
+  unlocks the full 3-tier mix. The three percentages sum to 100.
+
+Do not emit a strategicFrame that contradicts the budget allocation you
+choose for \`platforms[]\`. If the platform rule says "under $2k → single
+platform" and your tier rule says 100% in-market, the platform you pick
+must carry that 100% in-market audience. Internal consistency is the whole
+point of surfacing these fields.
 
 ### Inputs to analyze
 - Business context: industry vertical, offer type, sales cycle, average order/contract value

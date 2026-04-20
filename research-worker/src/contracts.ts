@@ -489,7 +489,48 @@ const keywordIntelDataSchema = z.object({
 
 // ── Media Plan Block Schemas (6-block progressive structure) ──
 
+// strategicFrame added 2026-04-20 — replaces the (removed) Opus planner
+// pre-pass. Block 1 now commits the classification decisions the media-plan
+// methodologies already produce (business model, Schwartz awareness level,
+// sales-cycle ceiling, funnel split rationale, in-market tier mix) as
+// schema-validated fields that downstream blocks and validators consume.
+// Methodology authorities:
+//   - src/skills/methodologies/media-plan/business-model-routing.md
+//   - src/skills/methodologies/media-plan/awareness-level-routing.md
+//   - src/skills/methodologies/media-plan/sales-cycle-bounding.md
+//   - src/skills/methodologies/media-plan/in-market-tier-routing.md
+// See: session 2026-04-20 media-plan performance audit.
+const strategicFrameSchema = z.object({
+  businessModelApplied: flexibleEnum(
+    ['plg', 'slg', 'ecommerce', 'transactional', 'marketplace', 'unknown'] as const,
+    'unknown',
+  ).describe('Classified per business-model-routing.md. Use unknown + low confidence rather than guessing.'),
+  businessModelConfidence: flexibleEnum(['high', 'medium', 'low'] as const, 'low'),
+  awarenessLevelApplied: flexibleEnum(
+    ['unaware', 'problem-aware', 'solution-aware', 'product-aware', 'most-aware'] as const,
+    'solution-aware',
+  ).describe('Schwartz level per awareness-level-routing.md. Defaults to solution-aware (safest middle) when unclear.'),
+  awarenessLevelConfidence: flexibleEnum(['high', 'medium', 'low'] as const, 'low'),
+  salesCycleCeilingDays: z.number().describe(
+    'Hard upper bound on the sales cycle in days, derived from offer structure per sales-cycle-bounding.md. Blocks 4 (measurement windows) and 5 (phase durations) MUST respect this ceiling.',
+  ),
+  salesCycleCeilingRationale: z.string().describe(
+    'One sentence citing the offer-physics source (e.g. "7-day free trial + one-call close → 7-day ceiling").',
+  ),
+  funnelSplitRationale: z.string().describe(
+    'Why the budgetSummary.funnelSplit shape was chosen, citing awareness-level-routing.md table (e.g. "Unaware + DR + budget <$5k → 90-95% conversion, the conversion campaign IS the education").',
+  ),
+  inMarketTierMix: z.object({
+    inMarket: z.number().min(0).max(100),
+    needsConvinced: z.number().min(0).max(100),
+    coldMass: z.number().min(0).max(100),
+  }).describe(
+    'Budget allocation across Haynes in-market tiers per in-market-tier-routing.md. Budget-gated: under $2k must be 100/0/0, under $5k must keep coldMass=0, etc. Three values sum to 100 (±1 rounding).',
+  ),
+});
+
 export const channelMixBudgetSchema = z.object({
+  strategicFrame: strategicFrameSchema,
   platforms: z.array(z.object({
     name: z.string(),
     // 'retargeting' removed 2026-04-19 per Mahdy round 2 — cold-DR default,

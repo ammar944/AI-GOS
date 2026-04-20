@@ -60,3 +60,34 @@ export function systemBlock(text: string, ttl: EphemeralTtl = '1h'): CachedTextB
   }
   return block;
 }
+
+/**
+ * AI SDK v6 variant — returns a `{ role: 'system', ... }` message object
+ * shaped for `generateObject({ ..., messages: [...] })` (or `streamObject` /
+ * `generateText` / `streamText`). Marks the system prompt for Anthropic
+ * prompt caching via `providerOptions.anthropic.cacheControl` when the env
+ * flag permits and the prompt is large enough to cross the cache threshold.
+ *
+ * Use this for runners that call the Vercel AI SDK (e.g., media-plan,
+ * synthesize). For runners that call the native Anthropic SDK tool runner
+ * (icp, offer), use `maybeCachedSystem` instead — it returns native-SDK
+ * `cache_control` blocks rather than AI-SDK `providerOptions`.
+ */
+export interface AiSdkCachedSystemMessage {
+  role: 'system';
+  content: string;
+  providerOptions?: {
+    anthropic: { cacheControl: { type: 'ephemeral'; ttl?: EphemeralTtl } };
+  };
+}
+
+export function cachedSystemForAiSdk(
+  system: string,
+  ttl: EphemeralTtl = '1h',
+): AiSdkCachedSystemMessage {
+  const msg: AiSdkCachedSystemMessage = { role: 'system', content: system };
+  if (process.env.RESEARCH_PROMPT_CACHE !== 'false' && system.length >= MIN_CACHE_CHARS) {
+    msg.providerOptions = { anthropic: { cacheControl: { type: 'ephemeral', ttl } } };
+  }
+  return msg;
+}
