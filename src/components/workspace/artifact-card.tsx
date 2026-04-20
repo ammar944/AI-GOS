@@ -5,6 +5,7 @@ import { Check, Clock, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { CardEditingContext } from '@/lib/workspace/card-editing-context';
+import { InlineRefine } from './inline-refine';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -197,12 +198,7 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
                       {formatRelativeTime(version.timestamp)}
                     </span>
                     <span
-                      className={cn(
-                        'text-[10px] font-mono px-1.5 py-0.5 rounded',
-                        version.editedBy === 'user'
-                          ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
-                          : 'bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)]',
-                      )}
+                      className="text-[10px] font-mono uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-[3px] border border-[var(--border-subtle)] bg-[var(--bg-hover)] text-[var(--text-secondary)]"
                     >
                       {version.editedBy === 'user' ? 'You' : 'AI'}
                     </span>
@@ -218,6 +214,17 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
       <CardEditingContext value={editingContext}>
         {children}
       </CardEditingContext>
+
+      {/* Inline refine trigger — hidden while the user is in contentEditable mode */}
+      {!isEditing && (
+        <div className="mt-3 flex items-center justify-end border-t border-[var(--border-subtle)] pt-3">
+          <InlineRefine
+            cardId={card.id}
+            section={card.sectionKey}
+            cardLabel={card.label}
+          />
+        </div>
+      )}
     </div>
   );
 }

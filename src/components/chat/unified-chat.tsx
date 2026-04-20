@@ -678,6 +678,23 @@ export function UnifiedChat({
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
 
+  // Inline-refine bridge: cards dispatch a `aigos:refine-card` CustomEvent,
+  // we translate it to a chat message that triggers the existing editCard tool.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { cardId: string; section: string; cardLabel?: string; prompt: string }
+        | undefined;
+      if (!detail?.prompt?.trim()) return;
+      const label = detail.cardLabel ? `"${detail.cardLabel}"` : `card ${detail.cardId}`;
+      sendMessage({
+        text: `Refine ${label} in ${detail.section}: ${detail.prompt.trim()}`,
+      });
+    };
+    window.addEventListener('aigos:refine-card', handler as EventListener);
+    return () => window.removeEventListener('aigos:refine-card', handler as EventListener);
+  }, [sendMessage]);
+
   // Scan message parts for editCard tool results and populate pendingEdits.
   // In AI SDK v6, tool parts have type `tool-{toolName}` (e.g., `tool-editCard`).
   // The part has: type, toolCallId, state ('input-streaming'|'input-available'|'output-available'), input, output.
