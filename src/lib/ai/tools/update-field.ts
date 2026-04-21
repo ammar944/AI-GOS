@@ -12,25 +12,58 @@ import { z } from 'zod';
  * Excludes internal metadata keys (activeJourneyRunId, researchPipeline, lastUpdated).
  */
 export const UPDATABLE_FIELD_KEYS = [
-  'businessModel',
+  // §1 Product & Revenue Model
+  'businessModel', // legacy — kept for chat-refinement sessions on old users
   'productDescription',
-  'coreDeliverables',
-  'pricingTiers',
-  'valueProp',
-  'guarantees',
+  'targetCustomer',
+  'salesMotion',
+  'pricingModel',
+  'conversionPath',
+  'avgAcv',
+  // §2 ICP + Pain
   'primaryIcpDescription',
-  'topCompetitors',
-  'uniqueEdge',
-  'goals',
-  'monthlyAdBudget',
   'industryVertical',
   'jobTitles',
   'companySize',
   'geography',
-  'situationBeforeBuying',
-  'desiredTransformation',
+  'buyingTriggers',
+  'currentAlternative',
+  // §3 Offer & Product Experience
+  'coreDeliverables',
+  'valueProp',
+  'firstValueMoment',
+  'activationEvent',
+  'retentionDrivers',
+  // §4 Pricing & Economics
+  'pricingTiers',
+  'targetPlan',
+  'monthlyAdBudget',
+  'avgCustomerLtv',
+  'targetCac',
+  // §5 Competition & Positioning
+  'topCompetitors',
+  'uniqueEdge',
+  'lossReasons',
+  'competitorStrengths',
+  // §6 Goals & Strategy
+  'goals',
+  'pipelineTarget',
   'commonObjections',
+  'keyPromises',
   'brandPositioning',
+  // §7 Current Marketing & Performance
+  'channels',
+  'channelBudgetSplit',
+  'whatIsWorking',
+  'whatIsNotWorking',
+  'currentCac',
+  'monthlyRevenue',
+  'salesCycleLength',
+  'visitorToSignupPct',
+  'signupToActivationPct',
+  'activationToPaidPct',
+  'demoToCloseRate',
+  'last3to6MoGrowthTrend',
 ] as const;
 
 export type UpdatableFieldKey = (typeof UPDATABLE_FIELD_KEYS)[number];

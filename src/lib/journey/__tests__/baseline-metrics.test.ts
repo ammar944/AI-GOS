@@ -11,7 +11,7 @@ describe('BASELINE_METRIC_KEYS', () => {
       'currentCac',
       'avgCustomerLtv',
       'leadToCustomerRate',
-      'last12MoGrowthRate',
+      'last3to6MoGrowthTrend',
     ]);
   });
 });
@@ -22,7 +22,7 @@ describe('extractBaselineMetrics', () => {
       currentCac: null,
       avgCustomerLtv: null,
       leadToCustomerRate: null,
-      last12MoGrowthRate: null,
+      last3to6MoGrowthTrend: null,
     });
   });
 
@@ -31,7 +31,7 @@ describe('extractBaselineMetrics', () => {
       currentCac: null,
       avgCustomerLtv: null,
       leadToCustomerRate: null,
-      last12MoGrowthRate: null,
+      last3to6MoGrowthTrend: null,
     };
     expect(extractBaselineMetrics(null)).toEqual(expected);
     expect(extractBaselineMetrics(undefined)).toEqual(expected);
@@ -43,13 +43,13 @@ describe('extractBaselineMetrics', () => {
         currentCac: '450',
         avgCustomerLtv: '3600',
         leadToCustomerRate: '5',
-        last12MoGrowthRate: '25',
+        last3to6MoGrowthTrend: '25',
       }),
     ).toEqual({
       currentCac: 450,
       avgCustomerLtv: 3600,
       leadToCustomerRate: 5,
-      last12MoGrowthRate: 25,
+      last3to6MoGrowthTrend: 25,
     });
   });
 
@@ -59,13 +59,13 @@ describe('extractBaselineMetrics', () => {
         currentCac: '$450',
         avgCustomerLtv: '$3,600',
         leadToCustomerRate: '5%',
-        last12MoGrowthRate: '25%',
+        last3to6MoGrowthTrend: '25%',
       }),
     ).toEqual({
       currentCac: 450,
       avgCustomerLtv: 3600,
       leadToCustomerRate: 5,
-      last12MoGrowthRate: 25,
+      last3to6MoGrowthTrend: 25,
     });
   });
 
@@ -75,24 +75,24 @@ describe('extractBaselineMetrics', () => {
         currentCac: 450,
         avgCustomerLtv: 3600,
         leadToCustomerRate: 5,
-        last12MoGrowthRate: 25,
+        last3to6MoGrowthTrend: 25,
       }),
     ).toEqual({
       currentCac: 450,
       avgCustomerLtv: 3600,
       leadToCustomerRate: 5,
-      last12MoGrowthRate: 25,
+      last3to6MoGrowthTrend: 25,
     });
   });
 
   it('accepts negative growth rates (shrinking revenue)', () => {
     expect(
-      extractBaselineMetrics({ last12MoGrowthRate: '-15%' }),
+      extractBaselineMetrics({ last3to6MoGrowthTrend: '-15%' }),
     ).toEqual({
       currentCac: null,
       avgCustomerLtv: null,
       leadToCustomerRate: null,
-      last12MoGrowthRate: -15,
+      last3to6MoGrowthTrend: -15,
     });
   });
 
@@ -107,7 +107,7 @@ describe('extractBaselineMetrics', () => {
       currentCac: null,
       avgCustomerLtv: null,
       leadToCustomerRate: null,
-      last12MoGrowthRate: null,
+      last3to6MoGrowthTrend: null,
     });
   });
 
@@ -121,7 +121,7 @@ describe('extractBaselineMetrics', () => {
       currentCac: null,
       avgCustomerLtv: null,
       leadToCustomerRate: null,
-      last12MoGrowthRate: null,
+      last3to6MoGrowthTrend: null,
     });
   });
 
@@ -135,7 +135,7 @@ describe('extractBaselineMetrics', () => {
       currentCac: null,
       avgCustomerLtv: null,
       leadToCustomerRate: null,
-      last12MoGrowthRate: null,
+      last3to6MoGrowthTrend: null,
     });
   });
 
@@ -149,7 +149,7 @@ describe('extractBaselineMetrics', () => {
       currentCac: 450,
       avgCustomerLtv: null,
       leadToCustomerRate: 5,
-      last12MoGrowthRate: null,
+      last3to6MoGrowthTrend: null,
     });
   });
 
@@ -172,7 +172,7 @@ describe('hasAnyBaselineMetrics', () => {
         currentCac: null,
         avgCustomerLtv: null,
         leadToCustomerRate: null,
-        last12MoGrowthRate: null,
+        last3to6MoGrowthTrend: null,
       }),
     ).toBe(false);
   });
@@ -183,29 +183,29 @@ describe('hasAnyBaselineMetrics', () => {
         currentCac: 450,
         avgCustomerLtv: null,
         leadToCustomerRate: null,
-        last12MoGrowthRate: null,
+        last3to6MoGrowthTrend: null,
       }),
     ).toBe(true);
   });
 
-  it('returns true when last12MoGrowthRate is zero (still a user-provided value)', () => {
+  it('returns true when last3to6MoGrowthTrend is zero (still a user-provided value)', () => {
     expect(
       hasAnyBaselineMetrics({
         currentCac: null,
         avgCustomerLtv: null,
         leadToCustomerRate: null,
-        last12MoGrowthRate: 0,
+        last3to6MoGrowthTrend: 0,
       }),
     ).toBe(true);
   });
 
-  it('returns true when last12MoGrowthRate is negative', () => {
+  it('returns true when last3to6MoGrowthTrend is negative', () => {
     expect(
       hasAnyBaselineMetrics({
         currentCac: null,
         avgCustomerLtv: null,
         leadToCustomerRate: null,
-        last12MoGrowthRate: -15,
+        last3to6MoGrowthTrend: -15,
       }),
     ).toBe(true);
   });

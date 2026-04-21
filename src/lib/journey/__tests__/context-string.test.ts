@@ -35,7 +35,7 @@ describe('buildJourneyResearchContext', () => {
       ['goals', 'companyName', 'productDescription'],
     );
 
-    const goalsIdx = ctx.indexOf('Goals: Scale');
+    const goalsIdx = ctx.indexOf('Primary 90-Day Goal: Scale');
     const companyIdx = ctx.indexOf('Company Name: Acme');
     const productIdx = ctx.indexOf('Product Description: Widgets');
 

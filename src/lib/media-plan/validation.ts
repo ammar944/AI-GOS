@@ -1468,7 +1468,7 @@ export function validateRetargetingPoolRealism(
 // fields. Runs after generation, strips forbidden patterns, logs every strip
 // so prompt regressions are auditable. Gated growth claims (YoY percentages)
 // are permitted only when the user actually reported a growth rate via
-// baselineMetrics.last12MoGrowthRate AND the sentence cites that exact number.
+// baselineMetrics.last3to6MoGrowthTrend AND the sentence cites that exact number.
 
 interface SweepPattern {
   name: string;
@@ -1517,7 +1517,7 @@ const BENCHMARK_CITATION_RE = /per\s+\w+|benchmark|industry\s+(?:average|standar
  * Scrub fabricated growth/ARR/scale prose from a narrative text field.
  *
  * @param text Raw narrative string (typically from an AI runner output).
- * @param allowGrowthClaims True only when baselineMetrics.last12MoGrowthRate was provided.
+ * @param allowGrowthClaims True only when baselineMetrics.last3to6MoGrowthTrend was provided.
  * @param userGrowthRate The user's reported rate, used to preserve sentences that cite it.
  */
 export function sweepFabricatedClaims(

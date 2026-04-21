@@ -410,8 +410,45 @@ export async function POST(req: Request) {
         const awareness = typeof identityData.awarenessLevel === 'string'
           ? identityData.awarenessLevel
           : 'unknown';
-        const metaLines = `[businessModelType:${bmType}]\n[awarenessLevel:${awareness}]\n\n`;
-        enrichedContext = metaLines + enrichedContext;
+
+        // v3 routing signals — parse from the context string (which
+        // buildJourneyResearchContext emits as "Label: value" lines). Skills
+        // in research-worker/src/skills/* key off these tags directly rather
+        // than re-inferring from narrative context.
+        const extractLine = (label: string): string => {
+          const re = new RegExp(`^${label}:\\s*(.+)$`, 'm');
+          const match = enrichedContext.match(re);
+          return match?.[1]?.trim() || 'unknown';
+        };
+
+        const metaLines = [
+          `[businessModelType:${bmType}]`,
+          `[awarenessLevel:${awareness}]`,
+          `[salesMotion:${extractLine('Sales Motion')}]`,
+          `[pricingModel:${extractLine('Pricing Model')}]`,
+          `[conversionPath:${extractLine('Conversion Path')}]`,
+          `[avgAcv:${extractLine('Avg Contract Value')}]`,
+          '',
+          '',
+        ].join('\n');
+
+        // Inject the full identity card JSON in the format that
+        // research-worker/src/competitors/parse-context.ts expects via its
+        // `extractIdentityCard` regex: `## identityResolution\n{JSON}\n\n`.
+        // The trailing `\n\n` matters — the worker regex terminator includes
+        // `\n\n` so JSON.parse gets only the JSON, not the trailing context.
+        const identityBlock = `## identityResolution\n${JSON.stringify(identityData)}\n\n`;
+        enrichedContext = metaLines + identityBlock + enrichedContext;
+        const kwCount = Array.isArray((identityData as { coreKeywords?: unknown }).coreKeywords)
+          ? (identityData as { coreKeywords: unknown[] }).coreKeywords.length
+          : 0;
+        console.log(
+          `[dispatch:identity-inject] section=${section} INJECTED bm=${bmType} awareness=${awareness} coreKeywords=${kwCount}`,
+        );
+      } else {
+        console.log(
+          `[dispatch:identity-inject] section=${section} SKIPPED — identityResolution.data missing from research_results`,
+        );
       }
     } catch (err) {
       console.warn('[dispatch] Failed to inject identity classifications:', err);

@@ -1,3 +1,14 @@
+// ============================================================================
+// Journey Field Catalog — v3 onboarding flow
+// Source of truth: AIGOS Onboarding Flow.docx
+// Field names and groupings match the doc exactly. Legacy fields have been
+// retired where the doc did not carry them forward.
+//
+// Each field's purpose is annotated with what it UNLOCKS downstream — runners
+// and media-plan skills should key off these fields directly rather than
+// re-inferring from narrative context.
+// ============================================================================
+
 export type JourneyFieldCategory =
   | 'required-blocker'
   | 'section-followup'
@@ -31,53 +42,93 @@ export interface JourneyManualFieldDefinition {
 }
 
 export interface JourneyRequirementDefinition {
-  key: 'topCompetitors' | 'productDescription' | 'primaryIcpDescription' | 'pricingContext';
+  key:
+    | 'topCompetitors'
+    | 'productDescription'
+    | 'primaryIcpDescription'
+    | 'pricingContext'
+    | 'salesMotion'
+    | 'pricingModel'
+    | 'conversionPath'
+    | 'avgAcv'
+    | 'targetCustomer';
   label: string;
   fieldKeys: readonly string[];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// JOURNEY_FIELDS — master field registry, one entry per field key
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
+  // §1 Product & Revenue Model
+  // UNLOCKS: funnel type · channel strategy · CAC target · messaging frame · copy anchors · targeting
   { key: 'companyName', label: 'Company Name', category: 'research-enrichment', section: null, collectionMode: 'either', prefillVisible: true },
   { key: 'websiteUrl', label: 'Website', category: 'research-enrichment', section: null, collectionMode: 'either' },
-  { key: 'businessModel', label: 'Business Model', category: 'required-blocker', section: 'industryMarket', collectionMode: 'either', prefillVisible: true },
-  { key: 'industryVertical', label: 'Industry Vertical', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
+  { key: 'productDescription', label: 'Product Description', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'targetCustomer', label: 'Target Customer', category: 'required-blocker', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
+  { key: 'salesMotion', label: 'Sales Motion', category: 'required-blocker', section: 'industryMarket', collectionMode: 'manual' },
+  { key: 'pricingModel', label: 'Pricing Model', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'conversionPath', label: 'Conversion Path', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'avgAcv', label: 'Avg Contract Value', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'manual' },
+
+  // §2 ICP + Pain
+  // UNLOCKS: precise targeting · trigger-based hooks · switch-from-X positioning · awareness-sophistication messaging
   { key: 'primaryIcpDescription', label: 'Ideal Customer Profile', category: 'required-blocker', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
+  { key: 'industryVertical', label: 'Industry Vertical', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
   { key: 'jobTitles', label: 'Target Job Titles', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
   { key: 'companySize', label: 'Company Size', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
   { key: 'geography', label: 'Geographic Focus', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
-  { key: 'headquartersLocation', label: 'Headquarters', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
-  { key: 'easiestToClose', label: 'Easiest to Close', category: 'section-followup', section: 'icpValidation', collectionMode: 'manual' },
   { key: 'buyingTriggers', label: 'Buying Triggers', category: 'section-followup', section: 'icpValidation', collectionMode: 'manual' },
-  { key: 'bestClientSources', label: 'Best Client Sources', category: 'section-followup', section: 'icpValidation', collectionMode: 'manual' },
-  { key: 'productDescription', label: 'Product Description', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'coreDeliverables', label: 'Core Deliverables', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'pricingTiers', label: 'Pricing Tiers', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'valueProp', label: 'Value Proposition', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'currentFunnelType', label: 'Current Funnel Type', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
-  { key: 'guarantees', label: 'Guarantees', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'topCompetitors', label: 'Top Competitors', category: 'required-blocker', section: 'competitors', collectionMode: 'either', prefillVisible: true },
-  { key: 'uniqueEdge', label: 'Unique Edge', category: 'required-blocker', section: 'competitors', collectionMode: 'either', prefillVisible: true },
-  { key: 'competitorFrustrations', label: 'Competitor Frustrations', category: 'section-followup', section: 'competitors', collectionMode: 'manual' },
-  { key: 'marketBottlenecks', label: 'Market Bottlenecks', category: 'section-followup', section: 'competitors', collectionMode: 'manual' },
-  { key: 'marketProblem', label: 'Market Problem', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
-  { key: 'situationBeforeBuying', label: 'Before State', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'desiredTransformation', label: 'Desired Transformation', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'commonObjections', label: 'Common Objections', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'salesCycleLength', label: 'Sales Cycle Length', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'salesProcessOverview', label: 'Sales Process', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'brandPositioning', label: 'Brand Positioning', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
-  { key: 'currentMarketingActivities', label: 'Current Marketing Activities', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'currentAlternative', label: 'Current Alternative', category: 'section-followup', section: 'icpValidation', collectionMode: 'manual' },
+
+  // §3 Offer & Product Experience
+  // UNLOCKS: correct funnel · value-based angles · activation-aligned landing pages · retention-aware messaging
+  { key: 'coreDeliverables', label: 'Core Features / Outcomes', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'firstValueMoment', label: 'First Value Moment', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'activationEvent', label: 'Activation Event', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'retentionDrivers', label: 'Retention Drivers', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+
+  // §4 Pricing & Economics
+  // UNLOCKS: CAC targets · volume vs quality strategy · highest-value offer · budget allocation
+  { key: 'pricingTiers', label: 'Pricing Tiers', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'targetPlan', label: 'Target Plan', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
   { key: 'monthlyAdBudget', label: 'Monthly Ad Budget', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either' },
-  { key: 'monthlyRevenueRange', label: 'Monthly Revenue Range', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
-  { key: 'payingCustomerCount', label: 'Paying Customer Count', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: false },
-  { key: 'currentCac', label: 'Current CAC', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
   { key: 'avgCustomerLtv', label: 'Avg Customer LTV', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
-  { key: 'leadToCustomerRate', label: 'Lead → Customer %', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
-  { key: 'last12MoGrowthRate', label: 'Last 12-Month Revenue Growth %', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
-  { key: 'campaignDuration', label: 'Campaign Duration', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'targetCpl', label: 'Target CPL', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'targetCac', label: 'Target CAC', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'goals', label: 'Goals', category: 'required-blocker', section: 'crossAnalysis', collectionMode: 'either' },
+
+  // §5 Competition & Positioning
+  // UNLOCKS: us-vs-them ads · objection-based hooks · positioning gaps · differentiation angles · comparison LPs
+  { key: 'topCompetitors', label: 'Top Competitors', category: 'required-blocker', section: 'competitors', collectionMode: 'either', prefillVisible: true },
+  { key: 'uniqueEdge', label: 'Why Customers Choose You', category: 'required-blocker', section: 'competitors', collectionMode: 'either', prefillVisible: true },
+  { key: 'lossReasons', label: 'Loss Reasons', category: 'section-followup', section: 'competitors', collectionMode: 'manual' },
+  { key: 'competitorStrengths', label: 'Competitor Strengths', category: 'section-followup', section: 'competitors', collectionMode: 'manual' },
+
+  // §6 Goals & Strategy
+  // UNLOCKS: goal-aligned GTM · CAC/pipeline benchmarks · objection-based creatives · consistent messaging · right growth lever
+  { key: 'goals', label: 'Primary 90-Day Goal', category: 'required-blocker', section: 'crossAnalysis', collectionMode: 'either' },
+  { key: 'pipelineTarget', label: 'Monthly Pipeline Target', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'commonObjections', label: 'Common Objections', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'keyPromises', label: 'Key Promises / Outcomes', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'brandPositioning', label: 'Brand Positioning', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
+
+  // §7 Current Marketing & Performance
+  // UNLOCKS: biggest growth constraint · budget reallocation · funnel leak diagnosis · SaaS benchmarking · stage-appropriate scaling
+  { key: 'channels', label: 'Channels', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'channelBudgetSplit', label: 'Channel Budget Split', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'whatIsWorking', label: "What's Working", category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'whatIsNotWorking', label: "What's Not Working", category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'currentCac', label: 'Current CAC', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
+  { key: 'monthlyRevenue', label: 'Monthly Revenue (MRR/ARR)', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'salesCycleLength', label: 'Avg Sales Cycle Length', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  // Optional funnel metrics
+  { key: 'visitorToSignupPct', label: 'Visitor → Signup %', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'signupToActivationPct', label: 'Signup → Activation %', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'activationToPaidPct', label: 'Activation → Paid %', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'demoToCloseRate', label: 'Demo → Close Rate', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'last3to6MoGrowthTrend', label: 'Last 3-6 Month Growth Trend %', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual', prefillVisible: false },
+
+  // Research enrichment (scraped, auto-populated — not user-visible in the onboarding form)
   { key: 'testimonialQuote', label: 'Testimonial Quote', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
   { key: 'caseStudiesUrl', label: 'Case Studies URL', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
   { key: 'testimonialsUrl', label: 'Testimonials URL', category: 'research-enrichment', section: null, collectionMode: 'scrape', prefillVisible: true },
@@ -105,37 +156,81 @@ export const JOURNEY_RESEARCH_ENRICHMENT_FIELDS = JOURNEY_FIELDS.filter(
   (field) => field.category === 'research-enrichment',
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Required-blocker manual entry metadata (placeholder/helper/rows for form UI)
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const JOURNEY_MANUAL_BLOCKER_FIELDS: readonly JourneyManualFieldDefinition[] = [
   {
-    key: 'businessModel',
-    label: 'Business Model',
-    placeholder: 'B2B SaaS agency / service business',
-    helper: 'How do you make money? Keep it short and concrete.',
-    rows: 1,
-    required: true,
-  },
-  {
     key: 'productDescription',
-    label: 'Product Description',
+    label: 'What does your product do?',
     placeholder: 'We run paid media and pipeline-focused demand gen systems for B2B SaaS companies.',
     helper: 'Describe what the customer actually buys from you.',
     rows: 3,
     required: true,
   },
   {
-    key: 'topCompetitors',
-    label: 'Top Competitors',
-    placeholder: 'Hey Digital, Sales Captain, Growth Marketing Pro',
-    helper: 'Name the 2-3 agencies or platforms prospects compare you against most.',
+    key: 'targetCustomer',
+    label: 'Who is it built for?',
+    placeholder: 'Growth-stage B2B SaaS founders and marketing leads.',
+    helper: 'Short one-liner — the detailed ICP comes in the next section.',
     rows: 2,
     required: true,
   },
   {
+    key: 'salesMotion',
+    label: 'How do customers buy?',
+    placeholder: 'Product-led / Sales-led / Hybrid',
+    helper: 'Product-led = self-serve signup. Sales-led = demo then close. Hybrid = mix.',
+    rows: 1,
+    required: true,
+  },
+  {
+    key: 'pricingModel',
+    label: 'What is your pricing model?',
+    placeholder: 'Subscription / Usage-based / Per seat / One-time + subscription',
+    helper: 'Pick the dominant structure. Mixed plans can be described in Pricing Tiers later.',
+    rows: 1,
+    required: true,
+  },
+  {
+    key: 'conversionPath',
+    label: 'How do customers convert?',
+    placeholder: 'Free trial / Freemium / Demo required / Direct checkout',
+    helper: 'The path from interested visitor to paying customer.',
+    rows: 1,
+    required: true,
+  },
+  {
+    key: 'avgAcv',
+    label: 'Average price or ACV',
+    placeholder: '<$1K / $1K–$10K / $10K–$50K / $50K+',
+    helper: 'Annual contract value. Anchors CAC targets and channel strategy.',
+    rows: 1,
+    required: true,
+  },
+  {
     key: 'primaryIcpDescription',
-    label: 'Ideal Customer Profile',
+    label: 'Describe your ideal customer',
     placeholder: 'Seed to Series B B2B SaaS teams that need pipeline growth without building a full in-house demand gen function.',
-    helper: 'Describe the best-fit customer in your own words.',
+    helper: 'Company + persona. Rich detail fuels targeting and messaging.',
     rows: 4,
+    required: true,
+  },
+  {
+    key: 'topCompetitors',
+    label: 'Top Competitors (minimum 3)',
+    placeholder: 'Hey Digital, Sales Captain, Growth Marketing Pro',
+    helper: 'Name the 3+ agencies or platforms prospects compare you against most.',
+    rows: 2,
+    required: true,
+  },
+  {
+    key: 'uniqueEdge',
+    label: 'Why do customers choose you over alternatives?',
+    placeholder: 'We are deeply specialized in B2B SaaS and tie campaigns directly to pipeline, not vanity metrics.',
+    helper: 'Your differentiation. Fuels ad angles and positioning.',
+    rows: 2,
     required: true,
   },
   {
@@ -156,101 +251,229 @@ export const JOURNEY_MANUAL_BLOCKER_FIELDS: readonly JourneyManualFieldDefinitio
   },
   {
     key: 'goals',
-    label: 'Goals',
+    label: 'Primary goal in the next 90 days',
     placeholder: 'More qualified demos, lower CAC, and better pipeline attribution.',
-    helper: 'What matters most in the next 90 days?',
-    rows: 2,
-    required: true,
-  },
-  {
-    key: 'uniqueEdge',
-    label: 'Unique Edge',
-    placeholder: 'We are deeply specialized in B2B SaaS and tie campaigns directly to pipeline, not vanity metrics.',
-    helper: 'What do you win on that competitors struggle to match?',
+    helper: 'Defines strategy direction — scale vs optimize vs fix conversion.',
     rows: 2,
     required: true,
   },
 ] as const;
 
-/**
- * Metadata for enrichment/scoring fields (non-blocking, optional).
- * Used by field-group rendering for placeholder + helper text.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Optional / enrichment field metadata (placeholder/helper/rows for form UI)
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const JOURNEY_ENRICHMENT_FIELD_METAS: readonly JourneyManualFieldDefinition[] = [
+  // §2 ICP + Pain
   {
-    key: 'monthlyRevenueRange',
-    label: 'Monthly Revenue Range',
-    placeholder: 'Pre-revenue / $0-5K / $5K-20K / $20K-100K / $100K+',
-    helper: 'Approximate monthly recurring revenue. Used to assess ad readiness.',
+    key: 'buyingTriggers',
+    label: 'What triggers them to look for a solution?',
+    placeholder: 'New CMO hire, board pressure for attribution, scaling paid ads, preparing for Series B fundraise.',
+    helper: 'Real-world events that push prospects into the market. Fuels trigger-based ad hooks.',
+    rows: 3,
+  },
+  {
+    key: 'currentAlternative',
+    label: 'What are they currently using instead?',
+    placeholder: 'Spreadsheets, HubSpot native attribution, an in-house freelancer, or nothing.',
+    helper: "Their status quo. Anchors 'switch from X to Y' positioning.",
+    rows: 2,
+  },
+
+  // §3 Offer & Product Experience
+  {
+    key: 'firstValueMoment',
+    label: 'What is the first value moment users experience?',
+    placeholder: 'Seeing their first attribution report with real pipeline data, usually within 2 minutes of connecting HubSpot.',
+    helper: 'Determines how aggressively you can convert users.',
+    rows: 2,
+  },
+  {
+    key: 'activationEvent',
+    label: 'What action defines an activated user?',
+    placeholder: 'Connected 3+ integrations and viewed the unified dashboard at least twice in week 1.',
+    helper: 'Anchors what you actually optimize for (not vanity metrics).',
+    rows: 2,
+  },
+  {
+    key: 'retentionDrivers',
+    label: 'What keeps your best customers using the product?',
+    placeholder: 'Weekly attribution updates tied to their board reporting cadence.',
+    helper: 'Reveals what truly delivers value and should be emphasized in messaging.',
+    rows: 2,
+  },
+
+  // §4 Pricing & Economics
+  {
+    key: 'targetPlan',
+    label: "What is your target customer's typical plan?",
+    placeholder: 'Pro $997/mo — our growth-stage sweet spot.',
+    helper: 'Focuses acquisition on revenue-driving users.',
+    rows: 2,
+  },
+  {
+    key: 'avgCustomerLtv',
+    label: 'Average Customer LTV',
+    placeholder: 'e.g. $3,600 — total revenue per customer over their lifetime',
+    helper: 'Sets the ceiling for how much you can spend to acquire. Leave blank if unknown.',
     rows: 1,
   },
   {
-    key: 'payingCustomerCount',
-    label: 'Paying Customers',
-    placeholder: '0 / 1-10 / 11-50 / 51-200 / 200+',
-    helper: 'How many paying customers or clients do you currently have?',
+    key: 'targetCac',
+    label: 'Target CAC',
+    placeholder: 'e.g. $450 — what you want to pay to acquire a customer',
+    helper: 'Anchors performance expectations and channel profitability decisions.',
+    rows: 1,
+  },
+
+  // §5 Competition & Positioning
+  {
+    key: 'lossReasons',
+    label: 'In deals you lose, what do prospects say before choosing a competitor?',
+    placeholder: 'They went with HubSpot because it was already bundled in their contract.',
+    helper: 'Fuels objection handling and creative angles.',
+    rows: 3,
+  },
+  {
+    key: 'competitorStrengths',
+    label: 'What do competitors do better than you?',
+    placeholder: 'Dreamdata has a more polished UI. Bizible has deeper Salesforce integrations.',
+    helper: 'Honest competitive self-assessment. Informs positioning strategy.',
+    rows: 3,
+  },
+
+  // §6 Goals & Strategy
+  {
+    key: 'pipelineTarget',
+    label: 'Monthly pipeline target ($ or # of demos)',
+    placeholder: '$500k in SQL pipeline per month, or 60 qualified demos.',
+    helper: 'Sets measurable output targets for campaigns.',
     rows: 1,
   },
   {
-    key: 'currentMarketingActivities',
-    label: 'Current Marketing Activities',
-    placeholder:
-      'Meta $8k/mo — LAL 1% + interest stacks, UGC testimonial hooks, 2.1x ROAS (working).\nLinkedIn $3k/mo — job-title + static images, flat (cutting soon).\nGoogle Search: not running yet.',
-    helper:
-      "Channels you're already running, rough budget split, creative styles, what's working, what's not. Helps us avoid recommending strategies you already have in market. Skip any part.",
-    rows: 4,
+    key: 'commonObjections',
+    label: 'Common objections from prospects',
+    placeholder: 'We already have Google Analytics. Our data is too messy. We tried Bizible and it was a nightmare.',
+    helper: 'Fuels high-converting ad hooks and sales enablement.',
+    rows: 3,
+  },
+  {
+    key: 'keyPromises',
+    label: 'Key promises / outcomes you want to be known for',
+    placeholder: 'Cut wasted ad spend by 30% in 90 days. Board-ready attribution in 2 weeks.',
+    helper: 'Defines core messaging and value proposition.',
+    rows: 3,
+  },
+  {
+    key: 'brandPositioning',
+    label: 'Current brand positioning (1–2 sentences)',
+    placeholder: "The 'easy button' for marketing attribution — affordable, fast to implement.",
+    helper: 'Ensures consistency across ads, pages, and sales.',
+    rows: 2,
+  },
+
+  // §7 Current Marketing & Performance
+  {
+    key: 'channels',
+    label: 'What channels are you currently running?',
+    placeholder: 'Meta, LinkedIn, Cold Email',
+    helper: 'Select all that apply: Meta, Google, LinkedIn, Cold Email, Outbound, Organic, Other.',
+    rows: 1,
+  },
+  {
+    key: 'channelBudgetSplit',
+    label: 'Budget split per channel',
+    placeholder: 'Meta $8k, LinkedIn $3k, Cold Email $2k.',
+    helper: 'Reveals where attention and spend are currently going.',
+    rows: 2,
+  },
+  {
+    key: 'whatIsWorking',
+    label: "What's working right now?",
+    placeholder: 'Meta LAL 1% + UGC testimonial hooks — 2.1x ROAS.',
+    helper: 'Surfaces winning angles and channels to double down on.',
+    rows: 3,
+  },
+  {
+    key: 'whatIsNotWorking',
+    label: "What's not working?",
+    placeholder: 'LinkedIn job-title + static images is flat. Google Search not set up yet.',
+    helper: 'Highlights inefficiencies and wasted spend to cut or fix.',
+    rows: 3,
   },
   {
     key: 'currentCac',
     label: 'Current CAC',
     placeholder: 'e.g. $450 — what one customer currently costs to acquire',
-    helper: 'What it currently costs you to acquire a customer.',
+    helper: 'Anchors profitability and scaling potential.',
     rows: 1,
   },
   {
-    key: 'avgCustomerLtv',
-    label: 'Avg Customer LTV',
-    placeholder: 'e.g. $3,600 — total revenue per customer over their lifetime',
-    helper: "Lifetime revenue per customer. Leave blank if you're not sure.",
+    key: 'monthlyRevenue',
+    label: 'Monthly revenue (MRR or ARR)',
+    placeholder: '$50K MRR or $600K ARR',
+    helper: 'Defines growth stage and strategy complexity.',
     rows: 1,
   },
   {
-    key: 'leadToCustomerRate',
-    label: 'Lead → Customer %',
-    placeholder: 'e.g. 5 (means 5% — 5 of every 100 leads close)',
-    helper: 'Of every 100 leads, how many become paying customers?',
+    key: 'salesCycleLength',
+    label: 'Average sales cycle length (if sales-led)',
+    placeholder: '14–30 days, or however long typical deals take.',
+    helper: 'Relevant mostly for sales-led motions.',
+    rows: 1,
+  },
+  // Optional funnel metrics
+  {
+    key: 'visitorToSignupPct',
+    label: 'Visitor → Signup %',
+    placeholder: 'e.g. 3 (means 3% of visitors sign up)',
+    helper: 'Top-of-funnel conversion rate. Optional.',
     rows: 1,
   },
   {
-    key: 'last12MoGrowthRate',
-    label: 'Last 12-Month Revenue Growth %',
-    placeholder: 'e.g. 25 (means 25% — leave blank if you don\'t track it)',
-    helper: "Leave blank if you don't track it. Used to gate growth-rate claims in the plan.",
+    key: 'signupToActivationPct',
+    label: 'Signup → Activation %',
+    placeholder: 'e.g. 40 (means 40% of signups activate)',
+    helper: 'How many signups become active users. Optional.',
+    rows: 1,
+  },
+  {
+    key: 'activationToPaidPct',
+    label: 'Activation → Paid %',
+    placeholder: 'e.g. 15 (means 15% of activated users convert to paid)',
+    helper: 'Activation-to-revenue conversion. Optional.',
+    rows: 1,
+  },
+  {
+    key: 'demoToCloseRate',
+    label: 'Demo → Close Rate',
+    placeholder: 'e.g. 25 (means 25% of demos close)',
+    helper: 'Sales-led close rate. Optional.',
+    rows: 1,
+  },
+  {
+    key: 'last3to6MoGrowthTrend',
+    label: 'Last 3–6 Month Growth Trend %',
+    placeholder: "e.g. 25 (means 25% — leave blank if you don't track it)",
+    helper: 'Trailing 3–6 month revenue growth rate. Used to gate growth-rate claims in the plan.',
     rows: 1,
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Wave-two dispatch requirements
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const JOURNEY_WAVE_TWO_REQUIREMENTS: readonly JourneyRequirementDefinition[] = [
-  {
-    key: 'topCompetitors',
-    label: 'competitors',
-    fieldKeys: ['topCompetitors'],
-  },
-  {
-    key: 'productDescription',
-    label: 'product description',
-    fieldKeys: ['productDescription'],
-  },
-  {
-    key: 'primaryIcpDescription',
-    label: 'ICP specifics',
-    fieldKeys: ['primaryIcpDescription'],
-  },
-  {
-    key: 'pricingContext',
-    label: 'pricing or budget',
-    fieldKeys: ['pricingTiers', 'monthlyAdBudget'],
-  },
+  { key: 'topCompetitors', label: 'competitors', fieldKeys: ['topCompetitors'] },
+  { key: 'productDescription', label: 'product description', fieldKeys: ['productDescription'] },
+  { key: 'primaryIcpDescription', label: 'ICP specifics', fieldKeys: ['primaryIcpDescription'] },
+  { key: 'targetCustomer', label: 'target customer', fieldKeys: ['targetCustomer'] },
+  { key: 'salesMotion', label: 'sales motion', fieldKeys: ['salesMotion'] },
+  { key: 'pricingModel', label: 'pricing model', fieldKeys: ['pricingModel'] },
+  { key: 'conversionPath', label: 'conversion path', fieldKeys: ['conversionPath'] },
+  { key: 'avgAcv', label: 'average contract value', fieldKeys: ['avgAcv'] },
+  { key: 'pricingContext', label: 'pricing or budget', fieldKeys: ['pricingTiers', 'monthlyAdBudget'] },
 ] as const;
 
 export function getJourneyFieldDefinition(
@@ -265,7 +488,9 @@ export function getJourneyFollowupFieldsForSection(
   return JOURNEY_SECTION_FOLLOWUP_FIELDS.filter((field) => field.section === section);
 }
 
-// ── Group / Set exports for unified-field-review & field-group ──
+// ─────────────────────────────────────────────────────────────────────────────
+// Group / Set exports for field-group UI rendering
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface JourneyFieldGroupMeta {
   id: string;
@@ -289,10 +514,23 @@ export const JOURNEY_PRICING_GROUP_KEYS: ReadonlySet<string> = new Set(
 
 /** Fields that should render as multiline inputs (rows > 1) */
 export const JOURNEY_MULTILINE_FIELDS: ReadonlySet<string> = new Set(
-  JOURNEY_MANUAL_BLOCKER_FIELDS
+  [...JOURNEY_MANUAL_BLOCKER_FIELDS, ...JOURNEY_ENRICHMENT_FIELD_METAS]
     .filter((f) => f.rows > 1)
     .map((f) => f.key),
 );
+
+/** Enum-backed single-select fields */
+export const JOURNEY_ENUM_FIELD_KEYS: ReadonlySet<string> = new Set([
+  'salesMotion',
+  'pricingModel',
+  'conversionPath',
+  'avgAcv',
+]);
+
+/** Multi-select array fields */
+export const JOURNEY_MULTI_SELECT_FIELD_KEYS: ReadonlySet<string> = new Set([
+  'channels',
+]);
 
 /** Get manual blocker metadata for a field key (placeholder, helper, rows) */
 export function getManualBlockerMeta(key: string): JourneyManualFieldDefinition | undefined {
@@ -302,91 +540,273 @@ export function getManualBlockerMeta(key: string): JourneyManualFieldDefinition 
   );
 }
 
-/** Logical field groupings for the review UI */
+// ─────────────────────────────────────────────────────────────────────────────
+// v3 field groups — 7 sections, matching the onboarding doc
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const JOURNEY_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
-    id: 'business-basics',
-    label: 'Business Basics',
-    fieldKeys: ['companyName', 'businessModel', 'productDescription'],
+    id: 'product-revenue-model',
+    label: 'Product & Revenue Model',
+    fieldKeys: [
+      'companyName',
+      'productDescription',
+      'targetCustomer',
+      'salesMotion',
+      'pricingModel',
+      'conversionPath',
+      'avgAcv',
+    ],
   },
   {
-    id: 'target-customer',
-    label: 'Target Customer',
-    fieldKeys: ['primaryIcpDescription', 'industryVertical', 'jobTitles', 'companySize', 'geography'],
+    id: 'icp-pain',
+    label: 'ICP + Pain',
+    fieldKeys: [
+      'primaryIcpDescription',
+      'industryVertical',
+      'jobTitles',
+      'companySize',
+      'geography',
+      'buyingTriggers',
+      'currentAlternative',
+    ],
   },
   {
-    id: 'offer-pricing',
-    label: 'Offer & Pricing',
-    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'monthlyRevenueRange', 'payingCustomerCount'],
+    id: 'offer-experience',
+    label: 'Offer & Product Experience',
+    fieldKeys: [
+      'coreDeliverables',
+      'firstValueMoment',
+      'activationEvent',
+      'retentionDrivers',
+    ],
   },
   {
-    id: 'competition',
-    label: 'Competition',
-    fieldKeys: ['topCompetitors', 'uniqueEdge'],
+    id: 'pricing-economics',
+    label: 'Pricing & Economics',
+    fieldKeys: [
+      'pricingTiers',
+      'targetPlan',
+      'monthlyAdBudget',
+      'avgCustomerLtv',
+      'targetCac',
+    ],
+  },
+  {
+    id: 'competition-positioning',
+    label: 'Competition & Positioning',
+    fieldKeys: [
+      'topCompetitors',
+      'uniqueEdge',
+      'lossReasons',
+      'competitorStrengths',
+    ],
   },
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities'],
+    fieldKeys: [
+      'goals',
+      'pipelineTarget',
+      'commonObjections',
+      'keyPromises',
+      'brandPositioning',
+    ],
   },
   {
-    id: 'current-performance',
-    label: 'Current Performance',
-    fieldKeys: ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'],
+    id: 'current-marketing',
+    label: 'Current Marketing & Performance',
+    fieldKeys: [
+      'channels',
+      'channelBudgetSplit',
+      'whatIsWorking',
+      'whatIsNotWorking',
+      'currentCac',
+      'monthlyRevenue',
+      'salesCycleLength',
+      // Optional funnel metrics (UI should hide behind a "show optional" toggle)
+      'visitorToSignupPct',
+      'signupToActivationPct',
+      'activationToPaidPct',
+      'demoToCloseRate',
+      'last3to6MoGrowthTrend',
+    ],
   },
 ];
 
-// ── Profile field groups: all journey-collected fields for profile view/edit ──
-
-/** Complete field groups for profile pages — includes every journey field */
+/** Profile field groups — identical to JOURNEY_FIELD_GROUPS in v3 (no legacy superset needed) */
 export const PROFILE_FIELD_GROUPS: readonly JourneyFieldGroupMeta[] = [
   {
-    id: 'business-basics',
-    label: 'Business Basics',
-    fieldKeys: ['companyName', 'websiteUrl', 'businessModel', 'productDescription'],
+    id: 'product-revenue-model',
+    label: 'Product & Revenue Model',
+    fieldKeys: [
+      'companyName',
+      'websiteUrl',
+      'productDescription',
+      'targetCustomer',
+      'salesMotion',
+      'pricingModel',
+      'conversionPath',
+      'avgAcv',
+    ],
   },
   {
-    id: 'target-customer',
-    label: 'Target Customer',
-    fieldKeys: ['primaryIcpDescription', 'industryVertical', 'jobTitles', 'companySize', 'geography', 'easiestToClose', 'buyingTriggers', 'bestClientSources'],
+    id: 'icp-pain',
+    label: 'ICP + Pain',
+    fieldKeys: [
+      'primaryIcpDescription',
+      'industryVertical',
+      'jobTitles',
+      'companySize',
+      'geography',
+      'buyingTriggers',
+      'currentAlternative',
+    ],
   },
   {
-    id: 'offer-pricing',
-    label: 'Offer & Pricing',
-    fieldKeys: ['coreDeliverables', 'valueProp', 'pricingTiers', 'monthlyAdBudget', 'guarantees', 'currentFunnelType', 'monthlyRevenueRange', 'payingCustomerCount'],
+    id: 'offer-experience',
+    label: 'Offer & Product Experience',
+    fieldKeys: [
+      'coreDeliverables',
+      'firstValueMoment',
+      'activationEvent',
+      'retentionDrivers',
+    ],
   },
   {
-    id: 'competition',
-    label: 'Competition',
-    fieldKeys: ['topCompetitors', 'uniqueEdge', 'competitorFrustrations', 'marketBottlenecks'],
+    id: 'pricing-economics',
+    label: 'Pricing & Economics',
+    fieldKeys: [
+      'pricingTiers',
+      'targetPlan',
+      'monthlyAdBudget',
+      'avgCustomerLtv',
+      'targetCac',
+    ],
+  },
+  {
+    id: 'competition-positioning',
+    label: 'Competition & Positioning',
+    fieldKeys: [
+      'topCompetitors',
+      'uniqueEdge',
+      'lossReasons',
+      'competitorStrengths',
+    ],
   },
   {
     id: 'goals-strategy',
     label: 'Goals & Strategy',
-    fieldKeys: ['goals', 'desiredTransformation', 'situationBeforeBuying', 'commonObjections', 'brandPositioning', 'currentMarketingActivities', 'salesCycleLength', 'salesProcessOverview', 'campaignDuration', 'targetCpl', 'targetCac'],
+    fieldKeys: [
+      'goals',
+      'pipelineTarget',
+      'commonObjections',
+      'keyPromises',
+      'brandPositioning',
+    ],
   },
   {
-    id: 'current-performance',
-    label: 'Current Performance',
-    fieldKeys: ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'],
+    id: 'current-marketing',
+    label: 'Current Marketing & Performance',
+    fieldKeys: [
+      'channels',
+      'channelBudgetSplit',
+      'whatIsWorking',
+      'whatIsNotWorking',
+      'currentCac',
+      'monthlyRevenue',
+      'salesCycleLength',
+      'visitorToSignupPct',
+      'signupToActivationPct',
+      'activationToPaidPct',
+      'demoToCloseRate',
+      'last3to6MoGrowthTrend',
+    ],
   },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enum types + option arrays for v3 single-select / multi-select fields
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SalesMotion = 'product-led' | 'sales-led' | 'hybrid';
+
+export const SALES_MOTION_OPTIONS: readonly { value: SalesMotion; label: string; helper: string }[] = [
+  { value: 'product-led', label: 'Product-led (self-serve)', helper: 'Customers sign up and start using the product without talking to sales.' },
+  { value: 'sales-led', label: 'Sales-led (demo → close)', helper: 'Customers book a demo and a sales rep walks them through the close.' },
+  { value: 'hybrid', label: 'Hybrid', helper: 'Mix of self-serve and sales-led motions.' },
+] as const;
+
+/** Pricing archetype — named to avoid collision with legacy `PricingModel` in src/lib/onboarding/types.ts */
+export type PricingArchetype =
+  | 'subscription'
+  | 'usage-based'
+  | 'per-seat'
+  | 'one-time-plus-subscription';
+
+export const PRICING_MODEL_OPTIONS: readonly { value: PricingArchetype; label: string }[] = [
+  { value: 'subscription', label: 'Subscription (monthly / annual)' },
+  { value: 'usage-based', label: 'Usage-based' },
+  { value: 'per-seat', label: 'Per seat' },
+  { value: 'one-time-plus-subscription', label: 'One-time + subscription' },
+] as const;
+
+export type ConversionPath = 'free-trial' | 'freemium' | 'demo-required' | 'direct-checkout';
+
+export const CONVERSION_PATH_OPTIONS: readonly { value: ConversionPath; label: string }[] = [
+  { value: 'free-trial', label: 'Free trial' },
+  { value: 'freemium', label: 'Freemium' },
+  { value: 'demo-required', label: 'Demo required' },
+  { value: 'direct-checkout', label: 'Direct checkout' },
+] as const;
+
+export type AvgAcv = 'under-1k' | '1k-10k' | '10k-50k' | '50k-plus';
+
+export const AVG_ACV_OPTIONS: readonly { value: AvgAcv; label: string }[] = [
+  { value: 'under-1k', label: '<$1K' },
+  { value: '1k-10k', label: '$1K–$10K' },
+  { value: '10k-50k', label: '$10K–$50K' },
+  { value: '50k-plus', label: '$50K+' },
+] as const;
+
+export type OnboardingChannel =
+  | 'meta'
+  | 'google'
+  | 'linkedin'
+  | 'cold-email'
+  | 'outbound'
+  | 'organic'
+  | 'other';
+
+export const CHANNEL_OPTIONS: readonly { value: OnboardingChannel; label: string }[] = [
+  { value: 'meta', label: 'Meta' },
+  { value: 'google', label: 'Google' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'cold-email', label: 'Cold Email' },
+  { value: 'outbound', label: 'Outbound' },
+  { value: 'organic', label: 'Organic' },
+  { value: 'other', label: 'Other' },
+] as const;
 
 /** Fields that should render as multi-line textarea in profile edit */
 export const PROFILE_MULTILINE_KEYS: ReadonlySet<string> = new Set([
   'primaryIcpDescription',
-  'easiestToClose',
+  'targetCustomer',
   'buyingTriggers',
+  'currentAlternative',
   'productDescription',
   'coreDeliverables',
-  'valueProp',
-  'guarantees',
-  'competitorFrustrations',
-  'marketBottlenecks',
-  'situationBeforeBuying',
-  'desiredTransformation',
+  'firstValueMoment',
+  'activationEvent',
+  'retentionDrivers',
+  'targetPlan',
+  'pricingTiers',
+  'lossReasons',
+  'competitorStrengths',
   'commonObjections',
-  'salesProcessOverview',
+  'keyPromises',
   'brandPositioning',
-  'currentMarketingActivities',
+  'channelBudgetSplit',
+  'whatIsWorking',
+  'whatIsNotWorking',
 ]);

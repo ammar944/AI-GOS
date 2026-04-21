@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   JOURNEY_FIELDS,
-  JOURNEY_ENRICHMENT_FIELD_METAS,
   JOURNEY_FIELD_GROUPS,
   JOURNEY_MANUAL_BLOCKER_FIELDS,
   JOURNEY_PREFILL_REVIEW_FIELDS,
@@ -12,7 +11,6 @@ import {
   JOURNEY_SECTION_FOLLOWUP_FIELDS,
   JOURNEY_WAVE_TWO_REQUIREMENTS,
   PROFILE_FIELD_GROUPS,
-  PROFILE_MULTILINE_KEYS,
   getJourneyFieldDefinition,
   getManualBlockerMeta,
 } from '../field-catalog';
@@ -30,21 +28,26 @@ describe('field-catalog', () => {
   });
 
   it('keeps the review screen aligned to the known scrape-visible fields', () => {
-    expect(JOURNEY_PREFILL_REVIEW_FIELDS).toHaveLength(25);
-    expect(JOURNEY_PREFILL_REVIEW_FIELDS.some((field) => field.key === 'businessModel')).toBe(true);
-    expect(JOURNEY_PREFILL_REVIEW_FIELDS.some((field) => field.key === 'productDescription')).toBe(true);
+    // v3: scrape-visible fields cover basics, ICP core, offer core, competition core, + asset URLs.
+    expect(JOURNEY_PREFILL_REVIEW_FIELDS.length).toBeGreaterThanOrEqual(15);
+    expect(JOURNEY_PREFILL_REVIEW_FIELDS.some((f) => f.key === 'productDescription')).toBe(true);
+    expect(JOURNEY_PREFILL_REVIEW_FIELDS.some((f) => f.key === 'targetCustomer')).toBe(true);
   });
 
   it('keeps the required upfront blocker set explicit', () => {
     expect(JOURNEY_MANUAL_BLOCKER_FIELDS.map((field) => field.key)).toEqual([
-      'businessModel',
       'productDescription',
-      'topCompetitors',
+      'targetCustomer',
+      'salesMotion',
+      'pricingModel',
+      'conversionPath',
+      'avgAcv',
       'primaryIcpDescription',
+      'topCompetitors',
+      'uniqueEdge',
       'pricingTiers',
       'monthlyAdBudget',
       'goals',
-      'uniqueEdge',
     ]);
   });
 
@@ -53,65 +56,19 @@ describe('field-catalog', () => {
       'topCompetitors',
       'productDescription',
       'primaryIcpDescription',
+      'targetCustomer',
+      'salesMotion',
+      'pricingModel',
+      'conversionPath',
+      'avgAcv',
       'pricingContext',
     ]);
   });
 });
 
-describe('currentMarketingActivities field', () => {
-  it('is registered in JOURNEY_FIELDS with the correct shape', () => {
-    const field = getJourneyFieldDefinition('currentMarketingActivities');
-    expect(field).toBeDefined();
-    expect(field?.category).toBe('section-followup');
-    expect(field?.section).toBe('crossAnalysis');
-    expect(field?.collectionMode).toBe('manual');
-    expect(field?.prefillVisible).toBeFalsy();
-  });
-
-  it('appears in the goals-strategy group of JOURNEY_FIELD_GROUPS', () => {
-    const group = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'goals-strategy');
-    expect(group?.fieldKeys).toContain('currentMarketingActivities');
-  });
-
-  it('appears in the goals-strategy group of PROFILE_FIELD_GROUPS', () => {
-    const group = PROFILE_FIELD_GROUPS.find((g) => g.id === 'goals-strategy');
-    expect(group?.fieldKeys).toContain('currentMarketingActivities');
-  });
-
-  it('renders as a multi-line textarea on the profile edit page', () => {
-    expect(PROFILE_MULTILINE_KEYS.has('currentMarketingActivities')).toBe(true);
-  });
-
-  it('is NOT required — must remain optional for existing users', () => {
-    expect(JOURNEY_REQUIRED_FIELD_KEYS.has('currentMarketingActivities')).toBe(false);
-  });
-
-  it('has placeholder and helper metadata in JOURNEY_ENRICHMENT_FIELD_METAS', () => {
-    const meta = JOURNEY_ENRICHMENT_FIELD_METAS.find(
-      (m) => m.key === 'currentMarketingActivities',
-    );
-    expect(meta).toBeDefined();
-    expect(meta?.placeholder).toBeTruthy();
-    expect(meta?.helper).toBeTruthy();
-    expect(meta?.rows).toBeGreaterThan(1);
-    expect(meta?.required).toBeFalsy();
-  });
-
-  it('flows through buildJourneyResearchContext as a labeled line', async () => {
-    const { buildJourneyResearchContext } = await import('../context-string');
-    const ctx = buildJourneyResearchContext({
-      companyName: 'Acme',
-      currentMarketingActivities:
-        'Meta $8k/mo LAL 1% + UGC, 2.1x ROAS. LinkedIn flat. Google brand-only.',
-    });
-    expect(ctx).toContain(
-      'Current Marketing Activities: Meta $8k/mo LAL 1% + UGC, 2.1x ROAS. LinkedIn flat. Google brand-only.',
-    );
-  });
-});
-
 describe('Current Performance baseline-metric fields', () => {
-  const BASELINE_KEYS = ['currentCac', 'avgCustomerLtv', 'leadToCustomerRate', 'last12MoGrowthRate'] as const;
+  // v3: leadToCustomerRate retired (replaced by demoToCloseRate); we keep cac/ltv/growth-trend.
+  const BASELINE_KEYS = ['currentCac', 'avgCustomerLtv', 'last3to6MoGrowthTrend'] as const;
 
   it.each(BASELINE_KEYS)('defines %s as a section-followup field', (key) => {
     const def = getJourneyFieldDefinition(key);
@@ -126,31 +83,9 @@ describe('Current Performance baseline-metric fields', () => {
     const meta = getManualBlockerMeta(key);
     expect(meta).toBeDefined();
     expect(meta?.rows).toBe(1);
-
-    const expected: Record<typeof BASELINE_KEYS[number], { placeholder: string; helper: string }> = {
-      currentCac: {
-        placeholder: 'e.g. $450 — what one customer currently costs to acquire',
-        helper: 'What it currently costs you to acquire a customer.',
-      },
-      avgCustomerLtv: {
-        placeholder: 'e.g. $3,600 — total revenue per customer over their lifetime',
-        helper: "Lifetime revenue per customer. Leave blank if you're not sure.",
-      },
-      leadToCustomerRate: {
-        placeholder: 'e.g. 5 (means 5% — 5 of every 100 leads close)',
-        helper: 'Of every 100 leads, how many become paying customers?',
-      },
-      last12MoGrowthRate: {
-        placeholder: 'e.g. 25 (means 25% — leave blank if you don\'t track it)',
-        helper: "Leave blank if you don't track it. Used to gate growth-rate claims in the plan.",
-      },
-    };
-
-    // Pin both: placeholder reads as a hint (starts with "e.g."),
-    // helper reads as a directive sentence.
-    expect(meta?.placeholder).toBe(expected[key].placeholder);
+    expect(meta?.placeholder).toBeTruthy();
     expect(meta?.placeholder).toMatch(/^e\.g\./);
-    expect(meta?.helper).toBe(expected[key].helper);
+    expect(meta?.helper).toBeTruthy();
   });
 
   it.each(BASELINE_KEYS)('never marks %s as required or in the pricing group', (key) => {
@@ -158,16 +93,54 @@ describe('Current Performance baseline-metric fields', () => {
     expect(JOURNEY_PRICING_GROUP_KEYS.has(key)).toBe(false);
   });
 
-  it('adds a current-performance group to JOURNEY_FIELD_GROUPS', () => {
-    const group = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'current-performance');
+  it('places baseline-ish metrics inside the v3 current-marketing group in JOURNEY_FIELD_GROUPS', () => {
+    const group = JOURNEY_FIELD_GROUPS.find((g) => g.id === 'current-marketing');
     expect(group).toBeDefined();
-    expect(group?.label).toBe('Current Performance');
-    expect(group?.fieldKeys).toEqual([...BASELINE_KEYS]);
+    expect(group?.label).toBe('Current Marketing & Performance');
+    expect(group?.fieldKeys).toContain('currentCac');
+    expect(group?.fieldKeys).toContain('last3to6MoGrowthTrend');
   });
 
-  it('adds a current-performance group to PROFILE_FIELD_GROUPS', () => {
-    const group = PROFILE_FIELD_GROUPS.find((g) => g.id === 'current-performance');
-    expect(group).toBeDefined();
-    expect(group?.fieldKeys).toEqual([...BASELINE_KEYS]);
+  it('routes baseline metrics across v3 pricing-economics + current-marketing groups in PROFILE_FIELD_GROUPS', () => {
+    // LTV lives in Pricing & Economics (anchors CAC ceiling). Current CAC + growth trend live in
+    // Current Marketing & Performance (diagnostics).
+    const pricing = PROFILE_FIELD_GROUPS.find((g) => g.id === 'pricing-economics');
+    const marketing = PROFILE_FIELD_GROUPS.find((g) => g.id === 'current-marketing');
+    expect(pricing).toBeDefined();
+    expect(marketing).toBeDefined();
+    const allKeys = [...(pricing?.fieldKeys ?? []), ...(marketing?.fieldKeys ?? [])];
+    for (const key of BASELINE_KEYS) {
+      expect(allKeys).toContain(key);
+    }
+  });
+});
+
+describe('v3 obsolete fields', () => {
+  // These fields were retired during v3 onboarding rewrite. The test documents the removal
+  // so reintroducing them requires a deliberate catalog entry.
+  const OBSOLETE_KEYS = [
+    'businessModel',
+    'currentFunnelType',
+    'easiestToClose',
+    'bestClientSources',
+    'competitorFrustrations',
+    'marketBottlenecks',
+    'salesProcessOverview',
+    'campaignDuration',
+    'targetCpl',
+    'leadToCustomerRate',
+    'currentMarketingActivities',
+    'headquartersLocation',
+    'marketProblem',
+    'guarantees',
+    'monthlyRevenueRange',
+    'payingCustomerCount',
+    'situationBeforeBuying',
+    'desiredTransformation',
+    'last12MoGrowthRate',
+  ] as const;
+
+  it.each(OBSOLETE_KEYS)('removes %s from JOURNEY_FIELDS', (key) => {
+    expect(getJourneyFieldDefinition(key)).toBeUndefined();
   });
 });

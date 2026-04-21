@@ -539,7 +539,7 @@ export async function runMediaPlanPipeline(
     }
 
     // --- Post-assembly: Scrub fabricated growth/ARR/scaling prose ---
-    // The legacy V1 pipeline has no path to the user's last12MoGrowthRate
+    // The legacy V1 pipeline has no path to the user's last3to6MoGrowthTrend
     // (it runs off OnboardingFormData, not the journey's collectedFields bag).
     // Treat growth claims as forbidden here — the production path in
     // research-worker/src/runners/media-plan.ts resolves the gate properly.

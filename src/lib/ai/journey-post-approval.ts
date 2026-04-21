@@ -1,12 +1,10 @@
 import type { JourneyStateSnapshot } from '@/lib/ai/journey-state';
-import { JOURNEY_WAVE_TWO_REQUIREMENTS } from '@/lib/journey/field-catalog';
+import {
+  JOURNEY_WAVE_TWO_REQUIREMENTS,
+  type JourneyRequirementDefinition,
+} from '@/lib/journey/field-catalog';
 
-export type PostApprovalNextField =
-  | 'topCompetitors'
-  | 'productDescription'
-  | 'primaryIcpDescription'
-  | 'pricingContext'
-  | null;
+export type PostApprovalNextField = JourneyRequirementDefinition['key'] | null;
 
 export interface PostApprovalPlan {
   missingInputs: string[];

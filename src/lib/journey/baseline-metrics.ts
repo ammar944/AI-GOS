@@ -16,7 +16,7 @@ export const BASELINE_METRIC_KEYS = [
   'currentCac',
   'avgCustomerLtv',
   'leadToCustomerRate',
-  'last12MoGrowthRate',
+  'last3to6MoGrowthTrend',
 ] as const;
 
 export type BaselineMetricKey = (typeof BASELINE_METRIC_KEYS)[number];
@@ -29,8 +29,8 @@ export interface BaselineMetrics {
   avgCustomerLtv: number | null;
   /** Lead-to-customer conversion rate, expressed as a percentage (0-100). */
   leadToCustomerRate: number | null;
-  /** Trailing-12-month revenue growth rate, expressed as a percentage (may be negative). */
-  last12MoGrowthRate: number | null;
+  /** Trailing 3-6 month revenue growth rate, expressed as a percentage (may be negative). */
+  last3to6MoGrowthTrend: number | null;
 }
 
 /**
@@ -65,7 +65,7 @@ export function extractBaselineMetrics(
     currentCac: parseMetricNumber(fields.currentCac),
     avgCustomerLtv: parseMetricNumber(fields.avgCustomerLtv),
     leadToCustomerRate: parseMetricNumber(fields.leadToCustomerRate),
-    last12MoGrowthRate: parseMetricNumber(fields.last12MoGrowthRate),
+    last3to6MoGrowthTrend: parseMetricNumber(fields.last3to6MoGrowthTrend),
   };
 }
 
@@ -75,6 +75,6 @@ export function hasAnyBaselineMetrics(metrics: BaselineMetrics): boolean {
     metrics.currentCac !== null ||
     metrics.avgCustomerLtv !== null ||
     metrics.leadToCustomerRate !== null ||
-    metrics.last12MoGrowthRate !== null
+    metrics.last3to6MoGrowthTrend !== null
   );
 }

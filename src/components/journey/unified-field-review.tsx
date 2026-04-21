@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Users, Package, TrendingUp, Target, Gauge, FileUp, Loader2, FileText, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building2, Users, Package, DollarSign, TrendingUp, Target, Gauge, FileUp, Loader2, FileText, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { PendingMeeting, MeetingType } from '@/lib/meeting-intel/types';
 import { cn } from '@/lib/utils';
 import { FieldCard } from '@/components/journey/field-card';
@@ -15,15 +15,16 @@ import {
   getManualBlockerMeta,
 } from '@/lib/journey/field-catalog';
 
-// Order matches JOURNEY_FIELD_GROUPS in src/lib/journey/field-catalog.ts.
+// Order matches JOURNEY_FIELD_GROUPS in src/lib/journey/field-catalog.ts (v3: 7 groups).
 // When a new group is added there, append a matching icon here.
 const GROUP_ICONS = [
-  <Building2 key="biz" className="h-3.5 w-3.5" />,
-  <Users key="cust" className="h-3.5 w-3.5" />,
-  <Package key="offer" className="h-3.5 w-3.5" />,
-  <TrendingUp key="comp" className="h-3.5 w-3.5" />,
-  <Target key="goals" className="h-3.5 w-3.5" />,
-  <Gauge key="perf" className="h-3.5 w-3.5" />,
+  <Building2 key="product-revenue" className="h-3.5 w-3.5" />,       // §1 Product & Revenue Model
+  <Users key="icp-pain" className="h-3.5 w-3.5" />,                  // §2 ICP + Pain
+  <Package key="offer-experience" className="h-3.5 w-3.5" />,        // §3 Offer & Product Experience
+  <DollarSign key="pricing-economics" className="h-3.5 w-3.5" />,    // §4 Pricing & Economics
+  <TrendingUp key="competition" className="h-3.5 w-3.5" />,          // §5 Competition & Positioning
+  <Target key="goals-strategy" className="h-3.5 w-3.5" />,           // §6 Goals & Strategy
+  <Gauge key="current-marketing" className="h-3.5 w-3.5" />,         // §7 Current Marketing & Performance
 ];
 
 // Human-readable labels for section tags shown on uploaded doc chips

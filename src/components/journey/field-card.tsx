@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { durations } from '@/lib/motion';
+
+export type FieldCardMode = 'text' | 'enum' | 'multi-select';
+
+export interface FieldCardChoice {
+  value: string;
+  label: string;
+  helper?: string;
+}
 
 export interface FieldCardProps {
   fieldKey: string;
@@ -17,6 +25,20 @@ export interface FieldCardProps {
   onChange: (value: string) => void;
   onBlur?: () => void;
   autoFocus?: boolean;
+  /** Rendering mode — text (default), enum (single-select), multi-select (chips) */
+  mode?: FieldCardMode;
+  /** Choices list for enum / multi-select modes */
+  choices?: readonly FieldCardChoice[];
+}
+
+/** Multi-select values are stored as comma-separated strings ("meta,google,linkedin"). */
+function parseMultiValue(value: string): Set<string> {
+  if (!value.trim()) return new Set();
+  return new Set(value.split(',').map((s) => s.trim()).filter(Boolean));
+}
+
+function serializeMultiValue(values: Set<string>): string {
+  return Array.from(values).join(',');
 }
 
 export function FieldCard({
@@ -31,6 +53,8 @@ export function FieldCard({
   onChange,
   onBlur,
   autoFocus,
+  mode = 'text',
+  choices,
 }: FieldCardProps) {
   const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -41,7 +65,7 @@ export function FieldCard({
     onBlur?.();
   }, [onBlur]);
 
-  // Auto-resize textarea to fit content
+  // Auto-resize textarea to fit content (text mode only)
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -50,15 +74,31 @@ export function FieldCard({
   }, []);
 
   useEffect(() => {
-    autoResize();
-  }, [value, autoResize]);
+    if (mode === 'text') autoResize();
+  }, [value, autoResize, mode]);
+
+  const selectedMulti = useMemo(
+    () => (mode === 'multi-select' ? parseMultiValue(value) : new Set<string>()),
+    [mode, value],
+  );
+
+  const filled =
+    mode === 'multi-select' ? selectedMulti.size > 0 : value.trim().length > 0;
 
   const sharedInputClasses = cn(
     'w-full bg-transparent border-none outline-none text-[14px] leading-relaxed placeholder:text-[var(--text-quaternary)]',
     'caret-[var(--text-primary)]',
   );
 
-  const filled = value.trim().length > 0;
+  const toggleMulti = useCallback(
+    (choiceValue: string) => {
+      const next = new Set(selectedMulti);
+      if (next.has(choiceValue)) next.delete(choiceValue);
+      else next.add(choiceValue);
+      onChange(serializeMultiValue(next));
+    },
+    [selectedMulti, onChange],
+  );
 
   return (
     <div
@@ -138,38 +178,100 @@ export function FieldCard({
         </div>
       </div>
 
-      {/* Input area — all fields use auto-resizing textarea so content is always visible */}
       <div className="px-4 pb-3">
-        <textarea
-          ref={textareaRef}
-          id={fieldKey}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            autoResize();
-          }}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          autoFocus={autoFocus}
-          placeholder={placeholder}
-          rows={isMultiline ? 3 : 1}
-          className={cn(sharedInputClasses, 'resize-none overflow-hidden')}
-          style={{ color: 'var(--text-primary)' }}
-        />
+        {/* Enum / multi-select pills */}
+        {(mode === 'enum' || mode === 'multi-select') && choices && choices.length > 0 ? (
+          <>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {choices.map((choice) => {
+                const isSelected =
+                  mode === 'multi-select'
+                    ? selectedMulti.has(choice.value)
+                    : value === choice.value;
+                return (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    onClick={() => {
+                      if (mode === 'multi-select') toggleMulti(choice.value);
+                      else onChange(choice.value);
+                    }}
+                    className={cn(
+                      'rounded-full px-2.5 py-1 text-[12px] transition-all duration-150 whitespace-nowrap',
+                      isSelected
+                        ? 'text-[var(--text-primary)]'
+                        : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
+                    )}
+                    style={{
+                      background: isSelected
+                        ? 'rgba(54, 94, 255, 0.16)'
+                        : 'var(--bg-hover)',
+                      border: `1px solid ${
+                        isSelected
+                          ? 'rgba(54, 94, 255, 0.4)'
+                          : 'var(--border-subtle)'
+                      }`,
+                    }}
+                  >
+                    {choice.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Selected choice's helper (enum mode) */}
+            {mode === 'enum' && value && choices.find((c) => c.value === value)?.helper && (
+              <p
+                className="mt-2 text-[11px] leading-relaxed"
+                style={{ color: 'var(--text-quaternary)' }}
+              >
+                {choices.find((c) => c.value === value)?.helper}
+              </p>
+            )}
+          </>
+        ) : (
+          // Text mode — auto-resizing textarea
+          <textarea
+            ref={textareaRef}
+            id={fieldKey}
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              autoResize();
+            }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            autoFocus={autoFocus}
+            placeholder={placeholder}
+            rows={isMultiline ? 3 : 1}
+            className={cn(sharedInputClasses, 'resize-none overflow-hidden')}
+            style={{ color: 'var(--text-primary)' }}
+          />
+        )}
 
-        {/* Focus line */}
-        <motion.div
-          className="h-px mt-1 rounded-full"
-          style={{
-            background: 'var(--text-primary)',
-            transformOrigin: 'left',
-          }}
-          animate={{ scaleX: focused ? 1 : 0, opacity: focused ? 0.4 : 0 }}
-          transition={{ duration: durations.normal }}
-        />
+        {/* Focus line — text mode only */}
+        {mode === 'text' && (
+          <motion.div
+            className="h-px mt-1 rounded-full"
+            style={{
+              background: 'var(--text-primary)',
+              transformOrigin: 'left',
+            }}
+            animate={{ scaleX: focused ? 1 : 0, opacity: focused ? 0.4 : 0 }}
+            transition={{ duration: durations.normal }}
+          />
+        )}
 
-        {/* Helper text */}
-        {helper && (
+        {/* Helper text (non-enum — enum mode shows its selected helper instead) */}
+        {helper && mode !== 'enum' && (
+          <p
+            className="mt-2 text-[11px] leading-relaxed"
+            style={{ color: 'var(--text-quaternary)' }}
+          >
+            {helper}
+          </p>
+        )}
+        {/* For enum mode: only show helper when nothing is selected yet */}
+        {helper && mode === 'enum' && !value && (
           <p
             className="mt-2 text-[11px] leading-relaxed"
             style={{ color: 'var(--text-quaternary)' }}

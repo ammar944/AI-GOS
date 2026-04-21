@@ -4,15 +4,46 @@ import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { springs, easings } from '@/lib/motion';
-import { FieldCard } from '@/components/journey/field-card';
+import { FieldCard, type FieldCardMode, type FieldCardChoice } from '@/components/journey/field-card';
 import type { JourneyFieldGroupMeta } from '@/lib/journey/field-catalog';
 import {
   JOURNEY_FIELD_LABELS,
   JOURNEY_REQUIRED_FIELD_KEYS,
   JOURNEY_PRICING_GROUP_KEYS,
   JOURNEY_MULTILINE_FIELDS,
+  JOURNEY_ENUM_FIELD_KEYS,
+  JOURNEY_MULTI_SELECT_FIELD_KEYS,
+  SALES_MOTION_OPTIONS,
+  PRICING_MODEL_OPTIONS,
+  CONVERSION_PATH_OPTIONS,
+  AVG_ACV_OPTIONS,
+  CHANNEL_OPTIONS,
   getManualBlockerMeta,
 } from '@/lib/journey/field-catalog';
+
+/** Map field keys to their enum / multi-select option arrays. */
+function getChoicesForKey(key: string): readonly FieldCardChoice[] | undefined {
+  switch (key) {
+    case 'salesMotion':
+      return SALES_MOTION_OPTIONS;
+    case 'pricingModel':
+      return PRICING_MODEL_OPTIONS;
+    case 'conversionPath':
+      return CONVERSION_PATH_OPTIONS;
+    case 'avgAcv':
+      return AVG_ACV_OPTIONS;
+    case 'channels':
+      return CHANNEL_OPTIONS;
+    default:
+      return undefined;
+  }
+}
+
+function getModeForKey(key: string): FieldCardMode {
+  if (JOURNEY_MULTI_SELECT_FIELD_KEYS.has(key)) return 'multi-select';
+  if (JOURNEY_ENUM_FIELD_KEYS.has(key)) return 'enum';
+  return 'text';
+}
 
 export interface FieldGroupProps {
   group: JourneyFieldGroupMeta;
@@ -201,6 +232,8 @@ export function FieldGroup({
                 const isScraped = scrapedKeys.has(key);
                 const isMultiline = JOURNEY_MULTILINE_FIELDS.has(key);
                 const blockerMeta = getManualBlockerMeta(key);
+                const mode = getModeForKey(key);
+                const choices = getChoicesForKey(key);
 
                 return (
                   <motion.div key={key} variants={fieldVariants}>
@@ -215,7 +248,9 @@ export function FieldGroup({
                       isMultiline={isMultiline}
                       onChange={(val) => onFieldChange(key, val)}
                       onBlur={() => onFieldBlur?.(key)}
-                      autoFocus={i === 0}
+                      autoFocus={i === 0 && mode === 'text'}
+                      mode={mode}
+                      choices={choices}
                     />
                   </motion.div>
                 );
