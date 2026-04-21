@@ -1,5 +1,6 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { createAdminClient } from '@/lib/supabase/server';
+import { requireActiveAccount } from '@/lib/auth/app-access';
 import Link from 'next/link';
 import { FileText, ArrowRight, Plus } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
@@ -20,8 +21,24 @@ function formatDate(dateString: string): string {
 }
 
 export default async function ResearchListPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const access = await requireActiveAccount();
+  if (access.role === 'client') {
+    if (access.primaryProfileId) {
+      redirect(`/profiles/${access.primaryProfileId}`);
+    }
+    const supabase = createAdminClient();
+    const { data: latest } = await supabase
+      .from('journey_sessions')
+      .select('run_id')
+      .eq('user_id', access.actorUserId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest?.run_id) {
+      redirect(`/research/${latest.run_id}`);
+    }
+    redirect('/journey');
+  }
 
   const { data: sessions } = await getCompletedJourneySessions();
 

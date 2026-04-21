@@ -1,6 +1,6 @@
-import { auth } from '@clerk/nextjs/server';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/server';
+import { requireActiveAccount, getJourneyDataUserId } from '@/lib/auth/app-access';
 import { parseResearchToCards, resetCardIdCounter } from '@/lib/workspace/card-taxonomy';
 import { SECTION_PIPELINE, RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
 import { CANONICAL_TO_BOUNDARY_SECTION_MAP } from '@/lib/journey/research-sections';
@@ -14,16 +14,15 @@ interface PageProps {
 
 export default async function ResearchPage({ params }: PageProps) {
   const { sessionId } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const access = await requireActiveAccount();
+  const dataUserId = getJourneyDataUserId(access);
 
   const supabase = createAdminClient();
-  // sessionId may be the DB primary key (from dashboard list) or run_id (from workspace "View Document")
   const { data, error } = await supabase
     .from('journey_sessions')
     .select('id, research_results, created_at, metadata')
     .or(`id.eq.${sessionId},run_id.eq.${sessionId}`)
-    .eq('user_id', userId)
+    .eq('user_id', dataUserId)
     .single();
 
   if (error || !data) notFound();

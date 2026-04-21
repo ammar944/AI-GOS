@@ -1,5 +1,5 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { requireActiveAccount } from '@/lib/auth/app-access';
 import Link from 'next/link';
 import { Compass, FileText, ArrowRight, Plus, Sparkles } from 'lucide-react';
 import { AppSidebar } from '@/components/shell/app-sidebar';
@@ -20,8 +20,10 @@ function formatDate(dateString: string): string {
 }
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const access = await requireActiveAccount();
+  if (access.role === 'client' && access.primaryProfileId) {
+    redirect(`/profiles/${access.primaryProfileId}`);
+  }
 
   const { data: sessions } = await getCompletedJourneySessions();
   const recentSessions = sessions?.slice(0, 5) ?? [];

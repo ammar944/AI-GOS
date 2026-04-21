@@ -8,26 +8,11 @@
 | Prettier Format | PostToolUse (Edit/Write) | Auto-formats .ts/.tsx/.js/.jsx files |
 | Dev Server Blocker | PreToolUse (Bash) | Warns if `npm run dev` is run outside tmux |
 
-## Memory Persistence Pattern
+## Memory Persistence
 
-At the end of each work session, save a summary to `.claude/memory/`:
+Session summaries are handled automatically by the `auto-memory-hook` (see `settings.json` SessionStart + Stop hooks). Memory lives at `~/.claude/projects/-Users-ammar-Dev-Projects-AI-GOS/memory/` and is indexed through `MEMORY.md`. Do not write ad-hoc session files to `.claude/memory/` — that directory is deprecated and does not exist.
 
-```
-## Session: [date]-[feature]
-### What was done
-- [completed tasks]
-### What's left
-- [remaining tasks]
-### Key decisions
-- [why you chose X over Y]
-### Gotchas found
-- [things that surprised you]
-```
-
-When starting a new session, read the latest memory file first:
-```
-Read .claude/memory/ and continue from where we left off.
-```
+For durable cross-session knowledge that isn't conversation-scoped (architecture, concepts, third-party material), use the wiki: `.claude/wiki/`. See `.claude/wiki/CLAUDE.md`.
 
 ## Continuous Learning Pattern
 
@@ -50,3 +35,45 @@ tmux new-session -d -s tests "cd ~/projects/AI-GOS && npm test"
 tmux attach -t dev
 tmux attach -t tests
 ```
+
+## Bypass-permissions policy (Karpathy-style auto-loops)
+
+Claude Code supports `--dangerously-skip-permissions` (alias: `claude --yolo`). Used right, it removes the permission-dialog friction that kills auto-research loops. Used wrong, it is how you destroy a repo.
+
+### Safe to run with bypass-permissions
+
+These operations are additive, reversible, or sandboxed. Run them in bypass mode to let the agent loop freely.
+
+| Loop | Why safe |
+|------|----------|
+| Wiki ingest (`ingest raw/*` → writes into `.claude/wiki/wiki/`) | Only writes into a wiki dir, never touches source |
+| Wiki lint / health-check | Reports, doesn't auto-fix source |
+| Auto-research on a sandboxed training repo (e.g. nanochat in a worktree) | Sandboxed to the experiment dir |
+| Reading/grepping source to answer a question | Read-only |
+| Running tests (`npm run test:run`) | Read-only re: source |
+| Running `npm run build` | Read-only re: source |
+
+### NOT safe with bypass-permissions
+
+These edit production source or can trigger deploys. Always keep permission-gated.
+
+- Edits to `src/**` or `research-worker/src/**` outside an isolated worktree
+- Edits to `.env*` files — never, under any circumstance
+- `git push`, `railway up`, `vercel deploy`
+- Deleting files (even "orphans") without explicit `y` from the user
+- Schema migrations, Supabase writes
+- `rm -rf` of anything
+
+### Recommended setup
+
+1. Run the main Claude Code session with permissions ON for source work.
+2. For wiki ingest / lint / auto-research: start a second terminal in a worktree:
+   ```bash
+   git worktree add .claude/worktrees/wiki-ingest
+   cd .claude/worktrees/wiki-ingest
+   claude --dangerously-skip-permissions
+   ```
+3. Tell that session: "only touch `.claude/wiki/`. Never edit `src/` or `research-worker/src/`."
+4. If it tries to edit source, kill it.
+
+This gives you the Karpathy "hit go and walk away" loop for knowledge work, without risking your codebase.

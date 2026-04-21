@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ImpersonationBanner } from "@/components/shell/impersonation-banner";
 import "./globals.css";
 
 // AIGOS v3 Typography System — Journey Workspace redesign (2026-04-17)
@@ -73,6 +74,7 @@ export default function RootLayout({
           suppressHydrationWarning
         >
           <ThemeProvider>
+            <ImpersonationBanner />
             <ErrorBoundary>{children}</ErrorBoundary>
           </ThemeProvider>
         </body>

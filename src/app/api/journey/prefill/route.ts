@@ -1,7 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { createTextStreamResponse } from 'ai';
 import {
-  isLinkedInCompanyUrl,
   isValidUrl,
   runCompanyResearch,
 } from '@/lib/company-intel/run-company-research';
@@ -17,7 +16,7 @@ export async function POST(request: Request) {
     });
   }
 
-  let body: { websiteUrl?: string; linkedinUrl?: string };
+  let body: { websiteUrl?: string };
   try {
     body = await request.json();
   } catch {
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const { websiteUrl, linkedinUrl } = body;
+  const { websiteUrl } = body;
 
   if (!websiteUrl || typeof websiteUrl !== 'string' || !isValidUrl(websiteUrl)) {
     return new Response(
@@ -36,21 +35,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (linkedinUrl !== undefined) {
-    if (typeof linkedinUrl !== 'string' || !isLinkedInCompanyUrl(linkedinUrl)) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'linkedinUrl must be a valid LinkedIn company page URL (e.g., https://linkedin.com/company/acme)',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-  }
-
-  console.log('[prefill] Starting research for:', websiteUrl, linkedinUrl ? `+ LinkedIn: ${linkedinUrl}` : '');
+  console.log('[prefill] Starting research for:', websiteUrl);
   try {
-    const result = await runCompanyResearch({ websiteUrl, linkedinUrl });
+    const result = await runCompanyResearch({ websiteUrl });
     console.log('[prefill] Research complete — streaming response');
 
     // Use createTextStreamResponse for safer stream handling in Next.js 16

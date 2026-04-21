@@ -48,6 +48,10 @@ describe('field-catalog', () => {
       'pricingTiers',
       'monthlyAdBudget',
       'goals',
+      'industryVertical',
+      'coreDeliverables',
+      'brandPositioning',
+      'channels',
     ]);
   });
 

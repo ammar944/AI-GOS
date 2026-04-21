@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, FileText, Building2, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Home, Compass, FileText, Building2, PanelLeftClose, PanelLeft, Users, ShieldCheck } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -16,7 +16,7 @@ interface NavEntry {
   href: string;
 }
 
-const NAV_ITEMS: NavEntry[] = [
+const DEFAULT_NAV: NavEntry[] = [
   { icon: Home, label: 'Home', href: '/dashboard' },
   { icon: Compass, label: 'Journey', href: '/journey' },
   { icon: FileText, label: 'Research', href: '/research' },
@@ -56,9 +56,49 @@ function SidebarLink({ item, expanded }: { item: NavEntry; expanded: boolean }) 
   );
 }
 
+interface MePayload {
+  role?: string;
+  primaryProfileId?: string | null;
+  clientLocked?: boolean;
+}
+
 export function AppSidebar() {
   const shell = useOptionalShell();
   const [localCollapsed, setLocalCollapsed] = useState(false);
+  const [navItems, setNavItems] = useState<NavEntry[]>(DEFAULT_NAV);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok || cancelled) return;
+        const me = (await res.json()) as MePayload;
+        if (me.role === 'client' && me.clientLocked && me.primaryProfileId) {
+          const pid = me.primaryProfileId;
+          setNavItems([
+            { icon: Home, label: 'Workspace', href: `/profiles/${pid}` },
+            { icon: FileText, label: 'Research', href: '/research' },
+            { icon: Building2, label: 'Profile', href: `/profiles/${pid}` },
+          ]);
+          return;
+        }
+        const next: NavEntry[] = [...DEFAULT_NAV];
+        if (me.role === 'admin' || me.role === 'internal') {
+          next.push({ icon: Users, label: 'Clients', href: '/internal/clients' });
+        }
+        if (me.role === 'admin') {
+          next.push({ icon: ShieldCheck, label: 'Allowlist', href: '/internal/allowlist' });
+        }
+        if (!cancelled) setNavItems(next);
+      } catch {
+        if (!cancelled) setNavItems(DEFAULT_NAV);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Use shell context when available, otherwise fall back to local state
   const collapsed = shell?.sidebarCollapsed ?? localCollapsed;
@@ -106,8 +146,8 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex flex-col gap-1 px-2">
-        {NAV_ITEMS.map((item) => (
-          <SidebarLink key={item.href} item={item} expanded={expanded} />
+        {navItems.map((item) => (
+          <SidebarLink key={`${item.label}-${item.href}`} item={item} expanded={expanded} />
         ))}
       </nav>
 

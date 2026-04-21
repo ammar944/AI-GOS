@@ -5,15 +5,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Users, Package, DollarSign, TrendingUp, Target, Gauge, FileUp, Loader2, FileText, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { PendingMeeting, MeetingType } from '@/lib/meeting-intel/types';
 import { cn } from '@/lib/utils';
-import { FieldCard } from '@/components/journey/field-card';
+import { FieldCard, type FieldCardChoice, type FieldCardMode } from '@/components/journey/field-card';
 import {
   JOURNEY_FIELD_GROUPS,
   JOURNEY_FIELD_LABELS,
   JOURNEY_REQUIRED_FIELD_KEYS,
   JOURNEY_PRICING_GROUP_KEYS,
   JOURNEY_MULTILINE_FIELDS,
+  SALES_MOTION_OPTIONS,
+  PRICING_MODEL_OPTIONS,
+  CONVERSION_PATH_OPTIONS,
+  AVG_ACV_OPTIONS,
+  CHANNEL_OPTIONS,
   getManualBlockerMeta,
 } from '@/lib/journey/field-catalog';
+
+// Per-field rendering mode — v3 enum keys get pill pickers; channels get multi-select chips.
+// All other keys fall through to text (default in FieldCard).
+const FIELD_MODES: Record<string, FieldCardMode> = {
+  salesMotion: 'enum',
+  pricingModel: 'enum',
+  conversionPath: 'enum',
+  avgAcv: 'enum',
+  channels: 'multi-select',
+};
+
+const FIELD_CHOICES: Record<string, readonly FieldCardChoice[]> = {
+  salesMotion: SALES_MOTION_OPTIONS,
+  pricingModel: PRICING_MODEL_OPTIONS,
+  conversionPath: CONVERSION_PATH_OPTIONS,
+  avgAcv: AVG_ACV_OPTIONS,
+  channels: CHANNEL_OPTIONS,
+};
 
 // Order matches JOURNEY_FIELD_GROUPS in src/lib/journey/field-catalog.ts (v3: 7 groups).
 // When a new group is added there, append a matching icon here.
@@ -587,6 +610,8 @@ export function UnifiedFieldReview({
                   const isScraped = scrapedKeys.has(key);
                   const isMultiline = JOURNEY_MULTILINE_FIELDS.has(key);
                   const blockerMeta = getManualBlockerMeta(key);
+                  const mode = FIELD_MODES[key] ?? 'text';
+                  const choices = FIELD_CHOICES[key];
 
                   return (
                     <FieldCard
@@ -600,7 +625,9 @@ export function UnifiedFieldReview({
                       isScraped={isScraped}
                       isMultiline={isMultiline}
                       onChange={(val) => handleFieldChange(key, val)}
-                      autoFocus={i === 0}
+                      autoFocus={i === 0 && mode === 'text'}
+                      mode={mode}
+                      choices={choices}
                     />
                   );
                 })}

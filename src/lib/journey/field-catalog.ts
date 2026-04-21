@@ -67,15 +67,15 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'websiteUrl', label: 'Website', category: 'research-enrichment', section: null, collectionMode: 'either' },
   { key: 'productDescription', label: 'Product Description', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'targetCustomer', label: 'Target Customer', category: 'required-blocker', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
-  { key: 'salesMotion', label: 'Sales Motion', category: 'required-blocker', section: 'industryMarket', collectionMode: 'manual' },
-  { key: 'pricingModel', label: 'Pricing Model', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'manual' },
-  { key: 'conversionPath', label: 'Conversion Path', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'manual' },
-  { key: 'avgAcv', label: 'Avg Contract Value', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'manual' },
+  { key: 'salesMotion', label: 'Sales Motion', category: 'required-blocker', section: 'industryMarket', collectionMode: 'either', prefillVisible: true },
+  { key: 'pricingModel', label: 'Pricing Model', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'conversionPath', label: 'Conversion Path', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'avgAcv', label: 'Avg Contract Value', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
 
   // §2 ICP + Pain
   // UNLOCKS: precise targeting · trigger-based hooks · switch-from-X positioning · awareness-sophistication messaging
   { key: 'primaryIcpDescription', label: 'Ideal Customer Profile', category: 'required-blocker', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
-  { key: 'industryVertical', label: 'Industry Vertical', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
+  { key: 'industryVertical', label: 'Industry Vertical', category: 'required-blocker', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
   { key: 'jobTitles', label: 'Target Job Titles', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
   { key: 'companySize', label: 'Company Size', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
   { key: 'geography', label: 'Geographic Focus', category: 'section-followup', section: 'icpValidation', collectionMode: 'either', prefillVisible: true },
@@ -84,7 +84,7 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
 
   // §3 Offer & Product Experience
   // UNLOCKS: correct funnel · value-based angles · activation-aligned landing pages · retention-aware messaging
-  { key: 'coreDeliverables', label: 'Core Features / Outcomes', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'coreDeliverables', label: 'Core Features / Outcomes', category: 'required-blocker', section: 'offerAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'firstValueMoment', label: 'First Value Moment', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
   { key: 'activationEvent', label: 'Activation Event', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
   { key: 'retentionDrivers', label: 'Retention Drivers', category: 'section-followup', section: 'offerAnalysis', collectionMode: 'manual' },
@@ -110,11 +110,11 @@ export const JOURNEY_FIELDS: readonly JourneyFieldDefinition[] = [
   { key: 'pipelineTarget', label: 'Monthly Pipeline Target', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'commonObjections', label: 'Common Objections', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
   { key: 'keyPromises', label: 'Key Promises / Outcomes', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
-  { key: 'brandPositioning', label: 'Brand Positioning', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
+  { key: 'brandPositioning', label: 'Brand Positioning', category: 'required-blocker', section: 'crossAnalysis', collectionMode: 'either', prefillVisible: true },
 
   // §7 Current Marketing & Performance
   // UNLOCKS: biggest growth constraint · budget reallocation · funnel leak diagnosis · SaaS benchmarking · stage-appropriate scaling
-  { key: 'channels', label: 'Channels', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
+  { key: 'channels', label: 'Channels', category: 'required-blocker', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'channelBudgetSplit', label: 'Channel Budget Split', category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'whatIsWorking', label: "What's Working", category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
   { key: 'whatIsNotWorking', label: "What's Not Working", category: 'section-followup', section: 'crossAnalysis', collectionMode: 'manual' },
@@ -255,6 +255,38 @@ export const JOURNEY_MANUAL_BLOCKER_FIELDS: readonly JourneyManualFieldDefinitio
     placeholder: 'More qualified demos, lower CAC, and better pipeline attribution.',
     helper: 'Defines strategy direction — scale vs optimize vs fix conversion.',
     rows: 2,
+    required: true,
+  },
+  {
+    key: 'industryVertical',
+    label: 'Industry / Vertical',
+    placeholder: 'B2B SaaS — Revenue Attribution / Marketing Analytics',
+    helper: 'The vertical you compete in. Drives keyword, ad, and competitor research.',
+    rows: 1,
+    required: true,
+  },
+  {
+    key: 'coreDeliverables',
+    label: 'Core deliverables / features',
+    placeholder: 'Multi-touch attribution, pipeline reporting, HubSpot + Salesforce sync, CAC payback dashboards.',
+    helper: 'Concrete features or services the customer actually uses. Fuels benefit-led ad copy.',
+    rows: 3,
+    required: true,
+  },
+  {
+    key: 'brandPositioning',
+    label: 'Brand positioning statement',
+    placeholder: 'The attribution platform built for B2B SaaS teams who need pipeline truth without a data engineer.',
+    helper: 'One-sentence positioning. Anchors tone, messaging frame, and hero copy.',
+    rows: 2,
+    required: true,
+  },
+  {
+    key: 'channels',
+    label: 'Active acquisition channels',
+    placeholder: 'Meta, Google, LinkedIn, Outbound',
+    helper: 'Which channels are currently running or planned. Informs media-plan prioritization.',
+    rows: 1,
     required: true,
   },
 ] as const;

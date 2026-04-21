@@ -1,0 +1,7 @@
+{
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"/private/tmp/claude-501/-Users-ammar-Dev-Projects-AI-GOS-main/dac1b45d-c961-4868-836f-8e9ed351f724/tasks/b7bbaz0rd.output\"}",
+  "error": "File content (29770 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+  "timestamp": "2026-04-21T17:28:06.825Z",
+  "retry_count": 1
+}

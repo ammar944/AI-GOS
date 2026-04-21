@@ -613,6 +613,21 @@ export function postProcessSynthesis(
   }
   injectClientAds(parsed, input);
 
+  // Category keyword ad sweep — unanchored, powers the 6th Competitor Intel
+  // tab. Emitted directly from fetchResults (not model-synthesized) so the
+  // LLM can't hallucinate or drop it.
+  const catAds = input.fetchResults.categoryKeywordAds;
+  if (catAds && Array.isArray(catAds.ads) && catAds.ads.length > 0) {
+    parsed.categoryKeywordAds = catAds;
+    console.log(
+      `[postProcess] injected categoryKeywordAds — ${catAds.ads.length} ads across ${catAds.keywordsProbed.length} keywords (meta=${catAds.sources.meta}, google=${catAds.sources.google})`,
+    );
+  } else {
+    console.log(
+      `[postProcess] categoryKeywordAds NOT injected — ${catAds?.error ?? 'no ads found'}`,
+    );
+  }
+
   // Validate pricing confidence matches Firecrawl data
   const competitors = parsed.competitors;
   if (!Array.isArray(competitors)) return;

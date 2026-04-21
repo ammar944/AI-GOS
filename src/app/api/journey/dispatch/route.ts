@@ -6,10 +6,15 @@
 // reads this value to decide whether to write results — if the run ID hasn't
 // been committed yet, the worker silently drops the write.
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { dispatchResearchForUser } from '@/lib/ai/tools/research/dispatch';
 import { createAdminClient } from '@/lib/supabase/server';
+import {
+  requireApiUser,
+  getJourneyDataUserId,
+  isClientJourneyLocked,
+  CLIENT_JOURNEY_LOCKED_ERROR,
+} from '@/lib/auth/app-access';
 
 /** Ordered list of dispatch pipeline sections. Exported for testing. */
 export const DISPATCH_PIPELINE_ORDER = [
@@ -130,10 +135,9 @@ export function normalizeWikiEntries(raw: unknown): WikiEntry[] {
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const access = await requireApiUser();
+  if (access instanceof Response) return access;
+  const userId = getJourneyDataUserId(access);
 
   const body = await req.json();
   const { section, runId, context } = body as {
@@ -141,6 +145,22 @@ export async function POST(req: Request) {
     runId: string;
     context: string;
   };
+
+  if (isClientJourneyLocked(access)) {
+    if (!runId?.trim()) {
+      return NextResponse.json({ error: CLIENT_JOURNEY_LOCKED_ERROR }, { status: 403 });
+    }
+    const supabaseGate = createAdminClient();
+    const { data: existingRun } = await supabaseGate
+      .from('journey_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('run_id', runId)
+      .maybeSingle();
+    if (!existingRun) {
+      return NextResponse.json({ error: CLIENT_JOURNEY_LOCKED_ERROR }, { status: 403 });
+    }
+  }
 
   if (!section || !context) {
     return NextResponse.json(

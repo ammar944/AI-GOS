@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { requireApiUser, getJourneyDataUserId } from '@/lib/auth/app-access';
 import { generateShareToken } from '@/lib/blueprints/share-token';
 import { parseResearchToCards, resetCardIdCounter } from '@/lib/workspace/card-taxonomy';
 import { SECTION_PIPELINE } from '@/lib/workspace/pipeline';
@@ -18,10 +18,9 @@ export const maxDuration = 30;
  * Auth: Clerk userId must match session owner.
  */
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const access = await requireApiUser();
+  if (access instanceof Response) return access;
+  const userId = getJourneyDataUserId(access);
 
   let body: { sessionId: string; title?: string };
   try {

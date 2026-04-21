@@ -10,7 +10,7 @@ Stack: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime),
 
 ## Architecture
 
-The journey is FORM-DRIVEN, not chat-driven. No AI asks questions. No chat-based onboarding.
+The journey is URL-form driven: user enters URL → fields auto-prefill → user reviews in UnifiedFieldReview → submit dispatches research. Chat is a post-research refinement sidebar scoped to editing already-rendered cards.
 
 User flow:
 1. Enter URL -> auto-prefill fields

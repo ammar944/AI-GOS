@@ -1,7 +1,12 @@
-import { auth } from '@clerk/nextjs/server';
 import { getJourneyRunIdFromMetadata } from '@/lib/journey/journey-run';
 import { createAdminClient } from '@/lib/supabase/server';
 import { persistToSupabase } from '@/lib/journey/session-state.server';
+import {
+  requireApiUser,
+  getJourneyDataUserId,
+  isClientJourneyLocked,
+  CLIENT_JOURNEY_LOCKED_ERROR,
+} from '@/lib/auth/app-access';
 
 interface JourneySessionPatchRequest {
   activeRunId?: string;
@@ -57,13 +62,9 @@ async function clearResearchState(userId: string, activeRunId?: string) {
 }
 
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const access = await requireApiUser();
+  if (access instanceof Response) return access;
+  const userId = getJourneyDataUserId(access);
 
   const url = new URL(request.url);
   const supabase = createAdminClient();
@@ -174,13 +175,9 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const access = await requireApiUser();
+  if (access instanceof Response) return access;
+  const userId = getJourneyDataUserId(access);
 
   let body: JourneySessionPatchRequest;
   try {
@@ -193,6 +190,12 @@ export async function PATCH(request: Request) {
   }
 
   if (body.clearResearch) {
+    if (isClientJourneyLocked(access)) {
+      return new Response(JSON.stringify({ error: CLIENT_JOURNEY_LOCKED_ERROR }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const { error } = await clearResearchState(userId, body.activeRunId);
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {

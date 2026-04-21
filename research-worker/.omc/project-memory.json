@@ -1,0 +1,461 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776589534549,
+  "projectRoot": "/Users/ammar/Dev-Projects/AI-GOS-main/research-worker",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "express",
+        "version": "4.18.2",
+        "category": "backend"
+      },
+      {
+        "name": "vitest",
+        "version": "4.0.18",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run dev",
+    "scripts": {
+      "build": "tsc",
+      "start": "node dist/index.js",
+      "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+      "test:run": "vitest run",
+      "eval:snapshot": "ts-node-dev --transpile-only evals/snapshot.ts",
+      "eval:research": "ts-node-dev --transpile-only evals/run-eval.ts",
+      "eval:baseline": "ts-node-dev --transpile-only evals/baseline-run.ts"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": "ES modules",
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "scripts",
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dead-letters": {
+      "path": "dead-letters",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776589534510,
+      "keyFiles": []
+    },
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 13,
+      "lastAccessed": 1776589534511,
+      "keyFiles": [
+        "auth.js",
+        "baseline-metrics.js",
+        "contracts.js",
+        "dead-letter.js",
+        "events.js"
+      ]
+    },
+    "evals": {
+      "path": "evals",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1776589534519,
+      "keyFiles": [
+        "README.md",
+        "baseline-run.ts",
+        "diff.ts",
+        "run-eval.ts",
+        "snapshot.ts"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1776589534519,
+      "keyFiles": [
+        "test-ads.ts"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 13,
+      "lastAccessed": 1776589534519,
+      "keyFiles": [
+        "auth.ts",
+        "baseline-metrics.ts",
+        "contracts.ts",
+        "dead-letter.ts",
+        "events.ts"
+      ]
+    },
+    "dist/__tests__": {
+      "path": "dist/__tests__",
+      "purpose": "Test files",
+      "fileCount": 23,
+      "lastAccessed": 1776589534520,
+      "keyFiles": [
+        "ad-scripts-angles.test.js",
+        "adlibrary.test.js",
+        "auth.test.js"
+      ]
+    },
+    "evals/__tests__": {
+      "path": "evals/__tests__",
+      "purpose": "Test files",
+      "fileCount": 1,
+      "lastAccessed": 1776589534523,
+      "keyFiles": [
+        "diff.test.ts"
+      ]
+    },
+    "src/__tests__": {
+      "path": "src/__tests__",
+      "purpose": "Test files",
+      "fileCount": 23,
+      "lastAccessed": 1776589534525,
+      "keyFiles": [
+        "ad-scripts-angles.test.ts",
+        "adlibrary.test.ts",
+        "auth.test.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/runners/keywords.ts",
+      "accessCount": 111,
+      "lastAccessed": 1776434421729,
+      "type": "directory"
+    },
+    {
+      "path": "src/index.ts",
+      "accessCount": 51,
+      "lastAccessed": 1776695199122,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 46,
+      "lastAccessed": 1776695012485,
+      "type": "directory"
+    },
+    {
+      "path": "src/contracts.ts",
+      "accessCount": 45,
+      "lastAccessed": 1776699752099,
+      "type": "file"
+    },
+    {
+      "path": "src/runners/media-plan.ts",
+      "accessCount": 45,
+      "lastAccessed": 1776779301400,
+      "type": "directory"
+    },
+    {
+      "path": "src/runners/competitors.ts",
+      "accessCount": 43,
+      "lastAccessed": 1776428380976,
+      "type": "file"
+    },
+    {
+      "path": "src/tools/reviews.ts",
+      "accessCount": 28,
+      "lastAccessed": 1776583992216,
+      "type": "file"
+    },
+    {
+      "path": "src/tools/adlibrary.ts",
+      "accessCount": 27,
+      "lastAccessed": 1776446070946,
+      "type": "file"
+    },
+    {
+      "path": "src/runner.ts",
+      "accessCount": 26,
+      "lastAccessed": 1776428472588,
+      "type": "file"
+    },
+    {
+      "path": "src/scripts/stages/03-write/creative-writer.ts",
+      "accessCount": 23,
+      "lastAccessed": 1776591394979,
+      "type": "file"
+    },
+    {
+      "path": "src/runners/synthesize.ts",
+      "accessCount": 21,
+      "lastAccessed": 1776434421790,
+      "type": "file"
+    },
+    {
+      "path": "src/runners",
+      "accessCount": 18,
+      "lastAccessed": 1776496553803,
+      "type": "directory"
+    },
+    {
+      "path": "src/runners/ad-scripts.ts",
+      "accessCount": 18,
+      "lastAccessed": 1776590249192,
+      "type": "file"
+    },
+    {
+      "path": "src/scripts/pipeline.ts",
+      "accessCount": 17,
+      "lastAccessed": 1776591388694,
+      "type": "file"
+    },
+    {
+      "path": "src/__tests__/keywords.test.ts",
+      "accessCount": 16,
+      "lastAccessed": 1776335658345,
+      "type": "file"
+    },
+    {
+      "path": "src/competitors/synthesize.ts",
+      "accessCount": 13,
+      "lastAccessed": 1776449497121,
+      "type": "directory"
+    },
+    {
+      "path": "src/supabase.ts",
+      "accessCount": 13,
+      "lastAccessed": 1776591413809,
+      "type": "directory"
+    },
+    {
+      "path": "",
+      "accessCount": 12,
+      "lastAccessed": 1776778994841,
+      "type": "directory"
+    },
+    {
+      "path": "src/runners/index.ts",
+      "accessCount": 11,
+      "lastAccessed": 1776434405281,
+      "type": "file"
+    },
+    {
+      "path": "src/runners/offer.ts",
+      "accessCount": 11,
+      "lastAccessed": 1776452460415,
+      "type": "file"
+    },
+    {
+      "path": "src/identity/resolve-identity.ts",
+      "accessCount": 11,
+      "lastAccessed": 1776778053934,
+      "type": "file"
+    },
+    {
+      "path": "src/section-map.ts",
+      "accessCount": 9,
+      "lastAccessed": 1776282507143,
+      "type": "file"
+    },
+    {
+      "path": "src/competitors/index.ts",
+      "accessCount": 9,
+      "lastAccessed": 1776428582428,
+      "type": "file"
+    },
+    {
+      "path": "src/competitors/sonar-research.ts",
+      "accessCount": 9,
+      "lastAccessed": 1776448844021,
+      "type": "file"
+    },
+    {
+      "path": "src/scripts/stages/04-body/body-writer.ts",
+      "accessCount": 8,
+      "lastAccessed": 1776270768756,
+      "type": "file"
+    },
+    {
+      "path": "src/scripts/stages/06-voice-polish/voice-polisher.ts",
+      "accessCount": 8,
+      "lastAccessed": 1776270776584,
+      "type": "file"
+    },
+    {
+      "path": "src/runners/icp.ts",
+      "accessCount": 7,
+      "lastAccessed": 1776334766882,
+      "type": "file"
+    },
+    {
+      "path": "src/tools/spyfu.ts",
+      "accessCount": 7,
+      "lastAccessed": 1776446047645,
+      "type": "file"
+    },
+    {
+      "path": "src/runners/meeting-extract.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776326002965,
+      "type": "file"
+    },
+    {
+      "path": "src/__tests__/adlibrary.test.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776454665926,
+      "type": "file"
+    },
+    {
+      "path": "src/__tests__/sanitize-scripts.test.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776590257744,
+      "type": "directory"
+    },
+    {
+      "path": "src/runners/fathom-extract.ts",
+      "accessCount": 5,
+      "lastAccessed": 1776156279347,
+      "type": "file"
+    },
+    {
+      "path": "src/planning/opus-planner.ts",
+      "accessCount": 5,
+      "lastAccessed": 1776270760595,
+      "type": "file"
+    },
+    {
+      "path": "src/tools/apify-ads.ts",
+      "accessCount": 4,
+      "lastAccessed": 1776448874783,
+      "type": "file"
+    },
+    {
+      "path": "src/scripts/stages/05-quality-gate/quality-gate.ts",
+      "accessCount": 4,
+      "lastAccessed": 1776590942278,
+      "type": "file"
+    },
+    {
+      "path": ".understand-anything/tmp/ua-project-scan.js",
+      "accessCount": 3,
+      "lastAccessed": 1776270547551,
+      "type": "file"
+    },
+    {
+      "path": "src/telemetry.ts",
+      "accessCount": 3,
+      "lastAccessed": 1776428373846,
+      "type": "file"
+    },
+    {
+      "path": "src/tools",
+      "accessCount": 3,
+      "lastAccessed": 1776446063048,
+      "type": "directory"
+    },
+    {
+      "path": ".dockerignore",
+      "accessCount": 2,
+      "lastAccessed": 1776252362572,
+      "type": "file"
+    },
+    {
+      "path": "src/prompts/ad-scripts-pass2.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776256118141,
+      "type": "file"
+    },
+    {
+      "path": "tsconfig.json",
+      "accessCount": 2,
+      "lastAccessed": 1776270716743,
+      "type": "file"
+    },
+    {
+      "path": "src/tools/adlibrary-types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776270717514,
+      "type": "file"
+    },
+    {
+      "path": "src/schemas/ad-scripts.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776270731435,
+      "type": "file"
+    },
+    {
+      "path": "src/competitors/parse-context.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776270768726,
+      "type": "file"
+    },
+    {
+      "path": "src/competitors",
+      "accessCount": 2,
+      "lastAccessed": 1776326099220,
+      "type": "directory"
+    },
+    {
+      "path": "src/__tests__/brand-voice-prompt.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776590365163,
+      "type": "file"
+    },
+    {
+      "path": ".claude/agent-memory/qa/MEMORY.md",
+      "accessCount": 2,
+      "lastAccessed": 1776591382793,
+      "type": "file"
+    },
+    {
+      "path": "src/competitors/review-cross-analysis.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775651337324,
+      "type": "file"
+    },
+    {
+      "path": "test-transcript.txt",
+      "accessCount": 1,
+      "lastAccessed": 1776186912219,
+      "type": "file"
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "accessCount": 1,
+      "lastAccessed": 1776263775923,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

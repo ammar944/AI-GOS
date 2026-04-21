@@ -7,6 +7,10 @@ import Firecrawl from '@mendable/firecrawl-js';
 import { firecrawlTool } from '../tools/firecrawl';
 import { spyfuTool } from '../tools/spyfu';
 import { probeKeywordAds, type KeywordAdProbeResult } from '../tools/keyword-ad-probe';
+import {
+  fetchCategoryKeywordAds,
+  type CategoryKeywordAdResult,
+} from '../tools/category-keyword-ads';
 import { fetchCompetitorAds } from '../tools/apify-ads';
 import { fetchReviews, type ReviewResult } from '../tools/reviews';
 import type { WorkerAdInsight } from '../tools/adlibrary-types';
@@ -51,11 +55,13 @@ export interface ParallelFetchResults {
   adLibrary: AdLibraryResult[];
   reviews: ReviewResult[];
   keywordAds: KeywordAdProbeResult[];
+  categoryKeywordAds: CategoryKeywordAdResult;
   clientAdLibrary: AdLibraryResult | null;
   durationMs: number;
 }
 
 export type { KeywordAdProbeResult } from '../tools/keyword-ad-probe';
+export type { CategoryKeywordAdResult, CategoryKeywordAd } from '../tools/category-keyword-ads';
 
 /**
  * betaZodTool.run() is typed as Promise<string | Array<BetaToolResultContentBlockParam>>.
@@ -529,6 +535,12 @@ export async function fetchAllCompetitorData(
         adsFound: [],
         error: reason,
       })),
+      categoryKeywordAds: {
+        keywordsProbed: [],
+        ads: [],
+        sources: { meta: 0, google: 0 },
+        error: reason,
+      },
       clientAdLibrary: null,
       durationMs: Date.now() - startTime,
     };
@@ -553,6 +565,11 @@ export async function fetchAllCompetitorData(
   let adLibrarySettled: PromiseSettledResult<AdLibraryResult>[] = [];
   let reviewsSettled: PromiseSettledResult<ReviewResult>[] = [];
   let keywordAdsSettled: PromiseSettledResult<KeywordAdProbeResult>[] = [];
+  let categoryKeywordAdsResult: CategoryKeywordAdResult = {
+    keywordsProbed: [],
+    ads: [],
+    sources: { meta: 0, google: 0 },
+  };
   let clientAdResult: AdLibraryResult | null = null;
 
   const pricingPromise = Promise.allSettled(capped.map(fetchPricing)).then(r => { pricingSettled = r; });
@@ -586,12 +603,27 @@ export async function fetchAllCompetitorData(
   const keywordAdPromise = Promise.allSettled(keywordAdPerCompetitor).then(r => { keywordAdsSettled = r; });
 
   const adLibraryPromise = Promise.allSettled(capped.map(c => fetchAdLibrary(c, categoryKeywords))).then(r => { adLibrarySettled = r; });
+
+  // Unanchored category keyword ad sweep — returns advertisers across the
+  // whole category (lovable / aura.build / etc.), not filtered to the 5
+  // selected competitors. Powers the 6th "Category Ads" card in the UI.
+  const categoryKeywordAdPromise = fetchCategoryKeywordAds({
+    keywords: categoryKeywords ?? [],
+  })
+    .then((result) => {
+      categoryKeywordAdsResult = result;
+    })
+    .catch((err) => {
+      console.warn(
+        `[parallel-fetch] categoryKeywordAds failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   const reviewsPromise = Promise.allSettled(capped.map(fetchReviews)).then(r => { reviewsSettled = r; });
   const clientAdCaptured = clientAdPromise.then(r => { clientAdResult = r; });
 
   try {
     await Promise.race([
-      Promise.all([pricingPromise, spyfuPromise, keywordAdPromise, adLibraryPromise, reviewsPromise, clientAdCaptured]),
+      Promise.all([pricingPromise, spyfuPromise, keywordAdPromise, adLibraryPromise, categoryKeywordAdPromise, reviewsPromise, clientAdCaptured]),
       new Promise<never>((_, reject) =>
         setTimeout(
           () =>
@@ -614,6 +646,7 @@ export async function fetchAllCompetitorData(
     adLibrary: adLibrarySettled.length > 0 ? adLibrarySettled.map(extractAdLibrary) : buildTimeoutResults('timeout').adLibrary,
     reviews: reviewsSettled.length > 0 ? reviewsSettled.map(extractReviews) : buildTimeoutResults('timeout').reviews,
     keywordAds: keywordAdsSettled.length > 0 ? keywordAdsSettled.map(extractKeywordAds) : buildTimeoutResults('timeout').keywordAds,
+    categoryKeywordAds: categoryKeywordAdsResult,
     clientAdLibrary: clientAdResult,
     durationMs: Date.now() - startTime,
   };

@@ -33,6 +33,12 @@ export interface Database {
           onboarding_completed: boolean;
           onboarding_completed_at: string | null;
           onboarding_data: OnboardingData | null;
+          app_role: string | null;
+          account_status: string | null;
+          primary_profile_id: string | null;
+          client_locked_at: string | null;
+          role_assigned_at: string | null;
+          role_assigned_by: string | null;
           created_at: string | null;
           updated_at: string | null;
           deleted_at: string | null;
@@ -46,6 +52,12 @@ export interface Database {
           onboarding_completed?: boolean;
           onboarding_completed_at?: string | null;
           onboarding_data?: OnboardingData | null;
+          app_role?: string | null;
+          account_status?: string | null;
+          primary_profile_id?: string | null;
+          client_locked_at?: string | null;
+          role_assigned_at?: string | null;
+          role_assigned_by?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
           deleted_at?: string | null;
@@ -59,9 +71,85 @@ export interface Database {
           onboarding_completed?: boolean;
           onboarding_completed_at?: string | null;
           onboarding_data?: OnboardingData | null;
+          app_role?: string | null;
+          account_status?: string | null;
+          primary_profile_id?: string | null;
+          client_locked_at?: string | null;
+          role_assigned_at?: string | null;
+          role_assigned_by?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
           deleted_at?: string | null;
+        };
+      };
+      client_allowlist: {
+        Row: {
+          id: string;
+          email: string;
+          intended_role: string;
+          status: string;
+          claimed_user_id: string | null;
+          claimed_at: string | null;
+          notes: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          intended_role: string;
+          status?: string;
+          claimed_user_id?: string | null;
+          claimed_at?: string | null;
+          notes?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          intended_role?: string;
+          status?: string;
+          claimed_user_id?: string | null;
+          claimed_at?: string | null;
+          notes?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      access_audit_logs: {
+        Row: {
+          id: string;
+          actor_user_id: string;
+          effective_user_id: string | null;
+          effective_profile_id: string | null;
+          action: string;
+          resource_type: string;
+          resource_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_user_id: string;
+          effective_user_id?: string | null;
+          effective_profile_id?: string | null;
+          action: string;
+          resource_type: string;
+          resource_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_user_id?: string;
+          effective_user_id?: string | null;
+          effective_profile_id?: string | null;
+          action?: string;
+          resource_type?: string;
+          resource_id?: string | null;
+          created_at?: string;
         };
       };
       users: {

@@ -105,10 +105,33 @@ async function runValidateThenFetch(
     ? parsed.websiteUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     : null;
 
-  // Pass identity card's coreKeywords as category context for ad batch sanity check.
-  // This prevents wrong-company ads (e.g., Fathom terrain data for Fathom AI meetings)
-  // by rejecting entire ad batches where zero ads mention any category keyword.
-  const categoryKeywords = parsed.identityCard?.coreKeywords ?? [];
+  // Pass identity card's coreKeywords as category context for (a) ad batch
+  // sanity check (prevents wrong-company ads like Fathom terrain data for
+  // Fathom AI meetings) and (b) the category keyword ad sweep (6th tab).
+  //
+  // Fallback chain handles sessions where the identity runner didn't emit
+  // coreKeywords OR the dispatch context lost them in transit. Without this,
+  // the 6th "Category Ads" tab silently stays empty.
+  let categoryKeywords: string[] = Array.isArray(parsed.identityCard?.coreKeywords)
+    ? parsed.identityCard!.coreKeywords.filter(
+        (k): k is string => typeof k === 'string' && k.trim().length > 0,
+      )
+    : [];
+  if (categoryKeywords.length === 0) {
+    const fallback: string[] = [];
+    const category = parsed.identityCard?.category?.trim();
+    if (category) fallback.push(category);
+    if (parsed.productDescription) {
+      const firstSentence = parsed.productDescription.split(/[.!?]\s/)[0]?.trim();
+      if (firstSentence && firstSentence.length >= 4 && firstSentence.length <= 80) {
+        fallback.push(firstSentence);
+      }
+    }
+    categoryKeywords = fallback;
+    console.log(
+      `[competitors] coreKeywords empty — using fallback (${fallback.length}): ${JSON.stringify(fallback)} (identityCard=${parsed.identityCard ? 'present' : 'null'})`,
+    );
+  }
 
   const fetchResults = await fetchAllCompetitorData(verifiedEntries, {
     name: parsed.companyName ?? '',

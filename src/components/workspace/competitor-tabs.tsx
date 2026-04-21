@@ -15,8 +15,15 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
     () => cards.filter((c) => c.cardType === 'competitor-card'),
     [cards],
   );
+  const categoryAdCard = useMemo(
+    () => cards.find((c) => c.cardType === 'category-ad-sweep-card'),
+    [cards],
+  );
   const otherCards = useMemo(
-    () => cards.filter((c) => c.cardType !== 'competitor-card'),
+    () =>
+      cards.filter(
+        (c) => c.cardType !== 'competitor-card' && c.cardType !== 'category-ad-sweep-card',
+      ),
     [cards],
   );
 
@@ -27,6 +34,7 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
   if (competitorCards.length === 0) return null;
 
   const showOverview = competitorCards.length >= 2;
+  const CATEGORY_TAB = '__category_ads__';
 
   return (
     <div>
@@ -63,6 +71,21 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
             {card.label}
           </button>
         ))}
+        {categoryAdCard && (
+          <button
+            type="button"
+            className={cn(
+              'rounded-[3px] px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer',
+              activeTab === CATEGORY_TAB
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]',
+            )}
+            style={activeTab === CATEGORY_TAB ? { background: 'var(--bg-card, #12141c)' } : undefined}
+            onClick={() => setActiveTab(CATEGORY_TAB)}
+          >
+            {categoryAdCard.label}
+          </button>
+        )}
       </div>
 
       {/* Overview table */}
@@ -122,13 +145,20 @@ export function CompetitorTabs({ cards, mode = 'document' }: CompetitorTabsProps
       )}
 
       {/* Individual competitor view */}
-      {activeTab !== '__overview__' && (
+      {activeTab !== '__overview__' && activeTab !== CATEGORY_TAB && (
         <div>
           {competitorCards
             .filter((card) => card.label === activeTab)
             .map((card, i) => (
               <CardRenderer key={card.id} card={card} mode={mode} index={i} />
             ))}
+        </div>
+      )}
+
+      {/* Category Ads (6th tab) */}
+      {activeTab === CATEGORY_TAB && categoryAdCard && (
+        <div>
+          <CardRenderer card={categoryAdCard} mode={mode} index={0} />
         </div>
       )}
 

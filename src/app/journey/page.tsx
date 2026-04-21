@@ -2213,10 +2213,10 @@ function JourneyPageContent() {
 
   const welcomeWorkspace = (
     <WelcomeForm
-      onAnalyze={(websiteUrl, linkedinUrl) => {
+      onAnalyze={(websiteUrl) => {
         setPrefillWebsiteUrl(websiteUrl);
 
-        submitPrefill({ websiteUrl, linkedinUrl });
+        submitPrefill({ websiteUrl });
         setJourneyPhase('prefilling');
         addLog('run', `Analyzing ${websiteUrl}`);
       }}
@@ -2776,15 +2776,13 @@ function WelcomeForm({
   onFileUpload,
   isUploading,
 }: {
-  onAnalyze: (websiteUrl: string, linkedinUrl: string) => void;
+  onAnalyze: (websiteUrl: string) => void;
   onProfileSelect: (profile: BusinessProfile) => void;
   onFileUpload?: (file: File) => void;
   isUploading?: boolean;
 }) {
   const [websiteUrl, setWebsiteUrl] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [urlFocused, setUrlFocused] = useState(false);
-  const [linkedinFocused, setLinkedinFocused] = useState(false);
   const ndFileInputRef = useRef<HTMLInputElement>(null);
 
   // Shared motion config — mirrors fadeUp + springs.gentle
@@ -2838,10 +2836,10 @@ function WelcomeForm({
           animate="animate"
           transition={{ ...gentleTransition, delay: 0.1 }}
           style={{
-            borderColor: urlFocused || linkedinFocused
+            borderColor: urlFocused
               ? 'rgba(54, 94, 255, 0.3)'
               : undefined,
-            boxShadow: urlFocused || linkedinFocused
+            boxShadow: urlFocused
               ? '0 0 30px rgba(54, 94, 255, 0.08)'
               : undefined,
             transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
@@ -2861,7 +2859,7 @@ function WelcomeForm({
                 onBlur={() => setUrlFocused(false)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && websiteUrl.trim()) {
-                    onAnalyze(websiteUrl.trim(), linkedinUrl.trim());
+                    onAnalyze(websiteUrl.trim());
                   }
                 }}
                 placeholder="https://yourcompany.com"
@@ -2880,38 +2878,9 @@ function WelcomeForm({
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="h-px bg-[var(--bg-hover)]" />
-
-          {/* LinkedIn */}
-          <div>
-            <label className="block text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--text-quaternary)] mb-2.5">
-              LinkedIn Company Page
-              <span className="ml-1.5 normal-case tracking-normal text-[var(--text-quaternary)]">
-                (optional)
-              </span>
-            </label>
-            <div className="relative">
-              <input
-                type="url"
-                value={linkedinUrl}
-                onChange={(e) => setLinkedinUrl(e.target.value)}
-                onFocus={() => setLinkedinFocused(true)}
-                onBlur={() => setLinkedinFocused(false)}
-                placeholder="https://linkedin.com/company/your-company"
-                className="w-full rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-quaternary)] placeholder:font-mono outline-none transition-all duration-200 focus:border-[var(--text-primary)]"
-              />
-              <motion.div
-                className="absolute bottom-0 left-3 right-3 h-px rounded-full"
-                style={{
-                  background: 'var(--accent-green)',
-                  originX: 0.5,
-                }}
-                animate={{ scaleX: linkedinFocused ? 1 : 0, opacity: linkedinFocused ? 1 : 0 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
-            </div>
-          </div>
+          <p className="text-[11px] font-mono uppercase tracking-[0.12em] text-[var(--text-quaternary)]">
+            Deep research — we scan homepage, pricing, features, case studies, demo + signup pages, and web context.
+          </p>
         </motion.div>
 
         {/* CTA + trust */}
@@ -2924,7 +2893,7 @@ function WelcomeForm({
         >
           <motion.button
             onClick={() => {
-              if (websiteUrl.trim()) onAnalyze(websiteUrl.trim(), linkedinUrl.trim());
+              if (websiteUrl.trim()) onAnalyze(websiteUrl.trim());
             }}
             disabled={!websiteUrl.trim() || isUploading}
             className={cn(

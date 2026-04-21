@@ -4,7 +4,10 @@
 
 import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
-import { auth } from '@clerk/nextjs/server';
+import {
+  requireApiUser,
+  getJourneyDataUserId,
+} from '@/lib/auth/app-access';
 import { anthropic, MODELS } from '@/lib/ai/providers';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import {
@@ -115,14 +118,9 @@ function hasResearchToolActivity(
 }
 
 export async function POST(request: Request) {
-  // ── Auth ────────────────────────────────────────────────────────────────
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const access = await requireApiUser();
+  if (access instanceof Response) return access;
+  const userId = getJourneyDataUserId(access);
 
   // ── Parse request ───────────────────────────────────────────────────────
   let body: JourneyStreamRequest;

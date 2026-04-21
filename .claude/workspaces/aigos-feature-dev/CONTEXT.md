@@ -2,9 +2,12 @@
 
 ## Current Workspace State
 
-- **Active feature**: _none_ (set when starting a feature)
-- **Stage**: _n/a_
-- **Started**: _n/a_
+- **Active feature**: chat-redesign
+- **Stage**: 01-discover finalized → dispatching 02-audit (researcher, 10m / 40 calls)
+- **Started**: 2026-04-20 17:35 GMT+5
+- **Classification**: `day` (re-scoped 2026-04-20 18:05; prior `week+` 21-atom plan superseded — git preserves history)
+- **Note**: `stages/01-discover/notes/chat-redesign.md`
+- **Pipeline**: 01-discover ✅ → 02-audit (researcher) → 03-plan (inline, user gate) → 04-build (frontend sub-agents, parallel where independent) → 05-verify (user gate) → 05-ship (on explicit "ship it" only)
 
 When starting a feature, fill the block above and create a working note at `stages/01-discover/notes/<feature-slug>.md`.
 

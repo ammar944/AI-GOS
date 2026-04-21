@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { durations } from '@/lib/motion';
 
-export type FieldCardMode = 'text' | 'enum' | 'multi-select';
+export type FieldCardMode = 'text' | 'enum' | 'dropdown' | 'multi-select';
 
 export interface FieldCardChoice {
   value: string;

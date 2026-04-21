@@ -46,6 +46,22 @@ export const companyResearchSchema = z.object({
   industryVertical: researchedFieldSchema
     .describe('The primary industry/vertical they operate in (e.g., "B2B SaaS Marketing", "Healthcare IT", "FinTech"). Only state what is clear from their website.'),
 
+  // ── v3 Required Blockers (enum-typed — MUST match these exact values) ────
+  targetCustomer: researchedFieldSchema
+    .describe('One concise sentence describing WHO the product is built for — "Growth-stage B2B SaaS founders and marketing leads", "Enterprise security teams at Fortune 500 banks", etc. Extract from hero copy, "who it\'s for", case studies. Short one-liner. Different from primaryIcpDescription (longer detailed ICP).'),
+
+  salesMotion: researchedFieldSchema
+    .describe('HOW customers buy. Value MUST be EXACTLY one of: "product-led" | "sales-led" | "hybrid". Infer from: (a) "sales-led" if they require demos/talk-to-sales/enterprise contact forms with no public signup, (b) "product-led" if they have self-serve signup and public pricing, (c) "hybrid" if they offer both free self-serve AND paid tiers gated by sales. If unclear, best-guess with lower confidence. The value field MUST be exactly "product-led", "sales-led", or "hybrid" — never a description.'),
+
+  pricingModel: researchedFieldSchema
+    .describe('Pricing archetype. Value MUST be EXACTLY one of: "subscription" | "usage-based" | "per-seat" | "one-time-plus-subscription". Check pricing page: (a) "per-seat" if prices are per user/seat/license, (b) "usage-based" if billed by API calls/GB/events/credits/tokens, (c) "one-time-plus-subscription" if upfront fee + recurring, (d) "subscription" for flat monthly/annual. The value field MUST be exactly one of those 4 strings — never a description.'),
+
+  conversionPath: researchedFieldSchema
+    .describe('How prospects convert from visitor to paying customer. Value MUST be EXACTLY one of: "free-trial" | "freemium" | "demo-required" | "direct-checkout". Check: (a) "free-trial" if they offer time-limited trial (14-day/30-day), (b) "freemium" if there\'s a forever-free tier alongside paid, (c) "demo-required" if the primary CTA is "Book a Demo" / "Contact Sales" with no signup, (d) "direct-checkout" if they go straight from pricing to checkout (Stripe/signup). The value field MUST be exactly one of those 4 strings — never a description.'),
+
+  avgAcv: researchedFieldSchema
+    .describe('Average annual contract value / price tier. Value MUST be EXACTLY one of: "under-1k" | "1k-10k" | "10k-50k" | "50k-plus". Infer from pricing page lowest-paid-plan annualized: (a) "under-1k" if lowest paid plan < $1K/yr, (b) "1k-10k" if $1K-$10K/yr, (c) "10k-50k" if $10K-$50K/yr or "enterprise" with custom pricing for mid-market, (d) "50k-plus" if enterprise-only with 5-figure+ annual commits. If pricing is hidden (sales-led), infer from positioning and ICP. The value field MUST be exactly one of those 4 strings — never a price.'),
+
   // ── ICP — Ideal Customer Profile (Phase 2) ────────────────────────────────
   primaryIcpDescription: researchedFieldSchema
     .describe('Detailed description of who they sell to — industries, company types, personas, pain points they address. Extract from "who we serve", case studies, and marketing copy. Use their words.'),

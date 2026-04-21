@@ -122,17 +122,21 @@ function parseCompetitorString(raw: string): CompetitorEntry[] {
 
 /**
  * Extract the identity card JSON from the enriched context.
- * The dispatch route prepends it as: ## identityResolution\n{...JSON...}
+ * The dispatch route prepends it as: ## identityResolution\n{...JSON...}\n\n
+ *
+ * The `\n\n` terminator is critical: the dispatch route injects the block at
+ * the TOP of the context, so without it the regex greedily captures trailing
+ * context (Company / Website / wiki block) and JSON.parse fails silently.
+ * The legacy prior-research path uses pretty-printed JSON with `, null, 1`,
+ * which contains no `\n\n` internally, so this terminator is safe there too.
  */
 function extractIdentityCard(context: string): IdentityCard | null {
-  // Look for the identity card JSON in the "Prior Research Results" section
-  const identityMatch = context.match(/## identityResolution\n([\s\S]*?)(?=\n## |\n# |$)/);
+  const identityMatch = context.match(/## identityResolution\n([\s\S]*?)(?=\n\n|\n## |\n# |$)/);
   if (!identityMatch?.[1]) return null;
 
   try {
     const raw = identityMatch[1].trim();
     const parsed = JSON.parse(raw);
-    // Validate it has the essential fields
     if (parsed && typeof parsed.category === 'string' && Array.isArray(parsed.coreKeywords)) {
       return parsed as IdentityCard;
     }

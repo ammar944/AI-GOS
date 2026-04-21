@@ -13,7 +13,7 @@ Manager Feedback Sprint — 11 items from 2026-03-25 meeting with Gilles. Approa
 5. Plan REWRITTEN based on actual app screenshots (not code assumptions)
 
 ### Key Corrections Made
-- Journey page is a **URL form** ("Seed your strategy" + "Begin Analysis"), NOT chat-based onboarding
+- Journey page is a **URL form** ("Seed your strategy" + "Begin Analysis"). Chat is a post-research refinement sidebar scoped to editing rendered cards.
 - Keywords section ALREADY HAS a sortable table — doesn't need `keyword-table-card`
 - Profile selector goes on `/journey` page above URL form, not as chat overlay
 - Use tables/callouts/tabs for new content — NOT more cards (Codex hard-rejected card proliferation)

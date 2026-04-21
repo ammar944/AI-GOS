@@ -12,6 +12,12 @@ const RESEARCH_FIELD_KEYS = [
   'companyName',
   'businessModel',
   'industryVertical',
+  // v3 Required Blockers (enum-typed)
+  'targetCustomer',
+  'salesMotion',
+  'pricingModel',
+  'conversionPath',
+  'avgAcv',
   // ICP
   'primaryIcpDescription',
   'jobTitles',
@@ -44,7 +50,7 @@ const RESEARCH_FIELD_KEYS = [
 
 export interface UseJourneyPrefillReturn {
   partialResult: DeepPartial<CompanyResearchOutput> | undefined;
-  submit: (data: { websiteUrl: string; linkedinUrl?: string }) => void;
+  submit: (data: { websiteUrl: string }) => void;
   isLoading: boolean;
   error: Error | undefined;
   stop: () => void;
@@ -82,14 +88,11 @@ export function useJourneyPrefill(): UseJourneyPrefillReturn {
   }, [object]);
 
   const submit = useCallback(
-    (data: { websiteUrl: string; linkedinUrl?: string }) => {
+    (data: { websiteUrl: string }) => {
       const websiteUrl = normalizeOptionalUrl(data.websiteUrl);
       if (!websiteUrl) return;
 
-      submitObject({
-        websiteUrl,
-        linkedinUrl: normalizeOptionalUrl(data.linkedinUrl),
-      });
+      submitObject({ websiteUrl });
     },
     [submitObject],
   );

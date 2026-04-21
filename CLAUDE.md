@@ -4,131 +4,82 @@
 
 Before responding to any user message, classify the ask and state the classification in one line. Only then act.
 
-Classification types:
-- `quick-question`: pure Q&A, no tools needed. Answer directly.
-- `10-min-fix`: one file, obvious change, low ambiguity. Skip discover, jump to implement with a verification check.
-- `half-day` / `day` / `week+`: route through `.claude/workspaces/aigos-feature-dev/` starting at `stages/01-discover/CONTEXT.md`. Never skip discover on these.
+- `quick-question`: pure Q&A, no tools. Answer directly.
+- `10-min-fix`: one file, obvious change. Skip discover, jump to implement + verify (run `.claude/rules/verification.md` gate).
+- `half-day`: single feature, 2-6 files. Skip stages 01-02 of the workspace pipeline. Run verification gate at end.
+- `day` / `week+`: route through `.claude/workspaces/aigos-feature-dev/stages/01-discover/CONTEXT.md`. Never skip discover on these.
 - `production-bug`: run `.claude/rules/bug-triage.md` Step Zero FIRST. Do not load source until infra clears.
-- `skill-invocation`: if the user types `/design`, `/review`, `/ship` etc. on a task larger than 10-min, wrap the skill inside a `/feature` call. Never invoke a skill directly on week+ work without classification.
+- `skill-invocation`: if you type `/design`, `/review`, `/ship` on a task larger than 10-min, wrap the skill inside a `/feature` call first (`.claude/commands/feature.md`).
+- `beast-mode`: ONLY when the user's message contains the literal phrase `beast mode`, `boil the ocean`, or `/beast`. Opts into Garry Tan's maximalist-completion prompt. See `.claude/rules/beast-mode.md`. Refuse to self-activate — if the trigger isn't present, do not apply it even if the task "feels big." On small edits this over-engineers.
 
 Rules that apply to every classification:
-- Never dispatch an `Explore`, `Task`, or `Agent` subagent without stating a time budget and a max tool-call count up front. See `.claude/rules/exploration-budget.md`.
+- Never dispatch an `Explore`, `Task`, or `Agent` subagent without stating a time budget and tool-call cap up front. See `.claude/rules/exploration-budget.md`.
 - Never run a paid API (Firecrawl, Perplexity) in a loop without an abort condition.
 - `/clear` between unrelated features. Compact at 70% context with a feature focus.
 
-If the ask is ambiguous, state one assumption and proceed, or ask ONE clarifying question. Never ask more than one.
+If ambiguous, state one assumption and proceed, or ask ONE clarifying question. Never more.
 
-## Design System
-Read DESIGN.md before any visual/UI work. Do not deviate without user approval.
+## Behavioral Contract
 
-## Commands
-```bash
-npm run dev          # Next.js dev server (localhost:3000)
-npm run build        # Production build
-npm run lint         # ESLint
-npm run test:run     # Vitest single run
-npm run test:run -- src/lib/ai/__tests__/research.test.ts  # Single file
-```
+### Banned openers
+Never start with: "Great question", "You're absolutely right", "Excellent idea", "I'd be happy to", "Certainly!", "Of course!", "Sure thing". Start with the answer or the action. If the premise is wrong, say so before doing the work.
 
-## Research Worker (required for research to work)
-```bash
-# Terminal 1: Next.js app
-npm run dev
-# Terminal 2: Research worker (separate process, cannot import from src/lib/)
-cd research-worker && npm run dev  # starts on :3001
-```
-Add to `.env.local`: `RAILWAY_WORKER_URL=http://localhost:3001` and `RAILWAY_API_KEY=dev-secret`.
-Without RAILWAY_WORKER_URL, all research dispatches silently fail.
+### Surgical changes — every line traces
+Every changed line must trace directly to the stated request. No drive-by refactors, no reformatting, no "while I was in there" cleanups. Exception: clean up orphans your own change created. Self-check: can I point at every changed line and name the request sentence it serves?
 
-## Environment Variables
-Required in `.env.local`:
-```
-ANTHROPIC_API_KEY, GROQ_API_KEY, SEARCHAPI_KEY,
-NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-```
-Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_API_KEY`, `RAILWAY_WORKER_URL`, `RAILWAY_API_KEY`
+### Simplicity first — bias toward deletion
+Minimum code that solves the stated problem. No speculative error handling, no "for future extensibility". When in doubt, delete. Self-check: would a senior engineer call this overcomplicated?
 
-## Architecture
+### Direct, not diplomatic
+"This won't scale because X" beats "That's an interesting approach, but…". Two or three short paragraphs is usually enough. Prose is usually clearer than structure for short answers.
 
-AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-extracted fields, then step through a research pipeline that produces: 6 research sections, a media plan, and ad scripts.
+### Never fabricate
+Not file paths, commit hashes, function signatures, library APIs, or test results. If you don't know, read the file, run the command, or say "I don't know, let me check."
 
-**Stack**: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
+## Knowledge map — where to look
 
-### Journey Flow (IMPORTANT — read carefully)
+- **Architecture, stack, commands, env vars, pipeline, key files** → `.claude/ARCHITECTURE.md`
+- **Wiki (second brain, ingested sources, concepts)** → `.claude/wiki/` (read `.claude/wiki/CLAUDE.md` before querying)
+- **Rules** (verification, bug-triage, model-selection, exploration-budget, context-mgmt, AI SDK, hooks, security, MCP policy, learned patterns) → `.claude/rules/`
+- **Feature workspace** (5-stage pipeline for half-day+ work) → `.claude/workspaces/aigos-feature-dev/`
+- **Design System** → `DESIGN.md` (read before any visual/UI work)
 
-The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-based onboarding.
+## Top-5 Gotchas (full list in ARCHITECTURE.md)
 
-**User flow:**
-1. Enter company URL → system auto-prefills onboarding fields
-2. User reviews/edits prefilled fields in a form (UnifiedFieldReview)
-3. Submit → dispatches `identityResolution` (silent), then `industryMarket`
-4. Workspace shows research cards arriving via Supabase realtime
-5. User approves each section → next section dispatches automatically
-6. After all 6 sections: guided prompt to generate Media Plan
-7. After media plan: guided prompt to generate Scripts
-8. All results saved to profile
-
-**Research dispatch**: Button clicks → `POST /api/journey/dispatch` → Railway worker → writes results to Supabase → realtime pushes to frontend.
-
-**Chat sidebar**: Exists for post-research **editing/refinement only** (`editCard`, `updateField`). Chat input is disabled during active research. The chat does NOT trigger research dispatch.
-
-**Pipeline order**: `identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan`
-
-**Runners** (in `research-worker/src/runners/`): industry, icp, competitors, offer, keywords, synthesize, media-plan, ad-scripts, meeting-extract. Each runner: primary phase → repair phase → rescue phase with fallback models.
-
-### Key Files
-| What | Where |
-|------|-------|
-| Journey page | `src/app/journey/page.tsx` |
-| Journey chat | `src/app/api/journey/stream/route.ts` |
-| Research dispatch | `src/app/api/journey/dispatch/route.ts` |
-| Dispatch client | `src/lib/journey/dispatch-client.ts` |
-| Research realtime | `src/lib/journey/research-realtime.ts` |
-| Card taxonomy | `src/lib/workspace/card-taxonomy.ts` |
-| Field catalog | `src/lib/journey/field-catalog.ts` |
-| Context builder | `src/lib/journey/context-string.ts` |
-| Worker entry | `research-worker/src/index.ts` |
-| Identity resolver | `research-worker/src/identity/resolve-identity.ts` |
-| Meeting intel | `src/lib/meeting-intel/` |
-
-### Profiles & Scripts
-- Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Scripts, Assets.
-- Scripts generated via `research-worker/src/runners/ad-scripts.ts` (2-pass: draft → humanize with 43-point audit). Currently accessed only through profile Scripts tab.
-- Profile AI insights compile intelligence from each research section.
-
-## AI SDK Patterns (Vercel AI SDK v6)
-
-IMPORTANT — these cause silent bugs if wrong:
-- ALL AI calls use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly. Never OpenRouter.
-- `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatch = silent failure.
-- Tool definitions use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`).
-- `convertToModelMessages()` throws `MissingToolResultsError` — sanitize incomplete tool parts first.
-- Remove `.min()/.max()` from Zod numbers in `generateObject()` schemas — Anthropic API rejects them. Use `.describe()` instead.
-
-## Conventions
-- **Imports**: `@/*` maps to `./src/*` — always absolute
-- **Auth**: Clerk. `auth()` in API routes, middleware in `src/middleware.ts`
-- **UI**: shadcn/ui (new-york) + Radix + Tailwind CSS v4. `cn()` for conditional classes.
-- **Files**: kebab-case. Named exports (not default). Props suffixed with `Props`.
-- **Zod**: Runtime validation for all AI outputs and API inputs. Schemas colocated.
-- **State**: localStorage via `src/lib/storage/local-storage.ts`. Supabase for persistent data.
-
-## Critical Gotchas
 - **id vs run_id**: Frontend passes `run_id`. Query `.eq('run_id', id)`, use `session.id` for FKs.
-- **Field sync**: New onboarding fields must sync across 6 places: field-catalog.ts, JOURNEY_FIELD_GROUPS, PROFILE_FIELD_GROUPS, Supabase migration, worker parse-context.ts, identity card JSONB.
-- **Railway worker boundary**: Cannot import from `src/lib/`. Schemas/types must exist in both places.
-- **Pre-existing TS errors**: openrouter tests and chat blueprint tests have known errors — ignore them.
-- **Deploy**: Vercel. Long routes need `export const maxDuration = 300` (Pro tier). Worker deploys separately via `cd research-worker && railway up`.
+- **Railway worker boundary**: Cannot import from `src/lib/`. Schemas/types live in both places.
+- **Field sync across 6 places**: new onboarding fields — see ARCHITECTURE.md.
+- **AI SDK v6 renames**: `inputSchema` not `parameters`, `maxOutputTokens` not `maxTokens`. Details in `.claude/rules/ai-sdk-patterns.md`.
+- **Pre-existing TS errors** in openrouter + chat blueprint tests — ignore them.
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it using the Skill tool FIRST:
-- Product ideas, brainstorming → office-hours
-- Bugs, errors, 500s → investigate
-- Ship, deploy, PR → ship
-- QA, test the site → qa
-- Code review → review
-- Design system → design-consultation
-- Visual audit → design-review
-- Architecture review → plan-eng-review
+Match intent → invoke via the Skill tool FIRST:
+- Product ideas, brainstorming → `office-hours`
+- Bugs, errors, 500s → `investigate`
+- Ship, deploy, PR → `ship`
+- QA, test the site → `qa`
+- Code review → `review`
+- Design system → `design-consultation`
+- Visual audit → `design-review`
+- Architecture review → `plan-eng-review`
+
+## Think Before Coding
+
+Adapted from Karpathy's LLM coding guidelines (forrestchang/andrej-karpathy-skills). Karpathy's simplicity-first and surgical-changes principles are already in the Behavioral Contract above; this section adds what those don't cover.
+
+Before writing code:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+For multi-step tasks, state a brief plan with per-step verification before acting:
+
+```
+1. [step] → verify: [check]
+2. [step] → verify: [check]
+3. [step] → verify: [check]
+```
+
+Strong per-step success criteria let the session loop independently. Weak criteria ("make it work") force constant clarification round-trips.

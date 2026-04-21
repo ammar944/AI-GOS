@@ -57,6 +57,11 @@
             "type": "command",
             "command": "node .claude/helpers/auto-memory-hook.mjs import",
             "timeout": 8000
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/scripts/env-snapshot.sh",
+            "timeout": 5000
           }
         ]
       }
