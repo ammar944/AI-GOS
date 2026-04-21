@@ -6,13 +6,35 @@ import { streamText, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
 import { auth } from '@clerk/nextjs/server';
 import { anthropic, MODELS } from '@/lib/ai/providers';
-import {
-  JOURNEY_CHAT_SYSTEM_PROMPT,
-  buildResumeContext,
-} from '@/lib/ai/prompts/journey-chat-system';
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import {
   sanitizeJourneyMessages,
 } from '@/lib/ai/journey-stream-prep';
+
+// v3: chat is a thin research-editing sidebar, NOT the primary onboarding path.
+// The URL form + UnifiedFieldReview collects all onboarding data.
+// This prompt gates the agent to editCard / updateField only — no research dispatch.
+const JOURNEY_CHAT_SYSTEM_PROMPT = `You are a research editing assistant. Your job is to modify research cards and session fields when the user requests changes.
+
+You do NOT dispatch or trigger research — that happens via the workspace UI buttons. Focus on editCard and updateField operations.
+
+When the user asks to change a profile field, call updateField with the exact field key and proposed value. When they want to edit a research card's content, call editCard. Always propose changes — never auto-commit. The user must accept each proposed edit from the UI.
+
+Keep replies short and specific. Acknowledge what you're about to change, then call the tool. If the user's request is ambiguous, ask one clarifying question before calling a tool.`;
+
+/**
+ * Builds a system-prompt addendum that tells the agent which fields
+ * have already been collected in a previous session.
+ */
+function buildResumeContext(answeredFields: Record<string, unknown>): string {
+  const lines: string[] = [];
+  for (const [field, value] of Object.entries(answeredFields)) {
+    const label = JOURNEY_FIELD_LABELS[field] ?? field;
+    const display = Array.isArray(value) ? value.join(', ') : String(value);
+    lines.push(`- ${label}: ${display}`);
+  }
+  return `\n\n## Session Resume\n\nThe user already provided some information in a previous session:\n\n${lines.join('\n')}\n\nDo NOT re-ask about these fields. If they want to change one, use updateField to propose the edit.`;
+}
 import { askUser } from '@/lib/ai/tools/ask-user';
 import { competitorFastHits } from '@/lib/ai/tools/competitor-fast-hits';
 import { scrapeClientSite } from '@/lib/ai/tools/scrape-client-site';

@@ -26,10 +26,12 @@ import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
 import {
   shouldIgnoreDispatchError,
 } from '@/lib/journey/research-recovery';
-import {
-  JOURNEY_CHAT_WELCOME_MESSAGE,
-  JOURNEY_CHAT_RESUME_WELCOME,
-} from '@/lib/ai/prompts/journey-chat-system';
+// v3 onboarding is URL-form-driven; chat is a thin refinement sidebar.
+// Welcome strings live inline — no prompt library required.
+const JOURNEY_CHAT_WELCOME_MESSAGE =
+  "Tell me your company name and drop your website URL — I'll take a look at what you've built and we'll figure out how to grow it.";
+const JOURNEY_CHAT_RESUME_WELCOME =
+  "Welcome back. I've got your previous answers saved — let's pick up where we left off.";
 import {
   getJourneySession,
   setJourneySession,
