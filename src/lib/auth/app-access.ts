@@ -99,6 +99,16 @@ export async function syncAccountFromAllowlist(
   const bootstrapAdmins = bootstrapAdminEmails();
   const bootstrapInternal = bootstrapInternalEmails();
 
+  // Self-heal: if the Clerk webhook never created this row (e.g. webhook
+  // unconfigured or delivery failed), insert a minimal row here so the
+  // downstream UPDATE patches in this function actually land somewhere.
+  await supabase
+    .from('user_profiles')
+    .upsert(
+      { id: clerkUserId, email: emailNorm },
+      { onConflict: 'id', ignoreDuplicates: true },
+    );
+
   if (emailNorm && bootstrapAdmins.has(emailNorm)) {
     const now = new Date().toISOString();
     await supabase
