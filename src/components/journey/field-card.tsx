@@ -179,8 +179,56 @@ export function FieldCard({
       </div>
 
       <div className="px-4 pb-3">
-        {/* Enum / multi-select pills */}
-        {(mode === 'enum' || mode === 'multi-select') && choices && choices.length > 0 ? (
+        {/* Native dropdown — compact single-select for enum fields */}
+        {mode === 'dropdown' && choices && choices.length > 0 ? (
+          <>
+            <select
+              id={fieldKey}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              autoFocus={autoFocus}
+              className={cn(
+                'w-full rounded-lg px-3 py-2 text-[14px] leading-relaxed outline-none transition-colors appearance-none cursor-pointer',
+                'bg-[var(--bg-hover)] border border-[var(--border-subtle)] hover:border-[var(--border-default)]',
+                'focus:border-[var(--text-primary)]/40',
+              )}
+              style={{
+                color: value ? 'var(--text-primary)' : 'var(--text-quaternary)',
+                backgroundImage:
+                  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>\")",
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 12px center',
+                paddingRight: '32px',
+              }}
+            >
+              <option value="" disabled>
+                {placeholder || 'Select an option...'}
+              </option>
+              {choices.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+            {/* Selected choice's helper — falls back to the field's generic helper when no selection */}
+            {(() => {
+              const dropdownHelper = value
+                ? choices.find((c) => c.value === value)?.helper
+                : helper;
+              return dropdownHelper ? (
+                <p
+                  className="mt-2 text-[11px] leading-relaxed"
+                  style={{ color: 'var(--text-quaternary)' }}
+                >
+                  {dropdownHelper}
+                </p>
+              ) : null;
+            })()}
+          </>
+        ) : /* Enum / multi-select pills */
+        (mode === 'enum' || mode === 'multi-select') && choices && choices.length > 0 ? (
           <>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {choices.map((choice) => {
@@ -261,8 +309,8 @@ export function FieldCard({
           />
         )}
 
-        {/* Helper text (non-enum — enum mode shows its selected helper instead) */}
-        {helper && mode !== 'enum' && (
+        {/* Helper text (non-enum/dropdown — those modes show their selected helper instead) */}
+        {helper && mode !== 'enum' && mode !== 'dropdown' && (
           <p
             className="mt-2 text-[11px] leading-relaxed"
             style={{ color: 'var(--text-quaternary)' }}
