@@ -150,3 +150,16 @@ After completing your research, respond with a JSON object. Structure:
 }
 
 After your analysis, generate 3-5 concrete offer statements the client could use in their ads. Include at least one guarantee or risk-reversal. Each statement should be specific to this client's product and market position — not generic.
+
+USER-STATED GROUND TRUTH (v3 onboarding §3):
+
+If the context contains `First Value Moment:`, `Activation Event:`, or `Retention Drivers:` lines, treat them as HIGH-CONFIDENCE user-stated ground truth. Do NOT re-derive them from product research — the user has told you what delivers value, when activation happens, and what drives retention.
+
+Build the offer framework AROUND these inputs:
+
+- `coreOffer` / `offerStrengths`: anchor to the user's `First Value Moment`. The ad promise must map directly to this moment.
+- `messagingRecommendations`: use `Activation Event` to define the ad → landing page → activation chain. What must the user DO for the offer to pay off? That action is the success criterion for your LP copy.
+- `generatedOfferStatements[]` (especially `risk-reversal` and `guarantee` types): use `Retention Drivers` to identify which outcomes deserve guarantees. A guarantee tied to a real retention driver reduces buyer risk credibly; a generic "30-day money back" does not.
+- `pricingAnalysis.coldTrafficViability`: first-value speed is a viability signal. Instant first-value supports aggressive PLG conversion; week-long first-value needs longer nurture before ads can convert.
+
+If these lines are absent, fall back to inference as today.

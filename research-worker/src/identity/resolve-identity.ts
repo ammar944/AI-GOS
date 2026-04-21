@@ -45,6 +45,51 @@ function coerceClassification(value: unknown, validSet: Set<string>): string {
   return validSet.has(normalized) ? normalized : 'unknown';
 }
 
+/**
+ * Extract a metadata tag value (e.g. `[salesMotion:product-led]`) from the
+ * context string. Normalizes to lowercase. Returns null when absent.
+ */
+function extractContextTag(context: string, tag: string): string | null {
+  const match = context.match(new RegExp(`\\[${tag}:([^\\]]+)\\]`));
+  return match?.[1]?.trim().toLowerCase() ?? null;
+}
+
+/**
+ * v3 onboarding (2026-04-21): user-stated §1 signals override LLM inference
+ * for businessModelType. Pure input-side enhancement — the resolver's
+ * output schema is unchanged; downstream runners still consume
+ * businessModelType as today.
+ *
+ * Precedence:
+ *   salesMotion=product-led → plg (hard)
+ *   salesMotion=sales-led   → slg (hard)
+ *   salesMotion=hybrid      → keep LLM inference
+ *   fallback: if LLM returned 'unknown' AND conversionPath is a strong
+ *   signal, hard-map from conversionPath:
+ *     direct-checkout → ecommerce
+ *     demo-required   → slg
+ */
+export function applyV3BusinessModelHardMap(coerced: Record<string, unknown>, context: string): void {
+  const salesMotion = extractContextTag(context, 'salesMotion');
+  if (salesMotion === 'product-led') {
+    coerced.businessModelType = 'plg';
+    return;
+  }
+  if (salesMotion === 'sales-led') {
+    coerced.businessModelType = 'slg';
+    return;
+  }
+
+  if (coerced.businessModelType === 'unknown') {
+    const conversionPath = extractContextTag(context, 'conversionPath');
+    if (conversionPath === 'direct-checkout') {
+      coerced.businessModelType = 'ecommerce';
+    } else if (conversionPath === 'demo-required') {
+      coerced.businessModelType = 'slg';
+    }
+  }
+}
+
 const IDENTITY_SYSTEM_PROMPT = `You are a product classification specialist. Given research data about a company (website content, Perplexity intel, onboarding fields), produce a canonical product identity.
 
 RULES:
@@ -228,6 +273,10 @@ export async function resolveProductIdentity(
       coerced.awarenessLevel,
       VALID_AWARENESS_LEVELS,
     );
+
+    // v3 onboarding §1 hard-map: user-stated salesMotion/conversionPath
+    // overrides LLM inference on businessModelType.
+    applyV3BusinessModelHardMap(coerced, context);
 
     await emitRunnerProgress(onProgress, 'output', 'identity resolution complete');
 

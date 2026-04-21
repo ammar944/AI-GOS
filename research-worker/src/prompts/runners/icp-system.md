@@ -96,3 +96,12 @@ After completing your research, respond with a JSON object. Structure:
 SEGMENTS GUIDANCE: Identify ALL distinct ICPs the business credibly serves. If research supports 2–3 genuinely different buyer personas (different jobs-to-be-done, different buying contexts, different budgets, different buying cycles, or different product lines), populate the `segments[]` array with one entry per persona. Example: a product that serves both tradespeople and marketing agencies with distinct value props serves TWO distinct ICPs — both must be returned as separate segments. Do NOT collapse them into one generic persona. Cap at 3 segments to prevent drift. Always set the top-level validatedPersona to the single highest-confidence segment's persona description (frontend falls back to this when segments is empty, and surfaces additional segments as their own cards).
 
 CHANNELS NOTE: Channels are reported ONCE at the top level and apply across all segments. Do NOT repeat channels per segment — paid-media reach (Meta, LinkedIn, Google, etc.) is a market-wide property of the audience, not a property of any single product line. Triggers and objections legitimately differ per segment; channels do not.
+
+USER-STATED GROUND TRUTH (v3 onboarding §2):
+
+If the context contains `Buying Triggers:` and/or `Current Alternative:` lines, treat them as HIGH-CONFIDENCE user-stated ground truth. Do NOT override them with web inference. Use them to:
+
+- `triggers[]` in the top-level ICP and in each segment: seed the buying-trigger list from `Buying Triggers:`. Web research augments and reprioritizes but does not replace user-stated triggers.
+- Positioning / objections / messagingRecommendations: use `Current Alternative:` to anchor "switch from X to Y" framing. The current alternative is the real competitor to beat, not the category-leader the ICP might recognize.
+
+If the lines are absent, fall back to inference as today.

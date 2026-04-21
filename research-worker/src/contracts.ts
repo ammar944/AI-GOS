@@ -511,6 +511,20 @@ const strategicFrameSchema = z.object({
     'solution-aware',
   ).describe('Schwartz level per awareness-level-routing.md. Defaults to solution-aware (safest middle) when unclear.'),
   awarenessLevelConfidence: flexibleEnum(['high', 'medium', 'low'] as const, 'low'),
+  // v3 onboarding echo fields (2026-04-21) — dispatch route emits these as
+  // context tags ([salesMotion:X], [pricingModel:X], [conversionPath:X],
+  // [avgAcv:X]) from onboarding §1 Product & Revenue Model. Block 1 echoes
+  // the tag values into strategicFrame so blocks 2–6 and downstream
+  // consumers route off structured fields rather than re-parsing context.
+  // Optional because legacy runs predate v3.
+  salesMotionApplied: z.enum(['product-led', 'sales-led', 'hybrid']).optional()
+    .describe('Echo of [salesMotion:X] context tag. Blocks 1/2 use this × conversionPath for channel selection.'),
+  pricingModelApplied: z.enum(['subscription', 'usage-based', 'per-seat', 'one-time-plus-subscription']).optional()
+    .describe('Echo of [pricingModel:X] context tag. Block 3 uses this to pick the messaging frame (ROI / scale-with-you / team-economics / combo-value).'),
+  conversionPathApplied: z.enum(['free-trial', 'freemium', 'demo-required', 'direct-checkout']).optional()
+    .describe('Echo of [conversionPath:X] context tag. Block 3 uses this to pick the CTA template.'),
+  avgAcvApplied: z.enum(['under-1k', '1k-10k', '10k-50k', '50k-plus']).optional()
+    .describe('Echo of [avgAcv:X] context tag. Blocks 2/4 use this to gate enterprise channels and set CAC tier ceilings.'),
   salesCycleCeilingDays: z.number().describe(
     'Hard upper bound on the sales cycle in days, derived from offer structure per sales-cycle-bounding.md. Blocks 4 (measurement windows) and 5 (phase durations) MUST respect this ceiling.',
   ),
@@ -549,6 +563,14 @@ export const channelMixBudgetSchema = z.object({
       awareness: z.number().min(0).max(100),
       consideration: z.number().min(0).max(100),
       conversion: z.number().min(0).max(100),
+      // displayMode: 'chart' renders the 3-bar funnel chart; 'rationale-only'
+      // suppresses the chart and renders strategicFrame.funnelSplitRationale
+      // as a text card instead. Added 2026-04-21 (Mahdy round 3): at small
+      // budgets the split is degenerate (95-100% conversion) so a chart is
+      // more confusing than useful. Model must set 'rationale-only' when
+      // budgetSummary.totalMonthly < 5000 OR conversion > 90, per
+      // small-budget-discipline.md.
+      displayMode: flexibleEnum(['chart', 'rationale-only'] as const, 'rationale-only'),
     }),
     rampUpWeeks: z.number().int().min(1),
   }),
@@ -570,8 +592,16 @@ export const audienceCampaignSchema = z.object({
     funnelPosition: flexibleEnum(['top', 'bottom'] as const, 'top'),
     priority: z.number().int().min(1).max(10),
   })),
-  // Max 2 campaigns for DR cold-launch — budget-splitting across 6 campaign
-  // types is "super, super thin" per Mahdy.
+  // 2026-04-21 (Mahdy round 3): namingConvention removed — campaign naming
+  // conventions are a production-team concern, not a media-plan deliverable,
+  // and Mahdy flagged them as overwhelming for SMB buyers.
+  //
+  // Campaign count is now BUDGET-GATED via validateCampaignCountByBudget:
+  //   < $5k  → 1 campaign only (Brooke "single campaign first" rule)
+  //   $5k–$15k → max 2
+  //   > $15k → max 3
+  // Schema caps at .max(3) — the validator enforces the budget-gated tighter
+  // ceiling. See small-budget-discipline.md for rationale.
   campaigns: z.array(z.object({
     platform: z.string(),
     name: z.string(),
@@ -581,8 +611,12 @@ export const audienceCampaignSchema = z.object({
       segment: z.string(),
       budget: z.number().min(0),
     })),
-    namingConvention: z.string(),
-  })).max(2),
+    // singleCampaignRationale is REQUIRED when campaigns.length === 1 —
+    // forces the model to articulate Brooke's "single campaign first"
+    // principle rather than defaulting to multi-campaign out of habit.
+    // Validator checks presence when length === 1.
+    singleCampaignRationale: z.string().optional(),
+  })).max(3),
   // retargetingSegments removed 2026-04-19 per Mahdy round 2 — no audience
   // pool means no retargeting. Re-introduce behind [hasRetargetingPool:true]
   // metadata flag if/when relevant.
@@ -610,32 +644,40 @@ export const creativeSystemSchema = z.object({
 });
 
 export const measurementGuardrailsSchema = z.object({
-  // 2026-04-19 (Mahdy round 2): kpis + cacFramework REMOVED entirely. Even
-  // qualitative KPI drivers are "too much" — publishing anything that looks
-  // like a client target is a trap. Replaced with:
-  //   - industryBenchmarks: clearly-labeled external ranges (e.g., "MQL-to-SQL
-  //     conversion rate: 15-25%, SaaS benchmark"). Max 4.
-  //   - salesProcessGuidance: prose on how the CLIENT can improve conversion
-  //     via their own sales process (not paid media).
+  // 2026-04-19 (Mahdy round 2): kpis + cacFramework REMOVED entirely.
+  //
+  // 2026-04-21 (Mahdy round 3): industryBenchmarks now:
+  //   - Capped at .max(2) (was 4). Mahdy: "No clue what this means."
+  //     Fewer, better-chosen benchmarks per benchmark-selection.md.
+  //   - Each entry requires interpretation (stage-specific read) +
+  //     leversToMoveIt (exactly 2 process-side actions). Uninterpreted
+  //     benchmarks are noise — if you can't interpret, drop the entry.
+  //   - `note` removed — replaced by `interpretation`.
   industryBenchmarks: z.array(z.object({
-    metric: z.string(),  // e.g. "MQL-to-SQL conversion rate"
-    range: z.string(),   // e.g. "15-25%"
-    source: z.string(),  // label like "Industry benchmark" or "SaaS average (HubSpot 2024)"
-    note: z.string(),    // context / caveat
-  })).max(4),
+    metric: z.string(),           // e.g. "Trial-to-paid conversion rate (14-day window)"
+    range: z.string(),            // e.g. "12-20%" (must include units)
+    source: z.string(),           // e.g. "Skok SaaS benchmark", "Haynes in-market conversion rate"
+    interpretation: z.string(),   // e.g. "At <$3k spend, you're pre-PMF-validation — the read is whether ANY trial converts."
+    leversToMoveIt: z.array(z.string()).length(2),  // Exactly 2 process-side levers, NEVER paid-media actions.
+  })).max(2),
   salesProcessGuidance: z.object({
     diagnosticNote: z.string(),              // what to look for in current sales process
     improvementLevers: z.array(z.string()),  // how to boost conversion via process
     sopReference: z.string().optional(),     // e.g. "Follow the sales SOP in the shared Google Doc"
   }),
+  // 2026-04-21 (Mahdy round 3): capped at .max(1). "Keep 1 risk max" — the
+  // single allowed risk must be launchBlocker=true so the output carries the
+  // ONE thing that could kill the plan, not a laundry list of hypotheticals.
+  // An empty array is allowed when no genuine launch-blocker exists.
   risks: z.array(z.object({
     risk: z.string(),
-    category: flexibleEnum(['budget', 'creative', 'targeting', 'tracking', 'compliance', 'competitive', 'seasonal'] as const, 'competitive'),
-    severity: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
+    category: flexibleEnum(['budget', 'creative', 'targeting', 'tracking', 'compliance', 'competitive', 'seasonal'] as const, 'budget'),
+    severity: flexibleEnum(['high', 'medium', 'low'] as const, 'high'),
     likelihood: flexibleEnum(['high', 'medium', 'low'] as const, 'medium'),
     mitigation: z.string(),
     earlyWarning: z.string(),
-  })),
+    launchBlocker: z.literal(true),  // Required literal — non-launch-blocker risks are dropped.
+  })).max(1),
   trackingRequirements: z.array(z.object({
     platform: z.string(),
     requirement: z.string(),
@@ -650,7 +692,20 @@ export const rolloutRoadmapSchema = z.object({
     objectives: z.array(z.string()),
     activities: z.array(z.string()),
     successCriteria: z.array(z.string()),
-    budgetAllocation: z.number().min(0),
+    // 2026-04-21 (Mahdy round 3): budgetAllocation now optional. At small
+    // budgets the $ bar per phase is degenerate noise. Phase 1 renders
+    // activities + decisionGate only; phase 2+ render the $ bar. Model
+    // should emit the field from phase 2 onward when budget > $5k, omit it
+    // for phase 1 (and all phases under $5k) so the renderer suppresses the
+    // chart. See small-budget-discipline.md.
+    budgetAllocation: z.number().min(0).nullable().optional(),
+    // 2026-04-21 (Mahdy round 3): decisionGate is REQUIRED — the single
+    // observable signal that triggers moving from this phase to the next
+    // (Haynes weekly-decision-cadence). Replaces dollar-bar timeline visuals
+    // as the primary "what happens in this phase" artifact. Example:
+    // "Phase 1 → Phase 2 when cumulative spend > $1500 AND ≥1 paying
+    // customer OR zero-customer stop-loss at $1500 cumulative."
+    decisionGate: z.string(),
     goNoGo: z.string(),
   })),
   timeline: z.object({

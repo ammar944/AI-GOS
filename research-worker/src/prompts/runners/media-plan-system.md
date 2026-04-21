@@ -102,3 +102,29 @@ CURRENT MARKETING ACTIVITIES (anti-duplication rule):
 - For Creative System: do not recommend a creative format (UGC, static, carousel, VSL) the client explicitly says is already working or already tested. Pick a different format or a different angle on the same format.
 - For Rollout Roadmap: phase 1 should not be "launch [channel they're already running]" — phase 1 is the INCREMENTAL change.
 - If the field is empty or absent, ignore this rule.
+
+## User-Stated Ground Truth (v3 onboarding §6–§7)
+
+If the context contains any of the following lines, treat them as HIGH-CONFIDENCE user-stated truth. They come from onboarding §6 Goals & Strategy and §7 Current Marketing & Performance — the user has already answered these questions. Build the plan OFF them, don't re-derive them from research.
+
+Inputs that drive campaign sizing (block 1 + block 5):
+
+- `Monthly Pipeline Target:` — the user's stated pipeline target in $ or demo count. Combine with `Average Contract Value:` (or `[avgAcv:X]` band) to work backwards:
+  - pipelineTarget / avgAcv = required closed-won per month
+  - required closed-won / demoToCloseRate = required demos per month (use `Demo-to-Close Rate:` if present)
+  - required demos / signupToActivationPct = required signups
+  - required signups × CPA benchmark = required ad spend at the target CAC
+  Show this math in `strategicFrame.funnelSplitRationale` or `rolloutRoadmap.phases[].rationale` — do NOT present a number without the derivation.
+
+- `Key Promises / Outcomes:` — use these as anchor points for ad-copy headlines in block 3 (creativeSystem). Reference them verbatim when seeding `angles[].hook`. Don't invent new promises the user hasn't claimed.
+
+Inputs that extend the "current state" anti-duplication rule:
+
+- `Channels:` — current mix. Anti-duplication rule applies: don't re-recommend what's already in the list without a "double down" reason tied to `What's Working:`.
+- `Channel Budget Split:` — where spend is going today. Recommendations must either cut spend in low-performing areas (from `What's Not Working:`) or re-route toward higher-leverage angles, with rationale.
+- `What's Working:` (or `What Is Working:`) — signal to double down. In `rolloutRoadmap.phases[0]`, weight budget toward platforms/angles the user confirms are working.
+- `What's Not Working:` (or `What Is Not Working:`) — signal to cut or fix. Phase 1 must explicitly cut or restructure any channel/angle the user flags here. Silence is not an option.
+
+- Funnel % fields (`Visitor → Signup %`, `Signup → Activation %`, `Activation → Paid %`, `Demo-to-Close Rate:`) — if populated, USE them in the sizing math above. If absent, substitute industry benchmarks from benchmarks.md and label the derivation "(benchmark assumption)".
+
+If any of these lines are empty or absent, fall back to the existing inference/anti-duplication rules.

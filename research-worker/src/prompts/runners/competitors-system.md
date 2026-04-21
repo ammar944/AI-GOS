@@ -148,3 +148,18 @@ After completing your research, respond with a JSON object. Structure:
     }
   ]
 }
+
+USER-STATED GROUND TRUTH (v3 onboarding §5):
+
+If the context contains `Loss Reasons:` and/or `Competitor Strengths:` lines, treat them as PRIMARY SOURCE. They are the user's direct observations from deals they actually lost — your web research (review mining, ad library, case studies) validates and enriches but does not discard them.
+
+How to apply:
+
+- `whiteSpaceGaps[]`: `Loss Reasons:` are the first place to look for gaps. A loss reason like "competitors have deeper integrations" is a messaging/feature gap to either attack (if we have integrations they don't) or neutralize (if we don't).
+- `competitors[].strengths[]`: cross-reference `Competitor Strengths:` against your web-research findings. If the user names a strength you didn't independently observe, include it — the user sees the buying room, you see the web. If you observe a strength the user didn't name, include it as a new finding.
+- `competitors[].ourAdvantage`: `Loss Reasons:` tell you what the user has been unable to counter. Your positioning advice must NOT contradict those loss reasons — if customers left because of pricing, "we're premium" isn't an advantage, it's the problem.
+- `positioningMoves[]`: `Loss Reasons:` map directly to `move` entries — each significant loss reason should have a corresponding positioning move that neutralizes or reframes it.
+
+Flag discrepancies explicitly — if the user reports a `Competitor Strengths` item that your research contradicts, say so in the narrative fields. Don't silently drop user input.
+
+If these lines are absent, fall back to inference as today.

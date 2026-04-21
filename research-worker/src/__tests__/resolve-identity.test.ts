@@ -13,7 +13,7 @@ vi.mock('../runner', () => ({
   extractJson: (text: string) => mockExtractJson(text),
 }));
 
-import { resolveProductIdentity } from '../identity/resolve-identity';
+import { applyV3BusinessModelHardMap, resolveProductIdentity } from '../identity/resolve-identity';
 
 function makeValidIdentityCard() {
   return {
@@ -138,5 +138,40 @@ describe('resolveProductIdentity', () => {
     expect(data.ambiguityFlags).toContain(
       'product could be content marketing tool or whiteboard tool',
     );
+  });
+});
+
+describe('applyV3BusinessModelHardMap', () => {
+  it('maps salesMotion=product-led to businessModelType=plg (hard override)', () => {
+    const coerced: Record<string, unknown> = { businessModelType: 'slg' };
+    applyV3BusinessModelHardMap(coerced, '[salesMotion:product-led]\n[conversionPath:free-trial]');
+    expect(coerced.businessModelType).toBe('plg');
+  });
+
+  it('maps salesMotion=sales-led to businessModelType=slg (hard override)', () => {
+    const coerced: Record<string, unknown> = { businessModelType: 'plg' };
+    applyV3BusinessModelHardMap(coerced, '[salesMotion:sales-led]\n[conversionPath:demo-required]');
+    expect(coerced.businessModelType).toBe('slg');
+  });
+
+  it('keeps LLM inference when salesMotion=hybrid (no override)', () => {
+    const coerced: Record<string, unknown> = { businessModelType: 'plg' };
+    applyV3BusinessModelHardMap(coerced, '[salesMotion:hybrid]\n[conversionPath:free-trial]');
+    expect(coerced.businessModelType).toBe('plg');
+  });
+
+  it('falls back to conversionPath only when LLM returned unknown', () => {
+    const coerced: Record<string, unknown> = { businessModelType: 'unknown' };
+    applyV3BusinessModelHardMap(coerced, '[conversionPath:direct-checkout]');
+    expect(coerced.businessModelType).toBe('ecommerce');
+
+    const coerced2: Record<string, unknown> = { businessModelType: 'unknown' };
+    applyV3BusinessModelHardMap(coerced2, '[conversionPath:demo-required]');
+    expect(coerced2.businessModelType).toBe('slg');
+
+    // Does NOT override concrete LLM classifications via conversionPath alone
+    const coerced3: Record<string, unknown> = { businessModelType: 'plg' };
+    applyV3BusinessModelHardMap(coerced3, '[conversionPath:demo-required]');
+    expect(coerced3.businessModelType).toBe('plg');
   });
 });
