@@ -230,6 +230,34 @@ const competitorIntelDataSchema = z.object({
       leverageAngle: z.string(),
     })),
   }).optional(),
+  // Competitor source tags (user-provided vs AI-discovered) — injected by postProcessSynthesis.
+  competitorSources: z.array(z.object({
+    name: z.string(),
+    source: z.enum(['user-provided', 'ai-discovered']),
+    domain: z.string().optional(),
+  })).optional(),
+  // 6th Competitor Intel tab: ads surfaced by category keywords across the
+  // whole market (not anchored to the selected competitors). Injected by
+  // postProcessSynthesis from fetchCategoryKeywordAds. Zod's default strip
+  // mode would drop this silently — schema entry is load-bearing for the UI.
+  categoryKeywordAds: z.object({
+    keywordsProbed: z.array(z.string()).default([]),
+    ads: z.array(z.object({
+      source: z.enum(['meta', 'google']),
+      keyword: z.string(),
+      advertiser: z.string(),
+      headline: z.string(),
+      body: z.string(),
+      landingPage: z.string().nullable().optional(),
+      imageUrl: z.string().nullable().optional(),
+      detailsUrl: z.string().nullable().optional(),
+    })).default([]),
+    sources: z.object({
+      meta: z.number().int().nonnegative(),
+      google: z.number().int().nonnegative(),
+    }),
+    error: z.string().optional(),
+  }).optional(),
 });
 
 const icpValidationDataSchema = z.object({
