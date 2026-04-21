@@ -119,7 +119,7 @@ export function validateBudgetMath(
   }
 
   // Check funnel split sums to 100
-  const { awareness, consideration, conversion } = result.budgetSummary.funnelSplit;
+  const { awareness, consideration, conversion, displayMode } = result.budgetSummary.funnelSplit;
   const funnelTotal = awareness + consideration + conversion;
   if (!withinRelativeTolerance(funnelTotal, 100, 0.01)) {
     warnings.push(
@@ -136,8 +136,22 @@ export function validateBudgetMath(
         awareness: parseFloat(nAwareness.toFixed(2)),
         consideration: parseFloat(nConsideration.toFixed(2)),
         conversion: parseFloat(nConversion.toFixed(2)),
+        displayMode,
       },
     };
+  }
+
+  // 2026-04-21 (Mahdy round 3): enforce displayMode coherence. Small budgets
+  // (< $5k) or conversion-dominant splits (> 90%) must be 'rationale-only'
+  // because the 3-bar chart is degenerate. Correct the field rather than
+  // warn; the model commonly picks 'chart' by default.
+  const shouldSuppressChart =
+    totalMonthly < 5000 || result.budgetSummary.funnelSplit.conversion > 90;
+  if (shouldSuppressChart && result.budgetSummary.funnelSplit.displayMode !== 'rationale-only') {
+    warnings.push(
+      `funnelSplit.displayMode forced to 'rationale-only' (totalMonthly=$${totalMonthly.toFixed(0)}, conversion=${result.budgetSummary.funnelSplit.conversion.toFixed(0)}%) — chart would be degenerate.`,
+    );
+    result.budgetSummary.funnelSplit.displayMode = 'rationale-only';
   }
 
   return { data: result, warnings };
@@ -281,8 +295,14 @@ export function validateTargetingHeuristics(
 }
 
 /**
- * Validates Block 5 (Rollout Roadmap) phase budget allocations and timelines.
- * Warns (does not auto-correct) on budget mismatches since phases span different durations.
+ * Validates Block 5 (Rollout Roadmap) phase durations, decision gates, and
+ * content requirements.
+ *
+ * 2026-04-21 (Mahdy round 3): budgetAllocation is now optional. At small
+ * budgets the $ bar per phase is degenerate — phase 1 shows activities +
+ * decisionGate only. Per-phase monthly-equivalent burn checks still run but
+ * only when budgetAllocation is present. decisionGate is now required and
+ * checked for presence + basic length.
  */
 export function validatePhaseBudgets(
   data: RolloutRoadmap,
@@ -291,34 +311,28 @@ export function validatePhaseBudgets(
   const warnings: string[] = [];
   const result = structuredClone(data) as RolloutRoadmap;
 
-  // Check phase budget allocations vs totalMonthly
-  const phaseTotal = result.phases.reduce((sum, p) => sum + p.budgetAllocation, 0);
-  // 2026-04-20: fixed the apples/oranges comparison that used to compare the
-  // SUM of all phase budgets (which span multiple months) directly against
-  // the MONTHLY budget. A 4-phase rollout running Jan→May will naturally
-  // have phaseTotal ≫ totalMonthly. The honest check is per-phase burn-rate
-  // normalized to a monthly figure: no individual phase should burn at more
-  // than ~1.3× the monthly budget, and the FIRST phase should not exceed
-  // the monthly budget (soft-launch ramp discipline). Without this fix the
-  // validator emitted a warning on every well-formed plan.
   for (const phase of result.phases) {
     const weeks = (() => {
       const m = /(\d+)\s*week/i.exec(phase.duration);
       return m && m[1] ? parseInt(m[1], 10) : 0;
     })();
-    if (weeks <= 0) continue; // duration not parseable; skip rate check for this phase
-    const monthlyEquivalent = (phase.budgetAllocation / weeks) * 4.33;
-    if (monthlyEquivalent > totalMonthly * 1.3) {
-      warnings.push(
-        `Phase "${phase.name}" burns $${monthlyEquivalent.toFixed(0)}/month-equivalent — exceeds 1.3× the planned monthly budget ($${totalMonthly.toFixed(0)}). Verify the phase budget or widen the duration.`,
-      );
+    if (weeks <= 0) continue;
+    // Only run burn-rate check when budgetAllocation is present.
+    const budget = phase.budgetAllocation;
+    if (typeof budget === 'number' && budget > 0) {
+      const monthlyEquivalent = (budget / weeks) * 4.33;
+      if (monthlyEquivalent > totalMonthly * 1.3) {
+        warnings.push(
+          `Phase "${phase.name}" burns $${monthlyEquivalent.toFixed(0)}/month-equivalent — exceeds 1.3× the planned monthly budget ($${totalMonthly.toFixed(0)}). Verify the phase budget or widen the duration.`,
+        );
+      }
     }
   }
-  // Phase 1 (soft launch) additional check: should not exceed the monthly
-  // budget on a per-month-equivalent basis — the ramp-up rule says phase 1
-  // starts at ≤50% of daily ceiling.
+  // Phase 1 soft-launch discipline: if budgetAllocation is emitted for phase 1
+  // it must not exceed the monthly budget on a per-month-equivalent basis.
+  // At small budgets phase 1 should omit budgetAllocation entirely.
   const phase1 = result.phases[0];
-  if (phase1) {
+  if (phase1 && typeof phase1.budgetAllocation === 'number' && phase1.budgetAllocation > 0) {
     const weeks = (() => {
       const m = /(\d+)\s*week/i.exec(phase1.duration);
       return m && m[1] ? parseInt(m[1], 10) : 0;
@@ -332,12 +346,21 @@ export function validatePhaseBudgets(
       }
     }
   }
-  // Keep phaseTotal read for future use (e.g. total-campaign-cost surfacing);
-  // intentionally not comparing it to totalMonthly here.
-  void phaseTotal;
 
-  // Parse duration strings and check against totalWeeks
-  // Accepts formats like "4 weeks", "2 weeks", "1 week"
+  // 2026-04-21: small-budget discipline — at < $5k, phase 1 should OMIT
+  // budgetAllocation (display-suppressed chart). Warn if present.
+  if (
+    totalMonthly < 5000 &&
+    phase1 &&
+    typeof phase1.budgetAllocation === 'number' &&
+    phase1.budgetAllocation > 0
+  ) {
+    warnings.push(
+      `Phase 1 "${phase1.name}" has budgetAllocation set but totalMonthly < $5k — at small budgets phase 1 should emit activities + decisionGate only (omit budgetAllocation) per small-budget-discipline.md.`,
+    );
+  }
+
+  // Duration totals vs timeline.totalWeeks
   let parsedWeeksTotal = 0;
   let allParsed = true;
   for (const phase of result.phases) {
@@ -355,7 +378,7 @@ export function validatePhaseBudgets(
     );
   }
 
-  // Check each phase has at least 1 objective and 1 success criterion
+  // Content requirements per phase.
   for (const phase of result.phases) {
     if (phase.objectives.length === 0) {
       warnings.push(`Phase "${phase.name}" has no objectives — at least 1 required.`);
@@ -363,6 +386,12 @@ export function validatePhaseBudgets(
     if (phase.successCriteria.length === 0) {
       warnings.push(
         `Phase "${phase.name}" has no success criteria — at least 1 required.`,
+      );
+    }
+    // decisionGate is required by schema, but also check for meaningful content.
+    if (!phase.decisionGate || phase.decisionGate.trim().length < 20) {
+      warnings.push(
+        `Phase "${phase.name}" decisionGate is missing or too short — must name an observable signal that triggers moving to the next phase (Haynes weekly-decision-cadence).`,
       );
     }
   }
@@ -389,13 +418,13 @@ export function reconcileBudgetAcrossBlocks(
   // budget reconciliation remaining here compares Block 1 totalMonthly with
   // Block 5 phase allocations.
 
-  // Block 5 phase allocations reference: check if they are at least in the same ballpark
-  const phaseTotal = block5.phases.reduce((sum, p) => sum + p.budgetAllocation, 0);
-  if (!withinRelativeTolerance(phaseTotal, totalMonthly, 0.05)) {
-    warnings.push(
-      `Cross-block budget check: Block 5 phase allocations total ($${phaseTotal.toFixed(2)}) diverges from Block 1 totalMonthly ($${totalMonthly.toFixed(2)}) by more than 5%.`,
-    );
-  }
+  // 2026-04-21: phase-total vs totalMonthly check removed. budgetAllocation
+  // is now optional per phase (small budgets omit it), so summing
+  // allocations across phases is no longer a coherent signal. Per-phase
+  // burn-rate coherence is enforced in validatePhaseBudgets when the field
+  // is present. Keep totalMonthly read for future cross-block uses.
+  void totalMonthly;
+  void block5;
 
   return warnings;
 }
@@ -428,42 +457,135 @@ export function validateSnapshotConsistency(
   return { needsRegeneration, warnings };
 }
 
-// ── Round-2 validators (2026-04-19, Mahdy full-section-removal) ─────────────
+// ── Round-3 validators (2026-04-21, Mahdy skill-first rewrite) ──────────────
 
 /**
- * Enforce DR cold-launch max 2 campaigns. Splitting budget across 6 campaign
- * types is "super, super thin" per Mahdy.
+ * Budget-gated campaign count ceiling — the "master gate" from
+ * small-budget-discipline.md.
+ *
+ *   < $5k  → 1 campaign max (Brooke "single campaign first" rule)
+ *   $5k-$15k → 2 campaigns max
+ *   > $15k → 3 campaigns max
+ *
+ * When only 1 campaign is returned, `singleCampaignRationale` must be set.
+ * This surfaces the Brooke-anchored justification as structured data rather
+ * than leaving it implicit.
  */
-export function validateCampaignCount(audienceCampaign: AudienceCampaign): Warning[] {
-  const count = audienceCampaign.campaigns?.length ?? 0;
-  if (count > 2) {
-    return [
-      {
-        code: 'too_many_campaigns',
-        message: `Campaign count ${count} exceeds the max of 2 for DR cold-launch. Consolidate.`,
-      },
-    ];
+export function validateCampaignCountByBudget(
+  audienceCampaign: AudienceCampaign,
+  totalMonthly: number,
+): Warning[] {
+  const warnings: Warning[] = [];
+  const campaigns = audienceCampaign.campaigns ?? [];
+  const count = campaigns.length;
+
+  let ceiling: number;
+  if (totalMonthly < 5000) ceiling = 1;
+  else if (totalMonthly < 15000) ceiling = 2;
+  else ceiling = 3;
+
+  if (count > ceiling) {
+    warnings.push({
+      code: 'too_many_campaigns_for_budget',
+      message: `Campaign count ${count} exceeds the budget-gated ceiling of ${ceiling} (totalMonthly=$${totalMonthly.toFixed(0)}). Under $5k → 1 max; $5k–$15k → 2 max; over $15k → 3 max. See small-budget-discipline.md.`,
+    });
   }
-  return [];
+
+  if (count === 1) {
+    const rationale = campaigns[0]?.singleCampaignRationale;
+    if (!rationale || rationale.trim().length < 30) {
+      warnings.push({
+        code: 'missing_single_campaign_rationale',
+        message:
+          'singleCampaignRationale is required and must be ≥30 chars when only 1 campaign is returned. Cite the Brooke "single campaign first" principle or the ICP/budget reason.',
+      });
+    }
+  }
+
+  return warnings;
 }
 
 /**
- * DR default: conversion must be ≥ 85% of the funnel split. Cold-pool
- * accounts have no awareness/retargeting pool, so most budget goes to
- * conversion.
+ * Platform-count ceiling gate from small-budget-discipline.md. Under $5k
+ * requires a single platform regardless of whether upstream research
+ * surfaced two plausible channels.
  */
-export function validateFunnelSplitDR(channelMixBudget: ChannelMixBudget): Warning[] {
-  const split = channelMixBudget.budgetSummary?.funnelSplit;
-  if (!split) return [];
-  if (split.conversion < 85) {
-    return [
-      {
-        code: 'funnel_split_too_diffuse',
-        message: `DR default requires conversion >= 85% of budget. Got ${split.conversion}%.`,
-      },
-    ];
+export function validatePlatformCountByBudget(
+  channelMixBudget: ChannelMixBudget,
+): Warning[] {
+  const warnings: Warning[] = [];
+  const total = channelMixBudget.budgetSummary?.totalMonthly ?? 0;
+  const platformCount = channelMixBudget.platforms?.length ?? 0;
+
+  let ceiling: number;
+  if (total < 5000) ceiling = 1;
+  else if (total < 15000) ceiling = 2;
+  else ceiling = 3;
+
+  if (platformCount > ceiling) {
+    warnings.push({
+      code: 'too_many_platforms_for_budget',
+      message: `Platform count ${platformCount} exceeds budget-gated ceiling ${ceiling} (totalMonthly=$${total.toFixed(0)}). Under $5k → 1 platform. See small-budget-discipline.md.`,
+    });
   }
-  return [];
+
+  // $1,500/mo platform floor — per small-budget-discipline.md.
+  for (const p of channelMixBudget.platforms ?? []) {
+    if (p.monthlySpend > 0 && p.monthlySpend < 1500) {
+      warnings.push({
+        code: 'platform_below_spend_floor',
+        message: `Platform "${p.name}" allocated $${p.monthlySpend.toFixed(0)}/mo — below the $1,500/mo learning floor. Consolidate onto a single platform.`,
+      });
+    }
+  }
+
+  return warnings;
+}
+
+/**
+ * Channel-grounding gate: every platform recommended in Block 1 must have
+ * at least one citation path — a competitor running ads on the same
+ * platform, an ICP channel mention, or an upstream platformRecommendation.
+ *
+ * The runner passes the context string in which the upstream research
+ * appears. We run a string-level check for the platform name; a missing
+ * citation surfaces as a warning (not a hard reject) so the runner can
+ * retry block 1 with tightened guidance.
+ */
+export function validateChannelGrounding(
+  channelMixBudget: ChannelMixBudget,
+  context: string,
+): Warning[] {
+  const warnings: Warning[] = [];
+  const lowerContext = context.toLowerCase();
+
+  for (const platform of channelMixBudget.platforms ?? []) {
+    const normalized = platform.name.toLowerCase().trim();
+    if (!normalized) continue;
+    // Accept common aliases: "meta" ↔ "facebook"/"instagram", "google" ↔ "google ads"/"search".
+    const aliases = new Set<string>([normalized]);
+    if (normalized.includes('meta')) {
+      aliases.add('facebook');
+      aliases.add('instagram');
+    }
+    if (normalized.includes('facebook') || normalized.includes('instagram')) {
+      aliases.add('meta');
+    }
+    if (normalized.includes('google')) {
+      aliases.add('search');
+      aliases.add('youtube');
+    }
+
+    const grounded = Array.from(aliases).some((alias) => lowerContext.includes(alias));
+    if (!grounded) {
+      warnings.push({
+        code: 'platform_not_grounded',
+        message: `Platform "${platform.name}" does not appear in upstream research context (competitorIntel / icpValidation / strategicSynthesis). See channel-grounding.md — every platform must be cited.`,
+      });
+    }
+  }
+
+  return warnings;
 }
 
 /**
@@ -491,20 +613,97 @@ export function validateNoRetargetingWithoutPool(
 }
 
 /**
- * industryBenchmarks replaces the deleted KPI/CAC framework. Must have at
- * least one benchmark entry for the measurement block to be meaningful.
+ * 2026-04-21 (Mahdy round 3): benchmark-selection.md compliance. Each
+ * benchmark must carry meaningful interpretation + exactly 2 process-side
+ * levers. Flag paid-media lever leaks.
  */
 export function validateIndustryBenchmarks(
   measurement: MeasurementGuardrails,
 ): Warning[] {
+  const warnings: Warning[] = [];
   const benchmarks = measurement.industryBenchmarks ?? [];
-  if (benchmarks.length === 0) {
-    return [
-      {
-        code: 'missing_industry_benchmarks',
-        message: 'industryBenchmarks must have at least 1 entry.',
-      },
-    ];
+
+  // Empty is now allowed — the LTV:CAC viability gate may force zero CAC
+  // benchmarks. But an empty array AND zero risks AND zero salesProcessGuidance
+  // improvementLevers is a pathological output — let the other validators
+  // catch that. Here we only lint the entries that exist.
+
+  const PAID_MEDIA_LEVER_RE =
+    /\b(increase\s+(?:ad\s+)?(?:budget|spend)|shift\s+platform|test\s+meta|test\s+google|meta\s+advantage|google\s+ads|tiktok|reallocate\s+budget|raise\s+(?:cpm|cpc|bid)|scale\s+ad\s+spend)\b/i;
+
+  for (const [idx, entry] of benchmarks.entries()) {
+    if (!entry.interpretation || entry.interpretation.trim().length < 20) {
+      warnings.push({
+        code: 'benchmark_missing_interpretation',
+        message: `industryBenchmarks[${idx}] "${entry.metric}" missing or too-short interpretation. Per benchmark-selection.md, uninterpreted benchmarks are noise.`,
+      });
+    }
+    const levers = entry.leversToMoveIt ?? [];
+    if (levers.length !== 2) {
+      warnings.push({
+        code: 'benchmark_wrong_lever_count',
+        message: `industryBenchmarks[${idx}] "${entry.metric}" has ${levers.length} levers, expected exactly 2 per benchmark-selection.md.`,
+      });
+    }
+    for (const [leverIdx, lever] of levers.entries()) {
+      if (PAID_MEDIA_LEVER_RE.test(lever)) {
+        warnings.push({
+          code: 'benchmark_lever_is_paid_media',
+          message: `industryBenchmarks[${idx}].leversToMoveIt[${leverIdx}] "${lever}" is a paid-media action. Benchmark levers must be process-side only (pricing, retention, sales-process). See benchmark-selection.md.`,
+        });
+      }
+    }
   }
-  return [];
+
+  return warnings;
+}
+
+/**
+ * LTV:CAC viability gate inference — per ltv-cac-viability.md.
+ *
+ * This is a heuristic check: if the context reveals a low-ticket offer
+ * (price < $50/mo for PLG) AND the measurement output still contains CAC /
+ * CPL language, flag the unit-economics mismatch. The fabrication-sweep
+ * also catches numeric leaks; this validator adds a schema-aware check.
+ */
+export function validateLtvCacViability(
+  measurement: MeasurementGuardrails,
+  context: string,
+): Warning[] {
+  const warnings: Warning[] = [];
+  const lowerContext = context.toLowerCase();
+
+  const isPlg = /\[businessmodeltype:plg\]/i.test(context);
+  const isFreeTrialLike =
+    lowerContext.includes('free trial') ||
+    lowerContext.includes('freemium') ||
+    lowerContext.includes('self-serve');
+
+  if (!isPlg && !isFreeTrialLike) return warnings;
+
+  // Check for CAC / CPL numeric language in benchmark / guidance strings.
+  const CAC_NUMERIC_RE = /\$\s?\d{2,}\s?(?:cac|cpl|customer acquisition cost|cost per lead)\b/i;
+
+  for (const entry of measurement.industryBenchmarks ?? []) {
+    if (CAC_NUMERIC_RE.test(`${entry.metric} ${entry.range} ${entry.interpretation}`)) {
+      warnings.push({
+        code: 'plg_cac_numeric_leak',
+        message: `industryBenchmarks entry "${entry.metric}" contains a numeric CAC/CPL target on a PLG/free-trial offer. See ltv-cac-viability.md — apply the 3× gate.`,
+      });
+    }
+  }
+
+  const guidanceText = `${measurement.salesProcessGuidance?.diagnosticNote ?? ''} ${(
+    measurement.salesProcessGuidance?.improvementLevers ?? []
+  ).join(' ')}`;
+
+  if (/\bleads?\b|\blead[-\s]gen\b|\bmql\b|\bsql\b/i.test(guidanceText)) {
+    warnings.push({
+      code: 'plg_lead_vocabulary_leak',
+      message:
+        'salesProcessGuidance uses lead/MQL/SQL vocabulary on a PLG/free-trial offer. Use "free sign-ups", "trial starts", "activated users" per ltv-cac-viability.md.',
+    });
+  }
+
+  return warnings;
 }

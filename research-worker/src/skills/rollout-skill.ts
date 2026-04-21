@@ -3,67 +3,106 @@ export const ROLLOUT_SKILL = `
 
 You are designing the phased launch sequence and 90-day roadmap.
 
-### Awareness-gated platform phasing (HARD RULE)
+### Awareness-Gated Platform Phasing (HARD RULE)
 
 Read \`[awarenessLevel:X]\` metadata from the context.
 
 If awarenessLevel is 'unaware' or 'problem-aware':
-- Google Search and Performance Max CANNOT appear in Phase 1. Unaware audiences aren't searching yet — Google captures bottom-of-funnel intent they don't generate.
-- Phase 1 should prioritize Meta / YouTube / TikTok (education-led creative).
-- Google can appear in Phase 2 or later, once Meta testing has built brand recall.
+- Google Search and Performance Max CANNOT appear in Phase 1. Unaware
+  audiences aren't searching yet.
+- Phase 1 should prioritize Meta / YouTube (education-led creative). TikTok
+  only if surfaced in upstream research per channel-grounding.md.
+- Google can appear in Phase 2+ once Meta testing has built brand recall.
 
 If awarenessLevel is 'solution-aware', 'product-aware', or 'most-aware':
 - Google Search may lead Phase 1.
 
-### Inputs to analyze
-- Channel mix from Block 1: platforms, total monthly budget, rampUpWeeks, daily ceilings
-- Audience and campaign structure from Block 2
-- Creative system from Block 3: testing plan, refresh cadence
-- Measurement framework from Block 4: industry benchmarks, sales process guidance, risk register
-- Offer analysis: offer readiness, red flags (launchBlocker items must be resolved before Phase 1)
+### Inputs to Analyze
+- Channel mix from Block 1: platforms, totalMonthly, rampUpWeeks, daily ceilings, \`strategicFrame\`.
+- Block 2: audience segments and campaign structure.
+- Block 3: creative angles, testing plan, refresh cadence.
+- Block 4: industry benchmarks (by \`metric\` name), sales process guidance, risks.
+- Offer analysis: launchBlocker red flags must be resolved before Phase 1.
 
-### Phase design rules
+### Phase Design Rules
+
 Design 3–4 phases. Typical structure:
-1. Foundation (weeks 1–2): Infrastructure setup, pixel installation, primary platform soft launch at 50% budget
-2. Scaling (weeks 3–6): Full primary platform budget, add secondary platform, first creative test results
-3. Optimization (weeks 7–10): Pause underperforming ad sets, scale winners, add experimental channel
-4. Expansion (month 3+): Full multi-platform, lookalike expansion, creative refresh cycle running
 
-Adjust phase count and duration based on:
-- Budget size: smaller budgets take longer to accumulate data → extend each phase
-- Offer readiness: if offer has launchBlocker red flags, add a pre-launch remediation phase
-- Sales cycle length: if sales cycle > 60 days, extend measurement windows before scaling
+1. **Foundation (weeks 1–2)**: Infrastructure, pixel, primary platform soft launch at 50% budget.
+2. **Scaling (weeks 3–6)**: Full primary budget, first creative test results.
+3. **Optimization (weeks 7–10)**: Pause underperformers, scale winners, (if $5k+) add secondary platform.
+4. **Expansion (month 3+)**: Lookalike expansion, creative refresh cycle running.
 
-### Phase budget allocation
-Each phase's budgetAllocation must be consistent with Block 1 ramp-up schedule:
-- Phase 1 budget = primary platform at 50% daily ceiling × phase duration days
-- Phase 2 budget = primary at 100% + secondary at 50%
-- Phase 3+ budget = full monthly allocation (matches Block 1 totalMonthly)
+Adjust based on:
+- Budget size: smaller budgets take longer to accumulate data → extend each phase.
+- Offer readiness: launchBlocker red flags require a pre-launch remediation phase.
+- Sales cycle: if > 60 days, extend measurement windows before scaling.
 
-Validation: sum of all phase budgetAllocations over the roadmap period must align with
-the monthly budget × number of months covered. Flag any discrepancy.
+### Decision Gate (REQUIRED per phase)
 
-### Go/no-go criteria
-Each phase must have a concrete go/no-go decision gate. Gates must reference:
-- An observable platform signal (e.g. "CTR on primary creative >= platform median" or "frequency does not exceed 2.5 on Meta before exhaustion test")
-- A time condition (e.g. "after 14 days and minimum 100 clicks")
-- A data sufficiency check (e.g. "minimum 20 conversions for algorithm learning phase")
-- An industry benchmark reference from Block 4's \`industryBenchmarks[]\` (e.g. "funnel performance within the SaaS MQL-to-SQL benchmark range from Block 4") — use benchmark RANGES, never client-specific targets.
+Each phase MUST have a \`decisionGate\` string — the single observable
+signal that triggers moving to the next phase. Haynes' weekly-decision-
+cadence principle.
 
-Never use vague criteria like "performance is satisfactory". Never output a client-specific CPL / CAC / ROAS threshold.
+Example (good):
+"Phase 1 → Phase 2 when cumulative spend ≥ $1,500 AND ≥1 paying customer,
+OR stop-loss triggered at $1,500 cumulative with zero paying customers."
 
-### Monthly milestones
-List one milestone per month for the first 3 months minimum:
-- Month 1: completion of technical setup + first 30-day performance read
-- Month 2: first optimization cycle complete + secondary platform launched
-- Month 3: creative refresh #1 deployed + first observed conversion rates compared against Block 4 industryBenchmarks
+Decision gates must name:
+- An observable platform signal (CTR ≥ platform median, frequency ≤ 2.5, cumulative-spend threshold).
+- A time condition (after N days) OR a data-sufficiency condition (after N conversions).
+- A go/no-go outcome ("if yes, advance; if no, stop-loss and diagnose").
 
-### Success criteria per phase
-Each phase's successCriteria list must reference an observable platform signal (CTR, frequency, CPM trend, conversion volume) or an industryBenchmarks range from Block 4. Do NOT reference client-specific KPI targets — they don't exist in the schema anymore.
+NEVER use vague criteria like "performance is satisfactory". NEVER output a
+client-specific CPL / CAC / ROAS threshold in the gate.
 
-### Anti-hallucination contract
-Use only the provided reference data and research results. Do not infer unsupported facts.
-All benchmark numbers must be labeled as "industry benchmark" with a source. Phase budgetAllocations must
-sum correctly with Block 1 budget figures — do not output phases with inconsistent math.
-Go/no-go criteria must reference observable platform signals or industryBenchmarks ranges — NEVER client-specific CPL / CAC / ROAS targets (those fields no longer exist in the schema).
+### Phase Budget Allocation (OPTIONAL at small budget)
+
+\`phases[].budgetAllocation\` is now OPTIONAL (round 3 change).
+
+- **Under $5k monthly**: OMIT \`budgetAllocation\` for phase 1 (and ideally
+  all phases). The $ bar visual is degenerate at small budgets — the
+  renderer suppresses the chart when the field is absent and shows
+  activities + decisionGate instead. Do NOT emit a number just because the
+  schema accepts one.
+- **$5k+ monthly**: emit \`budgetAllocation\` for phase 2+ where the number
+  has meaning. Phase 1 can still omit it (soft-launch is better described
+  by activities than by a $ bar).
+
+When emitted, phase budget math must be consistent with Block 1 ramp-up:
+- Phase 1 budget ≤ primary platform at 50% daily ceiling × phase-duration days.
+- Phase 2 budget ≈ primary at 100%.
+- Later phases ≈ full monthly × phase-duration months.
+
+### Go/No-Go Criteria
+
+Each phase \`goNoGo\` string must reference:
+- An observable platform signal, OR
+- An \`industryBenchmarks[]\` range from Block 4 by \`metric\` name (e.g.,
+  "funnel performance within the Skok SaaS trial-to-paid benchmark range
+  named in Block 4").
+
+NEVER reference client-specific CPL / CAC / ROAS targets — they don't
+exist in the schema.
+
+### Monthly Milestones
+One milestone per month for months 1–3 minimum:
+- Month 1: technical setup complete + first 30-day performance read.
+- Month 2: first optimization cycle + (if $5k+) secondary platform launched.
+- Month 3: creative refresh #1 deployed + first observed conversion rates
+  compared against Block 4 benchmarks.
+
+### Success Criteria per Phase
+Each phase \`successCriteria\` list must reference an observable platform
+signal OR an \`industryBenchmarks\` range from Block 4. Do NOT reference
+client-specific KPI targets.
+
+### PLG / Free-Trial Vocabulary
+When PLG context is present: phase activities and milestones use "trial
+starts", "activated users", "paid conversions" — not "leads" or "MQLs".
+
+### Anti-Hallucination Contract
+All benchmark references use Block 4's exact \`metric\` strings. Phase
+durations must parse cleanly ("2 weeks", "4 weeks"). Decision gates must
+name observable signals. No fabricated CPL / CAC / ROAS thresholds.
 `;

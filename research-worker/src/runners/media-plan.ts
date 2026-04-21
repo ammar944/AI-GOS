@@ -38,10 +38,12 @@ import {
   validatePhaseBudgets,
   reconcileBudgetAcrossBlocks,
   validateSnapshotConsistency,
-  validateCampaignCount,
-  validateFunnelSplitDR,
+  validateCampaignCountByBudget,
+  validatePlatformCountByBudget,
+  validateChannelGrounding,
   validateNoRetargetingWithoutPool,
   validateIndustryBenchmarks,
+  validateLtvCacViability,
   validateStrategicFrame,
 } from '../validators/media-plan';
 
@@ -171,6 +173,19 @@ function extractAwarenessLevel(context: string): AwarenessLevel {
   return 'unknown';
 }
 
+// v3 onboarding §1 echo tags (added 2026-04-21). The dispatch route injects
+// these as `[salesMotion:X]`, `[pricingModel:X]`, `[conversionPath:X]`,
+// `[avgAcv:X]` from the onboarding form. Block 1 echoes them into
+// strategicFrame; downstream blocks consume from structured fields. The
+// runner only extracts for logging + observability — prompts read the tags
+// directly from context.
+function extractContextTag(context: string, tag: string): string | null {
+  const match = context.match(new RegExp(`\\[${tag}:([^\\]]+)\\]`));
+  const raw = match?.[1]?.trim().toLowerCase();
+  // Treat empty brackets (`[salesMotion:]`) as absent.
+  return raw && raw.length > 0 ? raw : null;
+}
+
 export async function runMediaPlan(
   context: string,
   onProgress?: RunnerProgressReporter,
@@ -179,6 +194,12 @@ export async function runMediaPlan(
   const industry = detectIndustry(context);
   const businessModelType = extractBusinessModel(context);
   const awarenessLevel = extractAwarenessLevel(context);
+  // v3 onboarding §1 echo tags — logged for observability; prompts read
+  // from context directly.
+  const salesMotion = extractContextTag(context, 'salesMotion');
+  const pricingModel = extractContextTag(context, 'pricingModel');
+  const conversionPath = extractContextTag(context, 'conversionPath');
+  const avgAcv = extractContextTag(context, 'avgAcv');
   const shouldInjectTemplates = process.env.INJECT_INDUSTRY_TEMPLATES !== 'false';
   const industryTemplate = shouldInjectTemplates ? loadIndustryTemplate(industry) : '';
   const businessModelTemplate = shouldInjectTemplates ? loadBusinessModelTemplate(businessModelType) : '';
@@ -191,18 +212,28 @@ export async function runMediaPlan(
   const salesCycleBounding = loadMediaPlanMethodology('sales-cycle-bounding.md');
   const channelGrounding = loadMediaPlanMethodology('channel-grounding.md');
   const inMarketTierRouting = loadMediaPlanMethodology('in-market-tier-routing.md');
+  // 2026-04-21 (Mahdy round 3): three new methodologies added to replace
+  // the "delete-noisy-sections" pass with a "ship better content via named
+  // frameworks" pass. Foundation skills for measurement, small-budget
+  // decision-making, and unit-economics viability.
+  const benchmarkSelection = loadMediaPlanMethodology('benchmark-selection.md');
+  const smallBudgetDiscipline = loadMediaPlanMethodology('small-budget-discipline.md');
+  const ltvCacViability = loadMediaPlanMethodology('ltv-cac-viability.md');
   const mediaPlanMethodologies = [
     bmRouting,
     awarenessRouting,
     salesCycleBounding,
     channelGrounding,
     inMarketTierRouting,
+    benchmarkSelection,
+    smallBudgetDiscipline,
+    ltvCacViability,
   ]
     .filter(Boolean)
     .join('\n\n---\n\n');
 
   console.log(
-    `[media-plan] businessModel=${businessModelType} awarenessLevel=${awarenessLevel} industry=${industry}`,
+    `[media-plan] businessModel=${businessModelType} awarenessLevel=${awarenessLevel} industry=${industry} salesMotion=${salesMotion ?? '-'} pricingModel=${pricingModel ?? '-'} conversionPath=${conversionPath ?? '-'} avgAcv=${avgAcv ?? '-'}`,
   );
 
   const completedBlocks: MediaPlanBlock[] = [];
@@ -360,12 +391,14 @@ export async function runMediaPlan(
         const result = validateBudgetMath(validatedData as z.infer<typeof channelMixBudgetSchema>);
         validatedData = result.data;
         blockWarnings = result.warnings;
-        // Round-2 check: DR default requires conversion >= 85%.
-        const funnelWarnings = validateFunnelSplitDR(result.data);
-        blockWarnings.push(...funnelWarnings.map((w) => w.message));
-        // 2026-04-20: strategicFrame sanity — tier mix sums to 100, budget
-        // gate from in-market-tier-routing.md respected, awareness×tier
-        // coherence. Non-mutating; emits warnings only.
+        // Round-3: budget-gated platform count ceiling + $1,500/mo platform floor.
+        const platformCountWarnings = validatePlatformCountByBudget(result.data);
+        blockWarnings.push(...platformCountWarnings.map((w) => w.message));
+        // Round-3: channel-grounding — every platform must be cited upstream.
+        const groundingWarnings = validateChannelGrounding(result.data, context);
+        blockWarnings.push(...groundingWarnings.map((w) => w.message));
+        // strategicFrame sanity — tier mix sums to 100, budget gate respected,
+        // awareness × tier coherence. Non-mutating; emits warnings only.
         const frameWarnings = validateStrategicFrame(result.data);
         blockWarnings.push(...frameWarnings.warnings);
         break;
@@ -375,12 +408,13 @@ export async function runMediaPlan(
         const result = validateTargetingHeuristics(validatedData as z.infer<typeof audienceCampaignSchema>);
         validatedData = result.data;
         blockWarnings = result.warnings;
-        // Round-2 checks: max 2 campaigns; no retargeting language without pool.
-        const campaignCountWarnings = validateCampaignCount(result.data);
-        blockWarnings.push(...campaignCountWarnings.map((w) => w.message));
+        // Round-3: budget-gated campaign-count ceiling + singleCampaignRationale requirement.
         const prevChannelMix = blockResults.channelMixBudget as
           | z.infer<typeof channelMixBudgetSchema>
           | undefined;
+        const totalMonthly = prevChannelMix?.budgetSummary?.totalMonthly ?? 0;
+        const campaignCountWarnings = validateCampaignCountByBudget(result.data, totalMonthly);
+        blockWarnings.push(...campaignCountWarnings.map((w) => w.message));
         if (prevChannelMix) {
           const retargetingWarnings = validateNoRetargetingWithoutPool(result.data, prevChannelMix);
           blockWarnings.push(...retargetingWarnings.map((w) => w.message));
@@ -399,6 +433,13 @@ export async function runMediaPlan(
           validatedData as z.infer<typeof measurementGuardrailsSchema>,
         );
         blockWarnings = benchmarkWarnings.map((w) => w.message);
+        // Round-3: LTV:CAC viability gate — flag PLG CAC/CPL numeric leaks
+        // and lead-vocabulary leaks on PLG/free-trial offers.
+        const viabilityWarnings = validateLtvCacViability(
+          validatedData as z.infer<typeof measurementGuardrailsSchema>,
+          context,
+        );
+        blockWarnings.push(...viabilityWarnings.map((w) => w.message));
         break;
       }
       case 'rolloutRoadmap': {

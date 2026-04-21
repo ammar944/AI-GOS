@@ -34,9 +34,30 @@ Only deviate down to 85% conversion if `[hasRetargetingPool:true]` is in context
 
 NEVER propose middle-of-funnel, retargeting campaigns, or retargeting segments at launch if no audience / pixel / pool exists. The audience doesn't exist yet — we're building it.
 
-## Campaign count ceiling (HARD RULE)
+## Fragmentation ceilings (BUDGET-GATED — see small-budget-discipline.md)
 
-MAX 2 campaigns total across all platforms. Producing 3+ campaigns spreads budget too thin to generate a statistically meaningful signal. If you're tempted to add a third, ask: could this be an ad set inside an existing campaign? The answer is almost always yes. A single primary conversion campaign is usually correct.
+Every axis of fragmentation has a budget-gated ceiling. Round-3 tightening (2026-04-21):
+
+| Monthly budget | Platforms | Campaigns/platform | In-market tiers | Creative angles |
+|---|---|---|---|---|
+| Under $2k | 1 | 1 | 1 (all in-market) | 2-3 |
+| $2k–$5k | **1** | 1 | 2 | 3 |
+| $5k–$15k | 2 | 2 | 3 | 4-5 |
+| $15k+ | 3 | 3 | 3 | 5+ |
+
+At under $5k, the answer is a SINGLE platform + SINGLE campaign — the block 2 `campaigns[]` array has length 1 and MUST set `singleCampaignRationale` with a Brooke-anchored justification. Platform $1,500/mo floor applies: no platform allocation below $1,500/mo.
+
+When a plan is tempted to add a second platform / campaign / tier at sub-$5k, ask: does the math leave each axis with at least $1,500/mo of spend? If no, consolidate.
+
+## v3 onboarding echo (strategicFrame fields)
+
+If the context contains any of `[salesMotion:X]`, `[pricingModel:X]`, `[conversionPath:X]`, `[avgAcv:X]`, treat them as HIGH-CONFIDENCE user-stated truth from onboarding §1 Product & Revenue Model. Block 1 echoes these values into `strategicFrame.salesMotionApplied / pricingModelApplied / conversionPathApplied / avgAcvApplied` so downstream blocks consume structured fields rather than re-parsing context. Do NOT infer these values from research when the tag is present.
+
+Downstream consumers:
+- Block 1 channel selection uses `salesMotion × conversionPath` matrix in channel-mix-skill.md.
+- Block 2 gates enterprise channels by `avgAcv` (LinkedIn ABM forbidden under $10k ACV).
+- Block 3 picks CTA family by `conversionPath` and messaging frame by `pricingModel`.
+- Block 4 picks CAC tier ceiling by `avgAcv` (under-1k → $50–$150, 50k-plus → $5,000+).
 
 ## Google search phasing for low-awareness audiences
 
@@ -82,10 +103,21 @@ The following schema sections no longer exist — do NOT attempt to produce them
 - `retargetingSegments[]` (DELETED from schema — no retargeting at launch)
 
 Block 4 (measurementGuardrails) now produces ONLY:
-- `industryBenchmarks[]` — 3-4 industry-typical ranges with source labels (NOT client targets)
-- `salesProcessGuidance` — diagnosticNote + improvementLevers + optional sopReference
-- `risks[]` — unchanged
-- `trackingRequirements[]` — unchanged
+- `industryBenchmarks[]` — **AT MOST 2** model-native ranges per benchmark-selection.md, each with `interpretation` + exactly 2 `leversToMoveIt` (process-side only — NEVER paid-media levers).
+- `salesProcessGuidance` — diagnosticNote + improvementLevers + optional sopReference.
+- `risks[]` — **AT MOST 1**. The single allowed risk must be `launchBlocker: true` (schema-enforced literal). If no genuine launch-blocker exists, emit `risks: []`.
+- `trackingRequirements[]` — unchanged.
+
+Block 2 (audienceCampaign) schema notes:
+- `campaigns[].namingConvention` REMOVED — production-team concern, not a media-plan deliverable.
+- `campaigns[].singleCampaignRationale` REQUIRED when `campaigns.length === 1`.
+
+Block 5 (rolloutRoadmap) schema notes:
+- `phases[].budgetAllocation` now OPTIONAL. Omit at small budgets (< $5k) — phase 1 renders via `activities` + `decisionGate`.
+- `phases[].decisionGate` REQUIRED — one sentence naming the observable signal that triggers moving to the next phase (Haynes weekly-decision-cadence).
+
+Block 1 (channelMixBudget) schema notes:
+- `budgetSummary.funnelSplit.displayMode` REQUIRED — set `'rationale-only'` when `totalMonthly < 5000` OR `conversion > 90` (the chart is degenerate). Renderer suppresses the chart and shows `strategicFrame.funnelSplitRationale` as a text card instead.
 
 Do NOT output client-specific targets for CPL, CAC, ROAS, leads/month, or customers/month. These depend on sales process, offer strength, creative quality, and retention — variables outside the paid media plan's control. Publishing them is a trap.
 

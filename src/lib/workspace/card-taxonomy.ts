@@ -449,6 +449,39 @@ function parseCompetitorIntel(
     }
   }
 
+  // Category Ads — 6th tab surfacing keyword-driven ad discovery across the
+  // whole market, not just the 5 selected competitors.
+  const categoryKeywordAds = asRecord(data.categoryKeywordAds);
+  if (categoryKeywordAds) {
+    const adsRaw = Array.isArray(categoryKeywordAds.ads) ? categoryKeywordAds.ads : [];
+    const ads = adsRaw
+      .map((item) => asRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item))
+      .map((a) => ({
+        source: (asString(a.source) as 'meta' | 'google') ?? 'google',
+        keyword: asString(a.keyword) ?? '',
+        advertiser: asString(a.advertiser) ?? '',
+        headline: asString(a.headline) ?? '',
+        body: asString(a.body) ?? '',
+        landingPage: asString(a.landingPage),
+        imageUrl: asString(a.imageUrl),
+        detailsUrl: asString(a.detailsUrl),
+      }))
+      .filter((a) => a.advertiser && (a.headline || a.body));
+
+    if (ads.length > 0) {
+      const sources = asRecord(categoryKeywordAds.sources);
+      cards.push(makeCard(section, 'category-ad-sweep-card', 'Category Ads', {
+        ads,
+        keywordsProbed: asStringArray(categoryKeywordAds.keywordsProbed),
+        sources: {
+          meta: asNumber(sources?.meta) ?? 0,
+          google: asNumber(sources?.google) ?? 0,
+        },
+      }, 'Ads surfaced by category keywords — advertisers outside the selected competitor set'));
+    }
+  }
+
   return cards;
 }
 
@@ -1103,7 +1136,11 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           name,
           objective: asString(campaign.objective),
           adSets: asRecordArray(campaign.adSets),
-          namingConvention: asString(campaign.namingConvention),
+          // 2026-04-21 (Mahdy round 3): namingConvention removed from
+          // worker schema. singleCampaignRationale is required when only
+          // 1 campaign is returned — carries the Brooke "single campaign
+          // first" justification as structured data.
+          singleCampaignRationale: asString(campaign.singleCampaignRationale),
         }, 'Campaign structure with platform, objective, and ad set configuration'));
       }
     }
@@ -1140,12 +1177,17 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
   if (measurement) {
     const industryBenchmarks = asRecordArray(measurement.industryBenchmarks);
     if (industryBenchmarks.length > 0) {
+      // 2026-04-21 (Mahdy round 3): benchmarks now require interpretation +
+      // leversToMoveIt per benchmark-selection.md. `note` was replaced by
+      // `interpretation`. Fallback path kept for legacy payloads during
+      // rollout — reads `note` when `interpretation` is absent.
       cards.push(makeCard(section, 'industry-benchmarks', 'Industry Benchmarks', {
         benchmarks: industryBenchmarks.map((b) => ({
           metric: asString(b.metric),
           range: asString(b.range),
           source: asString(b.source),
-          note: asString(b.note),
+          interpretation: asString(b.interpretation) ?? asString(b.note),
+          leversToMoveIt: asStringArray(b.leversToMoveIt),
         })),
       }, 'Industry-typical performance ranges as context — not client-specific targets'));
     }
@@ -1175,7 +1217,10 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           likelihood: asString(risk.likelihood),
           mitigation: asString(risk.mitigation),
           earlyWarning: asString(risk.earlyWarning),
-        }, 'Campaign risk with severity, likelihood, and mitigation strategy'));
+          // 2026-04-21 (Mahdy round 3): the single allowed risk must be
+          // launchBlocker=true (schema literal). Surface as visual emphasis.
+          launchBlocker: risk.launchBlocker === true,
+        }, 'Launch-blocker risk with severity, likelihood, and mitigation strategy'));
       }
     }
   }
@@ -1195,7 +1240,11 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
           successCriteria: asStringArray(phase.successCriteria),
           budgetAllocation: asNumber(phase.budgetAllocation),
           goNoGo: asString(phase.goNoGo),
-        }, 'Rollout phase with timeline, objectives, and go/no-go criteria'));
+          // 2026-04-21 (Mahdy round 3): decisionGate is the single
+          // observable trigger for moving to the next phase (Haynes
+          // weekly-decision-cadence). Required in worker schema.
+          decisionGate: asString(phase.decisionGate),
+        }, 'Rollout phase with timeline, objectives, and decision gate'));
       }
     }
   }
@@ -1213,13 +1262,27 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
     const budgetSummary = asRecord(channelMix.budgetSummary);
     const funnelSplit = budgetSummary ? asRecord(budgetSummary.funnelSplit) : null;
     if (funnelSplit) {
-      cards.push(makeCard(section, 'funnel-split-chart', 'Budget by Funnel Stage', {
-        funnelSplit: {
-          awareness: asNumber(funnelSplit.awareness) ?? 0,
-          consideration: asNumber(funnelSplit.consideration) ?? 0,
-          conversion: asNumber(funnelSplit.conversion) ?? 0,
-        },
-      }, 'Budget split across awareness, consideration, and conversion stages'));
+      // 2026-04-21 (Mahdy round 3): displayMode 'rationale-only' suppresses
+      // the chart (degenerate at small budgets) and renders
+      // strategicFrame.funnelSplitRationale as a text card instead.
+      const displayMode = asString(funnelSplit.displayMode) ?? 'chart';
+      if (displayMode === 'chart') {
+        cards.push(makeCard(section, 'funnel-split-chart', 'Budget by Funnel Stage', {
+          funnelSplit: {
+            awareness: asNumber(funnelSplit.awareness) ?? 0,
+            consideration: asNumber(funnelSplit.consideration) ?? 0,
+            conversion: asNumber(funnelSplit.conversion) ?? 0,
+          },
+        }, 'Budget split across awareness, consideration, and conversion stages'));
+      } else {
+        const strategicFrame = asRecord(channelMix.strategicFrame);
+        const rationale = strategicFrame ? asString(strategicFrame.funnelSplitRationale) : null;
+        if (rationale && rationale.trim().length > 0) {
+          cards.push(makeCard(section, 'bullet-list', 'Why 100% Conversion-Focused', {
+            items: [rationale],
+          }, 'Rationale for single-stage funnel focus (small-budget DR discipline)'));
+        }
+      }
     }
   }
 
@@ -1230,10 +1293,19 @@ function parseMediaPlan(data: Record<string, unknown>): CardState[] {
 
   if (roadmap) {
     const phases = asRecordArray(roadmap.phases);
+    // 2026-04-21 (Mahdy round 3): budgetAllocation is now optional per phase.
+    // Phases without a $ value are excluded from the chart — if all phases
+    // omit budgetAllocation (small-budget plans), the chart is suppressed
+    // and the renderer falls back to activities + decisionGate content.
     const phaseChartData = phases
-      .map(p => ({ name: asString(p.name) ?? '', budgetAllocation: asNumber(p.budgetAllocation) ?? 0 }))
+      .map(p => ({
+        name: asString(p.name) ?? '',
+        budgetAllocation: asNumber(p.budgetAllocation) ?? 0,
+      }))
       .filter(p => p.name && p.budgetAllocation > 0);
-    if (phaseChartData.length > 0) {
+    // Require at least 2 phases with real $ values for the chart to be useful;
+    // a 1-bar timeline is visually degenerate.
+    if (phaseChartData.length >= 2) {
       cards.push(makeCard(section, 'phase-budget-chart', 'Phase Budget Timeline', { phases: phaseChartData }, 'Budget allocation across rollout phases over time'));
     }
   }

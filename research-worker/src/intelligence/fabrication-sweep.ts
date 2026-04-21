@@ -70,6 +70,34 @@ const FABRICATION_PATTERNS: readonly SweepPattern[] = [
 ];
 
 /**
+ * PLG-context-gated fabrication patterns (added 2026-04-21, Mahdy round 3).
+ *
+ * These patterns fire ONLY when the surrounding context indicates a PLG /
+ * free-trial business. Applying them globally would false-positive on SLG
+ * outputs where CAC/CPL/lead vocabulary is appropriate. The caller in
+ * sweepCard's PLG-aware variant passes `plgContext: true` to enable these.
+ *
+ * See ltv-cac-viability.md for the rule:
+ *   1. PLG offers must never ship numeric CAC / CPL targets.
+ *   2. PLG offers must use "free sign-ups" / "trial starts" vocabulary,
+ *      never "leads" / "CPL" / "MQL" / "SQL" / "lead-gen".
+ */
+const PLG_GATED_PATTERNS: readonly SweepPattern[] = [
+  {
+    // Catches "$600 CAC", "target CAC of $200", "$50 CPL", etc.
+    name: 'plg_cac_cpl_numeric',
+    re: /\$\s?\d{2,}\s?(?:CAC|CPL|customer\s+acquisition\s+cost|cost\s+per\s+lead)\b/gi,
+    gated: false,
+  },
+  {
+    // Catches "leads", "lead-gen", "MQL", "SQL" on a PLG offer.
+    name: 'plg_lead_vocabulary',
+    re: /\b(?:leads?|lead[-\s]gen(?:eration)?|MQL|SQL|lead[-\s]to[-\s](?:MQL|SQL|customer))\b/gi,
+    gated: false,
+  },
+];
+
+/**
  * Indicators that a sentence cites an external benchmark / source. A match
  * inside such a sentence is NOT counted as fabrication.
  */
@@ -99,18 +127,28 @@ function sentenceContainingMatch(offset: number, source: string): string {
 
 /**
  * Sweep a single string for fabrication patterns.
+ *
+ * `plgContext` enables the PLG-gated pattern set (CAC/CPL numerics and
+ * lead vocabulary) which would false-positive on SLG outputs. Caller
+ * provides this based on context metadata (`[businessModelType:plg]` or
+ * free-trial signals).
  */
 export function sweepString(
   text: string,
   path: string,
   allowGrowthClaims: boolean,
   userGrowthRate: number | null,
+  plgContext = false,
 ): FabricationMatch[] {
   if (!text) return [];
   const matches: FabricationMatch[] = [];
   const userRateStr = userGrowthRate !== null ? String(Math.round(userGrowthRate)) : null;
 
-  for (const pattern of FABRICATION_PATTERNS) {
+  const activePatterns = plgContext
+    ? [...FABRICATION_PATTERNS, ...PLG_GATED_PATTERNS]
+    : FABRICATION_PATTERNS;
+
+  for (const pattern of activePatterns) {
     pattern.re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = pattern.re.exec(text)) !== null) {
@@ -133,17 +171,34 @@ export function sweepString(
 /**
  * Recursively walk a card's data object and collect fabrication matches from
  * every string field.
+ *
+ * `plgContext` (default false) enables PLG-gated patterns. The media-plan
+ * runner should pass true when `[businessModelType:plg]` or a free-trial
+ * signal is in context; intel cards on SLG businesses should pass false.
  */
 export function sweepCard(
   card: unknown,
-  options: { allowGrowthClaims: boolean; userGrowthRate: number | null },
+  options: {
+    allowGrowthClaims: boolean;
+    userGrowthRate: number | null;
+    plgContext?: boolean;
+  },
 ): FabricationSweepResult {
   const all: FabricationMatch[] = [];
+  const plgContext = options.plgContext ?? false;
 
   const walk = (node: unknown, path: string): void => {
     if (node === null || node === undefined) return;
     if (typeof node === 'string') {
-      all.push(...sweepString(node, path, options.allowGrowthClaims, options.userGrowthRate));
+      all.push(
+        ...sweepString(
+          node,
+          path,
+          options.allowGrowthClaims,
+          options.userGrowthRate,
+          plgContext,
+        ),
+      );
       return;
     }
     if (Array.isArray(node)) {

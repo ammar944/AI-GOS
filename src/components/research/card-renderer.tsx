@@ -11,6 +11,7 @@ import { CheckList } from '@/components/workspace/cards/check-list';
 import { ProseCard } from '@/components/workspace/cards/prose-card';
 import { TrendCard } from '@/components/workspace/cards/trend-card';
 import { CompetitorCard } from '@/components/workspace/cards/competitor-card';
+import { CategoryAdSweepCard } from '@/components/workspace/cards/category-ad-sweep-card';
 import { GapCard } from '@/components/workspace/cards/gap-card';
 import { VerdictCard } from '@/components/workspace/cards/verdict-card';
 import { PricingCard } from '@/components/workspace/cards/pricing-card';
@@ -379,7 +380,7 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           name={card.content.name as string}
           objective={card.content.objective as string | undefined}
           adSets={card.content.adSets as Array<Record<string, unknown>> | undefined}
-          namingConvention={card.content.namingConvention as string | undefined}
+          singleCampaignRationale={card.content.singleCampaignRationale as string | undefined}
         />
       );
     case 'creative-angle':
@@ -399,7 +400,7 @@ export function CardContentSwitch({ card }: { card: CardState }) {
         />
       );
     case 'industry-benchmarks':
-      return <IndustryBenchmarksCard benchmarks={card.content.benchmarks as Array<{metric?: string; range?: string; source?: string; note?: string}>} />;
+      return <IndustryBenchmarksCard benchmarks={card.content.benchmarks as Array<{metric?: string; range?: string; source?: string; interpretation?: string; leversToMoveIt?: string[]}>} />;
     case 'sales-process':
       return (
         <SalesProcessCard
@@ -417,6 +418,7 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           likelihood={card.content.likelihood as string | undefined}
           mitigation={card.content.mitigation as string | undefined}
           earlyWarning={card.content.earlyWarning as string | undefined}
+          launchBlocker={card.content.launchBlocker as boolean | undefined}
         />
       );
     case 'phase-card':
@@ -429,6 +431,7 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           successCriteria={card.content.successCriteria as string[] | undefined}
           budgetAllocation={card.content.budgetAllocation as number | undefined}
           goNoGo={card.content.goNoGo as string | undefined}
+          decisionGate={card.content.decisionGate as string | undefined}
         />
       );
     case 'offer-statement-list':
@@ -453,6 +456,16 @@ export function CardContentSwitch({ card }: { card: CardState }) {
           commonWeaknesses={card.content.commonWeaknesses as Array<{ theme: string; affectedCompetitors: string[]; frequency: number; exampleQuote: string; leverageAngle: string }>}
         />
       );
+    case 'category-ad-sweep-card': {
+      const c = card.content as Record<string, unknown>;
+      return (
+        <CategoryAdSweepCard
+          ads={(c.ads as Array<{ source: 'meta' | 'google'; keyword: string; advertiser: string; headline: string; body: string; landingPage?: string | null; imageUrl?: string | null; detailsUrl?: string | null }>) ?? []}
+          keywordsProbed={(c.keywordsProbed as string[]) ?? []}
+          sources={(c.sources as { meta: number; google: number }) ?? { meta: 0, google: 0 }}
+        />
+      );
+    }
     default:
       return <p className="text-xs text-[var(--text-tertiary)]">Unknown card type: {card.cardType}</p>;
   }

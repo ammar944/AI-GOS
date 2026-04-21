@@ -9,17 +9,26 @@ interface RiskCardProps {
   likelihood?: string;
   mitigation?: string;
   earlyWarning?: string;
+  launchBlocker?: boolean;
 }
 
-function getSeverityColor(severity?: string): string {
+function getSeverityColor(severity?: string, launchBlocker?: boolean): string {
+  if (launchBlocker) return 'var(--accent-red, #ef4444)';
   const s = severity?.toLowerCase();
-  if (s === 'critical') return 'var(--accent-red, #ef4444)';
-  if (s === 'high') return 'var(--accent-amber, #f59e0b)';
+  if (s === 'critical' || s === 'high') return 'var(--accent-amber, #f59e0b)';
   return 'var(--text-tertiary)';
 }
 
-export function RiskCard({ risk, category, severity, likelihood, mitigation, earlyWarning }: RiskCardProps) {
-  const severityColor = getSeverityColor(severity);
+export function RiskCard({
+  risk,
+  category,
+  severity,
+  likelihood,
+  mitigation,
+  earlyWarning,
+  launchBlocker,
+}: RiskCardProps) {
+  const severityColor = getSeverityColor(severity, launchBlocker);
 
   const stats = [
     ...(severity ? [{ label: 'Severity', value: severity }] : []),
@@ -29,9 +38,16 @@ export function RiskCard({ risk, category, severity, likelihood, mitigation, ear
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium" style={{ color: severityColor }}>
-        {risk}
-      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        {launchBlocker && (
+          <span className="rounded bg-[var(--accent-red,#ef4444)]/15 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-red,#ef4444)]">
+            Launch Blocker
+          </span>
+        )}
+        <p className="text-sm font-medium" style={{ color: severityColor }}>
+          {risk}
+        </p>
+      </div>
       {stats.length > 0 && <StatGrid stats={stats} columns={3} />}
       {mitigation && (
         <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{mitigation}</p>
