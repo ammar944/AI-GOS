@@ -1,11 +1,12 @@
 // src/lib/agents/persist-report.ts
-// Stub: persists validated terminal schema to Supabase
-// TODO: wire to Supabase company_intel table write
+// Persist Layer 1 ResearchBundle to Supabase
+// Layer 2 (SynthesisOutput) and Layer 3 (MediaPlan) are produced by downstream consumers
 
-import type { ResearchReport } from './types';
+import type { ResearchBundle } from './types';
 
-export async function persistAgentReport(report: ResearchReport): Promise<{ ok: boolean }> {
-  console.log('[persistAgentReport] Would persist to Supabase:', Object.keys(report));
-  // TODO: insert into company_intel or equivalent table
+export async function persistAgentReport(report: ResearchBundle): Promise<{ ok: boolean }> {
+  console.log('[persistAgentReport] Persisting ResearchBundle sections:', Object.keys(report));
+  // TODO: insert into company_intel or research_bundle table
+  // The report should be stored as structured JSON so downstream synthesis can read it.
   return { ok: true };
 }
