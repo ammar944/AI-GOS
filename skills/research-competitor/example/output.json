@@ -1,0 +1,627 @@
+{
+  "run_id": "run_demo_2025_01_15",
+  "competitor_set": [
+    {
+      "name": "Linear",
+      "type": "subject",
+      "source_url": "https://linear.app",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "type": "indirect",
+      "source_url": "https://asana.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "type": "indirect",
+      "source_url": "https://www.notion.so",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "type": "direct",
+      "source_url": "https://www.atlassian.com/software/jira",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "type": "indirect",
+      "source_url": "https://clickup.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "positioning_taxonomy": [
+    {
+      "name": "Linear",
+      "problem_framing_verbatim": "Issue tracking is dead. Traditional tools slow teams down with noise and friction. Product development needs a system built for speed and AI-native workflows.",
+      "solution_framing_verbatim": "The product development system for teams and agents. Purpose-built for planning and building products. Designed for the AI era. A new species of product tool that sets a new standard for planning and building products.",
+      "source_url": "https://linear.app",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "problem_framing_verbatim": "Teams need to reach the next level of productivity with AI agents that orchestrate, plan, and track projects at scale.",
+      "solution_framing_verbatim": "Jira brings teams together to reach the next level of productivity with AI agents that orchestrate, plan, and track projects at scale. Project management for the AI era.",
+      "source_url": "https://www.atlassian.com/software/jira",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "problem_framing_verbatim": "Teams need AI that understands their work, keeps projects moving, and gets better the more teams use it. 85% of Fortune 100 companies choose Asana.",
+      "solution_framing_verbatim": "Supercharge your teams with AI that gets work done. Give your teams AI that understands their work, keeps projects moving, and gets better the more your teams use it. The platform for human + AI collaboration.",
+      "source_url": "https://asana.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "problem_framing_verbatim": "Work is fragmented across too many tools. Teams need a single AI workspace that works for them 24/7.",
+      "solution_framing_verbatim": "The AI workspace that works for you. Notion agents keep work moving 24/7. They capture knowledge, answer questions, and push projects forward \u2014 all while you sleep. Meet the night shift.",
+      "source_url": "https://www.notion.so",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "problem_framing_verbatim": "60% of work is lost in context \u2014 and AI is lost without it. Work sprawl is killing context and destroying productivity.",
+      "solution_framing_verbatim": "Software to replace all software. All Apps, AI, Projects, Chat + 20 more. Save money, save time, create infinite productivity with AI Agents & Workflows. The everything app for work.",
+      "source_url": "https://clickup.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "pricing_reality": [
+    {
+      "name": "Linear",
+      "public_prices": [
+        "Free: $0/user/month",
+        "Basic: $10/user/month billed yearly",
+        "Business: $16/user/month billed yearly",
+        "Enterprise: Custom / Annual billing only"
+      ],
+      "gated_pricing_signals": [
+        "Enterprise tier requires contact sales",
+        "Annual billing only on Enterprise"
+      ],
+      "packaging_notes": "Free tier limited to 250 issues + 2 teams. Basic adds 5 teams + unlimited issues. Business adds unlimited teams + guest accounts + triage intelligence + Linear Agent automations. Enterprise adds SAML/SCIM + granular admin + migration support.",
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "public_prices": [
+        "Free: $0 for up to 10 users",
+        "Standard: $7.91/user/month",
+        "Premium: $14.54/user/month",
+        "Enterprise: Contact sales (billed annually)"
+      ],
+      "gated_pricing_signals": [
+        "Enterprise pricing hidden behind sales contact",
+        "Annual billing required for Enterprise view"
+      ],
+      "packaging_notes": "Free: 2 GB storage + 100 automation runs/month. Standard: 250 GB + 1,700 automations + 9/5 support. Premium: unlimited storage + per-user automation limits + 24/7 critical support + 99.9% SLA. Enterprise: unlimited automations + up to 150 sites + 99.95% SLA + Atlassian Analytics.",
+      "source_url": "https://www.atlassian.com/software/jira/pricing",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "public_prices": [
+        "Personal: $0 free forever (2 users)",
+        "Starter: $10.99/user/month billed annually",
+        "Advanced: $24.99/user/month billed annually",
+        "Enterprise: Contact sales",
+        "Enterprise+: Contact sales"
+      ],
+      "gated_pricing_signals": [
+        "Enterprise and Enterprise+ require sales contact",
+        "Yearly billing shows 18% savings vs monthly"
+      ],
+      "packaging_notes": "Personal: unlimited tasks & projects + 100MB/file. Starter: timeline/Gantt + dashboards + unlimited automations + custom fields. Advanced: portfolios + goals + workload + time tracking. Enterprise: SAML + SCIM + capacity planning. Enterprise+: data residency + HIPAA + audit log API.",
+      "source_url": "https://asana.com/pricing",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "public_prices": [
+        "Free Forever: $0",
+        "Unlimited: $7/user/month",
+        "Business: $12/user/month",
+        "Enterprise: $19/user/month",
+        "Enterprise Plus: Custom"
+      ],
+      "gated_pricing_signals": [
+        "Enterprise Plus requires sales contact",
+        "AI features (Brain) are add-on priced separately on some tiers"
+      ],
+      "packaging_notes": "Free: 100MB storage + unlimited tasks + 24/7 support. Unlimited: unlimited storage + integrations + dashboards. Business: 2FA + Google SSO + custom exporting. Enterprise: white labeling + API + HIPAA. Enterprise Plus: dedicated success manager + custom contracts.",
+      "source_url": "https://clickup.com/pricing",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "public_prices": [
+        "Free: $0 (individuals)",
+        "Plus: $10/user/month billed annually",
+        "Business: $18/user/month billed annually",
+        "Enterprise: Custom"
+      ],
+      "gated_pricing_signals": [
+        "Enterprise tier requires contact sales",
+        "AI features (Notion AI) are $10/user/month add-on across all paid plans"
+      ],
+      "packaging_notes": "Free: unlimited blocks for individuals. Plus: unlimited file uploads + 30-day version history. Business: private teamspaces + bulk PDF export. Enterprise: SCIM + audit logs + advanced security. Notion AI is a separate $10/user/month add-on.",
+      "source_url": "https://www.notion.so/pricing",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "share_of_voice": {
+    "search_terms_owned": [
+      "product management software",
+      "issue tracking",
+      "project management tool",
+      "AI project management",
+      "team collaboration platform"
+    ],
+    "communities_owned": [
+      {
+        "name": "r/productmanagement",
+        "url": "https://www.reddit.com/r/productmanagement",
+        "evidence": "Linear mentioned in 12+ threads as 'cleanest PM tool' in past 90 days"
+      },
+      {
+        "name": "Hacker News",
+        "url": "https://news.ycombinator.com",
+        "evidence": "Linear featured in Show HN and discussed in 'Ask HN: What PM tool do you use?' threads"
+      },
+      {
+        "name": "r/startups",
+        "url": "https://www.reddit.com/r/startups",
+        "evidence": "ClickUp and Notion dominate PM tool suggestion threads; Linear gaining traction among technical founders"
+      }
+    ],
+    "publications_owned": [
+      {
+        "name": "TechCrunch",
+        "url": "https://techcrunch.com",
+        "evidence": "Linear coverage on Series C ($35M), AI agent announcements; Notion coverage on valuation ($10B)"
+      },
+      {
+        "name": "The Verge",
+        "url": "https://www.theverge.com",
+        "evidence": "Notion and Asana featured in productivity roundups; ClickUp in 'best project management software 2024'"
+      }
+    ],
+    "evidence_per_claim": [
+      {
+        "claim": "Linear owns the 'AI-native PM tool' narrative among early adopters",
+        "retrieved_at": "2025-01-15T12:00:00.000Z",
+        "evidence_url": "https://linear.app"
+      },
+      {
+        "claim": "Asana dominates Fortune 100 mindshare with explicit '85% of Fortune 100' claim",
+        "retrieved_at": "2025-01-15T12:00:00.000Z",
+        "evidence_url": "https://asana.com"
+      },
+      {
+        "claim": "Notion positioned as unified workspace replacing multiple tools",
+        "retrieved_at": "2025-01-15T12:00:00.000Z",
+        "evidence_url": "https://www.notion.so"
+      },
+      {
+        "claim": "ClickUp claims 'software to replace all software' \u2014 broadest positioning",
+        "retrieved_at": "2025-01-15T12:00:00.000Z",
+        "evidence_url": "https://clickup.com"
+      },
+      {
+        "claim": "Jira maintains enterprise default status via Atlassian ecosystem lock-in",
+        "retrieved_at": "2025-01-15T12:00:00.000Z",
+        "evidence_url": "https://www.atlassian.com/software/jira"
+      }
+    ],
+    "source_url": "https://www.google.com/search?q=linear+app+competitors",
+    "retrieved_at": "2025-01-15T12:00:00.000Z"
+  },
+  "review_mined_feedback": [
+    {
+      "name": "Linear",
+      "verbatim_quote": "Linear is the first tool that actually feels like it was built for how modern product teams work. The keyboard shortcuts are incredible and the UI is just beautiful. But it's expensive for larger teams.",
+      "source_site": "g2",
+      "review_date": "2024-11-20",
+      "polarity": "positive",
+      "source_url": "https://www.g2.com/products/linear/reviews",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Linear",
+      "verbatim_quote": "Great for small teams but lacks the reporting and customization that enterprise needs. We're starting to outgrow it at 150 people.",
+      "source_site": "g2",
+      "review_date": "2024-10-05",
+      "polarity": "negative",
+      "source_url": "https://www.g2.com/products/linear/reviews",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "verbatim_quote": "Jira is powerful but bloated. Every workflow requires 20 clicks. Our engineers hate it but our PMs insist on it for traceability.",
+      "source_site": "capterra",
+      "review_date": "2024-09-15",
+      "polarity": "negative",
+      "source_url": "https://www.capterra.com/p/140851/Jira/reviews/",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "verbatim_quote": "Asana works well for marketing teams but our engineering team finds it too flexible \u2014 things fall through the cracks without strict workflows.",
+      "source_site": "trustradius",
+      "review_date": "2024-12-01",
+      "polarity": "mixed",
+      "source_url": "https://www.trustradius.com/products/asana/reviews",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "verbatim_quote": "Notion replaced our wiki, docs, and light project management. The AI features are genuinely useful. Setup took weeks though.",
+      "source_site": "g2",
+      "review_date": "2024-11-10",
+      "polarity": "positive",
+      "source_url": "https://www.g2.com/products/notion/reviews",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "verbatim_quote": "Feature overload. We use maybe 20% of what ClickUp offers. The learning curve is steep and our team was overwhelmed.",
+      "source_site": "capterra",
+      "review_date": "2024-08-22",
+      "polarity": "negative",
+      "source_url": "https://www.capterra.com/p/179279/ClickUp/reviews/",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "competitor_narrative_arc": [
+    {
+      "name": "Linear",
+      "villain": "Traditional issue trackers that slow teams down with noise, friction, and manual status updates. Jira's complexity kills velocity.",
+      "hero": "Linear \u2014 a system purpose-built for modern product teams with AI workflows at its core. Speed is a feature.",
+      "transformation_claim": "From fragmented project chaos to a self-driving product operation where humans and agents collaborate seamlessly.",
+      "evidence_verbatim": "A new species of product tool. Purpose-built for modern teams with AI workflows at its core, Linear sets a new standard for planning and building products.",
+      "source_url": "https://linear.app",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "villain": "Disconnected teams, siloed information, manual project coordination that doesn't scale.",
+      "hero": "Jira + Atlassian Intelligence \u2014 the enterprise standard with AI agents embedded.",
+      "transformation_claim": "From manual project tracking to AI-orchestrated productivity at enterprise scale.",
+      "evidence_verbatim": "Jira brings teams together to reach the next level of productivity with AI agents that orchestrate, plan, and track projects at scale.",
+      "source_url": "https://www.atlassian.com/software/jira",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "villain": "Work that doesn't move \u2014 teams stuck in status meetings, unclear priorities, projects that stall.",
+      "hero": "Asana AI Teammates \u2014 AI that understands your work and keeps projects moving autonomously.",
+      "transformation_claim": "From human-dependent coordination to AI-augmented teams that achieve goals faster with less manual overhead.",
+      "evidence_verbatim": "Give your teams AI that understands their work, keeps projects moving, and gets better the more your teams use it. 85% of Fortune 100 companies choose Asana.",
+      "source_url": "https://asana.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "villain": "Tool sprawl \u2014 work scattered across 10+ apps, knowledge lost, context switching destroying focus.",
+      "hero": "Notion \u2014 the single AI workspace where everything lives, agents work 24/7, and context is never lost.",
+      "transformation_claim": "From fragmented tools to one AI workspace that replaces docs, wikis, projects, and databases.",
+      "evidence_verbatim": "Notion agents keep work moving 24/7. They capture knowledge, answer questions, and push projects forward \u2014 all while you sleep. Meet the night shift.",
+      "source_url": "https://www.notion.so",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "villain": "Work sprawl \u2014 60% of work lost in context, AI lost without it, too many tools killing productivity.",
+      "hero": "ClickUp \u2014 the everything app that replaces all software with one platform for humans, AI agents, and workflows.",
+      "transformation_claim": "From software chaos to infinite productivity \u2014 one app with 100+ products, AI agents, and perfect context.",
+      "evidence_verbatim": "Software to replace all software. All Apps, AI, Projects, Chat + 20 more. Save money. Save time. Create infinite productivity. AI Agents & Workflows.",
+      "source_url": "https://clickup.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "paid_social_ad_inventory": [
+    {
+      "name": "Asana",
+      "active_ad_count": 12,
+      "run_duration_range": "2024-10-01 to 2025-01-15 (106 days)",
+      "formats": [
+        "video",
+        "carousel",
+        "image"
+      ],
+      "hook_strings_verbatim": [
+        "85% of Fortune 100 companies choose Asana",
+        "See why teams love Asana",
+        "The AI platform for human + AI collaboration"
+      ],
+      "cta_patterns": [
+        "Get started",
+        "View demo",
+        "Learn more"
+      ],
+      "ad_library_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=asana",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=asana",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "active_ad_count": 28,
+      "run_duration_range": "2024-08-01 to 2025-01-15 (167 days)",
+      "formats": [
+        "video",
+        "image",
+        "carousel"
+      ],
+      "hook_strings_verbatim": [
+        "Software to replace all software",
+        "Get 400% more done",
+        "One app. Everything."
+      ],
+      "cta_patterns": [
+        "Get started. It's FREE!",
+        "Learn more",
+        "Sign up"
+      ],
+      "ad_library_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=clickup",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=clickup",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "active_ad_count": 8,
+      "run_duration_range": "2024-11-01 to 2025-01-15 (75 days)",
+      "formats": [
+        "video",
+        "image"
+      ],
+      "hook_strings_verbatim": [
+        "Meet the night shift",
+        "Notion agents keep work moving 24/7",
+        "The AI workspace that works for you"
+      ],
+      "cta_patterns": [
+        "Get Notion free",
+        "Request a demo"
+      ],
+      "ad_library_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=notion",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=notion",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "active_ad_count": 4,
+      "run_duration_range": "2024-12-01 to 2025-01-15 (45 days)",
+      "formats": [
+        "image",
+        "carousel"
+      ],
+      "hook_strings_verbatim": [
+        "Project management for the AI era",
+        "Bring AI to your team with Jira"
+      ],
+      "cta_patterns": [
+        "Get it free",
+        "Start free trial"
+      ],
+      "ad_library_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=jira",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=jira",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Linear",
+      "active_ad_count": 2,
+      "run_duration_range": "2024-12-15 to 2025-01-15 (31 days)",
+      "formats": [
+        "image"
+      ],
+      "hook_strings_verbatim": [
+        "Issue tracking is dead",
+        "A new species of product tool"
+      ],
+      "cta_patterns": [
+        "Get started",
+        "Learn more"
+      ],
+      "ad_library_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=linear",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=linear",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "paid_search_ad_inventory": [
+    {
+      "name": "Linear",
+      "keyword": "project management software",
+      "headline_verbatim": "Linear \u2014 The Product Development System",
+      "body_verbatim": "Purpose-built for modern product teams. AI workflows, keyboard-first UI, and cycles that actually work.",
+      "destination_url": "https://linear.app",
+      "captured_at": "2025-01-15T12:00:00.000Z",
+      "source_url": "https://www.google.com/search?q=project+management+software",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "keyword": "team collaboration software",
+      "headline_verbatim": "Asana \u2014 Supercharge Your Teams with AI",
+      "body_verbatim": "85% of Fortune 100 choose Asana. AI that understands work, keeps projects moving, gets better over time.",
+      "destination_url": "https://asana.com",
+      "captured_at": "2025-01-15T12:00:00.000Z",
+      "source_url": "https://www.google.com/search?q=team+collaboration+software",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "keyword": "best project management software",
+      "headline_verbatim": "ClickUp \u2014 Replace All Your Software",
+      "body_verbatim": "All apps, AI, projects, chat + 20 more. Get 400% more done. Free forever.",
+      "destination_url": "https://clickup.com",
+      "captured_at": "2025-01-15T12:00:00.000Z",
+      "source_url": "https://www.google.com/search?q=best+project+management+software",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "keyword": "AI workspace",
+      "headline_verbatim": "Notion \u2014 The AI Workspace That Works for You",
+      "body_verbatim": "Meet the night shift. Notion agents keep work moving 24/7. Trusted by 98% of Forbes Cloud 100.",
+      "destination_url": "https://www.notion.so",
+      "captured_at": "2025-01-15T12:00:00.000Z",
+      "source_url": "https://www.google.com/search?q=ai+workspace",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "keyword": "enterprise project management",
+      "headline_verbatim": "Jira \u2014 Project Management for the AI Era",
+      "body_verbatim": "AI agents that orchestrate, plan, and track projects at scale. Free for up to 10 users.",
+      "destination_url": "https://www.atlassian.com/software/jira",
+      "captured_at": "2025-01-15T12:00:00.000Z",
+      "source_url": "https://www.google.com/search?q=enterprise+project+management",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "ad_activity_signals": [
+    {
+      "name": "ClickUp",
+      "always_on_vs_burst": "always_on",
+      "refresh_cadence_days": 7,
+      "geo_targeting_visible": [
+        "US",
+        "UK",
+        "CA",
+        "AU"
+      ],
+      "spend_magnitude_estimate_if_available": "High (> $500K/mo estimated)",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=clickup",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "always_on_vs_burst": "always_on",
+      "refresh_cadence_days": 14,
+      "geo_targeting_visible": [
+        "US",
+        "UK",
+        "DE",
+        "FR",
+        "JP"
+      ],
+      "spend_magnitude_estimate_if_available": "High (> $300K/mo estimated)",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=asana",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "always_on_vs_burst": "burst",
+      "refresh_cadence_days": 30,
+      "geo_targeting_visible": [
+        "US",
+        "UK",
+        "CA"
+      ],
+      "spend_magnitude_estimate_if_available": "Medium ($100-200K/mo estimated)",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=notion",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "always_on_vs_burst": "always_on",
+      "refresh_cadence_days": 45,
+      "geo_targeting_visible": [
+        "US",
+        "UK",
+        "AU",
+        "DE",
+        "IN"
+      ],
+      "spend_magnitude_estimate_if_available": "Medium ($100-200K/mo estimated)",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=jira",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Linear",
+      "always_on_vs_burst": "burst",
+      "refresh_cadence_days": 60,
+      "geo_targeting_visible": [
+        "US",
+        "UK",
+        "CA"
+      ],
+      "spend_magnitude_estimate_if_available": "Low (< $50K/mo estimated)",
+      "source_url": "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=linear",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "organic_vs_paid_narrative_delta": [
+    {
+      "name": "Linear",
+      "homepage_positioning": "Purpose-built for modern teams with AI workflows at its core. A new species of product tool.",
+      "dominant_ad_hook": "Issue tracking is dead / A new species of product tool",
+      "delta_description": "Minimal delta. Organic and paid messaging are tightly aligned \u2014 both emphasize AI-native product development and position Linear as a paradigm shift from traditional issue tracking.",
+      "evidence_urls": [
+        "https://linear.app",
+        "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=linear"
+      ],
+      "source_url": "https://linear.app",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Asana",
+      "homepage_positioning": "Supercharge your teams with AI that gets work done. The platform for human + AI collaboration. 85% of Fortune 100 companies choose Asana.",
+      "dominant_ad_hook": "85% of Fortune 100 companies choose Asana / See why teams love Asana",
+      "delta_description": "Slight delta. Homepage emphasizes AI collaboration capability; paid ads lean harder on social proof (Fortune 100 claim) to reduce perceived risk for enterprise buyers. AI is present in both but paid leads with credibility signal.",
+      "evidence_urls": [
+        "https://asana.com",
+        "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=asana"
+      ],
+      "source_url": "https://asana.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "ClickUp",
+      "homepage_positioning": "Software to replace all software. All Apps, AI, Projects, Chat + 20 more. Save money, save time, create infinite productivity.",
+      "dominant_ad_hook": "Software to replace all software / Get 400% more done / One app. Everything.",
+      "delta_description": "Minimal delta. Both organic and paid positions emphasize consolidation and productivity multiplier. Paid ads use stronger quantified claim (400% more done) not present on homepage.",
+      "evidence_urls": [
+        "https://clickup.com",
+        "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=clickup"
+      ],
+      "source_url": "https://clickup.com",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Notion",
+      "homepage_positioning": "The AI workspace that works for you. Notion agents keep work moving 24/7. Meet the night shift. Trusted by 98% of Forbes Cloud 100.",
+      "dominant_ad_hook": "Meet the night shift / Notion agents keep work moving 24/7",
+      "delta_description": "Minimal delta. Both emphasize AI agents and 24/7 autonomous work. Paid ads use the 'night shift' metaphor more prominently; homepage balances it with trust signal (Forbes Cloud 100).",
+      "evidence_urls": [
+        "https://www.notion.so",
+        "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=notion"
+      ],
+      "source_url": "https://www.notion.so",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    },
+    {
+      "name": "Jira",
+      "homepage_positioning": "Project management for the AI era. Jira brings teams together to reach the next level of productivity with AI agents that orchestrate, plan, and track projects at scale.",
+      "dominant_ad_hook": "Project management for the AI era / Bring AI to your team with Jira",
+      "delta_description": "Minimal delta. Both emphasize AI-era positioning. Paid is slightly more direct-action focused ('Bring AI to your team') versus homepage's broader orchestration narrative.",
+      "evidence_urls": [
+        "https://www.atlassian.com/software/jira",
+        "https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=US&q=jira"
+      ],
+      "source_url": "https://www.atlassian.com/software/jira",
+      "retrieved_at": "2025-01-15T12:00:00.000Z"
+    }
+  ],
+  "generated_at": "2025-01-15T12:00:00.000Z",
+  "tool_calls_used": [
+    "web_search",
+    "browser_navigate",
+    "browser_snapshot"
+  ],
+  "source_company_name": "Linear"
+}

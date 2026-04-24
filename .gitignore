@@ -67,3 +67,8 @@ docs/screenshots/
 *.docx
 .gstack/
 .superpowers/
+
+# Local skill runtime artifacts
+skills/**/node_modules/
+skills/**/runs/
+skills/**/.omc/

@@ -1,0 +1,12 @@
+{
+  "company_name": "Linear",
+  "product_description": "Modern software project management tool for engineering teams. Jira alternative with keyboard-first UI, cycles, and issue tracking.",
+  "icp": "Engineering teams at high-growth startups and mid-market SaaS companies, 50-500 employees",
+  "industry": "Project Management Software / Developer Tools",
+  "geo": "Global, primarily US and EU",
+  "stated_competitors": ["Atlassian Jira", "Monday.com", "Asana", "ClickUp", "Shortcut"],
+  "offer_tier": "smb_mid_market",
+  "target_plan": "Pro tier $9/user/month, targeting 50-100 person engineering orgs",
+  "pricing": "$8/user/month Standard, $9/user/month Pro",
+  "run_id": "550e8400-e29b-41d4-a716-446655440000"
+}
