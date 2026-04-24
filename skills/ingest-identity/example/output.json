@@ -2,5 +2,27 @@
   "run_id": "example-001",
   "company_name": "Example Inc.",
   "domain": "example.com",
+  "category": "B2B SaaS",
+  "core_keywords": [
+    "example platform",
+    "example operations tools",
+    "example workflow automation"
+  ],
+  "negative_keywords": [
+    "example movies",
+    "example recipes"
+  ],
+  "sources": [
+    {
+      "source_url": "https://example.com",
+      "retrieved_at": "2026-04-24T12:00:00.000Z",
+      "describes": "company_name"
+    },
+    {
+      "source_url": "https://example.com/about",
+      "retrieved_at": "2026-04-24T12:00:00.000Z",
+      "describes": "category"
+    }
+  ],
   "generated_at": "2026-04-24T12:00:00.000Z"
 }
