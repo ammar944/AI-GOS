@@ -1,8 +1,11 @@
 # Business Profile-First AIGOS
 
 **Date:** 2026-04-24
-**Status:** Direction approved
+**Status:** Superseded
 **Selected direction:** Profile-First Operating Record
+
+> Superseded by `docs/superpowers/specs/2026-04-24-gtm-brief-architecture.md`.
+> The canonical direction is now GTM Brief-first: inputs -> GTM Brief -> research sections -> strategy synthesis -> media plan -> scripts.
 
 ## Problem
 

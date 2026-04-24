@@ -1,5 +1,8 @@
 # Business Profile-First Implementation Plan
 
+> Superseded by `docs/superpowers/specs/2026-04-24-gtm-brief-architecture.md`.
+> Do not implement this plan as-is. The canonical direction is now GTM Brief-first, not Business Profile-first.
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make `business_profiles` the canonical operating record that gates research, powers the Company Snapshot UI, and feeds research, media plan, and scripts.
