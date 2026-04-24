@@ -42,6 +42,7 @@ describe('evidenceSourceSchema', () => {
   });
 
   it('rejects missing id', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _omitted, ...rest } = validSource;
     const result = evidenceSourceSchema.safeParse(rest);
     expect(result.success).toBe(false);

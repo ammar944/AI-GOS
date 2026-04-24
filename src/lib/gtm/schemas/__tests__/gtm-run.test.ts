@@ -61,6 +61,7 @@ describe('gtmRunSchema', () => {
   });
 
   it('requires briefSnapshotId', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { briefSnapshotId: _omitted, ...rest } = validRun;
     expect(gtmRunSchema.safeParse(rest).success).toBe(false);
   });
