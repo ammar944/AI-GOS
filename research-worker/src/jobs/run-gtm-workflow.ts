@@ -5,8 +5,15 @@ import { validateGtmStageOutput } from '../runtime/output-validator';
 import { type GtmBrief } from '../schemas/gtm/gtm-brief';
 import { type GtmBriefSnapshot } from '../schemas/gtm/gtm-brief-snapshot';
 import { GTM_STAGE_KEYS, type GtmStageKey } from '../schemas/gtm/gtm-run';
-import { runStage as runEnrichBriefStage } from '../stages/enrich-brief';
+import {
+  runStage as runEnrichBriefStage,
+  type AgentIdentityFragment,
+} from '../stages/enrich-brief';
 import { runStage as runResearchSectionStage } from '../stages/run-research-section';
+
+export interface AgentFragments {
+  identity?: AgentIdentityFragment;
+}
 
 export type LocalGtmWorkflowMode = 'local-fixture' | 'local-mixed';
 export type LocalGtmStageStatus = 'completed';
@@ -18,6 +25,7 @@ export interface RunGtmWorkflowInput {
   outputDir?: string;
   now?: string;
   realStages?: Iterable<GtmStageKey>;
+  agentFragments?: AgentFragments;
 }
 
 export interface LocalGtmStageResult {
@@ -53,7 +61,13 @@ export async function runGtmWorkflow(input: RunGtmWorkflowInput): Promise<LocalG
 
   const stages: LocalGtmStageResult[] = [];
   for (const config of getLocalGtmStageConfigs()) {
-    const stage = await runLocalStage(config, input.briefSnapshot, generatedAt, realStages);
+    const stage = await runLocalStage(
+      config,
+      input.briefSnapshot,
+      generatedAt,
+      realStages,
+      input.agentFragments,
+    );
     stages.push(stage);
   }
 
@@ -96,13 +110,17 @@ async function runLocalStage(
   briefSnapshot: GtmBriefSnapshot,
   generatedAt: string,
   realStages: Set<GtmStageKey>,
+  agentFragments: AgentFragments | undefined,
 ): Promise<LocalGtmStageResult> {
   const isReal = realStages.has(config.stage);
   let notes: string | undefined;
+  let realOutputOverride: unknown;
 
   if (isReal) {
     try {
-      notes = await invokeRealStage(config.stage, briefSnapshot);
+      const realResult = await invokeRealStage(config.stage, briefSnapshot, agentFragments);
+      notes = realResult.notes;
+      realOutputOverride = realResult.output;
     } catch (err) {
       throw new Error(
         `Stage "${config.stage}" real invocation failed: ${(err as Error).message}`,
@@ -110,10 +128,9 @@ async function runLocalStage(
     }
   }
 
-  const output = validateGtmStageOutput(
-    config.stage,
-    buildFixtureStageOutput(config.stage, briefSnapshot, generatedAt),
-  );
+  const rawOutput =
+    realOutputOverride ?? buildFixtureStageOutput(config.stage, briefSnapshot, generatedAt);
+  const output = validateGtmStageOutput(config.stage, rawOutput);
 
   return {
     stage: config.stage,
@@ -128,14 +145,25 @@ async function runLocalStage(
   };
 }
 
-async function invokeRealStage(stage: GtmStageKey, briefSnapshot: GtmBriefSnapshot): Promise<string> {
+async function invokeRealStage(
+  stage: GtmStageKey,
+  briefSnapshot: GtmBriefSnapshot,
+  agentFragments: AgentFragments | undefined,
+): Promise<{ notes: string; output?: unknown }> {
   if (stage === 'enrich-brief') {
-    const result = await runEnrichBriefStage({ briefSnapshot });
-    return `ingest-identity skill invoked (exit ${result.skillExitCode}).`;
+    const result = await runEnrichBriefStage({
+      briefSnapshot,
+      agentFragment: agentFragments?.identity,
+    });
+    const fields = result.mergedFields.length > 0 ? result.mergedFields.join(', ') : 'none';
+    return {
+      notes: `ingest-identity skill invoked (exit ${result.skillExitCode}); merged fields: ${fields}; fallback: ${result.isScaffoldFallback}.`,
+      output: result.brief,
+    };
   }
   if (stage === 'research-competitors') {
     const result = await runResearchSectionStage({ section: 'research-competitors', briefSnapshot });
-    return result.notes;
+    return { notes: result.notes };
   }
   throw new Error(`No real adapter wired for stage: ${stage}`);
 }

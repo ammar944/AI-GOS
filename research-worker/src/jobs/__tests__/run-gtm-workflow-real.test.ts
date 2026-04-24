@@ -53,6 +53,63 @@ describe('runGtmWorkflow with realStages', () => {
     ).rejects.toThrow(/Unknown GTM stage/);
   });
 
+  it('merges agent-supplied identity fragment into the enriched brief fields', async () => {
+    const outputDir = mkdtempSync(join(tmpdir(), 'aigos-gtm-real-merge-'));
+
+    try {
+      const result = await runGtmWorkflow({
+        runId: 'run_real_merge',
+        briefSnapshot: buildLocalGtmFixtureSnapshot('2026-04-24T12:00:00.000Z'),
+        outputDir,
+        now: '2026-04-24T13:00:00.000Z',
+        realStages: ['enrich-brief'],
+        agentFragments: {
+          identity: {
+            run_id: 'run_real_merge',
+            company_name: 'Acme Corp',
+            domain: 'acme.io',
+            category: 'B2B Fintech',
+            core_keywords: ['acme fintech platform', 'payment ops automation'],
+            negative_keywords: ['acme products inc (industrial)'],
+            sources: [
+              {
+                source_url: 'https://acme.io',
+                retrieved_at: '2026-04-24T12:30:00.000Z',
+                describes: 'company_name',
+              },
+              {
+                source_url: 'https://acme.io/about',
+                retrieved_at: '2026-04-24T12:30:00.000Z',
+                describes: 'category',
+              },
+            ],
+          },
+        },
+      });
+
+      const enrich = result.stages.find((stage) => stage.stage === 'enrich-brief');
+      expect(enrich).toBeDefined();
+      expect(enrich?.executionMode).toBe('skill-invoked');
+      expect(enrich?.notes).toMatch(/merged fields: companyName, companyUrl, category/);
+      expect(enrich?.notes).toMatch(/fallback: false/);
+
+      const enrichedBrief = enrich?.output as {
+        fields: Record<string, { value: string; status: string; updatedBy: string; sources: unknown[] }>;
+      };
+      expect(enrichedBrief.fields.companyName.value).toBe('Acme Corp');
+      expect(enrichedBrief.fields.companyUrl.value).toBe('acme.io');
+      expect(enrichedBrief.fields.category.value).toBe('B2B Fintech');
+      expect(enrichedBrief.fields.companyName.status).toBe('suggested');
+      expect(enrichedBrief.fields.companyName.updatedBy).toBe('ai');
+      expect(enrichedBrief.fields.companyName.sources.length).toBeGreaterThan(0);
+
+      // Unrelated fields should remain untouched from the fixture snapshot
+      expect(enrichedBrief.fields.productDescription.value).toContain('AI-powered');
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  }, 30000);
+
   it('rejects stages that have no real adapter wired yet', async () => {
     await expect(
       runGtmWorkflow({
