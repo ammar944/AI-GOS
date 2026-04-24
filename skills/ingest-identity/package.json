@@ -1,0 +1,20 @@
+{
+  "name": "ingest-identity",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Identity resolution — given raw company data, resolves the canonical identity card: who they are, what they do, core keywords, negative keywords.",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "validate": "tsx scripts/validate.ts",
+    "sanity-check": "tsx scripts/sanity-check.ts",
+    "report": "tsx scripts/generate-report.ts",
+    "orchestrate": "tsx scripts/orchestrate.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
