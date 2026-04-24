@@ -172,4 +172,84 @@ describe('runGtmWorkflow with realStages', () => {
       else process.env.ALLOW_SUSPECT = prev;
     }
   }, 30000);
+
+  it('invokes the research-competitor skill with a subject-only scaffold when no fragment is supplied', async () => {
+    const result = await runGtmWorkflow({
+      runId: 'run_competitor_scaffold',
+      briefSnapshot: buildLocalGtmFixtureSnapshot('2026-04-24T12:00:00.000Z'),
+      now: '2026-04-24T13:00:00.000Z',
+      realStages: ['research-competitors'],
+    });
+
+    const competitors = result.stages.find((stage) => stage.stage === 'research-competitors');
+    expect(competitors).toBeDefined();
+    expect(competitors?.executionMode).toBe('skill-invoked');
+    expect(competitors?.notes).toMatch(/research-competitor skill invoked/);
+    expect(competitors?.notes).toMatch(/scaffold seed/);
+
+    const output = competitors?.output as {
+      summary: string;
+      keyFindings: string[];
+      evidenceIds: string[];
+    };
+    // The scaffold seeds the subject (briefSnapshot.companyName) as the sole competitor entry.
+    expect(output.summary).toMatch(/1 competitor\(s\)/);
+    expect(output.keyFindings[0]).toMatch(/\(subject\)/);
+    expect(output.evidenceIds.length).toBeGreaterThan(0);
+  }, 60000);
+
+  it('merges an agent-supplied competitor fragment into the research-competitor skill output', async () => {
+    const result = await runGtmWorkflow({
+      runId: 'run_competitor_merge',
+      briefSnapshot: buildLocalGtmFixtureSnapshot('2026-04-24T12:00:00.000Z'),
+      now: '2026-04-24T13:00:00.000Z',
+      realStages: ['research-competitors'],
+      agentFragments: {
+        competitors: {
+          run_id: 'run_competitor_merge',
+          source_company_name: 'Acme Corp',
+          competitor_set: [
+            {
+              name: 'Acme Corp',
+              type: 'subject',
+              source_url: 'https://acme.io',
+              retrieved_at: '2026-04-24T12:00:00.000Z',
+            },
+            {
+              name: 'Beta Rival',
+              type: 'direct',
+              source_url: 'https://beta.example',
+              retrieved_at: '2026-04-24T12:00:00.000Z',
+            },
+            {
+              name: 'Gamma Alt',
+              type: 'indirect',
+              source_url: 'https://gamma.example',
+              retrieved_at: '2026-04-24T12:00:00.000Z',
+            },
+          ],
+        },
+      },
+    });
+
+    const competitors = result.stages.find((stage) => stage.stage === 'research-competitors');
+    expect(competitors?.executionMode).toBe('skill-invoked');
+    expect(competitors?.notes).toMatch(/agent fragment/);
+    expect(competitors?.notes).toMatch(/3 competitor\(s\)/);
+
+    const output = competitors?.output as {
+      summary: string;
+      keyFindings: string[];
+      evidenceIds: string[];
+    };
+    expect(output.summary).toMatch(/3 competitor\(s\)/);
+    expect(output.keyFindings).toEqual([
+      'Acme Corp (subject)',
+      'Beta Rival (direct)',
+      'Gamma Alt (indirect)',
+    ]);
+    expect(output.evidenceIds).toContain('https://acme.io');
+    expect(output.evidenceIds).toContain('https://beta.example');
+    expect(output.evidenceIds).toContain('https://gamma.example');
+  }, 60000);
 });

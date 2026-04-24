@@ -9,10 +9,14 @@ import {
   runStage as runEnrichBriefStage,
   type AgentIdentityFragment,
 } from '../stages/enrich-brief';
-import { runStage as runResearchSectionStage } from '../stages/run-research-section';
+import {
+  runStage as runResearchSectionStage,
+  type AgentCompetitorFragment,
+} from '../stages/run-research-section';
 
 export interface AgentFragments {
   identity?: AgentIdentityFragment;
+  competitors?: AgentCompetitorFragment;
 }
 
 export type LocalGtmWorkflowMode = 'local-fixture' | 'local-mixed';
@@ -118,7 +122,7 @@ async function runLocalStage(
 
   if (isReal) {
     try {
-      const realResult = await invokeRealStage(config.stage, briefSnapshot, agentFragments);
+      const realResult = await invokeRealStage(config.stage, briefSnapshot, agentFragments, generatedAt);
       notes = realResult.notes;
       realOutputOverride = realResult.output;
     } catch (err) {
@@ -149,6 +153,7 @@ async function invokeRealStage(
   stage: GtmStageKey,
   briefSnapshot: GtmBriefSnapshot,
   agentFragments: AgentFragments | undefined,
+  generatedAt: string,
 ): Promise<{ notes: string; output?: unknown }> {
   if (stage === 'enrich-brief') {
     const result = await runEnrichBriefStage({
@@ -162,10 +167,53 @@ async function invokeRealStage(
     };
   }
   if (stage === 'research-competitors') {
-    const result = await runResearchSectionStage({ section: 'research-competitors', briefSnapshot });
-    return { notes: result.notes };
+    const result = await runResearchSectionStage({
+      section: 'research-competitors',
+      briefSnapshot,
+      agentFragment: agentFragments?.competitors,
+    });
+    const sectionOutput = summarizeCompetitorSkillOutput(result, briefSnapshot, generatedAt);
+    return { notes: result.notes, output: sectionOutput };
   }
   throw new Error(`No real adapter wired for stage: ${stage}`);
+}
+
+interface CompetitorSkillOutput {
+  competitor_set?: Array<{ name?: string; type?: string; source_url?: string }>;
+}
+
+function summarizeCompetitorSkillOutput(
+  result: Awaited<ReturnType<typeof runResearchSectionStage>>,
+  briefSnapshot: GtmBriefSnapshot,
+  generatedAt: string,
+): unknown {
+  const skillOutput = (result.skillOutput as CompetitorSkillOutput | undefined) ?? {};
+  const competitorSet = Array.isArray(skillOutput.competitor_set) ? skillOutput.competitor_set : [];
+
+  if (result.skillExitCode !== 0 || competitorSet.length === 0) {
+    return buildFixtureStageOutput('research-competitors', briefSnapshot, generatedAt);
+  }
+
+  const names = competitorSet
+    .map((entry) => (typeof entry.name === 'string' ? entry.name : null))
+    .filter((name): name is string => Boolean(name));
+  const evidenceIds = competitorSet
+    .map((entry) => (typeof entry.source_url === 'string' ? entry.source_url : null))
+    .filter((url): url is string => Boolean(url));
+  const fragmentBasis = result.mergedCompetitors > 0 ? 'agent fragment' : 'scaffold seed';
+
+  return {
+    summary: `research-competitor skill analyzed ${competitorSet.length} competitor(s) (${fragmentBasis}).`,
+    keyFindings: names.map((name, index) => {
+      const type = competitorSet[index]?.type ?? 'unknown';
+      return `${name} (${type})`;
+    }),
+    evidenceIds,
+    assumptions: [
+      `Invoked at ${generatedAt}.`,
+      result.skillRunDir ? `Skill run dir: ${result.skillRunDir}` : 'Skill run dir: <cleaned>',
+    ],
+  };
 }
 
 function buildFixtureStageOutput(stage: GtmStageKey, briefSnapshot: GtmBriefSnapshot, generatedAt: string): unknown {
