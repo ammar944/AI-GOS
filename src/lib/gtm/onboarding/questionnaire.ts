@@ -555,10 +555,22 @@ export const GTM_ONBOARDING_QUESTIONNAIRE = [
   },
 ] as const satisfies readonly GtmOnboardingSection[];
 
+type GtmOnboardingQuestionItem = Extract<
+  (typeof GTM_ONBOARDING_QUESTIONNAIRE)[number]['items'][number],
+  { kind: 'question' }
+>;
+
+export type GtmOnboardingAnswerKey = GtmOnboardingQuestionItem['answerKey'];
+
+function isGtmOnboardingQuestion(item: GtmOnboardingItem): item is GtmOnboardingQuestion {
+  return item.kind === 'question';
+}
+
 export function getGtmOnboardingQuestions(): GtmOnboardingQuestion[] {
-  return GTM_ONBOARDING_QUESTIONNAIRE.flatMap((section) =>
-    section.items.filter((item): item is GtmOnboardingQuestion => item.kind === 'question'),
-  );
+  return GTM_ONBOARDING_QUESTIONNAIRE.flatMap((section) => {
+    const items: readonly GtmOnboardingItem[] = section.items;
+    return items.filter(isGtmOnboardingQuestion);
+  });
 }
 
 export function getGtmOnboardingSection(sectionId: string): GtmOnboardingSection | undefined {
