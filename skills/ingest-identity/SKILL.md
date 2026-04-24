@@ -7,7 +7,7 @@ version: 0.1.0
 
 # ingest-identity
 
-> **Status**: Lane D1 — schema-complete, agent-fragment contract defined. Lane D2 will add sanity-check + merge into GTM brief.
+> **Status**: Lane D3 — schema-complete, agent-fragment contract defined, sanity-check gate active. Scaffold output is rejected by default; set `ALLOW_SUSPECT=1` to bypass during dev.
 
 ## What this skill does
 
@@ -28,16 +28,16 @@ Do not invoke for: competitor analysis (use `research-competitor`), market sizin
 - `web_search` — discover the company's canonical surfaces (homepage, about, pricing, category pages).
 - `browser_navigate` + `browser_snapshot` — read source pages when search snippets are insufficient.
 - `Write(<runDir>/fragments/identity.json)` — write the collected fragment.
-- `Bash(npx tsx scripts/orchestrate.ts <runDir>)` — run the deterministic tail to merge + validate.
+- `Bash(npx tsx scripts/orchestrate.ts <runDir>)` — run the deterministic tail to merge, validate, and sanity-check.
 
 ## Workflow
 
 1. **Receive** — `input.json` at `<runDir>/input.json` is parsed against `schemas/input.ts`.
 2. **Collect** — agent follows `prompts/collector.md` and writes `<runDir>/fragments/identity.json`.
-3. **Merge + Validate** — `scripts/orchestrate.ts` reads the fragment, assembles `output.json`, and runs `scripts/validate.ts` (Zod gate).
+3. **Merge + Validate + Sanity-check** — `scripts/orchestrate.ts` reads the fragment, assembles `output.json`, runs `scripts/validate.ts` (Zod gate), then runs `scripts/sanity-check.ts` (scaffold-rejection gate).
 4. **Present** — caller reads `<runDir>/output.json`.
 
-If no fragment exists when orchestrate runs, the tail writes a scaffold-fallback output (domain derived from input URL, empty keyword arrays, `sources: [{ describes: "scaffold_fallback" }]`). Lane D2 removes the fallback path once sanity-check is wired.
+If no fragment exists when orchestrate runs, the tail writes a scaffold output (domain-as-company_name, category `"unknown"`, `sources: [{ describes: "scaffold_fallback" }]`). The sanity-check gate rejects this by default (exit 1). Set `ALLOW_SUSPECT=1` in the environment to downgrade the failure to a stderr warning — useful during dev loops where the agent-fragment layer is not yet wired.
 
 ## Schema reference
 

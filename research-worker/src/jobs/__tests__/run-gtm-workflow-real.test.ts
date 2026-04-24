@@ -16,6 +16,21 @@ describe('runGtmWorkflow with realStages', () => {
         outputDir,
         now: '2026-04-24T13:00:00.000Z',
         realStages: ['enrich-brief'],
+        agentFragments: {
+          identity: {
+            run_id: 'run_real_01',
+            company_name: 'Fixture Inc.',
+            domain: 'fixture.example',
+            category: 'B2B SaaS',
+            sources: [
+              {
+                source_url: 'https://fixture.example',
+                retrieved_at: '2026-04-24T12:15:00.000Z',
+                describes: 'company_name',
+              },
+            ],
+          },
+        },
       });
 
       expect(result.mode).toBe('local-mixed');
@@ -91,7 +106,6 @@ describe('runGtmWorkflow with realStages', () => {
       expect(enrich).toBeDefined();
       expect(enrich?.executionMode).toBe('skill-invoked');
       expect(enrich?.notes).toMatch(/merged fields: companyName, companyUrl, category/);
-      expect(enrich?.notes).toMatch(/fallback: false/);
 
       const enrichedBrief = enrich?.output as {
         fields: Record<string, { value: string; status: string; updatedBy: string; sources: unknown[] }>;
@@ -119,4 +133,43 @@ describe('runGtmWorkflow with realStages', () => {
       }),
     ).rejects.toThrow(/has no real adapter in slice 1/);
   });
+
+  it('rejects scaffold output when no identity fragment is supplied (sanity-check gate)', async () => {
+    const prev = process.env.ALLOW_SUSPECT;
+    delete process.env.ALLOW_SUSPECT;
+    try {
+      await expect(
+        runGtmWorkflow({
+          runId: 'run_sanity_reject',
+          briefSnapshot: buildLocalGtmFixtureSnapshot('2026-04-24T12:00:00.000Z'),
+          now: '2026-04-24T13:00:00.000Z',
+          realStages: ['enrich-brief'],
+        }),
+      ).rejects.toThrow(/ingest-identity skill exited/);
+    } finally {
+      if (prev !== undefined) process.env.ALLOW_SUSPECT = prev;
+    }
+  }, 30000);
+
+  it('allows scaffold output when ALLOW_SUSPECT=1 is set (dev escape hatch)', async () => {
+    const prev = process.env.ALLOW_SUSPECT;
+    process.env.ALLOW_SUSPECT = '1';
+    try {
+      const result = await runGtmWorkflow({
+        runId: 'run_sanity_bypass',
+        briefSnapshot: buildLocalGtmFixtureSnapshot('2026-04-24T12:00:00.000Z'),
+        now: '2026-04-24T13:00:00.000Z',
+        realStages: ['enrich-brief'],
+      });
+
+      const enrich = result.stages.find((stage) => stage.stage === 'enrich-brief');
+      expect(enrich?.executionMode).toBe('skill-invoked');
+      // Scaffold output has category="unknown" and domain-as-company_name, so
+      // all three mapped fields get merged when the gate is bypassed.
+      expect(enrich?.notes).toMatch(/merged fields:/);
+    } finally {
+      if (prev === undefined) delete process.env.ALLOW_SUSPECT;
+      else process.env.ALLOW_SUSPECT = prev;
+    }
+  }, 30000);
 });

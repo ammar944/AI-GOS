@@ -59,6 +59,16 @@ function main(): void {
     process.stderr.write(`[orchestrate] validate failed (exit ${validate.status})\n`);
     process.exit(validate.status ?? 1);
   }
+
+  const sanity = spawnSync("npx", ["tsx", "scripts/sanity-check.ts", outputPath], {
+    stdio: "inherit",
+    env: process.env,
+    cwd: skillRoot,
+  });
+  if (sanity.status !== 0) {
+    process.stderr.write(`[orchestrate] sanity-check failed (exit ${sanity.status})\n`);
+    process.exit(sanity.status ?? 1);
+  }
 }
 
 function readInput(runDir: string): IdentityResolverInput | null {

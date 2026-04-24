@@ -12,7 +12,8 @@
  * - sources: provenance array; every claim traceable to at least one entry
  *
  * Empty arrays are allowed — factually "no keywords collected yet" beats
- * fabricated ones. A sanity-check (Lane D2) will flag empty outputs as suspect.
+ * fabricated ones. The sanity-check script (scripts/sanity-check.ts) flags
+ * scaffold / obviously-empty outputs and hard-fails unless ALLOW_SUSPECT=1.
  */
 import { z } from "zod";
 

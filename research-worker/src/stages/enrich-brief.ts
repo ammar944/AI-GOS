@@ -1,7 +1,9 @@
 // GTM stage: enrich-brief.
-// Slice 1 Lane D2 — merges identity fields from the ingest-identity skill
-// into the brief's `fields` object. Fallback path (no fragment, scaffold
-// output from the skill) leaves the brief unchanged.
+// Slice 1 Lane D3 — merges identity fields from the ingest-identity skill
+// into the brief's `fields` object. The skill's own sanity-check gate is
+// now authoritative: if the skill exits 0, its output is trusted and
+// merged unconditionally. Scaffold fallback output is rejected at the
+// skill boundary (unless ALLOW_SUSPECT=1 is set in the environment).
 
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -46,7 +48,6 @@ export interface EnrichBriefStageResult {
   skillRunDir: string;
   mergedFields: string[];
   identityCard: IdentityCardShape;
-  isScaffoldFallback: boolean;
 }
 
 const IDENTITY_TO_BRIEF_FIELD = {
@@ -101,19 +102,14 @@ export async function runStage(input: EnrichBriefStageInput): Promise<EnrichBrie
   }
 
   const identityCard = JSON.parse(readFileSync(outputPath, 'utf-8')) as IdentityCardShape;
-  const isScaffoldFallback = identityCard.sources.some(
-    (source) => source.describes === 'scaffold_fallback',
-  );
 
   const mergedFields: string[] = [];
   const brief: GtmBrief = {
     briefId: input.briefSnapshot.parentBriefId,
     clientId: null,
-    fields: isScaffoldFallback
-      ? input.briefSnapshot.fields
-      : mergeIdentityIntoFields(input.briefSnapshot.fields, identityCard, mergedFields),
+    fields: mergeIdentityIntoFields(input.briefSnapshot.fields, identityCard, mergedFields),
     createdAt: input.briefSnapshot.briefCreatedAt,
-    updatedAt: isScaffoldFallback ? input.briefSnapshot.briefUpdatedAt : new Date().toISOString(),
+    updatedAt: mergedFields.length > 0 ? new Date().toISOString() : input.briefSnapshot.briefUpdatedAt,
   };
 
   if (input.cleanupRunDir !== false) rmSync(runDir, { recursive: true, force: true });
@@ -124,7 +120,6 @@ export async function runStage(input: EnrichBriefStageInput): Promise<EnrichBrie
     skillRunDir: runDir,
     mergedFields,
     identityCard,
-    isScaffoldFallback,
   };
 }
 

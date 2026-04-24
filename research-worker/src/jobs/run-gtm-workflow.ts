@@ -157,7 +157,7 @@ async function invokeRealStage(
     });
     const fields = result.mergedFields.length > 0 ? result.mergedFields.join(', ') : 'none';
     return {
-      notes: `ingest-identity skill invoked (exit ${result.skillExitCode}); merged fields: ${fields}; fallback: ${result.isScaffoldFallback}.`,
+      notes: `ingest-identity skill invoked (exit ${result.skillExitCode}); merged fields: ${fields}.`,
       output: result.brief,
     };
   }
