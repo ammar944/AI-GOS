@@ -3,7 +3,13 @@ name: ltv-cac-viability
 version: 1.0.0
 category: media-plan
 domain: measurement
-description: Viability gate for customer-acquisition-cost guidance. Applies Skok's 3× LTV:CAC rule as a hard refusal: if LTV:CAC < 3, the output MUST NOT contain a CAC target, a CPL target, or any paid-media-as-solution framing. Instead the output flags unit-economics-not-viable and redirects the buyer to sales-process, pricing, or retention fixes. Directly addresses Mahdy's "$600 CAC on $18/mo → 50-year payback" feedback on Choros.
+description: >-
+  Viability gate for customer-acquisition-cost guidance. Applies Skok's 3×
+  LTV:CAC rule as a hard refusal: if LTV:CAC < 3, the output MUST NOT contain a
+  CAC target, a CPL target, or any paid-media-as-solution framing. Instead the
+  output flags unit-economics-not-viable and redirects the buyer to
+  sales-process, pricing, or retention fixes. Directly addresses Mahdy's "$600
+  CAC on $18/mo → 50-year payback" feedback on Choros.
 triggers:
   - CAC target
   - CPL target
