@@ -1,0 +1,321 @@
+{
+  "run_id": "linear-offer-run-20260427",
+  "brief_snapshot_id": "brief-snapshot-linear-20260427",
+  "locked_gtm_brief": {
+    "briefId": "brief-linear",
+    "clientId": null,
+    "fields": {
+      "companyName": {
+        "value": "Linear",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "companyUrl": {
+        "value": "https://linear.app/",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "category": {
+        "value": "Product development system for software teams",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "productDescription": {
+        "value": "A product development system for planning, building, and monitoring software work across teams and AI agents.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "targetCustomer": {
+        "value": "Product, engineering, design, support, and operations teams building software products.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear customers",
+            "url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "corePromise": {
+        "value": "Purpose-built planning and building workflows for product teams and agents.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "firstValueMoment": {
+        "value": "A team can turn intake, product planning, or issue work into organized Linear issues, projects, or initiatives.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear docs",
+            "url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "activationEvent": {
+        "value": "Create or import issues, configure team workflows, and connect collaboration or development integrations.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear docs",
+            "url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "cta": {
+        "value": "Get started, contact sales, open app, or download.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "packaging": {
+        "value": "Free, Basic, Business, and Enterprise plans with seat-based pricing and Enterprise custom pricing.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear pricing",
+            "url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "pricingModel": {
+        "value": "Per-user monthly pricing for paid plans, with annual billing and custom Enterprise pricing.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear pricing",
+            "url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "pricingTiers": {
+        "value": "Free, Basic, Business, Enterprise",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear pricing",
+            "url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "targetPlan": {
+        "value": "Basic or Business for growing software teams; Enterprise for organizations needing SAML, SCIM, advanced controls, onboarding, and account management.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear pricing",
+            "url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "useCases": {
+        "value": "Intake, planning, building with agents, code review, monitoring progress, customer requests, projects, initiatives, and cycles.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "caseStudies": {
+        "value": "OpenAI, Scale, Ramp, Remote, Brex, Mercury, Cash App, and other customer stories.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear customers",
+            "url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "logos": {
+        "value": "OpenAI, Coinbase, Cursor, Ramp, Automattic, Vercel, Opendoor, Brex, Scale, Mercury, Clay, Cash App, Perplexity, Substack, Sierra, Watershed, Lovable, Remote, Polymarket, Boom, and Dandelion Chocolate.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear customers",
+            "url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "metrics": {
+        "value": "Customer pages cite outcomes such as OpenAI scaling to 3,000 users and Scale improving bug resolution time by 52%.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear customer stories",
+            "url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      },
+      "commonObjections": {
+        "value": "Public reviews mention limited customization, missing features, navigation confusion, and reporting limitations.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "url",
+            "label": "Linear G2 reviews",
+            "url": "https://www.g2.com/products/linear/reviews",
+            "retrieved_at": "2026-04-27T10:42:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:42:00.000Z"
+      }
+    },
+    "createdAt": "2026-04-27T10:42:00.000Z",
+    "updatedAt": "2026-04-27T10:42:00.000Z",
+    "lockedAt": "2026-04-27T10:42:00.000Z"
+  },
+  "ingest_identity": {
+    "stage": "ingest-identity",
+    "company_name": "Linear",
+    "canonical_domain": "linear.app",
+    "category": "Product development system for software teams",
+    "core_keywords": [
+      {
+        "value": "product development system",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      },
+      {
+        "value": "issue tracking",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      }
+    ],
+    "negative_keywords": [
+      "linear algebra",
+      "linear regression",
+      "linear equation",
+      "linear accelerator"
+    ],
+    "generated_at": "2026-04-27T10:42:00.000Z"
+  },
+  "research_market": {
+    "stage": "research-market-category",
+    "category": "Product development system for software teams",
+    "category_summary": "Software teams use product development systems to coordinate intake, roadmaps, issues, reviews, and release work.",
+    "demand_context": [
+      {
+        "value": "AI agent workflows are now part of the category framing for Linear.",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      }
+    ],
+    "generated_at": "2026-04-27T10:42:00.000Z"
+  }
+}

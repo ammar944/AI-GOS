@@ -1,0 +1,187 @@
+{
+  "run_id": "linear-offer-run-20260427",
+  "brief_snapshot_id": "brief-snapshot-linear-20260427",
+  "stage": "research-offer-funnel",
+  "company_name": "Linear",
+  "offer_name": "The product development system for teams and agents",
+  "category": "Product development system for software teams",
+  "offer_path": {
+    "promise": [
+      {
+        "claim": "Linear positions itself as a product development system for teams and agents, purpose-built for planning and building products in the AI era.",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      },
+      {
+        "claim": "Linear presents its product as covering intake, planning, building, code review, and progress monitoring workflows.",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      }
+    ],
+    "cta": [
+      {
+        "claim": "The Linear homepage includes CTAs to get started, contact sales, open the app, and download.",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      },
+      {
+        "claim": "The pricing page includes get-started CTAs for Free, Basic, and Business plans and a contact-sales CTA for Enterprise.",
+        "source_url": "https://linear.app/pricing",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      }
+    ],
+    "first_value_path": [
+      {
+        "claim": "Linear's public docs present importing issues, creating projects, using cycles, and connecting integrations as paths for teams to begin managing product work.",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      },
+      {
+        "claim": "Customer Requests can link feedback to issues or projects so teams can see customer demand inside product work.",
+        "source_url": "https://linear.app/docs/customer-requests",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      }
+    ],
+    "activation_friction": [
+      {
+        "claim": "Customer Requests require admins to enable the feature in workspace settings before users can create and view customer request data.",
+        "source_url": "https://linear.app/docs/customer-requests",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      },
+      {
+        "claim": "Cycles require team-level configuration, including cycle duration, cooldown, start day, upcoming cycles, and optional automations.",
+        "source_url": "https://linear.app/docs/use-cycles",
+        "retrieved_at": "2026-04-27T10:42:00.000Z"
+      }
+    ]
+  },
+  "value_props": [
+    {
+      "label": "Purpose-built product operations",
+      "value": "Linear says it is shaped by the practices and principles of world-class product teams.",
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "label": "AI-agent workflow support",
+      "value": "Linear describes workflows shared by humans and agents, including drafting PRDs and pushing PRs.",
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "label": "Customer feedback inside product work",
+      "value": "Linear Customer Requests link feedback to issues or projects and expose customer attributes for prioritization.",
+      "source_url": "https://linear.app/docs/customer-requests",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "label": "Cross-team planning visibility",
+      "value": "Linear Initiatives group projects by company objective so organizations can track progress across teams.",
+      "source_url": "https://linear.app/docs/initiatives",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    }
+  ],
+  "proof_assets": [
+    {
+      "claim": "Linear's customer page says OpenAI chose Linear and scaled to 3,000 users.",
+      "source_url": "https://linear.app/customers/openai",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "claim": "Linear's Scale customer story says one Scale team improved bug resolution time by 52% after using Linear.",
+      "source_url": "https://linear.app/customers/scale",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "claim": "Linear's customer index lists public customers including OpenAI, Coinbase, Cursor, Ramp, Automattic, Vercel, Brex, Scale, Mercury, Clay, Cash App, Perplexity, Substack, Sierra, Watershed, Lovable, Remote, and others.",
+      "source_url": "https://linear.app/customers",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    }
+  ],
+  "pricing_signals": [
+    {
+      "plan_name": "Free",
+      "price_text": "$0",
+      "caveats": [
+        "Free plan includes unlimited members, 2 teams, 250 issues, Slack and GitHub access, and Linear Agent beta."
+      ],
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "plan_name": "Basic",
+      "price_text": "$10 per user/month",
+      "billing_period": "Billed yearly",
+      "caveats": [
+        "Basic includes all Free features plus 5 teams, unlimited issues, unlimited file uploads, and admin roles."
+      ],
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "plan_name": "Business",
+      "price_text": "$16 per user/month",
+      "billing_period": "Billed yearly",
+      "caveats": [
+        "Business includes all Basic features plus unlimited teams, private teams and guests, Triage Intelligence, Linear Agent automations beta, Linear Insights, Linear Asks, and Zendesk and Intercom integrations."
+      ],
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "plan_name": "Enterprise",
+      "price_text": "Custom",
+      "billing_period": "Annual billing only",
+      "caveats": [
+        "Enterprise includes invoice and PO billing, SAML and SCIM, granular admin controls, enterprise-grade security, advanced org modeling, migration and onboarding support, priority support, and account management."
+      ],
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    }
+  ],
+  "packaging_notes": [
+    {
+      "claim": "Linear packages Free, Basic, Business, and Enterprise plans, with paid self-serve plans priced per user per month and Enterprise listed as custom.",
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "claim": "Linear bills paid plans by the number of unsuspended users within a workspace.",
+      "source_url": "https://linear.app/docs/billing-and-plans",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "claim": "Enterprise-only packaging includes SAML, SCIM, advanced admin controls, migration and onboarding support, priority support, and account management.",
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    }
+  ],
+  "public_objections": [
+    {
+      "objection": "G2 review summaries and user comments mention limited customization as a recurring concern for larger teams or complex workflows.",
+      "evidence_type": "implementation",
+      "source_url": "https://www.g2.com/products/linear/reviews",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "objection": "G2 reviews mention missing features such as limited reporting, automation, or customization needs.",
+      "evidence_type": "clarity",
+      "source_url": "https://www.g2.com/products/linear/reviews?qs=pros-and-cons",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "objection": "A G2 reviewer said Linear can feel engineering-first and that designers, operations, or executives may struggle to find simple high-level views.",
+      "evidence_type": "risk",
+      "source_url": "https://www.g2.com/products/linear/reviews",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    },
+    {
+      "objection": "Product Hunt's review summary reports complaints around limited customization, weak support for complex multi-team planning, and confusion around cycles, views, and hierarchy.",
+      "evidence_type": "alternative",
+      "source_url": "https://www.producthunt.com/products/linear/reviews",
+      "retrieved_at": "2026-04-27T10:42:00.000Z"
+    }
+  ],
+  "source_gaps": [],
+  "generated_at": "2026-04-27T10:42:00.000Z"
+}
