@@ -41,8 +41,7 @@ const requiredOfferFieldsSchema = z
     pricingModel: gtmBriefFieldSchema,
     pricingTiers: gtmBriefFieldSchema,
     targetPlan: gtmBriefFieldSchema,
-  })
-  .strict();
+  });
 
 const optionalOfferFieldsSchema = z
   .object({
@@ -66,14 +65,13 @@ const optionalOfferFieldsSchema = z
     keyPromises: gtmBriefFieldSchema.optional(),
     whatIsWorking: gtmBriefFieldSchema.optional(),
     whatIsNotWorking: gtmBriefFieldSchema.optional(),
-  })
-  .strict();
+  });
 
 const lockedGtmBriefSchema = z
   .object({
     briefId: z.string().min(1),
     clientId: z.string().min(1).nullable(),
-    fields: requiredOfferFieldsSchema.and(optionalOfferFieldsSchema),
+    fields: requiredOfferFieldsSchema.merge(optionalOfferFieldsSchema).strict(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
     lockedAt: z.string().datetime(),
