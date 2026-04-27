@@ -1,5 +1,25 @@
 # CLAUDE.md
 
+## Skill-first architecture (v3 — proposed 2026-04-24)
+
+AIGOS is pivoting to a **skill-first architecture**. Each pipeline stage is becoming a self-contained skill folder at `skills/<name>/` carrying its own SKILL.md, schemas, prompts, scripts, assets, and example. See `.claude/architecture/v3-skill-first.md` for the full design doc and decisions.
+
+Current state:
+- **1 reference skill implemented**: `skills/research-competitor/` (works end-to-end — the pattern everything else generalizes from)
+- **15 skills scaffolded, stubs only**: `ingest-url`, `ingest-fathom`, `ingest-docs`, `ingest-identity`, `research-market`, `research-icp`, `research-offer`, `research-keywords`, `research-voc`, `research-cross`, `synthesize-positioning`, `synthesize-media-plan`, `synthesize-scripts`, `chat-refine`, `present-workspace`
+- Each has `.claude/skills/<name>/` bridge + `.claude/commands/<name>.md` slash command
+
+Locked decisions:
+- **Each skill is a self-contained island** — no shared `lib/` extractions yet. Duplication is fine for now.
+- **No cross-skill layer semantics** (no "Layer 1/2/3"). Every skill is a peer.
+- **All skills are user-invoked** via slash command. No auto-dispatch on URL paste, no magic triggers.
+- **Skills will live in their own publishable GitHub repo**. No skill may import from outside its own folder — portability first.
+- **Canonical per-skill layout**: `SKILL.md + README.md + package.json + tsconfig.json + references/ + scripts/ + assets/ + example/` (Anthropic-conformant).
+
+Guardrails that still apply: everything under `.claude/rules/` — verification gate, exploration budget, bug-triage Step Zero, model-selection, security. The `refactor/agent-loop-v1` branch's Phase 1 agent-loop skeleton (commit `4a159e86`) has been deleted — it never loaded `skills/<name>/SKILL.md` and had no callers. The v3 skill dispatcher does not exist yet; routing source of truth is `src/lib/skills/route-table.ts` (doc mirror at `.claude/workspaces/v3-migration/workspace-map.md`, regenerate via `npx tsx scripts/generate-workspace-map.ts`).
+
+Until all 15 stub skills are implemented, the legacy runners in `research-worker/src/runners/` are still the production path. Do not delete them.
+
 ## Session Startup Protocol (MANDATORY)
 
 Before responding to any user message, classify the ask and state the classification in one line. Only then act.
@@ -83,3 +103,12 @@ For multi-step tasks, state a brief plan with per-step verification before actin
 ```
 
 Strong per-step success criteria let the session loop independently. Weak criteria ("make it work") force constant clarification round-trips.
+
+## GBrain Configuration (configured by /setup-gbrain)
+- Engine: pglite
+- Config file: ~/.gbrain/config.json (mode 0600)
+- Setup date: 2026-04-24
+- MCP registered: yes
+- Memory sync: off
+- Current repo policy: read-write
+- Project Obsidian vault: /Users/ammar/Obsidian/AI-GOS
