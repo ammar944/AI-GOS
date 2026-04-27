@@ -1,0 +1,172 @@
+{
+  "run_id": "run_market_example",
+  "brief_snapshot_id": "snapshot_market_example",
+  "stage": "research-market-category",
+  "source_company_name": "AIGOS",
+  "source_company": {
+    "name": "AIGOS",
+    "url": "https://aigos.example",
+    "declared_category": "B2B SaaS GTM operations",
+    "declared_market": "go-to-market planning software",
+    "geography": "United States"
+  },
+  "generated_at": "2026-04-24T12:00:00.000Z",
+  "tool_calls_used": ["web_search"],
+  "summary": "AIGOS sits in an emerging GTM operations category where direct niche market sizing is not yet defensible from the available sources.",
+  "keyFindings": [
+    "The defensible category frame is B2B SaaS GTM operations, not the broader CRM market.",
+    "Only parent-market sizing is available in this fixture, so it is labeled as TAM context."
+  ],
+  "evidenceIds": ["https://example.com/gtm-ops-report"],
+  "assumptions": [
+    "Competitor density will be validated in the research-competitor lane."
+  ],
+  "market_scope": {
+    "subject_company": "AIGOS",
+    "category": "B2B SaaS GTM operations",
+    "geography": "United States",
+    "buyer_context": "Growth-stage SaaS companies that need clearer GTM execution.",
+    "excluded_scopes": ["generic CRM", "generic project management"]
+  },
+  "category_definition": {
+    "claim": "GTM operations software coordinates research, strategy, media planning, and production around a locked company brief.",
+    "evidence_quote": "GTM teams need one operating layer for research, strategy, media planning, and scripts.",
+    "source_url": "https://example.com/gtm-ops-report",
+    "retrieved_at": "2026-04-24T12:00:00.000Z",
+    "source_title": "Example GTM operations report",
+    "publisher": "Example Research",
+    "category_name": "B2B SaaS GTM operations",
+    "definition": "Software that coordinates go-to-market planning and execution for SaaS teams.",
+    "adjacent_categories": ["marketing planning software", "sales enablement", "AI workflow automation"]
+  },
+  "market_size_signals": [
+    {
+      "label": "tam_context",
+      "market_scope": "marketing software parent market",
+      "value": "Parent-market figure only; not direct niche size.",
+      "geography": "United States",
+      "period": "2026",
+      "basis": "parent_market_context",
+      "caveats": ["Broader parent market, not direct GTM operations SAM."],
+      "source_url": "https://example.com/gtm-ops-report",
+      "retrieved_at": "2026-04-24T12:00:00.000Z",
+      "source_title": "Example GTM operations report",
+      "publisher": "Example Research"
+    }
+  ],
+  "category_maturity": {
+    "claim": "The category is emerging because buyers describe the workflow more often than the category name.",
+    "evidence_quote": "Teams search for planning, research, media plan, and script workflows separately.",
+    "source_url": "https://example.com/gtm-ops-report",
+    "retrieved_at": "2026-04-24T12:00:00.000Z",
+    "source_title": "Example GTM operations report",
+    "publisher": "Example Research",
+    "maturity": "emerging",
+    "observable_signals": ["fragmented search language", "adjacent category overlap"]
+  },
+  "timing_signals": [
+    {
+      "claim": "AI workflow adoption is increasing interest in GTM automation.",
+      "evidence_quote": "SaaS teams are adopting AI workflows for research and planning.",
+      "source_url": "https://example.com/gtm-ops-report",
+      "retrieved_at": "2026-04-24T12:00:00.000Z",
+      "source_title": "Example GTM operations report",
+      "publisher": "Example Research",
+      "signal_type": "technology_shift",
+      "direction": "rising"
+    }
+  ],
+  "demand_drivers": [
+    {
+      "claim": "Small GTM teams need faster research-to-campaign handoff.",
+      "evidence_quote": "Lean teams are compressing research, planning, and production cycles.",
+      "source_url": "https://example.com/gtm-ops-report",
+      "retrieved_at": "2026-04-24T12:00:00.000Z"
+    }
+  ],
+  "buying_triggers": [
+    {
+      "claim": "A new growth leader often triggers a structured GTM planning reset.",
+      "source_url": "https://example.com/gtm-ops-report",
+      "retrieved_at": "2026-04-24T12:00:00.000Z"
+    }
+  ],
+  "adoption_barriers": [
+    {
+      "claim": "Teams distrust unsupported AI-generated market claims.",
+      "source_url": "https://example.com/gtm-ops-report",
+      "retrieved_at": "2026-04-24T12:00:00.000Z"
+    }
+  ],
+  "category_pain_points": {
+    "primary": [
+      {
+        "claim": "Research, media planning, and scripts often live in disconnected tools.",
+        "source_url": "https://example.com/gtm-ops-report",
+        "retrieved_at": "2026-04-24T12:00:00.000Z"
+      }
+    ],
+    "secondary": [],
+    "triggers": []
+  },
+  "competitive_intensity": {
+    "intensity": "unknown",
+    "observable_signals": [],
+    "caveats": ["Competitor lane owns direct competitor verification."]
+  },
+  "opportunity_candidates": [
+    {
+      "claim": "Evidence-first GTM planning is a visible gap for lean SaaS teams.",
+      "source_url": "https://example.com/gtm-ops-report",
+      "retrieved_at": "2026-04-24T12:00:00.000Z",
+      "opportunity": "Evidence-first GTM planning",
+      "size": "unknown",
+      "timing": "now",
+      "difficulty": "medium"
+    }
+  ],
+  "source_gaps": [
+    {
+      "topic": "market_size",
+      "reason": "No direct GTM operations SAM source was available in the fixture.",
+      "attempted_queries": ["B2B SaaS GTM operations market size"],
+      "needed_evidence": ["direct SAM report", "buyer-count proxy", "company-count proxy"]
+    }
+  ],
+  "categorySnapshot": {
+    "category": "B2B SaaS GTM operations",
+    "marketSize": "TAM context: Parent-market figure only; not direct niche size.",
+    "marketMaturity": "early",
+    "awarenessLevel": "medium",
+    "buyingBehavior": "committee_driven"
+  },
+  "painPoints": {
+    "primary": ["Research, media planning, and scripts often live in disconnected tools."],
+    "secondary": [],
+    "triggers": []
+  },
+  "marketDynamics": {
+    "demandDrivers": ["Small GTM teams need faster research-to-campaign handoff."],
+    "buyingTriggers": ["A new growth leader often triggers a structured GTM planning reset."],
+    "barriersToPurchase": ["Teams distrust unsupported AI-generated market claims."]
+  },
+  "trendSignals": [
+    {
+      "trend": "AI workflow adoption",
+      "direction": "rising",
+      "evidence": "SaaS teams are adopting AI workflows for research and planning."
+    }
+  ],
+  "messagingOpportunities": {
+    "summaryRecommendations": ["Lead with evidence-backed planning rather than generic automation."]
+  },
+  "marketOpportunities": [
+    {
+      "opportunity": "Evidence-first GTM planning",
+      "size": "unknown",
+      "timing": "now",
+      "difficulty": "medium",
+      "evidence": "Evidence-first GTM planning is a visible gap for lean SaaS teams."
+    }
+  ]
+}

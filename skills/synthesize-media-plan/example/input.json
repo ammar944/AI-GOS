@@ -1,0 +1,410 @@
+{
+  "run_id": "run-media-plan-001",
+  "brief_snapshot_id": "brief-snapshot-001",
+  "stage": "generate-media-plan",
+  "gtm_brief": {
+    "briefId": "brief-001",
+    "clientId": "client-001",
+    "fields": {
+      "companyName": {
+        "value": "HubSpot",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "website",
+            "label": "HubSpot homepage",
+            "url": "https://www.hubspot.com/",
+            "quote": "HubSpot publishes CRM and marketing software positioning on its website.",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "companyUrl": {
+        "value": "https://www.hubspot.com/",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "category": {
+        "value": "CRM software",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "productDescription": {
+        "value": "CRM and marketing software for growing teams.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "targetCustomer": {
+        "value": "B2B revenue teams at growing companies.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "primaryIcpDescription": {
+        "value": "Marketing and sales leaders who need one CRM-backed system for pipeline creation and follow-up.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "jobTitles": {
+        "value": "VP Marketing, Head of Demand Generation, Revenue Operations Lead",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "awarenessLevel": {
+        "value": "solution_aware",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "icpPains": {
+        "value": "Pipeline reporting gaps, disconnected campaign follow-up, and slow lead handoff.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "buyingTriggers": {
+        "value": "CRM consolidation, sales handoff issues, and demand-generation scaling.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "corePromise": {
+        "value": "Unify marketing, sales, and customer data in one CRM-backed growth system.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "firstValueMoment": {
+        "value": "A revenue team can see contacts, campaign source, and next-step follow-up in one workspace.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "activationEvent": {
+        "value": "CRM connected and first campaign follow-up workflow live.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "salesMotion": {
+        "value": "hybrid",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "gtmMotion": {
+        "value": "inbound demand plus sales-assisted conversion",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "conversionPath": {
+        "value": "demo-required",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "salesHandoff": {
+        "value": "Qualified demo requests route to sales within one business day.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "monthlyAdBudget": {
+        "value": "$8,000",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "avgAcv": {
+        "value": "$12,000",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "pricingModel": {
+        "value": "subscription",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "salesCycleLength": {
+        "value": "30 to 60 days",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "channels": {
+        "value": "LinkedIn, Meta",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "whatIsWorking": {
+        "value": "Founder-led educational posts produce demo conversations.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "whatIsNotWorking": {
+        "value": "Generic CRM comparison ads have weak demo intent.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      }
+    },
+    "createdAt": "2026-04-27T10:00:00.000Z",
+    "updatedAt": "2026-04-27T10:00:00.000Z"
+  },
+  "synthesize_positioning": {
+    "stage": "synthesize-strategy",
+    "positioning_statement": {
+      "value": "HubSpot should frame the plan around CRM-backed pipeline clarity for sales-assisted growth teams.",
+      "derived_from": ["gtm-brief", "research-icp"],
+      "evidence": [
+        {
+          "claim": "HubSpot positions around CRM software for marketing, sales, and service teams.",
+          "source_url": "https://www.hubspot.com/products/crm",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    "narrative_frame": {
+      "value": "Move from disconnected campaign follow-up to one CRM-backed revenue operating system.",
+      "derived_from": ["gtm-brief", "research-offer"],
+      "evidence": [
+        {
+          "claim": "HubSpot publishes a CRM product suite for connected customer data.",
+          "source_url": "https://www.hubspot.com/products/crm",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    "proof_points": [
+      {
+        "value": "CRM and marketing automation belong in the same buying conversation.",
+        "derived_from": ["research-market", "gtm-brief"],
+        "evidence": [
+          {
+            "claim": "HubSpot groups marketing software and CRM software under its product suite.",
+            "source_url": "https://www.hubspot.com/products",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ]
+  },
+  "research_icp": {
+    "stage": "research-buyer-icp",
+    "persona_anchors": [
+      {
+        "value": "Demand generation and revenue operations leaders need campaign source and sales follow-up visibility.",
+        "derived_from": ["gtm-brief", "research-icp"],
+        "evidence": [
+          {
+            "claim": "HubSpot's CRM materials emphasize marketing, sales, and service alignment.",
+            "source_url": "https://www.hubspot.com/products/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "attention_channels": [
+      {
+        "value": "LinkedIn is a primary attention channel for B2B revenue leaders.",
+        "derived_from": ["research-icp"],
+        "evidence": [
+          {
+            "claim": "LinkedIn Marketing Solutions publishes B2B marketing resources for professional audiences.",
+            "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "value": "Meta can test broad educational creative for lower-cost learning before expanding.",
+        "derived_from": ["research-icp"],
+        "evidence": [
+          {
+            "claim": "Meta publishes advertiser guidance for campaign learning and creative testing.",
+            "source_url": "https://www.facebook.com/business/ads-guide",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "awareness_evidence": [
+      {
+        "value": "The audience is solution-aware because it already recognizes CRM and pipeline workflow categories.",
+        "derived_from": ["gtm-brief", "research-keywords"],
+        "evidence": [
+          {
+            "claim": "CRM software is a recognized category with public buyer comparison pages.",
+            "source_url": "https://www.g2.com/categories/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "objections": [
+      {
+        "claim": "CRM buyers compare implementation effort and team adoption.",
+        "source_url": "https://www.g2.com/categories/crm",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_offer": {
+    "stage": "research-offer-funnel",
+    "conversion_path": {
+      "value": "Demo-required conversion path fits the sales-assisted motion and ACV.",
+      "derived_from": ["gtm-brief", "research-offer"],
+      "evidence": [
+        {
+          "claim": "HubSpot lists demo and sales-contact paths for its software suite.",
+          "source_url": "https://www.hubspot.com/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    "value_moments": [
+      {
+        "value": "The first value moment is connecting campaign activity to CRM follow-up.",
+        "derived_from": ["gtm-brief", "research-offer"],
+        "evidence": [
+          {
+            "claim": "HubSpot CRM materials emphasize a unified customer platform.",
+            "source_url": "https://www.hubspot.com/products/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "sales_process_notes": [
+      {
+        "value": "Sales should follow up quickly with demo requests and show current pipeline workflow gaps.",
+        "derived_from": ["gtm-brief", "research-offer"],
+        "evidence": [
+          {
+            "claim": "Salesforce publishes pipeline-management guidance around sales-process visibility.",
+            "source_url": "https://www.salesforce.com/sales/sales-pipeline/",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ]
+  },
+  "research_keywords": {
+    "stage": "research-demand-intent",
+    "demand_intent": [
+      {
+        "value": "CRM software and marketing automation searches show category-level buying intent.",
+        "derived_from": ["research-keywords"],
+        "evidence": [
+          {
+            "claim": "G2 maintains public CRM category pages used by software buyers.",
+            "source_url": "https://www.g2.com/categories/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "keyword_groups": [
+      {
+        "value": "CRM software, marketing automation software, and sales pipeline software should inform creative angles.",
+        "derived_from": ["research-keywords"],
+        "evidence": [
+          {
+            "claim": "HubSpot publishes CRM and marketing software product pages.",
+            "source_url": "https://www.hubspot.com/products",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "negative_keywords": [
+      {
+        "claim": "Consumer contact-manager searches are outside the B2B revenue-team target.",
+        "source_url": "https://www.g2.com/categories/crm",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_competitor": {
+    "stage": "research-competitors",
+    "evidence": [
+      {
+        "claim": "CRM vendors compete on unified customer data, sales visibility, and marketing automation.",
+        "source_url": "https://www.g2.com/categories/crm",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ],
+    "findings": [
+      {
+        "value": "Competitor messaging gives HubSpot room to emphasize connected pipeline clarity.",
+        "derived_from": ["research-competitor"],
+        "evidence": [
+          {
+            "claim": "G2 category pages list CRM alternatives and comparison context.",
+            "source_url": "https://www.g2.com/categories/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ]
+  }
+}

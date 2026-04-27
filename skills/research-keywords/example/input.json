@@ -1,0 +1,250 @@
+{
+  "run_id": "linear-keywords-wave2",
+  "brief_snapshot_id": "brief-snapshot-linear-2026-04-27",
+  "stage": "research-demand-intent",
+  "gtm_brief": {
+    "briefId": "brief-linear",
+    "clientId": "client-linear",
+    "createdAt": "2026-04-27T09:00:00.000Z",
+    "updatedAt": "2026-04-27T09:30:00.000Z",
+    "fields": {
+      "companyName": {
+        "value": "Linear",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "companyUrl": {
+        "value": "https://linear.app",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "category": {
+        "value": "Product development system",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "productDescription": {
+        "value": "Linear is a product development system for product, engineering, and design teams to plan, build, and track work.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "targetCustomer": {
+        "value": "Product and engineering teams at startups and enterprises.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "customer_page",
+            "label": "Linear customers",
+            "url": "https://linear.app/customers",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "primaryIcpDescription": {
+        "value": "High-velocity product and engineering organizations that need low-friction issue tracking, product planning, and cross-team visibility.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "customer_story",
+            "label": "Linear OpenAI customer story",
+            "url": "https://linear.app/customers/openai",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "jobTitles": {
+        "value": "Engineering leaders, product managers, product designers, software engineers, and operations leaders.",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "careers_page",
+            "label": "Linear careers",
+            "url": "https://linear.app/careers",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "icpPains": {
+        "value": "Slow tools, disconnected workflows, stale statuses, poor handoffs, and customer feedback not becoming product work.",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "customer_story",
+            "label": "Linear Retool customer story",
+            "url": "https://linear.app/customers/retool",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "currentAlternative": {
+        "value": "Jira, GitHub Issues, spreadsheets, chat, and team-specific issue trackers.",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "customer_story",
+            "label": "Linear OpenAI customer story",
+            "url": "https://linear.app/customers/openai",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "awarenessLevel": {
+        "value": "Problem-aware through most-aware, depending on whether the team is feeling workflow friction, comparing issue trackers, or evaluating Linear pricing.",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "pricing_page",
+            "label": "Linear pricing",
+            "url": "https://linear.app/pricing",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "goals": {
+        "value": "Capture high-intent product and engineering teams comparing issue tracking and product planning systems.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "campaignObjective": {
+        "value": "Demand capture for category, alternative, pricing, and implementation intent.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "pricing_page",
+            "label": "Linear pricing",
+            "url": "https://linear.app/pricing",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "targetMarket": {
+        "value": "English-speaking SaaS, AI, fintech, and enterprise software companies.",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "customer_page",
+            "label": "Linear customers",
+            "url": "https://linear.app/customers",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      }
+    }
+  },
+  "ingest_identity": {
+    "stage": "ingest-identity",
+    "canonical_company_name": "Linear",
+    "canonical_domain": "linear.app",
+    "category": "Product development system",
+    "core_keywords": [
+      "product development system",
+      "issue tracking",
+      "product planning",
+      "Linear"
+    ],
+    "negative_keywords": [
+      "linear algebra",
+      "linear regression",
+      "linear equations",
+      "television"
+    ]
+  },
+  "research_market": {
+    "stage": "research-market-category",
+    "category": "Product development system",
+    "category_framing": "Product development systems connect issue tracking, product planning, feedback, and engineering execution.",
+    "buying_triggers": [
+      {
+        "claim": "Linear positions projects, initiatives, cycles, views, and customer requests as connected product development workflows.",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_icp": {
+    "stage": "research-buyer-icp",
+    "search_intent": [
+      {
+        "query_pattern": "linear pricing business enterprise",
+        "intent": "pricing",
+        "likely_persona": "Engineering leaders scaling product delivery",
+        "source_url": "https://linear.app/pricing",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  }
+}

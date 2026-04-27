@@ -1,0 +1,8 @@
+{
+  "name": "research-keywords",
+  "description": "Keyword and intent research — identifies high-intent search queries, content gaps, and related keywords. No fabricated volumes; every number sourced.",
+  "version": "0.1.0",
+  "categories": ["research"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

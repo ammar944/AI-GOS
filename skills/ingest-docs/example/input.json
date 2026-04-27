@@ -1,0 +1,18 @@
+{
+  "run_id": "run-ingest-docs-fixture-2026-04-27",
+  "stage": "enrich-brief",
+  "brief_id": "brief-fixture-fieldops",
+  "client_id": "client-fixture-fieldops",
+  "business_profile_id": "profile-fixture-fieldops",
+  "documents": [
+    {
+      "document_id": "doc-fieldops-growth-brief",
+      "file_name": "fieldops-growth-brief.md",
+      "mime_type": "text/markdown",
+      "file_base64": "IyBGaWVsZE9wcyBHcm93dGggQnJpZWYKQ29tcGFueTogRmllbGRPcHMgSHViCldlYnNpdGU6IGh0dHBzOi8vZmllbGRvcHMuaW8KQ2F0ZWdvcnk6IEZpZWxkIHNlcnZpY2Ugb3BlcmF0aW9ucyBzb2Z0d2FyZQpQcm9kdWN0IERlc2NyaXB0aW9uOiBGaWVsZE9wcyBIdWIgaGVscHMgcmVnaW9uYWwgaG9tZSBzZXJ2aWNlIGNvbXBhbmllcyBzY2hlZHVsZSB0ZWNobmljaWFucywgdHJhY2sgam9icywgYW5kIHJlcG9ydCBjYXBhY2l0eS4KSWRlYWwgQ3VzdG9tZXI6IE93bmVyLWxlZCBwbHVtYmluZywgSFZBQywgYW5kIGVsZWN0cmljYWwgY29tcGFuaWVzIHdpdGggMTUtODAgZW1wbG95ZWVzIGFuZCBkaXNwYXRjaGVycyBzdGlsbCB3b3JraW5nIGluIHNwcmVhZHNoZWV0cy4KSm9iIFRpdGxlczogT3duZXIsIE9wZXJhdGlvbnMgTWFuYWdlciwgRGlzcGF0Y2ggTWFuYWdlcgpDb21wYW55IFNpemU6IDExLTUwLCA1MS0yMDAKR2VvZ3JhcGh5OiBVbml0ZWQgU3RhdGVzIGFuZCBDYW5hZGEKQnV5aW5nIFRyaWdnZXJzOiBNaXNzZWQgYXBwb2ludG1lbnRzLCBjYWxsIHZvbHVtZSBzcGlrZXMsIGFuZCBuZXcgYnJhbmNoIG9wZW5pbmdzIGNyZWF0ZSB1cmdlbmN5LgpQcmljaW5nOiBHcm93dGg6NDk5Om1vbnRobHl8TXVsdGktQnJhbmNoOjEyOTk6bW9udGhseQpQcmljaW5nIE1vZGVsOiBtb250aGx5IGFuZCBzZWF0LWJhc2VkClZhbHVlIFByb3Bvc2l0aW9uOiBDdXQgZGlzcGF0Y2ggY29vcmRpbmF0aW9uIHdvcmsgd2l0aG91dCBmb3JjaW5nIGZpZWxkIHRlYW1zIHRvIHJlcGxhY2UgdGhlaXIgY3VycmVudCBwaG9uZSB3b3JrZmxvdy4KQ29tcGV0aXRvcnM6IEpvYmJlciwgU2VydmljZVRpdGFuLCBIb3VzZWNhbGwgUHJvCkNvbW1vbiBPYmplY3Rpb25zOiBPd25lcnMgd29ycnkgYWJvdXQgbWlncmF0aW5nIGpvYiBoaXN0b3J5IGFuZCB0cmFpbmluZyBkaXNwYXRjaGVycy4KTW9udGhseSBBZCBCdWRnZXQ6IDE1MDAwClRhcmdldCBDUEw6IDc1CkNsYWltIFJlc3RyaWN0aW9uczogRG8gbm90IHByb21pc2UgZ3VhcmFudGVlZCByZXZlbnVlIGdyb3d0aCBvciBzcGVjaWZpYyBsYWJvci1jb3N0IHJlZHVjdGlvbnMuCg==",
+      "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+      "retrieved_at": "2026-04-27T13:58:00.000Z",
+      "file_size_bytes": 1081
+    }
+  ]
+}

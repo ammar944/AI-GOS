@@ -1,0 +1,8 @@
+{
+  "name": "present-workspace",
+  "description": "Workspace presentation — takes skill outputs and renders them into journey workspace cards. No collection, no validation; purely a renderer.",
+  "version": "0.1.0",
+  "categories": ["interaction"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

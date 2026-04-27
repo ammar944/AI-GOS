@@ -1,0 +1,8 @@
+{
+  "name": "synthesize-media-plan",
+  "description": "Media plan synthesis — transforms research and positioning inputs into a multi-phase paid media plan with campaigns, ad groups, and creative angles.",
+  "version": "0.1.0",
+  "categories": ["synthesize"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

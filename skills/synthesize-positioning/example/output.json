@@ -1,0 +1,494 @@
+{
+  "run_id": "linear-positioning-wave3",
+  "brief_snapshot_id": "brief-snapshot-linear-2026-04-27",
+  "stage": "synthesize-strategy",
+  "company_name": "Linear",
+  "category": "Product development system",
+  "positioning_statement": {
+    "value": "Linear is the product development system for high-velocity product and engineering organizations that need one focused operating layer for planning, building, customer feedback, and progress visibility.",
+    "derived_from": [
+      "gtm-brief",
+      "research-icp",
+      "research-offer",
+      "research-cross"
+    ],
+    "evidence": [
+      {
+        "claim": "Linear describes itself as a product development system for teams and agents to plan, build, and monitor work.",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+        "source_url": "https://linear.app/customers/openai",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "one_line_promise": {
+    "value": "Turn fragmented product work into a clear system for planning, execution, feedback, and momentum.",
+    "derived_from": [
+      "gtm-brief",
+      "research-offer",
+      "research-cross"
+    ],
+    "evidence": [
+      {
+        "claim": "Customer Requests can connect feedback from support tools, CRM tools, email, and Slack to issues and projects.",
+        "source_url": "https://linear.app/docs/customer-requests",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "claim": "The strongest intersection is scaling product delivery: ICP pain centers on handoffs and stale statuses, while the offer connects issues, projects, requests, and monitoring.",
+        "source_url": "https://linear.app/customers/openai",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "ranked_value_props": [
+    {
+      "value": "One operating layer for product delivery instead of disconnected issue, roadmap, feedback, and status systems.",
+      "derived_from": [
+        "research-icp",
+        "research-offer",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "rank": 1,
+      "icp_fit_reason": {
+        "value": "This maps directly to product and engineering teams whose core pain is fragmented coordination across handoffs, planning, feedback, and delivery.",
+        "derived_from": [
+          "research-icp",
+          "research-cross"
+        ],
+        "evidence": [
+          {
+            "claim": "The strongest intersection is scaling product delivery: ICP pain centers on handoffs and stale statuses, while the offer connects issues, projects, requests, and monitoring.",
+            "source_url": "https://linear.app/customers/openai",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      },
+      "objection_addressed": {
+        "value": "The value prop should acknowledge workflow-fit review instead of implying a frictionless migration.",
+        "derived_from": [
+          "gtm-brief",
+          "research-cross"
+        ],
+        "evidence": [
+          {
+            "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+            "source_url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "value": "A planning-to-progress system that helps leaders connect roadmap work, specs, quarterly planning, and execution visibility.",
+      "derived_from": [
+        "research-icp",
+        "research-offer",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "Ramp uses Linear for roadmap visibility, spec lists, quarterly planning, and monthly check-ins.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "rank": 2,
+      "icp_fit_reason": {
+        "value": "Product and design leaders need roadmap visibility and planning context to stay connected to execution.",
+        "derived_from": [
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "claim": "Ramp uses Linear for roadmap visibility, spec lists, quarterly planning, and monthly check-ins.",
+            "source_url": "https://linear.app/customers/ramp",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      },
+      "objection_addressed": {
+        "value": "Tie the promise to planning visibility and admin controls, not to unsupported productivity numbers.",
+        "derived_from": [
+          "research-cross"
+        ],
+        "evidence": [
+          {
+            "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+            "source_url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "value": "Customer feedback becomes actionable product work instead of staying trapped in support, CRM, email, or chat systems.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer",
+        "research-voc"
+      ],
+      "evidence": [
+        {
+          "claim": "Customer Requests can connect feedback from support tools, CRM tools, email, and Slack to issues and projects.",
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Customer stories repeatedly frame the before-state as disconnected systems, coordination friction, and planning visibility gaps.",
+          "source_url": "https://linear.app/customers",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "rank": 3,
+      "icp_fit_reason": {
+        "value": "Feedback intake is a named buying trigger and a visible product workflow for product teams.",
+        "derived_from": [
+          "gtm-brief",
+          "research-offer"
+        ],
+        "evidence": [
+          {
+            "claim": "Customer Requests can connect feedback from support tools, CRM tools, email, and Slack to issues and projects.",
+            "source_url": "https://linear.app/docs/customer-requests",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "value": "Enterprise-ready evaluation can be framed around controls, billing, onboarding, and governance rather than only product speed.",
+      "derived_from": [
+        "gtm-brief",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "rank": 4,
+      "icp_fit_reason": {
+        "value": "Larger teams evaluating a product development system need the migration and control story to match their rollout constraints.",
+        "derived_from": [
+          "gtm-brief",
+          "research-cross"
+        ],
+        "evidence": [
+          {
+            "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+            "source_url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      },
+      "objection_addressed": {
+        "value": "This directly addresses admin, security, billing, and onboarding evaluation requirements.",
+        "derived_from": [
+          "research-cross"
+        ],
+        "evidence": [
+          {
+            "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+            "source_url": "https://linear.app/pricing",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    }
+  ],
+  "narrative_arc": {
+    "old_way": {
+      "value": "The old way is product work split across issue trackers, chat, spreadsheets, support tools, and separate planning artifacts.",
+      "derived_from": [
+        "gtm-brief",
+        "research-icp",
+        "research-voc"
+      ],
+      "evidence": [
+        {
+          "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Customer stories repeatedly frame the before-state as disconnected systems, coordination friction, and planning visibility gaps.",
+          "source_url": "https://linear.app/customers",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    "cost_of_old_way": {
+      "value": "The cost is not a sourced numeric loss; it is visible coordination drag: stale status, harder handoffs, and feedback disconnected from delivery.",
+      "derived_from": [
+        "research-icp",
+        "research-offer",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "The strongest intersection is scaling product delivery: ICP pain centers on handoffs and stale statuses, while the offer connects issues, projects, requests, and monitoring.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Customer Requests can connect feedback from support tools, CRM tools, email, and Slack to issues and projects.",
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    "new_way": {
+      "value": "The new way is a product development system where planning, building, monitoring, feedback, and AI-assisted workflows share one operating context.",
+      "derived_from": [
+        "research-market",
+        "research-offer",
+        "gtm-brief"
+      ],
+      "evidence": [
+        {
+          "claim": "Linear describes itself as a product development system for teams and agents to plan, build, and monitor work.",
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    "proof_bridge": [
+      {
+        "value": "OpenAI is proof for the scale and handoff problem, while Ramp is proof for planning visibility and roadmap operations.",
+        "derived_from": [
+          "research-icp",
+          "research-cross"
+        ],
+        "evidence": [
+          {
+            "claim": "OpenAI adopted Linear across thousands of users as teams scaled and needed alignment across complex dependencies.",
+            "source_url": "https://linear.app/customers/openai",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          },
+          {
+            "claim": "Ramp uses Linear for roadmap visibility, spec lists, quarterly planning, and monthly check-ins.",
+            "source_url": "https://linear.app/customers/ramp",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "value": "The product proof bridge is the connection between issues, projects, initiatives, customer requests, integrations, analytics, and AI workflows.",
+        "derived_from": [
+          "research-offer"
+        ],
+        "evidence": [
+          {
+            "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+            "source_url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "closing_frame": {
+      "value": "Position Linear as the operating context for modern product delivery, not merely a faster issue tracker.",
+      "derived_from": [
+        "research-cross",
+        "gtm-brief"
+      ],
+      "evidence": [
+        {
+          "claim": "Positioning should emphasize operating-model clarity over generic issue tracking.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "status_quo_contrast": [
+    {
+      "value": "Status quo: product decisions and delivery status live in separate tools. Linear frame: one system connects planning, work, monitoring, and feedback.",
+      "derived_from": [
+        "research-icp",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "Status quo: customer feedback stays detached from delivery. Linear frame: feedback can become issues and projects tied to product work.",
+      "derived_from": [
+        "research-offer",
+        "research-voc"
+      ],
+      "evidence": [
+        {
+          "claim": "Customer Requests can connect feedback from support tools, CRM tools, email, and Slack to issues and projects.",
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "Status quo: enterprise evaluation gets reduced to tool comparison. Linear frame: evaluation can address controls, billing, onboarding, and governance requirements.",
+      "derived_from": [
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "message_angles": [
+    {
+      "value": "From scattered product work to one operating context.",
+      "derived_from": [
+        "research-icp",
+        "research-offer",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "The strongest intersection is scaling product delivery: ICP pain centers on handoffs and stale statuses, while the offer connects issues, projects, requests, and monitoring.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "Planning that stays connected to execution.",
+      "derived_from": [
+        "research-icp",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "claim": "Ramp uses Linear for roadmap visibility, spec lists, quarterly planning, and monthly check-ins.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "Customer feedback as product work, not a side channel.",
+      "derived_from": [
+        "research-offer",
+        "research-voc"
+      ],
+      "evidence": [
+        {
+          "claim": "Customer Requests can connect feedback from support tools, CRM tools, email, and Slack to issues and projects.",
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "A product development system that can support both team workflow and enterprise review.",
+      "derived_from": [
+        "research-market",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "Linear describes itself as a product development system for teams and agents to plan, build, and monitor work.",
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "claims_not_allowed": [
+    {
+      "value": "Do not use quantified shipping-speed guarantees without sourced metric evidence.",
+      "derived_from": [
+        "gtm-brief"
+      ],
+      "evidence": [
+        {
+          "claim": "No quantified performance guarantee is locked in the brief.",
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "Do not claim AI removes product leadership or planning responsibility; frame AI as part of product workflows only when sourced.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "claim": "Linear groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "value": "Do not reduce the strategy to platform recommendations, budget allocation, scripts, keyword plans, or launch tasks.",
+      "derived_from": [
+        "gtm-brief",
+        "research-cross"
+      ],
+      "evidence": [
+        {
+          "claim": "Positioning should emphasize operating-model clarity over generic issue tracking.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-04-27T10:30:00.000Z"
+}

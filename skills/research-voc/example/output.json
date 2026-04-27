@@ -1,0 +1,137 @@
+{
+  "run_id": "voc-fixture-2026-04-27",
+  "brief_snapshot_id": "brief-snapshot-voc-fixture",
+  "stage": "research-voc",
+  "company_name": "Pipedrive",
+  "category": "sales pipeline management software",
+  "exclusion_terms": [
+    {
+      "term": "Pipedrive",
+      "source": "brief",
+      "reason": "Subject company must not appear in category VoC evidence."
+    },
+    {
+      "term": "HubSpot",
+      "source": "brief",
+      "reason": "Locked brief competitor or alternative must not appear in category VoC evidence."
+    },
+    {
+      "term": "Salesforce",
+      "source": "brief",
+      "reason": "Locked brief competitor or alternative must not appear in category VoC evidence."
+    },
+    {
+      "term": "Zoho CRM",
+      "source": "brief",
+      "reason": "Locked brief competitor or alternative must not appear in category VoC evidence."
+    },
+    {
+      "term": "Airtable",
+      "source": "brief",
+      "reason": "Locked brief competitor or alternative must not appear in category VoC evidence."
+    },
+    {
+      "term": "Notion",
+      "source": "brief",
+      "reason": "Locked brief competitor or alternative must not appear in category VoC evidence."
+    },
+    {
+      "term": "legacy CRM exports",
+      "source": "brief",
+      "reason": "Locked brief competitor or alternative must not appear in category VoC evidence."
+    }
+  ],
+  "category_pain_language": [
+    {
+      "quote": "The hard part is not adding another field; it is getting people to update the next step before the deal goes stale.",
+      "source_platform": "reddit",
+      "problem_space": "sales follow-up hygiene",
+      "speaker_context": "sales operations discussion",
+      "theme": "stale next actions",
+      "source_url": "https://www.reddit.com/r/sales/",
+      "retrieved_at": "2026-04-27T10:30:00.000Z",
+      "source_title": "Sales community discussions"
+    },
+    {
+      "quote": "Managers ask for forecast accuracy, but reps are still reconstructing what happened from memory at the end of the week.",
+      "source_platform": "hacker_news",
+      "problem_space": "pipeline review reliability",
+      "speaker_context": "thread about sales operations software",
+      "theme": "late activity capture",
+      "source_url": "https://news.ycombinator.com/",
+      "retrieved_at": "2026-04-27T10:31:00.000Z",
+      "source_title": "Hacker News discussion index"
+    }
+  ],
+  "status_quo_frustrations": [
+    {
+      "quote": "We keep a side tracker because the official process has too many required clicks for a quick call note.",
+      "source_platform": "forum",
+      "problem_space": "manual side tracking",
+      "speaker_context": "sales team process thread",
+      "theme": "tool avoidance",
+      "source_url": "https://community.close.com/",
+      "retrieved_at": "2026-04-27T10:32:00.000Z",
+      "source_title": "Sales community forum"
+    }
+  ],
+  "workarounds": [
+    {
+      "workaround": "Team members keep a private call-note list and copy only selected details into the official system later.",
+      "pain_it_reveals": "The official workflow is perceived as too slow for in-the-moment activity capture.",
+      "quote": "I write the call notes somewhere fast, then clean them up when I have time.",
+      "source_url": "https://www.reddit.com/r/sales/",
+      "retrieved_at": "2026-04-27T10:33:00.000Z",
+      "source_title": "Sales community discussions"
+    }
+  ],
+  "desired_outcomes": [
+    {
+      "claim": "Sales managers want next actions, deal stage changes, and recent activity visible before forecast reviews.",
+      "source_url": "https://blog.close.com/sales-pipeline-management/",
+      "retrieved_at": "2026-04-27T10:34:00.000Z",
+      "source_title": "Sales pipeline management guide"
+    },
+    {
+      "claim": "Teams value a workflow where reps can update deal context without interrupting selling time.",
+      "source_url": "https://www.saleshacker.com/sales-pipeline-management/",
+      "retrieved_at": "2026-04-27T10:35:00.000Z",
+      "source_title": "Sales pipeline management article"
+    }
+  ],
+  "objection_language": [
+    {
+      "quote": "Every rollout promises visibility, then turns into another admin habit people have to remember.",
+      "source_platform": "community",
+      "problem_space": "rep adoption resistance",
+      "speaker_context": "sales management discussion",
+      "theme": "administrative burden",
+      "source_url": "https://www.revgenius.com/community",
+      "retrieved_at": "2026-04-27T10:36:00.000Z",
+      "source_title": "Revenue community"
+    }
+  ],
+  "source_gaps": [
+    {
+      "topic": "review_site",
+      "reason": "Review-site pages found during fixture collection were product-specific, so they were excluded from category-only evidence.",
+      "attempted_queries": [
+        "sales pipeline management adoption burden review category",
+        "deal tracking workflow friction review category"
+      ],
+      "source_url": "https://www.google.com/search?q=sales+pipeline+management+adoption+burden+review+category",
+      "retrieved_at": "2026-04-27T10:37:00.000Z",
+      "source_title": "Search result page"
+    }
+  ],
+  "rejected_competitor_matches": [
+    {
+      "rejected_term": "HubSpot",
+      "matched_competitor": "HubSpot",
+      "source_url": "https://www.g2.com/categories/crm",
+      "retrieved_at": "2026-04-27T10:38:00.000Z",
+      "source_title": "CRM software category page"
+    }
+  ],
+  "generated_at": "2026-04-27T10:40:00.000Z"
+}

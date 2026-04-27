@@ -1,0 +1,213 @@
+{
+  "run_id": "run_present_workspace_example_001",
+  "brief_snapshot_id": "brief_snapshot_example_001",
+  "stage": "present-workspace",
+  "section_key": "icpValidation",
+  "cards": [
+    {
+      "id": "icpValidation-persona-card-revenue-operations-leaders",
+      "run_id": "run_present_workspace_example_001",
+      "brief_snapshot_id": "brief_snapshot_example_001",
+      "section_key": "icpValidation",
+      "card_kind": "persona-card",
+      "card_type": "persona-card",
+      "label": "Revenue operations leaders",
+      "description": "Primary buyer segment with pains, triggers, objections, and alternatives.",
+      "content": {
+        "persona_name": "Revenue operations leaders",
+        "role_family": "Revenue operations",
+        "seniority": "Director to VP",
+        "workspace_note": "Approved for GTM brief review."
+      },
+      "status": "edited",
+      "evidence": [
+        {
+          "value": "Revenue operations leaders are responsible for aligning sales, marketing, and customer success processes.",
+          "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+          "retrieved_at": "2026-04-27T12:00:00.000Z"
+        },
+        {
+          "value": "Teams struggle when go-to-market data is split across disconnected systems.",
+          "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+          "retrieved_at": "2026-04-27T12:00:00.000Z"
+        },
+        {
+          "value": "Pipeline reporting gaps often trigger process and tooling reviews.",
+          "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+          "retrieved_at": "2026-04-27T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "icpValidation-job-title-list-validated-job-titles",
+      "run_id": "run_present_workspace_example_001",
+      "brief_snapshot_id": "brief_snapshot_example_001",
+      "section_key": "icpValidation",
+      "card_kind": "job-title-list",
+      "card_type": "job-title-list",
+      "label": "Validated Job Titles",
+      "description": "Job titles and buying roles surfaced from sourced ICP research.",
+      "content": {
+        "job_titles": [
+          {
+            "title": "VP Revenue Operations",
+            "department": "Revenue",
+            "seniority": "VP",
+            "buying_role": "economic_buyer"
+          }
+        ]
+      },
+      "status": "draft",
+      "evidence": [
+        {
+          "value": "VP Revenue Operations",
+          "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+          "retrieved_at": "2026-04-27T12:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "research_result_envelope": {
+    "status": "complete",
+    "section": "icpValidation",
+    "data": {
+      "cards": [
+        {
+          "id": "icpValidation-persona-card-revenue-operations-leaders",
+          "run_id": "run_present_workspace_example_001",
+          "brief_snapshot_id": "brief_snapshot_example_001",
+          "section_key": "icpValidation",
+          "card_kind": "persona-card",
+          "card_type": "persona-card",
+          "label": "Revenue operations leaders",
+          "description": "Primary buyer segment with pains, triggers, objections, and alternatives.",
+          "content": {
+            "persona_name": "Revenue operations leaders",
+            "role_family": "Revenue operations",
+            "seniority": "Director to VP",
+            "workspace_note": "Approved for GTM brief review."
+          },
+          "status": "edited",
+          "evidence": [
+            {
+              "value": "Revenue operations leaders are responsible for aligning sales, marketing, and customer success processes.",
+              "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+              "retrieved_at": "2026-04-27T12:00:00.000Z"
+            },
+            {
+              "value": "Teams struggle when go-to-market data is split across disconnected systems.",
+              "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+              "retrieved_at": "2026-04-27T12:00:00.000Z"
+            },
+            {
+              "value": "Pipeline reporting gaps often trigger process and tooling reviews.",
+              "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+              "retrieved_at": "2026-04-27T12:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "icpValidation-job-title-list-validated-job-titles",
+          "run_id": "run_present_workspace_example_001",
+          "brief_snapshot_id": "brief_snapshot_example_001",
+          "section_key": "icpValidation",
+          "card_kind": "job-title-list",
+          "card_type": "job-title-list",
+          "label": "Validated Job Titles",
+          "description": "Job titles and buying roles surfaced from sourced ICP research.",
+          "content": {
+            "job_titles": [
+              {
+                "title": "VP Revenue Operations",
+                "department": "Revenue",
+                "seniority": "VP",
+                "buying_role": "economic_buyer"
+              }
+            ]
+          },
+          "status": "draft",
+          "evidence": [
+            {
+              "value": "VP Revenue Operations",
+              "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+              "retrieved_at": "2026-04-27T12:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    },
+    "__cardEdits": {
+      "icpValidation-persona-card-revenue-operations-leaders": {
+        "persona_name": "Revenue operations leaders",
+        "role_family": "Revenue operations",
+        "seniority": "Director to VP",
+        "workspace_note": "Approved for GTM brief review."
+      }
+    },
+    "durationMs": 0
+  },
+  "write": {
+    "table": "journey_sessions",
+    "user_id": "user_present_workspace_example_001",
+    "run_id": "run_present_workspace_example_001",
+    "section_key": "icpValidation",
+    "result_status": "complete",
+    "transport": "dry-run",
+    "wrote_research_results": false,
+    "wrote_research_document": false,
+    "write_happened": false,
+    "outcome": "dry_run",
+    "updated_at": "2026-04-27T12:10:00.000Z",
+    "idempotency_key": "present-workspace:run_present_workspace_example_001:icpValidation:brief_snapshot_example_001:icpValidation-job-title-list-validated-job-titles|icpValidation-persona-card-revenue-operations-leaders",
+    "card_results": [
+      {
+        "run_id": "run_present_workspace_example_001",
+        "brief_snapshot_id": "brief_snapshot_example_001",
+        "section_key": "icpValidation",
+        "card_id": "icpValidation-persona-card-revenue-operations-leaders",
+        "card_kind": "persona-card",
+        "prior_content_snapshot": {
+          "persona_name": "Revenue operations leaders",
+          "role_family": "Revenue operations",
+          "seniority": "Director to VP"
+        },
+        "new_content_snapshot": {
+          "persona_name": "Revenue operations leaders",
+          "role_family": "Revenue operations",
+          "seniority": "Director to VP",
+          "workspace_note": "Approved for GTM brief review."
+        },
+        "outcome": "dry_run",
+        "idempotency_key": "present-workspace:run_present_workspace_example_001:icpValidation:brief_snapshot_example_001:icpValidation-job-title-list-validated-job-titles|icpValidation-persona-card-revenue-operations-leaders"
+      },
+      {
+        "run_id": "run_present_workspace_example_001",
+        "brief_snapshot_id": "brief_snapshot_example_001",
+        "section_key": "icpValidation",
+        "card_id": "icpValidation-job-title-list-validated-job-titles",
+        "card_kind": "job-title-list",
+        "prior_content_snapshot": null,
+        "new_content_snapshot": {
+          "job_titles": [
+            {
+              "title": "VP Revenue Operations",
+              "department": "Revenue",
+              "seniority": "VP",
+              "buying_role": "economic_buyer"
+            }
+          ]
+        },
+        "outcome": "dry_run",
+        "idempotency_key": "present-workspace:run_present_workspace_example_001:icpValidation:brief_snapshot_example_001:icpValidation-job-title-list-validated-job-titles|icpValidation-persona-card-revenue-operations-leaders"
+      }
+    ],
+    "warnings": [
+      "dry-run transport: no Supabase network call was made"
+    ]
+  },
+  "warnings": [
+    "Output schema intentionally extends the spec sketch with card_kind, content snapshots, write outcome, and idempotency_key.",
+    "dry-run transport: no Supabase network call was made"
+  ],
+  "generated_at": "2026-04-27T12:10:00.000Z"
+}

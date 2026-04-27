@@ -1,0 +1,9 @@
+{
+  "run_id": "ingest-url-airtable-example",
+  "brief_id": "brief-airtable-example",
+  "client_id": "client-airtable-example",
+  "stage": "discover-url",
+  "url": "https://www.airtable.com",
+  "linkedin_url": "https://www.linkedin.com/company/airtable",
+  "user_notes": "Prefill the GTM brief from public website pages only."
+}

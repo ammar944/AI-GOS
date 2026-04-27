@@ -1,0 +1,8 @@
+{
+  "name": "research-offer",
+  "description": "Offer diagnostic — analyzes an offer's clarity, activation flow, pricing reality, and churn signals from public artifacts. Every claim sourced.",
+  "version": "0.1.0",
+  "categories": ["research"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

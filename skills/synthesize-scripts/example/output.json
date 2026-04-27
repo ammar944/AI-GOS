@@ -1,0 +1,1983 @@
+{
+  "run_id": "run-linear-scripts-2026-04-27",
+  "brief_snapshot_id": "brief-linear-locked-001",
+  "stage": "generate-scripts",
+  "company_name": "Linear",
+  "scripts": [
+    {
+      "id": "script-unaware-1",
+      "awareness_level": "unaware",
+      "in_market_tier": "cold-mass",
+      "platform": "meta",
+      "format": "video",
+      "angle": "painPoint",
+      "framework": "talking-head-broll",
+      "duration": "60s",
+      "hook": {
+        "text": "Roadmap drift starts in issue queues.",
+        "role": "hook",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep roadmap decisions connected to execution.",
+          "role": "middle",
+          "derived_from": [
+            "gtm-brief",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Issue queues can hide roadmap risk.",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Planning breaks when context splits.",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Product teams need cleaner handoffs.",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "research-voc",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://news.ycombinator.com/item?id=35978385",
+            "retrieved_at": "2026-04-27T10:20:00.000Z",
+            "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+            "source_path": "research-voc.claims.0",
+            "category": "audience-pain"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-unaware-2",
+      "awareness_level": "unaware",
+      "in_market_tier": "cold-mass",
+      "platform": "google",
+      "format": "static",
+      "angle": "outcome",
+      "framework": "case-study-snapshot",
+      "duration": "60s",
+      "hook": {
+        "text": "Fix planning drift",
+        "role": "hook",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep planning context in one workflow.",
+          "role": "middle",
+          "derived_from": [
+            "research-voc",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review Linear",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Plan work faster",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Connect roadmap work",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Reduce planning drift",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-unaware-3",
+      "awareness_level": "unaware",
+      "in_market_tier": "cold-mass",
+      "platform": "linkedin",
+      "format": "email",
+      "angle": "socialProof",
+      "framework": "objection-first",
+      "duration": "60s",
+      "hook": {
+        "text": "When roadmap work scatters, planning slows.",
+        "role": "hook",
+        "derived_from": [
+          "research-voc",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://news.ycombinator.com/item?id=35978385",
+            "retrieved_at": "2026-04-27T10:20:00.000Z",
+            "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+            "source_path": "research-voc.claims.0",
+            "category": "audience-pain"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Give software teams one place for planning context.",
+          "role": "middle",
+          "derived_from": [
+            "research-icp",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Planning slows when context scatters.",
+          "role": "hook",
+          "derived_from": [
+            "research-voc",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        },
+        {
+          "text": "Roadmaps need live issue context.",
+          "role": "hook",
+          "derived_from": [
+            "research-voc",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        },
+        {
+          "text": "Product work needs one system.",
+          "role": "hook",
+          "derived_from": [
+            "research-voc",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "research-offer",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:30:00.000Z",
+            "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+            "source_path": "research-offer.claims.0",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-problem-4",
+      "awareness_level": "problem",
+      "in_market_tier": "needs-convinced",
+      "platform": "meta",
+      "format": "video",
+      "angle": "curiosity",
+      "framework": "qa-style",
+      "duration": "60s",
+      "hook": {
+        "text": "Your roadmap should not live in fragments.",
+        "role": "hook",
+        "derived_from": [
+          "research-icp",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:25:00.000Z",
+            "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+            "source_path": "research-icp.claims.0",
+            "category": "audience-trigger"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep roadmap decisions connected to execution.",
+          "role": "middle",
+          "derived_from": [
+            "research-offer",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Issue queues can hide roadmap risk.",
+          "role": "hook",
+          "derived_from": [
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        },
+        {
+          "text": "Planning breaks when context splits.",
+          "role": "hook",
+          "derived_from": [
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        },
+        {
+          "text": "Product teams need cleaner handoffs.",
+          "role": "hook",
+          "derived_from": [
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-problem-5",
+      "awareness_level": "problem",
+      "in_market_tier": "needs-convinced",
+      "platform": "google",
+      "format": "static",
+      "angle": "urgency",
+      "framework": "demo-screencast",
+      "duration": "60s",
+      "hook": {
+        "text": "Fix planning drift",
+        "role": "hook",
+        "derived_from": [
+          "research-offer",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:30:00.000Z",
+            "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+            "source_path": "research-offer.claims.0",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep planning context in one workflow.",
+          "role": "middle",
+          "derived_from": [
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review Linear",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Plan work faster",
+          "role": "hook",
+          "derived_from": [
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Connect roadmap work",
+          "role": "hook",
+          "derived_from": [
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Reduce planning drift",
+          "role": "hook",
+          "derived_from": [
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "synthesize-media-plan",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+            "retrieved_at": "2026-04-27T10:40:00.000Z",
+            "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+            "source_path": "synthesize-media-plan.claims.0",
+            "category": "channel-strategy"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-problem-6",
+      "awareness_level": "problem",
+      "in_market_tier": "needs-convinced",
+      "platform": "linkedin",
+      "format": "email",
+      "angle": "identity",
+      "framework": "interview",
+      "duration": "60s",
+      "hook": {
+        "text": "When roadmap work scatters, planning slows.",
+        "role": "hook",
+        "derived_from": [
+          "synthesize-positioning",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:35:00.000Z",
+            "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+            "source_path": "synthesize-positioning.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Give software teams one place for planning context.",
+          "role": "middle",
+          "derived_from": [
+            "synthesize-media-plan",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+              "retrieved_at": "2026-04-27T10:40:00.000Z",
+              "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+              "source_path": "synthesize-media-plan.claims.0",
+              "category": "channel-strategy"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Planning slows when context scatters.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-positioning",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Roadmaps need live issue context.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-positioning",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Product work needs one system.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-positioning",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-solution-7",
+      "awareness_level": "solution",
+      "in_market_tier": "needs-convinced",
+      "platform": "meta",
+      "format": "video",
+      "angle": "contrarian",
+      "framework": "skit-scenario",
+      "duration": "30s",
+      "hook": {
+        "text": "Your roadmap should not live in fragments.",
+        "role": "hook",
+        "derived_from": [
+          "synthesize-media-plan",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+            "retrieved_at": "2026-04-27T10:40:00.000Z",
+            "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+            "source_path": "synthesize-media-plan.claims.0",
+            "category": "channel-strategy"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep roadmap decisions connected to execution.",
+          "role": "middle",
+          "derived_from": [
+            "research-competitor",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.notion.com/product",
+              "retrieved_at": "2026-04-27T10:45:00.000Z",
+              "claim": "Competitor hook: \"Bring every team into one workspace\"",
+              "source_path": "research-competitor.claims.0",
+              "category": "competitor-hook"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Issue queues can hide roadmap risk.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-media-plan",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+              "retrieved_at": "2026-04-27T10:40:00.000Z",
+              "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+              "source_path": "synthesize-media-plan.claims.0",
+              "category": "channel-strategy"
+            }
+          ]
+        },
+        {
+          "text": "Planning breaks when context splits.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-media-plan",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+              "retrieved_at": "2026-04-27T10:40:00.000Z",
+              "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+              "source_path": "synthesize-media-plan.claims.0",
+              "category": "channel-strategy"
+            }
+          ]
+        },
+        {
+          "text": "Product teams need cleaner handoffs.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-media-plan",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+              "retrieved_at": "2026-04-27T10:40:00.000Z",
+              "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+              "source_path": "synthesize-media-plan.claims.0",
+              "category": "channel-strategy"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "research-keywords",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+            "retrieved_at": "2026-04-27T10:50:00.000Z",
+            "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+            "source_path": "research-keywords.claims.0",
+            "category": "keyword"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-solution-8",
+      "awareness_level": "solution",
+      "in_market_tier": "needs-convinced",
+      "platform": "google",
+      "format": "static",
+      "angle": "painPoint",
+      "framework": "talking-head-broll",
+      "duration": "30s",
+      "hook": {
+        "text": "Fix planning drift",
+        "role": "hook",
+        "derived_from": [
+          "research-competitor",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.notion.com/product",
+            "retrieved_at": "2026-04-27T10:45:00.000Z",
+            "claim": "Competitor hook: \"Bring every team into one workspace\"",
+            "source_path": "research-competitor.claims.0",
+            "category": "competitor-hook"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep planning context in one workflow.",
+          "role": "middle",
+          "derived_from": [
+            "research-keywords",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+              "retrieved_at": "2026-04-27T10:50:00.000Z",
+              "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+              "source_path": "research-keywords.claims.0",
+              "category": "keyword"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review Linear",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Plan work faster",
+          "role": "hook",
+          "derived_from": [
+            "research-competitor",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.notion.com/product",
+              "retrieved_at": "2026-04-27T10:45:00.000Z",
+              "claim": "Competitor hook: \"Bring every team into one workspace\"",
+              "source_path": "research-competitor.claims.0",
+              "category": "competitor-hook"
+            }
+          ]
+        },
+        {
+          "text": "Connect roadmap work",
+          "role": "hook",
+          "derived_from": [
+            "research-competitor",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.notion.com/product",
+              "retrieved_at": "2026-04-27T10:45:00.000Z",
+              "claim": "Competitor hook: \"Bring every team into one workspace\"",
+              "source_path": "research-competitor.claims.0",
+              "category": "competitor-hook"
+            }
+          ]
+        },
+        {
+          "text": "Reduce planning drift",
+          "role": "hook",
+          "derived_from": [
+            "research-competitor",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.notion.com/product",
+              "retrieved_at": "2026-04-27T10:45:00.000Z",
+              "claim": "Competitor hook: \"Bring every team into one workspace\"",
+              "source_path": "research-competitor.claims.0",
+              "category": "competitor-hook"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-solution-9",
+      "awareness_level": "solution",
+      "in_market_tier": "needs-convinced",
+      "platform": "linkedin",
+      "format": "email",
+      "angle": "outcome",
+      "framework": "case-study-snapshot",
+      "duration": "30s",
+      "hook": {
+        "text": "When roadmap work scatters, planning slows.",
+        "role": "hook",
+        "derived_from": [
+          "research-keywords",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+            "retrieved_at": "2026-04-27T10:50:00.000Z",
+            "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+            "source_path": "research-keywords.claims.0",
+            "category": "keyword"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Give software teams one place for planning context.",
+          "role": "middle",
+          "derived_from": [
+            "gtm-brief",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Planning slows when context scatters.",
+          "role": "hook",
+          "derived_from": [
+            "research-keywords",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+              "retrieved_at": "2026-04-27T10:50:00.000Z",
+              "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+              "source_path": "research-keywords.claims.0",
+              "category": "keyword"
+            }
+          ]
+        },
+        {
+          "text": "Roadmaps need live issue context.",
+          "role": "hook",
+          "derived_from": [
+            "research-keywords",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+              "retrieved_at": "2026-04-27T10:50:00.000Z",
+              "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+              "source_path": "research-keywords.claims.0",
+              "category": "keyword"
+            }
+          ]
+        },
+        {
+          "text": "Product work needs one system.",
+          "role": "hook",
+          "derived_from": [
+            "research-keywords",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+              "retrieved_at": "2026-04-27T10:50:00.000Z",
+              "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+              "source_path": "research-keywords.claims.0",
+              "category": "keyword"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "gtm-brief",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-product-10",
+      "awareness_level": "product",
+      "in_market_tier": "in-market",
+      "platform": "meta",
+      "format": "video",
+      "angle": "socialProof",
+      "framework": "objection-first",
+      "duration": "30s",
+      "hook": {
+        "text": "Your roadmap should not live in fragments.",
+        "role": "hook",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep roadmap decisions connected to execution.",
+          "role": "middle",
+          "derived_from": [
+            "gtm-brief",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Issue queues can hide roadmap risk.",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Planning breaks when context splits.",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Product teams need cleaner handoffs.",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+              "source_path": "locked_brief.fields.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-product-11",
+      "awareness_level": "product",
+      "in_market_tier": "in-market",
+      "platform": "google",
+      "format": "static",
+      "angle": "curiosity",
+      "framework": "qa-style",
+      "duration": "30s",
+      "hook": {
+        "text": "Fix planning drift",
+        "role": "hook",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep planning context in one workflow.",
+          "role": "middle",
+          "derived_from": [
+            "research-voc",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review Linear",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Plan work faster",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Connect roadmap work",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Reduce planning drift",
+          "role": "hook",
+          "derived_from": [
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:05:00.000Z",
+              "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+              "source_path": "locked_brief.fields.claims.1",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:25:00.000Z",
+            "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+            "source_path": "research-icp.claims.0",
+            "category": "audience-trigger"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-product-12",
+      "awareness_level": "product",
+      "in_market_tier": "in-market",
+      "platform": "linkedin",
+      "format": "email",
+      "angle": "urgency",
+      "framework": "demo-screencast",
+      "duration": "30s",
+      "hook": {
+        "text": "When roadmap work scatters, planning slows.",
+        "role": "hook",
+        "derived_from": [
+          "research-voc",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://news.ycombinator.com/item?id=35978385",
+            "retrieved_at": "2026-04-27T10:20:00.000Z",
+            "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+            "source_path": "research-voc.claims.0",
+            "category": "audience-pain"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Give software teams one place for planning context.",
+          "role": "middle",
+          "derived_from": [
+            "research-icp",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Planning slows when context scatters.",
+          "role": "hook",
+          "derived_from": [
+            "research-voc",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        },
+        {
+          "text": "Roadmaps need live issue context.",
+          "role": "hook",
+          "derived_from": [
+            "research-voc",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        },
+        {
+          "text": "Product work needs one system.",
+          "role": "hook",
+          "derived_from": [
+            "research-voc",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://news.ycombinator.com/item?id=35978385",
+              "retrieved_at": "2026-04-27T10:20:00.000Z",
+              "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+              "source_path": "research-voc.claims.0",
+              "category": "audience-pain"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-mostAware-13",
+      "awareness_level": "mostAware",
+      "in_market_tier": "in-market",
+      "platform": "meta",
+      "format": "video",
+      "angle": "identity",
+      "framework": "interview",
+      "duration": "10s",
+      "hook": {
+        "text": "Ship with one planning system.",
+        "role": "hook",
+        "derived_from": [
+          "research-icp",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:25:00.000Z",
+            "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+            "source_path": "research-icp.claims.0",
+            "category": "audience-trigger"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep roadmap decisions connected to execution.",
+          "role": "middle",
+          "derived_from": [
+            "research-offer",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Issue queues can hide roadmap risk.",
+          "role": "hook",
+          "derived_from": [
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        },
+        {
+          "text": "Planning breaks when context splits.",
+          "role": "hook",
+          "derived_from": [
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        },
+        {
+          "text": "Product teams need cleaner handoffs.",
+          "role": "hook",
+          "derived_from": [
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/docs",
+              "retrieved_at": "2026-04-27T10:25:00.000Z",
+              "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+              "source_path": "research-icp.claims.0",
+              "category": "audience-trigger"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "synthesize-positioning",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:35:00.000Z",
+            "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+            "source_path": "synthesize-positioning.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-mostAware-14",
+      "awareness_level": "mostAware",
+      "in_market_tier": "in-market",
+      "platform": "google",
+      "format": "static",
+      "angle": "contrarian",
+      "framework": "skit-scenario",
+      "duration": "10s",
+      "hook": {
+        "text": "Fix planning drift",
+        "role": "hook",
+        "derived_from": [
+          "research-offer",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:30:00.000Z",
+            "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+            "source_path": "research-offer.claims.0",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Keep planning context in one workflow.",
+          "role": "middle",
+          "derived_from": [
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review Linear",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/product",
+            "retrieved_at": "2026-04-27T10:05:00.000Z",
+            "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+            "source_path": "locked_brief.fields.claims.1",
+            "category": "offer-strength"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Plan work faster",
+          "role": "hook",
+          "derived_from": [
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Connect roadmap work",
+          "role": "hook",
+          "derived_from": [
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        },
+        {
+          "text": "Reduce planning drift",
+          "role": "hook",
+          "derived_from": [
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/product",
+              "retrieved_at": "2026-04-27T10:30:00.000Z",
+              "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+              "source_path": "research-offer.claims.0",
+              "category": "offer-strength"
+            }
+          ]
+        }
+      ],
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    },
+    {
+      "id": "script-mostAware-15",
+      "awareness_level": "mostAware",
+      "in_market_tier": "in-market",
+      "platform": "linkedin",
+      "format": "email",
+      "angle": "painPoint",
+      "framework": "talking-head-broll",
+      "duration": "10s",
+      "hook": {
+        "text": "When roadmap work scatters, planning slows.",
+        "role": "hook",
+        "derived_from": [
+          "synthesize-positioning",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app/customers",
+            "retrieved_at": "2026-04-27T10:35:00.000Z",
+            "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+            "source_path": "synthesize-positioning.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "middle": [
+        {
+          "text": "Give software teams one place for planning context.",
+          "role": "middle",
+          "derived_from": [
+            "synthesize-media-plan",
+            "synthesize-positioning"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+              "retrieved_at": "2026-04-27T10:40:00.000Z",
+              "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+              "source_path": "synthesize-media-plan.claims.0",
+              "category": "channel-strategy"
+            }
+          ]
+        }
+      ],
+      "cta": {
+        "text": "Review the workflow",
+        "role": "cta",
+        "derived_from": [
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://linear.app",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+            "source_path": "locked_brief.fields.claims.0",
+            "category": "positioning"
+          }
+        ]
+      },
+      "hook_variants": [
+        {
+          "text": "Planning slows when context scatters.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-positioning",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Roadmaps need live issue context.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-positioning",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        },
+        {
+          "text": "Product work needs one system.",
+          "role": "hook",
+          "derived_from": [
+            "synthesize-positioning",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://linear.app/customers",
+              "retrieved_at": "2026-04-27T10:35:00.000Z",
+              "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+              "source_path": "synthesize-positioning.claims.0",
+              "category": "positioning"
+            }
+          ]
+        }
+      ],
+      "objection_handled": {
+        "text": "Switching can stay focused.",
+        "role": "middle",
+        "derived_from": [
+          "research-competitor",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.notion.com/product",
+            "retrieved_at": "2026-04-27T10:45:00.000Z",
+            "claim": "Competitor hook: \"Bring every team into one workspace\"",
+            "source_path": "research-competitor.claims.0",
+            "category": "competitor-hook"
+          }
+        ]
+      },
+      "flagged_claims": [],
+      "quality_gate": {
+        "passed": true,
+        "violations": [],
+        "auto_fixes": 0
+      }
+    }
+  ],
+  "dynamic_creative_sets": [
+    {
+      "platform": "meta",
+      "script_ids": [
+        "script-unaware-1",
+        "script-problem-4",
+        "script-solution-7",
+        "script-product-10",
+        "script-mostAware-13"
+      ]
+    },
+    {
+      "platform": "google",
+      "script_ids": [
+        "script-unaware-2",
+        "script-problem-5",
+        "script-solution-8",
+        "script-product-11",
+        "script-mostAware-14"
+      ]
+    },
+    {
+      "platform": "linkedin",
+      "script_ids": [
+        "script-unaware-3",
+        "script-problem-6",
+        "script-solution-9",
+        "script-product-12",
+        "script-mostAware-15"
+      ]
+    }
+  ],
+  "matrix_warnings": [],
+  "style_references_used": [
+    {
+      "source_url": "https://linear.app",
+      "retrieved_at": "2026-04-27T10:10:00.000Z",
+      "claim": "Linear's public site uses concise product language and short declarative headings.",
+      "source_path": "locked_brief.fields.styleReferences.0",
+      "category": "style-reference"
+    }
+  ],
+  "generated_at": "2026-04-27T11:59:06.602Z"
+}

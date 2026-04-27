@@ -1,0 +1,314 @@
+{
+  "run_id": "linear-cross-wave2",
+  "brief_snapshot_id": "brief-snapshot-linear-2026-04-27",
+  "stage": "synthesize-strategy",
+  "gtm_brief": {
+    "briefId": "brief-linear",
+    "clientId": "client-linear",
+    "createdAt": "2026-04-27T09:00:00.000Z",
+    "updatedAt": "2026-04-27T09:30:00.000Z",
+    "fields": {
+      "companyName": {
+        "value": "Linear",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "companyUrl": {
+        "value": "https://linear.app",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "category": {
+        "value": "Product development system",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "productDescription": {
+        "value": "Linear is a product development system for teams and agents to plan, build, and monitor product work.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "targetCustomer": {
+        "value": "Product and engineering teams at startups and enterprises.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "customer_page",
+            "label": "Linear customers",
+            "url": "https://linear.app/customers",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "goals": {
+        "value": "Clarify the strongest sourced themes before downstream positioning, media planning, and script generation.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "run_goal",
+            "label": "Linear GTM brief",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "campaignObjective": {
+        "value": "Support demand messaging for product and engineering teams evaluating issue tracking and product planning workflows.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "company_page",
+            "label": "Linear homepage",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "expectedOutput": {
+        "value": "A sourced cross-analysis card for downstream strategy skills.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "run_goal",
+            "label": "Linear GTM brief",
+            "url": "https://linear.app/",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      },
+      "targetMarket": {
+        "value": "Software teams that need product planning, issue tracking, customer request intake, and engineering delivery visibility.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [
+          {
+            "type": "docs_page",
+            "label": "Linear docs",
+            "url": "https://linear.app/docs",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T09:30:00.000Z"
+      }
+    }
+  },
+  "ingest_identity": {
+    "skill": "ingest-identity",
+    "stage": "ingest-identity",
+    "output_path": "runs/linear/ingest-identity/output.json",
+    "generated_at": "2026-04-27T10:05:00.000Z",
+    "canonical_company_name": "Linear",
+    "canonical_domain": "linear.app",
+    "category": "Product development system",
+    "core_keywords": ["product development", "issue tracking", "roadmap", "customer requests"],
+    "negative_keywords": ["linear algebra", "linear regression"],
+    "key_claims": [
+      {
+        "evidence_id": "identity-homepage",
+        "claim": "Linear describes itself as a product development system for teams and agents to plan, build, and monitor product work.",
+        "source_url": "https://linear.app/",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_market": {
+    "skill": "research-market",
+    "stage": "research-market-category",
+    "output_path": "runs/linear/research-market/output.json",
+    "generated_at": "2026-04-27T10:10:00.000Z",
+    "category": "Product development system",
+    "key_claims": [
+      {
+        "evidence_id": "market-docs-system",
+        "claim": "Linear groups product work across issues, projects, initiatives, cycles, customer requests, views, analytics, and integrations.",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "evidence_id": "market-projects",
+        "claim": "Linear projects are built for features or larger units of work with planned outcomes.",
+        "source_url": "https://linear.app/docs/projects",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_icp": {
+    "skill": "research-icp",
+    "stage": "research-buyer-icp",
+    "output_path": "runs/linear/research-icp/output.json",
+    "generated_at": "2026-04-27T10:20:00.000Z",
+    "persona_anchors": ["Engineering leaders scaling product delivery", "Product and design leaders coordinating roadmaps"],
+    "key_claims": [
+      {
+        "evidence_id": "icp-openai-scale",
+        "claim": "OpenAI adopted Linear across thousands of users as teams scaled and needed alignment across complex dependencies.",
+        "source_url": "https://linear.app/customers/openai",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "evidence_id": "icp-ramp-planning",
+        "claim": "Ramp uses Linear for roadmap visibility, spec lists, quarterly planning, and monthly check-ins.",
+        "source_url": "https://linear.app/customers/ramp",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_offer": {
+    "skill": "research-offer",
+    "stage": "research-offer-funnel",
+    "output_path": "runs/linear/research-offer/output.json",
+    "generated_at": "2026-04-27T10:30:00.000Z",
+    "offer_claims": [
+      {
+        "evidence_id": "offer-customer-requests",
+        "claim": "Linear customer requests connect feedback from support tools, CRM tools, email, and Slack to product work.",
+        "source_url": "https://linear.app/customer-requests",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ],
+    "key_claims": [
+      {
+        "evidence_id": "offer-customer-requests",
+        "claim": "Linear customer requests connect feedback from support tools, CRM tools, email, and Slack to product work.",
+        "source_url": "https://linear.app/customer-requests",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "evidence_id": "offer-pricing-controls",
+        "claim": "Linear Business and Enterprise plans include package differences around private teams, guests, admin controls, SAML, SCIM, and onboarding support.",
+        "source_url": "https://linear.app/pricing",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_competitor": {
+    "skill": "research-competitor",
+    "stage": "research-competitors",
+    "output_path": "runs/linear/research-competitor/output.json",
+    "generated_at": "2026-04-27T10:40:00.000Z",
+    "competitor_set": ["Jira", "GitHub Issues", "Asana"],
+    "key_claims": [
+      {
+        "evidence_id": "competitor-openai-tools",
+        "claim": "OpenAI teams previously used different tools and systems across teams before standardizing more work in Linear.",
+        "source_url": "https://linear.app/customers/openai",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "evidence_id": "competitor-retool-before",
+        "claim": "Retool's story describes legacy tools and slow processes as the before state for product and engineering work.",
+        "source_url": "https://linear.app/customers/retool",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_voc": {
+    "skill": "research-voc",
+    "stage": "research-voc",
+    "output_path": "runs/linear/research-voc/output.json",
+    "generated_at": "2026-04-27T10:50:00.000Z",
+    "objection_evidence": [
+      {
+        "evidence_id": "voc-pricing-enterprise",
+        "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+        "source_url": "https://linear.app/pricing",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ],
+    "key_claims": [
+      {
+        "evidence_id": "voc-handoffs",
+        "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+        "source_url": "https://linear.app/customers/openai",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "evidence_id": "voc-admin-controls",
+        "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+        "source_url": "https://linear.app/pricing",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  },
+  "research_keywords": {
+    "skill": "research-keywords",
+    "stage": "research-demand-intent",
+    "output_path": "runs/linear/research-keywords/output.json",
+    "generated_at": "2026-04-27T11:00:00.000Z",
+    "demand_intents": [
+      {
+        "evidence_id": "keywords-category",
+        "claim": "The category demand pattern centers on product development system, issue tracking, roadmap, customer requests, and integrations.",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ],
+    "key_claims": [
+      {
+        "evidence_id": "keywords-category",
+        "claim": "The category demand pattern centers on product development system, issue tracking, roadmap, customer requests, and integrations.",
+        "source_url": "https://linear.app/docs",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      },
+      {
+        "evidence_id": "keywords-pricing-intent",
+        "claim": "Pricing-stage demand should account for package comparison across Free, Basic, Business, and Enterprise plans.",
+        "source_url": "https://linear.app/pricing",
+        "retrieved_at": "2026-04-27T10:00:00.000Z"
+      }
+    ]
+  }
+}

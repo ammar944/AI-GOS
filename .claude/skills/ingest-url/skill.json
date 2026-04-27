@@ -1,0 +1,8 @@
+{
+  "name": "ingest-url",
+  "description": "URL intake — takes a URL, resolves company metadata, writes a prefilled field-catalog payload used as the start of a journey. Agent-collected via web_search + browser tools. TypeScript validates schema + renders review.",
+  "version": "0.1.0",
+  "categories": ["ingest"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

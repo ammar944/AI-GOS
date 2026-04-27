@@ -1,0 +1,22 @@
+{
+  "name": "research-keywords",
+  "version": "1.0.0",
+  "description": "Demand-intent keyword research for AIGOS v3. Validates sourced intent clusters, content gaps, negative terms, and provider coverage.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "validate": "node --import tsx/esm scripts/validate.ts",
+    "sanity-check": "node --import tsx/esm scripts/sanity-check.ts",
+    "test": "npm run check && npm run validate && npm run sanity-check example/output.json",
+    "orchestrate": "node --import tsx/esm scripts/orchestrate.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

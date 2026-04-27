@@ -1,0 +1,284 @@
+{
+  "run_id": "run_2026_04_27_wave4_fathom",
+  "stage": "enrich-brief",
+  "ingest_kind": "fathom",
+  "recording_id": "rec_9f4b2c8a7e1d43f0",
+  "recording_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+  "title": {
+    "value": "Northstar Ops paid media discovery call",
+    "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+    "retrieved_at": "2026-04-27T13:42:18.000Z"
+  },
+  "call_type": "discovery",
+  "speakers": [
+    {
+      "name": {
+        "value": "Maya Chen",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "role": {
+        "value": "VP Marketing at Northstar Ops",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      }
+    },
+    {
+      "name": {
+        "value": "Leo Patel",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "role": {
+        "value": "AIGOS strategist",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      }
+    }
+  ],
+  "business_health_summary": {
+    "value": "Northstar Ops has grown pipeline through outbound but paid acquisition is not producing enough qualified demo requests.",
+    "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+    "retrieved_at": "2026-04-27T13:42:18.000Z"
+  },
+  "pain_points": [
+    {
+      "pain": {
+        "value": "Paid search leads are booking demos but frequently lack buying authority.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "severity": "critical",
+      "evidence": {
+        "value": "We're getting demo bookings from search, but half of them are coordinators who cannot approve anything.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:08:14"
+      }
+    }
+  ],
+  "budget_signals": [
+    {
+      "signal": {
+        "value": "The team is currently spending $18,000 per month on Google Ads.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "evidence": {
+        "value": "Right now we are spending about eighteen thousand a month on Google Ads, and I need to justify keeping that live.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:12:31"
+      }
+    }
+  ],
+  "competitor_mentions": [
+    {
+      "name": {
+        "value": "LedgerFlow",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "sentiment": "negative",
+      "context": {
+        "value": "LedgerFlow appears in late-stage deals but is described as implementation-heavy.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "evidence": {
+        "value": "LedgerFlow comes up with finance teams, but prospects keep telling us it looks too heavy to implement.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:18:06"
+      }
+    }
+  ],
+  "buying_triggers": [
+    {
+      "trigger": {
+        "value": "A board review in six weeks is creating urgency to improve qualified pipeline reporting.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "urgency": "near_term",
+      "evidence": {
+        "value": "We have a board review in six weeks, so I need a cleaner story on qualified pipeline before then.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:20:44"
+      }
+    }
+  ],
+  "objections": [
+    {
+      "objection": {
+        "value": "The buyer is concerned about pausing campaigns during message testing.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "resolution": {
+        "value": "The strategist proposed testing new qualification messaging without pausing the existing campaigns.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "evidence": {
+        "value": "My main hesitation is we cannot go dark for two weeks while we rewrite everything.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:27:12"
+      }
+    }
+  ],
+  "icp_signals": {
+    "company_size": {
+      "value": "Northstar Ops sells to operations teams at companies with 200 to 1,000 employees.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "role": {
+      "value": "The buyer described VP Operations and finance operations leaders as the strongest opportunities.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "industry": {
+      "value": "The strongest segment discussed was B2B SaaS operations teams.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "decision_process": {
+      "value": "Marketing can recommend vendors, but finance operations and the CFO need to approve.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "decision_timeline": {
+      "value": "The team wants a plan ready before the board review in six weeks.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    }
+  },
+  "current_marketing": {
+    "channels": [
+      {
+        "value": "Google Ads",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      {
+        "value": "LinkedIn retargeting",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      }
+    ],
+    "monthly_spend": {
+      "value": "$18,000 per month on Google Ads",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "what_fails": {
+      "value": "Search campaigns are producing demo bookings from people without approval authority.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "evidence": [
+      {
+        "value": "Search is still our biggest paid channel, and LinkedIn retargeting is really just air cover right now.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:11:02"
+      }
+    ]
+  },
+  "goals_and_outcomes": {
+    "primary_goal": {
+      "value": "Improve qualified pipeline from paid campaigns before the board review.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z"
+    },
+    "success_metrics": [
+      {
+        "value": "At least 12 sales-qualified demos from paid search in the next month.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      }
+    ],
+    "evidence": [
+      {
+        "value": "If we can get twelve sales-qualified demos from paid search next month, that gives me something credible to take to the board.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:22:10"
+      }
+    ]
+  },
+  "action_items": [
+    {
+      "action": {
+        "value": "AIGOS will send a revised qualification messaging outline by Friday.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "owner": {
+        "value": "Leo Patel",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "due_date": {
+        "value": "Friday",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "evidence": {
+        "value": "I'll send the qualification messaging outline by Friday so you can review it before the campaign meeting.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Leo Patel",
+        "timestamp": "00:31:05"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "decision": {
+        "value": "The first test will target qualification messaging rather than a full campaign rebuild.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z"
+      },
+      "participants": [
+        {
+          "value": "Maya Chen",
+          "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+          "retrieved_at": "2026-04-27T13:42:18.000Z"
+        },
+        {
+          "value": "Leo Patel",
+          "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+          "retrieved_at": "2026-04-27T13:42:18.000Z"
+        }
+      ],
+      "evidence": {
+        "value": "Let's start with qualification messaging first, not a full rebuild, and see if the demo quality changes.",
+        "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+        "retrieved_at": "2026-04-27T13:42:18.000Z",
+        "speaker": "Maya Chen",
+        "timestamp": "00:29:48"
+      }
+    }
+  ],
+  "notable_quotes": [
+    {
+      "value": "I do not need more leads; I need fewer calls with people who cannot buy.",
+      "source_url": "https://fathom.video/share/9f4b2c8a7e1d43f0",
+      "retrieved_at": "2026-04-27T13:42:18.000Z",
+      "speaker": "Maya Chen",
+      "timestamp": "00:09:03"
+    }
+  ],
+  "generated_at": "2026-04-27T13:45:00.000Z"
+}

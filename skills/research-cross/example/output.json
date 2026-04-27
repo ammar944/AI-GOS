@@ -1,0 +1,224 @@
+{
+  "run_id": "linear-cross-wave2",
+  "brief_snapshot_id": "brief-snapshot-linear-2026-04-27",
+  "stage": "synthesize-strategy",
+  "company_name": "Linear",
+  "category": "Product development system",
+  "input_manifest": [
+    {
+      "skill": "ingest-identity",
+      "status": "present",
+      "generated_at": "2026-04-27T10:05:00.000Z"
+    },
+    {
+      "skill": "research-market",
+      "status": "present",
+      "generated_at": "2026-04-27T10:10:00.000Z"
+    },
+    {
+      "skill": "research-icp",
+      "status": "present",
+      "generated_at": "2026-04-27T10:20:00.000Z"
+    },
+    {
+      "skill": "research-offer",
+      "status": "present",
+      "generated_at": "2026-04-27T10:30:00.000Z"
+    },
+    {
+      "skill": "research-competitor",
+      "status": "present",
+      "generated_at": "2026-04-27T10:40:00.000Z"
+    },
+    {
+      "skill": "research-voc",
+      "status": "present",
+      "generated_at": "2026-04-27T10:50:00.000Z"
+    },
+    {
+      "skill": "research-keywords",
+      "status": "present",
+      "generated_at": "2026-04-27T11:00:00.000Z"
+    }
+  ],
+  "cross_findings": [
+    {
+      "finding": "The strongest repeated pattern is product and engineering teams needing one system for scaled planning, issue tracking, dependencies, and customer feedback intake.",
+      "finding_type": "theme",
+      "derived_from": [
+        {
+          "skill": "research-market",
+          "output_path": "runs/linear/research-market/output.json",
+          "evidence_id": "market-docs-system",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "skill": "research-icp",
+          "output_path": "runs/linear/research-icp/output.json",
+          "evidence_id": "icp-openai-scale",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "skill": "research-offer",
+          "output_path": "runs/linear/research-offer/output.json",
+          "evidence_id": "offer-customer-requests",
+          "source_url": "https://linear.app/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "evidence": [
+        {
+          "claim": "Linear groups product work across issues, projects, initiatives, cycles, customer requests, views, analytics, and integrations.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "OpenAI adopted Linear across thousands of users as teams scaled and needed alignment across complex dependencies.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Linear customer requests connect feedback from support tools, CRM tools, email, and Slack to product work.",
+          "source_url": "https://linear.app/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "finding": "Enterprise and business-package evaluation appears as a readiness risk because admin controls and onboarding requirements show up in offer and VoC evidence.",
+      "finding_type": "risk",
+      "derived_from": [
+        {
+          "skill": "research-offer",
+          "output_path": "runs/linear/research-offer/output.json",
+          "evidence_id": "offer-pricing-controls",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "skill": "research-voc",
+          "output_path": "runs/linear/research-voc/output.json",
+          "evidence_id": "voc-admin-controls",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "skill": "research-keywords",
+          "output_path": "runs/linear/research-keywords/output.json",
+          "evidence_id": "keywords-pricing-intent",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "evidence": [
+        {
+          "claim": "Linear Business and Enterprise plans include package differences around private teams, guests, admin controls, SAML, SCIM, and onboarding support.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Pricing-stage demand should account for package comparison across Free, Basic, Business, and Enterprise plans.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "contradictions": [
+    {
+      "topic": "Category scope",
+      "conflict": "The market and identity evidence frames Linear as a broad product development system, while keyword evidence narrows visible demand to issue tracking, roadmap, customer requests, and integrations.",
+      "sides": [
+        {
+          "claim": "Linear describes itself as a product development system for teams and agents to plan, build, and monitor product work.",
+          "provenance": {
+            "skill": "ingest-identity",
+            "output_path": "runs/linear/ingest-identity/output.json",
+            "evidence_id": "identity-homepage",
+            "source_url": "https://linear.app/",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        },
+        {
+          "claim": "The category demand pattern centers on product development system, issue tracking, roadmap, customer requests, and integrations.",
+          "provenance": {
+            "skill": "research-keywords",
+            "output_path": "runs/linear/research-keywords/output.json",
+            "evidence_id": "keywords-category",
+            "source_url": "https://linear.app/docs",
+            "retrieved_at": "2026-04-27T10:00:00.000Z"
+          }
+        }
+      ],
+      "resolution_needed": "Downstream positioning must decide whether to lead with the broad product development system category or more specific workflow-intent terms."
+    }
+  ],
+  "research_gaps": [
+    {
+      "gap": "Competitor evidence names current alternatives but does not provide sourced comparison details for why each alternative loses or wins against Linear.",
+      "blocked_downstream_decision": "Positioning cannot choose a comparison angle for Jira, GitHub Issues, or Asana without sourced competitor-difference evidence.",
+      "missing_from_skills": ["research-competitor"]
+    }
+  ],
+  "high_confidence_themes": [
+    {
+      "finding": "Scaled team coordination is supported by identity, ICP, competitor, and VoC evidence.",
+      "finding_type": "overlap",
+      "derived_from": [
+        {
+          "skill": "ingest-identity",
+          "output_path": "runs/linear/ingest-identity/output.json",
+          "evidence_id": "identity-homepage",
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "skill": "research-icp",
+          "output_path": "runs/linear/research-icp/output.json",
+          "evidence_id": "icp-openai-scale",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "skill": "research-voc",
+          "output_path": "runs/linear/research-voc/output.json",
+          "evidence_id": "voc-handoffs",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "evidence": [
+        {
+          "claim": "Linear describes itself as a product development system for teams and agents to plan, build, and monitor product work.",
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "OpenAI adopted Linear across thousands of users as teams scaled and needed alignment across complex dependencies.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "readiness_blockers": [
+    {
+      "gap": "Sourced competitor-difference evidence is thin for the named alternatives in the competitor set.",
+      "blocked_downstream_decision": "Downstream positioning and scripts should not claim superiority over Jira, GitHub Issues, or Asana until the competitor card includes sourced comparison evidence.",
+      "missing_from_skills": ["research-competitor"]
+    }
+  ],
+  "generated_at": "2026-04-27T11:10:00.000Z"
+}

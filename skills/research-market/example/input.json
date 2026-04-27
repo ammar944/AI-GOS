@@ -1,0 +1,755 @@
+{
+  "run_id": "run_market_linear",
+  "briefSnapshot": {
+    "snapshotId": "snapshot_market_linear",
+    "parentBriefId": "brief_linear",
+    "fields": {
+      "companyName": {
+        "value": "Linear",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "id": "src-linear-home",
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app",
+            "capturedAt": "2026-04-24T12:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "companyUrl": {
+        "value": "https://linear.app",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "id": "src-linear-home",
+            "type": "url",
+            "label": "Linear homepage",
+            "url": "https://linear.app",
+            "capturedAt": "2026-04-24T12:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "category": {
+        "value": "Product development issue tracking",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "market": {
+        "value": "Product development software",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "industryVertical": {
+        "value": "B2B SaaS",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "geography": {
+        "value": "United States",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "hqLocation": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "productDescription": {
+        "value": "Linear helps software teams plan, track, and manage product development work.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "targetCustomer": {
+        "value": "Modern software teams at SaaS companies",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "coreDeliverables": {
+        "value": "Issue tracking, roadmaps, cycles, and product planning workflows",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "useCases": {
+        "value": "Sprint planning, bug triage, roadmap planning, engineering execution",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "corePromise": {
+        "value": "Faster and cleaner product development workflows",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "firstValueMoment": {
+        "value": "A team creates and organizes its first project backlog",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "activationEvent": {
+        "value": "A workspace invites teammates and starts using issues or cycles",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "retentionDrivers": {
+        "value": "Daily engineering workflow usage and integration with development tools",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "cta": {
+        "value": "Start for free",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "packaging": {
+        "value": "Team-based SaaS plans",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "pricingModel": {
+        "value": "Subscription",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "pricingTiers": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "targetPlan": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "primaryIcpDescription": {
+        "value": "Engineering and product leaders at high-growth software companies",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "icpSegment": {
+        "value": "Product-led SaaS teams",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "jobTitles": {
+        "value": "VP Engineering, Head of Product, Engineering Manager, Product Manager",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "icpRoles": {
+        "value": "Engineering leadership and product operations",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "companySize": {
+        "value": "25-500 employees",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "buyingCommittee": {
+        "value": "Engineering leader, product leader, finance approver",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "buyingTriggers": {
+        "value": "Tool consolidation, scaling engineering teams, roadmap planning pain",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "icpPains": {
+        "value": "Slow issue tracking, noisy project management, unclear planning visibility",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "icpTriggers": {
+        "value": "Rapid hiring, missed roadmap commitments, migration away from generic tools",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "currentAlternative": {
+        "value": "Jira, Asana, Notion, spreadsheets",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "awarenessLevel": {
+        "value": "solution-aware",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "icpObjections": {
+        "value": "Migration effort, enterprise controls, feature parity with incumbent tools",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "salesMotion": {
+        "value": "Product-led with sales assist",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "gtmMotion": {
+        "value": "Inbound product-led growth",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "conversionPath": {
+        "value": "Website signup to workspace activation",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "landingPages": {
+        "value": "Homepage and product pages",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "salesHandoff": {
+        "value": "Sales-assisted expansion for larger teams",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "lifecycleConstraints": {
+        "value": "Migration and team adoption require internal process change",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "avgAcv": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "acv": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "avgCustomerLtv": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "ltv": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "targetCac": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "cacTarget": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "monthlyAdBudget": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "monthlyBudget": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "currentCac": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "monthlyRevenue": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "salesCycleLength": {
+        "value": "14-45 days",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "salesCycle": {
+        "value": "14-45 days",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "marginAssumptions": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "topCompetitors": {
+        "value": "Jira, Asana, ClickUp, Notion",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "knownCompetitors": {
+        "value": "Jira, Asana, ClickUp, Notion",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "alternatives": {
+        "value": "Generic project management, spreadsheets, internal tools",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "uniqueEdge": {
+        "value": "Opinionated workflows for software teams",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "categoryFrames": {
+        "value": "Issue tracking, product development system, project management",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "differentiation": {
+        "value": "Speed, design quality, keyboard-first workflow",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "lossReasons": {
+        "value": "Migration risk, incumbent enterprise requirements",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "competitorStrengths": {
+        "value": "Incumbent integrations, procurement familiarity, broader suite coverage",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "testimonials": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "caseStudies": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "logos": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "metrics": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "claims": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "styleReferences": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "brandPositioning": {
+        "value": "Modern product development workflow for high-performing teams",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "tone": {
+        "value": "Precise, fast, polished",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "forbiddenClaims": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "compliance": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "brandGeography": {
+        "value": "United States",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "timeline": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "goals": {
+        "value": "Grow self-serve and sales-assisted adoption among software teams",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "pipelineTarget": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "campaignObjective": {
+        "value": "Increase qualified product signups",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "expectedOutput": {
+        "value": "Market/category research artifact",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "targetMarket": {
+        "value": "Software teams in the United States",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "launchUrgency": {
+        "value": "this quarter",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "commonObjections": {
+        "value": "Migration effort, team adoption, incumbent integrations",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "keyPromises": {
+        "value": "Fast, focused product development workflows",
+        "status": "suggested",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "channels": {
+        "value": "Search, LinkedIn, content, referrals",
+        "status": "suggested",
+        "confidence": "low",
+        "sources": [],
+        "updatedBy": "ai",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "channelBudgetSplit": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "whatIsWorking": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "whatIsNotWorking": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "visitorToSignupPct": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "signupToActivationPct": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "activationToPaidPct": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "demoToCloseRate": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      },
+      "last3to6MoGrowthTrend": {
+        "value": "",
+        "status": "missing",
+        "confidence": "missing",
+        "sources": [],
+        "updatedBy": "system",
+        "updatedAt": "2026-04-24T12:00:00.000Z"
+      }
+    },
+    "briefCreatedAt": "2026-04-24T12:00:00.000Z",
+    "briefUpdatedAt": "2026-04-24T12:00:00.000Z",
+    "snapshotCreatedAt": "2026-04-24T12:00:00.000Z"
+  },
+  "priorOutputs": {
+    "ingest_identity": {
+      "canonical_company_name": "Linear",
+      "canonical_domain": "linear.app",
+      "category": "Product development issue tracking",
+      "core_keywords": [
+        "issue tracking",
+        "product development",
+        "project planning",
+        "engineering workflows"
+      ],
+      "negative_keywords": [
+        "linear algebra",
+        "linear equations",
+        "linear regression"
+      ]
+    }
+  },
+  "focus": {
+    "geography": "United States",
+    "includeParentMarketContext": true,
+    "maxSourceAgeDays": 730
+  }
+}

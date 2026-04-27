@@ -1,0 +1,206 @@
+{
+  "run_id": "voc-fixture-2026-04-27",
+  "brief_snapshot_id": "brief-snapshot-voc-fixture",
+  "stage": "research-voc",
+  "gtm_brief": {
+    "briefId": "brief-voc-fixture",
+    "clientId": "client-voc-fixture",
+    "createdAt": "2026-04-27T10:00:00.000Z",
+    "updatedAt": "2026-04-27T10:15:00.000Z",
+    "fields": {
+      "companyName": {
+        "value": "Pipedrive",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [
+          {
+            "type": "website",
+            "label": "Company site",
+            "url": "https://www.pipedrive.com",
+            "retrievedAt": "2026-04-27T10:00:00.000Z"
+          }
+        ],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "companyUrl": {
+        "value": "https://www.pipedrive.com",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "category": {
+        "value": "sales pipeline management software",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "productDescription": {
+        "value": "Software that helps sales teams track deals, activities, and pipeline follow-up.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "targetCustomer": {
+        "value": "Small and mid-market B2B sales teams",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "primaryIcpDescription": {
+        "value": "Sales managers who need cleaner deal follow-up without a heavy operations project.",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "icpPains": {
+        "value": "manual follow-up, stale deal notes, unclear next steps, inconsistent activity logging",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "currentAlternative": {
+        "value": "legacy CRM exports",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "buyingTriggers": {
+        "value": "missed follow-ups, forecast review pressure, new sales manager hire",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "icpObjections": {
+        "value": "setup time, rep adoption, data cleanup burden",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "topCompetitors": {
+        "value": "HubSpot, Salesforce",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "knownCompetitors": {
+        "value": "Zoho CRM",
+        "status": "confirmed",
+        "confidence": "high",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "alternatives": {
+        "value": "Airtable, Notion",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "market": {
+        "value": "B2B sales productivity",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "useCases": {
+        "value": "pipeline review, follow-up tracking, sales manager coaching",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      },
+      "corePromise": {
+        "value": "Cleaner pipeline visibility with less administrative effort.",
+        "status": "confirmed",
+        "confidence": "medium",
+        "sources": [],
+        "updatedBy": "user",
+        "updatedAt": "2026-04-27T10:00:00.000Z"
+      }
+    }
+  },
+  "ingest_identity": {
+    "stage": "ingest-identity",
+    "canonical_company_name": "Pipedrive",
+    "canonical_domain": "pipedrive.com",
+    "category": "sales pipeline management software",
+    "core_keywords": [
+      "sales pipeline",
+      "deal tracking",
+      "sales follow-up"
+    ],
+    "negative_keywords": [
+      "Pipedrive",
+      "HubSpot",
+      "Salesforce",
+      "Zoho CRM"
+    ]
+  },
+  "research_market": {
+    "stage": "research-market-category",
+    "category": "sales pipeline management software",
+    "category_definition": {
+      "claim": "Sales pipeline tools organize deal stages, activity records, and follow-up workflows for sales teams.",
+      "source_url": "https://en.wikipedia.org/wiki/Sales_pipeline",
+      "retrieved_at": "2026-04-27T10:20:00.000Z"
+    },
+    "pains": [
+      {
+        "claim": "Teams struggle when deal data and next actions are spread across disconnected work habits.",
+        "source_url": "https://www.reddit.com/r/sales/",
+        "retrieved_at": "2026-04-27T10:20:00.000Z"
+      }
+    ],
+    "demand_drivers": [],
+    "adoption_barriers": []
+  },
+  "research_competitor": {
+    "stage": "research-competitor",
+    "competitor_set": [
+      {
+        "name": "HubSpot",
+        "type": "direct",
+        "source_url": "https://www.hubspot.com",
+        "retrieved_at": "2026-04-27T10:21:00.000Z"
+      },
+      {
+        "name": "Salesforce",
+        "type": "direct",
+        "source_url": "https://www.salesforce.com",
+        "retrieved_at": "2026-04-27T10:21:00.000Z"
+      },
+      {
+        "name": "Zoho CRM",
+        "type": "direct",
+        "source_url": "https://www.zoho.com/crm/",
+        "retrieved_at": "2026-04-27T10:21:00.000Z"
+      }
+    ]
+  }
+}

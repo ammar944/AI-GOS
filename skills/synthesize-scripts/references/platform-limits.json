@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "hook": { "max": 125, "optimal": 80 },
+    "middle": { "max": 280, "optimal": 180 },
+    "cta": { "max": 40, "optimal": 28 },
+    "hook_variant": { "max": 125, "optimal": 80 }
+  },
+  "google": {
+    "hook": { "max": 30, "optimal": 25 },
+    "middle": { "max": 90, "optimal": 75 },
+    "cta": { "max": 30, "optimal": 25 },
+    "hook_variant": { "max": 30, "optimal": 25 }
+  },
+  "linkedin": {
+    "hook": { "max": 70, "optimal": 55 },
+    "middle": { "max": 150, "optimal": 120 },
+    "cta": { "max": 40, "optimal": 30 },
+    "hook_variant": { "max": 70, "optimal": 55 }
+  }
+}

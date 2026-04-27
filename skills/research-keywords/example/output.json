@@ -1,0 +1,249 @@
+{
+  "run_id": "linear-keywords-wave2",
+  "brief_snapshot_id": "brief-snapshot-linear-2026-04-27",
+  "stage": "research-demand-intent",
+  "company_name": "Linear",
+  "category": "Product development system",
+  "provider_status": [
+    {
+      "source_url": "https://www.spyfu.com/apis/keyword_api/docs",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "claim": "SpyFu publishes an API for keyword data, but this fixture has no live SpyFu export attached to the run."
+    },
+    {
+      "source_url": "https://developers.google.com/google-ads/api/docs/keyword-planning/generate-keyword-ideas",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "claim": "Google Ads API KeywordPlanIdeaService is the documented Google Ads surface for keyword idea and forecast workflows; no Google Ads export is attached to this fixture."
+    },
+    {
+      "source_url": "https://linear.app/docs",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "claim": "Public Linear pages and third-party comparison pages were used for query and content-gap evidence where paid metric exports were unavailable."
+    }
+  ],
+  "intent_clusters": [
+    {
+      "cluster_name": "Category and product development system intent",
+      "intent": "category",
+      "funnel_stage": "solution_aware",
+      "queries": [
+        {
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "product development system",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        },
+        {
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "issue tracking for product teams",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        }
+      ],
+      "evidence": [
+        {
+          "source_url": "https://linear.app/",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "Linear describes itself around planning, building, and tracking product work for teams and agents."
+        },
+        {
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "Linear Docs groups issues, projects, initiatives, cycles, views, AI, integrations, and analytics as product development workflows."
+        }
+      ]
+    },
+    {
+      "cluster_name": "Pricing and package evaluation intent",
+      "intent": "pricing",
+      "funnel_stage": "most_aware",
+      "queries": [
+        {
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "linear pricing business enterprise",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        },
+        {
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "linear enterprise saml scim",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        }
+      ],
+      "evidence": [
+        {
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "Linear pricing separates Free, Basic, Business, and Enterprise packaging and lists SAML, SCIM, admin controls, onboarding, and support in Enterprise context."
+        }
+      ]
+    },
+    {
+      "cluster_name": "Alternatives and comparison intent",
+      "intent": "comparison",
+      "funnel_stage": "product_aware",
+      "queries": [
+        {
+          "source_url": "https://resources.rework.com/tools/dev-tools/best-linear-alternatives",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "linear alternatives jira shortcut github issues",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        },
+        {
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "linear vs jira product teams",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        }
+      ],
+      "evidence": [
+        {
+          "source_url": "https://resources.rework.com/tools/dev-tools/best-linear-alternatives",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "A public alternatives page frames Linear against other developer and product workflow tools."
+        },
+        {
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "OpenAI's Linear story describes disconnected systems and cross-team handoff friction before standardizing workflows."
+        }
+      ]
+    },
+    {
+      "cluster_name": "Implementation workflow intent",
+      "intent": "implementation",
+      "funnel_stage": "most_aware",
+      "queries": [
+        {
+          "source_url": "https://linear.app/docs/slack",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "linear slack integration create issues",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        },
+        {
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "keyword": "linear customer requests product feedback",
+          "provider": "public_serp",
+          "metric_status": "unavailable"
+        }
+      ],
+      "evidence": [
+        {
+          "source_url": "https://linear.app/docs/slack",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "Linear's Slack docs describe creating and linking Linear issues from Slack workflows."
+        },
+        {
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "claim": "Linear's customer requests documentation connects customer feedback to issues and projects."
+        }
+      ]
+    }
+  ],
+  "paid_keyword_opportunities": [
+    {
+      "source_url": "https://developers.google.com/google-ads/api/docs/keyword-planning/generate-keyword-ideas",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "keyword": "product planning software for engineering teams",
+      "provider": "google_ads",
+      "metric_status": "unavailable"
+    },
+    {
+      "source_url": "https://www.spyfu.com/apis/keyword_api/docs",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "keyword": "jira alternative for product teams",
+      "provider": "spyfu",
+      "metric_status": "unavailable"
+    }
+  ],
+  "content_gaps": [
+    {
+      "source_url": "https://resources.rework.com/tools/dev-tools/best-linear-alternatives",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "gap": "Alternatives pages answer broad tool comparisons, while Linear-owned pages focus more on product capabilities and customer stories.",
+      "observed_query": "linear alternatives jira shortcut github issues",
+      "current_result_pattern": "Third-party alternatives pages frame Linear beside Jira, Shortcut, GitHub Issues, and other developer tools.",
+      "buyer_question": "Which Linear alternative fits a product and engineering organization that needs planning plus issue tracking?"
+    },
+    {
+      "source_url": "https://linear.app/docs/customer-requests",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "gap": "Implementation documentation exists for Slack and customer requests, but evaluators may need a combined workflow guide that connects feedback intake to issue creation.",
+      "observed_query": "linear customer requests slack issues",
+      "current_result_pattern": "Separate Linear documentation pages cover Slack and customer requests independently.",
+      "buyer_question": "How does customer feedback from Slack become prioritized product work in Linear?"
+    }
+  ],
+  "negative_keywords": [
+    {
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "keyword": "linear algebra",
+      "reason": "Identity output marks mathematical Linear meanings as unrelated to the software product development system."
+    },
+    {
+      "source_url": "https://en.wikipedia.org/wiki/Linear_regression",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "keyword": "linear regression",
+      "reason": "Searches for regression are mathematical or statistical intent rather than Linear product evaluation intent."
+    }
+  ],
+  "excluded_terms": [
+    {
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "keyword": "television",
+      "reason": "Identity output excludes television-related Linear meanings from the software product development system research frame."
+    },
+    {
+      "source_url": "https://en.wikipedia.org/wiki/Linear_equation",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "keyword": "linear equations",
+      "reason": "Linear equations indicate math education intent and are outside the canonical Linear company and category."
+    }
+  ],
+  "source_gaps": [
+    {
+      "source_url": "https://developers.google.com/google-ads/api/docs/keyword-planning/generate-keyword-ideas",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "topic": "volume",
+      "reason": "No Google Ads, SpyFu, SEMrush, or Ahrefs keyword export was attached to this fixture, so search volume values are omitted.",
+      "attempted_queries": [
+        "product development system",
+        "linear pricing business enterprise",
+        "jira alternative for product teams"
+      ]
+    },
+    {
+      "source_url": "https://www.spyfu.com/apis/keyword_api/docs",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "topic": "cpc",
+      "reason": "No paid keyword provider response with CPC data was attached to this fixture, so CPC values are omitted.",
+      "attempted_queries": [
+        "product planning software for engineering teams",
+        "jira alternative for product teams"
+      ]
+    },
+    {
+      "source_url": "https://www.semrush.com/api-documentation/",
+      "retrieved_at": "2026-04-27T10:20:00.000Z",
+      "topic": "competition",
+      "reason": "No provider response with competition or difficulty fields was attached to this fixture, so competition values are omitted.",
+      "attempted_queries": [
+        "linear alternatives jira shortcut github issues",
+        "linear vs jira product teams"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-27T10:25:00.000Z"
+}

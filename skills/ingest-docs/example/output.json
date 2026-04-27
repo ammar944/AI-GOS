@@ -1,0 +1,407 @@
+{
+  "run_id": "run-ingest-docs-fixture-2026-04-27",
+  "stage": "enrich-brief",
+  "documents": [
+    {
+      "document_id": "doc-fieldops-growth-brief",
+      "file_name": "fieldops-growth-brief.md",
+      "mime_type": "text/markdown",
+      "doc_kind": "pitch_deck",
+      "gtm_stage_tags": [
+        "ingest-identity",
+        "research-market-category",
+        "research-offer",
+        "research-competitor",
+        "research-buyer-icp",
+        "synthesize-positioning"
+      ],
+      "word_count": 134,
+      "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+      "retrieved_at": "2026-04-27T13:58:00.000Z"
+    }
+  ],
+  "brief_fragment": {
+    "companyName": {
+      "value": "FieldOps Hub",
+      "confidence": "low",
+      "evidence": [
+        {
+          "value": "FieldOps Hub",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    "companyUrl": {
+      "value": "https://fieldops.io",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "https://fieldops.io",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    "category": {
+      "value": "Field service operations software",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Field service operations software",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    "productDescription": {
+      "value": "FieldOps Hub helps regional home service companies schedule technicians, track jobs, and report capacity.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "FieldOps Hub helps regional home service companies schedule technicians, track jobs, and report capacity.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    "primaryIcpDescription": {
+      "value": "Owner-led plumbing, HVAC, and electrical companies with 15-80 employees and dispatchers still working in spreadsheets.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Owner-led plumbing, HVAC, and electrical companies with 15-80 employees and dispatchers still working in spreadsheets.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    "pricingTiers": {
+      "value": "Growth:499:monthly|Multi-Branch:1299:monthly",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Growth:499:monthly|Multi-Branch:1299:monthly",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    }
+  },
+  "field_catalog": [
+    {
+      "field_key": "companyName",
+      "label": "Company name",
+      "value": "FieldOps Hub",
+      "confidence": "low",
+      "evidence": [
+        {
+          "value": "FieldOps Hub",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "companyUrl",
+      "label": "Company URL",
+      "value": "https://fieldops.io",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "https://fieldops.io",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "category",
+      "label": "Category",
+      "value": "Field service operations software",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Field service operations software",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "productDescription",
+      "label": "Product description",
+      "value": "FieldOps Hub helps regional home service companies schedule technicians, track jobs, and report capacity.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "FieldOps Hub helps regional home service companies schedule technicians, track jobs, and report capacity.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "primaryIcpDescription",
+      "label": "Primary ICP",
+      "value": "Owner-led plumbing, HVAC, and electrical companies with 15-80 employees and dispatchers still working in spreadsheets.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Owner-led plumbing, HVAC, and electrical companies with 15-80 employees and dispatchers still working in spreadsheets.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "jobTitles",
+      "label": "Job titles",
+      "value": "Owner, Operations Manager, Dispatch Manager",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Owner, Operations Manager, Dispatch Manager",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "companySize",
+      "label": "Company size",
+      "value": "11-50, 51-200",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "11-50, 51-200",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "geography",
+      "label": "Geography",
+      "value": "United States and Canada",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "United States and Canada",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "buyingTriggers",
+      "label": "Buying triggers",
+      "value": "Missed appointments, call volume spikes, and new branch openings create urgency.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Missed appointments, call volume spikes, and new branch openings create urgency.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "pricingTiers",
+      "label": "Pricing tiers",
+      "value": "Growth:499:monthly|Multi-Branch:1299:monthly",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Growth:499:monthly|Multi-Branch:1299:monthly",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "pricingModel",
+      "label": "Pricing model",
+      "value": "monthly and seat-based",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "monthly and seat-based",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "valueProp",
+      "label": "Value proposition",
+      "value": "Cut dispatch coordination work without forcing field teams to replace their current phone workflow.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Cut dispatch coordination work without forcing field teams to replace their current phone workflow.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "topCompetitors",
+      "label": "Top competitors",
+      "value": "Jobber, ServiceTitan, Housecall Pro",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Jobber, ServiceTitan, Housecall Pro",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "commonObjections",
+      "label": "Common objections",
+      "value": "Owners worry about migrating job history and training dispatchers.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Owners worry about migrating job history and training dispatchers.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "monthlyAdBudget",
+      "label": "Monthly ad budget",
+      "value": "15000",
+      "confidence": "low",
+      "evidence": [
+        {
+          "value": "15000",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "targetCpl",
+      "label": "Target CPL",
+      "value": "75",
+      "confidence": "low",
+      "evidence": [
+        {
+          "value": "75",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    },
+    {
+      "field_key": "claimRestrictions",
+      "label": "Claim restrictions",
+      "value": "Do not promise guaranteed revenue growth or specific labor-cost reductions.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Do not promise guaranteed revenue growth or specific labor-cost reductions.",
+          "source_url": "https://storage.googleapis.com/aigos-fixtures/fieldops-growth-brief.md",
+          "retrieved_at": "2026-04-27T13:58:00.000Z"
+        }
+      ],
+      "source_document_ids": [
+        "doc-fieldops-growth-brief"
+      ]
+    }
+  ],
+  "conflicts": [],
+  "unresolved_fields": [
+    "systemsPlatforms",
+    "coreDeliverables",
+    "guarantees",
+    "currentFunnelType",
+    "uniqueEdge",
+    "competitorFrustrations",
+    "marketBottlenecks",
+    "proprietaryTech",
+    "situationBeforeBuying",
+    "desiredTransformation",
+    "salesCycleLength",
+    "salesProcessOverview",
+    "brandPositioning",
+    "customerVoice",
+    "dailyBudgetCeiling",
+    "campaignDuration",
+    "targetCac",
+    "targetSqlsPerMonth",
+    "targetDemosPerMonth",
+    "topicsToAvoid"
+  ],
+  "generated_at": "2026-04-27T13:58:00.000Z"
+}

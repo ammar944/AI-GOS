@@ -1,0 +1,7 @@
+{
+  "name": "research-competitor",
+  "description": "Section 03 — Competitor Landscape & Positioning. Agent-collected via web_search + browser tools. No external APIs. TypeScript validates schema + renders HTML.",
+  "version": "2.0.0",
+  "categories": ["research", "competitive-intelligence"],
+  "entry_point": "index.ts"
+}

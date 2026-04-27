@@ -1,0 +1,332 @@
+{
+  "run_id": "ingest-url-airtable-example",
+  "stage": "discover-url",
+  "input_url": "https://www.airtable.com",
+  "canonical_url": {
+    "value": "https://www.airtable.com",
+    "source_url": "https://www.airtable.com",
+    "retrieved_at": "2026-04-27T00:00:00.000Z"
+  },
+  "company_name": {
+    "value": "Airtable",
+    "source_url": "https://www.airtable.com",
+    "retrieved_at": "2026-04-27T00:00:00.000Z"
+  },
+  "discovered_pages": [
+    {
+      "url": "https://www.airtable.com",
+      "page_type": "homepage",
+      "title": {
+        "value": "Airtable",
+        "source_url": "https://www.airtable.com",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Airtable is an app platform that connects people and data across business workflows.",
+        "source_url": "https://www.airtable.com",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/pricing",
+      "page_type": "pricing",
+      "title": {
+        "value": "Airtable Pricing",
+        "source_url": "https://www.airtable.com/pricing",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Airtable offers Free, Team, Business, and Enterprise Scale plans.",
+        "source_url": "https://www.airtable.com/pricing",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/product",
+      "page_type": "product",
+      "title": {
+        "value": "Airtable Product",
+        "source_url": "https://www.airtable.com/product",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Build apps on shared data and automate workflows across teams.",
+        "source_url": "https://www.airtable.com/product",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/customer-stories",
+      "page_type": "customers",
+      "title": {
+        "value": "Airtable Customer Stories",
+        "source_url": "https://www.airtable.com/customer-stories",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Customer stories show how teams run workflows and operations on Airtable.",
+        "source_url": "https://www.airtable.com/customer-stories",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/customers",
+      "page_type": "customers",
+      "title": {
+        "value": "Airtable Customers",
+        "source_url": "https://www.airtable.com/customers",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Teams use Airtable to manage product operations, marketing, finance, and more.",
+        "source_url": "https://www.airtable.com/customers",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/about",
+      "page_type": "about",
+      "title": {
+        "value": "About Airtable",
+        "source_url": "https://www.airtable.com/about",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Airtable helps teams bring their data and workflows together.",
+        "source_url": "https://www.airtable.com/about",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/contact-sales",
+      "page_type": "demo",
+      "title": {
+        "value": "Contact Sales",
+        "source_url": "https://www.airtable.com/contact-sales",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      },
+      "excerpt": {
+        "value": "Airtable offers contact-sales paths for larger teams and enterprise needs.",
+        "source_url": "https://www.airtable.com/contact-sales",
+        "retrieved_at": "2026-04-27T00:00:00.000Z"
+      }
+    }
+  ],
+  "prefilled_fields": [
+    {
+      "field_key": "companyName",
+      "label": "Company Name",
+      "value": "Airtable",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Airtable",
+          "source_url": "https://www.airtable.com",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "The company name is stated on the homepage."
+    },
+    {
+      "field_key": "companyUrl",
+      "label": "Company URL",
+      "value": "https://www.airtable.com",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "https://www.airtable.com",
+          "source_url": "https://www.airtable.com",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Normalized from the submitted website URL."
+    },
+    {
+      "field_key": "productDescription",
+      "label": "Product Description",
+      "value": "Airtable is an app platform for connecting people, data, and business workflows.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Airtable is an app platform that connects people and data across business workflows.",
+          "source_url": "https://www.airtable.com",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Homepage copy describes the product category and workflow use."
+    },
+    {
+      "field_key": "targetCustomer",
+      "label": "Target Customer",
+      "value": "Business teams that need shared apps, data, and workflow coordination.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Teams use Airtable to manage product operations, marketing, finance, and more.",
+          "source_url": "https://www.airtable.com/customers",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Customer page copy describes cross-functional business teams."
+    },
+    {
+      "field_key": "corePromise",
+      "label": "Core Promise",
+      "value": "Connect people and data across business workflows.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Airtable is an app platform that connects people and data across business workflows.",
+          "source_url": "https://www.airtable.com",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Legacy valueProp was normalized to corePromise from homepage copy."
+    },
+    {
+      "field_key": "coreDeliverables",
+      "label": "Core Deliverables",
+      "value": "Apps on shared data, workflow automation, and cross-team operational views.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Build apps on shared data and automate workflows across teams.",
+          "source_url": "https://www.airtable.com/product",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Product page copy names the main deliverables."
+    },
+    {
+      "field_key": "pricingModel",
+      "label": "Pricing Model",
+      "value": "subscription",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Airtable offers Free, Team, Business, and Enterprise Scale plans.",
+          "source_url": "https://www.airtable.com/pricing",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Plan tiers on the pricing page support a subscription pricing model."
+    },
+    {
+      "field_key": "pricingTiers",
+      "label": "Pricing Tiers",
+      "value": "Free, Team, Business, and Enterprise Scale plans.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Airtable offers Free, Team, Business, and Enterprise Scale plans.",
+          "source_url": "https://www.airtable.com/pricing",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Pricing page lists public plan tiers."
+    },
+    {
+      "field_key": "conversionPath",
+      "label": "Conversion Path",
+      "value": "freemium",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Airtable offers Free, Team, Business, and Enterprise Scale plans.",
+          "source_url": "https://www.airtable.com/pricing",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "A public Free plan supports the freemium conversion path."
+    },
+    {
+      "field_key": "salesMotion",
+      "label": "Sales Motion",
+      "value": "hybrid",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Airtable offers contact-sales paths for larger teams and enterprise needs.",
+          "source_url": "https://www.airtable.com/contact-sales",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "The site has public plans and a contact-sales path."
+    },
+    {
+      "field_key": "industryVertical",
+      "label": "Industry Vertical",
+      "value": "Work management and no-code application platform.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Build apps on shared data and automate workflows across teams.",
+          "source_url": "https://www.airtable.com/product",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Product page copy supports the vertical framing."
+    },
+    {
+      "field_key": "primaryIcpDescription",
+      "label": "Primary ICP Description",
+      "value": "Teams coordinating operations across product, marketing, finance, and other business functions.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "Teams use Airtable to manage product operations, marketing, finance, and more.",
+          "source_url": "https://www.airtable.com/customers",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Customer page copy identifies cross-functional teams and use contexts."
+    },
+    {
+      "field_key": "caseStudies",
+      "label": "Case Studies",
+      "value": "https://www.airtable.com/customer-stories",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "https://www.airtable.com/customer-stories",
+          "source_url": "https://www.airtable.com/customer-stories",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Customer stories page was discovered on the same domain."
+    },
+    {
+      "field_key": "testimonials",
+      "label": "Testimonials",
+      "value": "https://www.airtable.com/customers",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "value": "https://www.airtable.com/customers",
+          "source_url": "https://www.airtable.com/customers",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Customers page was discovered on the same domain."
+    },
+    {
+      "field_key": "hqLocation",
+      "label": "HQ Location",
+      "value": "San Francisco, California",
+      "confidence": "low",
+      "evidence": [
+        {
+          "value": "San Francisco, California",
+          "source_url": "https://www.airtable.com/about",
+          "retrieved_at": "2026-04-27T00:00:00.000Z"
+        }
+      ],
+      "reason": "Legacy headquartersLocation was normalized to hqLocation."
+    }
+  ],
+  "unresolved_fields": [
+    "avgAcv",
+    "topCompetitors"
+  ],
+  "generated_at": "2026-04-27T00:00:00.000Z"
+}

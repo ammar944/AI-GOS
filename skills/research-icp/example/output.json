@@ -1,0 +1,320 @@
+{
+  "run_id": "linear-icp-wave1",
+  "brief_snapshot_id": "brief-snapshot-linear-2026-04-27",
+  "stage": "research-buyer-icp",
+  "company_name": "Linear",
+  "category": "Product development system",
+  "persona_anchors": [
+    {
+      "persona_name": "Engineering leaders scaling product delivery",
+      "role_family": "Engineering",
+      "seniority": "Head, VP, Staff, Engineering Manager",
+      "company_context": [
+        {
+          "claim": "OpenAI adopted Linear across thousands of users as teams scaled and needed alignment across complex dependencies.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Ramp uses Linear as a core engineering workflow while scaling a high-velocity engineering, product, and design organization.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "pains": [
+        {
+          "claim": "Disconnected team tools and local workflows can make cross-team collaboration difficult as organizations scale.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Legacy tools and slow processes made it harder for Retool teams to balance product work with business-critical maintenance.",
+          "source_url": "https://linear.app/customers/retool",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "triggers": [
+        {
+          "claim": "Scaling from small teams to thousands of employees created a need for systems that reduce friction and preserve speed.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Ramp's constant stream of product feedback became hard to manage as the company grew.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "objections": [
+        {
+          "claim": "Enterprise evaluation may involve SAML, SCIM, granular admin controls, invoice or PO billing, and onboarding support.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Workspace admins or owners are required to configure the Slack integration for the workspace.",
+          "source_url": "https://linear.app/docs/slack",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "current_alternatives": [
+        {
+          "claim": "OpenAI teams previously used different tools and systems across teams, creating islands of process.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Retool's story names legacy tools and slow processes as the before state.",
+          "source_url": "https://linear.app/customers/retool",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "persona_name": "Product and design leaders coordinating roadmaps",
+      "role_family": "Product and Design",
+      "seniority": "Head, VP, Product Manager, Design Leader",
+      "company_context": [
+        {
+          "claim": "Ramp's design and product organization uses Linear for roadmap visibility, spec lists, quarterly planning, and monthly check-ins.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Linear's projects feature is built for features or large units of work with planned outcomes and optional documents.",
+          "source_url": "https://linear.app/docs/projects",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "pains": [
+        {
+          "claim": "Product planning needs visibility into ownership, roadmap pieces, and context in one place.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Customer requests need to be linked to issues or projects so feedback is accessible to product teams.",
+          "source_url": "https://linear.app/docs/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "triggers": [
+        {
+          "claim": "Quarterly planning and monthly check-ins can trigger evaluation of roadmap and project planning workflows.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Customer feedback from support tools, CRM tools, email, and Slack can trigger customer-request workflows in Linear.",
+          "source_url": "https://linear.app/customer-requests",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "objections": [
+        {
+          "claim": "Product leaders may need to verify that timeline views, projects, initiatives, and customer requests cover planning needs without overloading issue-level workflows.",
+          "source_url": "https://linear.app/docs/timeline",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Business plan features such as private teams, guests, Linear Insights, Linear Asks, and Zendesk or Intercom integrations affect package selection.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "current_alternatives": [
+        {
+          "claim": "Ramp previously used separate software for Gantt charts before using Linear roadmap views.",
+          "source_url": "https://linear.app/customers/ramp",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        },
+        {
+          "claim": "Projects can attach resources, documents, links, milestones, and progress graphs, replacing scattered planning artifacts for project work.",
+          "source_url": "https://linear.app/docs/project-overview",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "awareness_stages": [
+    {
+      "stage": "unaware",
+      "evidence": [
+        {
+          "claim": "Small teams can initially coordinate work in their heads or through chat before scale makes friction visible.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "message_implication": "Early-stage buyers may not name the category yet; evidence should start from ordinary coordination friction."
+    },
+    {
+      "stage": "problem_aware",
+      "evidence": [
+        {
+          "claim": "OpenAI's story describes cross-team handoffs, stale statuses, and disconnected systems as collaboration problems.",
+          "source_url": "https://linear.app/customers/openai",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "message_implication": "Problem-aware buyers can be anchored on handoff failure, tool friction, and scaling coordination pain."
+    },
+    {
+      "stage": "solution_aware",
+      "evidence": [
+        {
+          "claim": "Linear Docs groups product features across issues, projects, initiatives, cycles, views, AI, integrations, and analytics.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "message_implication": "Solution-aware buyers are likely evaluating issue tracking and product planning workflows as a connected system."
+    },
+    {
+      "stage": "product_aware",
+      "evidence": [
+        {
+          "claim": "The Linear customers page presents customer stories from OpenAI, Ramp, Brex, Scale, Mercury, Cash App, Retool, and others.",
+          "source_url": "https://linear.app/customers",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "message_implication": "Product-aware buyers can use customer evidence to compare whether Linear fits teams like theirs."
+    },
+    {
+      "stage": "most_aware",
+      "evidence": [
+        {
+          "claim": "Linear's pricing page lists Free, Basic, Business, and Enterprise packaging, with Enterprise sold as custom annual billing.",
+          "source_url": "https://linear.app/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z"
+        }
+      ],
+      "message_implication": "Most-aware buyers are ready for package, admin, security, rollout, and procurement details."
+    }
+  ],
+  "job_titles": [
+    {
+      "title": "Head of Engineering",
+      "department": "Engineering",
+      "seniority": "Head",
+      "buying_role": "economic_buyer",
+      "source_url": "https://linear.app/customers/ramp",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "title": "Engineering Manager",
+      "department": "Engineering",
+      "seniority": "Manager",
+      "buying_role": "champion",
+      "source_url": "https://linear.app/customers/retool",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "title": "Staff Product Manager",
+      "department": "Product",
+      "seniority": "Staff",
+      "buying_role": "champion",
+      "source_url": "https://linear.app/customers/scale",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "title": "Vice President of Design",
+      "department": "Design",
+      "seniority": "VP",
+      "buying_role": "influencer",
+      "source_url": "https://linear.app/customers/ramp",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "title": "Product Manager",
+      "department": "Product",
+      "seniority": "Manager",
+      "buying_role": "user",
+      "source_url": "https://linear.app/careers",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "title": "Solutions Engineer",
+      "department": "GTM",
+      "seniority": "Individual contributor",
+      "buying_role": "technical_evaluator",
+      "source_url": "https://linear.app/careers",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    }
+  ],
+  "search_intent": [
+    {
+      "query_pattern": "cross team issue tracking handoffs getting lost",
+      "intent": "problem",
+      "likely_persona": "Engineering leaders scaling product delivery",
+      "source_url": "https://linear.app/customers/openai",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "query_pattern": "product development system for teams and agents",
+      "intent": "category",
+      "likely_persona": "Product and design leaders coordinating roadmaps",
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "query_pattern": "linear slack integration create issues from slack",
+      "intent": "implementation",
+      "likely_persona": "Engineering leaders scaling product delivery",
+      "source_url": "https://linear.app/docs/slack",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "query_pattern": "linear customer requests product feedback",
+      "intent": "solution",
+      "likely_persona": "Product and design leaders coordinating roadmaps",
+      "source_url": "https://linear.app/docs/customer-requests",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "query_pattern": "linear pricing business enterprise",
+      "intent": "pricing",
+      "likely_persona": "Engineering leaders scaling product delivery",
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "query_pattern": "linear alternatives jira shortcut github issues",
+      "intent": "competitor",
+      "likely_persona": "Product and design leaders coordinating roadmaps",
+      "source_url": "https://resources.rework.com/tools/dev-tools/best-linear-alternatives",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    }
+  ],
+  "buying_committee_notes": [
+    {
+      "claim": "Enterprise package evaluation includes invoice or PO billing, SAML and SCIM, granular admin controls, security, onboarding, priority support, and account management.",
+      "source_url": "https://linear.app/pricing",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "claim": "Slack integration setup requires a workspace admin, or an owner on Enterprise, to configure the integration.",
+      "source_url": "https://linear.app/docs/slack",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "claim": "Customer Requests can be enabled by admins and then used by workspace members to add customer feedback to issues and projects.",
+      "source_url": "https://linear.app/docs/customer-requests",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    }
+  ],
+  "exclusions": [
+    {
+      "claim": "Do not include linear algebra, equations, television, or regression results when researching Linear because the identity source sets those as negative keywords.",
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    },
+    {
+      "claim": "Do not treat broad non-software project management teams as the core ICP unless the source ties them to product development, engineering, customer feedback, or software delivery workflows.",
+      "source_url": "https://linear.app/",
+      "retrieved_at": "2026-04-27T10:00:00.000Z"
+    }
+  ],
+  "generated_at": "2026-04-27T10:15:00.000Z"
+}

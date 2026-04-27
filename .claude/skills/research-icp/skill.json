@@ -1,0 +1,8 @@
+{
+  "name": "research-icp",
+  "description": "Buyer and ICP research — discovers persona anchors, awareness stages, job titles, pains, and purchase triggers from public sources. Fan-out pattern, sourced output.",
+  "version": "0.1.0",
+  "categories": ["research"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

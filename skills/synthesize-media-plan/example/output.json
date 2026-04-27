@@ -1,0 +1,655 @@
+{
+  "run_id": "run-media-plan-001",
+  "brief_snapshot_id": "brief-snapshot-001",
+  "stage": "generate-media-plan",
+  "company_name": "HubSpot",
+  "strategic_frame": {
+    "business_model": {
+      "value": "Hybrid sales-assisted subscription motion: paid media should qualify CRM and marketing automation demand into demo conversations rather than chase low-intent reach.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.hubspot.com/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "HubSpot publishes pricing and demo paths for its software suite."
+        }
+      ]
+    },
+    "awareness_level": {
+      "value": "Solution-aware: the ICP already understands CRM and pipeline software categories, so the plan should compare workflow outcomes rather than explain the category from zero.",
+      "derived_from": [
+        "gtm-brief",
+        "research-icp",
+        "research-keywords"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.g2.com/categories/crm",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "G2 maintains public CRM category pages used by software buyers."
+        }
+      ]
+    },
+    "sales_cycle_ceiling": {
+      "value": "Use a 30 to 60 day learning window because the brief describes a demo-required sales handoff and a subscription ACV that needs sales-assisted evaluation.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.salesforce.com/sales/sales-pipeline/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "Salesforce pipeline guidance frames pipeline visibility as a sales-process discipline."
+        }
+      ]
+    },
+    "in_market_tier_mix": {
+      "value": "Allocate the first learning cycle toward in-market and problem-aware revenue teams: roughly 70% in-market CRM demand and 30% problem-aware pipeline clarity education.",
+      "derived_from": [
+        "gtm-brief",
+        "research-icp",
+        "research-keywords"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.hubspot.com/products",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "CRM and marketing software product pages indicate active category demand around connected customer data."
+        }
+      ]
+    }
+  },
+  "channel_mix": [
+    {
+      "value": "LinkedIn as the primary B2B qualification channel for revenue leaders and operations buyers.",
+      "derived_from": [
+        "research-icp",
+        "gtm-brief"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "LinkedIn Marketing Solutions publishes B2B marketing resources for professional audiences."
+        }
+      ]
+    },
+    {
+      "value": "Meta as a lower-cost creative learning channel for educational problem-solution angles before scaling the winning narrative.",
+      "derived_from": [
+        "research-icp",
+        "synthesize-positioning"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.facebook.com/business/ads-guide",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "Meta publishes advertiser guidance for campaign setup and creative testing."
+        }
+      ]
+    }
+  ],
+  "audience_campaign_matrix": [
+    {
+      "platform": "linkedin",
+      "name": "Revenue Leaders CRM Clarity",
+      "objective": {
+        "value": "Drive qualified demo conversations from revenue leaders who already recognize the CRM and pipeline-visibility problem.",
+        "derived_from": [
+          "gtm-brief",
+          "research-icp",
+          "research-offer"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.hubspot.com/products/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "The brief names VP Marketing, Head of Demand Generation, and Revenue Operations Lead as target roles."
+          }
+        ]
+      },
+      "audience": {
+        "value": "B2B marketing, demand generation, and revenue operations leaders at growing companies with campaign handoff pain.",
+        "derived_from": [
+          "gtm-brief",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "LinkedIn Marketing Solutions provides professional-audience marketing resources."
+          }
+        ]
+      },
+      "budget_share_pct": 60
+    },
+    {
+      "platform": "meta",
+      "name": "Pipeline Follow-Up Education",
+      "objective": {
+        "value": "Test educational creative that turns campaign follow-up frustration into a CRM-backed workflow conversation.",
+        "derived_from": [
+          "synthesize-positioning",
+          "research-offer",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.hubspot.com/products",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "HubSpot product materials connect CRM, marketing, and sales tools in one product suite."
+          }
+        ]
+      },
+      "audience": {
+        "value": "Broad B2B operators interested in marketing automation, CRM, and sales pipeline improvement.",
+        "derived_from": [
+          "research-keywords",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.hubspot.com/products",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "CRM software and marketing software are public product categories in HubSpot's suite."
+          }
+        ]
+      },
+      "budget_share_pct": 40
+    }
+  ],
+  "creative_angle_system": [
+    {
+      "value": "Pipeline clarity angle: show the cost of campaign source data living outside the CRM follow-up process.",
+      "derived_from": [
+        "gtm-brief",
+        "synthesize-positioning",
+        "research-icp"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.hubspot.com/products/crm",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "HubSpot describes CRM software around connected customer data and team workflows."
+        }
+      ]
+    },
+    {
+      "value": "Sales handoff angle: contrast slow manual follow-up with a visible next-step workflow after demo requests.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.salesforce.com/sales/sales-pipeline/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "Salesforce pipeline guidance connects process visibility to sales pipeline management."
+        }
+      ]
+    },
+    {
+      "value": "One platform angle: position the offer as a way to bring marketing activity, contact records, and sales action into the same operating view.",
+      "derived_from": [
+        "synthesize-positioning",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.hubspot.com/products",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "HubSpot publishes a product suite spanning CRM, marketing, sales, and customer platform use cases."
+        }
+      ]
+    }
+  ],
+  "sales_process_guidance": [
+    {
+      "value": "Route demo requests to sales within one business day and use the first call to map current campaign handoff gaps before pitching the platform.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.hubspot.com/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "The locked brief states that qualified demo requests route to sales within one business day."
+        }
+      ]
+    },
+    {
+      "value": "Use sales notes to tag whether the prospect's main problem is source attribution, follow-up ownership, or pipeline reporting.",
+      "derived_from": [
+        "research-icp",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.salesforce.com/sales/sales-pipeline/",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "Salesforce pipeline guidance emphasizes sales-process visibility and pipeline management."
+        }
+      ]
+    }
+  ],
+  "industry_benchmarks": [
+    {
+      "metric": "B2B paid social learning window",
+      "range": {
+        "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+        "retrieved_at": "2026-04-27T10:00:00.000Z",
+        "claim": "Use a multi-week read before making channel-level conclusions for B2B paid social tests."
+      },
+      "interpretation": {
+        "value": "The first read should judge whether the right roles are engaging and booking sales conversations, not whether the whole account economics are proven immediately.",
+        "derived_from": [
+          "research-icp",
+          "gtm-brief"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "LinkedIn Marketing Solutions publishes B2B marketing resources for professional audiences."
+          }
+        ]
+      },
+      "levers_to_move_it": [
+        {
+          "value": "Tighten sales qualification around pipeline handoff pain so low-fit demo requests do not consume sales capacity.",
+          "derived_from": [
+            "gtm-brief",
+            "research-offer"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.hubspot.com/pricing",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "The brief defines a demo-required path and sales handoff."
+            }
+          ]
+        },
+        {
+          "value": "Add a pre-call diagnostic that identifies whether the buyer needs source attribution, follow-up ownership, or reporting clarity.",
+          "derived_from": [
+            "research-icp",
+            "research-offer"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.salesforce.com/sales/sales-pipeline/",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "Salesforce pipeline guidance discusses pipeline visibility as a sales-process discipline."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "rollout_phases": [
+    {
+      "phase": 1,
+      "name": "Focused Learning Launch",
+      "duration": "Weeks 1-3",
+      "objectives": [
+        {
+          "value": "Validate whether LinkedIn revenue-leader targeting and Meta educational angles produce qualified demo conversations.",
+          "derived_from": [
+            "research-icp",
+            "research-offer",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.hubspot.com/products/crm",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "The brief identifies revenue leaders as the ICP and demo requests as the conversion path."
+            }
+          ]
+        }
+      ],
+      "campaigns": [
+        {
+          "platform": "linkedin",
+          "name": "Revenue Leaders CRM Clarity",
+          "objective": {
+            "value": "Start with the highest-fit professional audience to protect the first learning cycle.",
+            "derived_from": [
+              "research-icp",
+              "gtm-brief"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "LinkedIn Marketing Solutions publishes B2B marketing resources for professional audiences."
+              }
+            ]
+          },
+          "audience": {
+            "value": "Marketing, demand generation, and revenue operations leaders at growing B2B companies.",
+            "derived_from": [
+              "research-icp",
+              "gtm-brief"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.hubspot.com/products/crm",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "The locked brief names VP Marketing, Head of Demand Generation, and Revenue Operations Lead."
+              }
+            ]
+          },
+          "budget_share_pct": 60
+        },
+        {
+          "platform": "meta",
+          "name": "Pipeline Follow-Up Education",
+          "objective": {
+            "value": "Test lower-cost education angles before giving Meta more of the budget.",
+            "derived_from": [
+              "synthesize-positioning",
+              "research-icp"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.facebook.com/business/ads-guide",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "Meta publishes advertiser guidance for creative testing."
+              }
+            ]
+          },
+          "audience": {
+            "value": "B2B operators interested in CRM, marketing automation, and pipeline process improvement.",
+            "derived_from": [
+              "research-keywords",
+              "research-icp"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.hubspot.com/products",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "HubSpot product pages cover CRM and marketing software."
+              }
+            ]
+          },
+          "budget_share_pct": 40
+        }
+      ],
+      "decision_gate": {
+        "value": "Move to Phase 2 when sales confirms that demo requests include at least one of the named ICP roles and a concrete pipeline handoff problem.",
+        "derived_from": [
+          "gtm-brief",
+          "research-offer",
+          "research-icp"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.hubspot.com/products/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "The brief defines the ICP roles and the sales handoff path."
+          }
+        ]
+      }
+    },
+    {
+      "phase": 2,
+      "name": "Narrative Tightening",
+      "duration": "Weeks 4-7",
+      "objectives": [
+        {
+          "value": "Shift budget toward the platform and angle that produces the strongest sales-call fit.",
+          "derived_from": [
+            "research-offer",
+            "research-icp"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.hubspot.com/pricing",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "The offer evidence points to demo quality and sales handoff as the conversion path."
+            }
+          ]
+        }
+      ],
+      "campaigns": [
+        {
+          "platform": "linkedin",
+          "name": "Revenue Leaders CRM Clarity",
+          "objective": {
+            "value": "Keep the primary campaign centered on qualified demo conversations from revenue leaders.",
+            "derived_from": [
+              "research-icp",
+              "gtm-brief"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.hubspot.com/products/crm",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "The brief identifies revenue leaders and demo-required conversion."
+              }
+            ]
+          },
+          "audience": {
+            "value": "Revenue leaders with CRM and campaign follow-up pain.",
+            "derived_from": [
+              "research-icp",
+              "research-keywords"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.g2.com/categories/crm",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "G2 maintains public CRM category pages used by software buyers."
+              }
+            ]
+          },
+          "budget_share_pct": 70
+        },
+        {
+          "platform": "meta",
+          "name": "Pipeline Follow-Up Education",
+          "objective": {
+            "value": "Keep Meta only if it produces sales-call themes that match the target pipeline handoff pain.",
+            "derived_from": [
+              "synthesize-positioning",
+              "research-offer"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.hubspot.com/products",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "HubSpot product materials connect CRM, marketing, and sales tools in one suite."
+              }
+            ]
+          },
+          "audience": {
+            "value": "B2B operators responding to CRM-backed workflow education.",
+            "derived_from": [
+              "research-icp",
+              "synthesize-positioning"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.facebook.com/business/ads-guide",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "Meta publishes advertiser guidance for creative testing."
+              }
+            ]
+          },
+          "budget_share_pct": 30
+        }
+      ],
+      "decision_gate": {
+        "value": "Move to Phase 3 when the winning angle is clear enough for the script skill to produce focused ad variants.",
+        "derived_from": [
+          "synthesize-positioning",
+          "research-offer"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.hubspot.com/products/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "The positioning output anchors the narrative around CRM-backed pipeline clarity."
+          }
+        ]
+      }
+    },
+    {
+      "phase": 3,
+      "name": "Controlled Scale",
+      "duration": "Weeks 8-12",
+      "objectives": [
+        {
+          "value": "Scale the strongest platform and creative angle while preserving sales qualification discipline.",
+          "derived_from": [
+            "research-offer",
+            "research-icp",
+            "gtm-brief"
+          ],
+          "evidence": [
+            {
+              "source_url": "https://www.hubspot.com/pricing",
+              "retrieved_at": "2026-04-27T10:00:00.000Z",
+              "claim": "The locked brief defines demo-required conversion and one-business-day sales handoff."
+            }
+          ]
+        }
+      ],
+      "campaigns": [
+        {
+          "platform": "linkedin",
+          "name": "Revenue Leaders CRM Clarity",
+          "objective": {
+            "value": "Scale LinkedIn only if sales confirms that the campaign is reaching the intended buyer roles.",
+            "derived_from": [
+              "research-icp",
+              "gtm-brief"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.hubspot.com/products/crm",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "The brief names B2B revenue leaders as target customers."
+              }
+            ]
+          },
+          "audience": {
+            "value": "Revenue leaders and operations buyers with pipeline reporting and follow-up pain.",
+            "derived_from": [
+              "research-icp",
+              "research-keywords"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.g2.com/categories/crm",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "G2 CRM category pages show CRM as an active software buying category."
+              }
+            ]
+          },
+          "budget_share_pct": 80
+        },
+        {
+          "platform": "meta",
+          "name": "Pipeline Follow-Up Education",
+          "objective": {
+            "value": "Keep Meta as a secondary learning channel for angle discovery, not the main qualification engine.",
+            "derived_from": [
+              "research-icp",
+              "synthesize-positioning"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.facebook.com/business/ads-guide",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "Meta publishes advertiser guidance for creative testing."
+              }
+            ]
+          },
+          "audience": {
+            "value": "B2B operators interested in CRM-backed pipeline workflow education.",
+            "derived_from": [
+              "research-keywords",
+              "research-icp"
+            ],
+            "evidence": [
+              {
+                "source_url": "https://www.hubspot.com/products",
+                "retrieved_at": "2026-04-27T10:00:00.000Z",
+                "claim": "HubSpot product pages cover CRM and marketing software."
+              }
+            ]
+          },
+          "budget_share_pct": 20
+        }
+      ],
+      "decision_gate": {
+        "value": "Continue scaling only if sales feedback shows the majority of conversations match the ICP and conversion-path assumptions.",
+        "derived_from": [
+          "gtm-brief",
+          "research-offer"
+        ],
+        "evidence": [
+          {
+            "source_url": "https://www.hubspot.com/products/crm",
+            "retrieved_at": "2026-04-27T10:00:00.000Z",
+            "claim": "The locked brief defines ICP roles, conversion path, and sales handoff expectations."
+          }
+        ]
+      }
+    }
+  ],
+  "strategy_snapshot": [
+    {
+      "value": "Lead with LinkedIn because the plan needs qualified revenue-leader demo conversations before broader creative learning.",
+      "derived_from": [
+        "research-icp",
+        "gtm-brief"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://business.linkedin.com/marketing-solutions/blog",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "LinkedIn Marketing Solutions publishes B2B marketing resources for professional audiences."
+        }
+      ]
+    },
+    {
+      "value": "Use Meta as the secondary creative-learning channel for pipeline follow-up education.",
+      "derived_from": [
+        "research-icp",
+        "synthesize-positioning"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.facebook.com/business/ads-guide",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "Meta publishes advertiser guidance for creative testing."
+        }
+      ]
+    },
+    {
+      "value": "Make sales-call quality the decision gate because the conversion path is demo-required and sales-assisted.",
+      "derived_from": [
+        "gtm-brief",
+        "research-offer"
+      ],
+      "evidence": [
+        {
+          "source_url": "https://www.hubspot.com/pricing",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "claim": "HubSpot pricing materials include sales contact and demo paths."
+        }
+      ]
+    }
+  ],
+  "validation_warnings": [],
+  "generated_at": "2026-04-27T10:00:00.000Z"
+}

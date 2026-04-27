@@ -1,0 +1,8 @@
+{
+  "name": "ingest-docs",
+  "description": "User-uploaded business document intake — parses PDFs and DOCX files the user provides, extracts structured business-profile fields into reusable context.",
+  "version": "0.1.0",
+  "categories": ["ingest"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

@@ -1,0 +1,22 @@
+{
+  "name": "ingest-docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Document ingest for AIGOS v3 enrich-brief stage. Parses uploaded business documents and emits sourced brief fragments.",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "validate": "node --import tsx/esm scripts/validate.ts",
+    "sanity-check": "node --import tsx/esm scripts/sanity-check.ts",
+    "orchestrate": "node --import tsx/esm scripts/orchestrate.ts",
+    "test": "npm run check && npm run validate && npm run sanity-check example/output.json && npm run orchestrate -- example"
+  },
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

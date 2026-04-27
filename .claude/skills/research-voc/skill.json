@@ -1,0 +1,8 @@
+{
+  "name": "research-voc",
+  "description": "Voice-of-customer mining — collects reviews, Reddit, HN, and publication signal. Extracts verbatim customer language with source_url and retrieved_at.",
+  "version": "0.1.0",
+  "categories": ["research"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

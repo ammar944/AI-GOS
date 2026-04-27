@@ -1,0 +1,42 @@
+{
+  "tier1_always_replace": {
+    "leverage": "use",
+    "utilize": "use",
+    "robust": "strong",
+    "comprehensive": "complete",
+    "streamline": "simplify",
+    "empower": "help",
+    "delve": "look into",
+    "showcase": "show"
+  },
+  "banned_phrases": [
+    "in today's landscape",
+    "in today's fast-paced world",
+    "picture this",
+    "here's the thing",
+    "game changer",
+    "unlock your potential",
+    "take it to the next level"
+  ],
+  "template_openers": [
+    "^in today's",
+    "^picture this",
+    "^imagine this",
+    "^are you tired of",
+    "^let's face it"
+  ],
+  "corporate_filler": [
+    "best-in-class",
+    "cutting-edge",
+    "world-class",
+    "end-to-end",
+    "next-generation",
+    "mission-critical"
+  ],
+  "chatbot_closers": [
+    "let me know if you have any questions",
+    "hope this helps",
+    "happy to help",
+    "feel free to reach out"
+  ]
+}

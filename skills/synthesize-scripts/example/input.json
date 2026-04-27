@@ -1,0 +1,186 @@
+{
+  "run_id": "run-linear-scripts-2026-04-27",
+  "brief_snapshot_id": "brief-linear-locked-001",
+  "stage": "generate-scripts",
+  "selected_awareness_levels": [
+    "unaware",
+    "problem",
+    "solution",
+    "product",
+    "mostAware"
+  ],
+  "locked_brief": {
+    "fields": {
+      "companyName": "Linear",
+      "companyUrl": "https://linear.app",
+      "category": "Product development system",
+      "productDescription": "Linear helps product and engineering teams manage issues, projects, and roadmaps in one focused workflow.",
+      "targetCustomer": "Product and engineering teams at software companies",
+      "primaryIcpDescription": "Software teams that need planning, issue tracking, and roadmap work to stay connected.",
+      "awarenessLevel": "solution",
+      "icpPains": [
+        "Planning context splits between issues, projects, and roadmap documents.",
+        "Teams lose momentum when product decisions are scattered across tools."
+      ],
+      "buyingTriggers": [
+        "The team is standardizing product operations.",
+        "Leadership needs roadmap work tied to execution."
+      ],
+      "icpObjections": [
+        "Switching tools will slow the team down.",
+        "A new planning system may add process overhead."
+      ],
+      "corePromise": "Keep product planning and execution connected in one fast workflow.",
+      "keyPromises": [
+        "Connect issues, projects, and roadmaps.",
+        "Give product teams a focused planning workflow."
+      ],
+      "commonObjections": [
+        "Switching tools will slow the team down.",
+        "A new planning system may add process overhead.",
+        "The team already has a tracker."
+      ],
+      "tone": "Direct, product-led, precise, and calm.",
+      "forbiddenClaims": [
+        "Linear guarantees revenue growth",
+        "Linear replaces every tool in your company"
+      ],
+      "testimonials": [],
+      "caseStudies": [],
+      "metrics": [],
+      "claims": [
+        {
+          "claim": "Linear presents itself as a system for issues, projects, and roadmaps.",
+          "source_url": "https://linear.app",
+          "retrieved_at": "2026-04-27T10:00:00.000Z",
+          "source_path": "locked_brief.fields.claims.0",
+          "category": "positioning"
+        },
+        {
+          "claim": "Linear's product pages emphasize product planning workflows for software teams.",
+          "source_url": "https://linear.app/product",
+          "retrieved_at": "2026-04-27T10:05:00.000Z",
+          "source_path": "locked_brief.fields.claims.1",
+          "category": "offer-strength"
+        }
+      ],
+      "styleReferences": [
+        {
+          "claim": "Linear's public site uses concise product language and short declarative headings.",
+          "source_url": "https://linear.app",
+          "retrieved_at": "2026-04-27T10:10:00.000Z",
+          "source_path": "locked_brief.fields.styleReferences.0",
+          "category": "style-reference"
+        }
+      ],
+      "brandPositioning": "A focused product development system for modern software teams.",
+      "compliance": [
+        "Do not claim guaranteed business outcomes.",
+        "Do not claim full company-wide tool replacement."
+      ],
+      "brandGeography": "Global",
+      "cta": "Review the workflow",
+      "conversionPath": "Product page to demo or self-serve evaluation"
+    }
+  },
+  "upstream_outputs": {
+    "research-voc": {
+      "skill": "research-voc",
+      "summary": "Software teams describe planning friction as scattered context and slow handoffs.",
+      "claims": [
+        {
+          "claim": "Software teams often discuss lost planning context when work moves across issue tracking and roadmap tools.",
+          "source_url": "https://news.ycombinator.com/item?id=35978385",
+          "retrieved_at": "2026-04-27T10:20:00.000Z",
+          "source_path": "research-voc.claims.0",
+          "category": "audience-pain"
+        }
+      ]
+    },
+    "research-icp": {
+      "skill": "research-icp",
+      "summary": "The ICP is product and engineering teams that need shared planning context.",
+      "claims": [
+        {
+          "claim": "Product and engineering teams need issue tracking and project planning to stay aligned.",
+          "source_url": "https://linear.app/docs",
+          "retrieved_at": "2026-04-27T10:25:00.000Z",
+          "source_path": "research-icp.claims.0",
+          "category": "audience-trigger"
+        }
+      ]
+    },
+    "research-offer": {
+      "skill": "research-offer",
+      "summary": "The offer centers on focused execution across issues, projects, and roadmaps.",
+      "claims": [
+        {
+          "claim": "Linear groups issue tracking, project planning, and roadmap work into one product system.",
+          "source_url": "https://linear.app/product",
+          "retrieved_at": "2026-04-27T10:30:00.000Z",
+          "source_path": "research-offer.claims.0",
+          "category": "offer-strength"
+        }
+      ]
+    },
+    "synthesize-positioning": {
+      "skill": "synthesize-positioning",
+      "summary": "Position Linear as the focused product system that keeps planning tied to execution.",
+      "claims": [
+        {
+          "claim": "The strongest positioning angle is connected planning for product and engineering execution.",
+          "source_url": "https://linear.app/customers",
+          "retrieved_at": "2026-04-27T10:35:00.000Z",
+          "source_path": "synthesize-positioning.claims.0",
+          "category": "positioning"
+        }
+      ]
+    },
+    "synthesize-media-plan": {
+      "skill": "synthesize-media-plan",
+      "summary": "Use LinkedIn for product leadership, Google for intent capture, and Meta for broad awareness testing.",
+      "claims": [
+        {
+          "claim": "LinkedIn, Google, and Meta are selected as paid channel test surfaces for the launch plan.",
+          "source_url": "https://business.linkedin.com/marketing-solutions/ads",
+          "retrieved_at": "2026-04-27T10:40:00.000Z",
+          "source_path": "synthesize-media-plan.claims.0",
+          "category": "channel-strategy"
+        }
+      ]
+    },
+    "research-competitor": {
+      "skill": "research-competitor",
+      "summary": "Competitors use broad productivity hooks; Linear should counter-position with focused planning.",
+      "claims": [
+        {
+          "claim": "Competitor hook: \"Bring every team into one workspace\"",
+          "source_url": "https://www.notion.com/product",
+          "retrieved_at": "2026-04-27T10:45:00.000Z",
+          "source_path": "research-competitor.claims.0",
+          "category": "competitor-hook"
+        }
+      ]
+    },
+    "research-keywords": {
+      "skill": "research-keywords",
+      "summary": "Intent language clusters around roadmap planning, issue tracking, and product management workflows.",
+      "claims": [
+        {
+          "claim": "Roadmap planning and issue tracking are relevant search-intent themes for product teams.",
+          "source_url": "https://trends.google.com/trends/explore?q=roadmap%20planning,issue%20tracking",
+          "retrieved_at": "2026-04-27T10:50:00.000Z",
+          "source_path": "research-keywords.claims.0",
+          "category": "keyword"
+        }
+      ]
+    }
+  },
+  "brand_voice_notes": {
+    "tone": "Precise and direct.",
+    "constraints": [
+      "Use short sentences.",
+      "Avoid inflated claims."
+    ]
+  }
+}

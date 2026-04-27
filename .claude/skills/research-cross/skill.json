@@ -1,0 +1,8 @@
+{
+  "name": "research-cross",
+  "description": "Cross-section synthesis — reads outputs of other research skills (ingested as input fixtures) and produces a unified insights brief. No new collection.",
+  "version": "0.1.0",
+  "categories": ["research"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

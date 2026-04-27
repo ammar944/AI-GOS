@@ -1,0 +1,8 @@
+{
+  "name": "research-market",
+  "description": "Market and category research — fans out subagents to collect TAM signals, category maturity, timing, and competitive intensity. Agent collects. TypeScript validates and renders.",
+  "version": "0.1.0",
+  "categories": ["research"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

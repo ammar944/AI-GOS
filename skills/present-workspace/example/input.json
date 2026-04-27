@@ -1,0 +1,81 @@
+{
+  "run_id": "run_present_workspace_example_001",
+  "user_id": "user_present_workspace_example_001",
+  "section_key": "icpValidation",
+  "brief_snapshot_id": "brief_snapshot_example_001",
+  "write_mode": "dry-run",
+  "skill_output": {
+    "run_id": "run_present_workspace_example_001",
+    "brief_snapshot_id": "brief_snapshot_example_001",
+    "stage": "research-buyer-icp",
+    "company_name": "AIGOS",
+    "category": "AI go-to-market operations",
+    "persona_anchors": [
+      {
+        "persona_name": "Revenue operations leaders",
+        "role_family": "Revenue operations",
+        "seniority": "Director to VP",
+        "company_context": [
+          {
+            "claim": "Revenue operations leaders are responsible for aligning sales, marketing, and customer success processes.",
+            "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+            "retrieved_at": "2026-04-27T12:00:00.000Z"
+          }
+        ],
+        "pains": [
+          {
+            "claim": "Teams struggle when go-to-market data is split across disconnected systems.",
+            "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+            "retrieved_at": "2026-04-27T12:00:00.000Z"
+          }
+        ],
+        "triggers": [
+          {
+            "claim": "Pipeline reporting gaps often trigger process and tooling reviews.",
+            "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+            "retrieved_at": "2026-04-27T12:00:00.000Z"
+          }
+        ],
+        "objections": [],
+        "current_alternatives": []
+      }
+    ],
+    "job_titles": [
+      {
+        "title": "VP Revenue Operations",
+        "department": "Revenue",
+        "seniority": "VP",
+        "buying_role": "economic_buyer",
+        "source_url": "https://www.salesforce.com/resources/articles/revenue-operations/",
+        "retrieved_at": "2026-04-27T12:00:00.000Z"
+      }
+    ],
+    "generated_at": "2026-04-27T12:05:00.000Z"
+  },
+  "existing_cards": [
+    {
+      "id": "icpValidation-persona-card-revenue-operations-leaders",
+      "section_key": "icpValidation",
+      "card_kind": "persona-card",
+      "label": "Revenue operations leaders",
+      "content": {
+        "persona_name": "Revenue operations leaders",
+        "role_family": "Revenue operations",
+        "seniority": "Director to VP"
+      },
+      "status": "draft"
+    }
+  ],
+  "card_edits": {
+    "icpValidation-persona-card-revenue-operations-leaders": {
+      "edited_by": "user",
+      "edited_at": "2026-04-27T12:10:00.000Z",
+      "updated_content": {
+        "persona_name": "Revenue operations leaders",
+        "role_family": "Revenue operations",
+        "seniority": "Director to VP",
+        "workspace_note": "Approved for GTM brief review."
+      }
+    }
+  }
+}

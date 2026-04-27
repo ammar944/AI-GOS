@@ -1,0 +1,8 @@
+{
+  "name": "synthesize-positioning",
+  "description": "Positioning synthesis — transforms research inputs into a positioning statement with villain and hero and transformation arc. Facts-in, narrative-out.",
+  "version": "0.1.0",
+  "categories": ["synthesize"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

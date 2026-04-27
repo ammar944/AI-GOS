@@ -1,0 +1,8 @@
+{
+  "name": "chat-refine",
+  "description": "Post-research refinement chat — exposes tools for editing already-rendered cards, deep-diving into specific sections, and regenerating fragments. Does not trigger new research.",
+  "version": "0.1.0",
+  "categories": ["interaction"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

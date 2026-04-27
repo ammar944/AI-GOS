@@ -1,0 +1,21 @@
+{
+  "name": "research-icp",
+  "version": "1.0.0",
+  "description": "Buyer and ICP research — discovers persona anchors, awareness stages, job titles, pains, and purchase triggers from public sources. Fan-out pattern, sourced output.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "validate": "node --import tsx/esm scripts/validate.ts",
+    "sanity-check": "node --import tsx/esm scripts/sanity-check.ts",
+    "test": "npm run check && npm run validate && npm run sanity-check example/output.json"
+  },
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

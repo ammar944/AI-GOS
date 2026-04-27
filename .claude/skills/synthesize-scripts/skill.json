@@ -1,0 +1,8 @@
+{
+  "name": "synthesize-scripts",
+  "description": "Ad script synthesis — generates ICM-structured 60/30/10 ad scripts from research and positioning inputs.",
+  "version": "0.1.0",
+  "categories": ["synthesize"],
+  "entry_point": "index.ts",
+  "status": "scaffold"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "chat-refine",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Post-research refinement chat — exposes tools for editing already-rendered cards, deep-diving into specific sections, and regenerating fragments. Does not trigger new research.",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "validate": "tsx scripts/validate.ts",
+    "sanity-check": "tsx scripts/sanity-check.ts",
+    "report": "tsx scripts/generate-report.ts",
+    "orchestrate": "tsx scripts/orchestrate.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
