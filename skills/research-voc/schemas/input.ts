@@ -42,6 +42,15 @@ const requiredFields = z.object({
 });
 
 const optionalFields = z.object({
+  jobTitles: gtmBriefFieldSchema.optional(),
+  icpRoles: gtmBriefFieldSchema.optional(),
+  companySize: gtmBriefFieldSchema.optional(),
+  buyingCommittee: gtmBriefFieldSchema.optional(),
+  awarenessLevel: gtmBriefFieldSchema.optional(),
+  firstValueMoment: gtmBriefFieldSchema.optional(),
+  activationEvent: gtmBriefFieldSchema.optional(),
+  salesMotion: gtmBriefFieldSchema.optional(),
+  gtmMotion: gtmBriefFieldSchema.optional(),
   market: gtmBriefFieldSchema.optional(),
   industryVertical: gtmBriefFieldSchema.optional(),
   geography: gtmBriefFieldSchema.optional(),
@@ -89,6 +98,8 @@ export const researchMarketOutputSchema = z
   .object({
     stage: z.literal("research-market-category").optional(),
     category: z.string().min(1),
+    category_framing: z.string().min(1).optional(),
+    market_context: z.array(z.string().min(1)).optional(),
     category_definition: sourcedClaimSchema.optional(),
     pains: z.array(sourcedClaimSchema).optional(),
     demand_drivers: z.array(sourcedClaimSchema).optional(),

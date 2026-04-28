@@ -14,6 +14,16 @@ type ExclusionSource = ExclusionTerm["source"];
 
 const LIST_SPLIT_PATTERN = /[,;\n]|(?:\s+vs\.?\s+)|(?:\s+\|\s+)/i;
 
+function cleanListValue(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+appear as\b.*$/i, "")
+    .replace(/^and\s+/i, "")
+    .replace(/^.*\bsuch as\s+/i, "")
+    .replace(/\.$/, "")
+    .trim();
+}
+
 function splitFieldValue(field: GtmBriefField | undefined): string[] {
   if (!field) {
     return [];
@@ -21,7 +31,7 @@ function splitFieldValue(field: GtmBriefField | undefined): string[] {
 
   return field.value
     .split(LIST_SPLIT_PATTERN)
-    .map((value) => value.trim())
+    .map(cleanListValue)
     .filter((value) => value.length > 0);
 }
 
