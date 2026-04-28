@@ -23,7 +23,7 @@ Write either:
   fragment contract from `schemas/output.ts`.
 
 The deterministic tail will merge fragments, validate, sanity-check, and render
-the report.
+the report. A complete output must include non-empty `source_gaps`.
 
 ## Required Research
 
@@ -55,6 +55,12 @@ If no defensible sizing exists, leave `market_size_signals` empty and add a
 `source_gaps[]` entry with `topic: "market_size"`, attempted queries, and the
 evidence needed.
 
+Always set `category_definition.status` to exactly one value: `direct_sized`
+when you sized this exact category with real TAM/SAM/SOM data,
+`borrowed_from_parent` when the sizing numbers come from a broader parent
+market because the category is too new or narrow to size directly, or `no_data`
+when no credible sizing is available.
+
 ## Legacy Projection
 
 Also fill the legacy/card projection fields:
@@ -78,3 +84,14 @@ them derived from the rich sourced fields.
 - Every sourced claim must include `source_url` and `retrieved_at`.
 - Keep deep customer quotes and Reddit/review mining for `research-voc`.
 - Keep competitor-level analysis for `research-competitor`.
+
+## Evidence Weighting
+
+Use this precedence when promoting market evidence:
+1. first-party or official source for category boundary
+2. named analyst, government, or platform data for market sizing
+3. recent independent source for timing or adoption signals
+4. proxy evidence only when labeled as proxy
+
+Keep a signal only when scope, date, and category fit are clear.
+If evidence is adjacent, parent-market, stale, or weak, label it as context or move it to `source_gaps`.

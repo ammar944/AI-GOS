@@ -71,4 +71,21 @@ Use this prompt when collecting the JSON artifact for `research-demand-intent`.
 - Paid metric coverage -> `paid_keyword_opportunities`, `source_gaps`
 - SERP/content observations -> `content_gaps`
 - Identity and ambiguity exclusions -> `negative_keywords`, `excluded_terms`
-- Missing provider evidence -> `source_gaps`
+- Missing provider evidence -> required non-empty `source_gaps`
+
+## De-Dupe And Fallback
+
+Normalize candidate keywords by:
+- lowercasing
+- trimming
+- collapsing whitespace
+- removing duplicate punctuation
+- preserving the first sourced spelling
+
+If a paid provider is unavailable:
+- set metric fields as absent, not zero
+- emit provider_status with attempted source
+- add a matching source gap
+- still collect public SERP/content patterns when available
+
+Do not merge distinct intents just because normalized text matches.

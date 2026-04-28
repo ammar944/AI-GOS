@@ -10,14 +10,14 @@ You will receive either:
 
 1. A per-run directory containing `input.json` that matches `schemas/input.ts`.
 2. Inline JSON matching `schemas/input.ts`.
-3. A Fathom recording URL or recording id that must be normalized into `schemas/input.ts` before collection.
+3. An integer Fathom recording id that must be normalized into `schemas/input.ts` before collection.
 
 Example sealed input:
 
 ```json
 {
   "run_id": "run_2026_04_27_wave4_fathom",
-  "recording_id": "rec_9f4b2c8a7e1d43f0",
+  "recording_id": 12345,
   "brief_id": "brief_aigos_demo_001",
   "client_id": "client_northstar_ops",
   "meeting_type_hint": "discovery",
@@ -48,6 +48,9 @@ Use these constants across the output:
 - `recording_id`: from input or fetched metadata.
 - `recording_url`: from the Fathom source packet.
 - `generated_at`: UTC ISO timestamp when the final JSON is written.
+- `source_gaps`: required and non-empty. Include specific missing-source limitations rather than placeholders.
+
+Place extracted sales-call intelligence under `sales_call_intelligence`. Keep `speakers`, `transcript`, and `key_moments` at the top level.
 
 For every sourced fact, use:
 
@@ -75,7 +78,7 @@ Use exact transcript language for quote `value`. Do not paraphrase quote evidenc
 
 ## Collection process
 
-1. **Normalize input** - ensure `run_id` and `recording_id` exist. Use `meeting_type_hint` only as a hint for `call_type`, not as evidence for any other fact.
+1. **Normalize input** - ensure `run_id` and integer `recording_id` exist. Use `meeting_type_hint` only as a hint for `sales_call_intelligence.call_type`, not as evidence for any other fact.
 2. **Build speaker map** - list speakers exactly as Fathom labels them. Add `role` only if metadata or transcript explicitly states it.
 3. **Scan for source facts** - read the transcript once for each field group below. Capture only facts that have direct transcript or metadata support.
 4. **Prefer high-signal facts** - keep facts that downstream GTM work can use: customer language, pain, urgency, decision process, budget, channels, success metrics, objections, competitors, action items, and decisions.
@@ -88,7 +91,7 @@ Use exact transcript language for quote `value`. Do not paraphrase quote evidenc
 
 Use Fathom metadata or explicit input title. Omit if no title exists.
 
-### `call_type`
+### `sales_call_intelligence.call_type`
 
 Choose one enum value from `schemas/output.ts`:
 
@@ -112,11 +115,11 @@ Collect each explicitly identified speaker:
 
 Do not infer role from conversational behavior.
 
-### `business_health_summary`
+### `sales_call_intelligence.business_health_summary`
 
 Include only if the transcript explicitly discusses business condition, pipeline health, revenue trend, growth constraint, operational state, or performance health. Keep it concise and sourced. Omit if the call only contains tactical discussion without business-health context.
 
-### `pain_points`
+### `sales_call_intelligence.pain_points`
 
 Collect explicit pains, blockers, frustrations, inefficiencies, missed goals, risks, or costs.
 
@@ -134,7 +137,7 @@ Severity rules:
 
 If severity is unclear, use `moderate` only when the pain itself is explicit. Do not invent severity.
 
-### `budget_signals`
+### `sales_call_intelligence.budget_signals`
 
 Collect exact budget, spend, willingness to pay, pricing sensitivity, procurement constraints, approval limits, contract timing, or budget-cycle details.
 
@@ -145,7 +148,7 @@ Each entry requires:
 
 Do not normalize numbers. If the speaker says "eighteen thousand a month", the quote must preserve that wording. The `signal.value` may restate it as "$18,000 per month" only if the quote directly supports it.
 
-### `competitor_mentions`
+### `sales_call_intelligence.competitor_mentions`
 
 Collect named competitors, alternatives, incumbent tools, agencies, internal substitutes, or "doing nothing" alternatives when explicitly named or described as the competing path.
 
@@ -164,7 +167,7 @@ Sentiment rules:
 
 Do not infer sentiment from your own market knowledge.
 
-### `buying_triggers`
+### `sales_call_intelligence.buying_triggers`
 
 Collect explicit events or pressure that explain why the buyer is acting now:
 
@@ -191,7 +194,7 @@ Urgency rules:
 - `near_term`: dated near-future timeline such as next month, quarter, launch, review, or renewal.
 - `exploratory`: researching, evaluating, or planning without a concrete near-term deadline.
 
-### `objections`
+### `sales_call_intelligence.objections`
 
 Collect explicit concerns, hesitations, blockers, risks, doubts, objections, or reasons not to proceed.
 
@@ -203,7 +206,7 @@ Each entry requires:
 
 Do not write a resolution just because the agent answered later. The transcript must show resolution or agreement.
 
-### `icp_signals`
+### `sales_call_intelligence.icp_signals`
 
 Collect only directly stated:
 
@@ -215,7 +218,7 @@ Collect only directly stated:
 
 These fields are optional inside the required `icp_signals` object. Include only sourced claims. If none exist, emit `{}`.
 
-### `current_marketing`
+### `sales_call_intelligence.current_marketing`
 
 The `current_marketing` object is required. It must always include:
 
@@ -236,7 +239,7 @@ Collect channels exactly as discussed: paid search, Google Ads, LinkedIn, Meta, 
 
 Add transcript quote evidence for any included current-marketing claim.
 
-### `goals_and_outcomes`
+### `sales_call_intelligence.goals_and_outcomes`
 
 The `goals_and_outcomes` object is required. It must always include:
 
@@ -254,7 +257,7 @@ Add optional sourced fields only when explicitly stated:
 
 Collect success metrics only when the speaker gives a measurable target, threshold, KPI, or named business outcome. Add quote evidence for every goal or outcome included.
 
-### `action_items`
+### `sales_call_intelligence.action_items`
 
 Collect explicit next steps agreed during the call.
 
@@ -267,7 +270,7 @@ Each entry requires:
 
 Do not infer owners from who is speaking unless the speaker explicitly accepts the action.
 
-### `decisions`
+### `sales_call_intelligence.decisions`
 
 Collect only decisions made during the call.
 
@@ -279,7 +282,7 @@ Each entry requires:
 
 Do not treat a suggestion, unresolved plan, or action item as a decision unless the transcript shows agreement.
 
-### `notable_quotes`
+### `sales_call_intelligence.notable_quotes`
 
 Collect high-signal quotes useful for downstream ICP, Voice of Customer, objections, offer, competitor, or media-plan work.
 
@@ -312,3 +315,18 @@ npm run sanity-check -- <output.json>
 ```
 
 If either command fails, fix the output JSON and rerun the failing gate. Do not return unvalidated output.
+
+## Transcript Edge Cases
+
+Do:
+- Preserve Fathom speaker labels exactly.
+- Treat `Speaker 1` style labels as labels, not verified names.
+- Anchor every quote to an exact transcript substring.
+- Preserve timestamps when provided by the source packet.
+- Add `source_gaps` when timestamps, named speakers, or transcript segments are missing.
+
+Do not:
+- Infer speaker roles from conversational behavior.
+- Rewrite quotes for grammar or clarity.
+- Merge adjacent speakers into one quote.
+- Emit key moments when the supporting quote cannot be found exactly.

@@ -1,45 +1,33 @@
 # Card Taxonomy
 
-`present-workspace` duplicates the minimum card contract needed by the Journey workspace.
+`present-workspace` emits one presentation card for each supported upstream output.
 
-## Card Identity
+## Presentation Card
 
-- `id`: stable card id from `section_key`, `card_kind`, and slugged label.
-- `run_id`: parent Journey run id.
-- `brief_snapshot_id`: optional GTM brief snapshot anchor.
-- `section_key`: workspace section receiving the card.
-- `card_kind` and `card_type`: same value in this skill for compatibility with existing renderers.
+- `type`: one of `icp`, `voc`, `market`, `offer`, `keywords`, `competitor`, `cross-analysis`, `positioning`, `media-plan`, `scripts`.
+- `title` and `subtitle`: human-readable card header data.
+- `sections[]`: normalized rows, bullets, stats, or prose for document-like workspace views.
+- `evidence[]`: source-linked claims extracted from upstream output.
+- `source_gaps[]`: non-empty normalized gaps preserved from upstream output or generated for missing/invalid stages.
+- `status`: `ready`, `partial`, `missing`, or `error`.
 
-## Current Section Keys
+## UI Card
 
-- `reviewBrief`
-- `industryMarket`
-- `icpValidation`
-- `competitors`
-- `offerAnalysis`
-- `keywordIntel`
-- `crossAnalysis`
-- `mediaPlan`
-- `scripts`
-
-## Mapping Rules
-
-- `research-buyer-icp` maps to persona, job title, awareness, and search intent cards.
-- Unknown but sourced shapes map generically by top-level renderable field.
-- Cards with no source-backed evidence are rejected.
-- Cards with no renderable content are rejected.
-- The upstream `skill_output` is cloned before mapping.
-
-## Stable Card IDs
-
-The stable id rule mirrors the live workspace behavior:
+Each card also includes `ui`, a skill-local copy of the current workspace `CardState` shape:
 
 ```text
-<section_key>-<card_kind>-<slugged label>
+id, sectionKey, cardType, label, description, content, status, versions
 ```
 
-Example:
+The skill does not import the app type. It duplicates the minimal data contract so the package remains portable.
 
-```text
-icpValidation-persona-card-revenue-operations-leaders
-```
+## Status Decision Tree
+
+For each card:
+1. Upstream path absent -> `missing`
+2. Upstream JSON parse or transform failed -> `error`
+3. Renderable sections exist but evidence or gaps are weak -> `partial`
+4. Renderable sections, preserved evidence, and source_gaps exist -> `ready`
+
+Workspace status is derived from card counts.
+One failed upstream output must not change unrelated cards to `error`.

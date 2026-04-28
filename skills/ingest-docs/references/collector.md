@@ -13,3 +13,19 @@ The collector is deterministic in this Wave 4 implementation.
 9. Emit missing recognized field keys into `unresolved_fields`.
 
 Do not use external network calls or paid APIs for local fixture runs.
+
+## Evidence Span Examples
+
+Valid extracted field:
+- source line: `Primary ICP: Series B RevOps teams`
+- field key: `primaryIcpDescription`
+- evidence value: exact source line or shortest exact span
+
+Invalid extracted field:
+- source line: `We mostly sell to RevOps`
+- field value: `Enterprise revenue operations buyers`
+- reason: paraphrased beyond source text
+
+Conflict rule:
+- If two documents disagree on the same field, emit both in `conflicts`.
+- Do not choose a winner unless a source explicitly resolves the conflict.

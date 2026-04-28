@@ -96,6 +96,7 @@ Before fanning out sub-agents, confirm the seed list is not missing obvious cand
 After collection, populate a JSON object matching `schemas/output.ts`:
 - Every object carries `source_url` (string URL) and `retrieved_at` (ISO datetime)
 - Arrays may be empty if data is unsourceable
+- `source_gaps` is required and must contain at least one non-empty entry explaining a remaining evidence or provider gap
 - Never hallucinate fields
 
 ## Validation
@@ -112,3 +113,18 @@ Return the full validated JSON. Then run:
 npx tsx scripts/generate-report.ts /path/to/your-output.json /tmp/report.html
 ```
 Point the user to `/tmp/report.html`.
+
+### Phase 4.5 — Ad Fetch Source Ledger
+
+For each competitor ad fetch, record:
+- `competitor_name`
+- `domain`
+- `matched_advertiser_name`
+- `matched_ad_library_url`
+- `provider`: `searchapi_meta_ads`
+- `provider_status`: `matched`, `no_match`, `provider_error`, or `missing_key`
+- `retrieved_at`
+- `reason` for `no_match` or `provider_error`
+
+Only merge ad hooks, active counts, or activity signals when `provider_status` is `matched`.
+If status is not `matched`, preserve the attempted library URL and add a source gap.

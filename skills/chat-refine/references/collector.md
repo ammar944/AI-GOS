@@ -168,3 +168,14 @@ Fix validation failures by rewriting `output.json` to match the schema. Do not w
 - Do NOT output placeholder strings such as `unknown`, `TBD`, `n/a`, `not found`, or `scaffold`.
 - Do NOT fabricate source URLs, card IDs, field names, metrics, pricing, or market facts.
 - Do NOT keep retrying after three consecutive failures. Stop and ask for direction.
+
+## Field-Edit Decision Matrix
+
+Use `answer` when the user asks what the cards mean.
+Use `edit_card` when the user names one card and one editable field.
+Use `regenerate_fragment` when the user asks to rewrite one section from existing evidence.
+Use `update_profile` only when the user explicitly changes a brief/profile field.
+Use `blocked` when fresh research, missing card IDs, or ambiguous fields are required.
+
+Never edit by label when multiple cards share the label.
+Never apply a proposal inside this skill.

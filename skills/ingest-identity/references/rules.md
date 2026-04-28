@@ -28,3 +28,18 @@ Downstream skills depend on these fields. If any is unresolvable from available 
 
 - Every field carries `source_url` (the source page) + `retrieved_at`
 - No guessed companyName — if URL doesn't clearly resolve, ask for clarification or emit `null`
+
+## Schema Alignment Gate
+
+Rules must match `schemas/output.ts`.
+
+Current schema-required fields:
+- `company_name`
+- `domain`
+- `category`
+- `core_keywords`
+- `negative_keywords`
+- `sources`
+
+Do not hard-fail missing future fields such as `businessModel` or `segments`
+until those fields exist in schema. Track future fields as TODOs, not runtime requirements.

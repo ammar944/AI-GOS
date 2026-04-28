@@ -15,6 +15,10 @@ Start from the locked category, ICP pains, current alternatives, buying triggers
 - `<category> status quo spreadsheet manual process`
 - `<category> objection too expensive hard to adopt`
 
+For `tier: "smb"`, keep the existing community-first source pattern: Reddit, Hacker News, public communities, forums, blog comments, and category-level review pages.
+
+For `tier: "enterprise"`, explicitly mine G2.com, Gartner Peer Insights, and Capterra in addition to Reddit, Hacker News, and community sources.
+
 Do not search for named competitors or the subject company.
 
 ## Keep
@@ -42,5 +46,18 @@ Do not search for named competitors or the subject company.
 - `workarounds`: observed manual processes or tool chains people use to cope.
 - `desired_outcomes`: sourced outcome statements, not recommendations.
 - `objection_language`: raw phrases showing adoption doubts.
-- `source_gaps`: topics searched where category-safe evidence was unavailable.
+- `source_gaps`: required non-empty list of topics searched where category-safe evidence was unavailable.
 - `rejected_competitor_matches`: retained audit trail for filtered product-name leakage.
+
+## Claim Chain
+
+For each retained VoC item, preserve this chain:
+1. exact user language
+2. source URL and retrieved_at
+3. source type: forum, review_site, community, blog_comment, or search_result
+4. category-safe reason
+5. excluded terms checked
+6. mapped output bucket
+
+Do not write a broad pattern unless at least two retained quotes support it.
+If only one strong quote exists, keep the quote but avoid naming it a pattern.

@@ -5,13 +5,14 @@
 1. Every factual claim must include `source_url` and `retrieved_at`.
 2. Do not write placeholders: `unknown`, `TBD`, `n/a`, empty strings, scaffold text, TODO text, or sample filler.
 3. If a value cannot be sourced, omit it or emit an empty array.
-4. Do not add scores, confidence percentages, TAM estimates, persona priority scores, or severity ratings.
-5. Do not recommend strategy, positioning, campaigns, channels, hooks, budgets, or creative.
-6. Respect `ingest_identity.negative_keywords`; exclude unrelated entities that share the same or similar company name.
-7. Use `ingest_identity.core_keywords` as search anchors, not as facts by themselves.
-8. Use `research_market` only for category framing; do not depend on it for correctness.
-9. Use public pages, docs, integrations, job posts, customer pages, review snippets, and search-result pages as evidence.
-10. External fetch or search failures must throw with provider, query, status, and run id.
+4. `source_gaps` is required and must contain at least one non-empty entry.
+5. Do not add scores, confidence percentages, TAM estimates, persona priority scores, or severity ratings.
+6. Do not recommend strategy, positioning, campaigns, channels, hooks, budgets, or creative.
+7. Respect `ingest_identity.negative_keywords`; exclude unrelated entities that share the same or similar company name.
+8. Use `ingest_identity.core_keywords` as search anchors, not as facts by themselves.
+9. Use `research_market` only for category framing; do not depend on it for correctness.
+10. Use public pages, docs, integrations, job posts, customer pages, review snippets, and search-result pages as evidence.
+11. External fetch or search failures must throw with provider, query, status, and run id.
 
 ## Source requirements by output key
 
@@ -29,3 +30,15 @@
 ## Runtime behavior
 
 When a source is ambiguous, collect the URL and exact context, then either omit the claim or put the ambiguity in `exclusions` with source evidence. Never smooth over uncertainty with invented language.
+
+## Role-Family Evidence
+
+Before grouping an ICP role family, require sourced evidence for:
+- role or title
+- company context
+- pain, trigger, or workflow
+- current alternative or process
+- buying involvement, when available
+
+If evidence proves usage only, label the role as a user.
+Do not upgrade a role to champion, buyer, or decision maker without source support.

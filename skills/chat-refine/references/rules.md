@@ -33,3 +33,17 @@ Chat-refine bundles what was previously `src/lib/ai/chat-tools/*` (14 tools). Ex
 
 - `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatching = silent failure.
 - Tool definitions use `inputSchema` (not `parameters`) and `maxOutputTokens` (not `maxTokens`) per AI SDK v6.
+
+## Edit Scope
+
+Allowed:
+- answer questions about supplied cards
+- propose one field edit to one visible card
+- propose one narrow section regeneration from existing evidence
+- propose an explicit profile-field update when the user asks for it
+
+Blocked:
+- fresh market, competitor, keyword, ad, pricing, or VoC research
+- direct Supabase writes
+- auto-apply, approval, or version history
+- broad new strategy deliverables owned by another skill

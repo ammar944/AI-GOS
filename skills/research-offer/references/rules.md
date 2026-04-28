@@ -23,6 +23,7 @@ These rules are non-negotiable for `research-offer-funnel`.
 - Public review pages may support `public_objections`.
 - Public docs, product pages, changelogs, help pages, customer stories, pricing pages, and review pages are valid sources.
 - Do not use private notes, unverified memory, or model knowledge as sources.
+- The top-level `source_gaps` array is required and must contain at least one valid entry.
 
 ## Pricing Rules
 
@@ -38,3 +39,14 @@ These rules are non-negotiable for `research-offer-funnel`.
 - Do not score, rank, recommend, write copy, generate headlines, or issue launch verdicts.
 - Do not output placeholders such as `unknown`, `TBD`, `n/a`, empty strings, or scaffold text.
 - Do not import from `src/`, `research-worker/`, root `lib/`, or another skill.
+
+## Funnel-Stage Rules
+
+- `promise`: homepage, product, category, or use-case page.
+- `cta`: visible signup, demo, sales, contact, download, checkout, or install action.
+- `first_value_path`: docs, onboarding, template, integration, or workflow evidence.
+- `activation_friction`: migration, import, permissions, security, admin, billing, or setup evidence.
+- `proof_assets`: customer story, testimonial, logo proof, named outcome, or public metric.
+- `pricing_signals`: first-party pricing preferred; third-party only after first-party attempt.
+
+Brief hints do not satisfy any stage without public evidence.

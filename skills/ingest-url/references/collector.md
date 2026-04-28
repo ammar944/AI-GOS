@@ -40,3 +40,17 @@ Map collected website facts to current GTM brief keys:
 - Market size, TAM, growth rates, or third-party benchmarks.
 - ACV unless the company publishes enough pricing detail to support it.
 - Any field with placeholder text or missing source evidence.
+
+## Crawl Limits And Fallbacks
+
+Stay bounded:
+- max candidate pages: 25
+- max selected pages: 12
+- max depth: 2 from submitted root URL
+- same-origin HTTP(S) only
+- strip hash fragments and tracking query params before dedupe
+
+If a page is blocked, too large, JS-empty, or repeatedly 4xx/5xx:
+- do not guess field values
+- keep already fetched evidence
+- add unresolved fields or source gaps naming the blocked page and needed evidence

@@ -1,29 +1,25 @@
-# Rules — present-workspace
+# Rules - present-workspace
 
-Load-bearing constraints for the AIGOS v3 Wave 4 presentation skill.
+- Read local JSON only.
+- Never call paid APIs, live databases, browser tools, or web search.
+- Never import outside this skill folder.
+- Never mutate upstream skill output.
+- Emit all 10 card types every run.
+- Missing upstream paths produce `status: "missing"` cards.
+- Invalid upstream JSON or transformer failures produce `status: "error"` cards.
+- Every emitted card must have non-empty `source_gaps`.
+- `evidence` must preserve `source_url` and `retrieved_at` when upstream evidence provides them.
+- The output is data only. Do not create React components or modify existing workspace UI.
 
-## Hard constraints
+## Positive Rules
 
-- Presentation only: do not collect, infer, or synthesize new research facts.
-- Write-back owner: no other skill owns Supabase writes.
-- Local verification uses `dry-run` or `mock-write`; never live Supabase.
-- Stable IDs are derived from `section_key`, `card_kind`, and slugged label.
-- Edits persist under section-level `__cardEdits`, outside `data`.
-- Input skill output must not contain direct write instructions.
-- Upstream output must not be mutated during card mapping.
-- Empty renderable card data is a blocking error.
-- Placeholder strings are blocking errors: `unknown`, `TBD`, `n/a`, `not found`, `scaffold`.
-
-## Sanity gates
-
-- **[FAIL]** if output schema validation fails.
-- **[FAIL]** if any TypeScript import leaves `skills/present-workspace/`.
-- **[FAIL]** if card evidence misses `source_url` or `retrieved_at`.
-- **[FAIL]** if `__cardEdits` appears inside `data`.
-- **[FAIL]** if a claimed write lacks `idempotency_key`, `run_id`, or `card_kind`.
-
-## Cross-cutting
-
-- The output schema extends the spec sketch with write identity and snapshots.
-- The write contract mirrors `journey_sessions` merge semantics but is transport-injected.
-- Production can provide a real transport later; this skill does not include one.
+- Emit exactly the supported 10 card types every run.
+- Preserve upstream evidence URLs and retrieval timestamps.
+- Preserve upstream `source_gaps`; add a generated gap only for missing or invalid stages.
+- Isolate failures to the affected card.
+- Derive workspace status from card statuses:
+  - all ready -> ready
+  - any partial -> partial
+  - any missing/error and at least one ready -> partial
+  - all missing/error -> error
+- Never emit `ready` by title or section count alone.

@@ -56,3 +56,19 @@ After writing the fragment, the deterministic tail (`scripts/orchestrate.ts`) me
 - Do NOT write to `<runDir>/output.json` directly — that's orchestrate's job.
 - Do NOT invoke `scripts/validate.ts` yourself — orchestrate does it.
 - Do NOT invent keywords, categories, or negative keywords to make the output look fuller. Sparse real data beats dense fake data.
+
+## Identity Disambiguation
+
+Resolve the submitted company, not the most famous same-name company.
+
+Priority order:
+1. submitted domain and owned pages
+2. linked pages from the submitted domain
+3. third-party sources only when they confirm the same domain
+
+If name, domain, category, ownership, or product boundary conflicts:
+- stop broad collection
+- emit only sourced fields that remain safe
+- include sources describing the conflict
+
+Do not merge parent, subsidiary, product, or competitor identities.

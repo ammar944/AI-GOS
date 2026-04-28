@@ -1,25 +1,53 @@
-# Block Prompts - synthesize-media-plan
+# Block Prompt Scaffold
 
-## Block 1 - Strategic Frame
+Generate the media plan in these blocks, then assemble one JSON object matching `schemas/output.ts`.
 
-Read the locked brief first. Extract the business model, awareness level, sales cycle, and tier mix. Use the positioning output to frame why paid media should focus on the recommended demand layer.
+## strategicFrame
 
-## Block 2 - Channel Mix
+Summarize the business model, awareness level, sales-cycle ceiling, and in-market tier mix from research-cross evidence. Do not add scores.
 
-Pick the smallest channel set that can learn. Trace each channel to ICP attention, keyword demand, competitor evidence, positioning, or a brief constraint. Do not diversify just to fill the plan.
+## channelMix
 
-## Block 3 - Audience-Campaign Matrix
+Choose up to three channel recommendations. Each channel recommendation must trace to cross-analysis evidence.
 
-Create campaign objects only when the platform, audience, objective, and budget share can be justified from evidence. Under small budgets, write one campaign and include `single_campaign_rationale`.
+## audienceCampaignMatrix
 
-## Block 4 - Creative Angle System
+Create one or two campaigns total. Each campaign must include platform, role, objective, audience, awareness target, budget share, and budget rationale. Role values are only `primary`, `secondary`, or `testing`.
 
-Create angle directions that a script skill can turn into ads later. Anchor every angle in pains, triggers, promise, first value moment, objections, or keyword intent.
+## creativeAngleSystem
 
-## Block 5 - Sales Process And Benchmarks
+Create three to eight creative angles supported by evidence. Do not include format specs.
 
-Use sales-process guidance to improve conversion after the click. Use benchmarks only when sourced evidence makes them useful. Add exactly two process levers per benchmark.
+## salesProcessGuidance
 
-## Block 6 - Rollout And Snapshot
+Explain how sales should handle leads, demos, trials, or handoffs based on available offer, ICP, and cross-analysis evidence. Do not invent CAC or conversion targets.
 
-Sequence the plan into two to four phases with clear decision gates. The snapshot must summarize the validated channel, campaign, creative, and process choices without adding new channels.
+## industryBenchmarks
+
+Include sourced industry benchmarks only when the research-cross evidence supports them. If benchmark evidence is weak or absent, keep the array small and add a source gap.
+
+## rolloutPhases
+
+Create one to four phases. Each phase has at most two campaigns. Phase 1 cannot include Google for unaware audiences.
+
+## strategySnapshot
+
+Summarize the plan without introducing unsupported platforms, numbers, claims, or removed fields.
+
+## Valid / Invalid Block Examples
+
+Valid `channelMix` item:
+- names one channel
+- cites cross-analysis evidence
+- explains role without inventing CAC, CPL, or conversion rate
+
+Invalid `channelMix` item:
+- adds a platform absent from evidence
+- predicts performance from category norms
+- uses "best practice" as proof
+
+Valid `industryBenchmarks` item:
+- includes source URL, retrieved_at, metric label, and stated range.
+
+Invalid benchmark:
+- "Typical SaaS CPL is $X" without supplied evidence.

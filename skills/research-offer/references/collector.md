@@ -282,7 +282,7 @@ If no subject-company public objections are verified, output `public_objections:
 
 ### 8. Record Source Gaps
 
-Populate `source_gaps` only for contract-relevant missing evidence. Valid `topic` values are exactly:
+Populate `source_gaps` only for contract-relevant missing evidence. The array is required and must contain at least one valid entry. Valid `topic` values are exactly:
 
 - `pricing`
 - `proof`
@@ -328,7 +328,13 @@ Write one JSON object:
   "pricing_signals": [],
   "packaging_notes": [],
   "public_objections": [],
-  "source_gaps": [],
+  "source_gaps": [
+    {
+      "topic": "pricing",
+      "reason": "No public first-party pricing, plans, billing, or enterprise pricing page could be verified.",
+      "attempted_sources": ["https://example.com/pricing"]
+    }
+  ],
   "generated_at": "..."
 }
 ```
@@ -372,3 +378,14 @@ output: /tmp/research-offer-<run_id>/output.json
 ```
 
 Do not claim an HTML report exists. This skill's deliverable is JSON.
+
+### Funnel Mapping Criteria
+
+Map public evidence by observable user step:
+- `entry`: CTA, signup, demo, download, contact, or checkout path
+- `activation`: import, integration, setup, permissions, onboarding, or template use
+- `first_value`: first report, workflow, asset, automation, insight, or completed task
+- `proof`: customer story, testimonial, logo, public metric, or named outcome
+- `friction`: migration, security review, admin setup, billing, seat, or implementation requirement
+
+If a stage is not publicly visible, leave the array empty and add a source gap.
