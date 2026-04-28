@@ -1,85 +1,157 @@
 ---
 name: research-icp
-description: Use when running AIGOS buyer ICP research, persona anchor discovery, awareness-stage evidence collection, job-title sourcing, buying-committee mapping, or search-intent research for a locked GTM brief. The agent collects sourced facts and then runs deterministic TypeScript validation from this skill folder.
+description: >
+  Buyer and ICP research - discovers sourced persona anchors, awareness-stage
+  evidence, job titles, buying-committee notes, search intent, objections,
+  triggers, and exclusions for a locked GTM Brief. Agent collects. TypeScript
+  validates and sanity-checks.
+version: 0.1.0
 ---
 
-# Section 05 - Buyer ICP Research
+# research-icp
+
+## What this skill does
+
+Produces a sourced buyer/ICP artifact for the AIGOS `research-buyer-icp`
+stage. The input is a sealed run payload with a locked GTM Brief snapshot and
+optional prior outputs from `ingest-identity` and `research-market`. The agent
+collects public evidence about who buys or uses the product, what work context
+they operate in, what pain creates urgency, what current alternatives exist,
+what objections slow adoption, how awareness differs by stage, what job titles
+appear in sourced material, what search-intent patterns are defensible, and
+which irrelevant segments or same-name entities must be excluded.
+
+The typed JSON is the source of truth. Claude writes `output.json`; the local
+TypeScript scripts validate the schema and enforce deterministic integrity
+checks.
 
 ## Trigger
-`@research-icp { "run_id": "...", "brief_snapshot_id": "...", "stage": "research-buyer-icp", "gtm_brief": { ... } }`
 
-## What it does
-Takes a sealed locked GTM brief and returns a sourced ICP research card for `research-buyer-icp`: persona anchors, awareness stages, job titles, search intent, buying-committee notes, and exclusions. Every factual claim carries `source_url` and `retrieved_at`. Unsourceable fields are omitted or emitted as empty arrays.
+```
+/research-icp <input-spec>
+```
 
-## Boundaries
-This skill does not resolve company identity, size the market, research competitors, mine broad Voice of Customer, generate positioning, create media plans, write scripts, render UI, or persist data. Adjacent skills own those jobs:
-
-- `ingest-identity`: canonical company, domain, category, core keywords, negative keywords.
-- `research-market`: category framing and market context.
-- `research-competitor`: competitor landscape, pricing, reviews, ads, and share of voice.
-- `research-voc`: category-scoped customer language.
-- `research-cross`, `synthesize-positioning`, `synthesize-media-plan`: downstream synthesis.
-
-## Workflow
-1. Parse the input against `schemas/input.ts`.
-2. Read `references/rules.md` and `references/collector.md`.
-3. Use public sources to collect evidence for each output key.
-4. Respect `ingest_identity.negative_keywords`; exclude unrelated same-name entities.
-5. Write a JSON object matching `schemas/output.ts`.
-6. Run `npm run validate`.
-7. Run `npm run sanity-check <output.json>`.
-8. Return the validated JSON to the caller.
-
-## Tools
-- `web_search`: find public sources, job posts, docs, customer pages, integrations, and search-result evidence.
-- `browser_navigate` and `browser_snapshot`: inspect source pages when available.
-- `Bash(npm run validate)` and `Bash(npm run sanity-check <output.json>)`: deterministic gates.
-- File write tools: write only inside the run directory or this skill folder when updating fixtures.
-
-## Hard constraints
-1. Facts only. No recommendations, campaign plans, positioning rewrites, or creative ideas.
-2. No LLM scores, confidence percentages, TAM estimates, persona importance scores, or fabricated metrics.
-3. Every factual claim must include `source_url` and `retrieved_at`.
-4. If a value cannot be sourced, omit it or use an empty array. Never write `unknown`, `TBD`, `n/a`, scaffold text, or placeholders.
-5. Keep this skill self-contained. Do not import from `src/`, `research-worker/`, root `lib/`, or another skill.
-6. Use prior `ingest-identity` output only for canonical company name, domain, category, core keywords, and negative keywords.
-7. Use prior `research-market` output only for category framing. The skill must still work without it.
-8. External fetch or search failures must throw with provider, query, status, and run id.
-
-## Output
-The output schema is `researchIcpOutputSchema` in `schemas/output.ts`.
-
-Top-level fields:
+Use this skill after the GTM Brief has been reviewed and locked. The correct
+input matches `schemas/input.ts` and includes:
 
 - `run_id`
 - `brief_snapshot_id`
 - `stage: "research-buyer-icp"`
-- `company_name`
-- `category`
-- `persona_anchors`
-- `awareness_stages`
-- `job_titles`
-- `search_intent`
-- `buying_committee_notes`
-- `exclusions`
-- `generated_at`
+- `gtm_brief`
+- optional `ingest_identity`
+- optional `research_market`
 
-Every factual nested object uses the shared source primitive:
+Defer to adjacent skills when the request is outside buyer/ICP evidence:
 
-```ts
-{
-  source_url: string;
-  retrieved_at: string;
-}
-```
+- company identity, domain, category, core keywords, and negative keywords
+  belong upstream to `ingest-identity`
+- category framing, market timing, category maturity, and market-size signals
+  belong to `research-market`
+- direct competitor lists, pricing, ads, reviews, and share-of-voice belong to
+  `research-competitor`
+- broad customer-language mining and objection quote banks belong to
+  `research-voc`
+- offer diagnosis, positioning, media plans, scripts, and strategy belong to
+  downstream synthesis skills
+
+## Tools used
+
+- `web_search` for public customer stories, role pages, docs, pricing pages,
+  help-center pages, integration docs, job posts, comparison pages, and search
+  result evidence
+- browser inspection tools when a search result needs direct source
+  confirmation
+- local shell commands for `npm run check`, `npm run validate`, and
+  `npm run sanity-check <output.json>`
+- file writes inside the current run directory for `output.json`
+
+## Workflow (ICM runtime sub-stages)
+
+Every invocation follows these stages:
+
+1. **Receive** - parse the sealed payload against `schemas/input.ts`. Treat the
+   locked GTM Brief as immutable run context.
+2. **Scope** - derive the buyer-research scope from company name, company URL,
+   category, product description, target customer, primary ICP, company size,
+   job-title hints, buying-committee hints, pain fields, triggers,
+   alternatives, awareness level, objections, and optional market framing.
+3. **Anchor** - use `ingest_identity` only for canonical company name,
+   canonical domain, category, core keywords, and negative keywords. Use
+   negative keywords to filter same-name or adjacent-topic false positives.
+4. **Collect** - gather public evidence for persona anchors, awareness stages,
+   job titles, search intent, buying-committee notes, and exclusions. Every
+   factual claim must include `source_url` and `retrieved_at`.
+5. **Separate** - keep buyer evidence distinct from market sizing, broad VoC,
+   competitor analysis, offer critique, and strategy. If a source supports only
+   a market or competitor claim, leave that claim out unless it directly
+   explains buyer role, pain, trigger, adoption, evaluation, or exclusion.
+6. **Project** - populate the output contract from collected evidence. Required
+   arrays with schema floors must contain real sourced evidence; if the run
+   cannot source a required floor, stop and report the source gap instead of
+   fabricating a valid-looking artifact.
+7. **Validate** - run `scripts/validate.ts` and `scripts/sanity-check.ts` from
+   this skill folder before returning the output.
+
+## Schema reference
+
+- Input: `schemas/input.ts`
+- Output: `schemas/output.ts`
+- Collector prompt: `references/collector.md`
+- Collection rules: `references/rules.md`
+- Fixtures: `example/input.json`, `example/output.json`
+
+## Hard constraints
+
+- Facts only. No recommendations, campaign plans, positioning rewrites,
+  creative hooks, budget guidance, or strategy.
+- No LLM scores, confidence percentages, persona priority scores, TAM/SAM
+  estimates, fabricated metrics, or ranking language.
+- Every factual claim must carry `source_url` and `retrieved_at`.
+- Do not write placeholders such as `unknown`, `TBD`, `n/a`, empty strings,
+  scaffold text, TODO text, or sample filler.
+- If optional nested evidence cannot be sourced, omit the field when the schema
+  allows it or emit an empty array. Do not invent filler to satisfy shape.
+- Use prior `ingest_identity` only for identity anchors and exclusions. Use
+  prior `research_market` only for category framing. The skill must still work
+  without `research_market`.
+- URL-only input is not enough for this skill. It must run on a sealed payload
+  matching `schemas/input.ts`.
+- Keep the skill portable and self-contained. Do not import from `src/`,
+  `research-worker/`, root `lib/`, or another skill.
+- External fetch or search failures must be surfaced with provider, query,
+  status when available, and run id.
+
+## Output
+
+The primary output is `researchIcpOutputSchema` from `schemas/output.ts`:
+
+- run metadata: `run_id`, `brief_snapshot_id`, `stage`, `generated_at`
+- subject context: `company_name`, `category`
+- sourced buyer artifact: `persona_anchors`, `awareness_stages`,
+  `job_titles`, `search_intent`, `buying_committee_notes`, `exclusions`
+
+`persona_anchors[]` groups public evidence into role-family anchors. Each
+anchor includes company context, pains, triggers, objections, and current
+alternatives. `awareness_stages[]` maps sourced observations to the five
+awareness stages and derives a message implication only from evidence in that
+same object. `job_titles[]` records sourced titles with buying role labels.
+`search_intent[]` records defensible query patterns tied to source evidence,
+not invented keyword ideas. `buying_committee_notes[]` captures sourced
+rollout, governance, procurement, security, admin, or approval context.
+`exclusions[]` captures sourced reasons to exclude unrelated entities,
+unsupported segments, or ambiguous same-name results.
 
 ## Verification gate
+
 Before declaring the skill output usable:
 
 ```bash
+cd skills/research-icp
 npm run check
 npm run validate
-npm run sanity-check example/output.json
+npm run sanity-check <output.json>
 ```
 
-All commands must pass without `ALLOW_SUSPECT=1`.
+For fixture verification, use `npm test`, which runs check, validate, and
+sanity-check against `example/output.json`. All commands must pass without
+`ALLOW_SUSPECT=1`.
