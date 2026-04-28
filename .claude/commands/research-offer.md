@@ -30,4 +30,4 @@ When invoked, Claude should:
 
 ## Status
 
-Scaffolded 2026-04-24. Underlying skill is a stub — behavior must be implemented before this command produces real output.
+Implemented 2026-04-28.
