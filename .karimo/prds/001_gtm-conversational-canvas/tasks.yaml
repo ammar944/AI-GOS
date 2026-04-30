@@ -54,7 +54,7 @@ tasks:
       - src/lib/gtm/render-md.ts
       - src/lib/gtm/render-md.test.ts
     acceptance_criteria:
-      - "Function renderSkillOutputToMd(skill, output): string for each of 5 lighthouse skills (ingest-url, ingest-identity, research-icp, research-competitor, research-offer)"
+      - "Function renderSkillOutputToMd(skill, output): string for each of 5 lighthouse skills (ingest-url, ingest-identity, research-market, research-competitor, research-icp) — matches canonical LIGHTHOUSE_5 in src/lib/gtm/dispatch-skill.ts"
       - "Templates include: H2 skill name, Summary section, structured field rendering (e.g. ICP table), Evidence subsections with source URLs, source-gap callouts"
       - "Idempotent: same JSON produces same MD"
       - "Unit tests: snapshot test per skill using fixtures from skills/*/example/"

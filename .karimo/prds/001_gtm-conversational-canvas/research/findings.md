@@ -22,7 +22,7 @@ Electron + Vite + React app. Apache-2.0. Architecture relevant to AIGOS:
 - Worker dispatch pipeline: frontend → `/api/gtm/runs/:id/dispatch` → Railway worker (or local :3001) → `codex exec` invokes skill folder → JSON output written to `gtm_stage_events` (mem 7838).
 - `discover-url` skill: produces 19 evidence-bound, confidence-rated fields in ~200s with 5 tool calls. Output quality is production-ready (verified on `airtable.com` run `run_wWShV4oNEO`).
 - `ChatShell.tsx` polls `/api/gtm/runs/:id` every 2500ms with `inFlightStagesRef` guard against double-dispatch (mem 7809).
-- Stage chain: `discover-url → ingest-identity → research-icp → research-competitor → research-offer` (5 lighthouse skills).
+- Stage chain: `ingest-url → ingest-identity → research-market → research-competitor → research-icp` (5 lighthouse skills, per `LIGHTHOUSE_5` in `src/lib/gtm/dispatch-skill.ts`).
 
 **Broken UX (the actual pain):**
 - `ChatShell` input is disabled unless `currentRun.status === "awaiting_user"` — user has no way to converse during a run.

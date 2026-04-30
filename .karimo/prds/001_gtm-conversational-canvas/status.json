@@ -8,11 +8,21 @@
   "execution_mode": "in-branch-atomic-commits",
   "research_included": true,
   "tasks_total": 12,
-  "tasks_completed": 3,
+  "tasks_completed": 4,
   "complexity_total": 49,
-  "complexity_completed": 8,
-  "current_wave": 1,
-  "current_wave_status": "complete",
+  "complexity_completed": 13,
+  "current_wave": 2,
+  "current_wave_status": "in-progress",
+  "corrections": [
+    {
+      "at": "2026-05-01T04:50:00+05:00",
+      "scope": "PRD lighthouse skill list",
+      "wrong": "research-offer named as 5th lighthouse skill",
+      "correct": "research-market — per LIGHTHOUSE_5 in src/lib/gtm/dispatch-skill.ts",
+      "fix_commit": "(this session)",
+      "discovered_during": "T4 implementation"
+    }
+  ],
   "tasks": {
     "T1": {
       "status": "done",
@@ -34,7 +44,13 @@
       "completed_at": "2026-05-01T04:08:00+05:00",
       "complexity": 2
     },
-    "T4": { "status": "queued", "wave": 2, "complexity": 5 },
+    "T4": {
+      "status": "done",
+      "commit": "a1d34267",
+      "completed_at": "2026-05-01T04:50:00+05:00",
+      "verification": "10/10 tests pass in 4ms; typecheck clean (no new errors)",
+      "complexity": 5
+    },
     "T5": { "status": "queued", "wave": 2, "complexity": 5 },
     "T6": { "status": "queued", "wave": 2, "complexity": 8 },
     "T7": { "status": "queued", "wave": 3, "complexity": 5 },
@@ -43,5 +59,18 @@
     "T10": { "status": "queued", "wave": 3, "complexity": 5 },
     "T11": { "status": "queued", "wave": 4, "complexity": 3 },
     "T12": { "status": "queued", "wave": 4, "complexity": 2 }
+  },
+  "wave_2_recon": {
+    "performed_at": "2026-05-01T04:48:00+05:00",
+    "probe_a_skill_audit": {
+      "result": "GREEN",
+      "findings": "All 5 lighthouse skills have real orchestrate.ts + Zod schemas + example fixtures. CLAUDE.md 'stubs only' claim is outdated."
+    },
+    "probe_b_ollama_tool_calling": {
+      "result": "GREEN",
+      "findings": "deepseek-v4-flash:cloud invoked dispatch_skill correctly, picked correct enum value, generated coherent refinement_context, 2 steps, 4s elapsed",
+      "test_file": "scripts/smoke-ollama-tools.ts",
+      "test_commit": "a1d6ec87"
+    }
   }
 }
