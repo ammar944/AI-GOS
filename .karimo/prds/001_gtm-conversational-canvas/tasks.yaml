@@ -1,0 +1,180 @@
+prd_slug: gtm-conversational-canvas
+total_tasks: 12
+total_complexity: 49
+
+tasks:
+  - id: T1
+    title: "Add Ollama provider to providers.ts + env wiring"
+    complexity: 3
+    priority: must
+    depends_on: []
+    files:
+      - src/lib/ai/providers.ts
+      - .env.example
+      - package.json
+    acceptance_criteria:
+      - "ollama-ai-provider installed (npm)"
+      - "createOllama() exported from src/lib/ai/providers.ts with env fallback (OLLAMA_HOST → http://localhost:11434, OLLAMA_API_KEY for Cloud)"
+      - "Smoke test: a one-shot generateText call to qwen2.5-coder:32b returns text"
+      - "Default model documented: qwen2.5-coder:32b local; deepseek-v4-flash on Ollama Cloud"
+
+  - id: T2
+    title: "Create gtm_artifacts Supabase table + types"
+    complexity: 3
+    priority: must
+    depends_on: []
+    files:
+      - supabase/migrations/{timestamp}_create_gtm_artifacts.sql
+      - src/lib/types/gtm-artifact.ts
+    acceptance_criteria:
+      - "Table columns: id (uuid pk), run_id (text fk → gtm_runs.run_id ON DELETE CASCADE), skill (text), version (int, default 1), parent_id (uuid nullable self-fk), content_md (text), source (enum: 'skill_output' | 'agent_patch'), created_by (text — user_id or 'orchestrator'), metadata (jsonb default '{}'), created_at (timestamptz)"
+      - "Unique index on (run_id, skill, version)"
+      - "RLS enabled. Policy: select/insert if user owns parent gtm_run via clerk user_id text join (mirror gtm_runs RLS pattern from migration_20260430)"
+      - "TS types generated and importable"
+      - "Migration applied to local + production via Supabase MCP"
+
+  - id: T3
+    title: "Narrow .claude/rules/ai-sdk-patterns.md provider allowlist"
+    complexity: 2
+    priority: must
+    depends_on: []
+    files:
+      - .claude/rules/ai-sdk-patterns.md
+    acceptance_criteria:
+      - "Rule explicitly allows ollama-ai-provider for orchestrator chat in src/lib/ai/orchestrator.ts and src/app/api/gtm/runs/[runId]/chat/route.ts"
+      - "Rule reaffirms anthropic + perplexity only for skill bodies (skills/*, research-worker/src/runners/)"
+      - "Rationale captured: cost split — cheap orchestrator brain, paid skill brains"
+
+  - id: T4
+    title: "Per-skill JSON-to-MD render templates"
+    complexity: 5
+    priority: must
+    depends_on: [T2]
+    files:
+      - src/lib/gtm/render-md.ts
+      - src/lib/gtm/render-md.test.ts
+    acceptance_criteria:
+      - "Function renderSkillOutputToMd(skill, output): string for each of 5 lighthouse skills (ingest-url, ingest-identity, research-icp, research-competitor, research-offer)"
+      - "Templates include: H2 skill name, Summary section, structured field rendering (e.g. ICP table), Evidence subsections with source URLs, source-gap callouts"
+      - "Idempotent: same JSON produces same MD"
+      - "Unit tests: snapshot test per skill using fixtures from skills/*/example/"
+
+  - id: T5
+    title: "Orchestrator tool definitions (Zod schemas)"
+    complexity: 5
+    priority: must
+    depends_on: [T2]
+    files:
+      - src/lib/gtm/orchestrator-tools.ts
+      - src/lib/gtm/orchestrator-tools.test.ts
+    acceptance_criteria:
+      - "Three tools defined with inputSchema (Zod) and execute(): dispatch_skill(skill, refinement_context?), patch_artifact(artifact_id, instruction), classify_intent(user_message)"
+      - "dispatch_skill calls existing /api/gtm/runs/:id/dispatch route (no worker changes)"
+      - "patch_artifact: invokes Ollama with current content_md + instruction → writes new gtm_artifacts row v+1"
+      - "classify_intent returns one of: 'rerun_skill' | 'patch_artifact' | 'ask_question' | 'no_action'"
+      - "All tools use AI SDK v6 patterns: inputSchema (NOT parameters), maxOutputTokens"
+
+  - id: T6
+    title: "Orchestrator chat agent loop"
+    complexity: 8
+    priority: must
+    depends_on: [T1, T4, T5]
+    files:
+      - src/lib/ai/orchestrator.ts
+      - src/lib/ai/orchestrator.test.ts
+    acceptance_criteria:
+      - "runOrchestrator(messages, runId) async generator streams text deltas + tool-call events"
+      - "Sanitizes incomplete tool parts before convertToModelMessages() (per learned-patterns.md)"
+      - "On dispatch_skill tool result: calls renderSkillOutputToMd, inserts gtm_artifacts row v1"
+      - "On patch_artifact tool result: inserts new gtm_artifacts row vN+1 with parent_id of previous"
+      - "Hardcoded DAG order from src/lib/skills/route-table.ts respected when user asks 'run the full pipeline'"
+      - "Unit tests: mocked Ollama + mocked Supabase verify the loop dispatches skills in order, writes artifacts, handles patch/rerun branching"
+
+  - id: T7
+    title: "Chat HTTP route — POST /api/gtm/runs/[runId]/chat"
+    complexity: 5
+    priority: must
+    depends_on: [T6]
+    files:
+      - src/app/api/gtm/runs/[runId]/chat/route.ts
+      - src/app/api/gtm/runs/[runId]/chat/route.test.ts
+    acceptance_criteria:
+      - "POST endpoint accepts UIMessage[] body via Vercel AI SDK"
+      - "Clerk auth check, run ownership check (mirror dispatch route pattern)"
+      - "Calls runOrchestrator, returns toUIMessageStreamResponse() (DefaultChatTransport-compatible)"
+      - "export const maxDuration = 300 (Vercel Pro)"
+      - "Unit test: 200 happy path, 401 unauth, 403 not-owner"
+
+  - id: T8
+    title: "ArtifactCard component (collapsible MD render + version dropdown)"
+    complexity: 5
+    priority: must
+    depends_on: [T2]
+    files:
+      - src/components/gtm/ArtifactCard.tsx
+      - src/components/gtm/ArtifactCard.test.tsx
+    acceptance_criteria:
+      - "Renders content_md with react-markdown (or existing AIGOS MD renderer if present)"
+      - "Header: skill name, version badge (v1, v2…), source badge (skill_output | agent_patch), created_at"
+      - "Collapsible body, default expanded for latest version"
+      - "Version dropdown lists all versions for this (run_id, skill) tuple; selecting one swaps content_md"
+      - "Open-in-canvas button → routes to canvas view (T9)"
+      - "DESIGN.md tokens (no new color/spacing)"
+
+  - id: T9
+    title: "ArtifactCanvas — focused MD edit view"
+    complexity: 3
+    priority: should
+    depends_on: [T8]
+    files:
+      - src/components/gtm/ArtifactCanvas.tsx
+      - src/app/gtm/[runId]/artifacts/[artifactId]/page.tsx
+    acceptance_criteria:
+      - "Full-width MD editor view (read-only for v1; write-mode triggers patch_artifact via chat)"
+      - "Side-by-side: rendered MD ←→ raw MD"
+      - "Back link to chat shell"
+
+  - id: T10
+    title: "Refactor ChatShell — remove auto-dispatch, wire chat input"
+    complexity: 5
+    priority: must
+    depends_on: [T7, T8]
+    files:
+      - src/components/gtm/ChatShell.tsx
+      - src/components/gtm/ChatShell.test.tsx
+      - src/app/gtm/[runId]/page.tsx
+    acceptance_criteria:
+      - "Chat input always enabled (remove inputDisabled gating on currentRun.status)"
+      - "Auto-dispatch useEffect removed; first user message (or auto-prompt 'run the audit on {url}') triggers orchestrator"
+      - "useChat() hook from Vercel AI SDK v6 wired to /api/gtm/runs/:id/chat with DefaultChatTransport"
+      - "Existing AgentInvocationBlock RETAINED for live tool-call rendering (skill in flight); ArtifactCard renders once skill completes"
+      - "Run page fetches both gtm_runs + gtm_artifacts on initial load"
+      - "Polling on gtm_runs/gtm_stage_events RETAINED for live activity log"
+
+  - id: T11
+    title: "End-to-end test on airtable.com"
+    complexity: 3
+    priority: must
+    depends_on: [T10]
+    files:
+      - "(no source — manual + automated test)"
+      - src/__tests__/e2e/gtm-conversational-canvas.test.ts
+    acceptance_criteria:
+      - "Submit airtable.com → orchestrator dispatches all 5 skills via DAG → 5 v1 artifacts written to gtm_artifacts"
+      - "User msg 'make the ICP description focus on enterprise only' → orchestrator classifies as patch → ICP artifact v2 written, no new gtm_stage_events row, $0 paid skill spend"
+      - "User msg 'rerun the competitor analysis with G2-only sources' → orchestrator classifies as rerun_skill → research-competitor dispatched again with refinement_context, v2 artifact written"
+      - "All assertions verifiable via DB query — no UI scraping"
+
+  - id: T12
+    title: "Build / typecheck / lint clean + smoke check"
+    complexity: 2
+    priority: must
+    depends_on: [T11]
+    files:
+      - "(verification only)"
+    acceptance_criteria:
+      - "npm run build exits 0"
+      - "npx tsc --noEmit exits 0 (modulo pre-existing openrouter/chat-blueprint errors per CLAUDE.md gotchas)"
+      - "npm run lint exits 0 or warnings unchanged from baseline"
+      - "npm run test:run: T11 e2e green; pre-existing failures unchanged"
+      - "Manual: visit /gtm/{runId} for the airtable run, screenshot for sign-off"

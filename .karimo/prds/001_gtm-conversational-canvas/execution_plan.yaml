@@ -1,0 +1,60 @@
+prd_slug: gtm-conversational-canvas
+
+waves:
+  - wave: 1
+    label: "Foundation (parallel)"
+    tasks: [T1, T2, T3]
+    blockers_for: [T4, T5, T6]
+    rationale: "Provider, schema, and rule changes are independent. Run in parallel."
+
+  - wave: 2
+    label: "Core (depends on Wave 1)"
+    tasks: [T4, T5, T6]
+    blockers_for: [T7, T8]
+    rationale: "T4 (MD render) + T5 (tools) feed T6 (orchestrator loop). T4/T5 can parallel; T6 needs both."
+    parallelizable_within_wave:
+      - [T4, T5]
+      - [T6]
+
+  - wave: 3
+    label: "UI surface (depends on T6/T2)"
+    tasks: [T7, T8, T9, T10]
+    blockers_for: [T11]
+    rationale: "T7 (chat route) needs T6. T8 (ArtifactCard) needs T2. T9 needs T8. T10 needs T7+T8."
+    parallelizable_within_wave:
+      - [T7, T8]
+      - [T9, T10]
+
+  - wave: 4
+    label: "Verification (final)"
+    tasks: [T11, T12]
+    blockers_for: []
+    rationale: "T11 e2e then T12 build/test gate."
+    parallelizable_within_wave:
+      - [T11]
+      - [T12]
+
+longest_chain:
+  - T1
+  - T6
+  - T7
+  - T10
+  - T11
+  - T12
+
+depth: 6
+
+estimated_duration:
+  optimistic: "3 days (single dev, full focus)"
+  realistic: "5-7 days (with verification + integration churn)"
+  pessimistic: "10 days (Ollama tool-calling quirks, RLS edge cases)"
+
+risk_register:
+  - risk: "Ollama qwen2.5-coder:32b tool-calling reliability"
+    mitigation: "T1 smoke test verifies basic tool-call before T6 starts. Fallback to Ollama Cloud deepseek-v4-flash if local model unreliable."
+  - risk: "Vercel AI SDK v6 transport mismatch (toUIMessageStreamResponse needs DefaultChatTransport)"
+    mitigation: "Captured in CLAUDE.md gotchas; T7 + T10 reference learned-patterns.md."
+  - risk: "RLS policy edge case — orchestrator inserts as 'orchestrator' service account"
+    mitigation: "T2 acceptance test verifies anon select blocked, owner select allowed, service-role insert allowed."
+  - risk: "User patch instructions trigger hallucinated MD (drift from skill output evidence)"
+    mitigation: "patch_artifact tool prompt instructs Ollama to preserve evidence URLs and confidence labels verbatim. T11 asserts evidence URLs unchanged across patch versions."

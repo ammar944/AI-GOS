@@ -1,0 +1,13 @@
+{
+  "slug": "gtm-conversational-canvas",
+  "status": "ready",
+  "created_date": "2026-05-01",
+  "approved_by": "ammar",
+  "approved_at": "2026-05-01T03:55:00+05:00",
+  "branch": "refactor/agent-loop-v1",
+  "research_included": true,
+  "tasks_total": 12,
+  "tasks_completed": 0,
+  "complexity_total": 49,
+  "current_wave": null
+}

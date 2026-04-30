@@ -1,0 +1,49 @@
+project:
+  name: AI-GOS
+  runtime: node
+  framework: nextjs
+  language: typescript
+  package_manager: npm
+
+commands:
+  build: npm run build
+  test: npm run test:run
+  lint: npm run lint
+  typecheck: npx tsc --noEmit
+  dev: npm run dev
+  worker_dev: "cd research-worker && npm run dev"
+
+boundaries:
+  never_touch:
+    - ".env"
+    - ".env.*"
+    - ".claude/rules/security.md"
+  require_review:
+    - "supabase/migrations/"
+    - ".claude/rules/"
+    - "research-worker/src/"
+    - "src/lib/ai/providers.ts"
+    - "skills/*/"
+
+architecture:
+  stack:
+    - "Next.js 15 (App Router)"
+    - "Vercel AI SDK v6 (@ai-sdk/anthropic, @ai-sdk/perplexity)"
+    - "Supabase (Postgres + RLS + realtime)"
+    - "Clerk (auth)"
+    - "Railway (research-worker host)"
+    - "shadcn/ui (new-york) + Tailwind v4"
+  pipeline_source_of_truth: "src/lib/skills/route-table.ts"
+  worker_boundary: "research-worker/ cannot import from src/lib/"
+
+provider_policy:
+  skills:
+    allowed:
+      - anthropic
+      - perplexity
+    forbidden:
+      - openrouter
+  orchestrator_chat:
+    allowed:
+      - ollama
+    rationale: "Cheap tool-calling brain; skill bodies remain on paid Anthropic/Perplexity."
