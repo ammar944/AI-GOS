@@ -1,9 +1,11 @@
 # AI SDK Patterns (Vercel AI SDK v6)
 
 ## Provider Rules
-- ALL AI calls use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly
-- NEVER use OpenRouter — it was removed in V2
-- Provider config lives in `src/lib/ai/providers.ts`
+- **Skill bodies** (`skills/*`, `research-worker/src/runners/`, `src/lib/gtm/skills/*`) use `@ai-sdk/anthropic` and `@ai-sdk/perplexity` directly. Evidence-binding + quality required.
+- **Orchestrator chat** (`src/lib/ai/orchestrator.ts`, `src/app/api/gtm/runs/[runId]/chat/route.ts`) may use Ollama via `@ai-sdk/openai-compatible` pointed at `OLLAMA_BASE_URL`. Cheap tool-calling brain; skill bodies remain on paid Anthropic+Perplexity.
+- **`patch_artifact` tool body** (textual MD edits, no skill re-run) also runs on Ollama. Free edits stay free.
+- NEVER use OpenRouter — it was removed in V2.
+- Provider config lives in `src/lib/ai/providers.ts`. Ollama exports are net-new alongside `anthropic`/`perplexity`; do not replace.
 
 ## Pattern Reference
 
