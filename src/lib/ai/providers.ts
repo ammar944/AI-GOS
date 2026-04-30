@@ -3,6 +3,7 @@
 
 import { createPerplexity } from '@ai-sdk/perplexity';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 // =============================================================================
 // Provider Instances
@@ -14,6 +15,16 @@ export const perplexity = createPerplexity({
 
 export const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+// Ollama for orchestrator chat brain (cheap tool-calling). Skill bodies stay on
+// anthropic/perplexity per .claude/rules/ai-sdk-patterns.md. Reaches Ollama via
+// its OpenAI-compatible endpoint at /v1. Local Ollama needs no apiKey; Ollama
+// Cloud needs OLLAMA_API_KEY.
+export const ollama = createOpenAICompatible({
+  name: 'ollama',
+  baseURL: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1',
+  apiKey: process.env.OLLAMA_API_KEY,
 });
 
 // =============================================================================
@@ -40,7 +51,17 @@ export const MODELS = {
   LLAMA_3_3_70B: 'llama-3.3-70b-versatile',
   KIMI_K2: 'moonshotai/kimi-k2-instruct-0905',
   GPT_OSS_20B: 'openai/gpt-oss-20b',
+
+  // Ollama models (orchestrator + patch_artifact tool body only — NOT for skill bodies)
+  // Cloud variants require OLLAMA_API_KEY. Local variants work with no key.
+  OLLAMA_DEEPSEEK_V4_FLASH: 'deepseek-v4-flash:cloud',
+  OLLAMA_GEMMA_4_31B: 'gemma4:31b-cloud',
+  OLLAMA_QWEN_25_CODER: 'qwen2.5-coder:32b',
+  OLLAMA_LLAMA_31: 'llama3.1:latest',
 } as const;
+
+export const ORCHESTRATOR_MODEL =
+  process.env.OLLAMA_ORCHESTRATOR_MODEL ?? MODELS.OLLAMA_DEEPSEEK_V4_FLASH;
 
 // =============================================================================
 // Section → Model Mapping
