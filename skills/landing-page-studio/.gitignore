@@ -1,4 +1,5 @@
 output/
+!example/output/
 dist/
 node_modules/
 *.gen.json

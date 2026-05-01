@@ -1,0 +1,14 @@
+{
+  "brandName": "Dealflow",
+  "tagline": "Pipeline intelligence for RevOps teams that close faster",
+  "primaryColor": "#1A1F36",
+  "accentColor": "#4F6EF7",
+  "voice": "professional",
+  "direction": "editorial-linear-stripe",
+  "industry": "B2B SaaS — Revenue Operations",
+  "targetAudience": "VP of Revenue Operations and Revenue Operations Managers at B2B SaaS companies with 50–500 employees",
+  "keyBenefit": "Connect your CRM, marketing automation, and sales engagement tools into a single revenue intelligence layer — forecast accurately, identify pipeline risk early, and coach reps with deal-level signal.",
+  "cta": "Start free trial",
+  "logoUrl": "https://example.com/dealflow-logo.svg",
+  "customInstructions": "Tone: confident, data-driven, direct. No filler adjectives. Hero must include the phrase 'pipeline intelligence'. Feature sections should use specific RevOps metrics (win rate, pipeline coverage, deal velocity)."
+}
