@@ -9,6 +9,9 @@
     "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "*",
+    "ai": "*",
+    "node-html-parser": "^6.1.13",
     "zod": "^3.24.3"
   },
   "devDependencies": {
