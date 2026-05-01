@@ -34,6 +34,9 @@ Cap: under 40 entries total. Over 60 and this file is fighting itself.
 - When API routes timeout on Vercel, add `export const maxDuration = 300` (requires Pro tier)
 - When SSE events aren't received by frontend, check event name casing — backend and frontend must match exactly
 
+## React
+- When a `useEffect(() => setX(prop), [prop])` syncs a defaulted prop like `prop = []`, hoist the default to a module-level constant. Inline `[]` defaults create a fresh ref every render, the deps array always sees a new ref, the effect re-fires, calls setState with a new ref, triggers another render, and the loop is infinite. Manifests as vitest workers timing out at 750+ seconds with no test output. Pre-existing in `src/components/gtm/ChatShell.tsx` until T10 of gtm-conversational-canvas; only surfaced once we wrote the first ChatShell test that triggered a re-render via `fireEvent.change`. (session: 2026-05-01 gtm-conversational-canvas T10)
+
 ## Anthropic API / generateObject
 - When Anthropic rejects a schema with `properties maximum, minimum are not supported`, remove `.min()` / `.max()` from Zod number fields in schemas passed to `generateObject()`. Use `.describe()` to communicate the range to the model, and add post-processing validation for enforcement. `.min()` / `.max()` are fine in contracts/validation schemas that don't go to the API.
 
