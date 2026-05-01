@@ -1,0 +1,9 @@
+{
+  "id": "landing-page-studio",
+  "version": "0.1.0",
+  "status": "scaffold",
+  "entry": "scripts/generate.ts",
+  "description": "Generates styled landing pages from BrandSpec",
+  "inputs": ["BrandSpec"],
+  "outputs": ["html", "quality-report"]
+}
