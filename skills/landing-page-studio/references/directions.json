@@ -1,0 +1,300 @@
+{
+  "$comment": "15-direction vocabulary taxonomy for landing-page-studio. 5 disjoint families x 3 variants each. Names follow the <aesthetic-anchor> / <exemplar-brand> pattern per scope-decisions.md item 2. Disjointness enforced: T4 planner picks 3 from different families per BrandSpec.",
+  "directions": [
+    {
+      "id": "editorial-linear-stripe",
+      "name": "Editorial / Linear-Stripe",
+      "family": "Editorial",
+      "summary": "Magazine-grade typography with dense paragraphs, refined whitespace, and strong vertical rhythm. Ink-on-paper gravitas. Favored by Stripe, media brands, and editorial-first SaaS.",
+      "do": [
+        "Lead with a large, confident typographic headline (no decorative hero image)",
+        "Use generous line-height (1.6-1.8) and tight letter-spacing on display type",
+        "Separate sections with ruled lines or minimal horizontal dividers",
+        "Use a restrained 2-3 color palette anchored in near-black and off-white",
+        "Treat images as editorial inserts — captioned, bordered, purposeful"
+      ],
+      "dont": [
+        "Add full-bleed hero gradients or abstract background art",
+        "Use rounded corners on cards (radius max 2px)",
+        "Mix more than 2 typefaces",
+        "Use icon grids or feature bento tiles",
+        "Animate the hero section"
+      ],
+      "exemplar_brands": ["Stripe", "The Atlantic", "Basecamp", "Notion (blog)"]
+    },
+    {
+      "id": "editorial-stripe-press",
+      "name": "Editorial / Stripe-Press",
+      "family": "Editorial",
+      "summary": "Book-publishing aesthetic applied to SaaS. Dense knowledge, editorial hierarchy, serif-led type. Communicates depth and intellectual confidence. High contrast, sparse color.",
+      "do": [
+        "Use a serif display font paired with a readable sans body",
+        "Structure sections like book chapters — numbered, titled, nested",
+        "Present social proof as pull-quotes with attribution, not logo rows",
+        "Keep the palette monochromatic with a single accent ink color",
+        "Use grid-aligned photography in grayscale or duotone"
+      ],
+      "dont": [
+        "Add any animation or motion",
+        "Use gradients or glassmorphism",
+        "Include bento card grids",
+        "Put CTAs above the fold in a hero button — tuck them into body text"
+      ],
+      "exemplar_brands": ["Stripe Press", "Substack", "Lenny's Newsletter", "ACM"]
+    },
+    {
+      "id": "editorial-apple-newsroom",
+      "name": "Editorial / Apple-Newsroom",
+      "family": "Editorial",
+      "summary": "Clean, high-production editorial with precision typography and disciplined white space. Product photography as editorial object. Single-column narrative flow.",
+      "do": [
+        "Use SF Pro or equivalent geometric sans at large display sizes",
+        "Lead each section with a single large image or video still, captioned",
+        "Use narrow measure (60-70ch) for body text columns",
+        "Employ generous vertical spacing between sections (80-120px)",
+        "Suppress navigation — minimal sticky header only"
+      ],
+      "dont": [
+        "Use card-based layouts or grids in the main flow",
+        "Add social media widgets or external embeds",
+        "Use more than one accent color",
+        "Add hover animations on body text or images"
+      ],
+      "exemplar_brands": ["Apple Newsroom", "WWDC", "Readwise", "Craft Docs"]
+    },
+    {
+      "id": "bento-notion-vercel",
+      "name": "Bento / Notion-Vercel",
+      "family": "Bento",
+      "summary": "Modular card grid with asymmetric tiles, soft borders, and mixed content types per cell. The canonical modern SaaS layout — dashboard-like, feature-rich, scannable.",
+      "do": [
+        "Use a 12-column CSS grid with cards of varying widths (2-col, 4-col, 6-col)",
+        "Give each bento cell a clear single purpose (metric, feature, quote, image)",
+        "Use soft borders (1px, 10-16px radius) and subtle box shadows",
+        "Apply a light background with dark text; one accent color for interactive cells",
+        "Include a live-data widget cell (even if mocked) to signal product depth"
+      ],
+      "dont": [
+        "Make all cells the same size — asymmetry is the point",
+        "Use serif type in cells (sans only)",
+        "Add full-bleed background images",
+        "Use heavy drop shadows or gradients"
+      ],
+      "exemplar_brands": ["Notion", "Vercel", "Linear", "Raycast"]
+    },
+    {
+      "id": "bento-vercel-edge",
+      "name": "Bento / Vercel-Edge",
+      "family": "Bento",
+      "summary": "Dark-mode bento with glowing accent borders and code-adjacent aesthetics. Developer-facing. Terminal-inspired cells alongside feature tiles. Light emitted from within cards.",
+      "do": [
+        "Use a near-black (#0a0a0a or #111) background with white text",
+        "Apply glow effects on card borders using box-shadow with accent color",
+        "Include a code snippet cell with syntax highlighting",
+        "Use monospace type for technical cells, geometric sans for narrative",
+        "Animate a single cell (e.g. a terminal typing animation) — keep the rest static"
+      ],
+      "dont": [
+        "Use light-mode or mixed-mode backgrounds",
+        "Add stock photography",
+        "Make CTAs look like marketing buttons — style as CLI commands or terminal prompts"
+      ],
+      "exemplar_brands": ["Vercel", "Turbo", "Railway", "Fly.io"]
+    },
+    {
+      "id": "bento-linear-cards",
+      "name": "Bento / Linear-Cards",
+      "family": "Bento",
+      "summary": "Precision bento with tight grid, exact spacing, and product UI screenshots as card content. Optimized for issue-trackers, project tools, and B2B productivity SaaS.",
+      "do": [
+        "Use 8px grid — all spacing is multiples of 8",
+        "Fill cells with actual UI crops or wireframe mockups (not illustrations)",
+        "Apply a neutral palette with one electric accent (neon blue, acid green)",
+        "Use SF Mono or JetBrains Mono for UI labels inside card screenshots",
+        "Keep cards borderless but differentiated by background shade"
+      ],
+      "dont": [
+        "Use illustration or icon-heavy cells",
+        "Add gradients inside cells",
+        "Mix layout densities — keep all cells uniformly compact"
+      ],
+      "exemplar_brands": ["Linear", "Height", "Shortcut", "Plane"]
+    },
+    {
+      "id": "hero-art-lovable-anthropic",
+      "name": "Hero-art / Lovable-Anthropic",
+      "family": "Hero-art",
+      "summary": "Large hero illustration or abstract art occupies the viewport above the fold. Generous vertical rhythm below. Soft gradients, friendly colors, and human warmth. Favored by AI and creative tools.",
+      "do": [
+        "Dedicate 60-80% of the viewport to the hero visual (illustration, gradient blob, or abstract art)",
+        "Use a pastel or soft gradient palette (lavender, peach, warm coral)",
+        "Apply large display type (80-120px) with tight tracking overlaid on the hero",
+        "Transition to text-focused sections below the fold with generous spacing",
+        "Use organic shapes for section dividers (SVG waves or gentle curves)"
+      ],
+      "dont": [
+        "Use a bento or card-based hero",
+        "Choose a dark background (keep it light and airy)",
+        "Add hard-edged borders or structured grids in the hero zone",
+        "Use stock photography"
+      ],
+      "exemplar_brands": ["Lovable", "Anthropic", "Midjourney", "Notion AI"]
+    },
+    {
+      "id": "hero-art-anthropic-claude",
+      "name": "Hero-art / Anthropic-Claude",
+      "family": "Hero-art",
+      "summary": "Centered hero with abstract generative art and a commanding single-line headline. Pure white or off-white base. Premium feel through negative space and restraint.",
+      "do": [
+        "Center everything — headline, subhead, CTA — no left-aligned layouts in the hero",
+        "Use a single abstract image or SVG art piece as the visual anchor (not photography)",
+        "Apply a warm off-white (#fafaf8 or similar) as the page background",
+        "Use a heavy serif or slab serif for the hero headline",
+        "Keep the CTA row to one primary + one ghost button, centered"
+      ],
+      "dont": [
+        "Use logo clouds or testimonial carousels above the fold",
+        "Add background video",
+        "Use more than 2 colors in the hero zone",
+        "Apply grid-based layout to the hero"
+      ],
+      "exemplar_brands": ["Anthropic", "Claude.ai", "Perplexity", "Elicit"]
+    },
+    {
+      "id": "hero-art-vercel-ai",
+      "name": "Hero-art / Vercel-AI",
+      "family": "Hero-art",
+      "summary": "Dark hero with subtle animated mesh gradient or particle field. Text floats over a living background. Developer-friendly but polished. Bridges the art and tech aesthetics.",
+      "do": [
+        "Use a dark hero (#0d0d0d) with a subtle animated gradient mesh (CSS or canvas)",
+        "Keep animation subtle — movement should feel ambient, not distracting",
+        "Use large white or near-white headline type with strong contrast",
+        "Surface a secondary featured stat or quote below the hero in a lighter section",
+        "Include a product demo GIF or still in the first scroll-stop section"
+      ],
+      "dont": [
+        "Make the animation loop distracting (keep opacity < 0.4 for the gradient layer)",
+        "Use serif type in the hero",
+        "Add a bento or card layout in the hero zone"
+      ],
+      "exemplar_brands": ["Vercel AI SDK", "Replicate", "Together AI", "Groq"]
+    },
+    {
+      "id": "brutalist-arena",
+      "name": "Brutalist / Are.na",
+      "family": "Brutalist",
+      "summary": "Raw geometry, sans-serif weights, exposed structure. No ornament — function as form. Thick borders, grid lines, and strict 2-3 color palettes. Favored by design studios and research-forward products.",
+      "do": [
+        "Use thick borders (3-6px solid) on containers, buttons, and section dividers",
+        "Expose grid lines and gutters as a deliberate design element",
+        "Stick to 2-3 colors total: near-black, off-white, one accent (often red or yellow)",
+        "Use monospace or geometric sans for ALL type (body and display)",
+        "Align everything strictly to an 8px or 12px grid"
+      ],
+      "dont": [
+        "Use any border-radius (radius must be 0)",
+        "Soften with gradients or drop shadows",
+        "Add icons as decoration (only functional icons)",
+        "Use photography (illustration or pure type only)"
+      ],
+      "exemplar_brands": ["Are.na", "Pentagram", "Koto Studio", "Minimalissimo"]
+    },
+    {
+      "id": "brutalist-bold-sans",
+      "name": "Brutalist / Bold-Sans",
+      "family": "Brutalist",
+      "summary": "Oversized geometric sans headlines, ultra-high contrast, hard-cut layout sections. Aggressive typographic rhythm. Brand statement over product explanation.",
+      "do": [
+        "Use display type at 120-200px — type IS the hero",
+        "Apply ultra-high contrast: pure black on pure white, or vice versa",
+        "Break layout with asymmetric column splits (70/30, 80/20)",
+        "Use uppercase for all headings",
+        "Treat section breaks as hard cuts — no transition, no wave dividers"
+      ],
+      "dont": [
+        "Use any gradient or color beyond the 2-color palette",
+        "Apply rounded corners anywhere",
+        "Use more than one typeface family"
+      ],
+      "exemplar_brands": ["Wired", "Nike campaigns", "Aesop (editorial)", "A24"]
+    },
+    {
+      "id": "brutalist-mono-grid",
+      "name": "Brutalist / Mono-Grid",
+      "family": "Brutalist",
+      "summary": "Monospace type throughout, rigid grid, exposed column gutters. Evokes terminal / spreadsheet aesthetics. Developer-native, unpolished by design.",
+      "do": [
+        "Use monospace type for ALL text (JetBrains Mono, Fira Mono, or Courier)",
+        "Expose the grid with thin 1px lines — make the structure visible",
+        "Use tabular data layouts even for non-tabular content (fake spreadsheet rows)",
+        "Keep all content left-aligned with strict 4px or 8px indent steps",
+        "Use a raw HTML aesthetic: no decorative framing, no card shadows"
+      ],
+      "dont": [
+        "Use sans or serif type for any element",
+        "Add visual decoration (icons, images, gradients)",
+        "Center any text or element"
+      ],
+      "exemplar_brands": ["Hacker News", "sourcegraph.com (old)", "Pika CLI", "charm.sh"]
+    },
+    {
+      "id": "eastern-kenya-hara",
+      "name": "Eastern-typographic / Kenya-Hara",
+      "family": "Eastern-typographic",
+      "summary": "Vertical and horizontal type rhythm inspired by Japanese graphic design tradition. Generous negative space, restrained palette (near-white, ink black, one accent). The absence of visual noise IS the design.",
+      "do": [
+        "Use generous negative space — content should feel like it is breathing",
+        "Apply a near-white background (#f9f7f4 or equivalent) with ink-dark type",
+        "Use a single accent color sparingly (one element per section maximum)",
+        "Alternate between horizontal and vertical typographic rhythms across sections",
+        "Treat empty space as a structural element — not a gap to fill"
+      ],
+      "dont": [
+        "Add decorative elements, illustrations, or background textures",
+        "Use more than 3 colors total",
+        "Apply drop shadows or gradients",
+        "Fill sections edge-to-edge — always leave breathing room"
+      ],
+      "exemplar_brands": ["Muji", "Kenya Hara design office", "Uniqlo (editorial)", "21_21 Design Sight"]
+    },
+    {
+      "id": "eastern-muji-editorial",
+      "name": "Eastern-typographic / Muji-Editorial",
+      "family": "Eastern-typographic",
+      "summary": "Warm neutrals, understated typography, and craft-material textures. The paper-and-linen aesthetic applied to digital. Communicates quality through restraint.",
+      "do": [
+        "Use warm neutral backgrounds (linen, cream, warm gray: #f5f0e8 range)",
+        "Apply a serif typeface for headings (gentle, not slab — think Cormorant or Libre Baskerville)",
+        "Use photography of physical materials, craft objects, or hands-on process",
+        "Keep sections narrow-width with large margins on both sides",
+        "Use light rule lines and hairline borders as the only structural decoration"
+      ],
+      "dont": [
+        "Use saturated or primary colors",
+        "Add digital-looking gradients or glassmorphism",
+        "Use icon grids or bento tiles",
+        "Apply heavy typography weights (max 500 weight)"
+      ],
+      "exemplar_brands": ["Muji global", "Aesop", "Toast (clothing)", "Kinfolk"]
+    },
+    {
+      "id": "eastern-tokyo-type",
+      "name": "Eastern-typographic / Tokyo-Type",
+      "family": "Eastern-typographic",
+      "summary": "High-density typography inspired by Tokyo street typography and neon signage. Mixed scale contrast: large kanji-inspired display type alongside small dense body. Bold + restrained alternation.",
+      "do": [
+        "Apply extreme scale contrast: 120px+ display type next to 12px body text",
+        "Use a high-contrast dark palette with 1-2 neon accent colors (electric blue, hot pink)",
+        "Alternate between full-bleed sections and tightly constrained text columns",
+        "Use a condensed sans or display typeface that references East Asian proportions",
+        "Apply red rule lines as typographic markers (inspired by hanko stamps)"
+      ],
+      "dont": [
+        "Use soft or muted colors — this direction is high-contrast, not zen",
+        "Apply rounded corners or soft shapes",
+        "Mix more than 3 colors (background, type, one accent)"
+      ],
+      "exemplar_brands": ["Beams Japan", "Comme des Garçons web", "Tokyo Midtown", "2046 editorial"]
+    }
+  ]
+}
