@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Landing page generation skill for AIGOS",
+  "bin": {
+    "landing-page-studio": "./scripts/generate.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit -p tsconfig.json"
