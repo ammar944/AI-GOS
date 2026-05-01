@@ -1,0 +1,76 @@
+{
+  "configured_at": "2026-05-01T16:18:00Z",
+  "configured_by": "claude-auto-mode",
+  "orchestration_version": 2,
+  "branch_context": {
+    "parent_branch": "refactor/agent-loop-v1",
+    "feature_branch_strategy": "none",
+    "rationale": "PRD #002 is local-only skill folder + scripts (no production code, no shipping path). Status.json declares parent as refactor/agent-loop-v1. PRD #001 was executed directly on this branch under the same pattern. No feature/* branch from main. No GitHub task PRs. Each wave commits directly to refactor/agent-loop-v1."
+  },
+  "orchestration": {
+    "integration": {
+      "cadence": "worktree",
+      "auto_merge_on_green": true,
+      "merge_target": "refactor/agent-loop-v1"
+    },
+    "review": {
+      "trigger": "per-gate",
+      "scope": "wave-diff",
+      "skip_if_diff_under": 50,
+      "on_findings": "halt",
+      "providers": {
+        "code-review": {
+          "fire_at": ["gate"],
+          "on_findings": "halt"
+        }
+      }
+    },
+    "gates": {
+      "model": "pause",
+      "auto_place": false,
+      "max_waves_per_gate": 4,
+      "conditions": {
+        "require_tests_pass": true,
+        "require_build_pass": true,
+        "max_critical_findings": 0
+      },
+      "placements": [
+        {
+          "after_wave": 4,
+          "label": "Engines complete — review T4/T5/T6/T7/T8/T9 before T10 orchestrator wires them"
+        },
+        {
+          "after_wave": 6,
+          "label": "Agent surfaces + golden fixture complete — review before T15 deprecation banner"
+        }
+      ]
+    }
+  },
+  "models": {
+    "default": "sonnet",
+    "complexity_threshold": 5,
+    "force_opus_tasks": ["T5"],
+    "force_sonnet_tasks": [],
+    "escalation": {
+      "after_failures": 1,
+      "triggers": ["architectural_issues", "type_system_issues"]
+    }
+  },
+  "max_revision_loops": 3,
+  "allow_bypass": {
+    "future_work_overlap": true,
+    "false_positive_factual": true
+  },
+  "verification": {
+    "build_command": "npm run build",
+    "test_command": "npm run test:run",
+    "typecheck_command": "npx tsc --noEmit",
+    "skill_typecheck": "cd skills/landing-page-studio && npx tsc --noEmit"
+  },
+  "notes": [
+    "T13 acceptance requires real ANTHROPIC_API_KEY + OLLAMA_API_KEY at runtime. Cannot be CI-tested. Implementer runs manually.",
+    "T11 acceptance requires testing in a Claude Code session. Cannot be CI-tested.",
+    "T15 is single-file deprecation banner edit — skip-if-diff-under 50 will skip review on this wave.",
+    "Skill imports from src/ are flagged with PORTABILITY-EXCEPTION(v1) comments — known v1 deviation, resolved by PRD #003."
+  ]
+}
