@@ -8,12 +8,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "../../..",
     "resolveJsonModule": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "ignoreDeprecations": "5.0"
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../../../src/**/*.ts"],
   "exclude": ["dist", "node_modules", "output"]
 }
