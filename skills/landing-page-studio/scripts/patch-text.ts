@@ -6,7 +6,6 @@
 //   npx tsx scripts/patch-text.ts --run <run-id> --direction <A|B|C> \
 //     --section <section-name> --instruction "<tweak instruction>"
 //
-// PORTABILITY-EXCEPTION(v1): imports from src/ — to be extracted to skill-local copy in PRD #003
 
 import { generateText } from "ai";
 import { parse as parseHtml, HTMLElement } from "node-html-parser";
@@ -14,12 +13,11 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-// PORTABILITY-EXCEPTION(v1): imports from src/ — to be extracted to skill-local copy in PRD #003
-import { getGtmSkillLanguageModel } from "../../../src/lib/gtm/skill-model.js";
+import { getGtmSkillLanguageModel } from "../lib/skill-model";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, "..");
-const REPO_ROOT = path.resolve(SKILL_ROOT, "../../..");
+const REPO_ROOT = path.resolve(SKILL_ROOT, "../..");
 
 // ---------------------------------------------------------------------------
 // System prompt

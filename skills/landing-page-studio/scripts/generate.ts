@@ -66,6 +66,28 @@ function checkEnvVars(vars: string[]): void {
   }
 }
 
+/**
+ * Ollama is reachable in two modes:
+ *  - Cloud: OLLAMA_API_KEY set (calls https://ollama.com/v1)
+ *  - Local: OLLAMA_BASE_URL or OLLAMA_HOST set (or default localhost:11434 if a daemon is running)
+ *
+ * The skill-model resolver throws a clear cloud-needs-key error when the cloud path
+ * is taken without a key, so we only need to ensure SOME path is configured here.
+ */
+function checkOllamaEnv(): void {
+  const hasCloudKey = Boolean(process.env.OLLAMA_API_KEY?.trim());
+  const hasLocalUrl =
+    Boolean(process.env.OLLAMA_BASE_URL?.trim()) ||
+    Boolean(process.env.OLLAMA_HOST?.trim());
+
+  if (hasCloudKey || hasLocalUrl) return;
+
+  // Default localhost — best-effort. Surface a one-line note so the user knows.
+  console.warn(
+    "Note: OLLAMA_API_KEY not set and no OLLAMA_BASE_URL/OLLAMA_HOST configured — defaulting to local Ollama at http://localhost:11434. Set OLLAMA_API_KEY for cloud, or start a local Ollama daemon."
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Subprocess runner
 // ---------------------------------------------------------------------------
@@ -219,7 +241,7 @@ REQUIRES
 async function runPlan(args: Record<string, string | boolean>): Promise<void> {
   if (args["help"]) { console.log(PLAN_HELP); process.exit(0); }
 
-  checkEnvVars(["OLLAMA_API_KEY"]);
+  checkOllamaEnv();
 
   const brand = requireArg(args, "brand", PLAN_HELP);
   const run = requireArg(args, "run", PLAN_HELP);
@@ -304,7 +326,8 @@ async function runGenerate(args: Record<string, string | boolean>): Promise<void
 async function runFull(args: Record<string, string | boolean>): Promise<void> {
   if (args["help"]) { console.log(FULL_HELP); process.exit(0); }
 
-  checkEnvVars(["ANTHROPIC_API_KEY", "OLLAMA_API_KEY"]);
+  checkEnvVars(["ANTHROPIC_API_KEY"]);
+  checkOllamaEnv();
 
   const brand = requireArg(args, "brand", FULL_HELP);
   const run = requireArg(args, "run", FULL_HELP);
@@ -382,7 +405,7 @@ async function runFull(args: Record<string, string | boolean>): Promise<void> {
 async function runTweakText(args: Record<string, string | boolean>): Promise<void> {
   if (args["help"]) { console.log(TWEAK_TEXT_HELP); process.exit(0); }
 
-  checkEnvVars(["OLLAMA_API_KEY"]);
+  checkOllamaEnv();
 
   const run = requireArg(args, "run", TWEAK_TEXT_HELP);
   const direction = requireArg(args, "direction", TWEAK_TEXT_HELP);

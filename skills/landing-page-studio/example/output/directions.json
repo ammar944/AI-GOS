@@ -1,0 +1,34 @@
+{
+  "directions": [
+    {
+      "id": "A",
+      "label": "Editorial Minimal",
+      "layout_paradigm": "editorial",
+      "color_temperature": "cool",
+      "typographic_register": "serif-led",
+      "primary_color_oklch": "oklch(0.12 0.02 270)",
+      "accent_color_oklch": "oklch(0.48 0.20 265)",
+      "rationale": "This direction uses a serif-led typography and a cool, dark blue palette with minimal layout, contrasting with B's bold hero and warm reds and C's grid structure and neutral greens."
+    },
+    {
+      "id": "B",
+      "label": "Data Hero",
+      "layout_paradigm": "hero",
+      "color_temperature": "warm",
+      "typographic_register": "sans-led",
+      "primary_color_oklch": "oklch(0.38 0.18 30)",
+      "accent_color_oklch": "oklch(0.6 0.25 40)",
+      "rationale": "A data-driven hero layout with warm red tones and sans-serif typography stands out against A's editorial cool blues and C's grid-based neutral greens."
+    },
+    {
+      "id": "C",
+      "label": "Grid Modern",
+      "layout_paradigm": "grid",
+      "color_temperature": "neutral",
+      "typographic_register": "mono-accent",
+      "primary_color_oklch": "oklch(0.25 0.11 140)",
+      "accent_color_oklch": "oklch(0.7 0.15 140)",
+      "rationale": "A modern grid layout with neutral green hues and monospace accents offers a structured, clean alternative to A's serif minimalism and B's warm hero."
+    }
+  ]
+}

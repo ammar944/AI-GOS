@@ -6,7 +6,6 @@
 //   npx tsx scripts/regen-section.ts --run <run-id> --direction <A|B|C> \
 //     --section <section-name> [--instruction "<tweak instruction>"]
 //
-// PORTABILITY-EXCEPTION(v1): imports from src/ — to be extracted to skill-local copy in PRD #003
 // TODO(skill-on-ollama): re-evaluate after Ollama-side fix
 // Failure mode: Ollama (deepseek-v4-flash) cannot reliably regenerate full HTML sections
 // with correct OKLCH color constraints and structural fidelity. Anthropic Sonnet matches
@@ -19,15 +18,14 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-// PORTABILITY-EXCEPTION(v1): imports from src/ — to be extracted to skill-local copy in PRD #003
-import { anthropic, MODELS } from "../../../src/lib/ai/providers.js";
+import { anthropic, MODELS } from "../lib/anthropic";
 
-import { parseBrandSpec, type BrandSpec } from "../contracts/brand-spec.js";
-import { DirectionPlanSchema, type DirectionSpec } from "../schemas/directions.js";
+import { parseBrandSpec, type BrandSpec } from "../contracts/brand-spec";
+import { DirectionPlanSchema, type DirectionSpec } from "../schemas/directions";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, "..");
-const REPO_ROOT = path.resolve(SKILL_ROOT, "../../..");
+const REPO_ROOT = path.resolve(SKILL_ROOT, "../..");
 
 // ---------------------------------------------------------------------------
 // System prompt

@@ -5,22 +5,20 @@
 // Usage:
 //   npx tsx scripts/plan-directions.ts --run <run-id> --brand <path-to-brand-spec.json>
 //
-// PORTABILITY-EXCEPTION(v1): imports from src/ — to be extracted to skill-local copy in PRD #003
 
 import { generateObject } from "ai";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-// PORTABILITY-EXCEPTION(v1): imports from src/ — to be extracted to skill-local copy in PRD #003
-import { getGtmSkillLanguageModel } from "../../../src/lib/gtm/skill-model.js";
+import { getGtmSkillLanguageModel } from "../lib/skill-model";
 
-import { parseBrandSpec, type BrandSpec } from "../contracts/brand-spec.js";
-import { DirectionPlanSchema, type DirectionPlan } from "../schemas/directions.js";
+import { parseBrandSpec, type BrandSpec } from "../contracts/brand-spec";
+import { DirectionPlanSchema, type DirectionPlan } from "../schemas/directions";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, "..");
-const REPO_ROOT = path.resolve(SKILL_ROOT, "../../..");
+const REPO_ROOT = path.resolve(SKILL_ROOT, "../..");
 
 // ---------------------------------------------------------------------------
 // CLI arg parsing
@@ -65,7 +63,26 @@ Rules:
 BrandSpec:
 ${JSON.stringify(brandSpec, null, 2)}
 
-Respond with a JSON object matching the DirectionPlan schema with exactly 3 directions (ids: "A", "B", "C").`;
+Respond with a JSON object EXACTLY matching this schema (use these exact field names — no extras, no renames):
+
+{
+  "directions": [
+    {
+      "id": "A",
+      "label": "<short human name, e.g. Editorial Minimal>",
+      "layout_paradigm": "<one of: hero | editorial | grid | split | card-stack>",
+      "color_temperature": "<one of: warm | cool | neutral>",
+      "typographic_register": "<one of: serif-led | sans-led | mono-accent>",
+      "primary_color_oklch": "<oklch(L C H) string, e.g. oklch(0.65 0.18 240)>",
+      "accent_color_oklch": "<oklch(L C H) string>",
+      "rationale": "<one sentence explaining how this direction is visually distinct from the other two>"
+    },
+    { "id": "B", "label": "...", "layout_paradigm": "...", "color_temperature": "...", "typographic_register": "...", "primary_color_oklch": "...", "accent_color_oklch": "...", "rationale": "..." },
+    { "id": "C", "label": "...", "layout_paradigm": "...", "color_temperature": "...", "typographic_register": "...", "primary_color_oklch": "...", "accent_color_oklch": "...", "rationale": "..." }
+  ]
+}
+
+Return ONLY the JSON object. No markdown fences, no preamble, no extra fields.`;
 }
 
 // ---------------------------------------------------------------------------

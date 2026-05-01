@@ -12,7 +12,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, "..");
-const REPO_ROOT = path.resolve(SKILL_ROOT, "../../..");
+const REPO_ROOT = path.resolve(SKILL_ROOT, "../..");
 
 // ---------------------------------------------------------------------------
 // Constants
