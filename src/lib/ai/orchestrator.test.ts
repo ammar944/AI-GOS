@@ -28,13 +28,6 @@ vi.mock("@/lib/gtm/render-md", () => ({
   ),
 }));
 
-type ExecuteFn<I, O> = (input: I, options: never) => Promise<O>;
-
-function asExecute<I, O>(t: { execute?: unknown }): ExecuteFn<I, O> {
-  if (!t.execute) throw new Error("tool.execute missing");
-  return t.execute as ExecuteFn<I, O>;
-}
-
 function makeDeps(overrides: Partial<RunOrchestratorDeps> = {}): RunOrchestratorDeps {
   return {
     userId: "user_test",

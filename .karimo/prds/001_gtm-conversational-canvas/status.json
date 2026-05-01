@@ -1,18 +1,19 @@
 {
   "slug": "gtm-conversational-canvas",
-  "status": "executing",
+  "status": "complete",
   "created_date": "2026-05-01",
   "approved_by": "ammar",
   "approved_at": "2026-05-01T03:55:00+05:00",
+  "completed_at": "2026-05-01T14:10:00+05:00",
   "branch": "refactor/agent-loop-v1",
   "execution_mode": "in-branch-atomic-commits",
   "research_included": true,
   "tasks_total": 12,
-  "tasks_completed": 4,
+  "tasks_completed": 12,
   "complexity_total": 49,
-  "complexity_completed": 13,
-  "current_wave": 2,
-  "current_wave_status": "in-progress",
+  "complexity_completed": 49,
+  "current_wave": 4,
+  "current_wave_status": "complete",
   "corrections": [
     {
       "at": "2026-05-01T04:50:00+05:00",
@@ -51,14 +52,72 @@
       "verification": "10/10 tests pass in 4ms; typecheck clean (no new errors)",
       "complexity": 5
     },
-    "T5": { "status": "queued", "wave": 2, "complexity": 5 },
-    "T6": { "status": "queued", "wave": 2, "complexity": 8 },
-    "T7": { "status": "queued", "wave": 3, "complexity": 5 },
-    "T8": { "status": "queued", "wave": 3, "complexity": 5 },
-    "T9": { "status": "queued", "wave": 3, "complexity": 3 },
-    "T10": { "status": "queued", "wave": 3, "complexity": 5 },
-    "T11": { "status": "queued", "wave": 4, "complexity": 3 },
-    "T12": { "status": "queued", "wave": 4, "complexity": 2 }
+    "T5": {
+      "status": "done",
+      "commit": "b7c7b8ca",
+      "completed_at": "2026-05-01T05:00:00+05:00",
+      "verification": "16/16 tests pass in 5ms; typecheck clean (only pre-existing NODE_ENV errors)",
+      "complexity": 5,
+      "wave": 2
+    },
+    "T6": {
+      "status": "done",
+      "commit": "f2e1c0d7",
+      "completed_at": "2026-05-01T13:02:00+05:00",
+      "verification": "17/17 orchestrator tests + 7 dispatch-skill regression tests pass; typecheck clean (only pre-existing NODE_ENV errors)",
+      "complexity": 8,
+      "wave": 2,
+      "notes": "lighthouse-dag.ts extracted as single source for DAG order; dispatch-skill.{ts,test.ts} committed for first time (were untracked from prior wave work)"
+    },
+    "T7": {
+      "status": "done",
+      "commit": "ec478401",
+      "completed_at": "2026-05-01T13:04:00+05:00",
+      "verification": "5/5 tests pass — 401 unauth, 404 missing, 403 wrong owner, 400 bad body, 200 happy path",
+      "complexity": 5,
+      "wave": 3
+    },
+    "T8": {
+      "status": "done",
+      "commit": "f7ac6842",
+      "completed_at": "2026-05-01T13:10:00+05:00",
+      "verification": "8/8 tests pass; react-markdown@10.1.0 added",
+      "complexity": 5,
+      "wave": 3
+    },
+    "T9": {
+      "status": "done",
+      "commit": "02aec5ac",
+      "completed_at": "2026-05-01T13:13:00+05:00",
+      "verification": "2/2 tests pass — header pieces + both panes",
+      "complexity": 3,
+      "wave": 3
+    },
+    "T10": {
+      "status": "done",
+      "commit": "0b39fcf4",
+      "completed_at": "2026-05-01T13:59:00+05:00",
+      "verification": "5/5 tests pass — input enabled, send gating, form submit, ArtifactCard render, version grouping",
+      "complexity": 5,
+      "wave": 3,
+      "notes": "fixed pre-existing infinite re-render bug in ChatShell — defaulted-prop refs as useEffect deps. Logged to learned-patterns.md"
+    },
+    "T11": {
+      "status": "done",
+      "commit": "96068f0c",
+      "completed_at": "2026-05-01T14:08:00+05:00",
+      "verification": "3/3 e2e tests pass in 4ms; typecheck clean — verifies dispatch_skill writes v1 skill_output, patch_artifact writes v2 agent_patch with parent_id (no dispatch call), refinement re-run writes v2 skill_output with parent_id null",
+      "complexity": 3,
+      "wave": 4
+    },
+    "T12": {
+      "status": "done",
+      "completed_at": "2026-05-01T14:10:00+05:00",
+      "verification": "npm run build exits 0 (35 routes incl /gtm/[runId]/artifacts/[artifactId]); npm run lint 0 errors 88 pre-existing warnings; npx vitest run 1055 passed/11 skipped across 137 files in 16.81s; typecheck clean modulo pre-existing NODE_ENV errors",
+      "complexity": 2,
+      "wave": 4,
+      "notes": "verification-only task; cleaned up unused asExecute/ExecuteFn from orchestrator.test.ts (T6 leftover)"
+    }
   },
   "wave_2_recon": {
     "performed_at": "2026-05-01T04:48:00+05:00",
