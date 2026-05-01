@@ -1,0 +1,66 @@
+prd: landing-page-studio
+prd_number: 002
+generated_date: 2026-05-01
+
+waves:
+  - wave: 1
+    description: Scaffold the skill folder so all parallel work has a home
+    parallel: false
+    tasks:
+      - T1
+
+  - wave: 2
+    description: Foundational data structures (schema, taxonomy, vendored gates)
+    parallel: true
+    tasks:
+      - T2
+      - T3
+      - T7
+
+  - wave: 3
+    description: Core engines (planner, generator) + docs setup
+    parallel: true
+    tasks:
+      - T4
+      - T5
+      - T14
+
+  - wave: 4
+    description: Post-gen + tweak path
+    parallel: true
+    tasks:
+      - T6
+      - T8
+      - T9
+
+  - wave: 5
+    description: CLI orchestrator wires everything together
+    parallel: false
+    tasks:
+      - T10
+
+  - wave: 6
+    description: Agent-loadable surfaces + golden fixture
+    parallel: true
+    tasks:
+      - T11
+      - T12
+      - T13
+
+  - wave: 7
+    description: Deprecate the old skill (one-file banner edit)
+    parallel: false
+    tasks:
+      - T15
+
+longest_chain: T1 -> T2 -> T5 -> T6 -> T10 -> T13 -> T15
+chain_depth: 7
+total_tasks: 15
+total_complexity: 43
+estimated_session_size: day
+
+notes:
+  - All waves complete in a single session per CLAUDE.md sizing rules (day-or-smaller = ONE session)
+  - Wave 6 - T13 (golden fixture) is the canonical end-to-end smoke test - it must pass before T15
+  - No production code change in any wave - src/, research-worker/, supabase/migrations/ untouched
+  - Skill is invocable in three modes after T10 - CLI (npx tsx), slash command (after T11), SKILL.md loader (after T12)

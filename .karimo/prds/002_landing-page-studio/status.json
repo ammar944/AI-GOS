@@ -1,0 +1,29 @@
+{
+  "prd": "landing-page-studio",
+  "prd_number": 2,
+  "status": "ready",
+  "created_at": "2026-05-01T15:10:00Z",
+  "approved_at": "2026-05-01T15:15:00Z",
+  "approved_by": "ammar",
+  "execution_started_at": null,
+  "execution_completed_at": null,
+  "branch": "refactor/agent-loop-v1",
+  "tasks": {},
+  "metadata": {
+    "research_loaded": true,
+    "scope_locked": true,
+    "scope_lock_file": "scope-decisions.md",
+    "deferred_to_prd_003": [
+      "BrandSpec form UI",
+      "iframe srcDoc preview component",
+      "gtm_landing_pages table OR gtm_artifacts metadata extension",
+      "Supabase Storage assets bucket",
+      "GTM dispatch route registration",
+      "tweak via chat orchestrator",
+      "vision-model inspiration screenshot ingestion",
+      "mobile overflow client-side check"
+    ],
+    "approved_via": "/karimo:plan --prd landing-page-studio",
+    "session_continuation": "User will run /karimo:run --prd landing-page-studio in a fresh session"
+  }
+}

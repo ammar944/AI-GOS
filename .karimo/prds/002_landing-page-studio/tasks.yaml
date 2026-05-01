@@ -1,0 +1,240 @@
+prd: landing-page-studio
+prd_number: 002
+created_date: 2026-05-01
+total_tasks: 15
+total_complexity: 43
+
+tasks:
+  - id: T1
+    title: Scaffold landing-page-studio skill folder with canonical layout
+    complexity: 2
+    priority: must
+    depends_on: []
+    files:
+      - skills/landing-page-studio/SKILL.md
+      - skills/landing-page-studio/README.md
+      - skills/landing-page-studio/prompts/.gitkeep
+      - skills/landing-page-studio/contracts/.gitkeep
+      - skills/landing-page-studio/references/.gitkeep
+      - skills/landing-page-studio/scripts/.gitkeep
+      - skills/landing-page-studio/example/.gitkeep
+      - skills/landing-page-studio/.gitignore
+    acceptance:
+      - Folder exists with all subdirs (prompts, contracts, references, scripts, example)
+      - .gitignore excludes output/
+      - SKILL.md and README.md are stub files with TODO markers (filled in later tasks)
+      - Layout matches CLAUDE.md skill-first canonical structure
+
+  - id: T2
+    title: Define BrandSpec Zod schema + TypeScript types
+    complexity: 3
+    priority: must
+    depends_on: [T1]
+    files:
+      - skills/landing-page-studio/contracts/brand-spec.ts
+    acceptance:
+      - Zod schema covers all fields per scope-decisions.md MVP item 1
+      - Required fields - logo_url, palette (primary + accent hex), font_pair (display + body), hero (headline + sub + cta), sections[]
+      - Optional fields - proof[], inspiration_notes[]
+      - inspiration_notes replaces inspiration_screenshots (text strings, not file paths)
+      - Inferred TS types exported - BrandSpec, BrandSpecInput
+      - No .min()/.max() on number fields (per learned-patterns.md - Anthropic API)
+      - Round-trip validates the example/brief.json fixture (added in T13)
+
+  - id: T3
+    title: Build 15-direction vocabulary taxonomy
+    complexity: 3
+    priority: must
+    depends_on: [T1]
+    files:
+      - skills/landing-page-studio/references/directions.json
+    acceptance:
+      - 15 directions across at least 5 disjoint families - Editorial, Bento, Hero-art, Brutalist, Eastern-typographic
+      - Each direction has - id, name, family, summary, do[], dont[], exemplar_brands[]
+      - Disjointness enforced - planner picker logic (T4) MUST select from disjoint families
+      - JSON validates against a schema documented inline at top of file
+      - At least 3 directions per family (gives planner room to pick freshly per BrandSpec)
+
+  - id: T4
+    title: Direction Planner script (3 disjoint picks per BrandSpec)
+    complexity: 4
+    priority: must
+    depends_on: [T2, T3]
+    files:
+      - skills/landing-page-studio/scripts/plan-directions.ts
+      - skills/landing-page-studio/prompts/direction-planner.md
+    acceptance:
+      - Reads BrandSpec JSON from path arg or stdin
+      - Loads directions.json taxonomy
+      - Calls Ollama via generateGtmSkillObject (default, text-only)
+      - Returns exactly 3 picks from disjoint families with rationale per pick
+      - Output written as JSON to output/<run>/directions.json
+      - Output schema validated by Zod
+      - Includes // TODO(skill-on-ollama) comment per ai-sdk-patterns.md if any per-skill exemption used
+
+  - id: T5
+    title: Per-direction HTML generator
+    complexity: 5
+    priority: must
+    depends_on: [T2, T3]
+    files:
+      - skills/landing-page-studio/scripts/generate-direction.ts
+      - skills/landing-page-studio/prompts/system.md
+    acceptance:
+      - Reads BrandSpec + chosen direction (id from directions.json) + sections[]
+      - Adapts skills/landing-page/prompts/system.md as base prompt (copy + extend, do not import)
+      - Layered with direction-specific style guidance from references/directions.json
+      - Calls anthropic(MODELS.CLAUDE_SONNET) via generateText (per-skill Anthropic exemption)
+      - Output is single-file HTML with Tailwind cdnjs + lucide inlined
+      - Output written to output/<run>/direction-<id>.html
+      - Generation log written alongside (model used, tokens in/out, ms elapsed)
+
+  - id: T6
+    title: Post-gen pass — CSP injection + OKLCH normalization + lucide inline
+    complexity: 3
+    priority: must
+    depends_on: [T5]
+    files:
+      - skills/landing-page-studio/scripts/post-process.ts
+    acceptance:
+      - Injects strict CSP <meta> into <head> per scope-decisions.md item 4
+      - CSP - default-src 'self' data; script-src cdnjs.cloudflare.com 'unsafe-inline'; style-src cdnjs.cloudflare.com 'unsafe-inline' 'self'; img-src 'self' data https; connect-src 'none'; frame-ancestors 'self'
+      - Normalizes any non-OKLCH color values found (warns but does not fail)
+      - Inlines lucide SVGs from a hardcoded whitelist (skips unknown icon names)
+      - Idempotent (running twice produces the same output)
+      - Tested by running on a sample HTML and asserting <meta http-equiv="Content-Security-Policy"> present
+
+  - id: T7
+    title: Vendor 12 regex QA gates from src/lib/ai/landing-page/quality-gates.ts
+    complexity: 2
+    priority: must
+    depends_on: [T1]
+    files:
+      - skills/landing-page-studio/scripts/quality-gates.ts
+    acceptance:
+      - All 12 gates copied verbatim - missing_semantic_html, missing_oklch_colors, missing_focus_states, missing_reduced_motion, missing_responsive_css, missing_touch_targets, inter_as_display_or_global_font, mobile_nav_overflow_risk, generic_saas_copy, placeholder_product_artifact, fake_or_unverified_proof, missing_product_artifact
+      - Header comment - "Vendored from src/lib/ai/landing-page/quality-gates.ts on 2026-05-01. Do not import from src/ - skill-first portability."
+      - Same function signature - runLandingPageQualityGates(html, options) returning { passed, failed_gates, signals, details }
+      - No imports from outside skills/landing-page-studio/
+
+  - id: T8
+    title: patch_text tweak script (Ollama, free)
+    complexity: 3
+    priority: should
+    depends_on: [T5]
+    files:
+      - skills/landing-page-studio/scripts/patch-text.ts
+    acceptance:
+      - Args - input HTML path, section selector (data-section attribute), tweak instruction
+      - Calls Ollama via getGtmSkillLanguageModel chokepoint
+      - Edits text inside the matched section only (preserves structure, attributes, classes)
+      - Writes output to <input>.v2.html (or v3 if v2 exists, etc.)
+      - Validates output passes the same 12 QA gates
+      - Logs - input section content, tweak, output section content
+
+  - id: T9
+    title: regen_section tweak script (Anthropic Sonnet)
+    complexity: 3
+    priority: should
+    depends_on: [T5]
+    files:
+      - skills/landing-page-studio/scripts/regen-section.ts
+    acceptance:
+      - Args - input HTML path, section id (data-section attribute), tweak instruction
+      - Loads original BrandSpec + chosen direction (from sibling output/<run>/directions.json)
+      - Re-generates one section with anthropic(MODELS.CLAUDE_SONNET)
+      - Replaces the section in the original HTML
+      - Writes output to <input>.v2.html (or v3 if v2 exists)
+      - Validates output passes 12 QA gates
+      - Logs token usage
+
+  - id: T10
+    title: Top-level CLI orchestrator with subcommands
+    complexity: 4
+    priority: must
+    depends_on: [T4, T5, T6, T7]
+    files:
+      - skills/landing-page-studio/scripts/generate.ts
+    acceptance:
+      - Subcommands plan, generate, full, tweak-text, tweak-regen
+      - Subcommand plan calls plan-directions.ts on a BrandSpec
+      - Subcommand generate calls generate-direction.ts + post-process.ts + quality-gates.ts on a BrandSpec + direction id
+      - Subcommand full runs plan then generates HTML for all 3 picked directions in parallel
+      - Subcommand tweak-text delegates to patch-text.ts
+      - Subcommand tweak-regen delegates to regen-section.ts
+      - Run id is a timestamp like 2026-05-01T15-30-00 written to output/run/
+      - --help prints subcommand list
+      - Exit codes - 0 success, 1 user error (bad args), 2 QA gate failure, 3 model API error
+
+  - id: T11
+    title: Slash command bridge for Claude Code
+    complexity: 2
+    priority: should
+    depends_on: [T10]
+    files:
+      - .claude/commands/landing-page-studio.md
+    acceptance:
+      - Slash command file exists with description in YAML frontmatter
+      - Documents the four invocation modes (plan, generate, full, tweak)
+      - Provides example invocations
+      - Mirrors style of existing .claude/commands/landing-page.md (if it exists; otherwise creates pattern)
+      - Tested by running /landing-page-studio in Claude Code
+
+  - id: T12
+    title: SKILL.md for Claude Code skill loading
+    complexity: 3
+    priority: must
+    depends_on: [T10]
+    files:
+      - skills/landing-page-studio/SKILL.md
+    acceptance:
+      - YAML frontmatter - name, description (~150 chars, trigger-rich)
+      - Description mentions - landing page, BrandSpec, design directions, when to invoke
+      - Body documents - input schema (BrandSpec), workflow (plan -> generate -> tweak), output structure
+      - Includes - "How an agent uses this skill" section with 3 example flows
+      - Includes - reference to scripts/ for actual execution
+      - Loadable in a fresh Claude Code session via Skill tool
+
+  - id: T13
+    title: Example BrandSpec + golden output fixture
+    complexity: 2
+    priority: must
+    depends_on: [T10]
+    files:
+      - skills/landing-page-studio/example/brief.json
+      - skills/landing-page-studio/example/output/
+    acceptance:
+      - example/brief.json is a real BrandSpec (DealFlow-style or similar SaaS)
+      - Validates against contracts/brand-spec.ts schema
+      - Running "full" command on this brief produces output that all 3 directions pass QA gates
+      - Resulting directions.json + 3 HTML files committed to example/output/
+      - HTML files render in a browser without console errors
+      - Acts as smoke test fixture for future PRDs that touch this skill
+
+  - id: T14
+    title: README + Google Fonts allowlist + direction docs
+    complexity: 3
+    priority: should
+    depends_on: [T3]
+    files:
+      - skills/landing-page-studio/README.md
+      - skills/landing-page-studio/references/google-fonts.json
+      - skills/landing-page-studio/references/directions.md
+    acceptance:
+      - README - quickstart (npx tsx invocation), env vars (ANTHROPIC_API_KEY, OLLAMA_API_KEY), output structure, troubleshooting
+      - google-fonts.json - curated allowlist of ~40 font pairs (display + body), each with category (sans, serif, mono, display)
+      - directions.md - human-readable docs of the 15 directions from T3, with one screenshot reference per direction (text reference only - no image files)
+      - All three files have a header noting last-updated date
+
+  - id: T15
+    title: Add deprecation banner to skills/landing-page/README.md
+    complexity: 1
+    priority: could
+    depends_on: [T13]
+    files:
+      - skills/landing-page/README.md
+    acceptance:
+      - First section after title is a deprecation banner pointing to skills/landing-page-studio/
+      - Banner explains - new skill is the maintained path, old skill stays operational for production callers until PRD #003 ships
+      - No code in skills/landing-page/ is touched (one-file edit only)
+      - Existing /api/landing-page/run and /api/landing-page/generate routes still work after this change
