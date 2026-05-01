@@ -81,11 +81,17 @@ async function planWithRetry(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.log(`Planning directions (attempt ${attempt}/${maxAttempts})...`);
+      // @ts-ignore TS2589: generateObject + nested Zod schema triggers excessive type instantiation depth
       const { object } = await generateObject({
         model,
         schema: DirectionPlanSchema,
         prompt: buildPrompt(brandSpec),
-      });
+      }) as { object: DirectionPlan };
+      // Runtime disjointness check (moved from Zod .refine() to avoid TS2589)
+      const combos = object.directions.map((d: { layout_paradigm: string; color_temperature: string }) => `${d.layout_paradigm}:${d.color_temperature}`);
+      if (new Set(combos).size < 3) {
+        throw new Error("Directions share layout_paradigm+color_temperature — retrying");
+      }
       return object;
     } catch (err) {
       if (attempt === maxAttempts) {

@@ -31,20 +31,13 @@ export const DirectionSpecSchema = z.object({
 
 export type DirectionSpec = z.infer<typeof DirectionSpecSchema>;
 
+// Note: disjointness validation (no two directions sharing layout_paradigm+color_temperature)
+// is enforced at runtime in plan-directions.ts rather than via Zod .refine() to avoid
+// TypeScript TS2589 "type instantiation is excessively deep" with generateObject().
 export const DirectionPlanSchema = z.object({
   directions: z
     .array(DirectionSpecSchema)
     .length(3)
-    .refine(
-      (dirs) => {
-        const combos = dirs.map((d) => `${d.layout_paradigm}:${d.color_temperature}`);
-        return new Set(combos).size === 3;
-      },
-      {
-        message:
-          "Directions must not share the same layout_paradigm + color_temperature combination",
-      }
-    )
     .describe("Exactly 3 disjoint visual directions for the landing page"),
 });
 
