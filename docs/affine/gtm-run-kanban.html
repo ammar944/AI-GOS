@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIGOS GTM Run Kanban</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d10;
+      --panel: #12151a;
+      --panel-2: #171b21;
+      --muted: #8b949e;
+      --text: #e6edf3;
+      --border: #2b3139;
+      --blue: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --violet: #a371f7;
+      --cyan: #39c5cf;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      width: min(1760px, 100%);
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: grid;
+      gap: 14px;
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .eyebrow,
+    .meta,
+    .tag,
+    .label,
+    .stat-label {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 680;
+      letter-spacing: 0;
+    }
+
+    .summary {
+      max-width: 920px;
+      color: #b6bec8;
+      font-size: 15px;
+    }
+
+    .notice {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      color: #c8d1da;
+      font-size: 13px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .metric {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .stat-label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      display: block;
+      margin-top: 4px;
+      font-size: 22px;
+      font-weight: 680;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(240px, 1fr));
+      gap: 12px;
+      align-items: start;
+      overflow-x: auto;
+      padding-bottom: 12px;
+    }
+
+    .column {
+      min-width: 240px;
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0f1216;
+    }
+
+    .column h2 {
+      margin: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 680;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .card {
+      display: grid;
+      gap: 9px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .card.now {
+      border-color: rgba(88, 166, 255, 0.7);
+    }
+
+    .card.blocked {
+      border-color: rgba(210, 153, 34, 0.75);
+    }
+
+    .card.done {
+      border-color: rgba(63, 185, 80, 0.6);
+    }
+
+    .card.parking {
+      background: var(--panel-2);
+    }
+
+    .card-head {
+      display: grid;
+      gap: 4px;
+    }
+
+    .id-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .task-id {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 680;
+    }
+
+    .desc {
+      margin: 0;
+      color: #b6bec8;
+      font-size: 13px;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      padding: 2px 7px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: #c8d1da;
+      background: #0b0f14;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .tag.blue {
+      border-color: rgba(88, 166, 255, 0.45);
+      color: #9ccfff;
+    }
+
+    .tag.green {
+      border-color: rgba(63, 185, 80, 0.45);
+      color: #8fe59b;
+    }
+
+    .tag.yellow {
+      border-color: rgba(210, 153, 34, 0.5);
+      color: #eac864;
+    }
+
+    .tag.red {
+      border-color: rgba(248, 81, 73, 0.45);
+      color: #ffaaa6;
+    }
+
+    dl {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr);
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    dt {
+      color: var(--muted);
+    }
+
+    dd {
+      margin: 0;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      color: #d2dae3;
+    }
+
+    .section {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .section h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .role {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .role strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .role span {
+      color: #b6bec8;
+      font-size: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .board {
+        grid-template-columns: repeat(5, 280px);
+      }
+
+      .workflow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 16px;
+      }
+
+      .metrics,
+      .workflow {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">AIGOS / AFFiNE GTM Board</div>
+      <h1>Trustworthy GTM Run Workspace</h1>
+      <p class="summary">
+        Current execution board for making one GTM run understandable, recoverable, and safe to build on.
+        Each active card is sized for one Codex session and one atomic checkpoint.
+      </p>
+      <div class="notice">
+        <strong>Static mirror.</strong>
+        <span>Canonical tracker: <a href="pages/04-backlog-kanban.md">docs/affine/pages/04-backlog-kanban.md</a>.</span>
+        <span>Update the Markdown tracker before updating this page.</span>
+      </div>
+    </header>
+
+    <section class="metrics" aria-label="Board metrics">
+      <div class="metric"><span class="stat-label">Now</span><span class="stat-value">1</span></div>
+      <div class="metric"><span class="stat-label">Next</span><span class="stat-value">7</span></div>
+      <div class="metric"><span class="stat-label">Blocked</span><span class="stat-value">2</span></div>
+      <div class="metric"><span class="stat-label">Done</span><span class="stat-value">2</span></div>
+      <div class="metric"><span class="stat-label">Parking</span><span class="stat-value">7</span></div>
+    </section>
+
+    <section class="board" aria-label="GTM Kanban board">
+      <div class="column">
+        <h2>Now <span class="count">1</span></h2>
+        <article class="card now">
+          <div class="card-head">
+            <div class="id-row">
+              <span class="task-id">GTM-002</span>
+              <span class="tag blue">01 GTM Run Visibility MVP</span>
+            </div>
+            <h3 class="title">Build getGtmRunView read model</h3>
+            <p class="desc">Create one normalized run object for /gtm/[runId].</p>
+          </div>
+          <div class="tags">
+            <span class="tag">Engineering Lead</span>
+            <span class="tag">Codex session</span>
+            <span class="tag green">10 acceptance checks</span>
+          </div>
+          <dl>
+            <div class="row"><dt>Files</dt><dd>src/lib/gtm/run-view.ts, focused tests</dd></div>
+            <div class="row"><dt>Verify</dt><dd>npm run test:run -- src/lib/gtm; npm run test:run</dd></div>
+            <div class="row"><dt>Review</dt><dd>Contract drift, status mapping, blocker derivation</dd></div>
+            <div class="row"><dt>Source</dt><dd><a href="pages/04-backlog-kanban.md#gtm-002---build-getgtmrunview-read-model">Markdown card</a></dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="column">
+        <h2>Next <span class="count">7</span></h2>
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-003</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Wire run page to read model</h3>
+            <p class="desc">Make /gtm/[runId] consume the normalized view.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Engineering Lead -> Codex</dd></div>
+            <div class="row"><dt>Verify</dt><dd>component/API focused tests; npm run test:run</dd></div>
+            <div class="row"><dt>Accept</dt><dd>5 checks</dd></div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-004</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Render stage DAG/status panel</h3>
+            <p class="desc">Show running, done, blocked, failed, and pending dependencies.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Product Head -> Codex</dd></div>
+            <div class="row"><dt>Verify</dt><dd>npm run test:run -- src/components/gtm</dd></div>
+            <div class="row"><dt>Accept</dt><dd>5 checks</dd></div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-005</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Render grouped stage event log</h3>
+            <p class="desc">Group events by stage with latest-first visibility.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Engineering Lead -> Codex</dd></div>
+            <div class="row"><dt>Verify</dt><dd>npm run test:run -- src/components/gtm</dd></div>
+            <div class="row"><dt>Accept</dt><dd>5 checks</dd></div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-006</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Render blocker UX</h3>
+            <p class="desc">Explain why the run stopped and what action is safe next.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Product Head -> Codex</dd></div>
+            <div class="row"><dt>Verify</dt><dd>npm run test:run -- src/lib/gtm src/components/gtm</dd></div>
+            <div class="row"><dt>Accept</dt><dd>5 checks</dd></div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-007</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Render persisted artifact cards</h3>
+            <p class="desc">Show gtm_artifacts grouped by skill, stage, and version.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Product Head -> Codex</dd></div>
+            <div class="row"><dt>Verify</dt><dd>npm run test:run -- src/components/gtm src/lib/gtm</dd></div>
+            <div class="row"><dt>Accept</dt><dd>5 checks</dd></div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-008</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Persist and replay GTM messages</h3>
+            <p class="desc">Make transcript state survive refresh.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Engineering Lead -> Codex</dd></div>
+            <div class="row"><dt>Verify</dt><dd>chat route, ChatShell, agent-message tests</dd></div>
+            <div class="row"><dt>Accept</dt><dd>5 checks</dd></div>
+          </dl>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-009</span><span class="tag blue">01 GTM</span></div>
+            <h3 class="title">Browser QA full run path</h3>
+            <p class="desc">Verify /gtm/new -> /gtm/[runId] -> refresh as a workflow.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>QA Operator</dd></div>
+            <div class="row"><dt>Verify</dt><dd>npm run dev; worker dev server if dispatching</dd></div>
+            <div class="row"><dt>Accept</dt><dd>7 checks</dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="column">
+        <h2>Blocked / Needs Decision <span class="count">2</span></h2>
+        <article class="card blocked">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-010</span><span class="tag yellow">00 Repo Truth</span></div>
+            <h3 class="title">Classify dirty repo noise</h3>
+            <p class="desc">Read-only cleanup report before deleting or reverting anything.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Engineering Lead</dd></div>
+            <div class="row"><dt>Verify</dt><dd>git status --short; git diff --name-only</dd></div>
+            <div class="row"><dt>Blocker</dt><dd>Needs owner approval before cleanup action</dd></div>
+          </dl>
+        </article>
+
+        <article class="card blocked">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-011</span><span class="tag yellow">00 Repo Truth</span></div>
+            <h3 class="title">Refresh stale AFFiNE Command Center</h3>
+            <p class="desc">Point command-center language at GTM Run Visibility.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Owner</dt><dd>Product Head</dd></div>
+            <div class="row"><dt>Verify</dt><dd>rg GTM/Milestone 1; targeted diff</dd></div>
+            <div class="row"><dt>Blocker</dt><dd>Do after this board lands</dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="column">
+        <h2>Done <span class="count">2</span></h2>
+        <article class="card done">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-000</span><span class="tag green">Done</span></div>
+            <h3 class="title">Lock AGENTS/program control layer</h3>
+            <p class="desc">Active GTM product truth and session order are committed.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Commit</dt><dd>58060279 docs: lock GTM run program</dd></div>
+            <div class="row"><dt>Verify</dt><dd>file existence; diff check</dd></div>
+          </dl>
+        </article>
+
+        <article class="card done">
+          <div class="card-head">
+            <div class="id-row"><span class="task-id">GTM-001</span><span class="tag green">Done</span></div>
+            <h3 class="title">Define GTM run contract</h3>
+            <p class="desc">Shared run, stage, event, artifact, message, and blocker contract.</p>
+          </div>
+          <dl>
+            <div class="row"><dt>Commit</dt><dd>96cf9458 docs: define GTM run contract</dd></div>
+            <div class="row"><dt>Verify</dt><dd>file existence; diff check; section scan</dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="column">
+        <h2>Parking Lot <span class="count">7</span></h2>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">02</span><span class="tag">Parked</span></div>
+          <h3 class="title">Canonical GTM Brief</h3>
+          <p class="desc">Start after run state, blockers, and artifacts are understandable.</p>
+        </article>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">03</span><span class="tag">Parked</span></div>
+          <h3 class="title">Research Skill Reliability</h3>
+          <p class="desc">Tune skills after the workspace explains progress and failures.</p>
+        </article>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">04</span><span class="tag">Parked</span></div>
+          <h3 class="title">Artifact Workspace</h3>
+          <p class="desc">Build interactions after read-only artifact rendering is stable.</p>
+        </article>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">05</span><span class="tag">Parked</span></div>
+          <h3 class="title">Media Plan Automation</h3>
+          <p class="desc">Depends on trustworthy upstream research artifacts.</p>
+        </article>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">06</span><span class="tag">Parked</span></div>
+          <h3 class="title">Script / Creative Automation</h3>
+          <p class="desc">Depends on strategy, VoC, offer, and media plan artifacts.</p>
+        </article>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">07</span><span class="tag">Parked</span></div>
+          <h3 class="title">Client Success Automation</h3>
+          <p class="desc">Wait until internal operator state is trustworthy.</p>
+        </article>
+        <article class="card parking">
+          <div class="id-row"><span class="task-id">08</span><span class="tag">Parked</span></div>
+          <h3 class="title">Slack / Client Communication Agent</h3>
+          <p class="desc">Summarize stable run state later; do not compensate for unclear state.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Agent Team Workflow</h2>
+      <div class="workflow">
+        <div class="role"><strong>Product Head</strong><span>Priority and success criteria.</span></div>
+        <div class="role"><strong>Engineering Lead</strong><span>Codex-ready task specs.</span></div>
+        <div class="role"><strong>Codex Implementer</strong><span>One card per session.</span></div>
+        <div class="role"><strong>Reviewer</strong><span>Diff against contract and scope.</span></div>
+        <div class="role"><strong>QA Operator</strong><span>Browser and verification checks.</span></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
