@@ -12,6 +12,12 @@ import type {
 import { ArtifactCard } from "@/components/gtm/ArtifactCard";
 import { ChatMessage } from "@/components/gtm/ChatMessage";
 import {
+  GtmRunVisibilityPanel,
+  type GtmRunVisibilityBlocker,
+  type GtmRunVisibilityPanelData,
+  type GtmRunVisibilityStageStatus,
+} from "@/components/gtm/GtmRunVisibilityPanel";
+import {
   RunStatusBadge,
   type GtmRunStatus,
 } from "@/components/gtm/RunStatusBadge";
@@ -21,6 +27,7 @@ import {
   getGtmStageLabel,
   getInvocationSkillForStage,
   GTM_LIGHTHOUSE_STAGE_KEYS,
+  normalizeGtmLighthouseStage,
 } from "@/lib/gtm/stage-mapping";
 import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmStageStatus } from "@/lib/gtm/stage-state";
@@ -41,6 +48,7 @@ export interface GtmStageState {
   validation?: unknown;
   duration_ms?: number;
   error?: string;
+  worker_job_id?: string;
 }
 
 export interface ChatShellRun {
@@ -56,6 +64,7 @@ interface ChatShellProps {
   run: ChatShellRun;
   initialEvents?: GtmStageEvent[];
   initialArtifacts?: GtmArtifact[];
+  visibility?: GtmRunVisibilityPanelData;
 }
 
 const EMPTY_EVENTS: GtmStageEvent[] = [];
@@ -65,10 +74,15 @@ export function ChatShell({
   run,
   initialEvents = EMPTY_EVENTS,
   initialArtifacts = EMPTY_ARTIFACTS,
+  visibility,
 }: ChatShellProps): ReactElement {
   const [currentRun, setCurrentRun] = useState(run);
   const [events, setEvents] = useState(initialEvents);
   const [artifacts, setArtifacts] = useState(initialArtifacts);
+  const [currentVisibility, setCurrentVisibility] = useState(visibility);
+  const [rerunningStage, setRerunningStage] = useState<string | null>(null);
+  const [rerunError, setRerunError] = useState<string | null>(null);
+  const [rerunErrorStage, setRerunErrorStage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const stageEntries = getOrderedStageEntries(currentRun.stages);
@@ -88,6 +102,50 @@ export function ChatShell({
       console.error("Failed to refresh GTM artifacts:", err);
     }
   }, [currentRun.run_id]);
+
+  const refreshRun = useCallback(
+    async (options?: { shouldApply?: () => boolean }): Promise<void> => {
+      try {
+        const response = await fetch(
+          `/api/gtm/runs/${encodeURIComponent(currentRun.run_id)}`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
+        if (!response.ok) {
+          console.warn("GTM run refresh failed", {
+            run_id: currentRun.run_id,
+            status: response.status,
+          });
+          return;
+        }
+
+        const payload = (await response.json()) as unknown;
+        if (!isRunPayload(payload) || options?.shouldApply?.() === false) {
+          return;
+        }
+
+        setCurrentRun(payload.run);
+        setEvents(payload.events);
+        setCurrentVisibility((previousVisibility) => {
+          return previousVisibility
+            ? mergeVisibilityFromRunPayload(
+                previousVisibility,
+                payload.run,
+                payload.events,
+              )
+            : previousVisibility;
+        });
+      } catch (error: unknown) {
+        console.warn("GTM run refresh failed", {
+          run_id: currentRun.run_id,
+          error: getErrorMessage(error),
+        });
+      }
+    },
+    [currentRun.run_id],
+  );
 
   const transport = useMemo(
     () =>
@@ -118,6 +176,64 @@ export function ChatShell({
     setInputValue("");
   }
 
+  const handleRerunStage = useCallback(
+    async (stage: string): Promise<void> => {
+      const acceptedAt = new Date().toISOString();
+      setRerunningStage(stage);
+      setRerunError(null);
+      setRerunErrorStage(stage);
+
+      try {
+        const response = await fetch(
+          `/api/gtm/runs/${encodeURIComponent(currentRun.run_id)}/dispatch`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              stage,
+              rerun: true,
+            }),
+          },
+        );
+        const payload = await readResponseJson(response);
+
+        if (!response.ok) {
+          setRerunError(
+            getRerunRequestErrorMessage({
+              payload,
+              response,
+              runId: currentRun.run_id,
+              stage,
+            }),
+          );
+          setRerunErrorStage(stage);
+          return;
+        }
+
+        setCurrentRun((previousRun) => {
+          return queueRunStageLocally(previousRun, stage, acceptedAt);
+        });
+        setCurrentVisibility((previousVisibility) => {
+          return previousVisibility
+            ? queueVisibilityStageLocally(previousVisibility, stage, acceptedAt)
+            : previousVisibility;
+        });
+        await refreshRun();
+      } catch (error: unknown) {
+        setRerunError(
+          `Rerun request failed for run_id=${currentRun.run_id} stage=${stage}: ${getErrorMessage(error)}`,
+        );
+        setRerunErrorStage(stage);
+      } finally {
+        setRerunningStage(null);
+      }
+    },
+    [currentRun.run_id, refreshRun],
+  );
+
   useEffect(() => {
     setCurrentRun(run);
   }, [run]);
@@ -127,49 +243,30 @@ export function ChatShell({
   }, [initialEvents]);
 
   useEffect(() => {
+    setCurrentVisibility(visibility);
+  }, [visibility]);
+
+  useEffect(() => {
     if (!shouldPollRun(currentRun)) {
       return;
     }
 
     let cancelled = false;
-    const poll = async (): Promise<void> => {
-      try {
-        const response = await fetch(
-          `/api/gtm/runs/${encodeURIComponent(currentRun.run_id)}`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-        if (!response.ok) {
-          return;
-        }
 
-        const payload = (await response.json()) as unknown;
-        if (!isRunPayload(payload) || cancelled) {
-          return;
-        }
-
-        setCurrentRun(payload.run);
-        setEvents(payload.events);
-      } catch (error: unknown) {
-        console.warn("GTM run poll failed", {
-          run_id: currentRun.run_id,
-          error: getErrorMessage(error),
-        });
-      }
-    };
-
-    void poll();
+    void refreshRun({
+      shouldApply: () => !cancelled,
+    });
     const interval = window.setInterval(() => {
-      void poll();
+      void refreshRun({
+        shouldApply: () => !cancelled,
+      });
     }, 2500);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [currentRun]);
+  }, [currentRun, refreshRun]);
 
   function copyLink(): void {
     void navigator.clipboard.writeText(window.location.href);
@@ -209,6 +306,16 @@ export function ChatShell({
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-8 sm:px-6">
+        {currentVisibility ? (
+          <GtmRunVisibilityPanel
+            visibility={currentVisibility}
+            onRerunStage={handleRerunStage}
+            rerunningStage={rerunningStage}
+            rerunError={rerunError}
+            rerunErrorStage={rerunErrorStage}
+          />
+        ) : null}
+
         <ChatMessage variant="user">{currentRun.input_url}</ChatMessage>
 
         <StageActivityTimeline events={events} />
@@ -302,6 +409,214 @@ function groupArtifactsBySkill(
     ordered.push([skill, list]);
   }
   return ordered;
+}
+
+function queueRunStageLocally(
+  run: ChatShellRun,
+  stage: string,
+  acceptedAt: string,
+): ChatShellRun {
+  const stages = run.stages ?? {};
+  const preservedStageState: GtmStageState = { ...(stages[stage] ?? {}) };
+  delete preservedStageState.completed_at;
+  delete preservedStageState.duration_ms;
+  delete preservedStageState.error;
+  delete preservedStageState.started_at;
+  delete preservedStageState.worker_job_id;
+
+  return {
+    ...run,
+    status: "running",
+    stages: {
+      ...stages,
+      [stage]: {
+        ...preservedStageState,
+        status: "queued",
+        accepted_at: acceptedAt,
+      },
+    },
+  };
+}
+
+function queueVisibilityStageLocally(
+  visibility: GtmRunVisibilityPanelData,
+  stage: string,
+  acceptedAt: string,
+): GtmRunVisibilityPanelData {
+  const stages = visibility.stages.map((visibilityStage) => {
+    if (visibilityStage.stage !== stage) {
+      return visibilityStage;
+    }
+
+    return {
+      ...visibilityStage,
+      status: "queued" as const,
+      latestEvent: {
+        message: `User requested rerun for ${stage}.`,
+        createdAt: acceptedAt,
+        eventType: "queued",
+      },
+      blocker: null,
+      pendingDependencyReason: null,
+      elapsedMs: null,
+    };
+  });
+
+  return {
+    ...visibility,
+    runStatus: "running",
+    eventCount: visibility.eventCount + 1,
+    blockerCount: countVisibilityBlockers(stages),
+    stages,
+  };
+}
+
+function mergeVisibilityFromRunPayload(
+  visibility: GtmRunVisibilityPanelData,
+  run: ChatShellRun,
+  events: GtmStageEvent[],
+): GtmRunVisibilityPanelData {
+  const latestEventsByStage = getLatestEventsByStage(events);
+  const stages = visibility.stages.map((visibilityStage) => {
+    const stageState = run.stages?.[visibilityStage.stage];
+    const status = getVisibilityStageStatus(stageState) ?? visibilityStage.status;
+    const latestEvent =
+      latestEventsByStage.get(visibilityStage.stage) ??
+      visibilityStage.latestEvent;
+    const blocker = getVisibilityBlocker({
+      stage: visibilityStage.label,
+      status,
+      stageState,
+      latestEvent,
+      previousBlocker: visibilityStage.blocker,
+    });
+
+    return {
+      ...visibilityStage,
+      status,
+      latestEvent,
+      blocker,
+      pendingDependencyReason:
+        status === "pending" ? visibilityStage.pendingDependencyReason : null,
+    };
+  });
+
+  return {
+    ...visibility,
+    runStatus: run.status,
+    eventCount: events.length,
+    blockerCount: countVisibilityBlockers(stages),
+    stages,
+  };
+}
+
+function getLatestEventsByStage(
+  events: GtmStageEvent[],
+): Map<string, NonNullable<GtmRunVisibilityPanelData["stages"][number]["latestEvent"]>> {
+  const latestEventsByStage = new Map<
+    string,
+    NonNullable<GtmRunVisibilityPanelData["stages"][number]["latestEvent"]>
+  >();
+
+  for (const event of events) {
+    const stage = normalizeGtmLighthouseStage(event.stage) ?? event.stage;
+    latestEventsByStage.set(stage, {
+      message: event.message,
+      createdAt: event.created_at,
+      eventType: event.event_type,
+    });
+  }
+
+  return latestEventsByStage;
+}
+
+function getVisibilityBlocker(input: {
+  stage: string;
+  status: GtmRunVisibilityStageStatus;
+  stageState: GtmStageState | undefined;
+  latestEvent: GtmRunVisibilityPanelData["stages"][number]["latestEvent"];
+  previousBlocker: GtmRunVisibilityBlocker | null;
+}): GtmRunVisibilityBlocker | null {
+  if (!isRerunnableStageStatus(input.status)) {
+    return null;
+  }
+
+  return {
+    title:
+      input.previousBlocker?.title ??
+      `${input.stage} ${input.status === "blocked" ? "blocked" : "needs attention"}`,
+    reason:
+      input.stageState?.error ??
+      input.latestEvent?.message ??
+      input.previousBlocker?.reason ??
+      "Stage needs attention before downstream work can continue.",
+    ...(input.previousBlocker?.remediation
+      ? { remediation: input.previousBlocker.remediation }
+      : {}),
+  };
+}
+
+function getVisibilityStageStatus(
+  stageState: GtmStageState | undefined,
+): GtmRunVisibilityStageStatus | null {
+  if (!stageState?.status) {
+    return null;
+  }
+
+  return isVisibilityStageStatus(stageState.status) ? stageState.status : null;
+}
+
+function isVisibilityStageStatus(
+  status: string,
+): status is GtmRunVisibilityStageStatus {
+  return (
+    status === "queued" ||
+    status === "running" ||
+    status === "complete" ||
+    status === "blocked" ||
+    status === "timed_out" ||
+    status === "errored" ||
+    status === "pending"
+  );
+}
+
+function isRerunnableStageStatus(
+  status: GtmRunVisibilityStageStatus,
+): boolean {
+  return status === "blocked" || status === "errored" || status === "timed_out";
+}
+
+function countVisibilityBlockers(
+  stages: GtmRunVisibilityPanelData["stages"],
+): number {
+  return stages.filter((stage) => stage.blocker !== null).length;
+}
+
+async function readResponseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function getRerunRequestErrorMessage(input: {
+  payload: unknown;
+  response: Response;
+  runId: string;
+  stage: string;
+}): string {
+  const context = `run_id=${input.runId} stage=${input.stage} status=${input.response.status}`;
+
+  if (isRecord(input.payload) && typeof input.payload.message === "string") {
+    return `Rerun request failed for ${context}: ${input.payload.message}`;
+  }
+
+  if (isRecord(input.payload) && typeof input.payload.error === "string") {
+    return `Rerun request failed for ${context}: ${input.payload.error}`;
+  }
+
+  return `Rerun request failed for ${context}.`;
 }
 
 function getOrderedStageEntries(

@@ -5,9 +5,11 @@ import {
   ChatShell,
   type ChatShellRun,
 } from "@/components/gtm/ChatShell";
-import type { GtmStageEvent } from "@/lib/gtm/stage-events";
-import type { GtmArtifact } from "@/lib/types/gtm-artifact";
-import { createClient } from "@/lib/supabase/server";
+import type {
+  GtmRunVisibilityBlocker,
+  GtmRunVisibilityPanelData,
+} from "@/components/gtm/GtmRunVisibilityPanel";
+import { getGtmRunView, type GtmRunView } from "@/lib/gtm/run-view";
 
 export const revalidate = 10;
 
@@ -25,63 +27,108 @@ export default async function GtmRunPage({
   }
 
   const { runId } = await params;
-  const supabase = await createClient();
-  const { data: run, error } = await supabase
-    .from("gtm_runs")
-    .select(
-      "id, run_id, user_id, input_url, status, manifest, stages, created_at, updated_at"
-    )
-    .eq("run_id", runId)
-    .eq("user_id", userId)
-    .maybeSingle<ChatShellRun>();
+  const view = await getGtmRunView(runId);
 
-  if (error) {
-    throw new Error(
-      `Failed to load GTM run ${runId} for Clerk user ${userId}: ${error.message}`
-    );
-  }
-
-  if (!run) {
+  if (!view) {
     notFound();
-  }
-
-  const { data: events, error: eventsError } = await supabase
-    .from("gtm_stage_events")
-    .select(
-      "id, run_id, user_id, stage, event_type, message, status, metadata, duration_ms, tool_name, artifact_path, source_url, error, created_at"
-    )
-    .eq("run_id", runId)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .returns<GtmStageEvent[]>();
-
-  if (eventsError) {
-    throw new Error(
-      `Failed to load GTM stage events for run ${runId}: ${eventsError.message}`
-    );
-  }
-
-  const { data: artifacts, error: artifactsError } = await supabase
-    .from("gtm_artifacts")
-    .select(
-      "id, run_id, user_id, skill, version, parent_id, content_md, source, created_by, metadata, created_at"
-    )
-    .eq("run_id", runId)
-    .order("skill", { ascending: true })
-    .order("version", { ascending: true })
-    .returns<GtmArtifact[]>();
-
-  if (artifactsError) {
-    throw new Error(
-      `Failed to load GTM artifacts for run ${runId}: ${artifactsError.message}`
-    );
   }
 
   return (
     <ChatShell
-      run={run}
-      initialEvents={events ?? []}
-      initialArtifacts={artifacts ?? []}
+      run={toChatShellRun(view)}
+      initialEvents={getInitialEvents(view)}
+      initialArtifacts={getInitialArtifacts(view)}
+      visibility={toGtmRunVisibility(view)}
     />
   );
+}
+
+function toChatShellRun(view: GtmRunView): ChatShellRun {
+  const stages: NonNullable<ChatShellRun["stages"]> = {};
+
+  for (const stage of view.stages) {
+    if (!stage.persisted_status && Object.keys(stage.state).length === 0) {
+      continue;
+    }
+
+    stages[stage.stage] = stage.state;
+  }
+
+  return {
+    run_id: view.run.run_id,
+    input_url: view.run.input_url,
+    status: view.run.status,
+    stages,
+    created_at: view.run.created_at,
+    ...(view.run.updated_at ? { updated_at: view.run.updated_at } : {}),
+  };
+}
+
+function getInitialEvents(
+  view: GtmRunView,
+): GtmRunView["events_by_stage"][string] {
+  return Object.values(view.events_by_stage)
+    .flat()
+    .sort(compareCreatedAt);
+}
+
+function getInitialArtifacts(
+  view: GtmRunView,
+): GtmRunView["artifacts_by_skill"][number]["artifacts"] {
+  return view.artifacts_by_skill.flatMap((group) => group.artifacts);
+}
+
+function toGtmRunVisibility(view: GtmRunView): GtmRunVisibilityPanelData {
+  return {
+    runStatus: view.run.status,
+    eventCount: getEventCount(view),
+    blockerCount: view.blockers.length,
+    stages: view.stages.map((stage) => {
+      return {
+        stage: stage.stage,
+        label: stage.label,
+        status: stage.status,
+        latestEvent: stage.latest_event
+          ? {
+              message: stage.latest_event.message,
+              createdAt: stage.latest_event.created_at,
+              eventType: stage.latest_event.event_type,
+            }
+          : null,
+        blocker: stage.blocker ? toVisibilityBlocker(stage.blocker) : null,
+        pendingDependencyReason: stage.pending_dependency_reason,
+        elapsedMs: stage.elapsed_ms,
+      };
+    }),
+  };
+}
+
+function toVisibilityBlocker(
+  blocker: GtmRunView["blockers"][number],
+): GtmRunVisibilityBlocker {
+  return {
+    title: blocker.title,
+    reason: blocker.reason,
+    ...(blocker.remediation ? { remediation: blocker.remediation } : {}),
+  };
+}
+
+function getEventCount(view: GtmRunView): number {
+  return Object.values(view.events_by_stage).reduce((count, events) => {
+    return count + events.length;
+  }, 0);
+}
+
+function compareCreatedAt(
+  left: { created_at: string },
+  right: { created_at: string },
+): number {
+  const leftMs = Date.parse(left.created_at);
+  const rightMs = Date.parse(right.created_at);
+
+  if (Number.isFinite(leftMs) && Number.isFinite(rightMs)) {
+    return leftMs - rightMs;
+  }
+
+  return left.created_at.localeCompare(right.created_at);
 }
