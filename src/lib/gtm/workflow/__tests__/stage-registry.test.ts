@@ -15,7 +15,8 @@ describe('stage-registry', () => {
   });
 
   it('nextStage walks the registry in order', () => {
-    expect(nextStage('discover-url')).toBe('enrich-brief');
+    expect(nextStage('discover-url')).toBe('discover-identity');
+    expect(nextStage('discover-identity')).toBe('enrich-brief');
     expect(nextStage('generate-media-plan')).toBe('generate-scripts');
   });
 
@@ -24,7 +25,8 @@ describe('stage-registry', () => {
   });
 
   it('previousStage reverses nextStage', () => {
-    expect(previousStage('enrich-brief')).toBe('discover-url');
+    expect(previousStage('discover-identity')).toBe('discover-url');
+    expect(previousStage('enrich-brief')).toBe('discover-identity');
     expect(previousStage('discover-url')).toBeNull();
   });
 

@@ -12,10 +12,12 @@ import { mediaPlanOutputSchema } from '@/lib/gtm/schemas/media-plan';
 import { scriptPackOutputSchema } from '@/lib/gtm/schemas/script-pack';
 import { gtmBriefSchema } from '@/lib/gtm/schemas/gtm-brief';
 import { gtmBriefSnapshotSchema } from '@/lib/gtm/schemas/gtm-brief-snapshot';
+import { ingestIdentityOutputSchema } from '@/lib/gtm/schemas/ingest-identity-output';
 import type { GtmStageKey } from '@/lib/gtm/schemas/gtm-run';
 
 export const stageOutputSchemas: Record<GtmStageKey, z.ZodTypeAny> = {
   'discover-url': gtmBriefSchema,
+  'discover-identity': ingestIdentityOutputSchema,
   'enrich-brief': gtmBriefSchema,
   'review-brief': gtmBriefSchema,
   'lock-brief': gtmBriefSnapshotSchema,

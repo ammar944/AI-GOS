@@ -10,6 +10,7 @@ import {
 describe('GTM_STAGE_KEYS', () => {
   const expected: readonly GtmStageKey[] = [
     'discover-url',
+    'discover-identity',
     'enrich-brief',
     'review-brief',
     'lock-brief',

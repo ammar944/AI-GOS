@@ -12,7 +12,12 @@
     "test:coverage": "vitest run --coverage",
     "landing-page": "npx tsx skills/landing-page/scripts/generate.ts",
     "landing-page:deep": "npx tsx skills/landing-page/scripts/generate.ts --deep",
-    "landing-page:list": "ls -lt skills/landing-page/output/"
+    "landing-page:list": "ls -lt skills/landing-page/output/",
+    "aigos:status": "node scripts/aigos-flow.mjs status",
+    "aigos:task": "node scripts/aigos-flow.mjs task",
+    "aigos:codex": "node scripts/aigos-flow.mjs codex",
+    "aigos:verify": "node scripts/aigos-flow.mjs verify",
+    "aigos:review": "node scripts/aigos-flow.mjs review"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",

@@ -9,6 +9,7 @@ const sectionInputSchema = z.object({
 
 export const stageInputSchemas: Record<GtmStageKey, z.ZodTypeAny> = {
   'discover-url': z.object({ url: z.string().url() }),
+  'discover-identity': z.object({ url: z.string().url() }),
   'enrich-brief': z.object({ briefId: z.string().min(1), uploads: z.array(z.unknown()).default([]) }),
   'review-brief': z.object({ briefId: z.string().min(1) }),
   'lock-brief': z.object({ briefId: z.string().min(1) }),

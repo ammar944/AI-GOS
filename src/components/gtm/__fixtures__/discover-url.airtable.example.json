@@ -1,0 +1,206 @@
+{
+  "run_id": "run_local_1777538496227",
+  "stage": "discover-url",
+  "input_url": "https://www.airtable.com",
+  "canonical_url": {
+    "value": "https://www.airtable.com",
+    "source_url": "https://www.airtable.com",
+    "retrieved_at": "2026-04-30T08:28:00.000Z"
+  },
+  "company_name": {
+    "value": "Airtable",
+    "source_url": "https://www.airtable.com",
+    "retrieved_at": "2026-04-30T08:28:00.000Z"
+  },
+  "discovered_pages": [
+    {
+      "url": "https://www.airtable.com",
+      "page_type": "homepage",
+      "title": {
+        "value": "Airtable",
+        "source_url": "https://www.airtable.com",
+        "retrieved_at": "2026-04-30T08:28:00.000Z"
+      }
+    },
+    {
+      "url": "https://www.airtable.com/pricing",
+      "page_type": "pricing",
+      "title": {
+        "value": "Airtable Pricing",
+        "source_url": "https://www.airtable.com/pricing",
+        "retrieved_at": "2026-04-30T08:28:00.000Z"
+      }
+    }
+  ],
+  "prefilled_fields": [
+    {
+      "field_key": "companyName",
+      "label": "Company Name",
+      "value": "Airtable",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "Airtable",
+          "source_url": "https://www.airtable.com",
+          "retrieved_at": "2026-04-30T08:28:00.000Z"
+        }
+      ],
+      "reason": "Company name is derived from the submitted URL hostname."
+    },
+    {
+      "field_key": "companyUrl",
+      "label": "Company URL",
+      "value": "https://www.airtable.com",
+      "confidence": "high",
+      "evidence": [
+        {
+          "value": "https://www.airtable.com",
+          "source_url": "https://www.airtable.com",
+          "retrieved_at": "2026-04-30T08:28:00.000Z"
+        }
+      ],
+      "reason": "Normalized from the submitted website URL in the run input."
+    }
+  ],
+  "unresolved_fields": [
+    "productDescription",
+    "targetCustomer",
+    "corePromise",
+    "coreDeliverables",
+    "pricingModel",
+    "pricingTiers",
+    "conversionPath",
+    "salesMotion",
+    "industryVertical",
+    "primaryIcpDescription",
+    "uniqueEdge",
+    "brandPositioning",
+    "caseStudies",
+    "testimonials",
+    "hqLocation",
+    "avgAcv",
+    "topCompetitors"
+  ],
+  "source_gaps": [
+    {
+      "field": "productDescription",
+      "reason": "Network access was unavailable in the sandbox. Could not fetch https://www.airtable.com to read homepage product copy.",
+      "remediation": "Rerun with network access enabled, or upload a document containing Airtable's product description.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "targetCustomer",
+      "reason": "Network access was unavailable. Could not fetch https://www.airtable.com/customers or homepage to identify target audience.",
+      "remediation": "Rerun with network access, or manually provide the target customer segment from company knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "corePromise",
+      "reason": "Network access was unavailable. Could not fetch homepage hero section to extract core value proposition.",
+      "remediation": "Rerun with network access, or provide the company's value proposition manually.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "coreDeliverables",
+      "reason": "Network access was unavailable. Could not fetch product or features pages.",
+      "remediation": "Rerun with network access, or upload feature documentation.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "pricingModel",
+      "reason": "Network access was unavailable. Could not fetch https://www.airtable.com/pricing.",
+      "remediation": "Rerun with network access, or upload a pricing sheet or call transcript.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "pricingTiers",
+      "reason": "Network access was unavailable. Could not fetch pricing page for plan tier names and dollar values.",
+      "remediation": "Rerun with network access, or provide pricing tier details manually.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "conversionPath",
+      "reason": "Network access was unavailable. Could not evaluate sign-up flow or plan comparison page for conversion path.",
+      "remediation": "Rerun with network access, or describe the conversion path from company knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "salesMotion",
+      "reason": "Network access was unavailable. Could not determine self-serve vs sales-led motion from website.",
+      "remediation": "Rerun with network access, or specify sales motion from internal knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "industryVertical",
+      "reason": "Network access was unavailable. Could not fetch product or homepage to classify vertical.",
+      "remediation": "Rerun with network access, or specify the industry vertical from company knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "primaryIcpDescription",
+      "reason": "Network access was unavailable. Could not fetch customer stories or about page for ICP descriptions.",
+      "remediation": "Rerun with network access, or provide ICP description from customer knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "uniqueEdge",
+      "reason": "Network access was unavailable. Could not fetch pages that describe differentiation.",
+      "remediation": "Rerun with network access, or provide unique edge from competitive knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "brandPositioning",
+      "reason": "Network access was unavailable. Could not fetch homepage or about page for positioning copy.",
+      "remediation": "Rerun with network access, or provide brand positioning text.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "caseStudies",
+      "reason": "Network access was unavailable. Could not discover customer stories or case study page URLs.",
+      "remediation": "Rerun with network access to discover and crawl case study pages.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "testimonials",
+      "reason": "Network access was unavailable. Could not discover testimonial or customers page URLs.",
+      "remediation": "Rerun with network access to discover customer proof pages.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "hqLocation",
+      "reason": "Network access was unavailable. Could not fetch about page for headquarters location.",
+      "remediation": "Rerun with network access, or provide HQ location from company knowledge.",
+      "severity": "blocker",
+      "confidence": 10
+    },
+    {
+      "field": "avgAcv",
+      "reason": "Public pricing page is behind a network block; ACV cannot be inferred without enterprise pricing or plan dollar values.",
+      "remediation": "Upload a sales-call transcript or pricing PDF that lists plan dollar values, or accept the gap for downstream stages.",
+      "severity": "warn",
+      "confidence": 10
+    },
+    {
+      "field": "topCompetitors",
+      "reason": "Airtable does not name competitors on its public website per known market position. Competitor inference would violate the rule against unsourced claims.",
+      "remediation": "Run /research-competitor to discover the competitor set from third-party sources (G2 alternatives, ad libraries, comparison content).",
+      "severity": "info",
+      "confidence": 10
+    }
+  ],
+  "generated_at": "2026-04-30T08:28:00.000Z"
+}

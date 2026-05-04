@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const GTM_STAGE_KEYS = [
   'discover-url',
+  'discover-identity',
   'enrich-brief',
   'review-brief',
   'lock-brief',
