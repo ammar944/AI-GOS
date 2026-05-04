@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git add research-worker/src/__tests__/media-plan-round3.test.ts && git commit -m \\\"$(cat <<'EOF'\\ntest(media-plan): round-3 validator sanity — 17 assertions across 3 scenarios\\n\\nProves th...",
-  "error": "Exit code 128\nfatal: pathspec 'research-worker/src/__tests__/media-plan-round3.test.ts' did not match any files",
-  "timestamp": "2026-04-21T13:53:22.121Z",
-  "retry_count": 1
-}

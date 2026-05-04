@@ -72,3 +72,16 @@ docs/screenshots/
 skills/**/node_modules/
 skills/**/runs/
 skills/**/.omc/
+
+# Agent/runtime local state
+.omc/
+research-worker/.omc/
+
+# AIGOS local flow transient artifacts
+.ai-flow/codex-prompt.md
+.ai-flow/implementation-log.md
+.ai-flow/verification.log
+
+# Generated local outputs
+/output/
+skills/landing-page/output/
