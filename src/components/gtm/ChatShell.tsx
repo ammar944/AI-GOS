@@ -9,7 +9,6 @@ import type {
   AgentInvocationStatus,
   AgentInvocationSkill,
 } from "@/components/gtm/AgentInvocationBlock";
-import { ArtifactCard } from "@/components/gtm/ArtifactCard";
 import { ChatMessage } from "@/components/gtm/ChatMessage";
 import {
   GtmRunVisibilityPanel,
@@ -21,6 +20,7 @@ import {
   RunStatusBadge,
   type GtmRunStatus,
 } from "@/components/gtm/RunStatusBadge";
+import { RunArtifactsSection } from "@/components/gtm/RunArtifactsSection";
 import { StageEventLog } from "@/components/gtm/StageEventLog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,10 +163,6 @@ export function ChatShell({
   });
 
   const inputDisabled = status === "submitted" || status === "streaming";
-
-  const artifactsBySkill = useMemo(() => groupArtifactsBySkill(artifacts), [
-    artifacts,
-  ]);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault();
@@ -320,6 +316,11 @@ export function ChatShell({
 
         <StageEventLog events={events} />
 
+        <RunArtifactsSection
+          artifacts={artifacts}
+          runId={currentRun.run_id}
+        />
+
         {stageEntries.length === 0 && messages.length === 0 ? (
           <ChatMessage variant="agent-text">
             Run queued. Waiting for orchestrator to start...
@@ -333,14 +334,6 @@ export function ChatShell({
             />
           ))
         )}
-
-        {artifactsBySkill.map(([skill, versions]) => (
-          <ArtifactCard
-            key={skill}
-            versions={versions}
-            runId={currentRun.run_id}
-          />
-        ))}
 
         {messages.map((m) => (
           <ChatMessage
@@ -385,30 +378,6 @@ function extractText(message: { parts: Array<{ type: string; text?: string }> })
     .filter((p) => p.type === "text" && typeof p.text === "string")
     .map((p) => p.text!)
     .join("");
-}
-
-function groupArtifactsBySkill(
-  artifacts: GtmArtifact[],
-): [string, GtmArtifact[]][] {
-  const groups = new Map<string, GtmArtifact[]>();
-  for (const a of artifacts) {
-    const list = groups.get(a.skill) ?? [];
-    list.push(a);
-    groups.set(a.skill, list);
-  }
-  // Stable order: LIGHTHOUSE_5 first, then anything else alphabetical.
-  const ordered: [string, GtmArtifact[]][] = [];
-  for (const skill of GTM_LIGHTHOUSE_STAGE_KEYS) {
-    const list = groups.get(skill);
-    if (list) {
-      ordered.push([skill, list]);
-      groups.delete(skill);
-    }
-  }
-  for (const [skill, list] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
-    ordered.push([skill, list]);
-  }
-  return ordered;
 }
 
 function queueRunStageLocally(
