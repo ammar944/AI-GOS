@@ -21,10 +21,10 @@ import {
   RunStatusBadge,
   type GtmRunStatus,
 } from "@/components/gtm/RunStatusBadge";
+import { StageEventLog } from "@/components/gtm/StageEventLog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  getGtmStageLabel,
   getInvocationSkillForStage,
   GTM_LIGHTHOUSE_STAGE_KEYS,
   normalizeGtmLighthouseStage,
@@ -318,7 +318,7 @@ export function ChatShell({
 
         <ChatMessage variant="user">{currentRun.input_url}</ChatMessage>
 
-        <StageActivityTimeline events={events} />
+        <StageEventLog events={events} />
 
         {stageEntries.length === 0 && messages.length === 0 ? (
           <ChatMessage variant="agent-text">
@@ -733,61 +733,6 @@ function shouldPollRun(run: ChatShellRun): boolean {
 
   return Object.values(run.stages ?? {}).some((stage) => {
     return stage.status === "queued" || stage.status === "running";
-  });
-}
-
-function StageActivityTimeline({
-  events,
-}: {
-  events: GtmStageEvent[];
-}): ReactElement | null {
-  if (events.length === 0) {
-    return null;
-  }
-
-  const recentEvents = events.slice(-10).reverse();
-
-  return (
-    <section className="rounded-lg border border-border bg-card/40 px-4 py-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-foreground">Agent activity</h2>
-        <span className="font-mono text-xs text-muted-foreground">
-          {events.length} events
-        </span>
-      </div>
-      <ol className="flex flex-col gap-2">
-        {recentEvents.map((event) => (
-          <li
-            key={event.id ?? `${event.stage}-${event.event_type}-${event.created_at}`}
-            className="grid grid-cols-[7rem_1fr] gap-3 text-sm"
-          >
-            <span className="font-mono text-xs text-muted-foreground">
-              {formatEventTime(event.created_at)}
-            </span>
-            <span className="min-w-0">
-              <span className="font-mono text-xs text-muted-foreground">
-                {getGtmStageLabel(event.stage)}
-              </span>
-              <span className="mx-1.5 text-muted-foreground">·</span>
-              <span className="text-foreground">{event.message}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function formatEventTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
   });
 }
 
