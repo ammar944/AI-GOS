@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { RunArtifactsSection } from "@/components/gtm/RunArtifactsSection";
+import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmArtifact } from "@/lib/types/gtm-artifact";
 
 const baseArtifact: GtmArtifact = {
@@ -26,6 +27,78 @@ describe("RunArtifactsSection", () => {
       screen.getByRole("heading", { name: /run artifacts/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("No artifacts produced yet.")).toBeInTheDocument();
+  });
+
+  it("keeps the safe empty state when only non-artifact stage events exist", () => {
+    render(
+      <RunArtifactsSection
+        artifacts={[]}
+        runId="run_test"
+        stageEvents={[
+          makeStageEvent({
+            id: "event_started",
+            stage: "research-competitor",
+            event_type: "started",
+            message: "Started competitor research.",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("No artifacts produced yet.")).toBeInTheDocument();
+  });
+
+  it("shows recorded stage output files when canvas artifacts are not persisted", () => {
+    render(
+      <RunArtifactsSection
+        artifacts={[]}
+        runId="run_test"
+        stageEvents={[
+          makeStageEvent({
+            id: "event_report",
+            stage: "research-competitors",
+            event_type: "artifact_written",
+            message: "report_file artifact recorded.",
+            artifact_path:
+              "/tmp/aigos-gtm-runs/run_test/research-competitor/report.md",
+            created_at: "2026-05-01T13:00:00.000Z",
+          }),
+          makeStageEvent({
+            id: "event_transcript",
+            stage: "research-buyer-icp",
+            event_type: "artifact_written",
+            message: "transcript_file artifact recorded.",
+            artifact_path:
+              "/tmp/aigos-gtm-runs/run_test/research-icp/transcript.jsonl",
+            created_at: "2026-05-01T13:10:00.000Z",
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.queryByText("No artifacts produced yet."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No canvas artifacts persisted yet."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Stage output files were recorded during this run."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("research-competitor")).toBeInTheDocument();
+    expect(screen.getByText("research-icp")).toBeInTheDocument();
+    expect(screen.getByText("report_file")).toBeInTheDocument();
+    expect(screen.getByText("transcript_file")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "/tmp/aigos-gtm-runs/run_test/research-competitor/report.md",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "/tmp/aigos-gtm-runs/run_test/research-icp/transcript.jsonl",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("groups artifact versions by skill", () => {
@@ -174,5 +247,19 @@ function makeArtifact(overrides: Partial<GtmArtifact>): GtmArtifact {
     parent_id: overrides.parent_id ?? null,
     metadata: overrides.metadata ?? {},
     created_at: overrides.created_at ?? baseArtifact.created_at,
+  };
+}
+
+function makeStageEvent(
+  overrides: Partial<GtmStageEvent> & Pick<GtmStageEvent, "id" | "stage" | "message">,
+): GtmStageEvent {
+  return {
+    run_id: "run_test",
+    user_id: "user_test",
+    event_type: "artifact_written",
+    status: "complete",
+    metadata: {},
+    created_at: "2026-05-01T12:00:00.000Z",
+    ...overrides,
   };
 }

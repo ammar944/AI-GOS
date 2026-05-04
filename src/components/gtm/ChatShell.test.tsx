@@ -12,7 +12,7 @@
 
 import type { UIMessage } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 const { liveMessages, sendMessage, supabaseChannel, removeChannel } = vi.hoisted(() => {
   const channel = {
@@ -133,6 +133,40 @@ describe("ChatShell (T10 wiring)", () => {
     expect(screen.getByTestId("run-artifact-preview")).toHaveTextContent(
       "ICP",
     );
+  });
+
+  it("passes stage artifact events into the run artifact fallback", () => {
+    const events: GtmStageEvent[] = [
+      {
+        id: "event_report",
+        run_id: "run_test",
+        user_id: "user_test",
+        stage: "research-competitors",
+        event_type: "artifact_written",
+        message: "report_file artifact recorded.",
+        status: "complete",
+        metadata: {},
+        artifact_path:
+          "/tmp/aigos-gtm-runs/run_test/research-competitor/report.md",
+        created_at: "2026-05-01T13:00:00.000Z",
+      },
+    ];
+
+    render(<ChatShell run={baseRun} initialEvents={events} />);
+    const artifactsSection = screen
+      .getByRole("heading", { name: /run artifacts/i })
+      .closest("section") as HTMLElement;
+    const artifacts = within(artifactsSection);
+
+    expect(
+      artifacts.getByText("No canvas artifacts persisted yet."),
+    ).toBeInTheDocument();
+    expect(artifacts.getByText("research-competitor")).toBeInTheDocument();
+    expect(
+      artifacts.getByText(
+        "/tmp/aigos-gtm-runs/run_test/research-competitor/report.md",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("groups multiple versions of the same skill under one card", () => {

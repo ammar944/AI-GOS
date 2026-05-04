@@ -137,6 +137,10 @@ export function GtmRunVisibilityPanel({
         </div>
       </div>
 
+      {activeStage && isLiveStageStatus(activeStage.status) ? (
+        <ActiveStageProgressNotice stage={activeStage} />
+      ) : null}
+
       <ol className="divide-y divide-border">
         {visibility.stages.map((stage) => (
           <StageVisibilityRow
@@ -150,6 +154,38 @@ export function GtmRunVisibilityPanel({
         ))}
       </ol>
     </section>
+  );
+}
+
+function ActiveStageProgressNotice({
+  stage,
+}: {
+  stage: GtmRunVisibilityStage;
+}): ReactElement {
+  const stageStateCopy =
+    stage.status === "running"
+      ? `${stage.label} is still running.`
+      : `${stage.label} is queued.`;
+  const timingCopy = stage.latestEvent
+    ? `Last update ${formatEventTime(stage.latestEvent.createdAt)}.`
+    : "No stage event has been recorded yet.";
+  const elapsedCopy =
+    stage.elapsedMs !== null ? `Stage time: ${formatElapsed(stage.elapsedMs)}.` : "";
+  const expectationCopy = isResearchStage(stage.stage)
+    ? "Long research stages can take several minutes."
+    : "Some stages can take a few minutes.";
+
+  return (
+    <div className="border-b border-border bg-muted/25 px-4 py-3 text-sm">
+      <p className="text-foreground">
+        {stageStateCopy} {expectationCopy} {timingCopy} {elapsedCopy} Refresh is
+        safe; this page replays persisted run state.
+      </p>
+      <p className="mt-1 text-muted-foreground">
+        Waiting for the worker to finish this stage. The next event may arrive
+        when validation or output is recorded.
+      </p>
+    </div>
   );
 }
 
@@ -280,6 +316,14 @@ function isRerunnableStageStatus(
   status: GtmRunVisibilityStageStatus,
 ): boolean {
   return status === "blocked" || status === "errored" || status === "timed_out";
+}
+
+function isLiveStageStatus(status: GtmRunVisibilityStageStatus): boolean {
+  return status === "running" || status === "queued";
+}
+
+function isResearchStage(stage: string): boolean {
+  return stage.startsWith("research-");
 }
 
 function getHeaderSummary(

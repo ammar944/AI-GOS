@@ -334,6 +334,7 @@ export function ChatShell({
         <RunArtifactsSection
           artifacts={artifacts}
           runId={currentRun.run_id}
+          stageEvents={events}
         />
 
         {stageEntries.length === 0 && visibleMessages.length === 0 ? (

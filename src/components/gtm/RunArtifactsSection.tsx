@@ -12,11 +12,13 @@ import {
   normalizeGtmLighthouseStage,
   type GtmLighthouseStage,
 } from "@/lib/gtm/stage-mapping";
+import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmArtifact, GtmArtifactSource } from "@/lib/types/gtm-artifact";
 
 interface RunArtifactsSectionProps {
   artifacts: GtmArtifact[];
   runId: string;
+  stageEvents?: GtmStageEvent[];
 }
 
 interface ArtifactGroup {
@@ -27,15 +29,34 @@ interface ArtifactGroup {
   versions: GtmArtifact[];
 }
 
+interface RecordedOutputFile {
+  stage: GtmLighthouseStage | null;
+  stageLabel: string;
+  outputKind: string;
+  path: string;
+  createdAt: string;
+}
+
+interface RecordedOutputFileGroup {
+  stage: GtmLighthouseStage | null;
+  stageLabel: string;
+  files: RecordedOutputFile[];
+}
+
 const MAX_PREVIEW_LENGTH = 180;
+const EMPTY_STAGE_EVENTS: GtmStageEvent[] = [];
 
 export function RunArtifactsSection({
   artifacts,
   runId,
+  stageEvents = EMPTY_STAGE_EVENTS,
 }: RunArtifactsSectionProps): ReactElement {
   const groups = useMemo(() => {
     return sortArtifactGroups(groupArtifactsBySkill(artifacts));
   }, [artifacts]);
+  const recordedOutputGroups = useMemo(() => {
+    return groupRecordedOutputFiles(stageEvents);
+  }, [stageEvents]);
 
   return (
     <section className="rounded-lg border border-border bg-card/40 px-4 py-3">
@@ -49,9 +70,13 @@ export function RunArtifactsSection({
       </div>
 
       {groups.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No artifacts produced yet.
-        </p>
+        recordedOutputGroups.length > 0 ? (
+          <RecordedOutputFilesFallback groups={recordedOutputGroups} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No artifacts produced yet.
+          </p>
+        )
       ) : (
         <ol className="flex flex-col gap-3">
           {groups.map((group) => (
@@ -60,6 +85,55 @@ export function RunArtifactsSection({
         </ol>
       )}
     </section>
+  );
+}
+
+function RecordedOutputFilesFallback({
+  groups,
+}: {
+  groups: RecordedOutputFileGroup[];
+}): ReactElement {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-md border border-border bg-background/50 px-3 py-3">
+        <p className="text-sm font-medium text-foreground">
+          No canvas artifacts persisted yet.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Stage output files were recorded during this run.
+        </p>
+      </div>
+
+      <ol className="flex flex-col gap-3">
+        {groups.map((group) => (
+          <li
+            key={group.stageLabel}
+            className="rounded-md border border-border bg-background/50 px-3 py-3"
+          >
+            <h3 className="font-mono text-sm font-medium text-foreground">
+              {group.stageLabel}
+            </h3>
+            <ol className="mt-2 flex flex-col gap-2">
+              {group.files.map((file) => (
+                <li key={`${file.outputKind}-${file.path}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {file.outputKind}
+                    </Badge>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatArtifactTime(file.createdAt)}
+                    </span>
+                  </div>
+                  <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                    {file.path}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -141,6 +215,56 @@ function ArtifactGroupItem({
   );
 }
 
+function groupRecordedOutputFiles(
+  events: readonly GtmStageEvent[],
+): RecordedOutputFileGroup[] {
+  const files = getRecordedOutputFiles(events);
+  const groups = new Map<string, RecordedOutputFile[]>();
+
+  for (const file of files) {
+    groups.set(file.stageLabel, [...(groups.get(file.stageLabel) ?? []), file]);
+  }
+
+  return [...groups.entries()]
+    .map(([stageLabel, groupFiles]) => {
+      const firstFile = groupFiles[0];
+
+      return {
+        stage: firstFile?.stage ?? null,
+        stageLabel,
+        files: groupFiles,
+      };
+    })
+    .sort(compareRecordedOutputGroups);
+}
+
+function getRecordedOutputFiles(
+  events: readonly GtmStageEvent[],
+): RecordedOutputFile[] {
+  const filesByKey = new Map<string, RecordedOutputFile>();
+
+  for (const event of events) {
+    if (!event.artifact_path) {
+      continue;
+    }
+
+    const stage = normalizeGtmLighthouseStage(event.stage);
+    const stageLabel = stage ? getGtmStageLabel(stage) : event.stage;
+    const outputKind = getRecordedOutputKind(event);
+    const file = {
+      stage,
+      stageLabel,
+      outputKind,
+      path: event.artifact_path,
+      createdAt: event.created_at,
+    };
+
+    filesByKey.set(`${stageLabel}:${outputKind}:${event.artifact_path}`, file);
+  }
+
+  return [...filesByKey.values()].sort(compareRecordedOutputFiles);
+}
+
 function groupArtifactsBySkill(artifacts: GtmArtifact[]): ArtifactGroup[] {
   const groups = new Map<string, GtmArtifact[]>();
 
@@ -181,6 +305,38 @@ function sortArtifactGroups(groups: ArtifactGroup[]): ArtifactGroup[] {
 
     return left.label.localeCompare(right.label) || left.skill.localeCompare(right.skill);
   });
+}
+
+function compareRecordedOutputGroups(
+  left: RecordedOutputFileGroup,
+  right: RecordedOutputFileGroup,
+): number {
+  const leftStageIndex = getStageSortIndex(left.stage);
+  const rightStageIndex = getStageSortIndex(right.stage);
+
+  if (leftStageIndex !== rightStageIndex) {
+    return leftStageIndex - rightStageIndex;
+  }
+
+  return left.stageLabel.localeCompare(right.stageLabel);
+}
+
+function compareRecordedOutputFiles(
+  left: RecordedOutputFile,
+  right: RecordedOutputFile,
+): number {
+  const leftStageIndex = getStageSortIndex(left.stage);
+  const rightStageIndex = getStageSortIndex(right.stage);
+
+  if (leftStageIndex !== rightStageIndex) {
+    return leftStageIndex - rightStageIndex;
+  }
+
+  return (
+    compareCreatedAt(left.createdAt, right.createdAt) ||
+    left.outputKind.localeCompare(right.outputKind) ||
+    left.path.localeCompare(right.path)
+  );
 }
 
 function sortArtifactVersions(artifacts: GtmArtifact[]): GtmArtifact[] {
@@ -247,6 +403,22 @@ function getArtifactStage(artifact: GtmArtifact): GtmLighthouseStage | null {
 
   const metadataStage = getStringField(artifact.metadata, "stage");
   return metadataStage ? normalizeGtmLighthouseStage(metadataStage) : null;
+}
+
+function getRecordedOutputKind(event: GtmStageEvent): string {
+  const metadataKind = event.metadata
+    ? getStringField(event.metadata, "artifact")
+    : null;
+  if (metadataKind) {
+    return metadataKind;
+  }
+
+  const recordedKind = event.message.match(/^([\w.-]+)\s+artifact recorded\.$/i);
+  if (recordedKind?.[1]) {
+    return recordedKind[1];
+  }
+
+  return event.tool_name ?? event.event_type;
 }
 
 function getStageSortIndex(stage: GtmLighthouseStage | null): number {

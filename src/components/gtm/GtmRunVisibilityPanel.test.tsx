@@ -7,6 +7,47 @@ import {
 } from "@/components/gtm/GtmRunVisibilityPanel";
 
 describe("GtmRunVisibilityPanel rerun action", () => {
+  it("reassures operators while a research stage is running", () => {
+    render(
+      <GtmRunVisibilityPanel
+        visibility={{
+          runStatus: "running",
+          eventCount: 12,
+          blockerCount: 0,
+          stages: [
+            {
+              stage: "research-competitor",
+              label: "research-competitor",
+              status: "running",
+              latestEvent: {
+                message: "Starting local agent executor...",
+                createdAt: "2026-05-04T05:10:00.000Z",
+                eventType: "started",
+              },
+              blocker: null,
+              pendingDependencyReason: null,
+              elapsedMs: 246000,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/research-competitor is still running/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Long research stages can take several minutes/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Last update/i)).toBeInTheDocument();
+    expect(screen.getByText(/Refresh is safe/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /The next event may arrive when validation or output is recorded/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it.each(["blocked", "errored", "timed_out"] as const)(
     "renders Rerun stage for %s stages",
     (status) => {
