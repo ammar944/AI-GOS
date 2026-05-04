@@ -38,6 +38,7 @@ export default async function GtmRunPage({
       run={toChatShellRun(view)}
       initialEvents={getInitialEvents(view)}
       initialArtifacts={getInitialArtifacts(view)}
+      initialMessages={view.messages}
       visibility={toGtmRunVisibility(view)}
     />
   );

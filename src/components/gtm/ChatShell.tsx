@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactElement } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import type {
   AgentInvocation,
   AgentInvocationStatus,
@@ -29,6 +30,10 @@ import {
   GTM_LIGHTHOUSE_STAGE_KEYS,
   normalizeGtmLighthouseStage,
 } from "@/lib/gtm/stage-mapping";
+import {
+  getGtmAgentMessageDisplayText,
+  type GtmAgentMessage,
+} from "@/lib/gtm/agent-messages";
 import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmStageStatus } from "@/lib/gtm/stage-state";
 import type { IngestUrlOutput } from "@/lib/gtm/types";
@@ -64,16 +69,19 @@ interface ChatShellProps {
   run: ChatShellRun;
   initialEvents?: GtmStageEvent[];
   initialArtifacts?: GtmArtifact[];
+  initialMessages?: GtmAgentMessage[];
   visibility?: GtmRunVisibilityPanelData;
 }
 
 const EMPTY_EVENTS: GtmStageEvent[] = [];
 const EMPTY_ARTIFACTS: GtmArtifact[] = [];
+const EMPTY_MESSAGES: GtmAgentMessage[] = [];
 
 export function ChatShell({
   run,
   initialEvents = EMPTY_EVENTS,
   initialArtifacts = EMPTY_ARTIFACTS,
+  initialMessages = EMPTY_MESSAGES,
   visibility,
 }: ChatShellProps): ReactElement {
   const [currentRun, setCurrentRun] = useState(run);
@@ -87,6 +95,9 @@ export function ChatShell({
   const [inputValue, setInputValue] = useState("");
   const stageEntries = getOrderedStageEntries(currentRun.stages);
   const companyName = getHostnameLabel(currentRun.input_url);
+  const initialChatMessages = useMemo(() => {
+    return mapPersistedMessagesToUiMessages(initialMessages);
+  }, [initialMessages]);
 
   const refreshArtifacts = useCallback(async () => {
     try {
@@ -157,10 +168,14 @@ export function ChatShell({
 
   const { messages, sendMessage, status } = useChat({
     transport,
+    messages: initialChatMessages,
     onFinish: () => {
       void refreshArtifacts();
     },
   });
+  const visibleMessages = useMemo(() => {
+    return getDisplayableMessages(messages);
+  }, [messages]);
 
   const inputDisabled = status === "submitted" || status === "streaming";
 
@@ -321,7 +336,7 @@ export function ChatShell({
           runId={currentRun.run_id}
         />
 
-        {stageEntries.length === 0 && messages.length === 0 ? (
+        {stageEntries.length === 0 && visibleMessages.length === 0 ? (
           <ChatMessage variant="agent-text">
             Run queued. Waiting for orchestrator to start...
           </ChatMessage>
@@ -335,7 +350,7 @@ export function ChatShell({
           ))
         )}
 
-        {messages.map((m) => (
+        {visibleMessages.map((m) => (
           <ChatMessage
             key={m.id}
             variant={m.role === "user" ? "user" : "agent-text"}
@@ -373,10 +388,90 @@ export function ChatShell({
   );
 }
 
-function extractText(message: { parts: Array<{ type: string; text?: string }> }): string {
+function mapPersistedMessagesToUiMessages(
+  messages: readonly GtmAgentMessage[],
+): UIMessage[] {
+  return [...messages]
+    .sort(compareCreatedAt)
+    .flatMap((message) => {
+      const text = getGtmAgentMessageDisplayText(message);
+      if (text.length === 0) {
+        return [];
+      }
+
+      return [
+        {
+          id: message.id,
+          role: mapPersistedMessageRole(message.role),
+          metadata: {
+            persistedRole: message.role,
+            messageType: message.message_type,
+            createdAt: message.created_at,
+          },
+          parts: [{ type: "text" as const, text }],
+        },
+      ];
+    });
+}
+
+function mapPersistedMessageRole(
+  role: GtmAgentMessage["role"],
+): UIMessage["role"] {
+  if (role === "user" || role === "assistant" || role === "system") {
+    return role;
+  }
+
+  return "assistant";
+}
+
+function getDisplayableMessages(messages: readonly UIMessage[]): UIMessage[] {
+  const seenIds = new Set<string>();
+  const displayableMessages: UIMessage[] = [];
+
+  for (const message of messages) {
+    if (seenIds.has(message.id)) {
+      continue;
+    }
+
+    const text = extractText(message);
+    if (text.length === 0) {
+      continue;
+    }
+
+    seenIds.add(message.id);
+    displayableMessages.push(message);
+  }
+
+  return displayableMessages;
+}
+
+function compareCreatedAt(
+  left: { created_at: string },
+  right: { created_at: string },
+): number {
+  const leftMs = Date.parse(left.created_at);
+  const rightMs = Date.parse(right.created_at);
+
+  if (Number.isFinite(leftMs) && Number.isFinite(rightMs)) {
+    return leftMs - rightMs;
+  }
+
+  return left.created_at.localeCompare(right.created_at);
+}
+
+function extractText(message: Pick<UIMessage, "parts">): string {
   return message.parts
-    .filter((p) => p.type === "text" && typeof p.text === "string")
-    .map((p) => p.text!)
+    .flatMap((part) => {
+      if (
+        part.type === "text" &&
+        "text" in part &&
+        typeof part.text === "string"
+      ) {
+        return [part.text];
+      }
+
+      return [];
+    })
     .join("");
 }
 

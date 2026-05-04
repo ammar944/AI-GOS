@@ -15,7 +15,6 @@
 import { NextResponse } from "next/server";
 import type { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { dispatchSkill } from "@/lib/gtm/dispatch-skill";
 import {
   runOrchestrator,
   type InsertPatchedArtifactInput,
@@ -24,12 +23,22 @@ import {
   type InsertSkillArtifactResult,
   type RunOrchestratorDeps,
 } from "@/lib/ai/orchestrator";
+import {
+  getInvocationSkillForStage,
+  normalizeGtmLighthouseStage,
+} from "@/lib/gtm/stage-mapping";
 import type {
   ArtifactRow,
   DispatchSkillStageInput,
   DispatchSkillStageResult,
 } from "@/lib/gtm/orchestrator-tools";
+import {
+  isMissingGtmMessagesTableError,
+  validateGtmAgentMessageInsert,
+  type GtmAgentMessageInsert,
+} from "@/lib/gtm/agent-messages";
 import type { LighthouseSkill } from "@/lib/gtm/types";
+import { dispatchGtmWorkerStage } from "@/lib/gtm/worker-dispatch";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -103,6 +112,22 @@ export async function POST(
     );
   }
 
+  const latestUserText = extractLatestUserText(body.messages);
+  if (latestUserText) {
+    await insertGtmMessage({
+      supabase,
+      message: {
+        run_id: run.run_id,
+        user_id: userId,
+        role: "user",
+        message_type: "text",
+        content: { text: latestUserText },
+        status: "complete",
+        metadata: {},
+      },
+    });
+  }
+
   const deps = buildOrchestratorDeps({
     supabase,
     runId: run.run_id,
@@ -112,7 +137,19 @@ export async function POST(
   });
 
   const result = await runOrchestrator(body.messages, run.run_id, deps);
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse<UIMessage>({
+    originalMessages: body.messages,
+    onFinish: async (event): Promise<void> => {
+      await persistAssistantMessageFromStreamFinish({
+        supabase,
+        runId: run.run_id,
+        userId,
+        responseMessage: event.responseMessage,
+        isAborted: event.isAborted,
+        finishReason: event.finishReason,
+      });
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -138,15 +175,50 @@ export function buildOrchestratorDeps(
     dispatchSkillRun: async (
       input: DispatchSkillStageInput,
     ): Promise<DispatchSkillStageResult> => {
+      const stage = normalizeGtmLighthouseStage(input.skill);
+      if (!stage) {
+        return {
+          status: "failed",
+          error: `No GTM worker stage mapping exists for skill=${input.skill}.`,
+        };
+      }
+
       try {
-        const output = await dispatchSkill(input.skill, {
-          input_url: inputUrl,
-          run_id: runId,
-          prior_stages: stages ?? {},
-          // refinement_context is forwarded to skills that opt-in; harmless if ignored
-          refinement_context: input.refinement_context,
+        const workerResult = await dispatchGtmWorkerStage({
+          runId,
+          userId,
+          inputUrl,
+          stage,
         });
-        return { status: "completed", output };
+        await insertGtmMessage({
+          supabase,
+          message: {
+            run_id: runId,
+            user_id: userId,
+            role: "tool",
+            message_type: "tool_group",
+            content: {
+              skill: input.skill,
+              stage,
+              label: getInvocationSkillForStage(stage) ?? stage,
+              status: "queued",
+              refinement_context: input.refinement_context ?? null,
+            },
+            status: "complete",
+            metadata: {
+              worker_status: workerResult.status,
+              prior_stage_count: Object.keys(stages ?? {}).length,
+            },
+          },
+        });
+        return {
+          status: "queued",
+          output: {
+            run_id: workerResult.run_id,
+            stage,
+            worker_status: workerResult.status,
+          },
+        };
       } catch (error) {
         return {
           status: "failed",
@@ -228,4 +300,117 @@ export function buildOrchestratorDeps(
       return { id: data.id, version: data.version };
     },
   };
+}
+
+async function insertGtmMessage(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  message: GtmAgentMessageInsert;
+}): Promise<void> {
+  const message = validateGtmAgentMessageInsert(input.message);
+  const { error } = await input.supabase.from("gtm_messages").insert(message);
+
+  if (error) {
+    if (isMissingGtmMessagesTableError(error)) {
+      console.warn("[gtm-agent]", {
+        component: "gtm-chat-api",
+        event: "gtm_messages_missing",
+        run_id: message.run_id,
+        user_id: message.user_id,
+        role: message.role,
+        message: error.message,
+      });
+      return;
+    }
+
+    throw new Error(
+      `gtm_messages insert failed for run_id=${message.run_id} role=${message.role}: ${error.message}`,
+    );
+  }
+}
+
+async function persistAssistantMessageFromStreamFinish(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  runId: string;
+  userId: string;
+  responseMessage: UIMessage;
+  isAborted: boolean;
+  finishReason: unknown;
+}): Promise<void> {
+  if (input.isAborted || input.responseMessage.role !== "assistant") {
+    return;
+  }
+
+  const text = extractUiMessageText(input.responseMessage);
+  if (text.length === 0) {
+    return;
+  }
+
+  try {
+    await insertGtmMessage({
+      supabase: input.supabase,
+      message: {
+        run_id: input.runId,
+        user_id: input.userId,
+        role: "assistant",
+        message_type: "text",
+        content: { text },
+        status: "complete",
+        metadata: {
+          source: "orchestrator_stream_finish",
+          finish_reason:
+            typeof input.finishReason === "string" ? input.finishReason : null,
+        },
+      },
+    });
+  } catch (error: unknown) {
+    console.error("[gtm-agent]", {
+      component: "gtm-chat-api",
+      event: "assistant_message_persist_failed",
+      run_id: input.runId,
+      user_id: input.userId,
+      role: "assistant",
+      message: getErrorMessage(error),
+    });
+  }
+}
+
+function extractLatestUserText(messages: UIMessage[]): string | null {
+  for (const message of [...messages].reverse()) {
+    if (message.role !== "user") {
+      continue;
+    }
+
+    const text = extractUiMessageText(message);
+
+    if (text.length > 0) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function extractUiMessageText(message: UIMessage): string {
+  return message.parts
+    .flatMap((part) => {
+      if (
+        part.type === "text" &&
+        "text" in part &&
+        typeof part.text === "string"
+      ) {
+        return [part.text];
+      }
+
+      return [];
+    })
+    .join("")
+    .trim();
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
