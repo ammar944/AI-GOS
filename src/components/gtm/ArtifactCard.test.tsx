@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ArtifactCard } from "./ArtifactCard";
 import type { GtmArtifact } from "@/lib/types/gtm-artifact";
+import type { ResearchEvidence, SourceGap } from "@/lib/gtm/schemas/evidence";
 
 const baseArtifact: GtmArtifact = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -103,4 +104,112 @@ describe("ArtifactCard", () => {
     );
     expect(screen.queryByRole("heading", { level: 2, name: /ICP/ })).toBeNull();
   });
+
+  it("renders citation chips from explicit artifact evidence metadata", () => {
+    render(
+      <ArtifactCard
+        versions={[
+          {
+            ...baseArtifact,
+            metadata: {
+              evidenceSet: {
+                evidence: [
+                  makeEvidence({
+                    id: "evidence-artifact-claim",
+                    label: "Example pricing page",
+                    url: "https://example.com/pricing",
+                    claim_path: ["productAndOffer", "pricingModel"],
+                  }),
+                ],
+                source_gaps: [],
+              },
+            },
+          },
+        ]}
+        runId="run_x"
+      />,
+    );
+
+    expect(screen.getByText("Citations")).toBeInTheDocument();
+    expect(screen.getByText("Example pricing page")).toBeInTheDocument();
+    expect(screen.getByText("productAndOffer.pricingModel")).toBeInTheDocument();
+  });
+
+  it("renders explicit artifact source gaps when evidence is missing", () => {
+    render(
+      <ArtifactCard
+        versions={[
+          {
+            ...baseArtifact,
+            metadata: {
+              evidenceSet: {
+                evidence: [],
+                source_gaps: [
+                  makeSourceGap({
+                    id: "gap-artifact-claim",
+                    claim_path: ["competitive", "alternatives"],
+                    reason: "No external competitor source was attached.",
+                  }),
+                ],
+              },
+            },
+          },
+        ]}
+        runId="run_x"
+      />,
+    );
+
+    expect(screen.getByText("Source gap")).toBeInTheDocument();
+    expect(screen.getByText("competitive.alternatives")).toBeInTheDocument();
+    expect(
+      screen.getByText("No external competitor source was attached."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not turn raw model output URLs into artifact citations", () => {
+    render(
+      <ArtifactCard
+        versions={[
+          {
+            ...baseArtifact,
+            metadata: {
+              model_output: {
+                summary: "The model mentioned https://model-only.example/claim.",
+              },
+            },
+          },
+        ]}
+        runId="run_x"
+      />,
+    );
+
+    expect(screen.getByText("Needs evidence")).toBeInTheDocument();
+    expect(
+      screen.getByText("No source evidence attached to this artifact."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("model-only.example")).not.toBeInTheDocument();
+  });
 });
+
+function makeEvidence(overrides: Partial<ResearchEvidence> = {}): ResearchEvidence {
+  return {
+    id: "evidence-test",
+    source_type: "web_page",
+    label: "Example source",
+    url: "https://example.com/",
+    retrieved_at: "2026-05-01T09:00:00.000Z",
+    confidence: "high",
+    claim_path: ["companyIdentity", "companyName"],
+    ...overrides,
+  };
+}
+
+function makeSourceGap(overrides: Partial<SourceGap> = {}): SourceGap {
+  return {
+    id: "gap-test",
+    claim_path: ["companyIdentity", "companyName"],
+    severity: "degraded",
+    reason: "No source evidence attached.",
+    ...overrides,
+  };
+}

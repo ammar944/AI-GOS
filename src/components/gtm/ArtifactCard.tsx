@@ -35,6 +35,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  buildGtmRunSourceLedger,
+  type GtmRunSourceGapRef,
+  type GtmRunSourceLedger,
+  type GtmRunSourceLedgerSource,
+} from "@/lib/gtm/source-ledger";
 import type { GtmArtifact } from "@/lib/types/gtm-artifact";
 
 interface ArtifactCardProps {
@@ -74,10 +80,15 @@ export function ArtifactCard({
     latest?.id,
   );
   const [open, setOpen] = useState<boolean>(defaultExpanded ?? true);
+  const selected = latest ? sorted.find((v) => v.id === selectedId) ?? latest : null;
+  const sourceLedger = useMemo(() => {
+    return buildGtmRunSourceLedger({
+      values: selected ? [selected.metadata] : [],
+    });
+  }, [selected]);
 
-  if (!latest) return null;
+  if (!latest || !selected) return null;
 
-  const selected = sorted.find((v) => v.id === selectedId) ?? latest;
   const isLatest = selected.version === latest.version;
 
   return (
@@ -148,6 +159,8 @@ export function ArtifactCard({
           </div>
         </div>
 
+        <ArtifactEvidenceSummary ledger={sourceLedger} />
+
         <CollapsibleContent>
           <CardContent className="prose prose-sm prose-invert max-w-none px-4 pb-4 pt-0">
             <ReactMarkdown>{selected.content_md}</ReactMarkdown>
@@ -160,5 +173,138 @@ export function ArtifactCard({
         </CollapsibleContent>
       </Collapsible>
     </Card>
+  );
+}
+
+function ArtifactEvidenceSummary({
+  ledger,
+}: {
+  ledger: GtmRunSourceLedger;
+}): React.ReactElement {
+  const sources = ledger.groups.flatMap((group) => group.sources);
+
+  if (sources.length > 0) {
+    return (
+      <div className="border-t border-border px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] text-emerald-700 dark:text-emerald-300"
+          >
+            Citations
+          </Badge>
+          {sources.map((source) => (
+            <ArtifactCitationChip key={source.key} source={source} />
+          ))}
+        </div>
+        {ledger.source_gaps.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {ledger.source_gaps.map((sourceGap) => (
+              <ArtifactSourceGapChip
+                key={`${sourceGap.id}-${sourceGap.claim_path_label}`}
+                sourceGap={sourceGap}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (ledger.source_gaps.length > 0) {
+    return (
+      <div className="border-t border-border px-4 py-2">
+        <div className="flex flex-col gap-2">
+          {ledger.source_gaps.map((sourceGap) => (
+            <ArtifactSourceGapChip
+              key={`${sourceGap.id}-${sourceGap.claim_path_label}`}
+              sourceGap={sourceGap}
+              showReason
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-border px-4 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge
+          variant="outline"
+          className="border-yellow-500/40 bg-yellow-500/10 font-mono text-[11px] text-yellow-700 dark:text-yellow-300"
+        >
+          Needs evidence
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          No source evidence attached to this artifact.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ArtifactCitationChip({
+  source,
+}: {
+  source: GtmRunSourceLedgerSource;
+}): React.ReactElement {
+  const firstClaim = source.claim_refs[0];
+  const className =
+    "inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[11px] text-muted-foreground";
+  const content = (
+    <>
+      <span className="truncate">{source.label}</span>
+      {firstClaim ? (
+        <>
+          <span className="text-muted-foreground/70">·</span>
+          <span className="truncate">{firstClaim.claim_path_label}</span>
+        </>
+      ) : null}
+    </>
+  );
+
+  if (source.url) {
+    return (
+      <a
+        href={source.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(className, "underline-offset-4 hover:text-foreground hover:underline")}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <span className={className}>
+      {content}
+    </span>
+  );
+}
+
+function ArtifactSourceGapChip({
+  sourceGap,
+  showReason = false,
+}: {
+  sourceGap: GtmRunSourceGapRef;
+  showReason?: boolean;
+}): React.ReactElement {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 px-2.5 py-1.5">
+      <Badge
+        variant="outline"
+        className="border-yellow-500/40 bg-yellow-500/10 font-mono text-[11px] text-yellow-700 dark:text-yellow-300"
+      >
+        Source gap
+      </Badge>
+      <span className="font-mono text-[11px] text-foreground">
+        {sourceGap.claim_path_label}
+      </span>
+      {showReason ? (
+        <span className="text-xs text-muted-foreground">{sourceGap.reason}</span>
+      ) : null}
+    </div>
   );
 }

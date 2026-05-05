@@ -4,6 +4,7 @@ import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import {
   buildGtmRunView,
   getGtmRunViewForUser,
+  type GtmRunSourceLedgerGroup,
   type GtmRunViewQueryBuilder,
   type GtmRunViewQueryResult,
   type GtmRunViewRunRecord,
@@ -12,6 +13,7 @@ import {
   type GtmRunViewTableBuilder,
 } from "@/lib/gtm/run-view";
 import type { GtmArtifact } from "@/lib/types/gtm-artifact";
+import type { ResearchEvidence, SourceGap } from "@/lib/gtm/schemas/evidence";
 
 describe("buildGtmRunView", () => {
   it("normalizes an empty queued run with no related rows", () => {
@@ -232,6 +234,91 @@ describe("buildGtmRunView", () => {
     expect(view.artifacts_by_skill).toEqual([]);
     expect(view.messages).toEqual([]);
   });
+
+  it("builds a source ledger from valid evidence and gaps without citing model-only output", () => {
+    const duplicateWebEvidence = makeEvidence({
+      id: "evidence-company-name",
+      label: "Example homepage",
+      url: "https://example.com/",
+      claim_path: ["companyIdentity", "companyName"],
+    });
+    const duplicateWebEvidenceForSecondClaim = makeEvidence({
+      id: "evidence-job-titles",
+      label: "Example homepage",
+      url: "https://example.com/",
+      claim_path: ["icp", "jobTitles"],
+    });
+    const userProvidedEvidence = makeEvidence({
+      id: "evidence-user-goal",
+      source_type: "user_input",
+      label: "Founder kickoff answer",
+      url: undefined,
+      retrieved_at: undefined,
+      claim_path: ["goal", "campaignObjective"],
+    });
+    const sourceGap = makeSourceGap({
+      id: "gap-market-category",
+      claim_path: ["market", "category"],
+      severity: "degraded",
+      reason: "No third-party category source was attached.",
+    });
+
+    const view = buildGtmRunView({
+      run: makeRun({
+        status: "partial",
+        stages: {
+          "research-market-category": {
+            status: "complete",
+            output: {
+              summary: "Model synthesis mentions https://model-only.example/claim.",
+              evidenceSet: {
+                evidence: [
+                  duplicateWebEvidence,
+                  duplicateWebEvidenceForSecondClaim,
+                  userProvidedEvidence,
+                ],
+                source_gaps: [sourceGap],
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    expect(view.source_ledger.source_count).toBe(2);
+    expect(view.source_ledger.evidence_count).toBe(3);
+    expect(view.source_ledger.source_gap_count).toBe(1);
+    expect(getLedgerGroup(view.source_ledger.groups, "web_page")?.sources).toHaveLength(1);
+
+    const webSource = getLedgerGroup(view.source_ledger.groups, "web_page")?.sources[0];
+    expect(webSource?.url).toBe("https://example.com/");
+    expect(webSource?.evidence_ids).toEqual([
+      "evidence-company-name",
+      "evidence-job-titles",
+    ]);
+    expect(webSource?.claim_refs.map((ref) => ref.claim_path_label)).toEqual([
+      "companyIdentity.companyName",
+      "icp.jobTitles",
+    ]);
+
+    const userSource = getLedgerGroup(view.source_ledger.groups, "user_input")?.sources[0];
+    expect(userSource).toMatchObject({
+      label: "Founder kickoff answer",
+      trust_level: "user_provided",
+      trust_label: "User-provided provenance",
+    });
+
+    expect(view.source_ledger.source_gaps[0]).toMatchObject({
+      id: "gap-market-category",
+      claim_path_label: "market.category",
+      reason: "No third-party category source was attached.",
+    });
+    expect(
+      view.source_ledger.groups.flatMap((group) => {
+        return group.sources.map((source) => source.url);
+      }),
+    ).not.toContain("https://model-only.example/claim");
+  });
 });
 
 describe("getGtmRunViewForUser", () => {
@@ -426,4 +513,36 @@ function makeMessage(overrides: Partial<GtmAgentMessage> = {}): GtmAgentMessage 
     created_at: "2026-05-01T09:00:00.000Z",
     ...overrides,
   };
+}
+
+function makeEvidence(overrides: Partial<ResearchEvidence> = {}): ResearchEvidence {
+  return {
+    id: "evidence-test",
+    source_type: "web_page",
+    label: "Example source",
+    url: "https://example.com/",
+    retrieved_at: "2026-05-01T09:00:00.000Z",
+    confidence: "high",
+    claim_path: ["companyIdentity", "companyName"],
+    ...overrides,
+  };
+}
+
+function makeSourceGap(overrides: Partial<SourceGap> = {}): SourceGap {
+  return {
+    id: "gap-test",
+    claim_path: ["companyIdentity", "companyName"],
+    severity: "degraded",
+    reason: "No source evidence attached.",
+    ...overrides,
+  };
+}
+
+function getLedgerGroup(
+  groups: readonly GtmRunSourceLedgerGroup[],
+  sourceType: ResearchEvidence["source_type"],
+): GtmRunSourceLedgerGroup | undefined {
+  return groups.find((group) => {
+    return group.source_type === sourceType;
+  });
 }

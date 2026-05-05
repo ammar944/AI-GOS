@@ -40,6 +40,7 @@ export default async function GtmRunPage({
       initialArtifacts={getInitialArtifacts(view)}
       initialMessages={view.messages}
       visibility={toGtmRunVisibility(view)}
+      sourceLedger={view.source_ledger}
     />
   );
 }

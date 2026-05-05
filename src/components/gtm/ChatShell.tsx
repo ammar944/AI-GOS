@@ -23,6 +23,7 @@ import {
   type GtmRunStatus,
 } from "@/components/gtm/RunStatusBadge";
 import { RunArtifactsSection } from "@/components/gtm/RunArtifactsSection";
+import { SourceLedger } from "@/components/gtm/SourceLedger";
 import { StageEventLog } from "@/components/gtm/StageEventLog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,10 @@ import {
   upsertGtmPrefillManifest,
   type GtmPrefillManifest,
 } from "@/lib/gtm/onboarding/prefill";
+import {
+  buildGtmRunSourceLedger,
+  type GtmRunSourceLedger,
+} from "@/lib/gtm/source-ledger";
 import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmStageStatus } from "@/lib/gtm/stage-state";
 import type { IngestUrlOutput } from "@/lib/gtm/types";
@@ -81,6 +86,7 @@ interface ChatShellProps {
   initialArtifacts?: GtmArtifact[];
   initialMessages?: GtmAgentMessage[];
   visibility?: GtmRunVisibilityPanelData;
+  sourceLedger?: GtmRunSourceLedger;
 }
 
 const EMPTY_EVENTS: GtmStageEvent[] = [];
@@ -93,6 +99,7 @@ export function ChatShell({
   initialArtifacts = EMPTY_ARTIFACTS,
   initialMessages = EMPTY_MESSAGES,
   visibility,
+  sourceLedger,
 }: ChatShellProps): ReactElement {
   const [currentRun, setCurrentRun] = useState(run);
   const [events, setEvents] = useState(initialEvents);
@@ -108,6 +115,25 @@ export function ChatShell({
   const prefill = useMemo(() => {
     return getPrefillForRun(currentRun);
   }, [currentRun]);
+  const currentSourceLedger = useMemo(() => {
+    const nextLedger = buildGtmRunSourceLedger({
+      values: [
+        currentRun.manifest,
+        currentRun.stages,
+        artifacts.map((artifact) => artifact.metadata),
+      ],
+    });
+
+    if (
+      nextLedger.source_count === 0 &&
+      nextLedger.source_gap_count === 0 &&
+      sourceLedger
+    ) {
+      return sourceLedger;
+    }
+
+    return nextLedger;
+  }, [artifacts, currentRun.manifest, currentRun.stages, sourceLedger]);
   const initialChatMessages = useMemo(() => {
     return mapPersistedMessagesToUiMessages(initialMessages);
   }, [initialMessages]);
@@ -364,6 +390,8 @@ export function ChatShell({
         <ChatMessage variant="user">{currentRun.input_url}</ChatMessage>
 
         <StageEventLog events={events} />
+
+        <SourceLedger ledger={currentSourceLedger} />
 
         <RunArtifactsSection
           artifacts={artifacts}

@@ -16,7 +16,14 @@ import {
   normalizeGtmLighthouseStage,
   type GtmLighthouseStage,
 } from "@/lib/gtm/stage-mapping";
+import {
+  buildGtmRunSourceLedger,
+  type GtmRunSourceLedger,
+  type GtmRunSourceLedgerGroup,
+} from "@/lib/gtm/source-ledger";
 import type { GtmArtifact } from "@/lib/types/gtm-artifact";
+
+export type { GtmRunSourceLedger, GtmRunSourceLedgerGroup };
 
 const GTM_RUN_VIEW_STATUSES = [
   "queued",
@@ -103,6 +110,7 @@ export interface GtmRunView {
   events_by_stage: Record<string, GtmStageEvent[]>;
   artifacts_by_skill: GtmRunViewArtifactGroup[];
   artifacts_by_stage: Record<GtmLighthouseStage, GtmArtifact[]>;
+  source_ledger: GtmRunSourceLedger;
   messages: GtmAgentMessage[];
   blockers: GtmRunViewBlocker[];
   pending_dependency_reasons: Partial<Record<GtmLighthouseStage, string>>;
@@ -167,6 +175,13 @@ export function buildGtmRunView(input: BuildGtmRunViewInput): GtmRunView {
   const artifacts = sortArtifacts(input.artifacts ?? []);
   const artifactsBySkill = groupArtifactsBySkill(artifacts);
   const artifactsByStage = groupArtifactsByStage(artifacts);
+  const sourceLedger = buildGtmRunSourceLedger({
+    values: [
+      input.run.manifest,
+      stageStates,
+      artifacts.map((artifact) => artifact.metadata),
+    ],
+  });
   const messages = sortByCreatedAt(input.messages ?? []);
   const blockers = buildBlockers({
     stageStates,
@@ -210,6 +225,7 @@ export function buildGtmRunView(input: BuildGtmRunViewInput): GtmRunView {
     events_by_stage: eventsByStage,
     artifacts_by_skill: artifactsBySkill,
     artifacts_by_stage: artifactsByStage,
+    source_ledger: sourceLedger,
     messages,
     blockers,
     pending_dependency_reasons: pendingDependencyReasons,
