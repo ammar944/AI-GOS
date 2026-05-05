@@ -17,6 +17,7 @@ import {
   type GtmRunVisibilityPanelData,
   type GtmRunVisibilityStageStatus,
 } from "@/components/gtm/GtmRunVisibilityPanel";
+import { GtmPrefillReviewPanel } from "@/components/gtm/GtmPrefillReviewPanel";
 import {
   RunStatusBadge,
   type GtmRunStatus,
@@ -34,6 +35,12 @@ import {
   getGtmAgentMessageDisplayText,
   type GtmAgentMessage,
 } from "@/lib/gtm/agent-messages";
+import {
+  buildGtmPrefillManifestFromDiscovery,
+  getGtmPrefillManifestFromRunManifest,
+  upsertGtmPrefillManifest,
+  type GtmPrefillManifest,
+} from "@/lib/gtm/onboarding/prefill";
 import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmStageStatus } from "@/lib/gtm/stage-state";
 import type { IngestUrlOutput } from "@/lib/gtm/types";
@@ -60,6 +67,7 @@ export interface ChatShellRun {
   run_id: string;
   input_url: string;
   status: GtmRunStatus;
+  manifest?: Record<string, unknown> | null;
   stages: Record<string, GtmStageState> | null;
   created_at: string;
   updated_at?: string;
@@ -95,6 +103,9 @@ export function ChatShell({
   const [inputValue, setInputValue] = useState("");
   const stageEntries = getOrderedStageEntries(currentRun.stages);
   const companyName = getHostnameLabel(currentRun.input_url);
+  const prefill = useMemo(() => {
+    return getPrefillForRun(currentRun);
+  }, [currentRun]);
   const initialChatMessages = useMemo(() => {
     return mapPersistedMessagesToUiMessages(initialMessages);
   }, [initialMessages]);
@@ -245,6 +256,15 @@ export function ChatShell({
     [currentRun.run_id, refreshRun],
   );
 
+  const handlePrefillConfirmed = useCallback((nextPrefill: GtmPrefillManifest): void => {
+    setCurrentRun((previousRun) => {
+      return {
+        ...previousRun,
+        manifest: upsertGtmPrefillManifest(previousRun.manifest, nextPrefill),
+      };
+    });
+  }, []);
+
   useEffect(() => {
     setCurrentRun(run);
   }, [run]);
@@ -327,6 +347,12 @@ export function ChatShell({
           />
         ) : null}
 
+        <GtmPrefillReviewPanel
+          runId={currentRun.run_id}
+          prefill={prefill}
+          onConfirmed={handlePrefillConfirmed}
+        />
+
         <ChatMessage variant="user">{currentRun.input_url}</ChatMessage>
 
         <StageEventLog events={events} />
@@ -387,6 +413,27 @@ export function ChatShell({
       </footer>
     </div>
   );
+}
+
+function getPrefillForRun(run: ChatShellRun): GtmPrefillManifest | null {
+  const manifestPrefill = getGtmPrefillManifestFromRunManifest(run.manifest);
+  const discoverUrlState = run.stages?.["discover-url"];
+  const discoverOutput = discoverUrlState?.output ?? discoverUrlState?.raw_output;
+
+  if (
+    manifestPrefill?.status === "discovering" &&
+    discoverUrlState?.status === "complete" &&
+    discoverOutput !== undefined
+  ) {
+    return buildGtmPrefillManifestFromDiscovery({
+      runId: run.run_id,
+      inputUrl: run.input_url,
+      output: discoverOutput,
+      existingPrefill: manifestPrefill,
+    });
+  }
+
+  return manifestPrefill;
 }
 
 function mapPersistedMessagesToUiMessages(

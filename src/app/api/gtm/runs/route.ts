@@ -3,7 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/server";
 import type { GtmRunStatus } from "@/components/gtm/RunStatusBadge";
-import { dispatchGtmWorkerRun } from "@/lib/gtm/worker-dispatch";
+import { buildInitialGtmPrefillManifest } from "@/lib/gtm/onboarding/prefill";
+import { dispatchGtmWorkerStage } from "@/lib/gtm/worker-dispatch";
 
 interface CreateRunRequest {
   input_url: string;
@@ -86,6 +87,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const runId = `run_${nanoid(10)}`;
+  const prefill = buildInitialGtmPrefillManifest({
+    runId,
+    inputUrl,
+  });
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("gtm_runs")
@@ -94,7 +99,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       user_id: userId,
       input_url: inputUrl,
       status: "queued",
-      manifest: {},
+      manifest: {
+        gtm_prefill: prefill,
+      },
       stages: {},
     })
     .select("run_id")
@@ -113,10 +120,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    await dispatchGtmWorkerRun({
+    await dispatchGtmWorkerStage({
       runId: data.run_id,
       userId,
       inputUrl,
+      stage: "discover-url",
     });
   } catch (error: unknown) {
     return NextResponse.json(
@@ -125,6 +133,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         message: getErrorMessage(error),
         run_id: data.run_id,
         user_id: userId,
+        stage: "discover-url",
       },
       { status: 502 }
     );

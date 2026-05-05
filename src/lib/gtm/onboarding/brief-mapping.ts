@@ -1,7 +1,9 @@
 import {
+  GTM_BRIEF_FIELD_GROUPS,
   type GtmBrief,
   type GtmBriefFieldKey,
 } from '@/lib/gtm/schemas/gtm-brief';
+import { researchEvidenceSchema } from '@/lib/gtm/schemas/evidence';
 import type { GtmOnboardingAnswerKey } from '@/lib/gtm/onboarding/questionnaire';
 
 export const GTM_ONBOARDING_ANSWER_TO_BRIEF_FIELD = {
@@ -84,6 +86,17 @@ export function applyGtmOnboardingAnswersToBrief(
       value,
       status: 'confirmed',
       confidence: 'high',
+      sources: [
+        ...fields[fieldKey].sources,
+        researchEvidenceSchema.parse({
+          id: `ev_user_${fieldKey}_${stableKey(value)}`,
+          source_type: 'user_input',
+          label: 'GTM onboarding answer',
+          quote: value,
+          confidence: 'high',
+          claim_path: getClaimPathForBriefField(fieldKey),
+        }),
+      ],
       updatedBy: 'user',
       updatedAt,
     };
@@ -101,4 +114,22 @@ function formatGtmOnboardingAnswerValue(value: GtmOnboardingAnswerValue): string
     return value.trim();
   }
   return value.map((item) => item.trim()).filter(Boolean).join(', ');
+}
+
+function getClaimPathForBriefField(fieldKey: GtmBriefFieldKey): string[] {
+  for (const [group, fields] of Object.entries(GTM_BRIEF_FIELD_GROUPS)) {
+    if ((fields as readonly string[]).includes(fieldKey)) {
+      return [group, fieldKey];
+    }
+  }
+
+  return [fieldKey];
+}
+
+function stableKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48) || 'value';
 }

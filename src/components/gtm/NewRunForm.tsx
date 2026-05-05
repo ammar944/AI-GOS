@@ -56,6 +56,9 @@ export function NewRunForm({ onSubmit }: NewRunFormProps): ReactElement {
       noValidate
       onSubmit={handleSubmit}
     >
+      <p className="text-sm leading-6 text-muted-foreground">
+        Submit a website first. AIGOS will run source-backed discovery, prefill the GTM Brief fields it can verify, and ask you to review the draft before research sections unlock.
+      </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           aria-label="Company URL"

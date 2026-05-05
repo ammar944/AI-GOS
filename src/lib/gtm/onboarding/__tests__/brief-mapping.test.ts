@@ -43,6 +43,11 @@ describe('GTM onboarding brief mapping', () => {
     expect(updated.fields.awarenessLevel.value).toBe('Problem-aware');
     expect(updated.fields.companyName.status).toBe('confirmed');
     expect(updated.fields.companyName.confidence).toBe('high');
+    expect(updated.fields.companyName.sources[0]).toMatchObject({
+      source_type: 'user_input',
+      quote: 'AIGOS',
+      claim_path: ['companyIdentity', 'companyName'],
+    });
     expect(updated.updatedAt).toBe('2026-04-24T13:00:00.000Z');
   });
 });

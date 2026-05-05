@@ -19,6 +19,10 @@ import {
   validateGtmStageEventInsert,
   type GtmStageEventInsert,
 } from "@/lib/gtm/stage-events";
+import {
+  getGtmPrefillManifestFromRunManifest,
+  isGtmPrefillResearchUnlocked,
+} from "@/lib/gtm/onboarding/prefill";
 import { dispatchGtmWorkerStage } from "@/lib/gtm/worker-dispatch";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,6 +33,7 @@ interface GtmRunDispatchRow {
   user_id: string;
   input_url: string;
   status: GtmRunStatus;
+  manifest: Record<string, unknown> | null;
   stages: Record<string, unknown> | null;
 }
 
@@ -45,6 +50,12 @@ const DISPATCHABLE_STATUSES = new Set<GtmRunStatus>([
   "queued",
   "partial",
   "running",
+]);
+
+const PREFILL_REVIEW_LOCKED_STAGES = new Set<GtmLighthouseStage>([
+  "research-market-category",
+  "research-competitors",
+  "research-buyer-icp",
 ]);
 
 export async function POST(
@@ -64,7 +75,7 @@ export async function POST(
   const supabase = await createClient();
   const { data: run, error: loadError } = await supabase
     .from("gtm_runs")
-    .select("run_id, user_id, input_url, status, stages")
+    .select("run_id, user_id, input_url, status, manifest, stages")
     .eq("run_id", runId)
     .eq("user_id", userId)
     .maybeSingle<GtmRunDispatchRow>();
@@ -107,6 +118,21 @@ export async function POST(
   }
 
   const { stage, rerun } = dispatchRequest;
+  if (isPrefillReviewRequired(run, stage)) {
+    const prefill = getGtmPrefillManifestFromRunManifest(run.manifest);
+    return NextResponse.json(
+      {
+        error: "gtm_prefill_review_required",
+        message: `Cannot dispatch stage=${stage} for run_id=${run.run_id} until website prefill review is confirmed.`,
+        run_id: run.run_id,
+        user_id: userId,
+        stage,
+        prefill_status: prefill?.status ?? getRawPrefillStatus(run.manifest),
+      },
+      { status: 409 }
+    );
+  }
+
   const acceptedAt = new Date();
   const currentStages = normalizeStageRecord(run.stages);
   const recovered = recoverStaleRunningStages({
@@ -356,6 +382,35 @@ function getDispatchRequest(value: unknown): GtmRunDispatchRequest | null {
     stage,
     rerun: value.rerun === true,
   };
+}
+
+function isPrefillReviewRequired(
+  run: GtmRunDispatchRow,
+  stage: GtmLighthouseStage
+): boolean {
+  if (!PREFILL_REVIEW_LOCKED_STAGES.has(stage)) {
+    return false;
+  }
+
+  return !isGtmPrefillResearchUnlocked(run.manifest);
+}
+
+function getRawPrefillStatus(
+  manifest: Record<string, unknown> | null
+): string {
+  const prefill = getRawPrefill(manifest);
+  return typeof prefill?.status === "string" ? prefill.status : "missing";
+}
+
+function getRawPrefill(
+  manifest: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  if (!manifest) {
+    return null;
+  }
+
+  const prefill = manifest.gtm_prefill;
+  return isRecord(prefill) ? prefill : null;
 }
 
 function isRerunnableGtmStageStatus(

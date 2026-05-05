@@ -59,6 +59,7 @@ function toChatShellRun(view: GtmRunView): ChatShellRun {
     run_id: view.run.run_id,
     input_url: view.run.input_url,
     status: view.run.status,
+    manifest: view.run.manifest,
     stages,
     created_at: view.run.created_at,
     ...(view.run.updated_at ? { updated_at: view.run.updated_at } : {}),

@@ -1,18 +1,31 @@
 import { z } from 'zod';
-import { evidenceSourceSchema } from '@/lib/gtm/schemas/evidence';
+import { researchEvidenceSchema } from '@/lib/gtm/schemas/evidence';
 
 export const GTM_BRIEF_FIELD_STATUSES = ['missing', 'suggested', 'needs_review', 'confirmed'] as const;
 export const GTM_BRIEF_FIELD_CONFIDENCES = ['missing', 'low', 'medium', 'high'] as const;
 export const GTM_BRIEF_UPDATED_BY = ['ai', 'user', 'system'] as const;
 
-export const gtmBriefFieldSchema = z.object({
-  value: z.string(),
-  status: z.enum(GTM_BRIEF_FIELD_STATUSES),
-  confidence: z.enum(GTM_BRIEF_FIELD_CONFIDENCES),
-  sources: z.array(evidenceSourceSchema),
-  updatedBy: z.enum(GTM_BRIEF_UPDATED_BY),
-  updatedAt: z.string().datetime(),
-});
+export const gtmBriefFieldSchema = z
+  .object({
+    value: z.string(),
+    status: z.enum(GTM_BRIEF_FIELD_STATUSES),
+    confidence: z.enum(GTM_BRIEF_FIELD_CONFIDENCES),
+    sources: z.array(researchEvidenceSchema),
+    updatedBy: z.enum(GTM_BRIEF_UPDATED_BY),
+    updatedAt: z.string().datetime(),
+  })
+  .refine(
+    (field) => {
+      if (field.status === 'confirmed' || field.status === 'suggested') {
+        return field.sources.length > 0;
+      }
+      return true;
+    },
+    {
+      message: 'fields with status confirmed or suggested must carry at least one evidence source',
+      path: ['sources'],
+    },
+  );
 
 export type GtmBriefField = z.infer<typeof gtmBriefFieldSchema>;
 

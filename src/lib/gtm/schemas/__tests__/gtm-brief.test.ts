@@ -8,18 +8,30 @@ import {
   type GtmBrief,
   type GtmBriefField,
 } from '@/lib/gtm/schemas/gtm-brief';
+import { type ResearchEvidence } from '@/lib/gtm/schemas/evidence';
+
+const validEvidence: ResearchEvidence = {
+  id: 'ev_01',
+  source_type: 'website_url',
+  label: 'homepage',
+  url: 'https://example.com',
+  quote: 'Best SaaS platform',
+  confidence: 'high',
+  retrieved_at: '2026-05-01T00:00:00.000Z',
+  claim_path: ['companyIdentity', 'companyName'],
+};
 
 describe('gtmBriefFieldSchema', () => {
   const field: GtmBriefField = {
     value: 'AIGOS',
-    status: 'confirmed',
-    confidence: 'high',
+    status: 'missing',
+    confidence: 'missing',
     sources: [],
-    updatedBy: 'user',
+    updatedBy: 'system',
     updatedAt: '2026-04-24T12:00:00.000Z',
   };
 
-  it('round-trips a valid field', () => {
+  it('round-trips a valid missing field', () => {
     expect(gtmBriefFieldSchema.parse(field)).toEqual(field);
   });
 
@@ -38,6 +50,58 @@ describe('gtmBriefFieldSchema', () => {
       expect(gtmBriefFieldSchema.safeParse({ ...field, updatedBy }).success).toBe(true);
     }
     expect(gtmBriefFieldSchema.safeParse({ ...field, updatedBy: 'bot' }).success).toBe(false);
+  });
+
+  it('rejects confirmed with empty sources', () => {
+    const result = gtmBriefFieldSchema.safeParse({
+      ...field,
+      status: 'confirmed',
+      confidence: 'high',
+      sources: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects suggested with empty sources', () => {
+    const result = gtmBriefFieldSchema.safeParse({
+      ...field,
+      status: 'suggested',
+      confidence: 'medium',
+      sources: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts missing with empty sources', () => {
+    const result = gtmBriefFieldSchema.safeParse({
+      ...field,
+      status: 'missing',
+      confidence: 'missing',
+      sources: [],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts confirmed with valid evidence', () => {
+    const result = gtmBriefFieldSchema.safeParse({
+      ...field,
+      status: 'confirmed',
+      confidence: 'high',
+      sources: [validEvidence],
+      updatedBy: 'user',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts suggested with valid evidence', () => {
+    const result = gtmBriefFieldSchema.safeParse({
+      ...field,
+      status: 'suggested',
+      confidence: 'medium',
+      sources: [validEvidence],
+      updatedBy: 'ai',
+    });
+    expect(result.success).toBe(true);
   });
 });
 
