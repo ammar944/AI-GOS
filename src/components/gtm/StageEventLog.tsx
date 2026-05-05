@@ -22,11 +22,19 @@ interface StageEventGroup {
   headlineEvent: GtmStageEvent;
   latestEvent: GtmStageEvent;
   marker: EventMarker;
+  context: StageEventContext;
   latestEventTimeMs: number;
   sortIndex: number | null;
 }
 
 type EventSeverity = "normal" | "recovery" | "blocked" | "error";
+
+interface StageEventContext {
+  toolNames: string[];
+  sourceUrls: string[];
+  artifactCount: number;
+  validationCount: number;
+}
 
 interface EventMarker {
   label: string;
@@ -131,6 +139,8 @@ export function StageEventLog({ events }: StageEventLogProps): ReactElement {
                     </div>
                   </div>
 
+                  <StageEventContextSummary context={group.context} />
+
                   <button
                     type="button"
                     aria-expanded={isExpanded}
@@ -194,8 +204,113 @@ function StageEventRow({ event }: { event: GtmStageEvent }): ReactElement {
             {event.artifact_path}
           </p>
         ) : null}
+        {event.source_url ? (
+          <a
+            href={event.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex max-w-full text-xs text-primary underline-offset-4 hover:underline"
+          >
+            <span className="truncate">{formatSourceUrl(event.source_url)}</span>
+          </a>
+        ) : null}
       </div>
     </li>
+  );
+}
+
+function StageEventContextSummary({
+  context,
+}: {
+  context: StageEventContext;
+}): ReactElement | null {
+  const hasContext =
+    context.toolNames.length > 0 ||
+    context.sourceUrls.length > 0 ||
+    context.artifactCount > 0 ||
+    context.validationCount > 0;
+
+  if (!hasContext) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-muted/25 px-3 py-2">
+      <p className="text-xs font-medium text-muted-foreground">
+        Tool/source context
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {context.toolNames.length > 0 ? (
+          <ContextBadge tone="tool">
+            {formatEventContextCount(context.toolNames.length, "tool call")}
+          </ContextBadge>
+        ) : null}
+        {context.sourceUrls.length > 0 ? (
+          <ContextBadge tone="source">
+            {formatEventContextCount(context.sourceUrls.length, "source")}
+          </ContextBadge>
+        ) : null}
+        {context.artifactCount > 0 ? (
+          <ContextBadge tone="artifact">
+            {formatEventContextCount(context.artifactCount, "output file")}
+          </ContextBadge>
+        ) : null}
+        {context.validationCount > 0 ? (
+          <ContextBadge tone="validation">
+            {formatEventContextCount(context.validationCount, "validation event")}
+          </ContextBadge>
+        ) : null}
+        {context.toolNames.slice(0, 3).map((toolName) => (
+          <Badge
+            key={toolName}
+            variant="outline"
+            className="font-mono text-[11px] text-muted-foreground"
+          >
+            {toolName}
+          </Badge>
+        ))}
+        {context.sourceUrls.slice(0, 3).map((sourceUrl) => (
+          <Badge
+            key={sourceUrl}
+            asChild
+            variant="outline"
+            className="max-w-full text-[11px]"
+          >
+            <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
+              <span className="truncate">{formatSourceUrl(sourceUrl)}</span>
+            </a>
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContextBadge({
+  children,
+  tone,
+}: {
+  children: string;
+  tone: "artifact" | "source" | "tool" | "validation";
+}): ReactElement {
+  const toneClassName: Record<typeof tone, string> = {
+    artifact: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    source:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    tool: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+    validation:
+      "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 items-center rounded-full border px-2 font-mono text-[11px]",
+        toneClassName[tone],
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -221,10 +336,43 @@ function groupEventsByStage(events: GtmStageEvent[]): StageEventGroup[] {
       headlineEvent,
       latestEvent,
       marker: getGroupMarker(orderedEvents),
+      context: getStageEventContext(orderedEvents),
       latestEventTimeMs: getEventTimeMs(latestEvent),
       sortIndex: STAGE_SORT_INDEX.get(stage) ?? null,
     };
   });
+}
+
+function getStageEventContext(events: readonly GtmStageEvent[]): StageEventContext {
+  const toolNames = new Set<string>();
+  const sourceUrls = new Set<string>();
+  let artifactCount = 0;
+  let validationCount = 0;
+
+  for (const event of events) {
+    if (event.tool_name) {
+      toolNames.add(event.tool_name);
+    }
+
+    if (event.source_url) {
+      sourceUrls.add(event.source_url);
+    }
+
+    if (event.artifact_path) {
+      artifactCount += 1;
+    }
+
+    if (event.event_type.startsWith("validation_")) {
+      validationCount += 1;
+    }
+  }
+
+  return {
+    toolNames: [...toolNames],
+    sourceUrls: [...sourceUrls],
+    artifactCount,
+    validationCount,
+  };
 }
 
 function sortStageGroups(groups: StageEventGroup[]): StageEventGroup[] {
@@ -426,6 +574,10 @@ function formatEventCount(count: number): string {
   return count === 1 ? "1 event" : `${count} events`;
 }
 
+function formatEventContextCount(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
 function formatEventTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -437,4 +589,13 @@ function formatEventTime(value: string): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function formatSourceUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return value;
+  }
 }

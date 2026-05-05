@@ -36,6 +36,6 @@ describe("ChatMessage", () => {
     );
 
     expect(screen.getByText("research-market")).toBeInTheDocument();
-    expect(screen.getByText("Running")).toBeInTheDocument();
+    expect(screen.getByText("Researching")).toBeInTheDocument();
   });
 });

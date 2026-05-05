@@ -232,6 +232,49 @@ describe("AgentInvocationBlock", () => {
     expect(screen.getByText("discover-url")).toBeInTheDocument();
   });
 
+  it("shows live research affordance with tool, source, and gap context", () => {
+    render(
+      <AgentInvocationBlock
+        status="running"
+        invocation={{
+          skill: "research-competitor",
+          summary: "Mining competitor sources.",
+          output: researchCompetitorOutput,
+          toolCalls: [{ name: "agent:browser" }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Researching")).toBeInTheDocument();
+    expect(screen.getByText("Mining competitor sources.")).toBeInTheDocument();
+    expect(screen.getByText("1 tool call")).toBeInTheDocument();
+    expect(screen.getByText(/sources checked/i)).toBeInTheDocument();
+    expect(screen.getByText("No source gaps reported")).toBeInTheDocument();
+  });
+
+  it("does not make completed model-only output look source-backed", () => {
+    render(
+      <AgentInvocationBlock
+        status="complete"
+        invocation={{
+          skill: "research-market",
+          output: {
+            run_id: "run_test",
+            stage: "research-market",
+            generated_at: "2026-04-30T09:00:00.000Z",
+            source_gaps: [],
+            insights: [],
+            key_facts: {},
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Complete")).toBeInTheDocument();
+    expect(screen.getByText("No source evidence attached")).toBeInTheDocument();
+    expect(screen.getByText("No source gaps reported")).toBeInTheDocument();
+  });
+
   it("surfaces worker errors instead of saying output was omitted", () => {
     render(
       <AgentInvocationBlock

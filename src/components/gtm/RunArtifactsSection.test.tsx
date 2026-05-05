@@ -48,6 +48,30 @@ describe("RunArtifactsSection", () => {
     expect(screen.getByText("No artifacts produced yet.")).toBeInTheDocument();
   });
 
+  it("makes the running artifact state intentional", () => {
+    render(
+      <RunArtifactsSection
+        artifacts={[]}
+        runId="run_test"
+        stageEvents={[
+          makeStageEvent({
+            id: "event_running",
+            stage: "research-competitors",
+            event_type: "started",
+            status: "running",
+            message: "Research agent started competitor collection.",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("No artifacts produced yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Artifact generation is still in progress."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 live stage")).toBeInTheDocument();
+  });
+
   it("shows recorded stage output files when canvas artifacts are not persisted", () => {
     render(
       <RunArtifactsSection
@@ -183,6 +207,13 @@ describe("RunArtifactsSection", () => {
     );
 
     expect(screen.getByText("Latest source: Agent patch")).toBeInTheDocument();
+  });
+
+  it("labels completed artifacts as ready coworker outputs with provenance", () => {
+    render(<RunArtifactsSection artifacts={[baseArtifact]} runId="run_test" />);
+
+    expect(screen.getByText("Ready output")).toBeInTheDocument();
+    expect(screen.getByText("Provenance: Skill output")).toBeInTheDocument();
   });
 
   it("shows a markdown-derived preview without raw markdown noise", () => {

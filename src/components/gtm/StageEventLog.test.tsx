@@ -68,6 +68,41 @@ describe("StageEventLog", () => {
     expect(screen.getByText("Completed URL discovery.")).toBeInTheDocument();
   });
 
+  it("summarizes tool calls, discovered sources, and output files per stage", () => {
+    render(
+      <StageEventLog
+        events={[
+          makeEvent({
+            id: "event_tool",
+            stage: "research-market",
+            event_type: "tool_call",
+            message: "Checked public pricing page.",
+            tool_name: "agent:browser",
+            source_url: "https://airtable.com/pricing",
+            created_at: "2026-05-04T09:01:00.000Z",
+          }),
+          makeEvent({
+            id: "event_artifact",
+            stage: "research-market-category",
+            event_type: "artifact_written",
+            message: "report_file artifact recorded.",
+            artifact_path: "/tmp/aigos-gtm-runs/run_test/research-market/report.md",
+            created_at: "2026-05-04T09:02:00.000Z",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Tool/source context")).toBeInTheDocument();
+    expect(screen.getByText("1 tool call")).toBeInTheDocument();
+    expect(screen.getByText("1 source")).toBeInTheDocument();
+    expect(screen.getByText("1 output file")).toBeInTheDocument();
+    expect(screen.getByText("agent:browser")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /airtable.com/i }),
+    ).toHaveAttribute("href", "https://airtable.com/pricing");
+  });
+
   it("orders canonical stages before unknown stages", () => {
     render(
       <StageEventLog

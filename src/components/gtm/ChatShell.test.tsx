@@ -14,7 +14,7 @@ import type { UIMessage } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
-const { liveMessages, sendMessage, supabaseChannel, removeChannel } = vi.hoisted(() => {
+const { liveMessages, sendMessage, supabaseChannel, removeChannel, fetchMock } = vi.hoisted(() => {
   const channel = {
     on: vi.fn(),
     subscribe: vi.fn(),
@@ -26,6 +26,7 @@ const { liveMessages, sendMessage, supabaseChannel, removeChannel } = vi.hoisted
     sendMessage: vi.fn(),
     supabaseChannel: channel,
     removeChannel: vi.fn(),
+    fetchMock: vi.fn(),
   };
 });
 
@@ -101,6 +102,14 @@ describe("ChatShell (T10 wiring)", () => {
   beforeEach(() => {
     liveMessages.length = 0;
     sendMessage.mockClear();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   it("renders an always-enabled chat input", () => {
@@ -133,6 +142,44 @@ describe("ChatShell (T10 wiring)", () => {
     expect(screen.getByTestId("run-artifact-preview")).toHaveTextContent(
       "ICP",
     );
+  });
+
+  it("renders a live agent activity summary with source and tool context", () => {
+    const runWithActiveStage: ChatShellRun = {
+      ...baseRun,
+      status: "running",
+      stages: {
+        "research-market-category": {
+          status: "running",
+          started_at: "2026-05-01T12:00:00.000Z",
+        },
+      },
+    };
+    const events: GtmStageEvent[] = [
+      {
+        id: "event_tool",
+        run_id: "run_test",
+        user_id: "user_test",
+        stage: "research-market-category",
+        event_type: "tool_call",
+        message: "Checking market source.",
+        status: "running",
+        metadata: {},
+        tool_name: "agent:browser",
+        source_url: "https://airtable.com/pricing",
+        created_at: "2026-05-01T12:01:00.000Z",
+      },
+    ];
+
+    render(<ChatShell run={runWithActiveStage} initialEvents={events} />);
+
+    expect(
+      screen.getByRole("heading", { name: /live agent activity/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("research-market is researching")).toBeInTheDocument();
+    expect(screen.getAllByText("Checking market source.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1 tool call").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1 source").length).toBeGreaterThan(0);
   });
 
   it("passes stage artifact events into the run artifact fallback", () => {

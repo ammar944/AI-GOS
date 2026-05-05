@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent, ReactElement } from "react";
+import type { FormEvent, ReactElement, ReactNode } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
@@ -27,6 +27,7 @@ import { StageEventLog } from "@/components/gtm/StageEventLog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  getGtmStageLabel,
   getInvocationSkillForStage,
   GTM_LIGHTHOUSE_STAGE_KEYS,
   normalizeGtmLighthouseStage,
@@ -45,6 +46,7 @@ import type { GtmStageEvent } from "@/lib/gtm/stage-events";
 import type { GtmStageStatus } from "@/lib/gtm/stage-state";
 import type { IngestUrlOutput } from "@/lib/gtm/types";
 import type { GtmArtifact } from "@/lib/types/gtm-artifact";
+import { cn } from "@/lib/utils";
 
 export interface GtmStageState {
   status?: GtmStageStatus;
@@ -337,6 +339,12 @@ export function ChatShell({
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-8 sm:px-6">
+        <LiveAgentActivitySummary
+          run={currentRun}
+          events={events}
+          artifacts={artifacts}
+        />
+
         {currentVisibility ? (
           <GtmRunVisibilityPanel
             visibility={currentVisibility}
@@ -413,6 +421,407 @@ export function ChatShell({
       </footer>
     </div>
   );
+}
+
+interface LiveAgentActivitySnapshot {
+  headline: string;
+  latestAction: string;
+  progressLabel: string;
+  sourceCount: number;
+  toolCallCount: number;
+  artifactCount: number;
+  sourceGapCount: number;
+  blockerCount: number;
+  sourceUrls: string[];
+  tone: "blocked" | "complete" | "live" | "waiting";
+}
+
+function LiveAgentActivitySummary({
+  run,
+  events,
+  artifacts,
+}: {
+  run: ChatShellRun;
+  events: GtmStageEvent[];
+  artifacts: GtmArtifact[];
+}): ReactElement {
+  const snapshot = useMemo(() => {
+    return getLiveAgentActivitySnapshot(run, events, artifacts);
+  }, [run, events, artifacts]);
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-card/70 shadow-sm">
+      <div className="border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-mono text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
+              Live agent activity
+            </h2>
+            <p className="mt-1 text-base font-semibold tracking-normal text-foreground">
+              {snapshot.headline}
+            </p>
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              {snapshot.latestAction}
+            </p>
+          </div>
+          <span
+            className={cn(
+              "inline-flex h-8 shrink-0 items-center rounded-full border px-3 font-mono text-xs",
+              getLiveActivityToneClassName(snapshot.tone),
+            )}
+          >
+            {snapshot.progressLabel}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <LiveActivityPill tone={snapshot.sourceCount > 0 ? "source" : "muted"}>
+            {snapshot.sourceCount > 0
+              ? formatLiveActivityCount(snapshot.sourceCount, "source")
+              : "No sources yet"}
+          </LiveActivityPill>
+          <LiveActivityPill tone={snapshot.toolCallCount > 0 ? "tool" : "muted"}>
+            {snapshot.toolCallCount > 0
+              ? formatLiveActivityCount(snapshot.toolCallCount, "tool call")
+              : "No tool calls yet"}
+          </LiveActivityPill>
+          <LiveActivityPill tone={snapshot.artifactCount > 0 ? "artifact" : "muted"}>
+            {snapshot.artifactCount > 0
+              ? formatLiveActivityCount(snapshot.artifactCount, "artifact")
+              : "No artifacts yet"}
+          </LiveActivityPill>
+          {snapshot.blockerCount > 0 ? (
+            <LiveActivityPill tone="blocked">
+              {formatLiveActivityCount(snapshot.blockerCount, "blocker")}
+            </LiveActivityPill>
+          ) : snapshot.sourceGapCount > 0 ? (
+            <LiveActivityPill tone="gap">
+              {formatLiveActivityCount(snapshot.sourceGapCount, "source gap")}
+            </LiveActivityPill>
+          ) : (
+            <LiveActivityPill tone="clear">No source gaps reported</LiveActivityPill>
+          )}
+        </div>
+
+        {snapshot.sourceUrls.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {snapshot.sourceUrls.slice(0, 3).map((sourceUrl) => (
+              <a
+                key={sourceUrl}
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex max-w-full rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                <span className="truncate">{formatSourceHost(sourceUrl)}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function LiveActivityPill({
+  children,
+  tone,
+}: {
+  children: ReactNode;
+  tone: "artifact" | "blocked" | "clear" | "gap" | "muted" | "source" | "tool";
+}): ReactElement {
+  const toneClassName: Record<typeof tone, string> = {
+    artifact: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    blocked:
+      "border-destructive/40 bg-destructive/10 text-destructive dark:text-red-300",
+    clear:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    gap: "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+    muted: "border-border bg-muted/40 text-muted-foreground",
+    source:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    tool: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 items-center rounded-full border px-2 font-mono text-[11px]",
+        toneClassName[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function getLiveAgentActivitySnapshot(
+  run: ChatShellRun,
+  events: GtmStageEvent[],
+  artifacts: GtmArtifact[],
+): LiveAgentActivitySnapshot {
+  const stageEntries = getOrderedStageEntries(run.stages);
+  const activeStage = getActiveStageEntry(stageEntries);
+  const latestEvent = activeStage
+    ? getLatestEventForStage(events, activeStage[0])
+    : getLatestEvent(events);
+  const completedStageCount = stageEntries.filter(([, stage]) => {
+    return stage.status === "complete";
+  }).length;
+  const totalStageCount =
+    stageEntries.length > 0 ? stageEntries.length : GTM_LIGHTHOUSE_STAGE_KEYS.length;
+  const sourceUrls = getEventSourceUrls(events);
+  const blockerCount = countRunBlockers(stageEntries, events);
+  const sourceGapCount = countRunSourceGaps(stageEntries);
+  const headline = activeStage
+    ? `${getGtmStageLabel(activeStage[0])} is ${getStageActivityVerb(activeStage[0], activeStage[1].status)}`
+    : getRunActivityHeadline(run.status);
+
+  return {
+    headline,
+    latestAction: latestEvent?.message ?? getRunActivityFallback(run.status),
+    progressLabel: `${completedStageCount}/${totalStageCount} stages complete`,
+    sourceCount: sourceUrls.length,
+    toolCallCount: getEventToolNames(events).length,
+    artifactCount: artifacts.length,
+    sourceGapCount,
+    blockerCount,
+    sourceUrls,
+    tone: getLiveActivityTone(run.status, activeStage?.[1].status),
+  };
+}
+
+function getActiveStageEntry(
+  stageEntries: [string, GtmStageState][],
+): [string, GtmStageState] | null {
+  return (
+    stageEntries.find(([, stage]) => stage.status === "running") ??
+    stageEntries.find(([, stage]) => stage.status === "queued") ??
+    stageEntries.find(([, stage]) => stage.status === "blocked") ??
+    stageEntries.find(([, stage]) => stage.status === "errored") ??
+    stageEntries.find(([, stage]) => stage.status === "timed_out") ??
+    null
+  );
+}
+
+function getStageActivityVerb(
+  stageName: string,
+  status: GtmStageStatus | undefined,
+): string {
+  if (status === "running") {
+    return stageName.startsWith("research-") ? "researching" : "working";
+  }
+
+  if (status === "queued") {
+    return "waiting";
+  }
+
+  if (status === "blocked") {
+    return "blocked";
+  }
+
+  if (status === "errored" || status === "timed_out") {
+    return "needing attention";
+  }
+
+  return "ready";
+}
+
+function getRunActivityHeadline(status: GtmRunStatus): string {
+  if (status === "completed") {
+    return "Run complete";
+  }
+
+  if (status === "awaiting_user") {
+    return "Run is waiting for user action";
+  }
+
+  if (status === "failed") {
+    return "Run needs attention";
+  }
+
+  if (status === "running" || status === "partial") {
+    return "Research workspace is active";
+  }
+
+  return "Run is waiting to start";
+}
+
+function getRunActivityFallback(status: GtmRunStatus): string {
+  if (status === "completed") {
+    return "All visible stages that reported state have completed.";
+  }
+
+  if (status === "queued") {
+    return "Waiting for the orchestrator to record the first stage event.";
+  }
+
+  return "Latest worker activity will appear here as stage events are recorded.";
+}
+
+function getLiveActivityTone(
+  runStatus: GtmRunStatus,
+  stageStatus: GtmStageStatus | undefined,
+): LiveAgentActivitySnapshot["tone"] {
+  if (
+    runStatus === "awaiting_user" ||
+    runStatus === "failed" ||
+    stageStatus === "blocked" ||
+    stageStatus === "errored" ||
+    stageStatus === "timed_out"
+  ) {
+    return "blocked";
+  }
+
+  if (runStatus === "completed" || stageStatus === "complete") {
+    return "complete";
+  }
+
+  if (runStatus === "running" || stageStatus === "running" || stageStatus === "queued") {
+    return "live";
+  }
+
+  return "waiting";
+}
+
+function getLiveActivityToneClassName(
+  tone: LiveAgentActivitySnapshot["tone"],
+): string {
+  if (tone === "blocked") {
+    return "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300";
+  }
+
+  if (tone === "complete") {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  }
+
+  if (tone === "live") {
+    return "border-primary/30 bg-primary/10 text-primary";
+  }
+
+  return "border-border bg-muted/40 text-muted-foreground";
+}
+
+function getLatestEventForStage(
+  events: readonly GtmStageEvent[],
+  stageName: string,
+): GtmStageEvent | null {
+  const normalizedStage = normalizeGtmLighthouseStage(stageName) ?? stageName;
+  return (
+    events
+      .filter((event) => {
+        return (normalizeGtmLighthouseStage(event.stage) ?? event.stage) === normalizedStage;
+      })
+      .sort(compareStageEventsDescending)[0] ?? null
+  );
+}
+
+function getLatestEvent(events: readonly GtmStageEvent[]): GtmStageEvent | null {
+  return [...events].sort(compareStageEventsDescending)[0] ?? null;
+}
+
+function compareStageEventsDescending(
+  left: GtmStageEvent,
+  right: GtmStageEvent,
+): number {
+  return getStageEventTimeMs(right) - getStageEventTimeMs(left);
+}
+
+function getStageEventTimeMs(event: GtmStageEvent): number {
+  const timeMs = Date.parse(event.created_at);
+  return Number.isFinite(timeMs) ? timeMs : 0;
+}
+
+function getEventSourceUrls(events: readonly GtmStageEvent[]): string[] {
+  return [
+    ...new Set(
+      events.flatMap((event) => {
+        return event.source_url ? [event.source_url] : [];
+      }),
+    ),
+  ];
+}
+
+function getEventToolNames(events: readonly GtmStageEvent[]): string[] {
+  return [
+    ...new Set(
+      events.flatMap((event) => {
+        return event.tool_name ? [event.tool_name] : [];
+      }),
+    ),
+  ];
+}
+
+function countRunBlockers(
+  stageEntries: readonly [string, GtmStageState][],
+  events: readonly GtmStageEvent[],
+): number {
+  const blockedStages = new Set<string>();
+
+  for (const [stageName, stage] of stageEntries) {
+    if (
+      stage.status === "blocked" ||
+      stage.status === "errored" ||
+      stage.status === "timed_out"
+    ) {
+      blockedStages.add(normalizeGtmLighthouseStage(stageName) ?? stageName);
+    }
+  }
+
+  for (const event of events) {
+    if (
+      event.status === "blocked" ||
+      event.status === "errored" ||
+      event.status === "timed_out" ||
+      event.event_type === "blocked" ||
+      event.event_type === "errored" ||
+      event.event_type === "timed_out"
+    ) {
+      blockedStages.add(normalizeGtmLighthouseStage(event.stage) ?? event.stage);
+    }
+  }
+
+  return blockedStages.size;
+}
+
+function countRunSourceGaps(
+  stageEntries: readonly [string, GtmStageState][],
+): number {
+  return stageEntries.reduce((count, [, stage]) => {
+    return (
+      count +
+      countSourceGaps(stage.source_gaps) +
+      countSourceGaps(getNestedSourceGaps(stage.output)) +
+      countSourceGaps(getNestedSourceGaps(stage.raw_output))
+    );
+  }, 0);
+}
+
+function getNestedSourceGaps(value: unknown): unknown[] {
+  if (!isRecord(value) || !Array.isArray(value.source_gaps)) {
+    return [];
+  }
+
+  return value.source_gaps;
+}
+
+function countSourceGaps(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function formatLiveActivityCount(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+function formatSourceHost(sourceUrl: string): string {
+  try {
+    const url = new URL(sourceUrl);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return sourceUrl;
+  }
 }
 
 function getPrefillForRun(run: ChatShellRun): GtmPrefillManifest | null {

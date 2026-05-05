@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,7 +119,7 @@ const STATUS_STYLES: Record<
   AgentInvocationStatus,
   { label: string; variant: "default" | "destructive" | "outline" | "success"; className?: string }
 > = {
-  running: { label: "Running", variant: "default" },
+  running: { label: "Researching", variant: "default" },
   complete: { label: "Complete", variant: "success" },
   blocked: {
     label: "Blocked",
@@ -150,11 +150,13 @@ export function AgentInvocationBlock<
   const [open, setOpen] = useState(defaultOpen);
   const summary = getInvocationSummary(invocation, status);
   const skillLabel = getSkillLabel(invocation.skill);
+  const activity = getInvocationActivity(invocation);
 
   return (
     <Card
       className={cn(
-        "overflow-hidden rounded-lg bg-card/70",
+        "overflow-hidden rounded-lg bg-card/80 shadow-sm",
+        status === "running" && "border-primary/25",
         status === "blocked" && "border-yellow-500/30",
         status === "errored" && "border-destructive/40",
         className
@@ -164,6 +166,7 @@ export function AgentInvocationBlock<
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
+              <StatusBeacon status={status} />
               <p className="font-mono text-sm font-medium text-foreground">
                 {skillLabel}
               </p>
@@ -172,6 +175,7 @@ export function AgentInvocationBlock<
             <p className="mt-1 truncate text-sm text-muted-foreground">
               {summary}
             </p>
+            <InvocationActivityBar activity={activity} />
           </div>
           <CollapsibleTrigger asChild>
             <Button
@@ -196,6 +200,107 @@ export function AgentInvocationBlock<
         </CollapsibleContent>
       </Collapsible>
     </Card>
+  );
+}
+
+interface InvocationActivity {
+  sourceCount: number;
+  toolCallCount: number;
+  artifactCount: number;
+  gapCount: number;
+  blockerGapCount: number;
+}
+
+function InvocationActivityBar({
+  activity,
+}: {
+  activity: InvocationActivity;
+}): ReactElement {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <ActivityPill
+        tone={activity.sourceCount > 0 ? "source" : "muted"}
+      >
+        {activity.sourceCount > 0
+          ? `${formatCount(activity.sourceCount, "source")} checked`
+          : "No source evidence attached"}
+      </ActivityPill>
+
+      {activity.toolCallCount > 0 ? (
+        <ActivityPill tone="tool">
+          {formatCount(activity.toolCallCount, "tool call")}
+        </ActivityPill>
+      ) : null}
+
+      {activity.artifactCount > 0 ? (
+        <ActivityPill tone="artifact">
+          {formatCount(activity.artifactCount, "artifact")}
+        </ActivityPill>
+      ) : null}
+
+      {activity.blockerGapCount > 0 ? (
+        <ActivityPill tone="blocked">
+          {formatCount(activity.blockerGapCount, "blocker gap")}
+        </ActivityPill>
+      ) : activity.gapCount > 0 ? (
+        <ActivityPill tone="gap">
+          {formatCount(activity.gapCount, "source gap")}
+        </ActivityPill>
+      ) : (
+        <ActivityPill tone="clear">No source gaps reported</ActivityPill>
+      )}
+    </div>
+  );
+}
+
+function ActivityPill({
+  children,
+  tone,
+}: {
+  children: ReactNode;
+  tone: "artifact" | "blocked" | "clear" | "gap" | "muted" | "source" | "tool";
+}): ReactElement {
+  const toneClassName: Record<typeof tone, string> = {
+    artifact: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    blocked:
+      "border-destructive/40 bg-destructive/10 text-destructive dark:text-red-300",
+    clear:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    gap: "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+    muted: "border-border bg-muted/50 text-muted-foreground",
+    source:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    tool: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 items-center rounded-full border px-2 font-mono text-[11px]",
+        toneClassName[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function StatusBeacon({
+  status,
+}: {
+  status: AgentInvocationStatus;
+}): ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "size-2 rounded-full",
+        status === "running" && "animate-pulse bg-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.12)]",
+        status === "complete" && "bg-emerald-500",
+        status === "blocked" && "bg-yellow-500",
+        status === "errored" && "bg-destructive",
+      )}
+    />
   );
 }
 
@@ -1109,6 +1214,19 @@ function getInvocationSummary(
   return `${getSkillLabel(invocation.skill)} output available`;
 }
 
+function getInvocationActivity(invocation: AgentInvocation): InvocationActivity {
+  const sourceUrls = getSourceUrls(invocation.output);
+  const sourceGaps = getSourceGaps(invocation.output);
+
+  return {
+    sourceCount: sourceUrls.length,
+    toolCallCount: invocation.toolCalls?.length ?? 0,
+    artifactCount: Object.keys(invocation.artifacts ?? {}).length,
+    gapCount: sourceGaps.length,
+    blockerGapCount: sourceGaps.filter((gap) => gap.severity === "blocker").length,
+  };
+}
+
 function hasBlockerSourceGap(output: unknown): boolean {
   const gaps = getSourceGaps(output);
   return gaps.some((gap) => gap.severity === "blocker");
@@ -1133,6 +1251,10 @@ function formatSourceLabel(sourceUrl: string): string {
   } catch {
     return sourceUrl;
   }
+}
+
+function formatCount(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
 function getSkillLabel(skill: string): string {
@@ -1233,6 +1355,56 @@ function getSourceGaps(output: unknown): SourceGap[] {
   }
 
   return output.source_gaps.filter(isSourceGap);
+}
+
+function getSourceUrls(output: unknown): string[] {
+  const sourceUrls = new Set<string>();
+  collectSourceUrls(output, sourceUrls, new WeakSet<object>());
+  return [...sourceUrls];
+}
+
+function collectSourceUrls(
+  value: unknown,
+  sourceUrls: Set<string>,
+  visited: WeakSet<object>,
+): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectSourceUrls(item, sourceUrls, visited);
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  if (visited.has(value)) {
+    return;
+  }
+
+  visited.add(value);
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (
+      (key === "source_url" || key === "url") &&
+      typeof nestedValue === "string" &&
+      isHttpUrl(nestedValue)
+    ) {
+      sourceUrls.add(nestedValue);
+    }
+
+    collectSourceUrls(nestedValue, sourceUrls, visited);
+  }
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function isSourceGap(value: unknown): value is SourceGap {

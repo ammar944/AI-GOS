@@ -43,6 +43,12 @@ interface RecordedOutputFileGroup {
   files: RecordedOutputFile[];
 }
 
+interface ArtifactEmptyState {
+  liveStageCount: number;
+  completedStageCount: number;
+  blockedStageCount: number;
+}
+
 const MAX_PREVIEW_LENGTH = 180;
 const EMPTY_STAGE_EVENTS: GtmStageEvent[] = [];
 
@@ -56,6 +62,9 @@ export function RunArtifactsSection({
   }, [artifacts]);
   const recordedOutputGroups = useMemo(() => {
     return groupRecordedOutputFiles(stageEvents);
+  }, [stageEvents]);
+  const emptyState = useMemo(() => {
+    return getArtifactEmptyState(stageEvents);
   }, [stageEvents]);
 
   return (
@@ -73,9 +82,7 @@ export function RunArtifactsSection({
         recordedOutputGroups.length > 0 ? (
           <RecordedOutputFilesFallback groups={recordedOutputGroups} />
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No artifacts produced yet.
-          </p>
+          <ArtifactEmptyStateNotice state={emptyState} />
         )
       ) : (
         <ol className="flex flex-col gap-3">
@@ -85,6 +92,43 @@ export function RunArtifactsSection({
         </ol>
       )}
     </section>
+  );
+}
+
+function ArtifactEmptyStateNotice({
+  state,
+}: {
+  state: ArtifactEmptyState;
+}): ReactElement {
+  const headline = getArtifactEmptyHeadline(state);
+  const detail = getArtifactEmptyDetail(state);
+
+  return (
+    <div className="rounded-md border border-dashed border-border bg-background/50 px-3 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-medium text-foreground">
+          No artifacts produced yet.
+        </p>
+        {state.liveStageCount > 0 ? (
+          <Badge
+            variant="outline"
+            className="border-blue-500/30 bg-blue-500/10 font-mono text-xs text-blue-700 dark:text-blue-300"
+          >
+            {formatArtifactContextCount(state.liveStageCount, "live stage")}
+          </Badge>
+        ) : null}
+        {state.blockedStageCount > 0 ? (
+          <Badge
+            variant="outline"
+            className="border-yellow-500/40 bg-yellow-500/10 font-mono text-xs text-yellow-700 dark:text-yellow-300"
+          >
+            {formatArtifactContextCount(state.blockedStageCount, "blocked stage")}
+          </Badge>
+        ) : null}
+      </div>
+      <p className="mt-2 text-sm text-foreground">{headline}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+    </div>
   );
 }
 
@@ -167,6 +211,12 @@ function ArtifactGroupItem({
               >
                 Latest v{group.latest.version}
               </Badge>
+              <Badge
+                variant="outline"
+                className="border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-700 dark:text-emerald-300"
+              >
+                Ready output
+              </Badge>
               <Badge variant="outline" className="text-xs">
                 {formatVersionCount(group.versions.length)}
               </Badge>
@@ -195,6 +245,7 @@ function ArtifactGroupItem({
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{formatLatestSource(group.latest.source)}</span>
+          <span>{formatArtifactProvenance(group.latest.source)}</span>
         </div>
 
         <p
@@ -236,6 +287,87 @@ function groupRecordedOutputFiles(
       };
     })
     .sort(compareRecordedOutputGroups);
+}
+
+function getArtifactEmptyState(
+  events: readonly GtmStageEvent[],
+): ArtifactEmptyState {
+  const liveStages = new Set<string>();
+  const completedStages = new Set<string>();
+  const blockedStages = new Set<string>();
+
+  for (const event of events) {
+    const stage = normalizeGtmLighthouseStage(event.stage) ?? event.stage;
+
+    if (isLiveArtifactStageEvent(event)) {
+      liveStages.add(stage);
+    }
+
+    if (event.status === "complete" || event.event_type === "completed") {
+      completedStages.add(stage);
+    }
+
+    if (
+      event.status === "blocked" ||
+      event.status === "errored" ||
+      event.status === "timed_out" ||
+      event.event_type === "blocked" ||
+      event.event_type === "errored" ||
+      event.event_type === "timed_out"
+    ) {
+      blockedStages.add(stage);
+    }
+  }
+
+  return {
+    liveStageCount: liveStages.size,
+    completedStageCount: completedStages.size,
+    blockedStageCount: blockedStages.size,
+  };
+}
+
+function isLiveArtifactStageEvent(event: GtmStageEvent): boolean {
+  return (
+    event.status === "queued" ||
+    event.status === "running" ||
+    event.event_type === "queued" ||
+    event.event_type === "started" ||
+    event.event_type === "heartbeat" ||
+    event.event_type === "tool_call" ||
+    event.event_type === "validation_started"
+  );
+}
+
+function getArtifactEmptyHeadline(state: ArtifactEmptyState): string {
+  if (state.liveStageCount > 0) {
+    return "Artifact generation is still in progress.";
+  }
+
+  if (state.blockedStageCount > 0) {
+    return "The run needs attention before more artifacts can be trusted.";
+  }
+
+  if (state.completedStageCount > 0) {
+    return "Completed stages have not persisted canvas artifacts yet.";
+  }
+
+  return "Waiting for stage output before artifact cards can be created.";
+}
+
+function getArtifactEmptyDetail(state: ArtifactEmptyState): string {
+  if (state.liveStageCount > 0) {
+    return "The agent may still be collecting sources, validating output, or writing a file-backed result.";
+  }
+
+  if (state.blockedStageCount > 0) {
+    return "Check blocker and source-gap panels before treating missing artifacts as complete output.";
+  }
+
+  if (state.completedStageCount > 0) {
+    return "Use recorded output files below when present; otherwise this stage produced no persisted canvas artifact.";
+  }
+
+  return "This section will list durable coworker outputs when a stage writes a persisted artifact.";
 }
 
 function getRecordedOutputFiles(
@@ -445,12 +577,20 @@ function formatLatestSource(source: GtmArtifactSource): string {
   return `Latest source: ${source === "skill_output" ? "Skill output" : "Agent patch"}`;
 }
 
+function formatArtifactProvenance(source: GtmArtifactSource): string {
+  return `Provenance: ${source === "skill_output" ? "Skill output" : "Agent patch"}`;
+}
+
 function formatVersionCount(count: number): string {
   return `${count} ${count === 1 ? "version" : "versions"}`;
 }
 
 function formatArtifactGroupCount(count: number): string {
   return `${count} ${count === 1 ? "group" : "groups"}`;
+}
+
+function formatArtifactContextCount(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
 function formatArtifactTime(iso: string): string {
