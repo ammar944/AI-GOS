@@ -53,25 +53,28 @@ Optional: `PERPLEXITY_API_KEY`, `FOREPLAY_API_KEY`, `FIRECRAWL_API_KEY`, `SPYFU_
 
 AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-extracted fields, then step through a research pipeline that produces: 6 research sections, a media plan, and ad scripts.
 
-**Stack**: Next.js 15, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
+**Stack**: Next.js 16, Vercel AI SDK v6, Anthropic Claude, Supabase (DB + realtime), Clerk auth, Railway worker.
 
 ### Journey Flow (IMPORTANT — read carefully)
 
-The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-based onboarding.
+`/journey` is the canonical AI product layer for the new workflow. Do not move this flow to a separate `/gtm` runtime. The backend is being swapped behind Journey so the user-facing route can stay stable.
+
+The target Journey flow is **link-entry → deep research → auto-filled context → central Manus/Codex-style workspace → section synthesis/edit-by-chat**.
 
 **User flow:**
-1. Enter company URL → system auto-prefills onboarding fields
-2. User reviews/edits prefilled fields in a form (UnifiedFieldReview)
-3. Submit → dispatches `identityResolution` (silent), then `industryMarket`
-4. Workspace shows research cards arriving via Supabase realtime
-5. User approves each section → next section dispatches automatically
-6. After all 6 sections: guided prompt to generate Media Plan
-7. After media plan: guided prompt to generate Scripts
-8. All results saved to profile
+1. Enter company URL or approved business link on `/journey`.
+2. Prefill/deep research starts without forcing the old extracted-field review gate.
+3. The central workspace opens with research-derived context.
+4. The deep research worker builds a shared corpus and writes section artifacts to Supabase.
+5. Workspace cards hydrate via Supabase polling/realtime.
+6. The Vercel AI SDK chat rail edits artifacts, explains sources/gaps, and updates fields through explicit tools.
+7. Downstream media plan and scripts run from the saved research/profile context.
 
-**Research dispatch**: Button clicks → `POST /api/journey/dispatch` → Railway worker → writes results to Supabase → realtime pushes to frontend.
+**Research dispatch**: Journey route/API → `POST /api/journey/dispatch` → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.
 
-**Chat sidebar**: Exists for post-research **editing/refinement only** (`editCard`, `updateField`). Chat input is disabled during active research. The chat does NOT trigger research dispatch.
+**Vercel AI SDK layer**: Keep `useChat`, `DefaultChatTransport`, UI message streams, and the `/api/journey/stream` workspace chat/edit route. If this becomes a formal AI SDK agent, use AI SDK v6 `ToolLoopAgent` and `createAgentUIStreamResponse` patterns. Do not replace the Journey workspace/chat shell with raw worker output.
+
+**Prompt enforcement phase**: Do not hard schema-force the deep research section cards yet. Validate API inputs, run IDs, dispatch envelopes, persistence shape, and parsable JSON. Prompt-enforce the shared corpus, evidence standards, source coverage, section quality, confidence notes, and source gaps until the prompts stabilize.
 
 **Pipeline order**: `identityResolution → industryMarket → icpValidation → competitors → offerAnalysis → keywordIntel → crossAnalysis → mediaPlan`
 
@@ -81,7 +84,7 @@ The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-b
 | What | Where |
 |------|-------|
 | Journey page | `src/app/journey/page.tsx` |
-| Journey chat | `src/app/api/journey/stream/route.ts` |
+| Journey workspace chat/edit stream | `src/app/api/journey/stream/route.ts` |
 | Research dispatch | `src/app/api/journey/dispatch/route.ts` |
 | Dispatch client | `src/lib/journey/dispatch-client.ts` |
 | Research realtime | `src/lib/journey/research-realtime.ts` |
@@ -91,6 +94,7 @@ The journey is **form-driven, NOT chat-driven**. No AI asks questions. No chat-b
 | Worker entry | `research-worker/src/index.ts` |
 | Identity resolver | `research-worker/src/identity/resolve-identity.ts` |
 | Meeting intel | `src/lib/meeting-intel/` |
+| Current AI-layer decision | `docs/journey-ai-layer-architecture-2026-05-07.md` |
 
 ### Profiles & Scripts
 - Profiles auto-created during journey. Detail page: `/profiles/[id]` with tabs: Overview, Research, Scripts, Assets.
@@ -104,7 +108,9 @@ IMPORTANT — these cause silent bugs if wrong:
 - `toUIMessageStreamResponse()` requires `DefaultChatTransport` on frontend. Mismatch = silent failure.
 - Tool definitions use `inputSchema` (not `parameters`), `maxOutputTokens` (not `maxTokens`).
 - `convertToModelMessages()` throws `MissingToolResultsError` — sanitize incomplete tool parts first.
-- Remove `.min()/.max()` from Zod numbers in `generateObject()` schemas — Anthropic API rejects them. Use `.describe()` instead.
+- New AI SDK v6 structured-output code should use `generateText()` with `Output.object()` rather than adding new `generateObject()` call sites.
+- Avoid `.min()/.max()` on Zod numbers passed to Anthropic structured-output schemas; use `.describe()` instead.
+- AI SDK v6 agent APIs use `ToolLoopAgent` for multi-step loops and `createAgentUIStreamResponse` for agent-backed UI message streams.
 
 ## Conventions
 - **Imports**: `@/*` maps to `./src/*` — always absolute
