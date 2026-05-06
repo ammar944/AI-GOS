@@ -21,6 +21,8 @@ import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
 import { buildWorkspaceHydrationPlan } from './workspace-hydration';
+import { JourneyRunStagePanel } from './journey-run-stage-panel';
+import type { JourneyRunView } from '@/lib/journey/run-view';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -30,7 +32,27 @@ interface WorkspacePageProps {
   onBack?: () => void;
 }
 
-function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
+interface WorkspaceResearchBridgeProps {
+  userId?: string | null;
+  activeRunId?: string | null;
+  onRunViewLoaded: (view: JourneyRunView | null) => void;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getRunViewFromSnapshot(snapshot: unknown): JourneyRunView | null {
+  const record = isRecord(snapshot) ? snapshot : null;
+  const view = isRecord(record?.view) ? record.view : null;
+  return Array.isArray(view?.sections) ? (view as unknown as JourneyRunView) : null;
+}
+
+function WorkspaceResearchBridge({
+  userId,
+  activeRunId,
+  onRunViewLoaded,
+}: WorkspaceResearchBridgeProps) {
   const { setSectionPhase, setCards, updateCard } = useWorkspace();
   const renderedMediaPlanBlocksRef = useRef<Set<string>>(new Set());
 
@@ -46,6 +68,7 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
     fetch(`/api/journey/session?runId=${activeRunId}`, { credentials: 'same-origin' })
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
+        onRunViewLoaded(getRunViewFromSnapshot(json));
         const hydrationPlan = buildWorkspaceHydrationPlan(json);
         for (const sectionPlan of hydrationPlan.sections) {
           if (sectionPlan.cards.length > 0) {
@@ -64,12 +87,13 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
         }
       })
       .catch((error: unknown) => {
+        onRunViewLoaded(null);
         console.warn('[journey] Failed to hydrate workspace from session snapshot:', {
           activeRunId,
           error,
         });
       });
-  }, [activeRunId, updateCard, setCards, setSectionPhase]);
+  }, [activeRunId, updateCard, setCards, setSectionPhase, onRunViewLoaded]);
 
   const onSectionComplete = useCallback(
     (section: string, result: ResearchSectionResult) => {
@@ -251,6 +275,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
   const [scriptsGenerating, setScriptsGenerating] = useState(false);
   const [autoGenerateScripts, setAutoGenerateScripts] = useState(false);
   const [showAssetCollection, setShowAssetCollection] = useState(false);
+  const [runView, setRunView] = useState<JourneyRunView | null>(null);
 
   // Resizable chat panel
   const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_W);
@@ -396,13 +421,21 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
-      <WorkspaceResearchBridge userId={userId} activeRunId={activeRunId} />
+      <WorkspaceResearchBridge
+        userId={userId}
+        activeRunId={activeRunId}
+        onRunViewLoaded={setRunView}
+      />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
       <WorkspaceNavBar
         companyName={companyName}
         onBack={onBack}
         userId={userId}
         activeRunId={activeRunId}
+      />
+      <JourneyRunStagePanel
+        view={runView}
+        activityBySection={jobActivity}
       />
       <div className="flex flex-1 min-h-0">
         {showAssetCollection && state.currentSection !== 'scripts' ? (

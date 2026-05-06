@@ -2,9 +2,9 @@
 
 ## Current Workspace State
 
-- **Active feature**: _none_ (set when starting a feature)
-- **Stage**: _n/a_
-- **Started**: _n/a_
+- **Active feature**: gtm-004-stage-panel
+- **Stage**: 04-verify
+- **Started**: 2026-05-07
 
 When starting a feature, fill the block above and create a working note at `stages/01-discover/notes/<feature-slug>.md`.
 
