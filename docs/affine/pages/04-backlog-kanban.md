@@ -22,37 +22,17 @@ Current adaptation:
 
 ## Now
 
-### GTM-007 - Rescope persisted artifact/card visibility
-
-Status: Now
-
-Bucket: `01 Journey Run Visibility MVP`
-
-Owner: Product Head -> Codex Implementer
-
-Scope note:
-
-The historical GTM board expected `gtm_artifacts` and `/gtm` component paths. In this checkout, `/journey` is canonical and workspace cards already hydrate from `view.sections[*].cards`. Re-scope this card against the current Journey artifact/card surface before editing.
-
-Acceptance criteria draft:
-
-- Confirm which persisted outputs are not already visible through Journey workspace cards.
-- Keep rendered artifacts/cards grouped by Journey section.
-- Make source/version/diagnostic metadata visible only as secondary context.
-- Do not add `/gtm` runtime code.
-- Do not change worker behavior or database schema.
-
-## Next
-
 ### GTM-008 - Persist/replay Journey workspace messages across refresh
 
-Status: Needs rescope
+Status: Now / Needs rescope
 
 Bucket: `01 Journey Run Visibility MVP`
 
 Scope note:
 
 The historical card targeted `gtm_messages`. Re-read the active Journey chat/session storage before implementation and preserve the Vercel AI SDK `/api/journey/stream` contract.
+
+## Next
 
 ### GTM-009 - Browser QA `/journey` run visibility refresh flow
 
@@ -65,6 +45,40 @@ Goal:
 Prove the Journey run workspace shows stage status, blocker state, grouped events, hydrated cards, chat, and refresh recovery from a real browser session.
 
 ## Done
+
+### GTM-007 - Rescope persisted artifact/card visibility
+
+Status: Done
+
+Bucket: `01 Journey Run Visibility MVP`
+
+Files:
+
+- `src/components/workspace/journey-run-artifact-visibility-panel.tsx`
+- `src/components/workspace/__tests__/journey-run-artifact-visibility-panel.test.tsx`
+- `src/components/workspace/workspace-page.tsx`
+- `src/components/workspace/__tests__/journey-run-stage-panel.test.tsx`
+
+Outcome:
+
+Persisted Journey outputs now render in a section-grouped artifact visibility panel below the run map. Each section shows whether the persisted output has visible workspace cards, flags persisted outputs that do not produce user-facing cards, and keeps source, citation, card-version, duration, and validation diagnostics behind secondary metadata disclosure. No `/gtm` runtime code, worker behavior, or database schema changed.
+
+Verification:
+
+```bash
+npm run test:run -- src/components/workspace/__tests__/journey-run-artifact-visibility-panel.test.tsx src/components/workspace/__tests__/journey-run-event-log.test.tsx src/components/workspace/__tests__/journey-run-blocker-panel.test.tsx src/components/workspace/__tests__/journey-run-stage-panel.test.tsx src/components/workspace/__tests__/workspace-hydration.test.ts src/lib/journey/__tests__/run-view.test.ts src/lib/journey/__tests__/research-job-activity.test.ts src/lib/journey/__tests__/research-realtime.test.ts
+npm run lint -- src/components/workspace/journey-run-artifact-visibility-panel.tsx src/components/workspace/workspace-page.tsx src/components/workspace/__tests__/journey-run-artifact-visibility-panel.test.tsx src/components/workspace/__tests__/journey-run-stage-panel.test.tsx
+npm run test:run
+npm run build
+```
+
+Result:
+
+- RED was verified by the missing artifact visibility component import.
+- GREEN focused Journey/workspace tests passed: 27/27.
+- Touched-file lint passed.
+- Full `npm run test:run` is still red from unrelated existing failures outside these files.
+- `npm run build` compiled and passed TypeScript, then failed prerender because Clerk publishable key is missing.
 
 ### GTM-006 - Render blocker UX
 

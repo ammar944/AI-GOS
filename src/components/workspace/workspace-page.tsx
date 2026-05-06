@@ -24,6 +24,7 @@ import { buildWorkspaceHydrationPlan } from './workspace-hydration';
 import { JourneyRunStagePanel } from './journey-run-stage-panel';
 import { JourneyRunEventLog } from './journey-run-event-log';
 import { JourneyRunBlockerPanel } from './journey-run-blocker-panel';
+import { JourneyRunArtifactVisibilityPanel } from './journey-run-artifact-visibility-panel';
 import type { JourneyRunView } from '@/lib/journey/run-view';
 
 interface WorkspacePageProps {
@@ -440,6 +441,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
         view={runView}
         activityBySection={jobActivity}
       />
+      <JourneyRunArtifactVisibilityPanel view={runView} />
       <JourneyRunEventLog view={runView} />
       <div className="flex flex-1 min-h-0">
         {showAssetCollection && state.currentSection !== 'scripts' ? (

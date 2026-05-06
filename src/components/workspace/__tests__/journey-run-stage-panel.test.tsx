@@ -109,9 +109,28 @@ function makeRunView(): JourneyRunView {
         order: 0,
         phase: 'review',
         status: 'complete',
-        result: null,
+        result: {
+          status: 'complete',
+          section: 'industryMarket',
+          durationMs: 1200,
+          data: {
+            verdict: 'Synthesized market overview.',
+          },
+        },
         activity: null,
-        cards: [],
+        cards: [
+          {
+            id: 'industryMarket-prose-card-research-verdict',
+            sectionKey: 'industryMarket',
+            cardType: 'prose-card',
+            label: 'Research Verdict',
+            content: {
+              text: 'Synthesized market overview.',
+            },
+            status: 'draft',
+            versions: [],
+          },
+        ],
         latestEvent: {
           id: 'update-market',
           section: 'industryMarket',
@@ -249,6 +268,12 @@ describe('WorkspacePage Journey run stage panel', () => {
     );
     expect(screen.getByTestId('journey-run-event-log')).toHaveTextContent(
       'Event log',
+    );
+    expect(screen.getByTestId('journey-run-artifact-visibility-panel')).toHaveTextContent(
+      'Artifact visibility',
+    );
+    expect(screen.getByTestId('journey-run-artifact-visibility-panel')).toHaveTextContent(
+      '1 visible card',
     );
 
     vi.unstubAllGlobals();
