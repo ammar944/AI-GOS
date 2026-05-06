@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { getJourneyRunIdFromMetadata } from '@/lib/journey/journey-run';
+import { buildJourneyRunView } from '@/lib/journey/run-view';
 import { createAdminClient } from '@/lib/supabase/server';
 import { persistToSupabase } from '@/lib/journey/session-state.server';
 
@@ -30,7 +31,7 @@ async function readLatestJourneySession(userId: string) {
   const supabase = createAdminClient();
   return supabase
     .from('journey_sessions')
-    .select('metadata, research_results, job_status, updated_at, run_id, created_at')
+    .select('id, profile_id, metadata, research_results, job_status, messages, updated_at, run_id, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
   if (requestedRunId) {
     const { data: runData, error: runError } = await supabase
       .from('journey_sessions')
-      .select('id, profile_id, metadata, research_results, job_status, updated_at, run_id')
+      .select('id, profile_id, metadata, research_results, job_status, messages, updated_at, run_id, created_at')
       .eq('user_id', userId)
       .eq('run_id', requestedRunId)
       .maybeSingle();
@@ -124,6 +125,7 @@ export async function GET(request: Request) {
     const metadata =
       (runData?.metadata as Record<string, unknown> | null | undefined) ?? null;
     const storedRunId = getJourneyRunIdFromMetadata(metadata);
+    const view = runData ? buildJourneyRunView(runData) : null;
 
     return new Response(
       JSON.stringify({
@@ -136,6 +138,7 @@ export async function GET(request: Request) {
         updatedAt: runData?.updated_at ?? null,
         sessionId: runData?.id ?? null,
         profileId: runData?.profile_id ?? null,
+        view,
       }),
       {
         status: 200,
@@ -155,6 +158,7 @@ export async function GET(request: Request) {
 
   const metadata = (data?.metadata as Record<string, unknown> | null | undefined) ?? null;
   const storedRunId = getJourneyRunIdFromMetadata(metadata);
+  const view = data ? buildJourneyRunView(data) : null;
 
   return new Response(
     JSON.stringify({
@@ -165,6 +169,9 @@ export async function GET(request: Request) {
         (data?.job_status as Record<string, unknown> | null | undefined) ?? null,
       runId: storedRunId ?? data?.run_id ?? null,
       updatedAt: data?.updated_at ?? null,
+      sessionId: data?.id ?? null,
+      profileId: data?.profile_id ?? null,
+      view,
     }),
     {
       status: 200,
