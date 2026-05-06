@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
-import { RightRail } from './right-rail';
+import { UnifiedChat } from '@/components/chat/unified-chat';
 
 export function BottomSheet() {
   const [open, setOpen] = useState(false);
@@ -26,7 +26,11 @@ export function BottomSheet() {
       </DrawerTrigger>
       <DrawerContent className="bg-[var(--bg-chat)] md:hidden">
         <div className="h-[85vh] overflow-hidden">
-          <RightRail className="w-full border-l-0 h-full" />
+          <UnifiedChat
+            section={state.currentSection}
+            activeRunId={state.sessionId}
+            className="w-full border-l-0 h-full"
+          />
         </div>
       </DrawerContent>
     </Drawer>

@@ -8,3 +8,4 @@ export { researchOffer } from './research-offer';
 export { synthesizeResearch } from './synthesize-research';
 export { researchKeywords } from './research-keywords';
 export { researchMediaPlan } from './research-media-plan';
+export { runDeepResearchProgram } from './deep-research-program';

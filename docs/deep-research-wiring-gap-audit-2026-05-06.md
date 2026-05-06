@@ -14,6 +14,8 @@ link entry -> deep research -> auto-filled context -> central Manus/Codex-style 
 
 Current verdict: partially wired. The one-pass `deepResearchProgram` exists and reaches the Railway worker, but the product is still held together by older Journey assumptions, `journey_sessions`, mixed chat APIs, and inconsistent section-key contracts. Treat this as a gap map before implementation, with `/journey` now explicitly chosen as the route to keep.
 
+2026-05-07 00:38 PKT implementation alignment: desktop and mobile workspace chat now target `/api/journey/stream`, the stream route has an explicit Manus-for-GTM workspace directive, and the Vercel AI SDK tool list includes `runDeepResearchProgram` for user-requested deeper research. The remaining proof gate is runtime E2E with real provider/env credentials.
+
 ## What Is Wired
 
 1. `/journey` is the current link-entry surface.
@@ -81,7 +83,9 @@ There should not be a new `/gtm` Manus runtime for this flow right now. The impl
 
 ### 3. Vercel AI SDK chat instructions conflict with the new product model
 
-The prompt says the assistant does not dispatch research:
+Resolved direction: the top-level prompt now states the current product contract: deep research saves context, fills onboarding/profile context, and powers a Cursor/Codex-style GTM report workspace.
+
+Previously, the prompt said the assistant did not dispatch research:
 
 - `src/lib/ai/prompts/journey-chat-system.ts:35`
 
@@ -97,11 +101,13 @@ But the active tool list in the stream route exposes `askUser`, `competitorFastH
 
 - `src/app/api/journey/stream/route.ts:661`
 
-This leaves the Vercel AI SDK layer semantically stale even if the one-pass deep-research dispatch works elsewhere.
+The stream route now exposes `runDeepResearchProgram` for explicit user-requested deeper research. Old progressive-research text still exists lower in the prompt for legacy intake compatibility, but workspace requests are guarded by a Manus-for-GTM directive and should not restart the old onboarding sequence.
 
 ### 4. Desktop and mobile workspace chat use different APIs
 
-Desktop workspace chat uses `UnifiedChat`:
+Resolved direction: desktop and mobile should both use `UnifiedChat` against `/api/journey/stream`.
+
+Previously, desktop workspace chat used `UnifiedChat`:
 
 - `src/components/workspace/workspace-page.tsx:524`
 - `src/components/chat/unified-chat.tsx:692` posts to `/api/chat/unified`
@@ -111,7 +117,7 @@ Mobile workspace chat uses `BottomSheet -> RightRail`:
 - `src/components/workspace/bottom-sheet.tsx:29`
 - `src/components/workspace/right-rail.tsx:147` posts to `/api/journey/stream`
 
-That means the workspace does not have one chat backend or one edit contract across breakpoints.
+This was aligned in the implementation pass by routing `UnifiedChat` through `/api/journey/stream` and replacing the mobile `RightRail` drawer with the same `UnifiedChat` component.
 
 ### 5. Deep research output is prompt-shaped by design for this phase
 

@@ -630,7 +630,6 @@ function StreamingStatus({ mode, isStreaming, streamingDuration }: StreamingStat
 export function UnifiedChat({
   section,
   activeRunId,
-  cardContext,
   userName,
   companyName,
   className,
@@ -669,36 +668,32 @@ export function UnifiedChat({
     text: string;
   }>>([]);
 
-  // Use refs for values that change (mode) so the transport body getter
-  // always returns the latest values without requiring a new transport instance.
-  // This avoids the Chat/transport desync issue where useChat caches the Chat
-  // by id and doesn't re-bind when transport reference changes.
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
-  const sectionRef = useRef(section);
-  sectionRef.current = section;
-  const cardContextRef = useRef(cardContext);
-  cardContextRef.current = cardContext;
+  const sectionCardsPayload = useMemo(
+    () =>
+      Object.values(workspaceState.cards)
+        .filter((card) => card.sectionKey === section)
+        .map((card) => ({
+          id: card.id,
+          cardType: card.cardType,
+          label: card.label,
+          content: card.content,
+        })),
+    [section, workspaceState.cards],
+  );
 
-  // Debug: log card context on each render to trace empty cards issue
-  useEffect(() => {
-    console.log('[unified-chat] cardContext:', { section, count: cardContext?.length ?? 0, cards: cardContext?.map(c => ({ id: c.id, title: c.title, fields: c.fields?.length })) });
-  }, [section, cardContext]);
-
-  // Single transport — body is a function that reads latest refs.
-  // DefaultChatTransport resolves body via resolve2() which calls functions.
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
-        api: '/api/chat/unified',
-        body: () => ({
-          mode: modeRef.current,
-          section: sectionRef.current,
-          cardContext: cardContextRef.current ?? [],
+        api: '/api/journey/stream',
+        body: {
           activeRunId,
-        }),
+          currentSection: section,
+          sectionCards: sectionCardsPayload,
+          deepResearch: mode === 'thinking' || mode === 'research',
+          workspaceChatMode: mode,
+        },
       }),
-    [activeRunId], // Only recreate on activeRunId change — body function handles the rest
+    [activeRunId, mode, section, sectionCardsPayload],
   );
 
   const {

@@ -11,13 +11,17 @@ Do not move this flow to a new `/gtm` runtime. The swap is behind `/journey`: ke
 ```text
 link entry on /journey
   -> deep research starts
-  -> research-derived context is created automatically
+  -> shared research context is saved
+  -> onboarding/profile context is filled from research evidence
+  -> onboarding + context feed section synthesis
   -> central Manus/Codex-style workspace opens
-  -> Vercel AI SDK chat agent edits and explains artifacts
-  -> deep research artifacts are generated from the shared corpus
+  -> sections are generated one by one like a Cursor/Codex report
+  -> Vercel AI SDK chat edits, explains, and can request further research
 ```
 
 The user should not be forced through the old manual extracted-field review gate before the workspace becomes useful. Context corrections should happen inside the workspace chat when possible.
+
+"Manus for GTM" means the app behaves like an agentic report workspace, not a form wizard: research runs, durable context is saved, the GTM report is synthesized section by section, and chat stays available to edit cards or deepen the evidence.
 
 ## Runtime Ownership
 
@@ -129,8 +133,9 @@ Target:
 - chat has access to active section, current cards, shared corpus, and run ID
 - edit actions update artifacts through explicit tools
 - chat does not launch hidden duplicate per-section research jobs
+- explicit user requests for deeper evidence or a refresh dispatch the one-pass `runDeepResearchProgram` worker tool, not the older per-section onboarding sequence
 
-The existing Vercel AI SDK stream route can stay the integration point, but its prompt must match the new product model: workspace assistant, artifact editor, source explainer, and research observer.
+The Vercel AI SDK stream route is the integration point: workspace assistant, artifact editor, source explainer, and explicit research dispatcher.
 
 ## What To Remove Or Bypass
 

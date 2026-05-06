@@ -50,6 +50,7 @@ docs/journey-ai-layer-architecture-2026-05-07.md # Current /journey AI-layer dec
 ## Current Direction
 
 - `/journey` is the canonical new AI layer. Do not move this workflow to a new `/gtm` runtime.
+- "Manus for GTM" means: deep research saves context, fills onboarding/profile context, then the `/journey` workspace synthesizes GTM report sections one by one with a Cursor/Codex-style chat-and-artifact editing loop.
 - Keep the Vercel AI SDK architecture for user-facing chat, workspace edits, UI message streams, and future agent loops. If formalizing it, use AI SDK v6 `ToolLoopAgent` / `createAgentUIStreamResponse` patterns rather than replacing the workspace chat with raw worker output.
 - Swap the backend behind Journey: the deep research worker gets access to Anthropic skills, tools, web search, code execution, and approved APIs, then writes durable corpus/artifacts back to `journey_sessions.research_results`.
 - Do not hard schema-force the deep research section cards yet. Validate inputs, dispatch envelopes, run IDs, persistence shape, and parsable JSON; prompt-enforce evidence standards, section quality, and source coverage until the prompts stabilize.

@@ -59,15 +59,15 @@ AIGOS generates strategic marketing blueprints. Users enter a URL, review auto-e
 
 `/journey` is the canonical AI product layer for the new workflow. Do not move this flow to a separate `/gtm` runtime. The backend is being swapped behind Journey so the user-facing route can stay stable.
 
-The target Journey flow is **link-entry → deep research → auto-filled context → central Manus/Codex-style workspace → section synthesis/edit-by-chat**.
+The target Journey flow is **link-entry → deep research saves context → onboarding/profile context fills from evidence → central Manus/Codex-style workspace → report sections synthesize one by one → edit-by-chat / deeper research on request**.
 
 **User flow:**
 1. Enter company URL or approved business link on `/journey`.
 2. Prefill/deep research starts without forcing the old extracted-field review gate.
-3. The central workspace opens with research-derived context.
+3. The central workspace opens with research-derived onboarding/profile context.
 4. The deep research worker builds a shared corpus and writes section artifacts to Supabase.
-5. Workspace cards hydrate via Supabase polling/realtime.
-6. The Vercel AI SDK chat rail edits artifacts, explains sources/gaps, and updates fields through explicit tools.
+5. Workspace cards hydrate via Supabase polling/realtime, section by section like a Cursor/Codex report being generated.
+6. The Vercel AI SDK chat rail edits artifacts, explains sources/gaps, updates fields through explicit tools, and can queue deeper research when the user asks.
 7. Downstream media plan and scripts run from the saved research/profile context.
 
 **Research dispatch**: Journey route/API → `POST /api/journey/dispatch` → Railway worker → Anthropic skills/tools/API-backed research → writes results to Supabase → realtime/polling pushes to frontend.

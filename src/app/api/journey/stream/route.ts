@@ -16,11 +16,14 @@ import {
 import { askUser } from '@/lib/ai/tools/ask-user';
 import { competitorFastHits } from '@/lib/ai/tools/competitor-fast-hits';
 import { scrapeClientSite } from '@/lib/ai/tools/scrape-client-site';
-import { updateFieldInputSchema } from '@/lib/ai/tools/update-field';
+import { updateField } from '@/lib/ai/tools/update-field';
 import { editCard } from '@/lib/ai/tools/edit-card';
+import { runDeepResearchProgram } from '@/lib/ai/tools/research';
 import { extractAskUserResults, extractResearchOutputs } from '@/lib/journey/session-state';
 import { persistToSupabase, persistResearchToSupabase } from '@/lib/journey/session-state.server';
 import { validateWorkerUrl } from '@/lib/env';
+import { createAdminClient } from '@/lib/supabase/server';
+import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { parseCollectedFields } from '@/lib/ai/journey-state';
 import { extractBaselineMetrics } from '@/lib/journey/baseline-metrics';
 import { getDownstreamResearchPlan } from '@/lib/ai/journey-downstream-research';
@@ -65,6 +68,117 @@ interface JourneyStreamRequest {
   sectionCards?: SectionCardContext[];
   /** Deep Research mode — extended thinking + thorough analysis */
   deepResearch?: boolean;
+  /** Workspace chat mode from the report rail. */
+  workspaceChatMode?: 'normal' | 'thinking' | 'research';
+}
+
+interface SavedJourneyContext {
+  metadata: Record<string, unknown> | null;
+  researchResults: Record<string, unknown> | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function compactValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 500 ? `${trimmed.slice(0, 500)}...` : trimmed || null;
+  }
+
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+      .join(', ');
+    return joined.length > 500 ? `${joined.slice(0, 500)}...` : joined || null;
+  }
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const serialized = JSON.stringify(value) ?? String(value);
+  return serialized.length > 500 ? `${serialized.slice(0, 500)}...` : serialized;
+}
+
+async function readSavedJourneyContext(
+  userId: string,
+  runId: string | null | undefined,
+): Promise<SavedJourneyContext | null> {
+  if (!runId) {
+    return null;
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('journey_sessions')
+    .select('metadata, research_results')
+    .eq('user_id', userId)
+    .eq('run_id', runId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Failed to read journey session context for run ${runId}: ${error.message}`,
+    );
+  }
+
+  return {
+    metadata: isRecord(data?.metadata) ? data.metadata : null,
+    researchResults: isRecord(data?.research_results) ? data.research_results : null,
+  };
+}
+
+function formatSavedJourneyContext(context: SavedJourneyContext | null): string {
+  if (!context) {
+    return '';
+  }
+
+  const lines: string[] = [];
+  const ignoredMetadataKeys = new Set([
+    'activeJourneyRunId',
+    'lastUpdated',
+    'researchPipeline',
+  ]);
+
+  if (context.metadata) {
+    const fieldLines = Object.entries(context.metadata)
+      .filter(([key]) => !ignoredMetadataKeys.has(key))
+      .map(([key, value]) => {
+        const compact = compactValue(value);
+        if (!compact) {
+          return null;
+        }
+        return `- ${JOURNEY_FIELD_LABELS[key] ?? key}: ${compact}`;
+      })
+      .filter((line): line is string => line !== null)
+      .slice(0, 24);
+
+    if (fieldLines.length > 0) {
+      lines.push('## Saved Onboarding/Profile Context', ...fieldLines);
+    }
+  }
+
+  if (context.researchResults) {
+    const resultLines = Object.entries(context.researchResults)
+      .map(([key, value]) => {
+        if (!isRecord(value)) {
+          return null;
+        }
+        const status = compactValue(value.status) ?? 'unknown';
+        const data = isRecord(value.data) ? Object.keys(value.data).slice(0, 12) : [];
+        return `- ${key}: ${status}${data.length > 0 ? `; data keys: ${data.join(', ')}` : ''}`;
+      })
+      .filter((line): line is string => line !== null)
+      .slice(0, 16);
+
+    if (resultLines.length > 0) {
+      lines.push('', '## Saved Research Artifact Index', ...resultLines);
+    }
+  }
+
+  return lines.join('\n');
 }
 
 function hasResearchToolActivity(
@@ -121,6 +235,9 @@ export async function POST(request: Request) {
   }
 
   const requestMessages = body.messages as UIMessage[];
+  const isWorkspaceReportChat =
+    typeof body.currentSection === 'string' &&
+    body.currentSection.trim().length > 0;
 
   // ── Prepare model replay messages ───────────────────────────────────────
   const modelMessages = sanitizeJourneyMessages(requestMessages);
@@ -169,6 +286,21 @@ export async function POST(request: Request) {
     Object.keys(body.resumeState).length > 0
   ) {
     systemPrompt += buildResumeContext(body.resumeState);
+  }
+
+  if (isWorkspaceReportChat && body.activeRunId) {
+    try {
+      const savedContext = await readSavedJourneyContext(userId, body.activeRunId);
+      const formattedContext = formatSavedJourneyContext(savedContext);
+      if (formattedContext) {
+        systemPrompt += `\n\n${formattedContext}`;
+      }
+    } catch (error) {
+      console.warn('[journey/stream] saved workspace context unavailable:', {
+        activeRunId: body.activeRunId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   // ── Prefill detection ──────────────────────────────────────────────────────
@@ -260,7 +392,8 @@ export async function POST(request: Request) {
   if (
     competitorDetection !== null &&
     !competitorAlreadyCalled &&
-    !isPrefillMessage
+    !isPrefillMessage &&
+    !isWorkspaceReportChat
   ) {
     const domainLabel = competitorDetection.inferredDomain
       ? `${competitorDetection.domain} (inferred from "${competitorDetection.rawMention}")`
@@ -287,7 +420,7 @@ export async function POST(request: Request) {
 
   // Prefill research trigger: when user accepted prefill data, inject explicit instruction
   // to fire researchIndustry immediately. Bifurcated: first call vs already-dispatched.
-  if (isPrefillMessage) {
+  if (isPrefillMessage && !isWorkspaceReportChat) {
     // Check if researchIndustry has already been dispatched in this conversation
     const industryAlreadyCalled = requestMessages.some((m) =>
       m.role === 'assistant' &&
@@ -334,7 +467,7 @@ The user will review research results in an artifact panel and click "Looks Good
   }
 
   // N&D document upload: treat extracted fields as confirmed context, skip website requirement
-  if (isNdUploadMessage) {
+  if (isNdUploadMessage && !isWorkspaceReportChat) {
     systemPrompt += `\n\n## N&D Document Upload Directive (this request only)
 
 The user has uploaded a Niche & Demographics document. The extracted fields in their message are confirmed — do NOT re-ask or re-confirm any of them.
@@ -346,6 +479,7 @@ ACTION: Acknowledge the uploaded data briefly, then continue collecting any REMA
 
   if (
     pendingReviewSection &&
+    !isWorkspaceReportChat &&
     !isApprovalMessage &&
     !isSectionFeedbackMessage &&
     !isPrefillMessage &&
@@ -371,7 +505,7 @@ Do NOT:
 - Offer a strategic summary yet`;
   }
 
-  if (isSectionFeedbackMessage && !journeySnap.strategistModeReady) {
+  if (isSectionFeedbackMessage && !journeySnap.strategistModeReady && !isWorkspaceReportChat) {
     const feedbackSection = latestFeedbackSection ?? pendingReviewSection ?? 'industryMarket';
     const sectionLabel = SECTION_META[feedbackSection]?.label ?? feedbackSection;
 
@@ -403,7 +537,12 @@ DO NOT:
   }
 
   // Approval handling: when user approves a section via the artifact panel button
-  if (isApprovalMessage && latestApprovedSection && !journeySnap.strategistModeReady) {
+  if (
+    isApprovalMessage &&
+    latestApprovedSection &&
+    !journeySnap.strategistModeReady &&
+    !isWorkspaceReportChat
+  ) {
     if (latestApprovedSection === 'industryMarket') {
       const missingInputs = postApprovalPlan.missingInputs.join(', ');
       const nextQuestionDirective =
@@ -483,6 +622,7 @@ ${nextDirective}`;
 
   if (
     marketOverviewApproved &&
+    !isWorkspaceReportChat &&
     !isApprovalMessage &&
     !isSectionFeedbackMessage &&
     !journeySnap.strategistModeReady &&
@@ -609,6 +749,35 @@ The user has enabled Deep Research mode. You MUST:
 Do NOT give surface-level or generic responses. Every response should demonstrate senior strategist-level depth.`;
   }
 
+  if (isWorkspaceReportChat) {
+    const workspaceMode = body.workspaceChatMode ?? 'normal';
+    const sectionLabel =
+      SECTION_META[body.currentSection ?? '']?.label ?? body.currentSection;
+
+    systemPrompt += `\n\n## Manus For GTM Workspace Mode (active)
+
+The user is inside the /journey report workspace, not an onboarding wizard.
+
+Product vision:
+1. Deep research has saved company/context evidence.
+2. That evidence filled onboarding/profile context.
+3. Onboarding + context now drive one-by-one GTM report section synthesis.
+4. The UI should feel like Cursor/Codex generating and editing a report: cards on the canvas, chat beside them, explicit edits and further research on request.
+
+Current section in view: ${sectionLabel}
+Workspace chat mode: ${workspaceMode}
+
+Rules:
+- Do not restart the old conversational onboarding flow.
+- Do not ask the user to approve extracted fields before helping with the report.
+- Use the visible section cards as the source of truth. Cite card IDs when you reference a specific card.
+- If the user asks to edit the report, call \`editCard\` and propose exactly the requested change.
+- If the user asks to update company/onboarding context, call \`updateField\` and propose the profile change.
+- If the user asks to research further, rerun, refresh, verify, find sources, or go deeper, call \`runDeepResearchProgram\` with the current company context, current section, visible card summaries, and the user's requested scope.
+- Research dispatch is asynchronous. After calling \`runDeepResearchProgram\`, say that the research pass is queued and the workspace cards will update when Supabase receives the worker results.
+- Never fabricate market facts, competitor claims, pricing, benchmarks, or citations. If evidence is missing, say what is missing.`;
+  }
+
   // ── Workspace card context injection ───────────────────────────────────
   // When the right-rail chat sends sectionCards, inject them so Claude can
   // reference and edit specific card data.
@@ -663,22 +832,8 @@ ${cardSummaries.join('\n\n')}`;
       competitorFastHits,
       scrapeClientSite,
       editCard,
-      updateField: {
-        description:
-          'Update a specific onboarding field in the user\'s session. Call this when the user approves a recommended improvement to their business data (value prop, pricing, ICP description, etc.). Only call after the user explicitly confirms the change.',
-        inputSchema: updateFieldInputSchema,
-        execute: async ({ key, value, reason }: { key: string; value: string; reason: string }) => {
-          const result = await persistToSupabase(
-            userId,
-            { [key]: value },
-            body.activeRunId ?? undefined,
-          );
-          if (!result.ok) {
-            return { updated: false, error: result.error ?? 'Failed to update field' };
-          }
-          return { updated: true, key, value, reason };
-        },
-      },
+      updateField,
+      runDeepResearchProgram,
     },
     stopWhen: stepCountIs(25),
     providerOptions: {
