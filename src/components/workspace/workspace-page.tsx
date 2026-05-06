@@ -22,6 +22,8 @@ import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
 import { buildWorkspaceHydrationPlan } from './workspace-hydration';
 import { JourneyRunStagePanel } from './journey-run-stage-panel';
+import { JourneyRunEventLog } from './journey-run-event-log';
+import { JourneyRunBlockerPanel } from './journey-run-blocker-panel';
 import type { JourneyRunView } from '@/lib/journey/run-view';
 
 interface WorkspacePageProps {
@@ -433,10 +435,12 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
         userId={userId}
         activeRunId={activeRunId}
       />
+      <JourneyRunBlockerPanel view={runView} />
       <JourneyRunStagePanel
         view={runView}
         activityBySection={jobActivity}
       />
+      <JourneyRunEventLog view={runView} />
       <div className="flex flex-1 min-h-0">
         {showAssetCollection && state.currentSection !== 'scripts' ? (
           <div className="flex flex-1 flex-col min-h-0">

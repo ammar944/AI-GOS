@@ -101,7 +101,7 @@ function makeRunView(): JourneyRunView {
       updatedAt: '2026-05-07T00:05:30.000Z',
       raw: null,
     },
-    status: 'running',
+    status: 'failed',
     sections: [
       {
         id: 'industryMarket',
@@ -243,6 +243,13 @@ describe('WorkspacePage Journey run stage panel', () => {
     expect(panel).toHaveTextContent('Waiting for ICP Validation to finish.');
     expect(panel).toHaveTextContent('Offer Analysis timed out after 10 minutes.');
     expect(panel).not.toHaveTextContent('"status"');
+
+    expect(screen.getByTestId('journey-run-blocker-panel')).toHaveTextContent(
+      'Run needs attention',
+    );
+    expect(screen.getByTestId('journey-run-event-log')).toHaveTextContent(
+      'Event log',
+    );
 
     vi.unstubAllGlobals();
   });

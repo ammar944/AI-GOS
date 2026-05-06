@@ -1,5 +1,12 @@
 # GTM-005 / GTM-006 Next Session Handoffs
 
+Execution update:
+
+- `GTM-005 - Render grouped stage event log` is implemented in the active `/journey` workspace as `src/components/workspace/journey-run-event-log.tsx`.
+- `GTM-006 - Render blocker UX` is implemented in the active `/journey` workspace as `src/components/workspace/journey-run-blocker-panel.tsx`.
+- The active Kanban tracker is now `docs/affine/pages/04-backlog-kanban.md`.
+- Focused Journey/workspace verification passed; full suite remains red from unrelated existing failures.
+
 Source context:
 
 - Active repo: `/Users/ammar/Dev-Projects/AI-GOS`
