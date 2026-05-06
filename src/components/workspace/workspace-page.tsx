@@ -20,6 +20,7 @@ import type { SectionKey } from '@/lib/workspace/types';
 import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
+import { buildWorkspaceHydrationPlan } from './workspace-hydration';
 
 interface WorkspacePageProps {
   userId?: string | null;
@@ -45,56 +46,29 @@ function WorkspaceResearchBridge({ userId, activeRunId }: WorkspacePageProps) {
     fetch(`/api/journey/session?runId=${activeRunId}`, { credentials: 'same-origin' })
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
-        const results = json?.researchResults as Record<string, unknown> | null;
-        if (!results) return;
-
-        // Phase 6.3: extract intelligence card synthesizer output once (shared across sections)
-        const typedResults = results as Record<string, { status?: string; data?: Record<string, unknown> } | undefined>;
-        const intelData = {
-          opportunityIntel:
-            typedResults?.opportunityIntel?.status === 'complete'
-              ? typedResults.opportunityIntel.data
-              : undefined,
-          whiteSpaceGapIntel:
-            typedResults?.whiteSpaceGapIntel?.status === 'complete'
-              ? typedResults.whiteSpaceGapIntel.data
-              : undefined,
-          offerStatementIntel:
-            typedResults?.offerStatementIntel?.status === 'complete'
-              ? typedResults.offerStatementIntel.data
-              : undefined,
-          strategicSynthesisIntel:
-            typedResults?.strategicSynthesisIntel?.status === 'complete'
-              ? typedResults.strategicSynthesisIntel.data
-              : undefined,
-        };
-
-        // Hydrate section states + cards from Supabase for any section that has
-        // complete data but whose workspace state is behind (queued/researching).
-        for (const key of SECTION_PIPELINE) {
-          const entry = results[key] as Record<string, unknown> | undefined;
-          if (!entry || entry.status !== 'complete' || !entry.data) continue;
-
-          const data = entry.data as Record<string, unknown>;
-          const cards = parseResearchToCards(key, data, intelData);
-          if (cards.length > 0) {
-            setCards(key, cards);
-            setSectionPhase(key, 'review');
+        const hydrationPlan = buildWorkspaceHydrationPlan(json);
+        for (const sectionPlan of hydrationPlan.sections) {
+          if (sectionPlan.cards.length > 0) {
+            setCards(sectionPlan.section, sectionPlan.cards);
           }
+          setSectionPhase(
+            sectionPlan.section,
+            sectionPlan.phase,
+            sectionPlan.error,
+          );
         }
 
         // Apply persisted card edits
-        for (const [, sectionResult] of Object.entries(results)) {
-          const sr = sectionResult as Record<string, unknown> | null;
-          const edits = sr?.__cardEdits as Record<string, Record<string, unknown>> | undefined;
-          if (!edits) continue;
-
-          for (const [cardId, content] of Object.entries(edits)) {
-            updateCard(cardId, content, 'ai');
-          }
+        for (const edit of hydrationPlan.cardEdits) {
+          updateCard(edit.cardId, edit.content, 'ai');
         }
       })
-      .catch(() => { /* best-effort */ });
+      .catch((error: unknown) => {
+        console.warn('[journey] Failed to hydrate workspace from session snapshot:', {
+          activeRunId,
+          error,
+        });
+      });
   }, [activeRunId, updateCard, setCards, setSectionPhase]);
 
   const onSectionComplete = useCallback(
