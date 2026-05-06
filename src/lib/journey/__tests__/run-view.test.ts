@@ -211,6 +211,44 @@ describe('buildJourneyRunView', () => {
     expect(view.sections.every((section) => section.events.length === 0)).toBe(true);
     expect(view.messages).toEqual([]);
   });
+
+  it('normalizes versioned workspace message envelopes for visibility summaries', () => {
+    const view = buildJourneyRunView({
+      id: 'session-workspace-messages',
+      run_id: 'run-workspace-messages',
+      metadata: null,
+      research_results: null,
+      job_status: null,
+      messages: {
+        schemaVersion: 1,
+        workspace: {
+          industryMarket: [
+            {
+              id: 'industry-message',
+              role: 'user',
+              parts: [{ type: 'text', text: 'Market workspace question' }],
+            },
+          ],
+          competitors: [
+            {
+              id: 'competitors-message',
+              role: 'assistant',
+              parts: [{ type: 'text', text: 'Competitor workspace answer' }],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(view.messages.map((message) => message.id)).toEqual([
+      'industry-message',
+      'competitors-message',
+    ]);
+    expect(view.messages.map((message) => message.content)).toEqual([
+      'Market workspace question',
+      'Competitor workspace answer',
+    ]);
+  });
 });
 
 describe('getJourneyRunView', () => {

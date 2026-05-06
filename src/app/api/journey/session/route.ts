@@ -3,6 +3,15 @@ import { getJourneyRunIdFromMetadata } from '@/lib/journey/journey-run';
 import { buildJourneyRunView } from '@/lib/journey/run-view';
 import { createAdminClient } from '@/lib/supabase/server';
 import { persistToSupabase } from '@/lib/journey/session-state.server';
+import {
+  WorkspaceMessagesValidationError,
+  mergeWorkspaceSectionMessages,
+  parseWorkspaceSection,
+  readWorkspaceSectionMessages,
+  serializeWorkspaceMessages,
+} from '@/lib/journey/workspace-messages';
+import type { SectionKey } from '@/lib/workspace/types';
+import type { UIMessage } from 'ai';
 
 interface JourneySessionPatchRequest {
   activeRunId?: string;
@@ -10,6 +19,12 @@ interface JourneySessionPatchRequest {
   fields?: unknown;
   state?: unknown;
   clearResearch?: boolean;
+  workspaceMessages?: unknown;
+}
+
+interface WorkspaceMessagesPatchRequest {
+  section?: unknown;
+  messages?: unknown;
 }
 
 function extractPersistableFields(
@@ -27,6 +42,20 @@ function extractPersistableFields(
   return Object.fromEntries(entries);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function jsonResponse(
+  body: Record<string, unknown>,
+  status: number,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 async function readLatestJourneySession(userId: string) {
   const supabase = createAdminClient();
   return supabase
@@ -36,6 +65,75 @@ async function readLatestJourneySession(userId: string) {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+}
+
+async function persistWorkspaceMessages(
+  userId: string,
+  activeRunId: string,
+  section: SectionKey,
+  messages: unknown,
+): Promise<Response> {
+  let serializedMessages: UIMessage[];
+  try {
+    serializedMessages = serializeWorkspaceMessages(messages);
+  } catch (error) {
+    const message =
+      error instanceof WorkspaceMessagesValidationError
+        ? error.message
+        : 'Unknown workspace message validation failure';
+    return jsonResponse(
+      {
+        error: `Invalid workspace message payload for run ${activeRunId} and section ${section}: ${message}`,
+      },
+      400,
+    );
+  }
+
+  const supabase = createAdminClient();
+  const { data: existing, error: readError } = await supabase
+    .from('journey_sessions')
+    .select('messages')
+    .eq('user_id', userId)
+    .eq('run_id', activeRunId)
+    .maybeSingle();
+
+  if (readError) {
+    return jsonResponse(
+      {
+        error: `Failed to read workspace messages for run ${activeRunId}: ${readError.message}`,
+      },
+      500,
+    );
+  }
+
+  const currentMessages =
+    (existing?.messages as Record<string, unknown> | unknown[] | null | undefined) ?? null;
+  const nextMessages = mergeWorkspaceSectionMessages(
+    currentMessages,
+    section,
+    serializedMessages,
+  );
+
+  const { error: writeError } = await supabase.from('journey_sessions').upsert(
+    {
+      user_id: userId,
+      run_id: activeRunId,
+      messages: nextMessages,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,run_id' },
+  );
+
+  if (writeError) {
+    return jsonResponse(
+      {
+        error: `Failed to persist workspace messages for run ${activeRunId} and section ${section}: ${writeError.message}`,
+      },
+      500,
+    );
+  }
+
+  return jsonResponse({ ok: true, messages: nextMessages.workspace[section] ?? [] }, 200);
 }
 
 async function clearResearchState(userId: string, activeRunId?: string) {
@@ -68,6 +166,17 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const supabase = createAdminClient();
+  const requestedSectionParam = url.searchParams.get('section');
+  const requestedSection = requestedSectionParam
+    ? parseWorkspaceSection(requestedSectionParam)
+    : null;
+
+  if (requestedSectionParam && !requestedSection) {
+    return jsonResponse(
+      { error: `Invalid workspace section: ${requestedSectionParam}` },
+      400,
+    );
+  }
 
   // ── List mode: return all sessions for this user ──────────────────────
   const listMode = url.searchParams.get('list') === 'true';
@@ -139,6 +248,9 @@ export async function GET(request: Request) {
         sessionId: runData?.id ?? null,
         profileId: runData?.profile_id ?? null,
         view,
+        workspaceMessages: requestedSection
+          ? readWorkspaceSectionMessages(runData?.messages, requestedSection)
+          : undefined,
       }),
       {
         status: 200,
@@ -172,6 +284,9 @@ export async function GET(request: Request) {
       sessionId: data?.id ?? null,
       profileId: data?.profile_id ?? null,
       view,
+      workspaceMessages: requestedSection
+        ? readWorkspaceSectionMessages(data?.messages, requestedSection)
+        : undefined,
     }),
     {
       status: 200,
@@ -197,6 +312,38 @@ export async function PATCH(request: Request) {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  if (body.workspaceMessages !== undefined) {
+    if (typeof body.activeRunId !== 'string' || body.activeRunId.trim().length === 0) {
+      return jsonResponse(
+        { error: 'activeRunId is required to persist workspace messages' },
+        400,
+      );
+    }
+
+    if (!isRecord(body.workspaceMessages)) {
+      return jsonResponse(
+        { error: 'workspaceMessages must include a section and messages array' },
+        400,
+      );
+    }
+
+    const workspaceMessages = body.workspaceMessages as WorkspaceMessagesPatchRequest;
+    const section = parseWorkspaceSection(workspaceMessages.section);
+    if (!section) {
+      return jsonResponse(
+        { error: `Invalid workspace section: ${String(workspaceMessages.section)}` },
+        400,
+      );
+    }
+
+    return persistWorkspaceMessages(
+      userId,
+      body.activeRunId.trim(),
+      section,
+      workspaceMessages.messages,
+    );
   }
 
   if (body.clearResearch) {

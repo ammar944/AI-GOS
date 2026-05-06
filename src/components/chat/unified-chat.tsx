@@ -21,6 +21,7 @@ import { ThinkingBlock } from '@/components/chat/thinking-block';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
+import { serializeWorkspaceMessages } from '@/lib/journey/workspace-messages';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,6 +99,8 @@ const DEFAULT_STARTERS = [
   'Summarize the key insights.',
 ];
 
+const WORKSPACE_MESSAGE_PERSIST_DEBOUNCE_MS = 400;
+
 // ---------------------------------------------------------------------------
 // Mode config
 // ---------------------------------------------------------------------------
@@ -168,6 +171,15 @@ function getReasoningFromParts(parts: UIMessage['parts']): string | null {
     return rp.details[0].thinking;
   }
   return rp.reasoning ?? null;
+}
+
+function getWorkspaceMessageSignature(messages: UIMessage[]): string {
+  return JSON.stringify(messages);
+}
+
+async function readWorkspaceMessagesResponse(response: Response): Promise<UIMessage[]> {
+  const payload = (await response.json()) as { workspaceMessages?: unknown };
+  return serializeWorkspaceMessages(payload.workspaceMessages ?? []);
 }
 
 // ---------------------------------------------------------------------------
@@ -701,6 +713,7 @@ export function UnifiedChat({
     sendMessage,
     status,
     stop,
+    setMessages,
   } = useChat({
     transport,
     id: `unified-${section}-${activeRunId}`,
@@ -708,6 +721,116 @@ export function UnifiedChat({
 
   const isStreaming = status === 'streaming';
   const isSubmitted = status === 'submitted';
+  const threadKey = `${activeRunId}:${section}`;
+  const hydratedThreadKeyRef = useRef<string | null>(null);
+  const lastPersistedSignatureRef = useRef<string | null>(null);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!activeRunId) {
+      setMessages([]);
+      hydratedThreadKeyRef.current = null;
+      lastPersistedSignatureRef.current = getWorkspaceMessageSignature([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const requestThreadKey = threadKey;
+    const params = new URLSearchParams({ runId: activeRunId, section });
+
+    hydratedThreadKeyRef.current = null;
+    lastPersistedSignatureRef.current = null;
+    setMessages([]);
+
+    fetch(`/api/journey/session?${params.toString()}`, {
+      credentials: 'same-origin',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`status ${response.status}: ${text}`);
+        }
+        return readWorkspaceMessagesResponse(response);
+      })
+      .then((persistedMessages) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setMessages(persistedMessages);
+        lastPersistedSignatureRef.current =
+          getWorkspaceMessageSignature(persistedMessages);
+        hydratedThreadKeyRef.current = requestThreadKey;
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn('[journey] workspace chat hydration failed', {
+          activeRunId,
+          section,
+          message,
+        });
+        hydratedThreadKeyRef.current = requestThreadKey;
+        lastPersistedSignatureRef.current = getWorkspaceMessageSignature([]);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [activeRunId, section, setMessages, threadKey]);
+
+  useEffect(() => {
+    if (!activeRunId || hydratedThreadKeyRef.current !== threadKey || status !== 'ready') {
+      return;
+    }
+
+    const signature = getWorkspaceMessageSignature(messages);
+    if (messages.length === 0 || signature === lastPersistedSignatureRef.current) {
+      return;
+    }
+
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+
+    persistTimerRef.current = setTimeout(() => {
+      fetch('/api/journey/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activeRunId,
+          workspaceMessages: {
+            section,
+            messages,
+          },
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`status ${response.status}: ${text}`);
+          }
+          lastPersistedSignatureRef.current = signature;
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.warn('[journey] workspace chat persistence failed', {
+            activeRunId,
+            section,
+            message,
+          });
+        });
+    }, WORKSPACE_MESSAGE_PERSIST_DEBOUNCE_MS);
+
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+    };
+  }, [activeRunId, messages, section, status, threadKey]);
 
   // Scan message parts for editCard tool results and populate pendingEdits.
   // In AI SDK v6, tool parts have type `tool-{toolName}` (e.g., `tool-editCard`).

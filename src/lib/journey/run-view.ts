@@ -15,6 +15,7 @@ import {
   SECTION_PIPELINE_LABELS,
   getResearchPipelineReadiness,
 } from '@/lib/workspace/pipeline';
+import { readWorkspaceMessagesBySection } from '@/lib/journey/workspace-messages';
 import {
   parseResearchToCards,
   resetCardIdCounter,
@@ -209,7 +210,27 @@ function normalizeJobStatusRecord(
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
-function normalizeMessages(value: unknown): JourneyRunMessage[] {
+function getMessageContent(candidate: Record<string, unknown>): string {
+  const directContent = asString(candidate.content) ?? asString(candidate.text);
+  if (directContent) {
+    return directContent;
+  }
+
+  if (!Array.isArray(candidate.parts)) {
+    return '';
+  }
+
+  return candidate.parts
+    .map((part) => {
+      if (!isRecord(part) || part.type !== 'text') {
+        return '';
+      }
+      return asString(part.text) ?? '';
+    })
+    .join('');
+}
+
+function normalizeFlatMessages(value: unknown): JourneyRunMessage[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -220,15 +241,10 @@ function normalizeMessages(value: unknown): JourneyRunMessage[] {
         return null;
       }
 
-      const content =
-        asString(candidate.content) ??
-        asString(candidate.text) ??
-        (Array.isArray(candidate.parts) ? JSON.stringify(candidate.parts) : '');
-
       return {
         id: asString(candidate.id) ?? `message-${index}`,
         role: asString(candidate.role) ?? 'unknown',
-        content,
+        content: getMessageContent(candidate),
         createdAt:
           asString(candidate.createdAt) ??
           asString(candidate.created_at) ??
@@ -236,6 +252,27 @@ function normalizeMessages(value: unknown): JourneyRunMessage[] {
       };
     })
     .filter((message): message is JourneyRunMessage => message !== null)
+    .sort((left, right) => {
+      if (!left.createdAt || !right.createdAt) {
+        return 0;
+      }
+
+      return Date.parse(left.createdAt) - Date.parse(right.createdAt);
+    });
+}
+
+function normalizeMessages(value: unknown): JourneyRunMessage[] {
+  const flatMessages = normalizeFlatMessages(value);
+  if (flatMessages.length > 0 || Array.isArray(value)) {
+    return flatMessages;
+  }
+
+  if (!isRecord(value) || !isRecord(value.workspace)) {
+    return [];
+  }
+
+  return Object.values(readWorkspaceMessagesBySection(value))
+    .flatMap((messages) => normalizeFlatMessages(messages))
     .sort((left, right) => {
       if (!left.createdAt || !right.createdAt) {
         return 0;
