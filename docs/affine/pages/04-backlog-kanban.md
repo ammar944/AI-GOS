@@ -22,9 +22,11 @@ Current adaptation:
 
 ## Now
 
+No implementation card is currently unblocked. `GTM-009` is blocked on Clerk auth/OTP access, and `GTM-010` is classified but waiting for cleanup approval.
+
 ### GTM-008 - Persist/replay Journey workspace messages across refresh
 
-Status: Now
+Status: Done
 
 Bucket: `01 Journey Run Visibility MVP`
 
@@ -123,11 +125,27 @@ Commit boundary:
 
 `feat(journey): persist workspace chat messages`
 
+Completed commit:
+
+- `c5250cdf feat(journey): persist workspace chat messages`
+
+Outcome:
+
+Workspace chat messages now persist in the existing `journey_sessions.messages` JSONB column under a versioned per-section envelope. `GET /api/journey/session?runId=...&section=...` returns scoped workspace messages, `PATCH /api/journey/session` persists scoped workspace messages by `user_id + run_id`, and `UnifiedChat` hydrates/clears/persists by active run and section while preserving the Vercel AI SDK `useChat` / `DefaultChatTransport` stream path. The run-view read model also normalizes the new message envelope for visibility summaries.
+
+Verification result:
+
+- `npm run test:run -- src/lib/journey/__tests__/workspace-messages.test.ts src/app/api/journey/__tests__/session-messages.test.ts src/components/chat/__tests__/unified-chat-messages.test.tsx src/lib/journey/__tests__/run-view.test.ts` passed: 18/18.
+- `npm run test:run -- src/components/workspace/__tests__/journey-run-artifact-visibility-panel.test.tsx src/components/workspace/__tests__/journey-run-event-log.test.tsx src/components/workspace/__tests__/journey-run-blocker-panel.test.tsx src/components/workspace/__tests__/journey-run-stage-panel.test.tsx src/components/workspace/__tests__/workspace-hydration.test.ts src/lib/journey/__tests__/run-view.test.ts src/lib/journey/__tests__/research-job-activity.test.ts src/lib/journey/__tests__/research-realtime.test.ts src/lib/journey/__tests__/workspace-messages.test.ts src/app/api/journey/__tests__/session-messages.test.ts src/components/chat/__tests__/unified-chat-messages.test.tsx` passed: 41/41.
+- Targeted lint excluding the pre-existing `UnifiedChat` effect-rule debt passed.
+- Lint including `src/components/chat/unified-chat.tsx` remains blocked by pre-existing `react-hooks/set-state-in-effect` errors at lines 871, 910, and 937.
+- `npm run build` compiled and passed TypeScript, then failed prerender on missing Clerk publishable key for `/_not-found`.
+
 ## Next
 
 ### GTM-009 - Browser QA `/journey` run visibility refresh flow
 
-Status: Next after GTM-008
+Status: Blocked by Clerk auth gate
 
 Bucket: `01 Journey Run Visibility MVP`
 
@@ -223,6 +241,48 @@ Reject the card if it only proves mocked tests, if it cannot show the actual `/j
 Commit boundary:
 
 Docs-only if QA passes without code changes: `docs(journey): record run visibility browser qa`
+
+QA attempt result:
+
+- Date/time: `2026-05-07 01:58:51 PKT`.
+- App command: `npm run dev`.
+- Dev URL: `http://localhost:3000/journey`.
+- Dev server status: Next.js ready at `http://localhost:3000`; Clerk reported keyless mode and redirected `/journey` to hosted Clerk auth.
+- Env preflight: `.env.local` contains `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; no Clerk env keys were present in the local env scan.
+- Browser surface: Browser Use Node REPL tool was unavailable after tool discovery, so QA used the Chrome DevTools browser connector in an isolated context.
+- Browser URL reached: `https://crucial-fish-24.accounts.dev/sign-in/factor-one?redirect_url=http%3A%2F%2Flocalhost%3A3000%2Fjourney`.
+- Browser blocker: hosted Clerk email verification screen for `ammarv67@gmail.com` with `Enter verification code`. Entering an OTP/auth code requires explicit user approval and blocks real `/journey` workspace verification.
+- Screenshot evidence:
+  - `/tmp/aigos-journey-qa/initial-journey.png`
+  - `/tmp/aigos-journey-qa/clerk-email-verification-blocker.png`
+- Snapshot evidence: `/tmp/aigos-journey-qa/initial-snapshot.txt`.
+- Console evidence: Clerk development-key warning plus report-only CSP notices from hosted Clerk scripts; no `/journey` workspace console could be inspected because auth did not complete.
+- Network evidence: `/journey` redirected into Clerk; hosted auth returned `GET https://crucial-fish-24.accounts.dev/sign-in?... [200]`, `POST .../v1/client/sign_ins [200]`, and `POST .../prepare_first_factor [200]`.
+- Tested run ID: none. No Journey run could be selected or restored because auth stopped before the workspace.
+
+Verification result:
+
+```bash
+npm run test:run -- src/components/workspace/__tests__/journey-run-artifact-visibility-panel.test.tsx src/components/workspace/__tests__/journey-run-event-log.test.tsx src/components/workspace/__tests__/journey-run-blocker-panel.test.tsx src/components/workspace/__tests__/journey-run-stage-panel.test.tsx src/components/workspace/__tests__/workspace-hydration.test.ts src/lib/journey/__tests__/run-view.test.ts src/lib/journey/__tests__/research-job-activity.test.ts src/lib/journey/__tests__/research-realtime.test.ts
+```
+
+Passed: 28/28.
+
+```bash
+npm run lint -- src/components/workspace/journey-run-artifact-visibility-panel.tsx src/components/workspace/journey-run-event-log.tsx src/components/workspace/journey-run-blocker-panel.tsx src/components/workspace/journey-run-stage-panel.tsx src/components/workspace/workspace-page.tsx src/components/chat/unified-chat.tsx
+```
+
+Failed on pre-existing `src/components/chat/unified-chat.tsx` `react-hooks/set-state-in-effect` errors at lines 871, 910, and 937.
+
+```bash
+npm run build
+```
+
+Compiled successfully and passed TypeScript, then failed prerender with `@clerk/clerk-react: Missing publishableKey` on `/_not-found`.
+
+Disposition:
+
+This card is not done. It is blocked until a valid authenticated local browser session is available or the user explicitly approves OTP/auth-code entry. Do not mark browser QA passed from unit tests alone.
 
 ## Done
 
@@ -355,7 +415,7 @@ Completed commit:
 
 ### GTM-010 - Dirty repo classification and cleanup
 
-Status: Final cleanup / Plan mode handoff
+Status: Classification complete / Awaiting cleanup approval
 
 Reason:
 
@@ -417,3 +477,53 @@ git --no-pager diff -- <path>
 Commit boundary:
 
 Planning-only: no commit unless the user explicitly asks to save the cleanup handoff.
+
+Classification result:
+
+| Path | Bucket | Rationale | Suggested action | Risk |
+| --- | --- | --- | --- | --- |
+| `.gitignore` | Commit as separate feature/fix | Adds `/.clerk/` ignore for local Clerk config that can include secrets. | Commit as a small repo-hygiene fix if accepted. | Low |
+| `eslint.config.mjs` | Needs user decision | Excludes `.agents`, `.claude`, `.codex`, `.omc`, `graphify-out`, `kiyaapp`, and `research-worker` from ESLint. This may intentionally unblock lint, but it broadens ignored code. | Review with lint policy; commit only if these ignores are intended. | Medium |
+| `package.json` | Commit as separate feature/fix | Adds `@ai-sdk/gateway`, used by the uncommitted company-intel Gateway path. | Commit with the company-intel/Gateway feature, not cleanup. | Medium |
+| `package-lock.json` | Commit as separate feature/fix | Lockfile update for `@ai-sdk/gateway` and transitive versions. | Commit with `package.json`. | Medium |
+| `tsconfig.json` | Needs user decision | Formatting churn plus excludes `kiyaapp`; likely meant to keep the nested prototype out of root TypeScript. | Keep only if `kiyaapp/` remains in the repo checkout; otherwise revert after prototype decision. | Medium |
+| `research-worker/.env.example` | Commit as separate feature/fix | Documents optional Anthropic Platform Skills env vars. | Commit with deep-research worker feature. | Low |
+| `research-worker/src/index.ts` | Commit as separate feature/fix | Wires `runDeepResearchProgram`, split writes, and longer stale threshold. | Commit with worker deep-research feature after worker tests/smoke. | High |
+| `research-worker/src/runner.ts` | Commit as separate feature/fix | Adds Anthropic skills/code-execution beta headers when configured. | Commit with worker deep-research feature. | High |
+| `research-worker/src/runners/index.ts` | Commit as separate feature/fix | Exports deep-research runner. | Commit with worker deep-research feature. | Medium |
+| `research-worker/src/section-map.ts` | Commit as separate feature/fix | Adds `runDeepResearchProgram` section mapping. | Commit with worker deep-research feature. | Medium |
+| `research-worker/src/anthropic-skills.ts` | Commit as separate feature/fix | New server-side Anthropic Platform Skills config/helper. Contains uploaded skill IDs but no secrets. | Commit with worker deep-research feature if these skill IDs are canonical. | High |
+| `research-worker/src/runners/deep-research-program.ts` | Commit as separate feature/fix | New one-pass deep-research runner and section splitter. | Commit with worker deep-research feature after tests/smoke. | High |
+| `research-worker/platform-skills/` | Needs user decision | Untracked skill packages, manifests, zips, and upload script. Some artifacts may be canonical, some may be generated. | Decide whether to commit source `SKILL.md`/manifests and ignore/rebuild zips, or keep all as local upload artifacts. | High |
+| `research-worker/platform-skills-zips-only/` | Delete generated/local-only artifact | Duplicate zip-only upload artifacts. | Delete only after confirming `research-worker/platform-skills/` or remote uploads are sufficient. | Medium |
+| `src/app/api/journey/dispatch/route.ts` | Commit as separate feature/fix | Maps `deepResearchProgram` to worker tool. | Commit with Journey deep-research feature. | High |
+| `src/app/journey/page.tsx` | Commit as separate feature/fix | Large one-pass Journey UX/runtime change: new Manus welcome, auto-accept prefill, deep-research dispatch, removes per-section dispatch. | Commit only after dedicated review/browser QA. | High |
+| `src/components/journey/prefill-stream-view.tsx` | Commit as separate feature/fix | Copy changes from extracted-field review to deep-research launch. | Commit with Journey deep-research UX feature. | Medium |
+| `src/components/workspace/workspace-page.tsx` | Commit as separate feature/fix | Keeps chat rail visible during active research except scripts generation. | Commit with Journey workspace UX feature if intended. | Medium |
+| `src/components/workspace/workspace-provider.tsx` | Commit as separate feature/fix | Reframes workspace state around one shared deep-research corpus rather than parallel per-section agents. | Commit with Journey deep-research feature after regression review. | High |
+| `src/lib/company-intel/run-company-research.ts` | Commit as separate feature/fix | Adds Gateway/Anthropic web-search prefill, safe homepage fallback, SSRF blocking, schema validation. | Commit as a separate company-intel robustness/Gateway feature. | High |
+| `src/lib/company-intel/__tests__/` | Commit as separate feature/fix | New tests for Gateway routing, OIDC behavior, fallback, and private URL blocking. | Commit with `run-company-research.ts`. | Medium |
+| `src/lib/journey/dispatch-client.ts` | Commit as separate feature/fix | Adds deep-research dispatch helper and section list. | Commit with Journey deep-research feature. | High |
+| `src/lib/journey/research-result-contract.ts` | Commit as separate feature/fix | Allows `deepResearchProgram` outputs through without hard schema rejection. | Commit with deep-research card rendering after schema review. | High |
+| `src/lib/journey/research-sections.ts` | Commit as separate feature/fix | Adds `runDeepResearchProgram` tool mapping. | Commit with Journey deep-research feature. | Medium |
+| `src/lib/journey/section-meta.ts` | Commit as separate feature/fix | Renames six visible section labels to new platform-skill taxonomy. | Commit only if new taxonomy is product-approved. | Medium |
+| `src/lib/workspace/card-taxonomy.ts` | Commit as separate feature/fix | Adds generic card rendering for `deepResearchProgram` outputs. | Commit with deep-research worker/UI feature. | High |
+| `.agents/` | Do not touch | Local/repo agent skill bundle; could be intentional agent infrastructure. | Leave untracked until user decides whether this repo should own the skill bundle. | Medium |
+| `.claire/` | Needs user decision | Local agent worktree/memory folder. | Delete or ignore only with approval. | Medium |
+| `.codex/` | Do not touch | Local Codex config. | Keep local; do not commit. Consider ignore rule only if desired. | Low |
+| `.omc/` | Delete generated/local-only artifact | Local OMC session JSON. | Delete after approval, or add ignore rule. | Low |
+| `docs/AI-GOS-Research-Pipeline-Spec-v2.md` | Needs user decision | Large standalone historical/strategic spec dated 2025. | Archive/commit only if still canonical; otherwise delete after approval. | Medium |
+| `docs/EGOS-CLOUD-ARCHITECTURE.md` | Needs user decision | EGOS/OpenClaw cloud architecture doc, not clearly current AIGOS Journey work. | Decide whether this belongs in repo docs; otherwise remove after approval. | Medium |
+| `engine/` | Needs user decision | Untracked OpenClaw/EGOS engine scaffold with agents, commands, scripts, output template. | Commit only if this repo is becoming the cloud engine repo; otherwise move/delete after approval. | High |
+| `graphify-out/` | Delete generated/local-only artifact | Generated graph report/tree/json from graphify hook; 18 MB and 1093 files. | Delete after approval and add ignore rule if graphify keeps regenerating. | Low |
+| `kiyaapp/` | Needs user decision | Nested Vite app including `node_modules`/`dist`; 80 MB and 2963 files. | Move out of repo, delete, or explicitly ignore; do not commit as-is. | High |
+
+Suggested execution order after approval:
+
+1. Delete local/generated artifacts first: `.omc/`, `graphify-out/`, and possibly `research-worker/platform-skills-zips-only/`.
+2. Decide local-agent/prototype ownership: `.agents/`, `.claire/`, `.codex/`, `engine/`, `kiyaapp/`, and the two standalone docs.
+3. Split intentional product work into at least two commits: company-intel/Gateway prefill, and Journey deep-research worker/UI integration.
+4. Review config/dependency churn last: `eslint.config.mjs`, `tsconfig.json`, `.gitignore`, `package.json`, and `package-lock.json`.
+5. Re-run focused tests, lint, and build after each accepted code commit.
+
+No cleanup action has been executed. Approval is still required before deletion, stashing, reverting, or broad staging.
