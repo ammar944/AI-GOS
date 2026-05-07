@@ -70,8 +70,8 @@ describe('ResearchActivityLog', () => {
       />,
     );
 
-    expect(screen.getByText('Awaiting worker telemetry')).toBeInTheDocument();
-    expect(screen.getByText(/Waiting for worker telemetry and source trace/u)).toBeInTheDocument();
+    expect(screen.getByText('Starting worker')).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for the research worker to start emitting tool events/u)).toBeInTheDocument();
     expect(screen.queryByText('Searching market intelligence databases')).not.toBeInTheDocument();
     expect(screen.queryByText('Initializing research pipeline')).not.toBeInTheDocument();
   });

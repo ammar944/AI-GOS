@@ -73,6 +73,15 @@ function getRunDetailsSummary(
   return view ? `Run details - ${view.status}` : 'Run details';
 }
 
+const WORKSPACE_PHASE_LABELS: Record<string, string> = {
+  queued: 'Queued',
+  researching: 'Researching',
+  streaming: 'Writing',
+  review: 'Ready',
+  approved: 'Approved',
+  error: 'Needs retry',
+};
+
 function WorkspaceResearchBridge({
   userId,
   activeRunId,
@@ -294,14 +303,14 @@ function WorkspaceStatusSummary({
     <div className="flex min-w-0 items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-          Section Synthesis Workspace
+          Journey Workbench
         </p>
         <div className="mt-1 flex min-w-0 items-center gap-2">
           <h1 className="truncate text-sm font-medium text-[var(--text-primary)]">
             {showCompanyName ? companyName : 'AI-GOS Journey'}
           </h1>
           <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-            {activePhase}
+            {WORKSPACE_PHASE_LABELS[activePhase] ?? activePhase}
           </span>
         </div>
         <p className="mt-1 truncate text-xs text-[var(--text-tertiary)]">

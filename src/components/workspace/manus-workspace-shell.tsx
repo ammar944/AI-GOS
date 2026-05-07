@@ -234,7 +234,7 @@ export function ManusWorkspaceShell({
         </header>
       ) : null}
 
-      <div className="grid w-full min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(22rem,0.86fr)_minmax(32rem,1.14fr)] xl:grid-cols-[minmax(24rem,0.82fr)_minmax(40rem,1.18fr)]">
+      <div className="grid w-full min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(20rem,0.72fr)_minmax(44rem,1.28fr)] xl:grid-cols-[minmax(22rem,0.68fr)_minmax(52rem,1.32fr)]">
         <main
           data-testid="manus-workspace-chat"
           aria-label="Primary chat workspace"
@@ -244,11 +244,11 @@ export function ManusWorkspaceShell({
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
-                GTM agent
+                Agent console
               </span>
             </div>
             <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">
-              command
+              ask / edit
             </span>
           </div>
           {chat}
@@ -261,10 +261,10 @@ export function ManusWorkspaceShell({
         >
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.07] px-4">
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
-              GTM report
+              Report artifact
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">
-              source-backed
+              live artifact
             </span>
           </div>
           {artifact}

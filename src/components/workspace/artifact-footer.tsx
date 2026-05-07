@@ -17,7 +17,7 @@ interface ArtifactFooterProps {
 export function ArtifactFooter({
   variant = 'approve',
   onApprove,
-  approveLabel = 'Approve & Continue \u2192',
+  approveLabel = 'Accept & continue',
   onGenerateMediaPlan,
   mediaPlanGenerating,
   disabled,

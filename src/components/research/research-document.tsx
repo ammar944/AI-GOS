@@ -14,6 +14,8 @@ import type { CardState, SectionKey } from '@/lib/workspace/types';
 import { SECTION_META } from '@/lib/journey/section-meta';
 import { MediaPlanButton } from '@/components/research/media-plan-button';
 import { ScriptsPhaseContent } from '@/components/workspace/scripts-phase';
+import { ReportSources } from '@/components/workspace/report-sources';
+import { extractReportSources } from '@/lib/workspace/extract-card-sources';
 import { useSessionShare } from '@/hooks/use-session-share';
 
 interface ResearchDocumentProps {
@@ -104,6 +106,11 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
   const sectionCards = useMemo(
     () => allCards[currentSection] ?? [],
     [allCards, currentSection],
+  );
+
+  const sectionSources = useMemo(
+    () => extractReportSources(sectionCards),
+    [sectionCards],
   );
 
   const totalCards = useMemo(
@@ -213,7 +220,7 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-[800px] mx-auto px-6 py-8">
+        <div className="mx-auto max-w-[980px] px-6 py-8">
           {/* Document title */}
           <div className="mb-8">
             <h1 className="text-xl font-heading font-semibold text-[var(--text-primary)] truncate">
@@ -273,16 +280,27 @@ export function ResearchDocument({ cardsBySection, availableSections, title, cre
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <SectionHeader section={currentSection} mode="document" />
+                  <SectionHeader
+                    section={currentSection}
+                    mode="report"
+                    phaseLabel="Saved report"
+                    sourceCount={sectionSources.length}
+                  />
 
                   {sectionCards.length > 0 && currentSection === 'competitors' ? (
-                    <CompetitorTabs cards={sectionCards} />
+                    <>
+                      <CompetitorTabs cards={sectionCards} />
+                      <ReportSources sources={sectionSources} />
+                    </>
                   ) : sectionCards.length > 0 ? (
-                    <CardGrid>
-                      {sectionCards.map((card, i) => (
-                        <CardRenderer key={card.id} card={card} mode="document" index={i} />
-                      ))}
-                    </CardGrid>
+                    <div className="rounded-[12px] border border-white/[0.065] bg-[#0f0f0e] px-5 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                      <CardGrid variant="report">
+                        {sectionCards.map((card, i) => (
+                          <CardRenderer key={card.id} card={card} mode="document" index={i} />
+                        ))}
+                      </CardGrid>
+                      <ReportSources sources={sectionSources} />
+                    </div>
                   ) : (
                     <div className="flex items-center justify-center min-h-[300px]">
                       <p className="text-sm text-[var(--text-tertiary)] font-mono">

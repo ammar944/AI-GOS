@@ -18,6 +18,8 @@ import { OfferRefinementCard } from './cards/offer-refinement-card';
 import { parseOfferScoreFromStats } from '@/lib/workspace/parse-offer-score-stats';
 import { CompetitorTabs } from './competitor-tabs';
 import type { CardState, SectionKey } from '@/lib/workspace/types';
+import { ReportSources } from './report-sources';
+import { extractReportSources } from '@/lib/workspace/extract-card-sources';
 import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 
 // Stagger timing constants (spec Section 14)
@@ -34,6 +36,15 @@ const SECTION_LABELS: Record<string, string> = {
   crossAnalysis: 'Strategic Synthesis',
   mediaPlan: 'Media Plan',
   scripts: 'Scripts',
+};
+
+const PHASE_LABELS: Record<string, string> = {
+  queued: 'Queued',
+  researching: 'Researching',
+  streaming: 'Writing',
+  review: 'Ready for review',
+  approved: 'Approved',
+  error: 'Needs retry',
 };
 
 interface ArtifactCanvasProps {
@@ -155,6 +166,11 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
       .filter((card) => card.sectionKey === state.currentSection);
   }, [state.cards, state.currentSection]);
 
+  const sectionSources = useMemo(
+    () => extractReportSources(sectionCards, jobActivity?.[state.currentSection]),
+    [sectionCards, jobActivity, state.currentSection],
+  );
+
   const handleRetry = useCallback(() => {
     onRetrySection?.(state.currentSection);
   }, [onRetrySection, state.currentSection]);
@@ -182,7 +198,14 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <SectionHeader section={state.currentSection} />
+              {!isLoading && (
+                <SectionHeader
+                  section={state.currentSection}
+                  mode="report"
+                  phaseLabel={PHASE_LABELS[phase] ?? phase}
+                  sourceCount={sectionSources.length}
+                />
+              )}
 
               {/* Queued state — section not yet started */}
               {phase === 'queued' && (
@@ -313,36 +336,39 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 <CompetitorTabs cards={sectionCards} mode="workspace" />
               )}
               {showCards && sectionCards.length > 0 && state.currentSection !== 'competitors' && (
-                <CardGrid>
-                  {sectionCards
-                    // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
-                    .filter(
-                      (card) =>
-                        !(
-                          state.currentSection === 'offerAnalysis' &&
-                          (isReviewable || isApproved) &&
-                          offerScoreData &&
-                          card.label === 'Offer Score' &&
-                          card.cardType === 'stat-grid'
-                        ),
-                    )
-                    .map((card, i) => (
-                    <motion.div
-                      key={card.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{
-                        duration: CARD_DURATION,
-                        delay: i * CARD_STAGGER,
-                      }}
-                    >
-                      <ArtifactCard card={card} index={i}>
-                        <CardContentSwitch card={card} />
-                      </ArtifactCard>
-                    </motion.div>
-                  ))}
-                </CardGrid>
+                <div className="rounded-[12px] border border-white/[0.065] bg-[#0f0f0e] px-5 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                  <CardGrid variant="report">
+                    {sectionCards
+                      // Filter out the stat-grid "Offer Score" card when refinement card is showing (avoids duplicate)
+                      .filter(
+                        (card) =>
+                          !(
+                            state.currentSection === 'offerAnalysis' &&
+                            (isReviewable || isApproved) &&
+                            offerScoreData &&
+                            card.label === 'Offer Score' &&
+                            card.cardType === 'stat-grid'
+                          ),
+                      )
+                      .map((card, i) => (
+                        <motion.div
+                          key={card.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{
+                            duration: CARD_DURATION,
+                            delay: i * CARD_STAGGER,
+                          }}
+                        >
+                          <ArtifactCard card={card} index={i} variant="report-block">
+                            <CardContentSwitch card={card} />
+                          </ArtifactCard>
+                        </motion.div>
+                      ))}
+                  </CardGrid>
+                  <ReportSources sources={sectionSources} />
+                </div>
               )}
 
               {/* Empty state — no cards but should have them */}
@@ -368,7 +394,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
       {/* Approve footer for research sections in review phase */}
       {isReviewable && sectionCards.length > 0 && !isBrowsingApproved && state.currentSection !== 'mediaPlan' && state.currentSection !== 'crossAnalysis' && (
-        <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Approve & Continue →" />
+        <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Accept & continue" />
       )}
 
       {/* Show completion footer when all 6 research sections approved (media plan not yet generated).
@@ -383,7 +409,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
       {/* Media plan in review — show save & finish only if not already all done */}
       {state.currentSection === 'mediaPlan' && isReviewable && sectionCards.length > 0 && !researchAndPlanDone && (
-        <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Save & Finish →" />
+        <ArtifactFooter variant="approve" onApprove={approveSection} approveLabel="Save & finish" />
       )}
 
       {/* Research + media plan approved — completion footer (scripts phase is separate) */}

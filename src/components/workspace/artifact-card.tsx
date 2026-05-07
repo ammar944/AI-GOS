@@ -19,6 +19,7 @@ interface ArtifactCardProps {
   card: CardState;
   children: React.ReactNode;
   index?: number;
+  variant?: 'card' | 'report-block';
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -36,7 +37,7 @@ function formatRelativeTime(timestamp: number): string {
 // Card types that support inline contentEditable editing
 const EDITABLE_CARD_TYPES = new Set(['prose-card', 'bullet-list', 'check-list']);
 
-export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
+export function ArtifactCard({ card, children, variant = 'card' }: ArtifactCardProps) {
   const { restoreCardVersion, updateCard } = useWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -89,21 +90,31 @@ export function ArtifactCard({ card, children, index = 0 }: ArtifactCardProps) {
   return (
     <div
       className={cn(
-        'group/card rounded-[6px] border p-5',
-        'transition-colors duration-150',
-        'border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-[var(--border-default)]',
+        'group/card transition-colors duration-150',
+        variant === 'report-block'
+          ? 'border-b border-white/[0.055] bg-transparent py-5 last:border-b-0'
+          : 'rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-5 hover:border-[var(--border-default)]',
       )}
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-start gap-2.5 min-w-0 flex-1">
           <span
-            className={cn('h-2 w-2 rounded-full shrink-0 mt-[9px]', statusDotClass)}
+            className={cn(
+              'shrink-0 rounded-full',
+              variant === 'report-block' ? 'mt-[7px] h-1.5 w-1.5' : 'mt-[9px] h-2 w-2',
+              statusDotClass,
+            )}
             aria-hidden="true"
           />
           <div className="flex flex-col gap-0.5 min-w-0">
             <h3
-              className="text-[22px] italic font-normal leading-[1.15] tracking-tight text-[var(--text-primary)] truncate"
-              style={{ fontFamily: 'var(--font-instrument-sans)' }}
+              className={cn(
+                'truncate leading-[1.2] tracking-[-0.01em] text-[var(--text-primary)]',
+                variant === 'report-block'
+                  ? 'text-[13px] font-medium not-italic text-white/78'
+                  : 'text-[22px] italic font-normal tracking-tight',
+              )}
+              style={variant === 'report-block' ? undefined : { fontFamily: 'var(--font-instrument-sans)' }}
             >
               {card.label}
             </h3>
