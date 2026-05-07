@@ -223,7 +223,13 @@
       "Bash(sed -i '' 's/z\\\\.number\\(\\)\\\\.min\\(1\\)\\\\.max\\(10\\)/z.coerce.number\\(\\).min\\(0\\).max\\(10\\)/g' \"$f\")",
       "Skill(review)",
       "Bash(gh pr:*)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "WebFetch(domain:getdesign.md)",
+      "mcp__refero__refero_get_screen_content",
+      "mcp__plugin_claude-mem_mcp-search__search",
+      "mcp__plugin_oh-my-claudecode_t__session_search",
+      "mcp__gbrain__search",
+      "Read(//private/tmp/**)"
     ]
   },
   "enableAllProjectMcpServers": true,
