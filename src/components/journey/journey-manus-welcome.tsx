@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export interface JourneyManusWelcomeProps {
@@ -11,10 +11,6 @@ export interface JourneyManusWelcomeProps {
   linkedinUrl?: string;
   onLinkedinUrlChange?: (value: string) => void;
   onSkip?: () => void;
-}
-
-function JourneyIconRail(): React.JSX.Element | null {
-  return null;
 }
 
 export function JourneyManusWelcome({
@@ -35,33 +31,9 @@ export function JourneyManusWelcome({
   };
 
   return (
-    <div className="flex min-h-screen bg-[#06080d] text-[#fcfcfa]">
-      <JourneyIconRail />
-
-      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#0d1018] bg-[#0a0d14] px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[#365eff] md:hidden">
-              <Sparkles className="h-4 w-4 text-white" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-sm font-medium text-[#fcfcfa]">
-                AI-GOS Journey
-              </h1>
-              <p className="truncate text-xs text-[#8e97a6]">
-                GTM command center
-              </p>
-            </div>
-          </div>
-
-          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-[#365eff]/20 bg-[#365eff]/10 px-3 text-xs font-medium text-[#8faaff]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
-            agent ready
-          </span>
-        </header>
-
-        <section className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex min-h-[calc(100vh-10rem)] w-full max-w-[860px] flex-col items-center justify-center px-6 py-8">
+    <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-[#06080d] text-[#fcfcfa]">
+      <section className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex min-h-full w-full max-w-[860px] flex-col items-center justify-center px-6 py-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -106,9 +78,8 @@ export function JourneyManusWelcome({
                 </button>
               </form>
             </motion.div>
-          </div>
-        </section>
-      </main>
-    </div>
+        </div>
+      </section>
+    </main>
   );
 }
