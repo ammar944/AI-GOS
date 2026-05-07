@@ -1,43 +1,67 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { JourneyManusWelcome } from '@/components/journey/journey-manus-welcome';
+import { JourneyAgentChat } from '@/components/journey/journey-agent-chat';
 
-describe('JourneyManusWelcome', () => {
-  it('renders the Anthropic agent-console Journey entry instead of the old centered launcher', () => {
-    render(
-      <JourneyManusWelcome
-        websiteUrl=""
-        onWebsiteUrlChange={vi.fn()}
-        onAnalyze={vi.fn()}
-      />,
-    );
+const baseProps = {
+  websiteUrl: '',
+  onWebsiteUrlChange: vi.fn(),
+  onSubmitWebsite: vi.fn(),
+  activeRunId: null,
+  companyName: null,
+  phase: 'welcome' as const,
+  deepResearchStatus: 'idle' as const,
+  deepResearchError: null,
+  deepResearchFields: {},
+  researchActivity: {},
+  researchResults: {},
+  messages: [],
+};
 
-    expect(screen.getByText('Build the GTM report like an agent run.')).toBeInTheDocument();
-    expect(screen.getByText('Anthropic runtime')).toBeInTheDocument();
-    expect(screen.getByText('Platform Skills agents')).toBeInTheDocument();
-    expect(screen.getByText('Live report artifact preview')).toBeInTheDocument();
-    expect(screen.getByText(/No old schema review/u)).toBeInTheDocument();
-    expect(screen.getByText('Market Category')).toBeInTheDocument();
+describe('JourneyAgentChat', () => {
+  it('renders the minimal AionUI-style agent chat entry instead of workspace preview chrome', () => {
+    render(<JourneyAgentChat {...baseProps} />);
+
+    expect(screen.getByText('What company should I research?')).toBeInTheDocument();
+    expect(screen.getByText(/Anthropic GTM agents · chat mode/u)).toBeInTheDocument();
+    expect(screen.getByText(/Claude web search \+ code execution \+ Platform Skills/u)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Paste company URL...')).toBeInTheDocument();
+
+    expect(screen.queryByText('Live report artifact preview')).not.toBeInTheDocument();
+    expect(screen.queryByText('Build the GTM report like an agent run.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Artifact canvas')).not.toBeInTheDocument();
     expect(screen.queryByText('Onboarding review')).not.toBeInTheDocument();
-    expect(screen.queryByText('Open onboarding manually')).not.toBeInTheDocument();
-    expect(screen.queryByText('What should we build toward?')).not.toBeInTheDocument();
-    expect(screen.queryByText('Strategy Intake')).not.toBeInTheDocument();
   });
 
-  it('submits the company URL through the deep research entrypoint', () => {
-    const onAnalyze = vi.fn();
+  it('submits the company URL through the deep research composer', () => {
+    const onSubmitWebsite = vi.fn();
 
     render(
-      <JourneyManusWelcome
+      <JourneyAgentChat
+        {...baseProps}
         websiteUrl="https://example.com"
-        onWebsiteUrlChange={vi.fn()}
-        onAnalyze={onAnalyze}
+        onSubmitWebsite={onSubmitWebsite}
       />,
     );
 
     fireEvent.click(screen.getByLabelText('Start deep research'));
 
-    expect(onAnalyze).toHaveBeenCalledTimes(1);
+    expect(onSubmitWebsite).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders specialist agents inline once a run starts', () => {
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="https://example.com"
+        activeRunId="journey-test-123"
+        deepResearchStatus="queued"
+      />,
+    );
+
+    expect(screen.getByText('Deep Research Agent')).toBeInTheDocument();
+    expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+    expect(screen.getByText('GTM Synthesis Agent')).toBeInTheDocument();
+    expect(screen.queryByText('Journey Workbench')).not.toBeInTheDocument();
   });
 });

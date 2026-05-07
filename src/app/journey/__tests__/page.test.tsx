@@ -239,6 +239,13 @@ vi.mock('@clerk/nextjs', () => ({
 
 vi.mock('@/components/shell', () => ({
   ShellProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AppShell: ({ children, sidebar }: { children: React.ReactNode; sidebar?: React.ReactNode }) => (
+    <div data-testid="app-shell">
+      {sidebar}
+      {children}
+    </div>
+  ),
+  AppSidebar: () => <aside data-testid="app-sidebar" />,
 }));
 
 vi.mock('@/components/journey/chat-message', () => ({
@@ -669,7 +676,7 @@ describe('JourneyPage Manus launch wiring', () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
+      expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
     });
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
@@ -738,7 +745,7 @@ describe('JourneyPage Manus launch wiring', () => {
       payload.activeRunId,
       expect.stringContaining('Website: https://saaslaunch.net'),
     );
-    expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
+    expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
 });

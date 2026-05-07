@@ -9,6 +9,7 @@ import {
 import { useUser } from '@clerk/nextjs';
 import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
+import { JourneyAgentChat } from '@/components/journey/journey-agent-chat';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import { getJourneyApprovalState, type JourneyReviewSection } from '@/lib/ai/journey-review-gates';
@@ -28,10 +29,6 @@ import {
 } from '@/lib/journey/session-state';
 import type { OnboardingState } from '@/lib/journey/session-state';
 import type { TerminalLogEntry } from '@/components/journey/terminal-stream';
-import { WorkspaceProvider } from '@/components/workspace/workspace-provider';
-import { WorkspacePage } from '@/components/workspace/workspace-page';
-import { JourneyManusWelcome } from '@/components/journey/journey-manus-welcome';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
   createJourneyGuardedFetch,
 } from '@/lib/journey/http';
@@ -48,12 +45,10 @@ import {
   getAutoOpenSectionDecision,
   resetTrackedSection,
 } from '@/lib/journey/journey-section-orchestration';
-import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import {
   dispatchResearchSection,
 } from '@/lib/journey/dispatch-client';
 import { buildJourneyResearchContext } from '@/lib/journey/context-string';
-import type { SectionKey } from '@/lib/workspace/types';
 
 const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'industryMarket',
@@ -209,7 +204,6 @@ function JourneyPageContent() {
 
   // Deep-link support: ?session=X&section=offerAnalysis jumps to workspace with that section
   const deepLinkSession = searchParams.get('session');
-  const deepLinkMediaPlan = searchParams.get('mediaPlan') === '1';
   const deepLinkSection = searchParams.get('section');
   const shouldRestoreStoredRun = searchParams.get('restore') === '1';
 
@@ -805,7 +799,7 @@ function JourneyPageContent() {
   }, [journeyPhase]);
 
   useResearchRealtime({
-    userId: null,
+    userId: user?.id,
     activeRunId,
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
@@ -864,17 +858,59 @@ function JourneyPageContent() {
         return;
       }
 
-      // Workspace hydration is handled by WorkspaceResearchBridge. Keep the
-      // legacy hidden chat wake-up loop dormant for the Journey workspace.
       if (journeyPhaseRef.current === 'workspace') {
-        if (
-          REVIEW_ARTIFACT_SECTIONS.has(section) &&
-          !approvedArtifactSections.has(section as JourneyReviewSection)
-        ) {
-          showArtifactSection(section, { automatic: true });
-        }
+        const runId = activeRunIdRef.current;
+        const fields = resumeTransportStateRef.current ?? deepResearchOnboardingFields;
+        const fieldRecord = isRecord(fields) ? Object.fromEntries(
+          Object.entries(fields).filter(([, value]) => typeof value === 'string'),
+        ) as Record<string, string> : {};
+        const queuedOrComplete = {
+          ...researchResults,
+          [section]: result,
+        };
+        const queueAgentSection = (nextSection: string): void => {
+          if (!runId || activeResearch.has(nextSection) || queuedOrComplete[nextSection]) {
+            return;
+          }
 
-        return;
+          const context = buildJourneyResearchContext(fieldRecord, Object.keys(fieldRecord));
+          void dispatchResearchSection(nextSection, runId, context)
+            .then((dispatchResult) => {
+              if (dispatchResult.status === 'error') {
+                markResearchDispatchError(
+                  nextSection,
+                  dispatchResult.error ?? `${SECTION_META[nextSection] ?? nextSection} dispatch failed`,
+                );
+                return;
+              }
+              markResearchQueued(nextSection);
+            })
+            .catch((error: unknown) => {
+              markResearchDispatchError(nextSection, getErrorMessage(error));
+            });
+        };
+
+        if (section === 'industryMarket') {
+          queueAgentSection('competitors');
+          queueAgentSection('icpValidation');
+        }
+        if (section === 'competitors') {
+          queueAgentSection('offerAnalysis');
+        }
+        if (
+          ['industryMarket', 'competitors', 'icpValidation', 'offerAnalysis'].includes(section) &&
+          ['industryMarket', 'competitors', 'icpValidation', 'offerAnalysis'].every(
+            (requiredSection) => queuedOrComplete[requiredSection]?.status === 'complete',
+          )
+        ) {
+          queueAgentSection('crossAnalysis');
+        }
+        if (section === 'crossAnalysis') {
+          queueAgentSection('keywordIntel');
+        }
+        if (section === 'keywordIntel') {
+          queueAgentSection('mediaPlan');
+        }
       }
 
     },
@@ -1028,103 +1064,64 @@ function JourneyPageContent() {
     prefillWebsiteUrl,
   ]);
 
-  const showResumeView = journeyPhase === 'resume';
-  const resumeWorkspace = (
-    <div className="flex flex-1 items-center justify-center px-12">
-      <div className="w-full max-w-3xl">
-        <ResumePrompt
-          session={savedSession!}
-          onContinue={handleResumeContinue}
-          onStartFresh={handleResumeStartFresh}
-        />
-      </div>
-    </div>
-  );
-
-  const prefillWorkspace = (
-    <PrefillStreamView
-      websiteUrl={prefillWebsiteUrl}
-      deepResearchFields={deepResearchOnboardingFields}
-      deepResearchStatus={linkDeepResearchStatus}
-      deepResearchError={linkDeepResearchError}
-      deepResearchActivity={researchJobActivity.deepResearchProgram}
-      onRetry={() => {
-        setPrefillWebsiteUrl('');
-        setDeepResearchOnboardingFields({});
-        setLinkDeepResearchStatus('idle');
-        setLinkDeepResearchError(null);
-        setJourneyPhase('welcome');
-      }}
-    />
-  );
-
-  const welcomeWorkspace = (
-    <JourneyManusWelcome
-      websiteUrl={prefillWebsiteUrl}
-      onWebsiteUrlChange={setPrefillWebsiteUrl}
-      onAnalyze={handleAnalyzeCompanyLink}
-    />
-  );
-
-  const standardWorkspace = showResumeView
-    ? resumeWorkspace
-    : journeyPhase === 'prefilling'
-      ? prefillWorkspace
-      : welcomeWorkspace;
-
-  // Workspace phase — replaces entire chat layout with artifact-first workspace
-  if (journeyPhase === 'workspace') {
-    const handleWorkspaceSectionApproved = (approvedSection: SectionKey) => {
-      addLog('ok', `${SECTION_META[approvedSection] ?? approvedSection} approved — preparing the next section`);
-    };
-
+  if (journeyPhase === 'resume' && savedSession) {
     return (
       <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
-        <WorkspaceProvider
-          sessionId={activeRunId ?? 'default'}
-          startInWorkspace
-          initialSection={(deepLinkSection as SectionKey | undefined) ?? (deepLinkMediaPlan ? 'mediaPlan' : undefined)}
-        >
-          <WorkspacePage
-            userId={user?.id}
-            activeRunId={activeRunId}
-            onSectionApproved={handleWorkspaceSectionApproved}
-            companyName={journeyCompanyName}
-            onBack={() => {
-              clearStoredJourneySession();
-              setJourneyCompanyName(null);
-              setJourneyPhase('welcome');
-            }}
-          />
-        </WorkspaceProvider>
-      </AppShell>
-    );
-  }
-
-  if (journeyPhase === 'welcome') {
-    return (
-      <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
-        {welcomeWorkspace}
+        <main className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[#0b0b0a] px-6">
+          <div className="w-full max-w-3xl">
+            <ResumePrompt
+              session={savedSession}
+              onContinue={handleResumeContinue}
+              onStartFresh={handleResumeStartFresh}
+            />
+          </div>
+        </main>
       </AppShell>
     );
   }
 
   return (
     <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
-      <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-[#0b0b0a]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={journeyPhase}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-            className="flex min-h-0 flex-1 flex-col"
-          >
-            {standardWorkspace}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+      <JourneyAgentChat
+        websiteUrl={prefillWebsiteUrl}
+        onWebsiteUrlChange={setPrefillWebsiteUrl}
+        onSubmitWebsite={handleAnalyzeCompanyLink}
+        activeRunId={activeRunId}
+        companyName={journeyCompanyName}
+        phase={journeyPhase}
+        deepResearchStatus={linkDeepResearchStatus}
+        deepResearchError={linkDeepResearchError}
+        deepResearchFields={deepResearchOnboardingFields}
+        researchActivity={researchJobActivity}
+        researchResults={researchResults}
+        messages={messages}
+        onRetryDeepResearch={() => {
+          setDeepResearchOnboardingFields({});
+          setLinkDeepResearchStatus('idle');
+          setLinkDeepResearchError(null);
+          setJourneyPhase('welcome');
+        }}
+        onStartFresh={() => {
+          clearJourneySession();
+          clearStoredJourneySession();
+          resetConversationState();
+          activeRunIdRef.current = null;
+          resumeTransportStateRef.current = undefined;
+          setActiveRunId(null);
+          setResumeTransportState(undefined);
+          setPrefillWebsiteUrl('');
+          setDeepResearchOnboardingFields({});
+          setLinkDeepResearchStatus('idle');
+          setLinkDeepResearchError(null);
+          setSavedSession(null);
+          setIsResuming(false);
+          setJourneyCompanyName(null);
+          setStoredJourneyCompanyName(null);
+          setResearchResults({});
+          setActiveResearch(new Set());
+          setJourneyPhase('welcome');
+        }}
+      />
     </AppShell>
   );
 }
