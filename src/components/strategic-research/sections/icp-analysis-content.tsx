@@ -27,6 +27,7 @@ import {
 } from "./shared-primitives";
 import type {
   ICPAnalysisValidation,
+  ICPRiskAssessment,
   RiskRating,
   RiskScore,
 } from "@/lib/strategic-blueprint/output-types";
@@ -38,6 +39,10 @@ import type {
 interface ICPAnalysisContentProps extends EditableContentProps {
   data: ICPAnalysisValidation;
 }
+
+type LegacyICPAnalysisValidation = ICPAnalysisValidation & {
+  riskAssessment?: ICPRiskAssessment;
+};
 
 // -----------------------------------------------------------------------------
 // InlineCheckRow — replaces BoolCheck with icon-backed pass/fail rows
@@ -463,6 +468,7 @@ function LegacyRiskRow({
 
 export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalysisContentProps) {
   const verdictStatus = data?.finalVerdict?.status || "workable";
+  const legacyRiskAssessment = (data as LegacyICPAnalysisValidation).riskAssessment;
 
   return (
     <div className="space-y-8">
@@ -660,7 +666,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
       </SubSection>
 
       {/* ── Risk Assessment ──────────────────────────────────────────────────── */}
-      {(hasItems(data?.riskScores) || (data as any)?.riskAssessment || isEditing) && (
+      {(hasItems(data?.riskScores) || legacyRiskAssessment || isEditing) && (
         <SubSection title="Risk Assessment">
           {data?.riskScores?.length ? (
             /* Modern riskScores shape — score bar per risk */
@@ -675,7 +681,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
                 />
               ))}
             </div>
-          ) : (data as any)?.riskAssessment ? (
+          ) : legacyRiskAssessment ? (
             /* Legacy fallback — horizontal key/value rows work fine for single-word ratings */
             <CardGrid cols={4}>
               {(
@@ -689,7 +695,7 @@ export function ICPAnalysisContent({ data, isEditing, onFieldChange }: ICPAnalys
                 <LegacyRiskRow
                   key={key}
                   label={label}
-                  value={(data as any).riskAssessment?.[key] || "medium"}
+                  value={legacyRiskAssessment[key] || "medium"}
                   fieldPath={`riskAssessment.${key}`}
                 />
               ))}

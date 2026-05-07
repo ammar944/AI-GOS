@@ -1,6 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
+import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk';
 import Firecrawl from '@mendable/firecrawl-js';
 import type {
+  BetaCodeExecutionToolResultBlock,
   BetaContentBlock,
   BetaMCPToolUseBlock,
   BetaServerToolUseBlock,
@@ -14,6 +15,7 @@ export {
   type RunnerTelemetry,
   type RunnerUsageTelemetry,
 } from './telemetry';
+import { ANTHROPIC_CODE_EXECUTION_BETA, ANTHROPIC_SKILLS_BETA, hasConfiguredAnthropicSkills } from './anthropic-skills';
 import { MODELS } from './models';
 
 /** Advisor tool definition — shared by runners that opt into Opus guidance. */
@@ -49,13 +51,35 @@ export function isAdvisorEnabled(): boolean {
   return process.env.ENABLE_ADVISOR_TOOL === 'true';
 }
 
-export function createClient() {
+function getAnthropicAuthOptions(): Pick<ClientOptions, 'apiKey' | 'authToken'> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (apiKey) {
+    return { apiKey };
+  }
+
+  const authToken = process.env.ANTHROPIC_AUTH_TOKEN?.trim();
+  if (authToken) {
+    return { authToken };
+  }
+
+  return {};
+}
+
+interface CreateAnthropicClientOptions {
+  enableSkillsBeta?: boolean;
+}
+
+export function createClient(options: CreateAnthropicClientOptions = {}): Anthropic {
   const betaFeatures = ['prompt-caching-2024-07-31'];
+  if (options.enableSkillsBeta === true && hasConfiguredAnthropicSkills()) {
+    betaFeatures.push(ANTHROPIC_SKILLS_BETA, ANTHROPIC_CODE_EXECUTION_BETA);
+  }
   if (isAdvisorEnabled()) {
     betaFeatures.push('advisor-tool-2026-03-01');
     console.log('[runner] Advisor tool ENABLED — beta header includes advisor-tool-2026-03-01');
   }
   return new Anthropic({
+    ...getAnthropicAuthOptions(),
     maxRetries: 0,
     defaultHeaders: {
       'anthropic-beta': betaFeatures.join(','),
@@ -452,6 +476,8 @@ export async function runStreamedToolRunner(
     onProgress?: RunnerProgressReporter;
     synthesisMessage?: string;
     maxToolIterations?: number;
+    onCodeExecutionOutputFile?: (fileId: string) => void;
+    onCodeExecutionStdout?: (stdout: string) => void;
   },
 ): Promise<Anthropic.Beta.BetaMessage> {
   const MAX_SOURCE_SCREENSHOTS = 3;
@@ -551,6 +577,23 @@ export async function runStreamedToolRunner(
                 );
               }
             });
+          }
+        }
+      }
+
+      if (block.type === 'code_execution_tool_result') {
+        const resultBlock = block as BetaCodeExecutionToolResultBlock;
+        const content = resultBlock.content;
+        if (
+          content.type === 'code_execution_result' ||
+          content.type === 'encrypted_code_execution_result'
+        ) {
+          for (const output of content.content) {
+            options.onCodeExecutionOutputFile?.(output.file_id);
+          }
+
+          if (content.type === 'code_execution_result' && content.stdout.trim().length > 0) {
+            options.onCodeExecutionStdout?.(content.stdout);
           }
         }
       }

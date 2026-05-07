@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env';
 import express from 'express';
 import {
   runResearchIndustry,
@@ -10,6 +10,9 @@ import {
   runMediaPlan,
   resolveProductIdentity,
   runMeetingExtraction,
+  runDeepResearchProgram,
+  splitDeepResearchResult,
+  DEEP_RESEARCH_CANONICAL_SECTIONS,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
@@ -21,6 +24,7 @@ import { extractWikiEntries, writeWikiEntries } from './wiki';
 import { workerBus } from './events';
 import { dispatchIntelligenceCards } from './intelligence/dispatcher';
 import { emitTelemetry } from './telemetry';
+import { getAnthropicSkillsRuntimeStatus } from './anthropic-skills';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -65,6 +69,7 @@ type ToolName =
   | 'synthesizeResearch'
   | 'researchKeywords'
   | 'researchMediaPlan'
+  | 'runDeepResearchProgram'
   | 'resolveIdentity'
   | 'extractMeetingTranscript';
 
@@ -100,6 +105,7 @@ const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgre
   synthesizeResearch: runSynthesizeResearch,
   researchKeywords: runResearchKeywords,
   researchMediaPlan: runMediaPlan,
+  runDeepResearchProgram,
   resolveIdentity: resolveProductIdentity,
   extractMeetingTranscript: runMeetingExtraction,
 };
@@ -114,8 +120,16 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/capabilities', (_req, res) => {
+  const anthropicSkills = getAnthropicSkillsRuntimeStatus();
   res.json({
     status: 'ok',
+    anthropic: {
+      authConfigured: Boolean(
+        process.env.ANTHROPIC_API_KEY?.trim() ||
+          process.env.ANTHROPIC_AUTH_TOKEN?.trim(),
+      ),
+      skills: anthropicSkills,
+    },
     tools: {
       webSearch: true,
       spyfu: Boolean(process.env.SPYFU_API_KEY),
@@ -229,6 +243,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     let jobFinalized = false;
 
     const queueJobStatusWrite = (row: Parameters<typeof writeJobStatus>[2]) => {
+      if (jobFinalized && row.status === 'running') {
+        return statusWriteChain;
+      }
+
       statusWriteChain = statusWriteChain
         .then(() => writeJobStatus(userId, jobId, row))
         .catch((err) => {
@@ -239,6 +257,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
     };
 
     const emitProgress: RunnerProgressReporter = async (update) => {
+      if (jobFinalized) {
+        return;
+      }
+
       const signature = `${update.phase}:${update.message}`;
       if (signature === lastProgressSignature) {
         return;
@@ -319,10 +341,32 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       });
 
       try {
-        await writeResearchResult(userId, result.section, {
-          ...result,
-          runId,
-        });
+        if (tool === 'runDeepResearchProgram') {
+          if (result.status === 'complete') {
+            const splitResults = splitDeepResearchResult(result);
+            for (const sectionResult of splitResults) {
+              await writeResearchResult(userId, sectionResult.section, {
+                ...sectionResult,
+                runId,
+              });
+            }
+            console.log(`[worker] Deep research program wrote ${splitResults.length} section artifacts`);
+          } else {
+            for (const section of DEEP_RESEARCH_CANONICAL_SECTIONS) {
+              await writeResearchResult(userId, section, {
+                ...result,
+                section,
+                runId,
+              });
+            }
+            console.log(`[worker] Deep research program wrote error state to ${DEEP_RESEARCH_CANONICAL_SECTIONS.length} section artifacts`);
+          }
+        } else {
+          await writeResearchResult(userId, result.section, {
+            ...result,
+            runId,
+          });
+        }
       } catch (writeError) {
         console.error(
           `[worker] writeResearchResult failed after retries for ${result.section}:`,
@@ -522,6 +566,7 @@ const STALE_THRESHOLD_MS = 300_000; // 5 minutes
 // Per-tool overrides — media plan runs 6 sequential generateObject() calls
 const TOOL_STALE_THRESHOLDS: Partial<Record<ToolName, number>> = {
   researchMediaPlan: 900_000, // 15 minutes for 6-block sequential generation
+  runDeepResearchProgram: 900_000, // one corpus pass + six card synthesis can run longer than global 5m
 };
 
 setInterval(() => {

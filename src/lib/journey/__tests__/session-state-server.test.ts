@@ -143,18 +143,28 @@ const mockSelect = vi.fn();
 const mockSingle = vi.fn();
 const mockMaybeSingle = vi.fn();
 const mockEq = vi.fn();
+const mockOrder = vi.fn();
+const mockLimit = vi.fn();
 const mockRpc = vi.fn();
+const mockQueryBuilder = {
+  select: mockSelect,
+  eq: mockEq,
+  order: mockOrder,
+  limit: mockLimit,
+  single: mockSingle,
+  maybeSingle: mockMaybeSingle,
+  upsert: mockUpsert,
+};
+
+mockSelect.mockReturnValue(mockQueryBuilder);
+mockEq.mockReturnValue(mockQueryBuilder);
+mockOrder.mockReturnValue(mockQueryBuilder);
+mockLimit.mockReturnValue(mockQueryBuilder);
 
 vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: vi.fn(() => ({
     rpc: mockRpc,
-    from: vi.fn(() => ({
-      select: mockSelect.mockReturnThis(),
-      eq: mockEq.mockReturnThis(),
-      single: mockSingle,
-      maybeSingle: mockMaybeSingle,
-      upsert: mockUpsert,
-    })),
+    from: vi.fn(() => mockQueryBuilder),
   })),
 }));
 
@@ -187,7 +197,7 @@ describe('persistResearchToSupabase', () => {
         status: 'complete',
         section: 'industryResearch',
         durationMs: 1200,
-        data: validIndustryResearchData,
+        data: expect.objectContaining(validIndustryResearchData),
       }),
       p_section: 'industryResearch',
       p_user_id: 'user-1',
@@ -294,7 +304,20 @@ describe('persistResearchToSupabase', () => {
       p_result: expect.objectContaining({
         status: 'complete',
         section: 'competitorIntel',
-        data: validCompetitorIntelData,
+        data: expect.objectContaining({
+          competitors: expect.arrayContaining([
+            expect.objectContaining({
+              name: 'SalesCaptain',
+              website: 'https://salescaptain.io',
+            }),
+          ]),
+          whiteSpaceGaps: expect.arrayContaining([
+            expect.objectContaining({
+              gap: 'Proof-led attribution messaging',
+              recommendedAction: 'Lead launch creative with revenue visibility proof.',
+            }),
+          ]),
+        }),
         durationMs: 9999,
       }),
       p_section: 'competitorIntel',

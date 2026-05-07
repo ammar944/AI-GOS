@@ -1,23 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Share2, Check, Loader2, Link2, ArrowLeft } from 'lucide-react';
-import { SectionTabs } from './section-tabs';
 import { ArtifactCanvas } from './artifact-canvas';
+import { ManusWorkspaceShell } from './manus-workspace-shell';
 import { UnifiedChat } from '@/components/chat/unified-chat';
 import type { CardContext } from '@/components/chat/unified-chat';
-import { BottomSheet } from './bottom-sheet';
 import { useWorkspace } from '@/lib/workspace/use-workspace';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
-import { useResearchJobActivity } from '@/lib/journey/research-job-activity';
-import { dispatchResearchSection } from '@/lib/journey/dispatch-client';
+import { useResearchJobActivity, type ResearchJobActivity } from '@/lib/journey/research-job-activity';
+import {
+  dispatchDeepResearchProgram,
+  dispatchResearchSection,
+} from '@/lib/journey/dispatch-client';
 import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
 import { getJourneySession } from '@/lib/storage/local-storage';
 import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
+import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 import { useSessionShare } from '@/hooks/use-session-share';
-import type { SectionKey } from '@/lib/workspace/types';
-import { SECTION_PIPELINE, WORKSPACE_SECTIONS } from '@/lib/workspace/pipeline';
+import type { SectionKey, WorkspaceState } from '@/lib/workspace/types';
+import { RESEARCH_SECTIONS, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
 import { buildWorkspaceHydrationPlan } from './workspace-hydration';
@@ -38,6 +41,7 @@ interface WorkspacePageProps {
 interface WorkspaceResearchBridgeProps {
   userId?: string | null;
   activeRunId?: string | null;
+  activityBySection: Record<string, ResearchJobActivity>;
   onRunViewLoaded: (view: JourneyRunView | null) => void;
 }
 
@@ -51,52 +55,115 @@ function getRunViewFromSnapshot(snapshot: unknown): JourneyRunView | null {
   return Array.isArray(view?.sections) ? (view as unknown as JourneyRunView) : null;
 }
 
+function isFirstPassResearchSection(section: SectionKey): boolean {
+  return RESEARCH_SECTIONS.includes(section);
+}
+
+function hasRunningResearchActivity(
+  activityBySection: Record<string, ResearchJobActivity>,
+): boolean {
+  return Object.values(activityBySection).some(
+    (activity) => activity.status === 'running',
+  );
+}
+
+function getRunDetailsSummary(
+  view: JourneyRunView | null,
+  activityBySection: Record<string, ResearchJobActivity>,
+): string {
+  if (hasRunningResearchActivity(activityBySection)) {
+    return 'Run details - running';
+  }
+
+  return view ? `Run details - ${view.status}` : 'Run details';
+}
+
 function WorkspaceResearchBridge({
   userId,
   activeRunId,
+  activityBySection,
   onRunViewLoaded,
 }: WorkspaceResearchBridgeProps) {
   const { setSectionPhase, setCards, updateCard } = useWorkspace();
   const renderedMediaPlanBlocksRef = useRef<Set<string>>(new Set());
+  const appliedEditsRef = useRef(false);
+  const activityBySectionRef = useRef(activityBySection);
 
-  // One-time fetch of persisted data from Supabase (cold-start / cross-device recovery).
+  useEffect(() => {
+    activityBySectionRef.current = activityBySection;
+  }, [activityBySection]);
+
+  const hydrateWorkspaceSnapshot = useCallback(
+    (json: unknown): void => {
+      onRunViewLoaded(getRunViewFromSnapshot(json));
+      const hydrationPlan = buildWorkspaceHydrationPlan(json);
+      for (const sectionPlan of hydrationPlan.sections) {
+        const activity = activityBySectionRef.current[sectionPlan.section];
+        const phase =
+          activity?.status === 'running' ? 'researching' : sectionPlan.phase;
+        const error =
+          activity?.status === 'running' ? undefined : sectionPlan.error;
+
+        if (sectionPlan.cards.length > 0) {
+          setCards(sectionPlan.section, sectionPlan.cards);
+        }
+        setSectionPhase(
+          sectionPlan.section,
+          phase,
+          error,
+        );
+      }
+
+      if (appliedEditsRef.current) {
+        return;
+      }
+
+      appliedEditsRef.current = true;
+      for (const edit of hydrationPlan.cardEdits) {
+        updateCard(edit.cardId, edit.content, 'ai');
+      }
+    },
+    [onRunViewLoaded, setCards, setSectionPhase, updateCard],
+  );
+
+  // Poll persisted data from Supabase (cold-start / cross-device recovery + live job status).
   // 1. Hydrates section states — if Supabase has complete results but localStorage is stale,
   //    update workspace state so CTAs (media plan, scripts) appear correctly.
   // 2. Applies persisted card edits stored under research_results[section].__cardEdits.
-  const appliedEditsRef = useRef(false);
   useEffect(() => {
-    if (!activeRunId || appliedEditsRef.current) return;
-    appliedEditsRef.current = true;
+    if (!activeRunId) return;
+    let cancelled = false;
+    appliedEditsRef.current = false;
 
-    fetch(`/api/journey/session?runId=${activeRunId}`, { credentials: 'same-origin' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        onRunViewLoaded(getRunViewFromSnapshot(json));
-        const hydrationPlan = buildWorkspaceHydrationPlan(json);
-        for (const sectionPlan of hydrationPlan.sections) {
-          if (sectionPlan.cards.length > 0) {
-            setCards(sectionPlan.section, sectionPlan.cards);
-          }
-          setSectionPhase(
-            sectionPlan.section,
-            sectionPlan.phase,
-            sectionPlan.error,
-          );
+    const fetchSnapshot = async (): Promise<void> => {
+      try {
+        const response = await fetch(`/api/journey/session?runId=${activeRunId}`, {
+          credentials: 'same-origin',
+        });
+        const json = response.ok ? await response.json() : null;
+        if (!cancelled) {
+          hydrateWorkspaceSnapshot(json);
         }
-
-        // Apply persisted card edits
-        for (const edit of hydrationPlan.cardEdits) {
-          updateCard(edit.cardId, edit.content, 'ai');
-        }
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
+        if (cancelled) return;
         onRunViewLoaded(null);
         console.warn('[journey] Failed to hydrate workspace from session snapshot:', {
           activeRunId,
           error,
         });
-      });
-  }, [activeRunId, updateCard, setCards, setSectionPhase, onRunViewLoaded]);
+      }
+    };
+
+    void fetchSnapshot();
+    const interval = window.setInterval(() => {
+      void fetchSnapshot();
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activeRunId, hydrateWorkspaceSnapshot, onRunViewLoaded]);
 
   const onSectionComplete = useCallback(
     (section: string, result: ResearchSectionResult) => {
@@ -216,46 +283,42 @@ function ShareButton() {
   );
 }
 
-function WorkspaceNavBar({
+function WorkspaceStatusSummary({
   companyName,
   onBack,
-  userId,
-  activeRunId,
 }: {
   companyName?: string | null;
   onBack?: () => void;
-  userId?: string | null;
-  activeRunId?: string | null;
-}) {
-  const { state, navigateToSection } = useWorkspace();
-
-  // Show all 8 sections so users see the full pipeline upfront.
-  // Queued sections render dimmed but visible in the tab bar.
-  const visibleSections = WORKSPACE_SECTIONS;
+}): React.ReactElement {
+  const { state } = useWorkspace();
+  const meta = SECTION_META[state.currentSection] ?? DEFAULT_SECTION_META;
   const showCompanyName = companyName && companyName !== 'this company';
+  const activePhase = state.sectionStates[state.currentSection];
 
   return (
-    <div className="flex items-center">
-      <div className="flex-1 min-w-0">
-        <SectionTabs
-          sections={visibleSections}
-          currentSection={state.currentSection}
-          sectionStates={state.sectionStates}
-          onNavigate={navigateToSection}
-          mode="workspace"
-          userId={userId}
-          activeRunId={activeRunId}
-        />
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          Deep Research Workspace
+        </p>
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-sm font-medium text-[var(--text-primary)]">
+            {showCompanyName ? companyName : 'AI-GOS Journey'}
+          </h1>
+          <span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
+            {activePhase}
+          </span>
+        </div>
+        <p className="mt-1 truncate text-xs text-[var(--text-tertiary)]">
+          {meta.moduleNumber} · {meta.label}
+        </p>
       </div>
-      <div className="flex shrink-0 items-center gap-3 pr-4">
-        {showCompanyName && (
-          <p className="hidden text-xs text-[var(--text-tertiary)] sm:block truncate max-w-[200px]">
-            {companyName}
-          </p>
-        )}
+
+      <div className="flex shrink-0 items-center gap-2">
         <ShareButton />
         {onBack && (
           <button
+            type="button"
             onClick={onBack}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--text-quaternary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
             title="Start a new journey"
@@ -268,9 +331,79 @@ function WorkspaceNavBar({
   );
 }
 
-const CHAT_MIN_W = 320;
-const CHAT_MAX_W = 640;
-const CHAT_DEFAULT_W = 400;
+function WorkspaceRunDetails({
+  view,
+  activityBySection,
+}: {
+  view: JourneyRunView | null;
+  activityBySection: Record<string, ResearchJobActivity>;
+}): React.ReactElement | null {
+  if (!view) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-3">
+      <JourneyRunBlockerPanel view={view} />
+      <JourneyRunStagePanel
+        view={view}
+        activityBySection={activityBySection}
+      />
+      <JourneyRunArtifactVisibilityPanel view={view} />
+      <JourneyRunEventLog view={view} />
+    </div>
+  );
+}
+
+function buildCardContextForSection(
+  cards: WorkspaceState['cards'],
+  section: SectionKey,
+): CardContext[] {
+  return Object.values(cards)
+    .filter((card) => card.sectionKey === section)
+    .slice(0, 10)
+    .map((card) => {
+      let summary = '';
+      const content = card.content;
+      if (content) {
+        if ('text' in content && typeof content.text === 'string') {
+          summary = content.text.slice(0, 300);
+        } else if ('stats' in content && Array.isArray(content.stats)) {
+          summary = (content.stats as Array<{ label?: string; value?: string }>)
+            .map((stat) => `${stat.label}: ${stat.value}`)
+            .join(', ')
+            .slice(0, 300);
+        } else if ('items' in content && Array.isArray(content.items)) {
+          summary = (content.items as Array<{ title?: string; text?: string }>)
+            .map((item) => item.title || item.text || '')
+            .filter(Boolean)
+            .join('; ')
+            .slice(0, 300);
+        } else {
+          summary = JSON.stringify(content).slice(0, 300);
+        }
+      }
+
+      const fields: string[] = [];
+      for (const key of Object.keys(content)) {
+        if (key === 'stats' && Array.isArray(content.stats)) {
+          const statLabels = (content.stats as Array<{ label?: string }>)
+            .map((stat) => stat.label)
+            .filter((label): label is string => Boolean(label));
+          fields.push(...statLabels.map((label) => `stats.${label}`));
+        } else {
+          fields.push(key);
+        }
+      }
+
+      return {
+        id: card.id,
+        title: card.label ?? card.cardType,
+        firstParagraph: summary,
+        fields: fields.slice(0, 15),
+      };
+    });
+}
 
 export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyName, onBack }: WorkspacePageProps) {
   const { state, setSectionPhase, navigateToSection } = useWorkspace();
@@ -279,46 +412,6 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
   const [autoGenerateScripts, setAutoGenerateScripts] = useState(false);
   const [showAssetCollection, setShowAssetCollection] = useState(false);
   const [runView, setRunView] = useState<JourneyRunView | null>(null);
-
-  // Resizable chat panel
-  const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_W);
-  const resizingRef = useRef(false);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(CHAT_DEFAULT_W);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizingRef.current = true;
-    startXRef.current = e.clientX;
-    startWidthRef.current = chatWidth;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    const onMove = (ev: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const delta = startXRef.current - ev.clientX; // dragging left = wider
-      const next = Math.min(CHAT_MAX_W, Math.max(CHAT_MIN_W, startWidthRef.current + delta));
-      setChatWidth(next);
-    };
-
-    const onUp = () => {
-      resizingRef.current = false;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, [chatWidth]);
-
-  // Hide chat rail when any section is actively generating
-  const hasActiveResearch = useMemo(() => {
-    return SECTION_PIPELINE.some(
-      (key) => state.sectionStates[key] === 'researching' || state.sectionStates[key] === 'streaming',
-    );
-  }, [state.sectionStates]);
 
   const jobActivity = useResearchJobActivity({
     userId,
@@ -370,8 +463,23 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
 
   const handleRetrySection = useCallback(async (section: SectionKey) => {
     if (!activeRunId) return;
-    setSectionPhase(section, 'researching');
 
+    if (isFirstPassResearchSection(section)) {
+      for (const researchSection of RESEARCH_SECTIONS) {
+        setSectionPhase(researchSection, 'researching');
+      }
+
+      const context = await buildSectionContext(`Retry ${section} research`);
+      const result = await dispatchDeepResearchProgram(activeRunId, context);
+      if (result.status === 'error') {
+        for (const researchSection of RESEARCH_SECTIONS) {
+          setSectionPhase(researchSection, 'error', result.error ?? 'Retry failed');
+        }
+      }
+      return;
+    }
+
+    setSectionPhase(section, 'researching');
     const context = await buildSectionContext(`Retry ${section} research`);
     const result = await dispatchResearchSection(section, activeRunId, context);
     if (result.status === 'error') {
@@ -422,140 +530,86 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
     navigateToSection('scripts');
   }, [setSectionPhase, navigateToSection, state.sectionStates.mediaPlan]);
 
+  const cardCtx = buildCardContextForSection(state.cards, state.currentSection);
+  const hideChatForScripts = state.currentSection === 'scripts' && scriptsGenerating;
+  const chatPane = hideChatForScripts ? (
+    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+        Script generation running
+      </p>
+      <p className="max-w-sm text-sm leading-6 text-[var(--text-secondary)]">
+        The workspace chat will return when the active script pass finishes.
+      </p>
+    </div>
+  ) : (
+    <UnifiedChat
+      section={state.currentSection}
+      activeRunId={activeRunId ?? ''}
+      cardContext={cardCtx}
+      companyName={companyName ?? undefined}
+      className="flex-1"
+    />
+  );
+
+  const artifactPane = showAssetCollection && state.currentSection !== 'scripts' ? (
+    <AssetCollectionPhase
+      runId={activeRunId ?? ''}
+      onGenerateScripts={handleNavigateToScripts}
+      onSkip={handleNavigateToScripts}
+    />
+  ) : state.currentSection === 'scripts' ? (
+    <div className="flex flex-1 flex-col min-h-0 overflow-y-auto custom-scrollbar">
+      <ScriptsPhaseContent
+        activeRunId={activeRunId ?? null}
+        onScriptsGeneratingChange={setScriptsGenerating}
+        autoGenerate={autoGenerateScripts}
+      />
+    </div>
+  ) : (
+    <ArtifactCanvas
+      jobActivity={jobActivity}
+      onGenerateMediaPlan={handleGenerateMediaPlan}
+      mediaPlanGenerating={mediaPlanGenerating}
+      onRetrySection={handleRetrySection}
+      onNavigateToScripts={handleNavigateToScripts}
+      onNavigateToAssets={handleNavigateToAssets}
+    />
+  );
+
+  const runDetails = (
+    <WorkspaceRunDetails
+      view={runView}
+      activityBySection={jobActivity}
+    />
+  );
+
   return (
     <div className="flex h-full flex-col min-h-0 bg-[var(--bg-base)]">
       <WorkspaceResearchBridge
         userId={userId}
         activeRunId={activeRunId}
+        activityBySection={jobActivity}
         onRunViewLoaded={setRunView}
       />
       <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
-      <WorkspaceNavBar
-        companyName={companyName}
-        onBack={onBack}
-        userId={userId}
-        activeRunId={activeRunId}
-      />
-      <JourneyRunBlockerPanel view={runView} />
-      <JourneyRunStagePanel
-        view={runView}
-        activityBySection={jobActivity}
-      />
-      <JourneyRunArtifactVisibilityPanel view={runView} />
-      <JourneyRunEventLog view={runView} />
-      <div className="flex flex-1 min-h-0">
-        {showAssetCollection && state.currentSection !== 'scripts' ? (
-          <div className="flex flex-1 flex-col min-h-0">
-            <AssetCollectionPhase
-              runId={activeRunId ?? ''}
-              onGenerateScripts={handleNavigateToScripts}
-              onSkip={handleNavigateToScripts}
-            />
-          </div>
-        ) : state.currentSection === 'scripts' ? (
-          <div className="flex flex-1 flex-col min-h-0 overflow-y-auto custom-scrollbar">
-            <ScriptsPhaseContent
-              activeRunId={activeRunId ?? null}
-              onScriptsGeneratingChange={setScriptsGenerating}
-              autoGenerate={autoGenerateScripts}
-            />
-          </div>
-        ) : (
-          <ArtifactCanvas
-            jobActivity={jobActivity}
-            onGenerateMediaPlan={handleGenerateMediaPlan}
-            mediaPlanGenerating={mediaPlanGenerating}
-            onRetrySection={handleRetrySection}
-            onNavigateToScripts={handleNavigateToScripts}
-            onNavigateToAssets={handleNavigateToAssets}
+      <ManusWorkspaceShell
+        workspaceState={{
+          currentSection: state.currentSection,
+          sectionStates: state.sectionStates,
+        }}
+        sections={RESEARCH_SECTIONS}
+        onNavigateSection={navigateToSection}
+        statusSummary={(
+          <WorkspaceStatusSummary
+            companyName={companyName}
+            onBack={onBack}
           />
         )}
-        {(() => {
-          const currentPhase = state.sectionStates[state.currentSection];
-          const hideChatForScripts =
-            state.currentSection === 'scripts' && scriptsGenerating;
-          const showChat =
-            (!hasActiveResearch || currentPhase === 'review') && !hideChatForScripts;
-          if (!showChat) return null;
-
-          // Build card summaries for AI context injection
-          const sectionCards = Object.values(state.cards).filter(
-            (c) => c.sectionKey === state.currentSection,
-          );
-          const cardCtx: CardContext[] = sectionCards.slice(0, 10).map((card) => {
-            // Build a readable summary of card content for the AI
-            let summary = '';
-            const content = card.content;
-            if (content) {
-              if ('text' in content && typeof content.text === 'string') {
-                summary = content.text.slice(0, 300);
-              } else if ('stats' in content && Array.isArray(content.stats)) {
-                // Stat grid cards: [{ label, value }]
-                summary = (content.stats as Array<{ label?: string; value?: string }>)
-                  .map(s => `${s.label}: ${s.value}`)
-                  .join(', ')
-                  .slice(0, 300);
-              } else if ('items' in content && Array.isArray(content.items)) {
-                // List cards
-                summary = (content.items as Array<{ title?: string; text?: string }>)
-                  .map(item => item.title || item.text || '')
-                  .filter(Boolean)
-                  .join('; ')
-                  .slice(0, 300);
-              } else {
-                // Fallback: JSON preview of top-level keys
-                summary = JSON.stringify(content).slice(0, 300);
-              }
-            }
-            // Build field list — for stat grids, expose dot-notation paths like "stats.Category"
-            const fields: string[] = [];
-            if (content && typeof content === 'object') {
-              for (const key of Object.keys(content)) {
-                if (key === 'stats' && Array.isArray(content.stats)) {
-                  const statLabels = (content.stats as Array<{ label?: string }>)
-                    .map(s => s.label)
-                    .filter(Boolean);
-                  fields.push(...statLabels.map(l => `stats.${l}`));
-                } else {
-                  fields.push(key);
-                }
-              }
-            }
-
-            return {
-              id: card.id,
-              title: card.label ?? card.cardType,
-              firstParagraph: summary,
-              fields: fields.slice(0, 15),
-            };
-          });
-
-          return (
-            <div
-              className="hidden md:flex shrink-0 relative"
-              style={{ width: chatWidth }}
-            >
-              {/* Resize handle — left edge */}
-              <div
-                onMouseDown={handleResizeStart}
-                className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-10 group"
-              >
-                <div className="absolute inset-y-0 -left-0.5 w-2 transition-colors group-hover:bg-[var(--border-default)]/40 group-active:bg-[var(--border-default)]/60" />
-                <div className="absolute top-1/2 -translate-y-1/2 -left-[3px] w-[7px] h-8 rounded-full bg-zinc-700/60 group-hover:bg-[var(--text-tertiary)]/60 transition-all opacity-0 group-hover:opacity-100" />
-              </div>
-              <UnifiedChat
-                section={state.currentSection}
-                activeRunId={activeRunId ?? ''}
-                cardContext={cardCtx}
-                className="flex-1 border-l border-zinc-800/40"
-              />
-            </div>
-          );
-        })()}
-      </div>
-      <div className="md:hidden">
-        <BottomSheet />
-      </div>
+        chat={chatPane}
+        artifact={artifactPane}
+        runDetails={runView ? runDetails : undefined}
+        runDetailsSummary={getRunDetailsSummary(runView, jobActivity)}
+      />
     </div>
   );
 }

@@ -14,9 +14,12 @@ import type {
   CrossAnalysisSynthesis,
   KeywordIntelligence,
   StrategicBlueprintMetadata,
+  CompetitorReviewData,
+  ICPRiskAssessment,
   RiskRating,
   OfferRedFlag,
   OfferRecommendation,
+  TrustpilotReview,
 } from './output-types';
 
 // =============================================================================
@@ -62,6 +65,14 @@ function safeString(value: string | undefined | null, fallback = 'N/A'): string 
 function safeArray<T>(value: T[] | undefined | null): T[] {
   return value ?? [];
 }
+
+type LegacyICPAnalysisValidation = ICPAnalysisValidation & {
+  riskAssessment?: ICPRiskAssessment;
+};
+
+type ReviewableCompetitorSnapshot = CompetitorAnalysis['competitors'][number] & {
+  reviewData?: CompetitorReviewData;
+};
 
 /**
  * Formats a risk rating with visual indicator
@@ -305,7 +316,7 @@ function generateICPAnalysis(section: ICPAnalysisValidation): string {
       )
     );
   } else {
-    const risk = (section as any).riskAssessment;
+    const risk = (section as LegacyICPAnalysisValidation).riskAssessment;
     lines.push(
       createTable(
         ['Risk Category', 'Rating'],
@@ -669,29 +680,31 @@ function generateCompetitorAnalysis(section: CompetitorAnalysis): string {
     }
 
     // Customer Reviews — only render header if at least one source has actual data
-    const rd = (comp as any)?.reviewData;
-    const hasG2Data = rd?.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0);
-    const hasTrustpilotData = rd?.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0);
+    const rd = (comp as ReviewableCompetitorSnapshot).reviewData;
+    const g2 = rd?.g2;
+    const trustpilot = rd?.trustpilot;
+    const hasG2Data = g2 != null && ((g2.rating ?? 0) > 0 || (g2.reviewCount ?? 0) > 0);
+    const hasTrustpilotData = trustpilot != null && ((trustpilot.trustScore ?? 0) > 0 || (trustpilot.totalReviews ?? 0) > 0);
     if (hasG2Data || hasTrustpilotData) {
       lines.push('**Customer Reviews:**');
-      if (hasG2Data) {
-        const g2Link = rd.g2.url ? `[G2](${rd.g2.url})` : 'G2';
-        lines.push(`- ${g2Link}: ${rd.g2.rating}/5 (${rd.g2.reviewCount} reviews)${rd.g2.productCategory ? ` — ${rd.g2.productCategory}` : ''}`);
+      if (g2 && hasG2Data) {
+        const g2Link = g2.url ? `[G2](${g2.url})` : 'G2';
+        lines.push(`- ${g2Link}: ${g2.rating}/5 (${g2.reviewCount} reviews)${g2.productCategory ? ` — ${g2.productCategory}` : ''}`);
       }
-      if (hasTrustpilotData) {
-        const tpLink = rd.trustpilot.url ? `[Trustpilot](${rd.trustpilot.url})` : 'Trustpilot';
-        lines.push(`- ${tpLink}: ${rd.trustpilot.trustScore}/5 (${rd.trustpilot.totalReviews} reviews)`);
-        if (rd.trustpilot.aiSummary) {
-          lines.push(`  - *${rd.trustpilot.aiSummary.slice(0, 200)}${rd.trustpilot.aiSummary.length > 200 ? '...' : ''}*`);
+      if (trustpilot && hasTrustpilotData) {
+        const tpLink = trustpilot.url ? `[Trustpilot](${trustpilot.url})` : 'Trustpilot';
+        lines.push(`- ${tpLink}: ${trustpilot.trustScore}/5 (${trustpilot.totalReviews} reviews)`);
+        if (trustpilot.aiSummary) {
+          lines.push(`  - *${trustpilot.aiSummary.slice(0, 200)}${trustpilot.aiSummary.length > 200 ? '...' : ''}*`);
         }
-        const complaints = rd.trustpilot.reviews?.filter((r: any) => r.rating <= 2).slice(0, 2);
+        const complaints = trustpilot.reviews?.filter((r: TrustpilotReview) => r.rating <= 2).slice(0, 2);
         if (complaints?.length > 0) {
           lines.push('  - **Complaints:**');
           for (const r of complaints) {
             lines.push(`    - ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.text.slice(0, 150)}${r.text.length > 150 ? '...' : ''}`);
           }
         }
-        const praise = rd.trustpilot.reviews?.filter((r: any) => r.rating >= 4).slice(0, 2);
+        const praise = trustpilot.reviews?.filter((r: TrustpilotReview) => r.rating >= 4).slice(0, 2);
         if (praise?.length > 0) {
           lines.push('  - **Praised For:**');
           for (const r of praise) {

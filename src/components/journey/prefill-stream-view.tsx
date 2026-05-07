@@ -259,7 +259,7 @@ export function PrefillStreamView({
               onClick={() => onComplete(getFieldPayload())}
               className="cursor-pointer h-11 rounded-full bg-foreground text-background font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"
             >
-              Review extracted fields
+              Launch deep research
             </button>
           </motion.div>
         )}
@@ -281,7 +281,7 @@ export function PrefillStreamView({
               Continue with {fieldsFound} fields
             </button>
             <span className="text-[11px] text-[var(--text-quaternary)]">
-              Still extracting — you can review now and fill the rest manually
+              Deep research can start now; the agent will fill missing context inside the workspace
             </span>
           </motion.div>
         )}

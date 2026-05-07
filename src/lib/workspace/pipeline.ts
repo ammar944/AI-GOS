@@ -6,20 +6,20 @@ export const SECTION_PIPELINE: SectionKey[] = [
   'industryMarket',
   'icpValidation',
   'competitors',
-  'offerAnalysis',
-  'keywordIntel',
   'crossAnalysis',
+  'keywordIntel',
+  'offerAnalysis',
   'mediaPlan',
 ];
 
 /** Human-readable labels for pipeline sections (UI + API errors). */
 export const SECTION_PIPELINE_LABELS: Record<SectionKey, string> = {
-  industryMarket: 'Market Overview',
-  icpValidation: 'ICP Validation',
-  competitors: 'Competitor Intel',
-  offerAnalysis: 'Offer Analysis',
-  keywordIntel: 'Keywords',
-  crossAnalysis: 'Strategic Synthesis',
+  industryMarket: 'Market & Category',
+  icpValidation: 'Buyer & ICP',
+  competitors: 'Competitors',
+  crossAnalysis: 'VOC & Objections',
+  keywordIntel: 'Demand & Intent',
+  offerAnalysis: 'Offer Diagnostic',
   mediaPlan: 'Media Plan',
   scripts: 'Scripts',
 };
@@ -103,9 +103,9 @@ export const RESEARCH_SECTIONS: SectionKey[] = [
   'industryMarket',
   'icpValidation',
   'competitors',
-  'offerAnalysis',
-  'keywordIntel',
   'crossAnalysis',
+  'keywordIntel',
+  'offerAnalysis',
 ];
 
 export function getNextSection(current: SectionKey): SectionKey | null {

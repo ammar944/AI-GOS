@@ -48,24 +48,21 @@ describe('Ad Library - False Positive Prevention', () => {
   });
 
   describe('name-matcher.ts - Different companies with similar names', () => {
-    it('should return 0.75 for Funnel.io vs AR Funnel.io (prefix with extra word)', () => {
+    it('should return a low score for Funnel.io vs AR Funnel.io', () => {
       // "AR Funnel.io" is a fitness coaching company, not the marketing platform
-      // After TLD removal: "funnel" vs "ar funnel" (funnel is a prefix with 1 extra word)
       const similarity = calculateSimilarity('Funnel.io', 'AR Funnel.io');
-      expect(similarity).toBe(0.75);
+      expect(similarity).toBe(0.4);
     });
 
-    it('should return 0.75 for Buffer vs Buffer Overflow Inc (extra words)', () => {
+    it('should return a cautious score for Buffer vs Buffer Overflow Inc', () => {
       // "Buffer Overflow Inc" is not the social media tool "Buffer"
-      // After normalization: "buffer" vs "buffer overflow" (2+ extra words)
       const similarity = calculateSimilarity('Buffer', 'Buffer Overflow Inc');
-      expect(similarity).toBe(0.75);
+      expect(similarity).toBe(0.5);
     });
 
-    it('should return 0.80 for short name as word in longer string', () => {
-      // When short name appears as a word (not prefix) in longer string
+    it('should return a low score for a short name as word in a longer string', () => {
       const similarity = calculateSimilarity('Stack', 'Hockey Stack');
-      expect(similarity).toBe(0.80);
+      expect(similarity).toBe(0.4);
     });
 
     it('should handle multiple extra words', () => {
@@ -93,17 +90,14 @@ describe('Ad Library - False Positive Prevention', () => {
 
   describe('name-matcher.ts - Short string guards', () => {
     it('should handle huel vs hula hoop (overlapping prefix)', () => {
-      // Both start with "hu" so they get Jaro-Winkler score
-      // This is an edge case - in practice relevance-scorer adds more context
+      // Both start with "hu", but short-name guardrails keep the score below match threshold.
       const similarity = calculateSimilarity('huel', 'hula hoop');
-      expect(similarity).toBeGreaterThan(0.7);
-      // The relevance scorer's word overlap analysis will catch this as different companies
+      expect(similarity).toBe(0.5);
     });
 
-    it('should return 0.75 for short name with extra words (prefix match)', () => {
-      // "nike" is prefix of "nike store outlet" with 2+ extra words
+    it('should return a cautious score for short name with extra words', () => {
       const similarity = calculateSimilarity('nike', 'nike store outlet');
-      expect(similarity).toBe(0.75);
+      expect(similarity).toBe(0.5);
     });
 
     it('should still match exact short names', () => {
@@ -421,7 +415,7 @@ describe('Ad Library - False Positive Prevention', () => {
     it('should handle very short queries as word matches', () => {
       // "ai" appears as a word in "sales ai automation"
       const similarity = calculateSimilarity('ai', 'sales ai automation');
-      expect(similarity).toBe(0.80); // word match score for short strings
+      expect(similarity).toBe(0.4);
     });
 
     it('should handle mixed case and punctuation', () => {

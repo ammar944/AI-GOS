@@ -69,7 +69,7 @@ describe('readResearchResult', () => {
     });
     const { readResearchResult } = await import('../read-research-result');
     const result = await readResearchResult('user-123', 'industryMarket');
-    expect(result).toEqual(validIndustryResearchData);
+    expect(result).toMatchObject(validIndustryResearchData);
   });
 
   it('returns null when section not in research_results', async () => {

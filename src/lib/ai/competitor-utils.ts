@@ -24,7 +24,7 @@ export function parseCompetitorNames(raw: string): string[] {
   if (!raw || !raw.trim()) return [];
 
   // Step 1: Normalize whitespace but preserve newlines
-  let text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
   // Step 2: Split on delimiters: commas, semicolons, newlines, " and ", " vs ", " / "
   // Use regex split with multiple separators

@@ -25,6 +25,8 @@ interface CrossAnalysisContentProps extends EditableContentProps {
   data: CrossAnalysisSynthesis;
 }
 
+type AdHookItem = NonNullable<CrossAnalysisSynthesis["messagingFramework"]>["adHooks"][number] | string;
+
 export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAnalysisContentProps) {
   return (
     <div className="space-y-5">
@@ -116,8 +118,8 @@ export function CrossAnalysisContent({ data, isEditing, onFieldChange }: CrossAn
               Hooks extracted or inspired by real competitor ads. Green = verbatim, Pink = inspired, Gray = generated.
             </p>
             <div className="space-y-2.5">
-              {data.messagingFramework.adHooks.map((hookItem: any, i: number) => {
-                const sourceType = hookItem?.source?.type;
+              {data.messagingFramework.adHooks.map((hookItem: AdHookItem, i: number) => {
+                const sourceType = typeof hookItem === "string" ? undefined : hookItem.source?.type;
                 const hookText = typeof hookItem === "string" ? hookItem : hookItem.hook;
 
                 return (

@@ -3,13 +3,14 @@
 // corpus and six report sections back into journey_sessions.research_results.
 
 import { tool } from 'ai';
+import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import {
-  dispatchResearch,
   getActiveRunIdFromToolExecutionOptions,
   getBaselineMetricsFromToolExecutionOptions,
   type DispatchResult,
 } from './dispatch';
+import { dispatchJourneyResearchForUser } from '@/lib/journey/server/dispatch-research';
 
 export const runDeepResearchProgram = tool({
   description:
@@ -25,8 +26,20 @@ export const runDeepResearchProgram = tool({
       ),
   }),
   execute: async ({ context }, options): Promise<DispatchResult> => {
-    return dispatchResearch('runDeepResearchProgram', 'deepResearchProgram', context, {
-      activeRunId: getActiveRunIdFromToolExecutionOptions(options),
+    const { userId } = await auth();
+    if (!userId) {
+      return {
+        status: 'error',
+        section: 'deepResearchProgram',
+        error: 'Unauthorized',
+      };
+    }
+
+    return dispatchJourneyResearchForUser({
+      userId,
+      section: 'deepResearchProgram',
+      runId: getActiveRunIdFromToolExecutionOptions(options),
+      context,
       baselineMetrics: getBaselineMetricsFromToolExecutionOptions(options),
     });
   },

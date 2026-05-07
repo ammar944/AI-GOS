@@ -552,6 +552,27 @@ export function normalizeStoredResearchResult(
   }
 
   const normalizedData = normalizeCandidateData(canonicalSection, candidateData);
+
+  if (normalizedData.source === 'deepResearchProgram') {
+    return projectResult(
+      {
+        status: status === 'partial' ? 'partial' : 'complete',
+        section: canonicalSection,
+        durationMs,
+        data: normalizedData as JourneySectionDataMap[typeof canonicalSection],
+        rawText,
+        citations,
+        provenance,
+        telemetry,
+        error:
+          status === 'partial'
+            ? asString(result.error) ?? 'Research artifact requires review.'
+            : undefined,
+      },
+      target,
+    );
+  }
+
   const parseResult =
     JOURNEY_SECTION_DATA_SCHEMAS[canonicalSection].safeParse(normalizedData);
   if (!parseResult.success) {

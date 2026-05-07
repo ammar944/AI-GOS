@@ -66,6 +66,26 @@ function logError(section: string, error: unknown): void {
 // Post-Processing Functions (deterministic computation on AI outputs)
 // =============================================================================
 
+type RiskClassification = 'low' | 'medium' | 'high' | 'critical';
+
+interface MediaPlanRiskInput {
+  risk: string;
+  category: string;
+  severity: string;
+  likelihood: string;
+  mitigation: string;
+  contingency: string;
+  probability?: number;
+  impact?: number;
+  earlyWarningIndicator?: string;
+  monitoringFrequency?: string;
+}
+
+type ScoredMediaPlanRisk = MediaPlanRiskInput & {
+  score?: number;
+  classification?: RiskClassification;
+};
+
 /**
  * Deterministic post-processing for platform strategy.
  * Flags high-density platforms by prepending a warning note to the rationale.
@@ -115,9 +135,9 @@ export function postProcessMediaPlanRisks(risks: Array<{
   impact?: number;
   earlyWarningIndicator?: string;
   monitoringFrequency?: string;
-}>): typeof risks & Array<{ score?: number; classification?: string }> {
+}>): ScoredMediaPlanRisk[] {
   return risks
-    .map(r => {
+    .map((r): ScoredMediaPlanRisk => {
       if (r.probability != null && r.impact != null) {
         const score = r.probability * r.impact;
         return {
@@ -128,10 +148,10 @@ export function postProcessMediaPlanRisks(risks: Array<{
       }
       return r;
     })
-    .sort((a, b) => ((b as any).score ?? 0) - ((a as any).score ?? 0));
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 
-function classifyRiskScore(score: number): 'low' | 'medium' | 'high' | 'critical' {
+function classifyRiskScore(score: number): RiskClassification {
   if (score <= 6) return 'low';
   if (score <= 12) return 'medium';
   if (score <= 19) return 'high';

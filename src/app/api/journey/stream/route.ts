@@ -1,8 +1,9 @@
 // POST /api/journey/stream
-// Streaming chat endpoint for the v2 journey experience.
-// Uses Claude Opus 4.6 with adaptive thinking for conversational strategy sessions.
+// Streaming chat endpoint for the Journey workspace agent.
+// Uses the AI SDK ToolLoopAgent so workspace chat, artifact edits, and research
+// requests run through one explicit agent/tool loop.
 
-import { streamText, convertToModelMessages, stepCountIs } from 'ai';
+import { ToolLoopAgent, convertToModelMessages, stepCountIs } from 'ai';
 import type { UIMessage } from 'ai';
 import { auth } from '@clerk/nextjs/server';
 import { anthropic, MODELS } from '@/lib/ai/providers';
@@ -810,10 +811,10 @@ ${cardSummaries.join('\n\n')}`;
   }
 
   // ── Stream ──────────────────────────────────────────────────────────────
-  const result = streamText({
+  const journeyAgent = new ToolLoopAgent({
+    id: 'journey-workspace-agent',
     model: anthropic(MODELS.CLAUDE_OPUS),
-    system: systemPrompt,
-    messages: await convertToModelMessages(modelMessages),
+    instructions: systemPrompt,
     experimental_context: {
       activeRunId: body.activeRunId ?? null,
       // Baseline metrics extracted from the user's onboarding fields
@@ -844,13 +845,17 @@ ${cardSummaries.join('\n\n')}`;
         },
       },
     },
-    onFinish: async ({ usage, steps }) => {
+    onFinish: async ({ totalUsage, steps }) => {
       console.log('[journey] stream finished', {
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
+        inputTokens: totalUsage.inputTokens,
+        outputTokens: totalUsage.outputTokens,
         steps: steps.length,
       });
     },
+  });
+
+  const result = await journeyAgent.stream({
+    messages: await convertToModelMessages(modelMessages),
   });
 
   return result.toUIMessageStreamResponse();

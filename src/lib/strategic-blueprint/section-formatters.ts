@@ -16,9 +16,20 @@ import type {
   ICPAnalysisValidation,
   OfferAnalysisViability,
   CompetitorAnalysis,
+  CompetitorReviewData,
   CrossAnalysisSynthesis,
+  ICPRiskAssessment,
   KeywordIntelligence,
+  TrustpilotReview,
 } from "@/lib/strategic-blueprint/output-types";
+
+type LegacyICPAnalysisValidation = ICPAnalysisValidation & {
+  riskAssessment?: ICPRiskAssessment;
+};
+
+type ReviewableCompetitorSnapshot = CompetitorAnalysis["competitors"][number] & {
+  reviewData?: CompetitorReviewData;
+};
 
 export function formatIndustryMarketOverview(section: IndustryMarketOverview): string[] {
   const lines: string[] = [];
@@ -200,6 +211,7 @@ export function formatIcpAnalysis(section: ICPAnalysisValidation): string[] {
   lines.push(DIVIDER_SINGLE);
   lines.push("RISK ASSESSMENT");
   lines.push(DIVIDER_SINGLE);
+  const legacyRiskAssessment = (section as LegacyICPAnalysisValidation).riskAssessment;
   if (section.riskScores?.length) {
     for (const rs of section.riskScores) {
       const score = rs.score ?? rs.probability * rs.impact;
@@ -208,8 +220,8 @@ export function formatIcpAnalysis(section: ICPAnalysisValidation): string[] {
       lines.push(`  ${rs.risk}`);
       if (rs.mitigation) lines.push(`  Mitigation: ${rs.mitigation}`);
     }
-  } else if ((section as any).riskAssessment) {
-    const ra = (section as any).riskAssessment;
+  } else if (legacyRiskAssessment) {
+    const ra = legacyRiskAssessment;
     lines.push(`Reachability:      ${safeString(ra.reachability)?.toUpperCase()}`);
     lines.push(`Budget:            ${safeString(ra.budget)?.toUpperCase()}`);
     lines.push(`Pain Strength:     ${safeString(ra.painStrength)?.toUpperCase()}`);
@@ -340,27 +352,29 @@ export function formatCompetitorAnalysis(section: CompetitorAnalysis): string[] 
         }
       }
       // Customer Reviews — only render header if at least one source has actual data
-      const rd = (comp as any)?.reviewData;
-      const hasG2Data = rd?.g2 && (rd.g2.rating > 0 || rd.g2.reviewCount > 0);
-      const hasTrustpilotData = rd?.trustpilot && (rd.trustpilot.trustScore > 0 || rd.trustpilot.totalReviews > 0);
+      const rd = (comp as ReviewableCompetitorSnapshot).reviewData;
+      const g2 = rd?.g2;
+      const trustpilot = rd?.trustpilot;
+      const hasG2Data = g2 != null && ((g2.rating ?? 0) > 0 || (g2.reviewCount ?? 0) > 0);
+      const hasTrustpilotData = trustpilot != null && ((trustpilot.trustScore ?? 0) > 0 || (trustpilot.totalReviews ?? 0) > 0);
       if (hasG2Data || hasTrustpilotData) {
         lines.push("   Customer Reviews:");
-        if (hasG2Data) {
-          lines.push(`     G2: ${rd.g2.rating}/5 (${rd.g2.reviewCount} reviews)${rd.g2.productCategory ? ` — ${rd.g2.productCategory}` : ''}`);
+        if (g2 && hasG2Data) {
+          lines.push(`     G2: ${g2.rating}/5 (${g2.reviewCount} reviews)${g2.productCategory ? ` — ${g2.productCategory}` : ''}`);
         }
-        if (hasTrustpilotData) {
-          lines.push(`     Trustpilot: ${rd.trustpilot.trustScore}/5 (${rd.trustpilot.totalReviews} reviews)`);
-          if (rd.trustpilot.aiSummary) {
-            lines.push(`     Summary: "${rd.trustpilot.aiSummary.slice(0, 150)}${rd.trustpilot.aiSummary.length > 150 ? '...' : ''}"`);
+        if (trustpilot && hasTrustpilotData) {
+          lines.push(`     Trustpilot: ${trustpilot.trustScore}/5 (${trustpilot.totalReviews} reviews)`);
+          if (trustpilot.aiSummary) {
+            lines.push(`     Summary: "${trustpilot.aiSummary.slice(0, 150)}${trustpilot.aiSummary.length > 150 ? '...' : ''}"`);
           }
-          const complaints = rd.trustpilot.reviews?.filter((r: any) => r.rating <= 2).slice(0, 2);
+          const complaints = trustpilot.reviews?.filter((r: TrustpilotReview) => r.rating <= 2).slice(0, 2);
           if (complaints?.length > 0) {
             lines.push("     Complaints:");
             for (const r of complaints) {
               lines.push(`       ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.text.slice(0, 120)}${r.text.length > 120 ? '...' : ''}`);
             }
           }
-          const praise = rd.trustpilot.reviews?.filter((r: any) => r.rating >= 4).slice(0, 2);
+          const praise = trustpilot.reviews?.filter((r: TrustpilotReview) => r.rating >= 4).slice(0, 2);
           if (praise?.length > 0) {
             lines.push("     Praised For:");
             for (const r of praise) {

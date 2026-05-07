@@ -42,7 +42,7 @@ function createProps(
 }
 
 describe('PrefillStreamView', () => {
-  it('lets users edit extracted fields before continuing to review', async () => {
+  it('launches deep research with extracted fields after completion', async () => {
     vi.useFakeTimers();
 
     try {
@@ -67,20 +67,16 @@ describe('PrefillStreamView', () => {
 
       expect(screen.getByText('Context extracted')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Review extracted fields' }),
+        screen.getByRole('button', { name: 'Launch deep research' }),
       ).toBeInTheDocument();
       expect(onComplete).not.toHaveBeenCalled();
 
-      fireEvent.change(screen.getByTestId('prefill-input-companyName'), {
-        target: { value: 'SaaSLaunch AI' },
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: 'Review extracted fields' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Launch deep research' }));
 
       expect(onComplete).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledWith(
         expect.objectContaining({
-          companyName: 'SaaSLaunch AI',
+          companyName: 'SaaSLaunch',
           businessModel: 'B2B SaaS growth agency',
         }),
       );
@@ -156,7 +152,7 @@ describe('PrefillStreamView', () => {
     expect(screen.getByTestId('prefill-field-demoUrl')).toBeInTheDocument();
   });
 
-  it('switches completed fields into editable inputs in the same container', () => {
+  it('keeps completed fields in the launch context container', () => {
     render(
       <PrefillStreamView
         {...createProps({
@@ -173,9 +169,11 @@ describe('PrefillStreamView', () => {
       />,
     );
 
-    expect(screen.getByTestId('prefill-input-companyName')).toHaveValue('SaaSLaunch');
-    expect(screen.getByTestId('prefill-input-demoUrl')).toHaveValue(
+    expect(screen.getByTestId('prefill-field-companyName')).toHaveTextContent('SaaSLaunch');
+    expect(screen.getByTestId('prefill-field-demoUrl')).toHaveTextContent(
       'https://saaslaunch.net/demo',
     );
+    expect(screen.queryByTestId('prefill-input-companyName')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('prefill-input-demoUrl')).not.toBeInTheDocument();
   });
 });

@@ -22,7 +22,7 @@ describe('buildJourneyResearchSandboxSmokeChecklist', () => {
         expect.objectContaining({
           key: 'dependencies',
           status: 'blocked',
-          detail: expect.stringContaining('Keywords'),
+          detail: expect.stringContaining('Demand & Intent'),
         }),
         expect.objectContaining({
           key: 'backend',

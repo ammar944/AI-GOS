@@ -4,6 +4,7 @@ import {
   normalizeWikiEntries,
   summarizeForSynthesis,
 } from '../dispatch/route';
+import { getJourneyResearchTool } from '@/lib/journey/server/dispatch-research';
 
 // Note: The POST handler in dispatch/route.ts depends on Clerk auth and Supabase,
 // which require real credentials in a Next.js server context. We test the two
@@ -27,6 +28,12 @@ describe('DISPATCH_PIPELINE_ORDER', () => {
       'crossAnalysis',
       'mediaPlan',
     ]);
+  });
+});
+
+describe('getJourneyResearchTool', () => {
+  it('routes the one-pass deep research program through the shared Journey dispatcher', () => {
+    expect(getJourneyResearchTool('deepResearchProgram')).toBe('runDeepResearchProgram');
   });
 });
 

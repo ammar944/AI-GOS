@@ -598,7 +598,7 @@ export function KeywordIntelligenceContent({ data, isEditing, onFieldChange }: K
       {data?.clientStrengths && data.clientStrengths.length > 0 && (
         <SubSection title="Your Keyword Strengths">
           <p className="text-sm text-[rgb(100,105,115)] mb-3">
-            Keywords you rank for that competitors don't — defend these positions and build on them.
+            Keywords you rank for that competitors don&apos;t — defend these positions and build on them.
           </p>
           <div>
             <KeywordTable keywords={data.clientStrengths} maxRows={10} />

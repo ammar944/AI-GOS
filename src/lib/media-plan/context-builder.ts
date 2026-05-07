@@ -2,6 +2,7 @@
 // Transforms 50KB+ blueprint into focused ~5KB context for AI generation
 
 import type { StrategicBlueprintOutput } from '@/lib/strategic-blueprint/output-types';
+import type { ICPRiskAssessment } from '@/lib/strategic-blueprint/output-types';
 import type { OnboardingFormData } from '@/lib/onboarding/types';
 import type { AdFormat } from '@/lib/ad-library/types';
 
@@ -9,6 +10,10 @@ export interface MediaPlanContext {
   contextString: string;
   tokenEstimate: number;
 }
+
+type LegacyICPAnalysisValidation = StrategicBlueprintOutput['icpAnalysisValidation'] & {
+  riskAssessment?: ICPRiskAssessment;
+};
 
 /**
  * Build a focused context string for media plan generation.
@@ -137,7 +142,7 @@ function buildICPSection(blueprint: StrategicBlueprintOutput): string {
     }
   } else {
     // Legacy fallback
-    const ra = (blueprint.icpAnalysisValidation as any).riskAssessment;
+    const ra = (blueprint.icpAnalysisValidation as LegacyICPAnalysisValidation).riskAssessment;
     if (ra) {
       lines.push(`- Risk — Reachability: ${ra.reachability}`);
       lines.push(`- Risk — Budget: ${ra.budget}`);

@@ -6,9 +6,8 @@ import {
   isFinalSection,
 } from '../pipeline';
 
-// Pipeline order was reordered so the offer runner gets verified competitor
-// pricing via the intelligence chain. icpValidation now precedes competitors,
-// and competitors precedes offerAnalysis.
+// Pipeline order runs synthesis after competitor intel, then turns that context
+// into keyword intelligence before offer and media-plan execution.
 
 describe('SECTION_PIPELINE', () => {
   it('has 7 sections in correct order', () => {
@@ -16,9 +15,9 @@ describe('SECTION_PIPELINE', () => {
       'industryMarket',
       'icpValidation',
       'competitors',
-      'offerAnalysis',
-      'keywordIntel',
       'crossAnalysis',
+      'keywordIntel',
+      'offerAnalysis',
       'mediaPlan',
     ]);
   });
@@ -33,20 +32,24 @@ describe('getNextSection', () => {
     expect(getNextSection('icpValidation')).toBe('competitors');
   });
 
-  it('returns offerAnalysis after competitors', () => {
-    expect(getNextSection('competitors')).toBe('offerAnalysis');
+  it('returns crossAnalysis after competitors', () => {
+    expect(getNextSection('competitors')).toBe('crossAnalysis');
   });
 
   it('returns null after mediaPlan (last section)', () => {
     expect(getNextSection('mediaPlan')).toBeNull();
   });
 
-  it('returns mediaPlan after crossAnalysis', () => {
-    expect(getNextSection('crossAnalysis')).toBe('mediaPlan');
+  it('returns keywordIntel after crossAnalysis', () => {
+    expect(getNextSection('crossAnalysis')).toBe('keywordIntel');
   });
 
-  it('returns crossAnalysis after keywordIntel', () => {
-    expect(getNextSection('keywordIntel')).toBe('crossAnalysis');
+  it('returns offerAnalysis after keywordIntel', () => {
+    expect(getNextSection('keywordIntel')).toBe('offerAnalysis');
+  });
+
+  it('returns mediaPlan after offerAnalysis', () => {
+    expect(getNextSection('offerAnalysis')).toBe('mediaPlan');
   });
 });
 
@@ -63,8 +66,8 @@ describe('getSectionIndex', () => {
     expect(getSectionIndex('competitors')).toBe(2);
   });
 
-  it('returns 5 for crossAnalysis', () => {
-    expect(getSectionIndex('crossAnalysis')).toBe(5);
+  it('returns 3 for crossAnalysis', () => {
+    expect(getSectionIndex('crossAnalysis')).toBe(3);
   });
 
   it('returns 6 for mediaPlan', () => {

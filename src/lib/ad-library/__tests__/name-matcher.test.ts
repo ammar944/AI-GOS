@@ -29,10 +29,10 @@ describe('Ad Library - Name Matcher', () => {
       expect(calculateSimilarity('Nike Inc', 'Nike Inc.')).toBe(1);
     });
 
-    it('should return appropriate scores for substring matches', () => {
-      // Nike is a prefix with 1 extra word -> 0.85
-      expect(calculateSimilarity('Nike', 'Nike Store')).toBe(0.85);
-      expect(calculateSimilarity('Nike Store', 'Nike')).toBe(0.85);
+    it('should return cautious scores for short substring matches', () => {
+      // Short brand names with generic extension words stay below the default match threshold.
+      expect(calculateSimilarity('Nike', 'Nike Store')).toBe(0.5);
+      expect(calculateSimilarity('Nike Store', 'Nike')).toBe(0.5);
     });
 
     it('should return 1.0 for TLD variations (exact match after normalization)', () => {
@@ -64,9 +64,8 @@ describe('Ad Library - Name Matcher', () => {
       expect(isAdvertiserMatch('Amazon.com', 'Amazon')).toBe(true);
     });
 
-    it('should match substring with default threshold (0.7)', () => {
-      // 0.75 similarity is above 0.7 threshold
-      expect(isAdvertiserMatch('Nike Store', 'Nike', 0.7)).toBe(true);
+    it('should not match short substring extensions with default threshold (0.7)', () => {
+      expect(isAdvertiserMatch('Nike Store', 'Nike', 0.7)).toBe(false);
     });
 
     it('should not match with higher threshold for substring', () => {

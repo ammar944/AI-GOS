@@ -68,6 +68,45 @@ describe('extractResearchJobActivity', () => {
     });
   });
 
+  it('projects one-pass deep research activity onto every synthesized section', () => {
+    const activity = extractResearchJobActivity({
+      'job-deep': {
+        status: 'running',
+        tool: 'runDeepResearchProgram',
+        startedAt: '2026-05-07T09:00:00.000Z',
+        updates: [
+          {
+            at: '2026-05-07T09:00:01.000Z',
+            id: 'update-deep-1',
+            message: 'starting one-pass deep research program for all six cards',
+            phase: 'runner',
+          },
+        ],
+      },
+    });
+
+    expect(Object.keys(activity)).toEqual([
+      'industryMarket',
+      'icpValidation',
+      'competitors',
+      'offerAnalysis',
+      'keywordIntel',
+      'crossAnalysis',
+    ]);
+    expect(activity.industryMarket).toMatchObject({
+      jobId: 'job-deep',
+      section: 'industryMarket',
+      status: 'running',
+      tool: 'runDeepResearchProgram',
+    });
+    expect(activity.crossAnalysis).toMatchObject({
+      jobId: 'job-deep',
+      section: 'crossAnalysis',
+      status: 'running',
+      tool: 'runDeepResearchProgram',
+    });
+  });
+
   it('ignores unknown tools', () => {
     expect(
       extractResearchJobActivity({

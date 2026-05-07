@@ -67,3 +67,6 @@ docs/screenshots/
 *.docx
 .gstack/
 .superpowers/
+
+# clerk configuration (can include secrets)
+/.clerk/

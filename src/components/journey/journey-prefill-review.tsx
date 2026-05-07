@@ -97,7 +97,7 @@ export function JourneyPrefillReview({
           }}
         >
           <MessageSquare className="h-4 w-4" />
-          Skip — I'll answer in chat
+          Skip — I&apos;ll answer in chat
         </button>
       </div>
     </div>

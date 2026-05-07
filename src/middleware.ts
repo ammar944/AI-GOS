@@ -4,6 +4,7 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/journey", // Public intake shell; route handlers still enforce auth for user data and research writes
   "/shared/(.*)",
   "/test/(.*)", // Test pages for development
   "/blueprint-preview(.*)", // Design preview page

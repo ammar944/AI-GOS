@@ -5,12 +5,12 @@ export interface SectionMeta {
 }
 
 export const SECTION_META: Record<string, SectionMeta> = {
-  industryMarket: { label: 'Market Overview', moduleNumber: '01', description: 'Industry landscape, market sizing, and growth dynamics' },
-  icpValidation: { label: 'ICP Validation', moduleNumber: '02', description: 'Ideal customer profile validation and buyer journey mapping' },
-  offerAnalysis: { label: 'Offer Analysis', moduleNumber: '04', description: 'Value proposition, pricing strategy, and market fit assessment' },
-  competitors: { label: 'Competitor Intel', moduleNumber: '03', description: 'Competitive positioning, pricing, and ad activity analysis' },
-  keywordIntel: { label: 'Keywords', moduleNumber: '05', description: 'Search volume, competition, and keyword strategy opportunities' },
-  crossAnalysis: { label: 'Strategic Synthesis', moduleNumber: '06', description: 'Cross-section insights, strategic patterns, and recommendations' },
+  industryMarket: { label: 'Market & Category Intelligence', moduleNumber: '01', description: 'Category landscape, market dynamics, and growth context' },
+  icpValidation: { label: 'Buyer & ICP Validation', moduleNumber: '02', description: 'Ideal customer validation, buying triggers, and fit signals' },
+  competitors: { label: 'Competitor Landscape & Positioning', moduleNumber: '03', description: 'Competitive positioning, differentiation, and market gaps' },
+  crossAnalysis: { label: 'Voice of Customer & Objection Evidence', moduleNumber: '04', description: 'Customer language, objections, reviews, and proof points' },
+  keywordIntel: { label: 'Demand & Intent Signals', moduleNumber: '05', description: 'Search demand, intent patterns, channel signals, and timing' },
+  offerAnalysis: { label: 'Offer & Performance Diagnostic', moduleNumber: '06', description: 'Offer strength, conversion risk, performance gaps, and next moves' },
   mediaPlan: { label: 'Media Plan', moduleNumber: '07', description: 'Channel mix, budget allocation, and campaign architecture' },
   scripts: { label: 'Scripts', moduleNumber: '08', description: 'Ad scripts across awareness levels grounded in research data' },
 };

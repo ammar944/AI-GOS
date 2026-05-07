@@ -39,6 +39,78 @@ function asRecordArray(v: unknown): Record<string, unknown>[] {
     .filter((item): item is Record<string, unknown> => Boolean(item));
 }
 
+function deepResearchFindingText(item: Record<string, unknown>): string {
+  const title = asString(item.title);
+  const detail = asString(item.detail);
+  const evidence = asString(item.evidence);
+  const sourceUrl = asString(item.sourceUrl);
+  return [
+    title && detail ? `${title}: ${detail}` : title ?? detail,
+    evidence ? `Evidence: ${evidence}` : null,
+    sourceUrl ? `Source: ${sourceUrl}` : null,
+  ].filter(Boolean).join('\n');
+}
+
+function parseDeepResearchCard(section: SectionKey, data: Record<string, unknown>): CardState[] {
+  const cards: CardState[] = [];
+  const verdict = asString(data.verdict);
+  const statusSummary = asString(data.statusSummary);
+  const confidence = asNumber(data.confidence);
+
+  cards.push(makeCard(section, 'prose-card', asString(data.sectionTitle) ?? 'Research Verdict', {
+    text: [
+      verdict ? `Verdict: ${verdict}` : null,
+      statusSummary,
+      typeof confidence === 'number' ? `Confidence: ${confidence}/100` : null,
+    ].filter(Boolean).join('\n\n'),
+  }, 'Deep-research card summary generated from the shared corpus'));
+
+  const findings = asRecordArray(data.keyFindings).map(deepResearchFindingText).filter(Boolean);
+  if (findings.length > 0) {
+    cards.push(makeCard(section, 'bullet-list', 'Key Evidence-Backed Findings', {
+      items: findings,
+      accent: 'var(--accent-blue)',
+    }, 'Claims, evidence, and source URLs from the shared research corpus'));
+  }
+
+  const quotes = asRecordArray(data.evidenceQuotes)
+    .map((item) => {
+      const quote = asString(item.quote);
+      const source = asString(item.source);
+      const url = asString(item.url);
+      const interpretation = asString(item.interpretation);
+      return [
+        quote ? `“${quote}”` : null,
+        source || url ? `— ${[source, url].filter(Boolean).join(' · ')}` : null,
+        interpretation ? `Implication: ${interpretation}` : null,
+      ].filter(Boolean).join('\n');
+    })
+    .filter(Boolean);
+  if (quotes.length > 0) {
+    cards.push(makeCard(section, 'insight-card', 'Source Quotes & Citations', {
+      insights: quotes.map((quote) => ({ insight: quote, source: 'Deep Research Agent' })),
+    }, 'Visible source quotes and citation links for Loom/client review'));
+  }
+
+  const risks = asStringArray(data.risksOrGaps);
+  if (risks.length > 0) {
+    cards.push(makeCard(section, 'bullet-list', 'Risks / Evidence Gaps', {
+      items: risks,
+      accent: 'var(--accent-amber)',
+    }, 'What remains uncertain or risky'));
+  }
+
+  const moves = asStringArray(data.recommendedMoves);
+  if (moves.length > 0) {
+    cards.push(makeCard(section, 'check-list', 'Recommended Moves', {
+      items: moves,
+      accent: 'var(--accent-emerald)',
+    }, 'Concrete next actions from this research card'));
+  }
+
+  return cards;
+}
+
 function makeCard(
   section: SectionKey,
   cardType: string,
@@ -1260,6 +1332,10 @@ export function parseResearchToCards(
     strategicSynthesisIntel?: Record<string, unknown>;
   },
 ): CardState[] {
+  if (data.source === 'deepResearchProgram') {
+    return parseDeepResearchCard(section, data);
+  }
+
   switch (section) {
     case 'industryMarket':
       return parseIndustryMarket(data, intelData?.opportunityIntel);

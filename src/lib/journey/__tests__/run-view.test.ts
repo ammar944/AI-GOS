@@ -160,9 +160,9 @@ describe('buildJourneyRunView', () => {
       'industryMarket',
       'icpValidation',
       'competitors',
-      'offerAnalysis',
-      'keywordIntel',
       'crossAnalysis',
+      'keywordIntel',
+      'offerAnalysis',
       'mediaPlan',
     ]);
     expect(view.sections[0]).toMatchObject({
@@ -185,7 +185,7 @@ describe('buildJourneyRunView', () => {
       },
     });
     expect(view.sections[3].pendingDependencyReason).toBe(
-      'Waiting for ICP Validation to finish.',
+      'Waiting for Buyer & ICP to finish.',
     );
     expect(view.artifactsBySection.industryMarket?.section).toBe('industryMarket');
     expect(view.artifactsByTool.researchIndustry).toHaveLength(1);
@@ -210,6 +210,45 @@ describe('buildJourneyRunView', () => {
     expect(view.sections.every((section) => section.status === 'queued')).toBe(true);
     expect(view.sections.every((section) => section.events.length === 0)).toBe(true);
     expect(view.messages).toEqual([]);
+  });
+
+  it('shows the one-pass deep research job as running across generated sections', () => {
+    const view = buildJourneyRunView({
+      id: 'session-deep',
+      run_id: 'run-deep',
+      metadata: {
+        activeJourneyRunId: 'run-deep',
+        companyName: 'Deep Co',
+      },
+      research_results: null,
+      job_status: {
+        'job-deep': {
+          status: 'running',
+          tool: 'runDeepResearchProgram',
+          startedAt: '2026-05-07T09:00:00.000Z',
+          updates: [
+            {
+              at: '2026-05-07T09:00:01.000Z',
+              id: 'update-deep-1',
+              message: 'starting one-pass deep research program for all six cards',
+              phase: 'runner',
+            },
+          ],
+        },
+      },
+      messages: null,
+    });
+
+    expect(view.status).toBe('running');
+    expect(view.sections.slice(0, 6).every((section) => section.status === 'running')).toBe(true);
+    expect(view.sections.slice(0, 6).every((section) => section.phase === 'researching')).toBe(true);
+    expect(view.sections[0]).toMatchObject({
+      id: 'industryMarket',
+      latestEvent: {
+        id: 'update-deep-1',
+        message: 'starting one-pass deep research program for all six cards',
+      },
+    });
   });
 
   it('normalizes versioned workspace message envelopes for visibility summaries', () => {

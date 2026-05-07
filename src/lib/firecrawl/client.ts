@@ -19,6 +19,12 @@ const PRICING_PATHS = ['/pricing', '/plans', '/buy'] as const;
 const MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY_MS = 1000;
 
+type FirecrawlMapLink = string | { url?: string };
+
+function getMapLinkUrl(link: FirecrawlMapLink): string {
+  return typeof link === 'string' ? link : link.url ?? '';
+}
+
 function isTransientError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const msg = error.message.toLowerCase();
@@ -149,7 +155,7 @@ export class FirecrawlClient {
       return {
         success: true,
         markdown,
-        html: (document as any).html ?? undefined,
+        html: document.html ?? undefined,
         metadata: document.metadata ? {
           title: document.metadata.title,
           description: document.metadata.description,
@@ -223,9 +229,9 @@ export class FirecrawlClient {
         1,
       );
 
-      const links = (mapResult as any)?.links ?? mapResult;
-      if (Array.isArray(links) && links.length > 0) {
-        const pricingLink = links.find((link: string) =>
+      const links = mapResult.links.map(getMapLinkUrl).filter((link) => link.length > 0);
+      if (links.length > 0) {
+        const pricingLink = links.find((link) =>
           /pric|plan|cost|buy|subscri/i.test(link),
         );
         if (pricingLink) {
@@ -352,8 +358,8 @@ export class FirecrawlClient {
 
       // Extract URL strings from results (may be objects or strings depending on SDK version)
       return links
-        .map((link: any) => typeof link === 'string' ? link : link?.url ?? '')
-        .filter((u: string) => u.length > 0);
+        .map(getMapLinkUrl)
+        .filter((u) => u.length > 0);
     } catch (error) {
       console.warn(`[Firecrawl] Map failed for ${baseUrl}:`, error instanceof Error ? error.message : error);
       return [];

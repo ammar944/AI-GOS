@@ -14,7 +14,6 @@ import { ArtifactCard } from './artifact-card';
 import { ResearchActivityLog } from './research-activity-log';
 import { ApprovalGate } from './approval-gate';
 import { RESEARCH_SECTIONS as GATE_RESEARCH_SECTIONS } from '@/lib/workspace/pipeline';
-import { PhaseTransitionCard } from './phase-transition-card';
 import { OfferRefinementCard } from './cards/offer-refinement-card';
 import { parseOfferScoreFromStats } from '@/lib/workspace/parse-offer-score-stats';
 import { CompetitorTabs } from './competitor-tabs';
@@ -53,7 +52,8 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
   const isApproved = phase === 'approved';
   const isLoading = phase === 'researching' || phase === 'streaming';
   const [isExiting, setIsExiting] = useState(false);
-  const offerPrevScoreRef = useRef<number | null>(null);
+  const latestOfferScoreRef = useRef<number | null>(null);
+  const [previousOfferScore, setPreviousOfferScore] = useState<number | null>(null);
 
   // Extract offer score data for the refinement card
   const offerScoreData = useMemo(() => {
@@ -65,9 +65,6 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
 
     const parsed = parseOfferScoreFromStats(scoreCard.content?.stats);
     if (!parsed) return null;
-
-    const prevScore = offerPrevScoreRef.current;
-    offerPrevScoreRef.current = parsed.overall;
 
     const weaknessesCard = Object.values(state.cards).find(
       (c) => c.sectionKey === 'offerAnalysis' && c.label === 'Weaknesses',
@@ -81,11 +78,17 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
     return {
       overall: parsed.overall,
       dimensions: parsed.dimensions,
-      prevScore,
       priorityFixes,
       actionPlan,
     };
   }, [state.currentSection, state.cards]);
+  const offerScoreOverall = offerScoreData?.overall ?? null;
+
+  useEffect(() => {
+    if (offerScoreOverall === null) return;
+    setPreviousOfferScore(latestOfferScoreRef.current);
+    latestOfferScoreRef.current = offerScoreOverall;
+  }, [offerScoreOverall]);
 
   const allResearchApproved = useMemo(
     () => RESEARCH_SECTIONS.every((key) => state.sectionStates[key] === 'approved'),
@@ -139,7 +142,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
       );
     }
 
-    setDocSaveStatus('saving');
+    queueMicrotask(() => setDocSaveStatus('saving'));
     saveResearchDocument(state.sessionId, cardsBySection).then((result) => {
       setDocSaveStatus(result.success ? 'saved' : 'error');
     });
@@ -248,7 +251,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                       dimensions={offerScoreData.dimensions}
                       priorityFixes={offerScoreData.priorityFixes}
                       actionPlan={offerScoreData.actionPlan}
-                      prevScore={offerScoreData.prevScore}
+                      prevScore={previousOfferScore}
                     />
                   </div>
                 )}
@@ -260,11 +263,7 @@ export function ArtifactCanvas({ jobActivity, onGenerateMediaPlan, mediaPlanGene
                 if (!onGenerateMediaPlan) return null;
                 if (mediaPlanActive) return null;
                 if (state.currentSection === 'mediaPlan') return null;
-                const anyFailed = GATE_RESEARCH_SECTIONS.some(
-                  (k) => state.sectionStates[k] === 'error',
-                );
-                // Show gate when complete OR any failure happened
-                if (!allResearchComplete && !anyFailed) return null;
+                if (!allResearchComplete) return null;
                 return (
                   <ApprovalGate
                     researchSections={GATE_RESEARCH_SECTIONS}

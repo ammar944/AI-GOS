@@ -6,10 +6,16 @@ import type { RunnerTelemetry } from './telemetry';
 
 const ACTIVE_RUN_ID_KEY = 'activeJourneyRunId';
 
+export function getSupabaseUrl(): string | undefined {
+  return process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+}
+
 export function getClient() {
-  const url = process.env.SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
+  if (!url || !key) {
+    throw new Error('SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
+  }
   return createClient(url, key, {
     auth: { persistSession: false },
   });

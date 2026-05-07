@@ -11,6 +11,17 @@ const TOOL_TO_SECTION: Record<string, string> = Object.fromEntries(
   ]),
 );
 
+const DEEP_RESEARCH_PROGRAM_TOOL = 'runDeepResearchProgram';
+
+const DEEP_RESEARCH_PROGRAM_ACTIVITY_SECTIONS = [
+  'industryMarket',
+  'icpValidation',
+  'competitors',
+  'offerAnalysis',
+  'keywordIntel',
+  'crossAnalysis',
+] as const;
+
 export interface ResearchUpdateMeta {
   url?: string;
   screenshotUrl?: string;
@@ -56,26 +67,43 @@ function statusTimestamp(row: ResearchJobStatusRow): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function normalizeResearchJobStatus(
+  row: ResearchJobStatusRow,
+): ResearchJobStatusRow['status'] {
+  if (row.status !== 'running' || !row.completedAt) {
+    return row.status;
+  }
+
+  return row.error ? 'error' : 'complete';
+}
+
 export function extractResearchJobActivity(
   jobStatus: Record<string, ResearchJobStatusRow> | null | undefined,
 ): Record<string, ResearchJobActivity> {
   const latestBySection: Record<string, ResearchJobActivity> = {};
 
   for (const [jobId, row] of Object.entries(jobStatus ?? {})) {
-    const section = TOOL_TO_SECTION[row.tool];
-    if (!section) {
+    const sections =
+      row.tool === DEEP_RESEARCH_PROGRAM_TOOL
+        ? DEEP_RESEARCH_PROGRAM_ACTIVITY_SECTIONS
+        : ([TOOL_TO_SECTION[row.tool]].filter(Boolean) as readonly string[]);
+
+    if (sections.length === 0) {
       continue;
     }
 
-    const next: ResearchJobActivity = {
-      ...row,
-      jobId,
-      section,
-    };
+    for (const section of sections) {
+      const next: ResearchJobActivity = {
+        ...row,
+        status: normalizeResearchJobStatus(row),
+        jobId,
+        section,
+      };
 
-    const current = latestBySection[section];
-    if (!current || statusTimestamp(next) >= statusTimestamp(current)) {
-      latestBySection[section] = next;
+      const current = latestBySection[section];
+      if (!current || statusTimestamp(next) >= statusTimestamp(current)) {
+        latestBySection[section] = next;
+      }
     }
   }
 

@@ -13,6 +13,7 @@ export const TOOL_SECTION_MAP = {
   researchMediaPlan: 'mediaPlan',
   resolveIdentity: 'identityResolution',
   extractMeetingTranscript: 'meetingExtraction',
+  runDeepResearchProgram: 'deepResearchProgram',
 } as const;
 
 const LEGACY_TO_CANONICAL_SECTION_MAP: Record<string, string> = {

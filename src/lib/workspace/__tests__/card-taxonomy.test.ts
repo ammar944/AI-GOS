@@ -228,7 +228,7 @@ describe('parseResearchToCards — icpValidation', () => {
     expect(metrics).toBeDefined();
     expect(metrics!.content.audienceSize).toBe('50K');
     expect(metrics!.content.confidenceScore).toBe(85);
-    const persona = cards.find((c) => c.cardType === 'prose-card' && c.label === 'Validated Persona');
+    const persona = cards.find((c) => c.cardType === 'prose-card' && c.label === 'Primary ICP');
     expect(persona?.content.text).toBe('SaaS Founder');
     const demo = cards.find((c) => c.cardType === 'prose-card' && c.label === 'Demographics');
     expect(demo?.content.text).toBe('25-45, US-based');

@@ -26,30 +26,19 @@ interface WorkspaceProviderProps {
   children: React.ReactNode;
 }
 
-// Sections that fan out in parallel after identity resolves. Mirrors
-// WAVE_1_PARALLEL_SECTIONS in dispatch-client.ts — kept inline here to
-// avoid coupling the workspace provider to the dispatch layer.
-const WAVE_1_SECTION_KEYS: SectionKey[] = [
-  'industryMarket',
-  'icpValidation',
-  'competitors',
-  'offerAnalysis',
-];
-
 function createFreshState(sessionId: string, startInWorkspace = false, initialSection?: SectionKey): WorkspaceState {
   const sectionStates = createInitialSectionStates();
   if (startInWorkspace) {
-    // All four wave-1 stages kick off in parallel immediately after identity
-    // resolves. Mark them all as 'researching' so the UI reflects that four
-    // agents are working at once, not one.
-    for (const key of WAVE_1_SECTION_KEYS) {
-      sectionStates[key] = 'researching';
-    }
+    // In the one-pass Journey flow, the link-triggered deepResearchProgram is
+    // the only automatic research run. Workspace sections should reveal
+    // synthesized artifacts from that shared corpus; they are not independent
+    // per-section research jobs.
+    sectionStates[SECTION_PIPELINE[0]] = 'researching';
   }
   // If an initial section is specified (e.g. mediaPlan from deep-link),
-  // set it to researching
+  // open it as the current review target rather than dispatching research.
   if (initialSection) {
-    sectionStates[initialSection] = 'researching';
+    sectionStates[initialSection] = 'review';
   }
   return {
     sessionId,
@@ -59,6 +48,19 @@ function createFreshState(sessionId: string, startInWorkspace = false, initialSe
     sectionErrors: {},
     cards: {},
   };
+}
+
+function clearSectionError(
+  sectionErrors: WorkspaceState['sectionErrors'],
+  section: SectionKey,
+): WorkspaceState['sectionErrors'] {
+  const nextErrors: WorkspaceState['sectionErrors'] = {};
+  for (const [key, value] of Object.entries(sectionErrors)) {
+    if (key !== section && value) {
+      nextErrors[key as SectionKey] = value;
+    }
+  }
+  return nextErrors;
 }
 
 export function WorkspaceProvider({ sessionId, startInWorkspace = false, initialSection, children }: WorkspaceProviderProps) {
@@ -75,30 +77,24 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
   });
 
   const stateRef = useRef(state);
-  stateRef.current = state;
   useEffect(() => {
+    stateRef.current = state;
     saveWorkspaceState(state);
   }, [state]);
 
   const enterWorkspace = useCallback(() => {
-    setState((prev) => {
-      // Respect existing approved/review sections on resume; only nudge
-      // non-terminal wave-1 sections up to 'researching' to mirror the
-      // parallel dispatch that the journey page fires at entry.
-      const sectionStates = { ...prev.sectionStates };
-      for (const key of WAVE_1_SECTION_KEYS) {
-        const current = sectionStates[key];
-        if (current !== 'approved' && current !== 'review') {
-          sectionStates[key] = 'researching';
-        }
-      }
-      return {
-        ...prev,
-        phase: 'workspace',
-        currentSection: SECTION_PIPELINE[0],
-        sectionStates,
-      };
-    });
+    setState((prev) => ({
+      ...prev,
+      phase: 'workspace',
+      currentSection: SECTION_PIPELINE[0],
+      sectionStates: {
+        ...prev.sectionStates,
+        [SECTION_PIPELINE[0]]:
+          prev.sectionStates[SECTION_PIPELINE[0]] === 'approved'
+            ? 'approved'
+            : 'review',
+      },
+    }));
   }, []);
 
   const setSectionPhase = useCallback((section: SectionKey, phase: SectionPhase, error?: string) => {
@@ -107,7 +103,7 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
       sectionStates: { ...prev.sectionStates, [section]: phase },
       sectionErrors: error
         ? { ...prev.sectionErrors, [section]: error }
-        : prev.sectionErrors,
+        : clearSectionError(prev.sectionErrors, section),
     }));
   }, []);
 
@@ -163,9 +159,11 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
         }
       }
 
-      // If next section already has cards (pre-fetched while user was reviewing),
-      // skip straight to 'review' instead of 'researching'
-      let nextPhase: SectionPhase = 'researching';
+      // Normal section progression is synthesis/review over the one shared deep
+      // research corpus. Do not mark the next section as `researching` unless a
+      // user explicitly requests a rerun elsewhere; reveal existing cards when
+      // available, otherwise keep the next section queued until hydration arrives.
+      let nextPhase: SectionPhase = 'queued';
       if (next) {
         const hasCards = Object.values(updatedCards).some(
           (card) => card.sectionKey === next,
@@ -175,28 +173,12 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
         }
       }
 
-      // Wave-2 parallel dispatch: when the user approves offerAnalysis, the
-      // approval handler in journey/page.tsx fires BOTH keywordIntel AND
-      // crossAnalysis in parallel (see dispatchWave2Parallel). Mirror that in
-      // the UI state so both cards render as 'researching' concurrently
-      // instead of crossAnalysis staying 'idle' until keywordIntel completes.
-      const wave2Extra: Partial<Record<SectionKey, SectionPhase>> = {};
-      if (current === 'offerAnalysis') {
-        const crossHasCards = Object.values(updatedCards).some(
-          (card) => card.sectionKey === 'crossAnalysis',
-        );
-        if (!crossHasCards && prev.sectionStates.crossAnalysis !== 'approved') {
-          wave2Extra.crossAnalysis = 'researching';
-        }
-      }
-
       return {
         ...prev,
         sectionStates: {
           ...prev.sectionStates,
           [current]: 'approved',
           ...(next ? { [next]: nextPhase } : {}),
-          ...wave2Extra,
         },
         currentSection: next ?? current,
         cards: updatedCards,

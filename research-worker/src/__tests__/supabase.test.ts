@@ -1,16 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import { mergeJobUpdates, type JobStatusUpdate } from '../supabase';
 
 const mockMaybeSingle = vi.fn();
 const mockRpc = vi.fn();
-const mockEq = vi.fn(() => ({
+const mockQuery = {
+  select: vi.fn(),
+  eq: vi.fn(),
+  order: vi.fn(),
+  limit: vi.fn(),
   maybeSingle: mockMaybeSingle,
-}));
-const mockSelect = vi.fn(() => ({
-  eq: mockEq,
-}));
+};
+mockQuery.select.mockReturnValue(mockQuery);
+mockQuery.eq.mockReturnValue(mockQuery);
+mockQuery.order.mockReturnValue(mockQuery);
+mockQuery.limit.mockReturnValue(mockQuery);
+const mockSelect = mockQuery.select;
+const mockEq = mockQuery.eq;
 const mockFrom = vi.fn(() => ({
-  select: mockSelect,
+  select: mockQuery.select,
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -24,6 +32,7 @@ describe('worker supabase writers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.SUPABASE_URL = 'https://example.supabase.co';
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-key';
     mockMaybeSingle.mockResolvedValue({
       data: {
@@ -74,6 +83,7 @@ describe('worker supabase writers', () => {
         },
       },
       p_section: 'competitorIntel',
+      p_run_id: 'run-123',
       p_user_id: 'user-1',
     });
   });
@@ -98,6 +108,7 @@ describe('worker supabase writers', () => {
 
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_job_status', {
       p_job_id: 'job-1',
+      p_run_id: 'run-123',
       p_row: {
         runId: 'run-123',
         status: 'running',
@@ -114,6 +125,25 @@ describe('worker supabase writers', () => {
       },
       p_user_id: 'user-1',
     });
+  });
+
+  it('uses NEXT_PUBLIC_SUPABASE_URL when worker SUPABASE_URL is not set', async () => {
+    delete process.env.SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://public-url.supabase.co';
+    const { writeJobStatus } = await import('../supabase');
+
+    await writeJobStatus('user-1', 'job-1', {
+      runId: 'run-123',
+      status: 'running',
+      tool: 'runDeepResearchProgram',
+      startedAt: '2026-05-07T09:00:00.000Z',
+    });
+
+    expect(createClient).toHaveBeenCalledWith(
+      'https://public-url.supabase.co',
+      'test-key',
+      { auth: { persistSession: false } },
+    );
   });
 });
 
