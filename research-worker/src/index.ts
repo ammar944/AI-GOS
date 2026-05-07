@@ -262,8 +262,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
         return;
       }
 
-      const signature = `${update.phase}:${update.message}`;
-      if (signature === lastProgressSignature) {
+      const signature = update.phase === 'artifact'
+        ? null
+        : `${update.phase}:${update.message}`;
+      if (signature && signature === lastProgressSignature) {
         return;
       }
       lastProgressSignature = signature;

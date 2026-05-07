@@ -192,13 +192,29 @@ export interface JobStatusUpdateMeta {
   dataPoints?: Array<{ label: string; value: string }>;
   toolName?: string;
   resultCount?: number;
+  eventType?:
+    | 'artifact-clear'
+    | 'artifact-delta'
+    | 'artifact-section-state'
+    | 'artifact-finish';
+  section?: string;
+  title?: string;
+  status?:
+    | 'queued'
+    | 'researching'
+    | 'drafting'
+    | 'citing'
+    | 'complete'
+    | 'partial'
+    | 'error';
+  runId?: string;
 }
 
 export interface JobStatusUpdate {
   at: string;
   id: string;
   message: string;
-  phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+  phase: 'runner' | 'tool' | 'analysis' | 'artifact' | 'output' | 'error';
   meta?: JobStatusUpdateMeta;
 }
 

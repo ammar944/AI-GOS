@@ -19,8 +19,11 @@ import { parseJourneyResearchInput } from '@/lib/journey/research-command';
 import {
   buildDeepResearchAgentStreamState,
   type DeepResearchAgentStepView,
-  type DeepResearchReportBlock,
 } from '@/lib/journey/research-stream-buffer';
+import type {
+  JourneyArtifactSection,
+  JourneyArtifactState,
+} from '@/lib/journey/research-artifact-state';
 
 interface JourneyAgentChatProps {
   websiteUrl: string;
@@ -104,11 +107,13 @@ function formatUpdateMessage(update: ResearchJobUpdate): string {
 }
 
 function AgentActivityRows({ activity }: { activity?: ResearchJobActivity }) {
-  const updates = [...(activity?.updates ?? [])].slice(-5);
+  const updates = [...(activity?.updates ?? [])]
+    .filter((update) => update.phase !== 'artifact')
+    .slice(-5);
   if (updates.length === 0) return null;
 
   return (
-    <div className="mt-3 space-y-1.5 border-l border-white/[0.08] pl-4">
+    <div data-testid="journey-agent-activity-log" className="mt-3 space-y-1.5 border-l border-white/[0.08] pl-4">
       {updates.map((update) => (
         <div key={`${activity?.jobId}-${update.id}`} className="flex min-w-0 items-center gap-2 text-xs text-[#8f8b82]">
           {update.meta?.toolName === 'web_search' ? <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
@@ -130,7 +135,7 @@ function AgentStep({
   const verdict = readString(data?.verdict) ?? readString(data?.statusSummary);
 
   return (
-    <div className={`rounded-xl border px-3.5 py-3 ${statusClasses(step.status)}`}>
+    <div data-testid="journey-agent-activity" className={`rounded-xl border px-3.5 py-3 ${statusClasses(step.status)}`}>
       <div className="flex items-start gap-3">
         <div className="mt-0.5 shrink-0">
           <StatusIcon status={step.status} />
@@ -152,43 +157,51 @@ function AgentStep({
   );
 }
 
-function statusLabel(status: DeepResearchReportBlock['status']): string {
-  if (status === 'running') return 'streaming';
+function statusLabel(status: JourneyArtifactSection['status']): string {
+  if (
+    status === 'drafting' ||
+    status === 'researching' ||
+    status === 'citing' ||
+    status === 'queued'
+  ) return 'streaming';
   if (status === 'partial') return 'draft';
+  if (status === 'error') return 'needs review';
   return 'ready';
 }
 
-function ReportArtifact({ blocks }: { blocks: DeepResearchReportBlock[] }) {
-  if (blocks.length === 0) return null;
+function ReportArtifact({ artifact }: { artifact: JourneyArtifactState }) {
+  if (artifact.sections.length === 0) return null;
 
   return (
     <div className="mx-auto w-full max-w-[780px] px-4 py-3" data-testid="deep-research-report-artifact">
-      <div className="rounded-2xl border border-white/[0.08] bg-[#10100f] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.22)]">
+      <div className="rounded-lg border border-white/[0.08] bg-[#10100f] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.22)]">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#77736a]">GTM research report</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-[#f5f1e7]">Live source-backed artifact</h2>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#77736a]">Live GTM Research Artifact</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-[#f5f1e7]">{artifact.title}</h2>
           </div>
           <span className="rounded-full border border-blue-400/15 bg-blue-400/[0.06] px-2.5 py-1 text-xs text-blue-200">
-            {blocks.length} section{blocks.length === 1 ? '' : 's'} visible
+            {artifact.status}
           </span>
         </div>
 
         <div className="space-y-6">
-          {blocks.map((block) => (
-            <section key={block.section} className="border-t border-white/[0.07] pt-5 first:border-t-0 first:pt-0">
+          {artifact.sections.map((section) => (
+            <section key={section.section} className="border-t border-white/[0.07] pt-5 first:border-t-0 first:pt-0">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-[#9aa9ff]">
                 <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{block.title}</span>
+                <span>{section.title}</span>
                 <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[#8f8b82]">
-                  {statusLabel(block.status)}
+                  {statusLabel(section.status)}
                 </span>
               </div>
               <div className="whitespace-pre-line text-sm leading-7 text-[#c8c1b4]">
-                {block.content}
+                {section.content}
               </div>
               <p className="mt-3 text-xs leading-5 text-[#77736a]">
-                {block.groundingLabel}
+                {section.sourceUrls.length > 0
+                  ? `${section.sourceUrls.length} source${section.sourceUrls.length === 1 ? '' : 's'} attached`
+                  : 'Draft inference pending source review'}
               </p>
             </section>
           ))}
@@ -310,14 +323,6 @@ export function JourneyAgentChat({
                   <p className="text-sm font-medium text-[#f4f1e8]">Deep Research Agent</p>
                 </div>
                 <p className="mb-3 text-sm leading-6 text-[#c8c1b4]">{agentState.assistantOpening}</p>
-                <div className="space-y-2">
-                  {agentState.visibleSteps.map((step) => (
-                    <AgentStep
-                      key={step.section}
-                      step={step}
-                    />
-                  ))}
-                </div>
                 {deepResearchError ? (
                   <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] p-3 text-sm text-red-100">
                     {deepResearchError}
@@ -338,6 +343,23 @@ export function JourneyAgentChat({
             </div>
           ) : null}
 
+          {hasSubmittedUrl ? (
+            <ReportArtifact artifact={agentState.artifact} />
+          ) : null}
+
+          {hasSubmittedUrl && agentState.visibleSteps.length > 0 ? (
+            <div className="mx-auto w-full max-w-[780px] px-4 py-3">
+              <div className="space-y-2">
+                {agentState.visibleSteps.map((step) => (
+                  <AgentStep
+                    key={step.section}
+                    step={step}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {displayedMessages.map((message) => (
             <div key={message.id} className="mx-auto w-full max-w-[780px] px-4 py-2">
               <div
@@ -352,8 +374,6 @@ export function JourneyAgentChat({
               </div>
             </div>
           ))}
-
-          <ReportArtifact blocks={agentState.reportBlocks} />
         </div>
       </div>
 

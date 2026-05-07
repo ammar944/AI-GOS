@@ -136,6 +136,7 @@ function asUpdatePhase(value: unknown): ResearchJobUpdate['phase'] | null {
   return value === 'runner' ||
     value === 'tool' ||
     value === 'analysis' ||
+    value === 'artifact' ||
     value === 'output' ||
     value === 'error'
     ? value

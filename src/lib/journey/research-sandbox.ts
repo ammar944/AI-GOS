@@ -128,7 +128,7 @@ export interface PersistedResearchJobStatusRow {
     at: string;
     id: string;
     message: string;
-    phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+    phase: 'runner' | 'tool' | 'analysis' | 'artifact' | 'output' | 'error';
   }>;
   telemetry?: ResearchTelemetry;
 }
@@ -149,7 +149,7 @@ export interface JourneyResearchSandboxUnifiedSectionReport {
     at: string;
     id: string;
     message: string;
-    phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+    phase: 'runner' | 'tool' | 'analysis' | 'artifact' | 'output' | 'error';
   }>;
   hasCharts: boolean;
   chartCount: number;

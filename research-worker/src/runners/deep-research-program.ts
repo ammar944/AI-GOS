@@ -2,6 +2,7 @@ import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages
 import {
   createClient,
   buildRunnerTelemetry,
+  emitArtifactProgress,
   emitRunnerProgress,
   extractJson,
   runStreamedToolRunner,
@@ -131,6 +132,107 @@ function countUsableOnboardingFields(result: Record<string, unknown>): number {
   }).length;
 }
 
+function readString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function readContextField(context: string, label: string): string | null {
+  const line = context
+    .split('\n')
+    .find((candidate) => candidate.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+  if (!line) {
+    return null;
+  }
+
+  return readString(line.slice(line.indexOf(':') + 1));
+}
+
+function inferCompanyNameFromContext(context: string): string | null {
+  return (
+    readContextField(context, 'Company Name') ??
+    readContextField(context, 'Website') ??
+    readContextField(context, 'websiteUrl')
+  );
+}
+
+function getDeepResearchCompanyName(parsed: Record<string, unknown>, context: string): string {
+  const corpus = isRecord(parsed.corpus) ? parsed.corpus : null;
+  const onboardingFields = isRecord(parsed.onboardingFields) ? parsed.onboardingFields : null;
+  const companyNameField = isRecord(onboardingFields?.companyName)
+    ? onboardingFields.companyName
+    : null;
+
+  return (
+    readString(corpus?.company) ??
+    readString(companyNameField?.value) ??
+    inferCompanyNameFromContext(context) ??
+    'Company'
+  );
+}
+
+function formatSourceLine(source: unknown): string | null {
+  if (!isRecord(source)) {
+    return null;
+  }
+
+  const title = readString(source.title);
+  const url = readString(source.url);
+  const whyItMatters = readString(source.whyItMatters);
+
+  if (!title && !url) {
+    return null;
+  }
+
+  return `- ${title ?? url}${url ? ` (${url})` : ''}${whyItMatters ? `: ${whyItMatters}` : ''}`;
+}
+
+function formatEvidenceLine(evidence: unknown): string | null {
+  if (!isRecord(evidence)) {
+    return null;
+  }
+
+  const claim = readString(evidence.claim);
+  const quote = readString(evidence.quote);
+  const source = readString(evidence.source);
+
+  if (!claim && !quote) {
+    return null;
+  }
+
+  return `- ${claim ?? quote}${source ? ` (${source})` : ''}`;
+}
+
+export function formatDeepResearchArtifactMarkdown(
+  parsed: Record<string, unknown>,
+  context: string,
+): { title: string; markdown: string } {
+  const companyName = getDeepResearchCompanyName(parsed, context);
+  const corpus = isRecord(parsed.corpus) ? parsed.corpus : parsed;
+  const summary =
+    readString(corpus.researchSummary) ??
+    'Deep Research Agent built the source-backed company corpus for section synthesis.';
+  const evidenceLines = Array.isArray(corpus.evidence)
+    ? corpus.evidence.map(formatEvidenceLine).filter((line): line is string => Boolean(line))
+    : [];
+  const sourceLines = Array.isArray(corpus.sources)
+    ? corpus.sources.map(formatSourceLine).filter((line): line is string => Boolean(line))
+    : [];
+  const sections = [
+    `## Deep Research\n\n${summary}`,
+    evidenceLines.length > 0
+      ? `### Evidence Highlights\n${evidenceLines.slice(0, 5).join('\n')}`
+      : null,
+    sourceLines.length > 0
+      ? `### Sources\n${sourceLines.slice(0, 8).join('\n')}`
+      : null,
+  ].filter((section): section is string => Boolean(section));
+
+  return {
+    title: `${companyName} GTM Research`,
+    markdown: sections.join('\n\n'),
+  };
+}
+
 async function downloadAnthropicFileText(
   client: ReturnType<typeof createClient>,
   fileId: string,
@@ -160,7 +262,25 @@ export async function runDeepResearchProgram(
     const client = createClient({ enableSkillsBeta: true });
     const codeExecutionOutputFileIds: string[] = [];
     const codeExecutionStdouts: string[] = [];
+    const initialArtifactTitle = `${inferCompanyNameFromContext(context) ?? 'Company'} GTM Research`;
     await emitRunnerProgress(onProgress, 'runner', 'starting company research extraction');
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-clear',
+      section: 'deepResearchProgram',
+      title: initialArtifactTitle,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: 'deepResearchProgram',
+      status: 'researching',
+      title: initialArtifactTitle,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-delta',
+      section: 'deepResearchProgram',
+      title: initialArtifactTitle,
+      delta: `# ${initialArtifactTitle}\n\n## Deep Research\n\nDeep Research Agent is building the source-backed corpus...`,
+    });
     const finalMsg = await runWithBackoff(
       () => {
         const container = buildDeepResearchContainerParams();
@@ -241,6 +361,12 @@ export async function runDeepResearchProgram(
         codeExecutionOutputFileCount: codeExecutionOutputFileIds.length,
         codeExecutionStdoutCount: codeExecutionStdouts.length,
       });
+      await emitArtifactProgress(onProgress, {
+        type: 'artifact-section-state',
+        section: 'deepResearchProgram',
+        status: 'error',
+        title: initialArtifactTitle,
+      });
       return {
         status: 'error',
         section: 'deepResearchProgram',
@@ -262,6 +388,12 @@ export async function runDeepResearchProgram(
         parseSource,
         keys: Object.keys(parsed),
       });
+      await emitArtifactProgress(onProgress, {
+        type: 'artifact-section-state',
+        section: 'deepResearchProgram',
+        status: 'error',
+        title: initialArtifactTitle,
+      });
       return {
         status: 'error',
         section: 'deepResearchProgram',
@@ -272,6 +404,25 @@ export async function runDeepResearchProgram(
         telemetry: buildRunnerTelemetry(finalMsg),
       };
     }
+
+    const artifact = formatDeepResearchArtifactMarkdown(parsed, context);
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-delta',
+      section: 'deepResearchProgram',
+      title: artifact.title,
+      delta: `\n\n${artifact.markdown}`,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: 'deepResearchProgram',
+      status: 'complete',
+      title: artifact.title,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-finish',
+      section: 'deepResearchProgram',
+      title: artifact.title,
+    });
 
     return {
       status: 'complete',
@@ -288,6 +439,12 @@ export async function runDeepResearchProgram(
       },
     };
   } catch (error) {
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: 'deepResearchProgram',
+      status: 'error',
+      title: `${inferCompanyNameFromContext(context) ?? 'Company'} GTM Research`,
+    });
     return {
       status: 'error',
       section: 'deepResearchProgram',

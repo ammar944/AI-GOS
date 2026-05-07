@@ -228,4 +228,31 @@ describe('mergeJobUpdates', () => {
     expect(result?.[0].meta?.url).toBe('https://example.com');
     expect(result?.[0].meta?.toolName).toBe('firecrawl');
   });
+
+  it('preserves typed artifact progress events through merge', () => {
+    const existing: JobStatusUpdate[] = [
+      {
+        at: '2026-05-07T09:00:00.000Z',
+        id: 'artifact-delta-1',
+        message: '## Deep Research\n\nAirtable is positioned as an app platform.',
+        phase: 'artifact',
+        meta: {
+          eventType: 'artifact-delta',
+          section: 'deepResearchProgram',
+          title: 'Airtable GTM Research',
+        },
+      },
+    ];
+
+    const result = mergeJobUpdates(existing, undefined);
+
+    expect(result?.[0]).toMatchObject({
+      phase: 'artifact',
+      meta: {
+        eventType: 'artifact-delta',
+        section: 'deepResearchProgram',
+        title: 'Airtable GTM Research',
+      },
+    });
+  });
 });

@@ -1,3 +1,9 @@
+import {
+  buildJourneyArtifactState,
+  type JourneyArtifactSection,
+  type JourneyArtifactState,
+} from '@/lib/journey/research-artifact-state';
+
 export type ResearchStreamingEntry = {
   text: string;
   status: 'running' | 'complete' | 'error';
@@ -69,7 +75,7 @@ export interface DeepResearchAgentStepView extends DeepResearchAgentStepDefiniti
 export interface DeepResearchReportBlock {
   section: string;
   title: string;
-  status: Exclude<DeepResearchAgentStepStatus, 'idle'>;
+  status: JourneyArtifactSection['status'];
   content: string;
   sourceUrls: string[];
   groundingLabel: string;
@@ -81,6 +87,7 @@ export interface DeepResearchAgentStreamState {
   visibleSteps: DeepResearchAgentStepView[];
   bufferedSteps: DeepResearchAgentStepView[];
   hiddenSections: string[];
+  artifact: JourneyArtifactState;
   reportBlocks: DeepResearchReportBlock[];
   statusSummary: {
     activeSection: string | null;
@@ -191,30 +198,6 @@ export function flushBufferedResearchChunks(
   return next;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : null;
-}
-
-function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => readString(item))
-    .filter((item): item is string => Boolean(item));
-}
-
-function getResultData(result: DeepResearchResultLike | null | undefined): Record<string, unknown> | null {
-  return isRecord(result?.data) ? result.data : null;
-}
-
 function hasAnyRunEvidence(
   options: BuildDeepResearchAgentStreamStateOptions,
 ): boolean {
@@ -316,122 +299,6 @@ function canRevealNext(status: DeepResearchAgentStepStatus): boolean {
   return status === 'complete' || status === 'partial';
 }
 
-function sortUpdates(
-  updates: readonly DeepResearchProgressUpdate[] | undefined,
-): DeepResearchProgressUpdate[] {
-  return [...(updates ?? [])].sort((left, right) =>
-    (left.at ?? '').localeCompare(right.at ?? ''),
-  );
-}
-
-function extractDraftChunks(
-  activity: DeepResearchActivityLike | undefined,
-): string[] {
-  return sortUpdates(activity?.updates)
-    .filter((update) => update.phase === 'analysis')
-    .map((update) => {
-      const message = update.message.trim();
-      return message.toLowerCase().startsWith('draft ')
-        ? message.slice('draft '.length).trim()
-        : null;
-    })
-    .filter((message): message is string => Boolean(message));
-}
-
-function readFindingLines(data: Record<string, unknown>): string[] {
-  const findings = Array.isArray(data.keyFindings) ? data.keyFindings : [];
-
-  return findings.flatMap((finding) => {
-    if (!isRecord(finding)) {
-      return [];
-    }
-
-    const title = readString(finding.title);
-    const detail =
-      readString(finding.detail) ??
-      readString(finding.evidence) ??
-      readString(finding.claim);
-
-    if (title && detail) {
-      return [`${title}: ${detail}`];
-    }
-
-    return title ?? detail ? [title ?? detail ?? ''] : [];
-  });
-}
-
-function readResultContent(data: Record<string, unknown> | null): string {
-  if (!data) {
-    return '';
-  }
-
-  const summaryParts = [
-    readString(data.statusSummary),
-    readString(data.verdict),
-    ...readFindingLines(data),
-    ...readStringArray(data.recommendedMoves).map((move) => `Move: ${move}`),
-    ...readStringArray(data.risksOrGaps).map((gap) => `Gap: ${gap}`),
-  ].filter((part): part is string => Boolean(part));
-
-  return summaryParts.join('\n\n');
-}
-
-function collectSourceUrls(value: unknown, urls: Set<string>): void {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectSourceUrls(item, urls);
-    }
-    return;
-  }
-
-  if (!isRecord(value)) {
-    return;
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    if (
-      (key === 'url' || key === 'sourceUrl') &&
-      typeof child === 'string' &&
-      /^https?:\/\//iu.test(child)
-    ) {
-      urls.add(child);
-      continue;
-    }
-
-    collectSourceUrls(child, urls);
-  }
-}
-
-function buildReportBlock(step: DeepResearchAgentStepView): DeepResearchReportBlock | null {
-  if (step.section === 'deepResearchProgram' || step.status === 'idle' || step.status === 'error') {
-    return null;
-  }
-
-  const draftChunks = extractDraftChunks(step.activity);
-  const data = getResultData(step.result);
-  const content =
-    draftChunks.length > 0 ? draftChunks.join('\n\n') : readResultContent(data);
-
-  if (content.trim().length === 0) {
-    return null;
-  }
-
-  const sourceUrls = new Set<string>();
-  collectSourceUrls(data, sourceUrls);
-
-  return {
-    section: step.section,
-    title: readString(data?.sectionTitle) ?? step.name,
-    status: step.status,
-    content,
-    sourceUrls: [...sourceUrls],
-    groundingLabel:
-      sourceUrls.size > 0
-        ? `${sourceUrls.size} source${sourceUrls.size === 1 ? '' : 's'} attached`
-        : 'Draft inference pending source review',
-  };
-}
-
 export function buildDeepResearchAgentStreamState(
   options: BuildDeepResearchAgentStreamStateOptions,
 ): DeepResearchAgentStreamState {
@@ -474,9 +341,17 @@ export function buildDeepResearchAgentStreamState(
     revealUnlocked = canRevealNext(status);
   }
 
-  const reportBlocks = visibleSteps
-    .map((step) => buildReportBlock(step))
-    .filter((block): block is DeepResearchReportBlock => block !== null);
+  const artifact = buildJourneyArtifactState({
+    activeRunId: options.activeRunId,
+    visibleSteps,
+  });
+  const reportBlocks = artifact.sections.map((section) => ({
+    ...section,
+    groundingLabel:
+      section.sourceUrls.length > 0
+        ? `${section.sourceUrls.length} source${section.sourceUrls.length === 1 ? '' : 's'} attached`
+        : 'Draft inference pending source review',
+  }));
   const activeStep = visibleSteps.find((step) => step.status === 'running') ?? null;
 
   return {
@@ -486,6 +361,7 @@ export function buildDeepResearchAgentStreamState(
     visibleSteps,
     bufferedSteps,
     hiddenSections,
+    artifact,
     reportBlocks,
     statusSummary: {
       activeSection: activeStep?.section ?? null,

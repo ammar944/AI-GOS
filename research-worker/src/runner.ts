@@ -95,13 +95,37 @@ export interface ProgressMeta {
   dataPoints?: Array<{ label: string; value: string }>;
   toolName?: string;
   resultCount?: number;
+  eventType?:
+    | 'artifact-clear'
+    | 'artifact-delta'
+    | 'artifact-section-state'
+    | 'artifact-finish';
+  section?: string;
+  title?: string;
+  status?:
+    | 'queued'
+    | 'researching'
+    | 'drafting'
+    | 'citing'
+    | 'complete'
+    | 'partial'
+    | 'error';
+  runId?: string;
 }
+
+export type RunnerProgressPhase =
+  | 'runner'
+  | 'tool'
+  | 'analysis'
+  | 'artifact'
+  | 'output'
+  | 'error';
 
 export interface RunnerProgressUpdate {
   at?: string;
   id?: string;
   message: string;
-  phase: 'runner' | 'tool' | 'analysis' | 'output' | 'error';
+  phase: RunnerProgressPhase;
   meta?: ProgressMeta;
 }
 
@@ -122,6 +146,11 @@ function sanitizeMeta(meta: ProgressMeta): ProgressMeta {
   if (clean.favicon) clean.favicon = sanitizeForJson(clean.favicon);
   if (clean.screenshotUrl) clean.screenshotUrl = sanitizeForJson(clean.screenshotUrl);
   if (clean.toolName) clean.toolName = sanitizeForJson(clean.toolName);
+  if (clean.eventType) clean.eventType = sanitizeForJson(clean.eventType) as ProgressMeta['eventType'];
+  if (clean.section) clean.section = sanitizeForJson(clean.section);
+  if (clean.title) clean.title = sanitizeForJson(clean.title);
+  if (clean.status) clean.status = sanitizeForJson(clean.status) as ProgressMeta['status'];
+  if (clean.runId) clean.runId = sanitizeForJson(clean.runId);
   return clean;
 }
 
@@ -141,7 +170,7 @@ function createProgressUpdate(
 
 export async function emitRunnerProgress(
   onProgress: RunnerProgressReporter | undefined,
-  phase: RunnerProgressUpdate['phase'],
+  phase: RunnerProgressPhase,
   message: string,
   meta?: ProgressMeta,
 ): Promise<void> {
@@ -150,6 +179,69 @@ export async function emitRunnerProgress(
   }
 
   await onProgress(createProgressUpdate(phase, message, meta));
+}
+
+export type RunnerArtifactProgressInput =
+  | {
+      type: 'artifact-clear';
+      section: string;
+      title?: string;
+      runId?: string;
+    }
+  | {
+      type: 'artifact-delta';
+      section: string;
+      delta: string;
+      title?: string;
+      runId?: string;
+    }
+  | {
+      type: 'artifact-section-state';
+      section: string;
+      status: NonNullable<ProgressMeta['status']>;
+      title?: string;
+      runId?: string;
+    }
+  | {
+      type: 'artifact-finish';
+      section: string;
+      title?: string;
+      runId?: string;
+    };
+
+export function buildArtifactProgressUpdate(
+  input: RunnerArtifactProgressInput,
+): RunnerProgressUpdate {
+  const meta: ProgressMeta = {
+    eventType: input.type,
+    section: input.section,
+    ...(input.title ? { title: input.title } : {}),
+    ...(input.runId ? { runId: input.runId } : {}),
+  };
+
+  if (input.type === 'artifact-section-state') {
+    meta.status = input.status;
+  }
+
+  const message =
+    input.type === 'artifact-delta'
+      ? input.delta
+      : input.type === 'artifact-section-state'
+        ? input.status
+        : input.title ?? input.type;
+
+  return createProgressUpdate('artifact', message, meta);
+}
+
+export async function emitArtifactProgress(
+  onProgress: RunnerProgressReporter | undefined,
+  input: RunnerArtifactProgressInput,
+): Promise<void> {
+  if (!onProgress) {
+    return;
+  }
+
+  await onProgress(buildArtifactProgressUpdate(input));
 }
 
 type ToolUseBlock = BetaServerToolUseBlock | BetaToolUseBlock | BetaMCPToolUseBlock;

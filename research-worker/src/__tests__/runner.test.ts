@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildArtifactProgressUpdate,
   describeToolUseBlock,
   describeWebSearchResultBlock,
   extractDraftFactMessages,
@@ -113,6 +114,45 @@ describe('extractDraftFactMessages', () => {
       'urgency: 6',
       'differentiation: 7',
     ]);
+  });
+});
+
+describe('buildArtifactProgressUpdate', () => {
+  it('builds a typed artifact delta progress row', () => {
+    expect(
+      buildArtifactProgressUpdate({
+        type: 'artifact-delta',
+        section: 'deepResearchProgram',
+        delta: '## Deep Research\n\nAirtable is positioned as an app platform.',
+        title: 'Airtable GTM Research',
+      }),
+    ).toMatchObject({
+      message: '## Deep Research\n\nAirtable is positioned as an app platform.',
+      phase: 'artifact',
+      meta: {
+        eventType: 'artifact-delta',
+        section: 'deepResearchProgram',
+        title: 'Airtable GTM Research',
+      },
+    });
+  });
+
+  it('builds artifact section state progress rows', () => {
+    expect(
+      buildArtifactProgressUpdate({
+        type: 'artifact-section-state',
+        section: 'industryMarket',
+        status: 'drafting',
+      }),
+    ).toMatchObject({
+      message: 'drafting',
+      phase: 'artifact',
+      meta: {
+        eventType: 'artifact-section-state',
+        section: 'industryMarket',
+        status: 'drafting',
+      },
+    });
   });
 });
 

@@ -66,35 +66,50 @@ describe('JourneyAgentChat', () => {
     expect(screen.queryByText('Journey Workbench')).not.toBeInTheDocument();
   });
 
-  it('renders a central report artifact from draft progress without leaking profile field counts', () => {
+  it('renders a live artifact skeleton immediately when Deep Research starts', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
         websiteUrl="research airtable.com"
         activeRunId="journey-test-123"
-        deepResearchStatus="complete"
+        deepResearchStatus="starting"
+      />,
+    );
+
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Live GTM Research Artifact',
+    );
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Deep Research Agent is building the source-backed corpus',
+    );
+  });
+
+  it('renders typed Deep Research artifact deltas without leaking profile field counts', () => {
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="research airtable.com"
+        activeRunId="journey-test-123"
+        deepResearchStatus="starting"
         deepResearchFields={{ companyName: 'Airtable', businessModel: 'B2B SaaS' }}
-        researchResults={{
-          deepResearchProgram: {
-            status: 'complete',
-            section: 'deepResearchProgram',
-            data: {},
-            durationMs: 1000,
-          },
-        }}
         researchActivity={{
-          industryMarket: {
-            jobId: 'job-market',
-            section: 'industryMarket',
+          deepResearchProgram: {
+            jobId: 'job-deep',
+            section: 'deepResearchProgram',
             status: 'running',
-            tool: 'researchIndustry',
+            tool: 'runDeepResearchProgram',
             startedAt: '2026-05-07T09:00:00.000Z',
             updates: [
               {
                 at: '2026-05-07T09:00:01.000Z',
-                id: 'draft-1',
-                message: 'draft Airtable is positioned as an app platform for teams.',
-                phase: 'analysis',
+                id: 'artifact-delta-1',
+                message: '# Airtable GTM Research\n\n## Deep Research\n\nAirtable is positioned as an app platform for teams.',
+                phase: 'artifact',
+                meta: {
+                  eventType: 'artifact-delta',
+                  section: 'deepResearchProgram',
+                  title: 'Airtable GTM Research',
+                },
               },
             ],
           },
@@ -106,5 +121,51 @@ describe('JourneyAgentChat', () => {
       'Airtable is positioned as an app platform for teams.',
     );
     expect(screen.queryByText(/Company corpus is ready with/u)).not.toBeInTheDocument();
+  });
+
+  it('places the live artifact before compact activity rows', () => {
+    const { container } = render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="research airtable.com"
+        activeRunId="journey-test-123"
+        deepResearchStatus="starting"
+        researchActivity={{
+          deepResearchProgram: {
+            jobId: 'job-deep',
+            section: 'deepResearchProgram',
+            status: 'running',
+            tool: 'runDeepResearchProgram',
+            startedAt: '2026-05-07T09:00:00.000Z',
+            updates: [
+              {
+                at: '2026-05-07T09:00:01.000Z',
+                id: 'tool-log',
+                message: 'Opened Airtable product page.',
+                phase: 'tool',
+                meta: {
+                  toolName: 'web_search',
+                  url: 'https://www.airtable.com/product',
+                },
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    const assistant = screen.getByTestId('journey-assistant-output');
+    const artifact = screen.getByTestId('deep-research-report-artifact');
+    const activity = container.querySelector('[data-testid="journey-agent-activity"]');
+
+    expect(activity).not.toBeNull();
+    expect(
+      assistant.compareDocumentPosition(artifact) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      artifact.compareDocumentPosition(activity as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

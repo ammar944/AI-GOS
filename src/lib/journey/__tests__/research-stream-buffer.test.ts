@@ -4,6 +4,25 @@ import {
   flushBufferedResearchChunks,
 } from '../research-stream-buffer';
 
+interface TestArtifactSection {
+  section: string;
+  title: string;
+  content: string;
+  status: string;
+  sourceUrls: string[];
+}
+
+interface TestArtifactState {
+  title: string;
+  status: string;
+  activeSection: string | null;
+  sections: TestArtifactSection[];
+}
+
+function getArtifactState(state: unknown): TestArtifactState {
+  return (state as { artifact: TestArtifactState }).artifact;
+}
+
 describe('flushBufferedResearchChunks', () => {
   it('merges buffered chunks and status patches into a single state update', () => {
     const next = flushBufferedResearchChunks(
@@ -99,55 +118,163 @@ describe('buildDeepResearchAgentStreamState', () => {
     expect(state.assistantOpening).toContain('Deep Research Agent');
   });
 
-  it('builds a growing report block from persisted draft progress chunks', () => {
+  it('builds the first live artifact section from typed Deep Research artifact events', () => {
     const state = buildDeepResearchAgentStreamState({
       activeRunId: 'run-1',
-      deepResearchStatus: 'complete',
-      phase: 'workspace',
+      deepResearchStatus: 'starting',
+      phase: 'prefilling',
       researchActivity: {
-        industryMarket: {
-          jobId: 'job-market',
-          section: 'industryMarket',
+        deepResearchProgram: {
+          jobId: 'job-deep',
+          section: 'deepResearchProgram',
           status: 'running',
-          tool: 'researchIndustry',
+          tool: 'runDeepResearchProgram',
           startedAt: '2026-05-07T09:00:00.000Z',
           updates: [
             {
               at: '2026-05-07T09:00:01.000Z',
-              id: 'draft-1',
-              message: 'draft Airtable is positioned as an app platform for teams.',
-              phase: 'analysis',
+              id: 'artifact-clear',
+              message: 'Airtable GTM Research',
+              phase: 'artifact',
+              meta: {
+                eventType: 'artifact-clear',
+                section: 'deepResearchProgram',
+                title: 'Airtable GTM Research',
+              },
             },
             {
               at: '2026-05-07T09:00:02.000Z',
-              id: 'draft-2',
-              message: 'draft Buyers compare Airtable against spreadsheet and workflow tools.',
+              id: 'artifact-delta',
+              message: '# Airtable GTM Research\n\n## Deep Research\n\nAirtable is positioned as an app platform for teams.',
+              phase: 'artifact',
+              meta: {
+                eventType: 'artifact-delta',
+                section: 'deepResearchProgram',
+              },
+            },
+          ],
+        },
+      },
+      researchResults: {},
+    });
+
+    const artifact = getArtifactState(state);
+    expect(artifact.title).toBe('Airtable GTM Research');
+    expect(artifact.activeSection).toBe('deepResearchProgram');
+    expect(artifact.sections).toHaveLength(1);
+    expect(artifact.sections[0]).toMatchObject({
+      section: 'deepResearchProgram',
+      status: 'drafting',
+    });
+    expect(artifact.sections[0]?.content).toContain(
+      'Airtable is positioned as an app platform for teams.',
+    );
+  });
+
+  it('keeps generic analysis logs out of artifact prose while still showing the skeleton', () => {
+    const state = buildDeepResearchAgentStreamState({
+      activeRunId: 'run-1',
+      deepResearchStatus: 'starting',
+      phase: 'prefilling',
+      researchActivity: {
+        deepResearchProgram: {
+          jobId: 'job-deep',
+          section: 'deepResearchProgram',
+          status: 'running',
+          tool: 'runDeepResearchProgram',
+          startedAt: '2026-05-07T09:00:00.000Z',
+          updates: [
+            {
+              at: '2026-05-07T09:00:01.000Z',
+              id: 'log-1',
+              message: 'Opened Airtable pricing page.',
+              phase: 'tool',
+            },
+            {
+              at: '2026-05-07T09:00:02.000Z',
+              id: 'legacy-draft-log',
+              message: 'draft This generic log must not become report prose.',
               phase: 'analysis',
             },
           ],
         },
       },
+      researchResults: {},
+    });
+
+    const artifact = getArtifactState(state);
+    expect(artifact.sections).toHaveLength(1);
+    expect(artifact.sections[0]?.section).toBe('deepResearchProgram');
+    expect(artifact.sections[0]?.content).toContain(
+      'Deep Research Agent is building the source-backed corpus',
+    );
+    expect(artifact.sections[0]?.content).not.toContain(
+      'This generic log must not become report prose',
+    );
+    expect(artifact.sections[0]?.content).not.toContain(
+      'Opened Airtable pricing page',
+    );
+  });
+
+  it('hydrates completed artifact content and sources from persisted section results', () => {
+    const state = buildDeepResearchAgentStreamState({
+      activeRunId: 'run-1',
+      deepResearchStatus: 'complete',
+      phase: 'workspace',
+      researchActivity: {},
       researchResults: {
         deepResearchProgram: {
           status: 'complete',
           section: 'deepResearchProgram',
-          data: {},
+          data: {
+            corpus: {
+              company: 'Airtable',
+              researchSummary: 'Airtable sells a connected app platform for operational teams.',
+              sources: [
+                {
+                  title: 'Airtable product',
+                  url: 'https://www.airtable.com/product',
+                  whyItMatters: 'Primary product positioning.',
+                },
+              ],
+            },
+          },
+          durationMs: 1000,
+        },
+        industryMarket: {
+          status: 'complete',
+          section: 'industryMarket',
+          data: {
+            sectionTitle: 'Market Category',
+            statusSummary: 'Airtable competes in connected app platform and workflow database categories.',
+            keyFindings: [
+              {
+                title: 'Category ownership',
+                detail: 'The company frames the market around apps, workflows, data, and AI.',
+                sourceUrl: 'https://www.airtable.com/product',
+              },
+            ],
+            sources: [
+              {
+                title: 'Airtable product',
+                url: 'https://www.airtable.com/product',
+                whyItMatters: 'Primary product positioning.',
+              },
+            ],
+          },
           durationMs: 1000,
         },
       },
     });
 
-    expect(state.reportBlocks).toHaveLength(1);
-    expect(state.reportBlocks[0]).toMatchObject({
-      section: 'industryMarket',
-      status: 'running',
-    });
-    expect(state.reportBlocks[0]?.content).toContain(
-      'Airtable is positioned as an app platform for teams.',
+    const artifact = getArtifactState(state);
+    const marketSection = artifact.sections.find(
+      (section) => section.section === 'industryMarket',
     );
-    expect(state.reportBlocks[0]?.content).toContain(
-      'Buyers compare Airtable against spreadsheet and workflow tools.',
-    );
+
+    expect(marketSection?.content).toContain('Category ownership');
+    expect(marketSection?.content).toContain('connected app platform');
+    expect(marketSection?.sourceUrls).toEqual(['https://www.airtable.com/product']);
   });
 
   it('buffers out-of-order completed specialists until earlier sections reveal', () => {

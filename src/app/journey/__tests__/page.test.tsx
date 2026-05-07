@@ -896,7 +896,7 @@ describe('JourneyPage artifact orchestration', () => {
     expect(screen.getAllByText('Competitors finished before ICP.').length).toBeGreaterThan(0);
   });
 
-  it('shows the central report artifact growing from realistic worker draft chunks', async () => {
+  it('shows the central report artifact growing from typed worker artifact events', async () => {
     window.sessionStorage.setItem('aigos_journey_active_run_id', 'run-draft-growth');
     window.sessionStorage.setItem('aigos_journey_phase', 'workspace');
     researchJobActivityValue.current = {
@@ -928,9 +928,14 @@ describe('JourneyPage artifact orchestration', () => {
           },
           {
             at: '2026-05-07T09:02:02.000Z',
-            id: 'draft-1',
-            message: 'draft Airtable is positioned as an app platform for teams that need connected data, workflows, interfaces, and AI-assisted operations.',
-            phase: 'analysis',
+            id: 'artifact-delta-1',
+            message: '## Market Category\n\nAirtable is positioned as an app platform for teams that need connected data, workflows, interfaces, and AI-assisted operations.',
+            phase: 'artifact',
+            meta: {
+              eventType: 'artifact-delta',
+              section: 'industryMarket',
+              title: 'Market Category',
+            },
           },
         ],
       },
@@ -958,9 +963,14 @@ describe('JourneyPage artifact orchestration', () => {
           ...(researchJobActivityValue.current.industryMarket?.updates ?? []),
           {
             at: '2026-05-07T09:02:03.000Z',
-            id: 'draft-2',
-            message: 'draft Buyers compare Airtable against spreadsheets, workflow tools, and lightweight databases when evaluating operational systems.',
-            phase: 'analysis',
+            id: 'artifact-delta-2',
+            message: '\n\nBuyers compare Airtable against spreadsheets, workflow tools, and lightweight databases when evaluating operational systems.',
+            phase: 'artifact',
+            meta: {
+              eventType: 'artifact-delta',
+              section: 'industryMarket',
+              title: 'Market Category',
+            },
           },
         ],
       },
@@ -989,14 +999,19 @@ describe('JourneyPage artifact orchestration', () => {
         tool: 'researchOffer',
         startedAt: '2026-05-07T09:04:00.000Z',
         updates: [
-          {
-            at: '2026-05-07T09:04:01.000Z',
-            id: 'offer-draft',
-            message: 'draft Offer analysis is being written from the saved corpus.',
-            phase: 'analysis',
-          },
-        ],
-      },
+            {
+              at: '2026-05-07T09:04:01.000Z',
+              id: 'offer-artifact-delta',
+              message: '## Offer Diagnostic\n\nOffer analysis is being written from the saved corpus.',
+              phase: 'artifact',
+              meta: {
+                eventType: 'artifact-delta',
+                section: 'offerAnalysis',
+                title: 'Offer Diagnostic',
+              },
+            },
+          ],
+        },
     };
     realtimeControls.setInitialResults({
       deepResearchProgram: makeResearchResult('deepResearchProgram', {}),

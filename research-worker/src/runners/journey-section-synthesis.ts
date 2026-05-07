@@ -2,6 +2,7 @@ import type { BetaContentBlock } from '@anthropic-ai/sdk/resources/beta/messages
 import {
   buildRunnerTelemetry,
   createClient,
+  emitArtifactProgress,
   emitRunnerProgress,
   extractJson,
   runStreamedToolRunner,
@@ -135,6 +136,83 @@ function normalizeSectionPayload(
   };
 }
 
+function formatStringList(title: string, values: unknown): string | null {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  const lines = values
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => `- ${value.trim()}`);
+
+  return lines.length > 0 ? `### ${title}\n${lines.join('\n')}` : null;
+}
+
+function formatFindingLines(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const lines = value.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const title = asString(item.title);
+    const detail = asString(item.detail) ?? asString(item.evidence);
+    if (title && detail) {
+      return [`- ${title}: ${detail}`];
+    }
+
+    return title ?? detail ? [`- ${title ?? detail ?? ''}`] : [];
+  });
+
+  return lines.length > 0 ? `### Key Findings\n${lines.join('\n')}` : null;
+}
+
+function formatEvidenceQuoteLines(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const lines = value.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+
+    const quote = asString(item.quote);
+    const interpretation = asString(item.interpretation);
+    const source = asString(item.source);
+    if (!quote && !interpretation) {
+      return [];
+    }
+
+    return [`- ${quote ?? interpretation}${source ? ` (${source})` : ''}`];
+  });
+
+  return lines.length > 0 ? `### Evidence\n${lines.join('\n')}` : null;
+}
+
+export function formatJourneySectionArtifactMarkdown(
+  data: Record<string, unknown>,
+  spec: JourneySectionSpec,
+): string {
+  const sectionTitle = asString(data.sectionTitle) ?? spec.title;
+  const summary =
+    asString(data.statusSummary) ??
+    asString(data.verdict) ??
+    `${spec.title} is writing a source-backed report section.`;
+  const sections = [
+    `## ${sectionTitle}\n\n${summary}`,
+    formatFindingLines(data.keyFindings),
+    formatEvidenceQuoteLines(data.evidenceQuotes),
+    formatStringList('Recommended Moves', data.recommendedMoves),
+    formatStringList('Risks / Gaps', data.risksOrGaps),
+  ].filter((section): section is string => Boolean(section));
+
+  return sections.join('\n\n');
+}
+
 async function runJourneySection(
   spec: JourneySectionSpec,
   context: string,
@@ -146,6 +224,18 @@ async function runJourneySection(
     const client = createClient({ enableSkillsBeta: true });
     await emitRunnerProgress(onProgress, 'runner', `${spec.title} starting`, {
       toolName: spec.skill,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: spec.section,
+      status: 'drafting',
+      title: spec.title,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-delta',
+      section: spec.section,
+      title: spec.title,
+      delta: `\n\n## ${spec.title}\n\n${spec.title} is writing this section from the source-backed corpus...`,
     });
 
     const finalMsg = await runWithBackoff(
@@ -192,6 +282,23 @@ async function runJourneySection(
     }
 
     const data = normalizeSectionPayload(parsed, spec);
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-delta',
+      section: spec.section,
+      title: asString(data.sectionTitle) ?? spec.title,
+      delta: `\n\n${formatJourneySectionArtifactMarkdown(data, spec)}`,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: spec.section,
+      status: 'complete',
+      title: asString(data.sectionTitle) ?? spec.title,
+    });
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-finish',
+      section: spec.section,
+      title: asString(data.sectionTitle) ?? spec.title,
+    });
     await emitRunnerProgress(onProgress, 'output', `${spec.title} artifact ready`, {
       toolName: spec.skill,
     });
@@ -209,6 +316,12 @@ async function runJourneySection(
       },
     };
   } catch (error) {
+    await emitArtifactProgress(onProgress, {
+      type: 'artifact-section-state',
+      section: spec.section,
+      status: 'error',
+      title: spec.title,
+    });
     return {
       status: 'error',
       section: spec.section,
