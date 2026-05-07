@@ -54,6 +54,8 @@ const SECTION_DOC_BUDGETS: Record<string, number> = {
   mediaPlan: 25_000,
 };
 
+const MAX_DEEP_RESEARCH_CONTEXT_CHARS = 12_000;
+
 interface WikiEntry {
   topic: string;
   content: string;
@@ -186,6 +188,33 @@ function createDispatchError(section: string, error: string): DispatchResult {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function summarizeDeepResearchProgram(payload: unknown): string | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (payload.status === 'error') {
+    const error = typeof payload.error === 'string' ? payload.error : 'unknown error';
+    return `Company deep research failed: ${error}`;
+  }
+
+  if (payload.status !== 'complete') {
+    return null;
+  }
+
+  const data = isRecord(payload.data) ? payload.data : payload;
+  const corpus = isRecord(data.corpus) ? data.corpus : data;
+  const serialized = JSON.stringify(corpus, null, 1);
+
+  return serialized.length > MAX_DEEP_RESEARCH_CONTEXT_CHARS
+    ? `${serialized.slice(0, MAX_DEEP_RESEARCH_CONTEXT_CHARS)}\n... [deep research corpus truncated]`
+    : serialized;
+}
+
 async function stampActiveJourneyRunId(
   userId: string,
   runId: string | null | undefined,
@@ -272,8 +301,16 @@ async function injectPriorResearchContext(
       return context;
     }
 
+    const deepResearchContext =
+      section === 'deepResearchProgram'
+        ? null
+        : summarizeDeepResearchProgram(research.deepResearchProgram);
     const upstreamSections = DISPATCH_PIPELINE_ORDER.slice(0, sectionIndex);
     const researchSections: string[] = [];
+    if (deepResearchContext) {
+      researchSections.push(`## Company Deep Research Corpus\n${deepResearchContext}`);
+    }
+
     for (const key of upstreamSections) {
       const value = research[key];
       if (!value) continue;

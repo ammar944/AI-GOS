@@ -11,17 +11,6 @@ const TOOL_TO_SECTION: Record<string, string> = Object.fromEntries(
   ]),
 );
 
-const DEEP_RESEARCH_PROGRAM_TOOL = 'runDeepResearchProgram';
-
-const DEEP_RESEARCH_PROGRAM_ACTIVITY_SECTIONS = [
-  'industryMarket',
-  'icpValidation',
-  'competitors',
-  'offerAnalysis',
-  'keywordIntel',
-  'crossAnalysis',
-] as const;
-
 export interface ResearchUpdateMeta {
   url?: string;
   screenshotUrl?: string;
@@ -83,10 +72,7 @@ export function extractResearchJobActivity(
   const latestBySection: Record<string, ResearchJobActivity> = {};
 
   for (const [jobId, row] of Object.entries(jobStatus ?? {})) {
-    const sections =
-      row.tool === DEEP_RESEARCH_PROGRAM_TOOL
-        ? DEEP_RESEARCH_PROGRAM_ACTIVITY_SECTIONS
-        : ([TOOL_TO_SECTION[row.tool]].filter(Boolean) as readonly string[]);
+    const sections = [TOOL_TO_SECTION[row.tool]].filter(Boolean) as readonly string[];
 
     if (sections.length === 0) {
       continue;

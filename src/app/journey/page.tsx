@@ -56,8 +56,6 @@ import {
 } from '@/lib/journey/journey-section-orchestration';
 import {
   JOURNEY_FIELD_LABELS,
-  JOURNEY_MANUAL_BLOCKER_FIELDS,
-  JOURNEY_PREFILL_REVIEW_FIELDS,
   JOURNEY_REQUIRED_FIELD_KEYS,
   JOURNEY_PRICING_GROUP_KEYS,
 } from '@/lib/journey/field-catalog';
@@ -65,8 +63,7 @@ import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
 import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import {
-  dispatchDeepResearchProgram,
-  DEEP_RESEARCH_PROGRAM_SECTIONS,
+  dispatchResearchSection,
 } from '@/lib/journey/dispatch-client';
 import { buildJourneyResearchContext } from '@/lib/journey/context-string';
 import type { SectionKey } from '@/lib/workspace/types';
@@ -80,10 +77,64 @@ const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
 ]);
 
 type JourneyPhaseView = 'welcome' | 'prefilling' | 'review' | 'resume' | 'workspace';
+type LinkDeepResearchStatus = 'idle' | 'starting' | 'queued' | 'complete' | 'error';
 
-interface PrefillAcceptPayload {
-  editedFields?: Record<string, string>;
-  manualFields?: Record<string, string>;
+const LINK_DEEP_RESEARCH_POLL_INTERVAL_MS = 2_000;
+const LINK_DEEP_RESEARCH_MAX_POLLS = 450;
+
+function normalizeLaunchUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function waitForResearchSectionComplete(
+  runId: string,
+  section: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < LINK_DEEP_RESEARCH_MAX_POLLS; attempt++) {
+    const response = await fetch(
+      `/api/journey/research-status?runId=${encodeURIComponent(runId)}&section=${encodeURIComponent(section)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to read ${section} status for run ${runId}: HTTP ${response.status}`,
+      );
+    }
+
+    const payload = (await response.json()) as {
+      complete?: boolean;
+      error?: string;
+      status?: string;
+    };
+
+    if (payload.status === 'error') {
+      throw new Error(
+        payload.error ??
+          `${section} failed for run ${runId} before onboarding review`,
+      );
+    }
+
+    if (payload.complete) {
+      return;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, LINK_DEEP_RESEARCH_POLL_INTERVAL_MS),
+    );
+  }
+
+  throw new Error(
+    `${section} did not finish for run ${runId} before the onboarding review timeout`,
+  );
 }
 
 function logJourneyDebug(
@@ -173,6 +224,10 @@ function JourneyPageContent() {
   const [, setIsResuming] = useState(false);
   const [prefillWebsiteUrl, setPrefillWebsiteUrl] = useState('');
   const [welcomeLinkedinUrl, setWelcomeLinkedinUrl] = useState('');
+  const [prefillReviewOverrides, setPrefillReviewOverrides] = useState<Record<string, string>>({});
+  const [linkDeepResearchStatus, setLinkDeepResearchStatus] =
+    useState<LinkDeepResearchStatus>('idle');
+  const [linkDeepResearchError, setLinkDeepResearchError] = useState<string | null>(null);
   const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(null);
 
   const {
@@ -188,14 +243,19 @@ function JourneyPageContent() {
     const flat: Record<string, string> = {};
     // Include the website URL the user entered — it's stored separately from extraction results
     if (prefillWebsiteUrl) flat.websiteUrl = prefillWebsiteUrl;
+    if (welcomeLinkedinUrl) flat.linkedinUrl = welcomeLinkedinUrl;
     const record = partialResult as Record<string, unknown> | null | undefined;
-    if (!record) return flat;
-    for (const key of Object.keys(record)) {
-      const value = readJourneyPrefillFieldValue(record, key);
-      if (value) flat[key] = value;
+    if (record) {
+      for (const key of Object.keys(record)) {
+        const value = readJourneyPrefillFieldValue(record, key);
+        if (value) flat[key] = value;
+      }
+    }
+    for (const [key, value] of Object.entries(prefillReviewOverrides)) {
+      if (value.trim()) flat[key] = value;
     }
     return flat;
-  }, [partialResult, prefillWebsiteUrl]);
+  }, [partialResult, prefillReviewOverrides, prefillWebsiteUrl, welcomeLinkedinUrl]);
 
   const [activeRunId, setActiveRunId] = useState<string | null>(deepLinkSession);
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
@@ -711,7 +771,6 @@ function JourneyPageContent() {
 
   // Guard ref to prevent double workspace transitions
   const hasTransitionedToWorkspaceRef = useRef(false);
-  const dispatchedSectionsRef = useRef<Set<string>>(new Set());
 
   const appendRealtimeResearchMessage = useCallback(
     (section: string, result: ResearchSectionResult) => {
@@ -922,6 +981,8 @@ function JourneyPageContent() {
     clearJourneySession();
     clearStoredJourneySession();
     beginFreshJourneyRun();
+    setLinkDeepResearchStatus('idle');
+    setLinkDeepResearchError(null);
     setSavedSession(null);
     setIsResuming(false);
     setOnboardingState(null);
@@ -929,134 +990,83 @@ function JourneyPageContent() {
     addLog('inf', 'Starting fresh journey');
   }, [addLog, beginFreshJourneyRun]);
 
-  // Prefill accept — build context, persist to session, dispatch first research section
-  const handleAcceptPrefill = useCallback(
-    ({ editedFields, manualFields }: PrefillAcceptPayload = {}) => {
-      if (hasTransitionedToWorkspaceRef.current) {
-        return;
-      }
-      hasTransitionedToWorkspaceRef.current = true;
-
-      // Always create a fresh run ID for a new session
-      const nextRunId = createJourneyRunId();
-      commitActiveRunId(nextRunId);
-
-      const partialResultRecord = partialResult as Record<string, unknown> | null | undefined;
-      const acceptedJourneyFields: Record<string, string> = {};
-
-      for (const { key } of JOURNEY_PREFILL_REVIEW_FIELDS) {
-        const hasEditedValue = Boolean(
-          editedFields && Object.prototype.hasOwnProperty.call(editedFields, key),
-        );
-
-        if (hasEditedValue) {
-          const editedValue = editedFields?.[key]?.trim() ?? '';
-          if (editedValue) {
-            acceptedJourneyFields[key] = editedValue;
-          }
-          continue;
-        }
-
-        const value = readJourneyPrefillFieldValue(partialResultRecord, key);
-        if (value) {
-          acceptedJourneyFields[key] = value;
-        }
-      }
-
-      for (const [key, rawValue] of Object.entries(manualFields ?? {})) {
-        const value = rawValue.trim();
-        if (!value) continue;
-        acceptedJourneyFields[key] = value;
-      }
-
-      const displayName = acceptedJourneyFields.companyName || 'this company';
-      const orderedFieldKeys = Array.from(
-        new Set([
-          ...JOURNEY_PREFILL_REVIEW_FIELDS.map(({ key }) => key),
-          ...JOURNEY_MANUAL_BLOCKER_FIELDS.map(({ key }) => key),
-          ...Object.keys(acceptedJourneyFields),
-        ]),
-      );
-
-      addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
-
-      // Persist session fields THEN dispatch — must await so the worker's
-      // isActiveJourneyRun() guard sees the run ID when it tries to write results
-      const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
-      const guardedFetch = createJourneyGuardedFetch('Journey');
-      // Clear old research results, set new fields + run ID, THEN dispatch
-      guardedFetch('/api/journey/session', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clearResearch: true,
-          fields: Object.fromEntries(
-            Object.entries(acceptedJourneyFields).filter(([, v]) => v.trim().length > 0),
-          ),
-          activeRunId: nextRunId,
-        }),
-      }).then(() => {
-        // Save business profile from onboarding data (fire-and-forget)
-        fetch('/api/profiles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: nextRunId }),
-        }).catch(() => { /* non-critical */ });
-
-        addLog('run', 'Launching Deep Research Agent — one corpus feeding all 6 cards...');
-        // Pre-register all six sections so old per-section approval orchestration
-        // does not re-dispatch duplicate research while the one-pass program fills cards.
-        for (const section of DEEP_RESEARCH_PROGRAM_SECTIONS) {
-          dispatchedSectionsRef.current.add(section);
-        }
-        return dispatchDeepResearchProgram(nextRunId, context);
-      }).then((result) => {
-        if (result.status === 'error') {
-          addLog('err', `Deep Research Agent dispatch failed: ${result.error ?? 'Unknown error'}`);
-          hasTransitionedToWorkspaceRef.current = false;
-        } else {
-          addLog('ok', `Deep Research Agent dispatched (job: ${result.jobId ?? 'unknown'})`);
-          setJourneyCompanyName(displayName);
-          setStoredJourneyCompanyName(displayName);
-          setJourneyPhase('workspace');
-        }
-      }).catch((err) => {
-        hasTransitionedToWorkspaceRef.current = false;
-        addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+  const handlePrefillReadyForReview = useCallback(
+    (editedFields: Record<string, string>) => {
+      setPrefillReviewOverrides({
+        ...editedFields,
+        websiteUrl: prefillWebsiteUrl,
+        ...(welcomeLinkedinUrl.trim().length > 0
+          ? { linkedinUrl: welcomeLinkedinUrl.trim() }
+          : {}),
       });
+      addLog('ok', 'Company research extracted onboarding context');
+      setJourneyPhase('review');
     },
-    [
-      addLog,
-      commitActiveRunId,
-      partialResult,
-    ],
+    [addLog, prefillWebsiteUrl, welcomeLinkedinUrl],
   );
 
-  // URL entry is the start of the one-pass Deep Research Agent, not a manual
-  // extracted-field review checkpoint. Keep the extraction/progress surface while
-  // fields stream in, then auto-accept whatever the link produced and launch the
-  // central workspace + deepResearchProgram run.
-  useEffect(() => {
-    if (journeyPhase !== 'prefilling') return;
-    if (isPrefilling || prefillError || fieldsFound === 0) return;
-    if (hasTransitionedToWorkspaceRef.current) return;
+  const handleAnalyzeCompanyLink = useCallback(() => {
+    const websiteUrl = normalizeLaunchUrl(prefillWebsiteUrl);
+    if (!websiteUrl) return;
+    const linkedinUrl = normalizeLaunchUrl(welcomeLinkedinUrl);
+    const nextRunId = createJourneyRunId();
+    const sourceFields: Record<string, string> = {
+      websiteUrl,
+      ...(linkedinUrl ? { linkedinUrl } : {}),
+    };
+    const sourceContext = buildJourneyResearchContext(
+      sourceFields,
+      Object.keys(sourceFields),
+    );
+    const guardedFetch = createJourneyGuardedFetch('Journey');
 
-    handleAcceptPrefill({
-      editedFields: extractedFieldsFlat,
-      manualFields: {
-        websiteUrl: prefillWebsiteUrl,
-        linkedinUrl: welcomeLinkedinUrl,
-      },
+    stopPrefill();
+    setPrefillReviewOverrides({});
+    setLinkDeepResearchStatus('starting');
+    setLinkDeepResearchError(null);
+    commitActiveRunId(nextRunId);
+    addLog('run', `Starting company deep research and onboarding extraction for ${websiteUrl}`);
+    setJourneyPhase('prefilling');
+
+    submitPrefill({
+      websiteUrl,
+      linkedinUrl: linkedinUrl ?? undefined,
     });
+
+    void guardedFetch('/api/journey/session', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clearResearch: true,
+        fields: sourceFields,
+        activeRunId: nextRunId,
+      }),
+    })
+      .then(() => dispatchResearchSection('deepResearchProgram', nextRunId, sourceContext))
+      .then(async (result) => {
+        if (result.status === 'error') {
+          throw new Error(result.error ?? 'Company deep research dispatch failed');
+        }
+
+        setLinkDeepResearchStatus('queued');
+        addLog('run', `Company deep research queued (job: ${result.jobId ?? 'unknown'})`);
+        await waitForResearchSectionComplete(nextRunId, 'deepResearchProgram');
+        setLinkDeepResearchStatus('complete');
+        addLog('ok', 'Company deep research corpus ready for onboarding review');
+      })
+      .catch((error: unknown) => {
+        const message = getErrorMessage(error);
+        setLinkDeepResearchStatus('error');
+        setLinkDeepResearchError(message);
+        addLog('err', `Company deep research failed: ${message}`);
+      });
   }, [
-    journeyPhase,
-    isPrefilling,
-    prefillError,
-    fieldsFound,
-    extractedFieldsFlat,
+    addLog,
+    commitActiveRunId,
     prefillWebsiteUrl,
+    stopPrefill,
+    submitPrefill,
     welcomeLinkedinUrl,
-    handleAcceptPrefill,
   ]);
 
   // Handler for UnifiedFieldReview — takes a flat Record<string, string>
@@ -1084,7 +1094,12 @@ function JourneyPageContent() {
         return;
       }
 
-      const nextRunId = createJourneyRunId();
+      const existingRunId = activeRunIdRef.current;
+      const nextRunId =
+        existingRunId && existingRunId.trim().length > 0
+          ? existingRunId
+          : createJourneyRunId();
+      const shouldClearResearch = !existingRunId;
       commitActiveRunId(nextRunId);
       const acceptedJourneyFields: Record<string, string> = {};
 
@@ -1106,7 +1121,7 @@ function JourneyPageContent() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clearResearch: true,
+          clearResearch: shouldClearResearch,
           fields: Object.fromEntries(
             Object.entries(acceptedJourneyFields).filter(([, v]) => v.trim().length > 0),
           ),
@@ -1134,19 +1149,15 @@ function JourneyPageContent() {
           }).catch(() => { /* non-critical */ });
         }
 
-        addLog('run', 'Launching Deep Research Agent — one corpus feeding all 6 cards...');
-        // Pre-register all six sections so old per-section approval orchestration
-        // does not re-dispatch duplicate research while the one-pass program fills cards.
-        for (const section of DEEP_RESEARCH_PROGRAM_SECTIONS) {
-          dispatchedSectionsRef.current.add(section);
-        }
-        return dispatchDeepResearchProgram(nextRunId, context);
+        addLog('run', 'Starting Market & Category synthesis from completed onboarding context...');
+        markResearchQueued('industryMarket');
+        return dispatchResearchSection('industryMarket', nextRunId, context);
       }).then((result) => {
         if (result.status === 'error') {
-          addLog('err', `Deep Research Agent dispatch failed: ${result.error ?? 'Unknown error'}`);
+          addLog('err', `Market & Category dispatch failed: ${result.error ?? 'Unknown error'}`);
           hasTransitionedToWorkspaceRef.current = false;
         } else {
-          addLog('ok', `Deep Research Agent dispatched (job: ${result.jobId ?? 'unknown'})`);
+          addLog('ok', `Market & Category synthesis queued (job: ${result.jobId ?? 'unknown'})`);
           setJourneyCompanyName(displayName);
           setStoredJourneyCompanyName(displayName);
           setJourneyPhase('workspace');
@@ -1156,7 +1167,7 @@ function JourneyPageContent() {
         addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     },
-    [addLog, commitActiveRunId, pendingMeetings],
+    [addLog, commitActiveRunId, markResearchQueued, pendingMeetings],
   );
 
   const showResumeView = journeyPhase === 'resume';
@@ -1179,20 +1190,19 @@ function JourneyPageContent() {
       isPrefilling={isPrefilling}
       error={prefillError}
       websiteUrl={prefillWebsiteUrl}
+      deepResearchStatus={linkDeepResearchStatus}
+      deepResearchError={linkDeepResearchError}
       onRetry={() => {
         stopPrefill();
 
         setPrefillWebsiteUrl('');
+        setPrefillReviewOverrides({});
+        setLinkDeepResearchStatus('idle');
+        setLinkDeepResearchError(null);
         setJourneyPhase('welcome');
       }}
       onComplete={(editedFields) =>
-        handleAcceptPrefill({
-          editedFields,
-          manualFields: {
-            websiteUrl: prefillWebsiteUrl,
-            linkedinUrl: welcomeLinkedinUrl,
-          },
-        })
+        handlePrefillReadyForReview(editedFields)
       }
     />
   );
@@ -1212,23 +1222,13 @@ function JourneyPageContent() {
       linkedinUrl={welcomeLinkedinUrl}
       onWebsiteUrlChange={setPrefillWebsiteUrl}
       onLinkedinUrlChange={setWelcomeLinkedinUrl}
-      onAnalyze={() => {
-        const websiteUrl = prefillWebsiteUrl.trim();
-        if (!websiteUrl) return;
-        const linkedinUrl = welcomeLinkedinUrl.trim();
-        stopPrefill();
-        addLog('run', `Extracting onboarding context for ${websiteUrl}`);
-        setJourneyPhase('prefilling');
-        submitPrefill({
-          websiteUrl,
-          linkedinUrl: linkedinUrl.length > 0 ? linkedinUrl : undefined,
-        });
-      }}
+      onAnalyze={handleAnalyzeCompanyLink}
       onSkip={() => {
-        beginFreshJourneyRun();
-        hasTransitionedToWorkspaceRef.current = true;
-        setJourneyPhase('workspace');
-        addLog('inf', 'Opened central agent workspace without website prefill');
+        setPrefillReviewOverrides({});
+        setLinkDeepResearchStatus('idle');
+        setLinkDeepResearchError(null);
+        setJourneyPhase('review');
+        addLog('inf', 'Opened manual onboarding review');
       }}
     />
   );
@@ -1244,12 +1244,7 @@ function JourneyPageContent() {
   // Workspace phase — replaces entire chat layout with artifact-first workspace
   if (journeyPhase === 'workspace') {
     const handleWorkspaceSectionApproved = (approvedSection: SectionKey) => {
-      // One-pass Journey design: the link-triggered deepResearchProgram already
-      // built the shared evidence corpus and split artifacts for every research
-      // section. Approving a section should reveal/review the next synthesized
-      // artifact through WorkspaceProvider state — it must not dispatch another
-      // hidden per-section research job.
-      addLog('ok', `${SECTION_META[approvedSection] ?? approvedSection} approved — moving to the next synthesized artifact`);
+      addLog('ok', `${SECTION_META[approvedSection] ?? approvedSection} approved — preparing the next section`);
     };
 
     return (

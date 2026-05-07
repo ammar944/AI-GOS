@@ -21,6 +21,8 @@ export interface PrefillStreamViewProps {
   isPrefilling: boolean;
   error: Error | undefined;
   websiteUrl: string;
+  deepResearchStatus?: 'idle' | 'starting' | 'queued' | 'complete' | 'error';
+  deepResearchError?: string | null;
   onRetry: () => void;
   onComplete: (editedFields: Record<string, string>) => void;
 }
@@ -49,6 +51,8 @@ export function PrefillStreamView({
   isPrefilling,
   error,
   websiteUrl,
+  deepResearchStatus = 'idle',
+  deepResearchError,
   onRetry,
   onComplete,
 }: PrefillStreamViewProps) {
@@ -63,6 +67,10 @@ export function PrefillStreamView({
   const progressPct = fieldsFound > 0 ? Math.min(100, Math.round((fieldsFound / 20) * 100)) : 0;
   const isComplete = !isPrefilling && fieldsFound > 0 && !error;
   const isFailed = !isPrefilling && fieldsFound === 0 && !error;
+  const requiresDeepResearch = deepResearchStatus !== 'idle';
+  const isDeepResearchComplete = !requiresDeepResearch || deepResearchStatus === 'complete';
+  const isDeepResearchFailed = deepResearchStatus === 'error';
+  const canReviewOnboarding = isComplete && isDeepResearchComplete;
   const visibleFields = resolveVisibleFields(partialResult);
   const getFieldPayload = (): Record<string, string> =>
     Object.fromEntries(
@@ -158,6 +166,44 @@ export function PrefillStreamView({
           />
         </div>
 
+        {requiresDeepResearch && (
+          <div
+            className={cn(
+              'rounded-2xl border px-5 py-4',
+              isDeepResearchFailed
+                ? 'border-red-500/25 bg-red-500/[0.07]'
+                : isDeepResearchComplete
+                  ? 'border-emerald-500/25 bg-emerald-500/[0.07]'
+                  : 'border-[var(--accent-amber)]/25 bg-[var(--accent-amber)]/[0.06]',
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  'mt-1.5 h-2 w-2 shrink-0 rounded-full',
+                  isDeepResearchFailed
+                    ? 'bg-red-400'
+                    : isDeepResearchComplete
+                      ? 'bg-emerald-400'
+                      : 'bg-[var(--accent-amber)]',
+                )}
+              />
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-quaternary)]">
+                  Company deep research
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
+                  {isDeepResearchFailed
+                    ? `Deep research failed before onboarding review: ${deepResearchError ?? 'Unknown error'}`
+                    : isDeepResearchComplete
+                      ? 'Company corpus is ready. Review the extracted onboarding fields next.'
+                      : 'Building the company corpus before onboarding review opens.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Content card */}
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] backdrop-blur-sm overflow-hidden">
           {/* Error state */}
@@ -246,7 +292,7 @@ export function PrefillStreamView({
         </div>
 
         {/* Complete CTA */}
-        {isComplete && (
+        {canReviewOnboarding && (
           <motion.div
             className="flex items-center justify-center"
             initial={{ opacity: 0 }}
@@ -259,13 +305,49 @@ export function PrefillStreamView({
               onClick={() => onComplete(getFieldPayload())}
               className="cursor-pointer h-11 rounded-full bg-foreground text-background font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"
             >
-              Launch deep research
+              Review onboarding fields
+            </button>
+          </motion.div>
+        )}
+
+        {isComplete && requiresDeepResearch && !isDeepResearchComplete && !isDeepResearchFailed && (
+          <motion.div
+            className="flex flex-col items-center gap-2 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <p className="text-sm text-[var(--text-secondary)]">
+              Onboarding fields are extracted. Waiting for company deep research before review.
+            </p>
+            <span className="text-[11px] text-[var(--text-quaternary)]">
+              The report sections stay locked until the corpus and profile are ready.
+            </span>
+          </motion.div>
+        )}
+
+        {isComplete && isDeepResearchFailed && (
+          <motion.div
+            className="flex flex-col items-center gap-3 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <p className="max-w-sm text-sm leading-6 text-red-400/90">
+              Fix the deep research run before onboarding review so sections do not start from shallow context.
+            </p>
+            <button
+              onClick={onRetry}
+              className="cursor-pointer inline-flex h-9 items-center gap-2 rounded-full bg-foreground px-5 text-[13px] font-semibold text-background transition-all hover:bg-foreground/90"
+            >
+              <RotateCcw className="size-3.5" />
+              Try another URL
             </button>
           </motion.div>
         )}
 
         {/* Early continue */}
-        {isPrefilling && fieldsFound >= 5 && (
+        {isPrefilling && fieldsFound >= 5 && isDeepResearchComplete && (
           <motion.div
             className="flex flex-col items-center gap-3"
             initial={{ opacity: 0, y: 8 }}
@@ -281,7 +363,7 @@ export function PrefillStreamView({
               Continue with {fieldsFound} fields
             </button>
             <span className="text-[11px] text-[var(--text-quaternary)]">
-              Deep research can start now; the agent will fill missing context inside the workspace
+              Continue to complete the onboarding profile before section synthesis starts
             </span>
           </motion.div>
         )}

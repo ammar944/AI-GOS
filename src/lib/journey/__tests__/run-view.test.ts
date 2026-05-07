@@ -212,7 +212,7 @@ describe('buildJourneyRunView', () => {
     expect(view.messages).toEqual([]);
   });
 
-  it('shows the one-pass deep research job as running across generated sections', () => {
+  it('does not show company-level deep research as section synthesis activity', () => {
     const view = buildJourneyRunView({
       id: 'session-deep',
       run_id: 'run-deep',
@@ -230,7 +230,7 @@ describe('buildJourneyRunView', () => {
             {
               at: '2026-05-07T09:00:01.000Z',
               id: 'update-deep-1',
-              message: 'starting one-pass deep research program for all six cards',
+              message: 'starting company research extraction',
               phase: 'runner',
             },
           ],
@@ -239,16 +239,10 @@ describe('buildJourneyRunView', () => {
       messages: null,
     });
 
-    expect(view.status).toBe('running');
-    expect(view.sections.slice(0, 6).every((section) => section.status === 'running')).toBe(true);
-    expect(view.sections.slice(0, 6).every((section) => section.phase === 'researching')).toBe(true);
-    expect(view.sections[0]).toMatchObject({
-      id: 'industryMarket',
-      latestEvent: {
-        id: 'update-deep-1',
-        message: 'starting one-pass deep research program for all six cards',
-      },
-    });
+    expect(view.status).toBe('queued');
+    expect(view.sections.every((section) => section.status === 'queued')).toBe(true);
+    expect(view.sections.every((section) => section.phase === 'queued')).toBe(true);
+    expect(view.sections.every((section) => section.latestEvent === null)).toBe(true);
   });
 
   it('normalizes versioned workspace message envelopes for visibility summaries', () => {

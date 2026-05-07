@@ -50,18 +50,18 @@ interface ModeChipProps {
 
 const AGENT_STEPS: AgentStep[] = [
   {
-    title: 'Source accepted',
-    detail: 'Company link and optional LinkedIn context seed the run.',
+    title: 'Company research',
+    detail: 'Website and optional LinkedIn context extract the first onboarding draft.',
     state: 'ready',
   },
   {
-    title: 'Deep Research Agent',
-    detail: 'Worker builds corpus, sources, gaps, and six report artifacts.',
+    title: 'Onboarding review',
+    detail: 'You complete the profile before any GTM section is generated.',
     state: 'active',
   },
   {
-    title: 'Workspace edit loop',
-    detail: 'AI SDK chat explains evidence, edits cards, and queues refreshes.',
+    title: 'Section synthesis loop',
+    detail: 'AI-GOS tackles GTM sections one by one from the completed context.',
     state: 'pending',
   },
 ];
@@ -141,7 +141,7 @@ function ReportPreview(): React.JSX.Element {
     <article className="overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018]/92">
       <div className="flex h-11 items-center justify-between border-b border-white/[0.07] px-4 font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
         <span>gtm-synthesis.md</span>
-        <span>waiting for corpus</span>
+        <span>waiting for completed onboarding</span>
       </div>
       <div className="p-5">
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#50f8e4]">
@@ -149,15 +149,15 @@ function ReportPreview(): React.JSX.Element {
           Agent workspace
         </div>
         <h2 className="mt-3 text-xl font-semibold leading-7 tracking-[-0.04em] text-white">
-          Research writes into the report surface.
+          Sections synthesize after the profile is complete.
         </h2>
         <p className="mt-3 text-sm leading-7 text-white/62">
-          The next run opens the workspace immediately, persists the research
-          corpus, and hydrates section artifacts as the worker finishes.
+          The first research pass extracts company context. After you review the
+          onboarding fields, AI-GOS starts the GTM report sections one at a time.
         </p>
         <div className="mt-4 rounded-r-[8px] border-l-2 border-[#365eff] bg-[#365eff]/8 px-4 py-3 text-sm leading-6 text-white/70">
-          Context corrections happen in chat. The old manual field-review detour
-          is no longer the primary path.
+          Context corrections happen before the section loop starts, so each
+          artifact is grounded in the completed profile.
         </div>
       </div>
     </article>
@@ -247,8 +247,8 @@ export function JourneyManusWelcome({
                 </h1>
                 <p className="mx-auto mt-3 max-w-[650px] text-sm leading-6 text-white/52">
                   Enter the company source and AI-GOS will open the workspace,
-                  dispatch deep research, and fill the GTM sections from the
-                  saved corpus.
+                  extract onboarding context, and then synthesize GTM sections
+                  one by one after the profile is complete.
                 </p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   {MODE_CHIPS.map((chip) => (
@@ -306,8 +306,8 @@ export function JourneyManusWelcome({
 
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs leading-5 text-white/42">
-                      The workspace opens first. Research, source gaps, and card
-                      hydration continue asynchronously.
+                      Research extracts onboarding fields first. GTM section
+                      synthesis starts after you complete the profile.
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -315,13 +315,13 @@ export function JourneyManusWelcome({
                         onClick={onSkip}
                         className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/58 transition-colors hover:border-white/18 hover:text-white/78"
                       >
-                        Open workspace
+                        Complete manually
                       </button>
                       <button
                         type="submit"
                         disabled={!canAnalyze}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#365eff] text-white shadow-[0_12px_28px_rgba(54,94,255,0.28)] transition-opacity hover:opacity-92 disabled:opacity-35"
-                        aria-label="Run deep research"
+                        aria-label="Extract onboarding fields"
                       >
                         <ArrowUp className="h-4 w-4" aria-hidden="true" />
                       </button>

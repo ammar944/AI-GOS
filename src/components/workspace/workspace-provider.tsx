@@ -29,10 +29,9 @@ interface WorkspaceProviderProps {
 function createFreshState(sessionId: string, startInWorkspace = false, initialSection?: SectionKey): WorkspaceState {
   const sectionStates = createInitialSectionStates();
   if (startInWorkspace) {
-    // In the one-pass Journey flow, the link-triggered deepResearchProgram is
-    // the only automatic research run. Workspace sections should reveal
-    // synthesized artifacts from that shared corpus; they are not independent
-    // per-section research jobs.
+    // After onboarding is complete, the first GTM section starts immediately.
+    // Later sections are queued and dispatched only after the previous section
+    // is approved.
     sectionStates[SECTION_PIPELINE[0]] = 'researching';
   }
   // If an initial section is specified (e.g. mediaPlan from deep-link),
@@ -159,10 +158,8 @@ export function WorkspaceProvider({ sessionId, startInWorkspace = false, initial
         }
       }
 
-      // Normal section progression is synthesis/review over the one shared deep
-      // research corpus. Do not mark the next section as `researching` unless a
-      // user explicitly requests a rerun elsewhere; reveal existing cards when
-      // available, otherwise keep the next section queued until hydration arrives.
+      // Section progression is one-by-one. Reveal existing cards when available;
+      // otherwise keep the next section queued until WorkspacePage dispatches it.
       let nextPhase: SectionPhase = 'queued';
       if (next) {
         const hasCards = Object.values(updatedCards).some(

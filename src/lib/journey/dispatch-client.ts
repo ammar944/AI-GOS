@@ -116,15 +116,6 @@ export const WAVE_2_PARALLEL_SECTIONS = [
   'crossAnalysis',
 ] as const;
 
-export const DEEP_RESEARCH_PROGRAM_SECTIONS = [
-  'industryMarket',
-  'icpValidation',
-  'competitors',
-  'crossAnalysis',
-  'keywordIntel',
-  'offerAnalysis',
-] as const;
-
 export type Wave2Section = (typeof WAVE_2_PARALLEL_SECTIONS)[number];
 
 export interface ParallelDispatchResult {
@@ -210,15 +201,4 @@ export async function dispatchWave2Parallel(
     ),
   );
   return Object.fromEntries(entries) as Record<Wave2Section, ClientDispatchResult>;
-}
-
-/**
- * One-pass Anthropic deep research program. The worker writes six section
- * artifacts from one shared evidence corpus.
- */
-export async function dispatchDeepResearchProgram(
-  runId: string,
-  context: string,
-): Promise<ClientDispatchResult> {
-  return dispatchResearchSection('deepResearchProgram', runId, context);
 }

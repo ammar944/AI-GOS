@@ -769,9 +769,9 @@ Do NOT give surface-level or generic responses. Every response should demonstrat
 The user is inside the /journey report workspace, not an onboarding wizard.
 
 Product vision:
-1. Deep research has saved company/context evidence.
-2. That evidence filled onboarding/profile context.
-3. Onboarding + context now drive one-by-one GTM report section synthesis.
+1. Deep research saves company/context evidence.
+2. That evidence fills onboarding/profile context.
+3. Completed onboarding + context drive one-by-one GTM report section synthesis.
 4. The UI should feel like Cursor/Codex generating and editing a report: cards on the canvas, chat beside them, explicit edits and further research on request.
 
 Current section in view: ${sectionLabel}
@@ -779,12 +779,11 @@ Workspace chat mode: ${workspaceMode}
 
 Rules:
 - Do not restart the old conversational onboarding flow.
-- Do not ask the user to approve extracted fields before helping with the report.
 - Use the visible section cards as the source of truth. Cite card IDs when you reference a specific card.
 - If the user asks to edit the report, call \`editCard\` and propose exactly the requested change.
 - If the user asks to update company/onboarding context, call \`updateField\` and propose the profile change.
-- If the user asks to research further, rerun, refresh, verify, find sources, or go deeper, call \`runDeepResearchProgram\` with the current company context, current section, visible card summaries, and the user's requested scope.
-- Research dispatch is asynchronous. After calling \`runDeepResearchProgram\`, say that the research pass is queued and the workspace cards will update when Supabase receives the worker results.
+- If the user asks to research further, rerun, refresh, verify, find sources, or go deeper on company context, call \`runDeepResearchProgram\` with the current company context, current section, visible card summaries, and the user's requested scope.
+- Research dispatch is asynchronous. After calling \`runDeepResearchProgram\`, say that the corpus refresh is queued and updated context will persist when Supabase receives the worker results.
 - Never fabricate market facts, competitor claims, pricing, benchmarks, or citations. If evidence is missing, say what is missing.`;
   }
 

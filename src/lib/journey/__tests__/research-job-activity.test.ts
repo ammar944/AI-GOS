@@ -68,8 +68,8 @@ describe('extractResearchJobActivity', () => {
     });
   });
 
-  it('projects one-pass deep research activity onto every synthesized section', () => {
-    const activity = extractResearchJobActivity({
+  it('does not project company-level deep research onto GTM sections', () => {
+    expect(extractResearchJobActivity({
       'job-deep': {
         status: 'running',
         tool: 'runDeepResearchProgram',
@@ -78,33 +78,12 @@ describe('extractResearchJobActivity', () => {
           {
             at: '2026-05-07T09:00:01.000Z',
             id: 'update-deep-1',
-            message: 'starting one-pass deep research program for all six cards',
+            message: 'starting company research extraction',
             phase: 'runner',
           },
         ],
       },
-    });
-
-    expect(Object.keys(activity)).toEqual([
-      'industryMarket',
-      'icpValidation',
-      'competitors',
-      'offerAnalysis',
-      'keywordIntel',
-      'crossAnalysis',
-    ]);
-    expect(activity.industryMarket).toMatchObject({
-      jobId: 'job-deep',
-      section: 'industryMarket',
-      status: 'running',
-      tool: 'runDeepResearchProgram',
-    });
-    expect(activity.crossAnalysis).toMatchObject({
-      jobId: 'job-deep',
-      section: 'crossAnalysis',
-      status: 'running',
-      tool: 'runDeepResearchProgram',
-    });
+    })).toEqual({});
   });
 
   it('ignores unknown tools', () => {

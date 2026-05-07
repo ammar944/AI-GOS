@@ -42,7 +42,7 @@ function createProps(
 }
 
 describe('PrefillStreamView', () => {
-  it('launches deep research with extracted fields after completion', async () => {
+  it('continues to onboarding review with extracted fields after completion', async () => {
     vi.useFakeTimers();
 
     try {
@@ -67,11 +67,11 @@ describe('PrefillStreamView', () => {
 
       expect(screen.getByText('Context extracted')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Launch deep research' }),
+        screen.getByRole('button', { name: 'Review onboarding fields' }),
       ).toBeInTheDocument();
       expect(onComplete).not.toHaveBeenCalled();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Launch deep research' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Review onboarding fields' }));
 
       expect(onComplete).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledWith(
@@ -83,6 +83,40 @@ describe('PrefillStreamView', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('waits for company deep research before opening onboarding review', () => {
+    const onComplete = vi.fn();
+
+    const props = createProps({
+      partialResult: {
+        companyName: { value: 'SaaSLaunch', confidence: 0.9 },
+        businessModel: { value: 'B2B SaaS growth agency', confidence: 0.9 },
+      },
+      fieldsFound: 2,
+      deepResearchStatus: 'queued',
+      onComplete,
+    });
+
+    const { rerender } = render(<PrefillStreamView {...props} />);
+
+    expect(
+      screen.getByText('Onboarding fields are extracted. Waiting for company deep research before review.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Review onboarding fields' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <PrefillStreamView
+        {...props}
+        deepResearchStatus="complete"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review onboarding fields' }));
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
   it('renders newly streamed fields inside the main container', async () => {

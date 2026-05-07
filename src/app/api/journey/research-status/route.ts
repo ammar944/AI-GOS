@@ -29,7 +29,11 @@ export async function GET(req: Request) {
 
   const research = data?.research_results as Record<string, unknown> | null;
   const sectionData = research?.[section] as Record<string, unknown> | null;
-  const complete = sectionData != null && sectionData.status !== 'running';
+  const status =
+    typeof sectionData?.status === 'string' ? sectionData.status : null;
+  const error =
+    typeof sectionData?.error === 'string' ? sectionData.error : null;
+  const complete = sectionData != null && status !== 'running';
 
-  return NextResponse.json({ complete });
+  return NextResponse.json({ complete, status, error });
 }

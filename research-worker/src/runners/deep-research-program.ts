@@ -13,44 +13,6 @@ import { buildDeepResearchContainerParams } from '../anthropic-skills';
 import { MODELS } from '../models';
 import { maybeCachedSystem } from '../utils/prompt-cache';
 
-export const DEEP_RESEARCH_BOUNDARY_SECTIONS = [
-  'industryMarket',
-  'icpValidation',
-  'competitors',
-  'crossAnalysis',
-  'keywordIntel',
-  'offerAnalysis',
-] as const;
-
-const DEEP_RESEARCH_SECTION_MAP = {
-  industryMarket: 'industryResearch',
-  icpValidation: 'icpValidation',
-  competitors: 'competitorIntel',
-  crossAnalysis: 'strategicSynthesis',
-  keywordIntel: 'keywordIntel',
-  offerAnalysis: 'offerAnalysis',
-} as const;
-
-export const DEEP_RESEARCH_CANONICAL_SECTIONS = [
-  'industryResearch',
-  'icpValidation',
-  'competitorIntel',
-  'strategicSynthesis',
-  'keywordIntel',
-  'offerAnalysis',
-] as const;
-
-export type DeepResearchBoundarySection = (typeof DEEP_RESEARCH_BOUNDARY_SECTIONS)[number];
-
-const SECTION_TITLES: Record<DeepResearchBoundarySection, string> = {
-  industryMarket: 'Market & Category Intelligence',
-  icpValidation: 'Buyer & ICP Validation',
-  competitors: 'Competitor Landscape & Positioning',
-  crossAnalysis: 'Voice of Customer & Objection Evidence',
-  keywordIntel: 'Demand & Intent Signals',
-  offerAnalysis: 'Offer & Performance Diagnostic',
-};
-
 const DEEP_RESEARCH_MODEL = process.env.RESEARCH_DEEP_PROGRAM_MODEL ?? MODELS.STANDARD;
 const DEEP_RESEARCH_MAX_TOKENS = Number(process.env.RESEARCH_DEEP_PROGRAM_MAX_TOKENS ?? 20000);
 const DEEP_RESEARCH_TIMEOUT_MS = Number(process.env.RESEARCH_DEEP_PROGRAM_TIMEOUT_MS ?? 900000);
@@ -58,14 +20,16 @@ const DEEP_RESEARCH_TIMEOUT_MS = Number(process.env.RESEARCH_DEEP_PROGRAM_TIMEOU
 const DEEP_RESEARCH_SYSTEM_PROMPT = `You are AI-GOS's Deep Research Agent for a supervised GTM workspace.
 
 MISSION
-Run one evidence-grounded company/category research pass, then synthesize six GTM research cards from the same shared corpus.
+Run one evidence-grounded company/category research pass that extracts and verifies company context for onboarding.
+Do not write GTM section cards. Do not synthesize market, ICP, competitor, offer, keyword, or VoC sections.
+Your job is to build the company corpus that later section-specific synthesis jobs will use one by one.
 
 STYLE
 - Be specific, executive, and useful. No generic strategy filler.
 - Every major claim must be backed by a source, quote, user-provided context, or explicit "insufficient evidence" marker.
 - Do not invent market size, pricing, CAC, ROAS, search volume, competitor claims, or customer quotes.
 - If source coverage is thin, say exactly what is missing and still provide the best grounded diagnosis.
-- Keep outputs card-shaped: concise but complete enough to be reviewed by a client.
+- Keep output concise but complete enough to complete onboarding and seed later section synthesis.
 
 OUTPUT
 Return ONLY valid JSON. No markdown fences. Shape:
@@ -75,34 +39,14 @@ Return ONLY valid JSON. No markdown fences. Shape:
     "category": "string",
     "researchSummary": "string",
     "sources": [{"title":"string","url":"string","whyItMatters":"string"}],
-    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":0-100}]
-  },
-  "sections": {
-    "industryMarket": SectionCard,
-    "icpValidation": SectionCard,
-    "competitors": SectionCard,
-    "crossAnalysis": SectionCard,
-    "keywordIntel": SectionCard,
-    "offerAnalysis": SectionCard
+    "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
   }
 }
 
 CRITICAL RETURN CONTRACT
 - Do not export, attach, or summarize the final JSON as a file.
 - You may use code_execution only as scratch analysis. The final assistant response itself must contain the complete JSON object.
-- The final response must start with "{" and end with "}". No preamble, no completion note, no file path, no markdown.
-
-SectionCard shape:
-{
-  "sectionTitle": "one of the requested six section titles",
-  "statusSummary": "2-4 sentence answer for this card",
-  "verdict": "clear strategic verdict",
-  "confidence": 0-100,
-  "keyFindings": [{"title":"string","detail":"string","evidence":"string","sourceUrl":"string"}],
-  "evidenceQuotes": [{"quote":"string","source":"string","url":"string","interpretation":"string"}],
-  "risksOrGaps": ["string"],
-  "recommendedMoves": ["string"]
-}`;
+- The final response must start with "{" and end with "}". No preamble, no completion note, no file path, no markdown.`;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -133,42 +77,6 @@ async function downloadAnthropicFileText(
   return text.trim().length > 0 ? text : null;
 }
 
-function normalizeSectionPayload(
-  section: DeepResearchBoundarySection,
-  value: unknown,
-  corpus: Record<string, unknown>,
-): Record<string, unknown> {
-  const payload = isRecord(value) ? { ...value } : {};
-  payload.sectionTitle = typeof payload.sectionTitle === 'string' ? payload.sectionTitle : SECTION_TITLES[section];
-  payload.source = 'deepResearchProgram';
-  payload.sharedCorpus = corpus;
-  if (!Array.isArray(payload.keyFindings)) payload.keyFindings = [];
-  if (!Array.isArray(payload.evidenceQuotes)) payload.evidenceQuotes = [];
-  if (!Array.isArray(payload.risksOrGaps)) payload.risksOrGaps = [];
-  if (!Array.isArray(payload.recommendedMoves)) payload.recommendedMoves = [];
-  if (typeof payload.statusSummary !== 'string') payload.statusSummary = 'Deep research completed, but this card returned limited structured detail.';
-  if (typeof payload.verdict !== 'string') payload.verdict = 'Review required — limited structured output.';
-  if (typeof payload.confidence !== 'number') payload.confidence = 50;
-  return payload;
-}
-
-export function splitDeepResearchResult(result: ResearchResult): ResearchResult[] {
-  if (result.status !== 'complete' || !isRecord(result.data)) return [];
-  const sections = isRecord(result.data.sections) ? result.data.sections : {};
-  const corpus = isRecord(result.data.corpus) ? result.data.corpus : {};
-
-  return DEEP_RESEARCH_BOUNDARY_SECTIONS.map((section) => ({
-    status: 'complete' as const,
-    section: DEEP_RESEARCH_SECTION_MAP[section],
-    data: normalizeSectionPayload(section, sections[section], corpus),
-    durationMs: result.durationMs,
-    rawText: result.rawText,
-    citations: result.citations,
-    provenance: result.provenance,
-    telemetry: result.telemetry,
-  }));
-}
-
 export async function runDeepResearchProgram(
   context: string,
   onProgress?: RunnerProgressReporter,
@@ -189,7 +97,7 @@ export async function runDeepResearchProgram(
     const client = createClient({ enableSkillsBeta: true });
     const codeExecutionOutputFileIds: string[] = [];
     const codeExecutionStdouts: string[] = [];
-    await emitRunnerProgress(onProgress, 'runner', 'starting one-pass deep research program for all six cards');
+    await emitRunnerProgress(onProgress, 'runner', 'starting company research extraction');
     const finalMsg = await runWithBackoff(
       () => {
         const container = buildDeepResearchContainerParams();
@@ -205,13 +113,13 @@ export async function runDeepResearchProgram(
           system: maybeCachedSystem(DEEP_RESEARCH_SYSTEM_PROMPT) as Parameters<typeof client.beta.messages.toolRunner>[0]['system'],
           messages: [{
             role: 'user',
-            content: `Use the onboarding/prefill context below as confirmed input. Run focused web research once, build a shared evidence corpus, then synthesize the six requested GTM research cards.\n\n${context}`,
+            content: `Use the onboarding/prefill context below as confirmed input. Run focused web research once and build the shared company evidence corpus for onboarding. Do not synthesize GTM report sections in this run.\n\n${context}`,
           }],
         });
         return Promise.race([
           runStreamedToolRunner(runner, {
             onProgress,
-            synthesisMessage: 'synthesizing shared corpus into six GTM cards',
+            synthesisMessage: 'assembling company corpus for onboarding',
             maxToolIterations: 8,
             onCodeExecutionOutputFile: (fileId) => {
               if (!codeExecutionOutputFileIds.includes(fileId)) {

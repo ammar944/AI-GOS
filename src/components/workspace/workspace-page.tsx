@@ -11,7 +11,6 @@ import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import { useResearchJobActivity, type ResearchJobActivity } from '@/lib/journey/research-job-activity';
 import {
-  dispatchDeepResearchProgram,
   dispatchResearchSection,
 } from '@/lib/journey/dispatch-client';
 import { parseResearchToCards } from '@/lib/workspace/card-taxonomy';
@@ -20,7 +19,7 @@ import { JOURNEY_FIELD_LABELS } from '@/lib/journey/field-catalog';
 import { SECTION_META, DEFAULT_SECTION_META } from '@/lib/journey/section-meta';
 import { useSessionShare } from '@/hooks/use-session-share';
 import type { SectionKey, WorkspaceState } from '@/lib/workspace/types';
-import { RESEARCH_SECTIONS, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
+import { getNextSection, RESEARCH_SECTIONS, SECTION_PIPELINE } from '@/lib/workspace/pipeline';
 import { ScriptsPhaseContent } from './scripts-phase';
 import { AssetCollectionPhase } from './asset-collection-phase';
 import { buildWorkspaceHydrationPlan } from './workspace-hydration';
@@ -53,10 +52,6 @@ function getRunViewFromSnapshot(snapshot: unknown): JourneyRunView | null {
   const record = isRecord(snapshot) ? snapshot : null;
   const view = isRecord(record?.view) ? record.view : null;
   return Array.isArray(view?.sections) ? (view as unknown as JourneyRunView) : null;
-}
-
-function isFirstPassResearchSection(section: SectionKey): boolean {
-  return RESEARCH_SECTIONS.includes(section);
 }
 
 function hasRunningResearchActivity(
@@ -299,7 +294,7 @@ function WorkspaceStatusSummary({
     <div className="flex min-w-0 items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-          Deep Research Workspace
+          Section Synthesis Workspace
         </p>
         <div className="mt-1 flex min-w-0 items-center gap-2">
           <h1 className="truncate text-sm font-medium text-[var(--text-primary)]">
@@ -464,21 +459,6 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
   const handleRetrySection = useCallback(async (section: SectionKey) => {
     if (!activeRunId) return;
 
-    if (isFirstPassResearchSection(section)) {
-      for (const researchSection of RESEARCH_SECTIONS) {
-        setSectionPhase(researchSection, 'researching');
-      }
-
-      const context = await buildSectionContext(`Retry ${section} research`);
-      const result = await dispatchDeepResearchProgram(activeRunId, context);
-      if (result.status === 'error') {
-        for (const researchSection of RESEARCH_SECTIONS) {
-          setSectionPhase(researchSection, 'error', result.error ?? 'Retry failed');
-        }
-      }
-      return;
-    }
-
     setSectionPhase(section, 'researching');
     const context = await buildSectionContext(`Retry ${section} research`);
     const result = await dispatchResearchSection(section, activeRunId, context);
@@ -486,6 +466,47 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
       setSectionPhase(section, 'error', result.error ?? 'Retry failed');
     }
   }, [activeRunId, setSectionPhase, buildSectionContext]);
+
+  const handleSectionApproved = useCallback((section: SectionKey) => {
+    onSectionApproved?.(section);
+
+    const nextSection = getNextSection(section);
+    if (
+      !activeRunId ||
+      !nextSection ||
+      nextSection === 'mediaPlan' ||
+      !RESEARCH_SECTIONS.includes(nextSection)
+    ) {
+      return;
+    }
+
+    const nextPhase = state.sectionStates[nextSection];
+    if (nextPhase === 'researching' || nextPhase === 'streaming' || nextPhase === 'review' || nextPhase === 'approved') {
+      return;
+    }
+
+    setSectionPhase(nextSection, 'researching');
+    void buildSectionContext(`Synthesize ${SECTION_META[nextSection]?.label ?? nextSection} from completed onboarding and approved prior sections`)
+      .then((context) => dispatchResearchSection(nextSection, activeRunId, context))
+      .then((result) => {
+        if (result.status === 'error') {
+          setSectionPhase(nextSection, 'error', result.error ?? 'Failed to start next section');
+        }
+      })
+      .catch((error: unknown) => {
+        setSectionPhase(
+          nextSection,
+          'error',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+  }, [
+    activeRunId,
+    buildSectionContext,
+    onSectionApproved,
+    setSectionPhase,
+    state.sectionStates,
+  ]);
 
   const handleGenerateMediaPlan = useCallback(async () => {
     if (!activeRunId || mediaPlanGenerating) return;
@@ -591,7 +612,7 @@ export function WorkspacePage({ userId, activeRunId, onSectionApproved, companyN
         activityBySection={jobActivity}
         onRunViewLoaded={setRunView}
       />
-      <WorkspaceApprovalBridge onSectionApproved={onSectionApproved} />
+      <WorkspaceApprovalBridge onSectionApproved={handleSectionApproved} />
       <ManusWorkspaceShell
         workspaceState={{
           currentSection: state.currentSection,

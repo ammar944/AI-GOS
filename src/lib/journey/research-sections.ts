@@ -43,7 +43,6 @@ export const RESEARCH_TOOL_TO_SECTION_MAP = {
   synthesizeResearch: 'strategicSynthesis',
   researchKeywords: 'keywordIntel',
   researchMediaPlan: 'mediaPlan',
-  runDeepResearchProgram: 'deepResearchProgram',
 } as const;
 
 export type ResearchToolName = keyof typeof RESEARCH_TOOL_TO_SECTION_MAP;

@@ -22,7 +22,7 @@ describe('JourneyManusWelcome', () => {
     expect(screen.queryByText('Strategy Intake')).not.toBeInTheDocument();
   });
 
-  it('submits the company URL through the live deep-research entrypoint', () => {
+  it('submits the company URL through the onboarding extraction entrypoint', () => {
     const onAnalyze = vi.fn();
 
     render(
@@ -36,7 +36,7 @@ describe('JourneyManusWelcome', () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText('Run deep research'));
+    fireEvent.click(screen.getByLabelText('Extract onboarding fields'));
 
     expect(onAnalyze).toHaveBeenCalledTimes(1);
   });

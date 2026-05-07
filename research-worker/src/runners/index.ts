@@ -7,8 +7,4 @@ export { runResearchKeywords } from './keywords';
 export { runMediaPlan } from './media-plan';
 export { resolveProductIdentity } from '../identity/resolve-identity';
 export { runMeetingExtraction } from './meeting-extract';
-export {
-  runDeepResearchProgram,
-  splitDeepResearchResult,
-  DEEP_RESEARCH_CANONICAL_SECTIONS,
-} from './deep-research-program';
+export { runDeepResearchProgram } from './deep-research-program';

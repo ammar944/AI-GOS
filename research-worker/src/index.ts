@@ -11,8 +11,6 @@ import {
   resolveProductIdentity,
   runMeetingExtraction,
   runDeepResearchProgram,
-  splitDeepResearchResult,
-  DEEP_RESEARCH_CANONICAL_SECTIONS,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
@@ -341,32 +339,10 @@ app.post('/run', requireApiKey, async (req: express.Request, res: express.Respon
       });
 
       try {
-        if (tool === 'runDeepResearchProgram') {
-          if (result.status === 'complete') {
-            const splitResults = splitDeepResearchResult(result);
-            for (const sectionResult of splitResults) {
-              await writeResearchResult(userId, sectionResult.section, {
-                ...sectionResult,
-                runId,
-              });
-            }
-            console.log(`[worker] Deep research program wrote ${splitResults.length} section artifacts`);
-          } else {
-            for (const section of DEEP_RESEARCH_CANONICAL_SECTIONS) {
-              await writeResearchResult(userId, section, {
-                ...result,
-                section,
-                runId,
-              });
-            }
-            console.log(`[worker] Deep research program wrote error state to ${DEEP_RESEARCH_CANONICAL_SECTIONS.length} section artifacts`);
-          }
-        } else {
-          await writeResearchResult(userId, result.section, {
-            ...result,
-            runId,
-          });
-        }
+        await writeResearchResult(userId, result.section, {
+          ...result,
+          runId,
+        });
       } catch (writeError) {
         console.error(
           `[worker] writeResearchResult failed after retries for ${result.section}:`,
@@ -566,7 +542,7 @@ const STALE_THRESHOLD_MS = 300_000; // 5 minutes
 // Per-tool overrides — media plan runs 6 sequential generateObject() calls
 const TOOL_STALE_THRESHOLDS: Partial<Record<ToolName, number>> = {
   researchMediaPlan: 900_000, // 15 minutes for 6-block sequential generation
-  runDeepResearchProgram: 900_000, // one corpus pass + six card synthesis can run longer than global 5m
+  runDeepResearchProgram: 900_000, // company corpus extraction can run longer than global 5m
 };
 
 setInterval(() => {
