@@ -16,7 +16,6 @@ const {
   realtimeControls,
   sendMessageMock,
   setJourneySessionMock,
-  submitPrefillMock,
   dispatchResearchSectionMock,
   fetchMock,
   transportBodyCalls,
@@ -79,7 +78,6 @@ const {
         this.state.fieldsFound = 0;
       },
     },
-    submitPrefillMock: vi.fn(),
     dispatchResearchSectionMock: vi.fn().mockResolvedValue({
       status: 'queued',
       section: 'industryMarket',
@@ -243,10 +241,6 @@ vi.mock('@/components/shell', () => ({
   ShellProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('@/components/shell/app-sidebar', () => ({
-  AppSidebar: () => <div data-testid="app-sidebar" />,
-}));
-
 vi.mock('@/components/journey/chat-message', () => ({
   ChatMessage: ({
     content,
@@ -282,17 +276,6 @@ vi.mock('@/components/journey/typing-indicator', () => ({
 
 vi.mock('@/components/journey/resume-prompt', () => ({
   ResumePrompt: () => <div data-testid="resume-prompt" />,
-}));
-
-vi.mock('@/hooks/use-journey-prefill', () => ({
-  useJourneyPrefill: () => ({
-    partialResult: prefillControls.state.partialResult,
-    submit: submitPrefillMock,
-    isLoading: prefillControls.state.isLoading,
-    error: prefillControls.state.error,
-    stop: vi.fn(),
-    fieldsFound: prefillControls.state.fieldsFound,
-  }),
 }));
 
 vi.mock('@/lib/journey/research-realtime', async () => {
@@ -495,52 +478,14 @@ vi.mock('@/components/journey/journey-worker-status-banner', () => ({
   JourneyWorkerStatusBanner: () => <div data-testid="worker-status-banner" />,
 }));
 
-vi.mock('@/components/journey/unified-field-review', () => ({
-  UnifiedFieldReview: ({
-    extractedFields,
-    onStart,
-  }: {
-    extractedFields: Record<string, string>;
-    onStart: (fields: Record<string, string>) => void;
-  }) => (
-    <div data-testid="unified-field-review">
-      <span>{extractedFields.companyName}</span>
-      <button
-        type="button"
-        onClick={() =>
-          onStart({
-            ...extractedFields,
-            businessModel: extractedFields.businessModel ?? 'B2B SaaS agency',
-            productDescription:
-              extractedFields.productDescription ?? 'Pipeline growth systems.',
-            primaryIcpDescription:
-              extractedFields.primaryIcpDescription ?? 'Seed to Series B SaaS teams.',
-            topCompetitors: 'Competitor A, Competitor B',
-            uniqueEdge: 'Pipeline-first GTM specialization',
-            goals: 'More qualified demos',
-            pricingTiers: '$8k/month retainer',
-          })
-        }
-      >
-        start section synthesis
-      </button>
-    </div>
-  ),
-}));
-
 vi.mock('@/components/journey/prefill-stream-view', () => ({
   PrefillStreamView: ({
     deepResearchFields = {},
-    onComplete,
   }: {
     deepResearchFields?: Record<string, string>;
-    onComplete: (fields: Record<string, string>) => void;
   }) => (
     <div data-testid="prefill-stream-view">
       <span data-testid="prefill-deep-company">{deepResearchFields.companyName}</span>
-      <button type="button" onClick={() => onComplete(deepResearchFields)}>
-        review onboarding fields
-      </button>
     </div>
   ),
 }));
@@ -692,23 +637,13 @@ describe('JourneyPage Manus launch wiring', () => {
   });
 
   it('routes the link-first CTA through company deep research and opens the workspace from deep fields', async () => {
-    prefillControls.state.isLoading = true;
-
     render(<JourneyPage />);
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Company website'), {
+      fireEvent.change(screen.getByLabelText('Company URL'), {
         target: { value: 'https://saaslaunch.net' },
       });
-      fireEvent.change(screen.getByLabelText('LinkedIn optional'), {
-        target: { value: 'https://linkedin.com/company/saaslaunch' },
-      });
       fireEvent.click(screen.getByLabelText('Start deep research'));
-    });
-
-    expect(submitPrefillMock).toHaveBeenCalledWith({
-      websiteUrl: 'https://saaslaunch.net',
-      linkedinUrl: 'https://linkedin.com/company/saaslaunch',
     });
 
     await waitFor(() => {
@@ -736,44 +671,26 @@ describe('JourneyPage Manus launch wiring', () => {
     await waitFor(() => {
       expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
     });
-    expect(screen.queryByTestId('unified-field-review')).not.toBeInTheDocument();
+    expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
 
-  it('opens manual onboarding review without starting section synthesis', async () => {
+  it('does not expose manual onboarding from the URL-first launch screen', () => {
     render(<JourneyPage />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Open onboarding manually' }));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('unified-field-review')).toBeInTheDocument();
-    });
-
-    expect(submitPrefillMock).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Company URL')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Open onboarding manually' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
     expect(guardedFetchMock).not.toHaveBeenCalled();
     expect(dispatchResearchSectionMock).not.toHaveBeenCalled();
   });
 
   it('persists deep fields before launching first section without onboarding review', async () => {
-    prefillControls.state.partialResult = {
-      companyName: { value: 'SaaSLaunch', confidence: 90 },
-      businessModel: { value: 'B2B SaaS growth agency', confidence: 88 },
-      productDescription: {
-        value: 'Pipeline growth systems for B2B SaaS teams.',
-        confidence: 84,
-      },
-      primaryIcpDescription: {
-        value: 'Seed to Series B SaaS founders and growth leaders.',
-        confidence: 82,
-      },
-    };
-    prefillControls.state.fieldsFound = 4;
-
     render(<JourneyPage />);
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Company website'), {
+      fireEvent.change(screen.getByLabelText('Company URL'), {
         target: { value: 'https://saaslaunch.net' },
       });
       fireEvent.click(screen.getByLabelText('Start deep research'));
@@ -822,7 +739,7 @@ describe('JourneyPage Manus launch wiring', () => {
       expect.stringContaining('Website: https://saaslaunch.net'),
     );
     expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
-    expect(screen.queryByTestId('unified-field-review')).not.toBeInTheDocument();
+    expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
 });
 
@@ -830,12 +747,9 @@ describe('JourneyPage Manus launch wiring', () => {
 // All 11 scenarios in this suite were written against the OLD welcome flow:
 // "Start without website analysis" / "Analyze website first" buttons +
 // `https://example.com` placeholder + "Start Market Overview" CTA. The journey
-// page was redesigned with a URL-input-first kickoff (`Begin Analysis` button +
-// optional document upload, no skip flow). Mocks for framer-motion +
-// ProfileDropdown / WorkspaceProvider / WorkspacePage / JourneyWorkerStatusBanner
-// / UnifiedFieldReview / PrefillStreamView are in place so the page mounts
-// correctly, but every test interaction in here points at buttons that no longer
-// exist.
+// page was redesigned with a URL-input-first kickoff (`Start deep research` button,
+// no skip flow). Support mocks are in place so the page mounts correctly, but
+// every test interaction in here points at buttons that no longer exist.
 //
 // TODO (P0 — TODOS.md): Rewrite this suite for the new welcome UX. The artifact
 // orchestration logic is still valid; only the kickoff and CTA assertions need

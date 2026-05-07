@@ -1,338 +1,196 @@
 'use client';
 
-import Link from 'next/link';
+import { useRef, type ElementType } from 'react';
 import {
-  ArrowUp,
-  Brain,
+  AlertCircle,
+  Code,
+  Database,
+  FileSearch,
   FileText,
-  Globe2,
-  Link2,
   Search,
+  Send,
   Sparkles,
-  type LucideIcon,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 import { cn } from '@/lib/utils';
 
 export interface JourneyManusWelcomeProps {
   websiteUrl: string;
-  linkedinUrl: string;
   onWebsiteUrlChange: (value: string) => void;
-  onLinkedinUrlChange: (value: string) => void;
   onAnalyze: () => void;
-  onSkip: () => void;
+  linkedinUrl?: string;
+  onLinkedinUrlChange?: (value: string) => void;
+  onSkip?: () => void;
 }
 
-interface SourceInputProps {
-  id: string;
+interface SuggestionChip {
   label: string;
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
-  Icon: LucideIcon;
-  required?: boolean;
+  Icon: ElementType;
 }
 
-interface AgentStep {
-  title: string;
-  detail: string;
-  state: 'ready' | 'active' | 'pending';
-}
-
-interface AgentStepRowProps {
-  step: AgentStep;
-}
-
-interface ModeChipProps {
+interface ActionPill {
   label: string;
-  Icon: LucideIcon;
 }
 
-const AGENT_STEPS: AgentStep[] = [
-  {
-    title: 'Deep research',
-    detail: 'Website and optional LinkedIn context start the company corpus run.',
-    state: 'ready',
-  },
-  {
-    title: 'Context extraction',
-    detail: 'The worker fills onboarding fields from evidence instead of shallow guesses.',
-    state: 'active',
-  },
-  {
-    title: 'Workspace synthesis',
-    detail: 'AI-GOS opens the report workspace and tackles sections one by one.',
-    state: 'pending',
-  },
+const SUGGESTION_CHIPS: SuggestionChip[] = [
+  { label: 'Show source trail', Icon: FileSearch },
+  { label: 'Go deeper on competitors', Icon: Search },
+  { label: 'Rewrite positioning', Icon: Code },
+  { label: 'Find unsupported claims', Icon: AlertCircle },
 ];
 
-const MODE_CHIPS: ModeChipProps[] = [
-  { label: 'Research', Icon: Search },
-  { label: 'Sources', Icon: Globe2 },
-  { label: 'Synthesis', Icon: FileText },
-  { label: 'Review', Icon: Brain },
+const ACTION_PILLS: ActionPill[] = [
+  { label: '+ Source' },
+  { label: 'Deep Research' },
+  { label: 'Corpus' },
+  { label: 'Synthesis' },
 ];
 
-function SourceInput({
-  id,
-  label,
-  value,
-  placeholder,
-  onChange,
-  Icon,
-  required = false,
-}: SourceInputProps): React.JSX.Element {
+function JourneyIconRail(): React.JSX.Element {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-white/[0.035] px-4 py-3">
-      <label
-        htmlFor={id}
-        className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/38"
-      >
-        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-        {label}
-      </label>
-      <input
-        id={id}
-        type="url"
-        required={required}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="mt-2 w-full bg-transparent text-[15px] text-white outline-none placeholder:text-white/24"
-      />
-    </div>
-  );
-}
-
-function AgentStepRow({ step }: AgentStepRowProps): React.JSX.Element {
-  return (
-    <div className="flex gap-3 rounded-[8px] border border-white/[0.07] bg-black/20 px-3.5 py-3">
-      <span
-        className={cn(
-          'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full',
-          step.state === 'ready'
-            ? 'bg-[#50f8e4]'
-            : step.state === 'active'
-              ? 'bg-[#365eff]'
-              : 'bg-white/18',
-        )}
-      />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-white/88">{step.title}</span>
-        <span className="mt-1 block text-xs leading-5 text-white/48">
-          {step.detail}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-function ModeChip({ label, Icon }: ModeChipProps): React.JSX.Element {
-  return (
-    <span className="inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 text-xs font-medium text-white/66">
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
-
-function ReportPreview(): React.JSX.Element {
-  return (
-    <article className="overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018]/92">
-      <div className="flex h-11 items-center justify-between border-b border-white/[0.07] px-4 font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
-        <span>gtm-synthesis.md</span>
-        <span>waiting for company URL</span>
+    <aside className="hidden w-16 shrink-0 flex-col items-center gap-4 border-r border-[#0d1018] bg-[#0a0d14] py-4 md:flex">
+      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#365eff]">
+        <Sparkles className="h-5 w-5 text-white" aria-hidden="true" />
       </div>
-      <div className="p-5">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#50f8e4]">
-          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          Agent workspace
-        </div>
-        <h2 className="mt-3 text-xl font-semibold leading-7 tracking-[-0.04em] text-white">
-          Sections synthesize from one saved corpus.
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-white/62">
-          The first research pass extracts company context, writes durable
-          evidence, and prepares the GTM report sections for the workspace.
-        </p>
-        <div className="mt-4 rounded-r-[8px] border-l-2 border-[#365eff] bg-[#365eff]/8 px-4 py-3 text-sm leading-6 text-white/70">
-          Context corrections stay grounded in the saved corpus, so chat edits
-          can refine artifacts without losing sources or assumptions.
-        </div>
+      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#0d1018] text-[#8e97a6] transition-colors hover:bg-[#14171f]">
+        <Database className="h-5 w-5" aria-hidden="true" />
       </div>
-    </article>
+      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#0d1018] text-[#8e97a6] transition-colors hover:bg-[#14171f]">
+        <FileText className="h-5 w-5" aria-hidden="true" />
+      </div>
+    </aside>
   );
 }
 
 export function JourneyManusWelcome({
   websiteUrl,
-  linkedinUrl,
   onWebsiteUrlChange,
-  onLinkedinUrlChange,
   onAnalyze,
-  onSkip,
 }: JourneyManusWelcomeProps): React.JSX.Element {
+  const inputRef = useRef<HTMLInputElement>(null);
   const canAnalyze = websiteUrl.trim().length > 0;
 
+  const submit = (): void => {
+    if (!canAnalyze) {
+      inputRef.current?.focus();
+      return;
+    }
+
+    onAnalyze();
+  };
+
   return (
-    <div className="min-h-screen bg-[#06080d] text-white">
-      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[68px_1fr]">
-        <aside className="hidden border-r border-white/10 bg-[#0a0d14]/70 px-2 py-3 xl:flex xl:flex-col xl:items-center xl:gap-2">
-          <Link
-            href="/journey"
-            className="grid h-10 w-10 place-items-center rounded-[8px] bg-[#365eff] text-sm font-black text-white shadow-[0_14px_34px_rgba(54,94,255,0.24)]"
-          >
-            AG
-          </Link>
-          {['Journey', 'Research', 'Reports', 'Settings'].map((item, index) => (
-            <div
-              key={item}
-              className={cn(
-                'grid h-10 w-10 place-items-center rounded-[8px] text-xs font-bold',
-                index === 0
-                  ? 'bg-[#365eff]/12 text-[#8faaff]'
-                  : 'text-white/34',
-              )}
-              title={item}
-            >
-              {item.slice(0, 1)}
+    <div className="flex min-h-screen bg-[#06080d] text-[#fcfcfa]">
+      <JourneyIconRail />
+
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#0d1018] bg-[#0a0d14] px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[#365eff] md:hidden">
+              <Sparkles className="h-4 w-4 text-white" aria-hidden="true" />
             </div>
-          ))}
-          <div className="mt-auto grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.045] text-xs font-bold text-white/70">
-            A
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-medium text-[#fcfcfa]">
+                AI-GOS Journey
+              </h1>
+              <p className="truncate text-xs text-[#8e97a6]">
+                deep research to GTM workspace
+              </p>
+            </div>
           </div>
-        </aside>
 
-        <section className="flex min-h-screen flex-col">
-          <header className="shrink-0 border-b border-white/10 bg-[#06080d]/90 px-4 py-3 sm:px-6">
-            <div className="mx-auto flex w-full max-w-[980px] items-center justify-between gap-4">
-              <Link href="/journey" className="flex min-w-0 items-center gap-3">
-                <span className="grid h-8 w-8 place-items-center rounded-[8px] border border-[#365eff]/25 bg-[#365eff]/11 text-sm font-black text-[#8faaff] xl:hidden">
-                  AG
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-white">
-                    AI-GOS Journey
-                  </span>
-                  <span className="block truncate text-xs text-white/42">
-                    research worker connected to the report workspace
-                  </span>
-                </span>
-              </Link>
+          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-[#365eff]/20 bg-[#365eff]/10 px-3 text-xs font-medium text-[#8faaff]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
+            agent ready
+          </span>
+        </header>
 
-              <div className="flex items-center gap-2">
-                <span className="hidden h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 text-xs font-semibold text-white/54 sm:inline-flex">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4] shadow-[0_0_0_4px_rgba(80,248,228,0.12)]" />
-                  agent ready
-                </span>
-                <Link
-                  href="/dashboard"
-                  className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-white/58 transition-colors hover:text-white"
+        <section className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex min-h-[calc(100vh-10rem)] w-full max-w-[860px] flex-col items-center justify-center px-6 py-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="mb-12 text-center"
+            >
+              <h2 className="mb-4 text-4xl font-light leading-tight text-[#fcfcfa]">
+                Ask for research. Watch AI-GOS write the report.
+              </h2>
+              <p className="mx-auto max-w-2xl text-sm leading-6 text-[#8e97a6]">
+                Drop a company URL and AI-GOS will build the evidence corpus,
+                extract the profile context, then open the Journey workspace for
+                section-by-section GTM synthesis.
+              </p>
+            </motion.div>
+
+            <div className="mb-8 flex flex-wrap justify-center gap-3">
+              {SUGGESTION_CHIPS.map(({ label, Icon }, index) => (
+                <motion.button
+                  key={label}
+                  type="button"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.08 }}
+                  onClick={() => inputRef.current?.focus()}
+                  className="flex items-center gap-2 rounded-full border border-[#14171f] bg-[#0d1018] px-4 py-2 text-sm text-[#fcfcfa] transition-colors hover:border-[#365eff]/35 hover:bg-[#14171f]"
                 >
-                  Library
-                </Link>
-              </div>
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {label}
+                </motion.button>
+              ))}
             </div>
-          </header>
-
-          <main className="grid flex-1 place-items-center px-4 py-5 sm:px-6">
-            <div className="grid h-[min(760px,calc(100vh-102px))] min-h-[620px] w-full max-w-[980px] grid-rows-[auto_1fr_auto] overflow-hidden rounded-[8px] border border-white/10 bg-[#0a0d14] shadow-[0_24px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <section className="border-b border-white/[0.07] bg-[#0d1018] px-5 py-6 text-center sm:px-8">
-                <div className="inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 font-mono text-[11px] font-semibold text-white/52">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
-                  GTM research coworker
-                </div>
-                <h1 className="mx-auto mt-4 max-w-[720px] text-[2.2rem] font-semibold leading-[1.04] tracking-[-0.04em] text-white sm:text-[2.55rem]">
-                  Drop a URL. Watch the agent build the GTM report.
-                </h1>
-                <p className="mx-auto mt-3 max-w-[650px] text-sm leading-6 text-white/52">
-                  Enter the company source and AI-GOS will start deep research,
-                  extract onboarding context, and prepare the workspace for
-                  section-by-section synthesis.
-                </p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {MODE_CHIPS.map((chip) => (
-                    <ModeChip key={chip.label} label={chip.label} Icon={chip.Icon} />
-                  ))}
-                </div>
-              </section>
-
-              <section className="min-h-0 overflow-y-auto px-5 py-5 sm:px-7">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
-                  <div className="rounded-[8px] border border-white/10 bg-white/[0.028] p-4">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">
-                      Run sequence
-                    </p>
-                    <div className="mt-4 grid gap-2.5">
-                      {AGENT_STEPS.map((step) => (
-                        <AgentStepRow key={step.title} step={step} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <ReportPreview />
-                </div>
-              </section>
-
-              <footer className="border-t border-white/10 bg-[#0d1018] p-4">
-                <form
-                  className="rounded-[8px] border border-[#50f8e4]/22 bg-[#11151f] p-4 shadow-[0_0_0_5px_rgba(80,248,228,0.035),0_22px_80px_rgba(54,94,255,0.16)]"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (canAnalyze) {
-                      onAnalyze();
-                    }
-                  }}
-                >
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.86fr)]">
-                    <SourceInput
-                      id="journey-company-url"
-                      label="Company website"
-                      value={websiteUrl}
-                      onChange={onWebsiteUrlChange}
-                      placeholder="https://your-company.com"
-                      Icon={Link2}
-                      required
-                    />
-                    <SourceInput
-                      id="journey-linkedin-url"
-                      label="LinkedIn optional"
-                      value={linkedinUrl}
-                      onChange={onLinkedinUrlChange}
-                      placeholder="https://linkedin.com/company/..."
-                      Icon={Globe2}
-                    />
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs leading-5 text-white/42">
-                      Deep research fills onboarding context first. The workspace
-                      uses that saved corpus for section synthesis and chat edits.
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={onSkip}
-                        className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/58 transition-colors hover:border-white/18 hover:text-white/78"
-                      >
-                        Open onboarding manually
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={!canAnalyze}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#365eff] text-white shadow-[0_12px_28px_rgba(54,94,255,0.28)] transition-opacity hover:opacity-92 disabled:opacity-35"
-                        aria-label="Start deep research"
-                      >
-                        <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </footer>
-            </div>
-          </main>
+          </div>
         </section>
-      </div>
+
+        <footer className="shrink-0 border-t border-[#0d1018] bg-[#0a0d14] p-4 sm:p-6">
+          <form
+            className="mx-auto max-w-[860px] overflow-hidden rounded-[8px] border border-[#14171f] bg-[#0d1018] shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit();
+            }}
+          >
+            <label htmlFor="journey-company-url" className="sr-only">
+              Company URL
+            </label>
+            <div className="p-4">
+              <input
+                ref={inputRef}
+                id="journey-company-url"
+                type="text"
+                value={websiteUrl}
+                onChange={(event) => onWebsiteUrlChange(event.target.value)}
+                placeholder="Drop a company URL to start deep research"
+                className="w-full bg-transparent text-base text-[#fcfcfa] outline-none placeholder:text-[#8e97a6]"
+              />
+            </div>
+            <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                {ACTION_PILLS.map((pill) => (
+                  <span
+                    key={pill.label}
+                    className={cn(
+                      'rounded-full border border-[#1e2129] bg-[#14171f] px-3 py-1.5 text-xs text-[#fcfcfa]',
+                      pill.label === 'Deep Research' && 'border-[#365eff]/35 text-[#8faaff]',
+                    )}
+                  >
+                    {pill.label}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="submit"
+                disabled={!canAnalyze}
+                aria-label="Start deep research"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#365eff] text-white transition-colors hover:bg-[#006fff] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </form>
+        </footer>
+      </main>
     </div>
   );
 }

@@ -7,7 +7,7 @@ Wire up the existing profiles backend into the UI — auto-save from onboarding,
 - Supabase `business_profiles` table (30+ fields, RLS, upsert on user_id+company_name)
 - `src/lib/profiles/business-profiles.ts` — full service (save, list, fetch, buildContext)
 - `src/app/api/profiles/route.ts` — GET (list) + POST (save from session)
-- `src/app/api/chat/unified/route.ts` — already loads `getActiveProfile()` and injects into chat system prompt
+- `src/app/api/journey/stream/route.ts` — loads saved Journey context for workspace chat; `/api/chat/unified` is retired
 - `src/components/journey/profile-card.tsx` — preview card during onboarding (reads local state)
 
 ## What's Missing

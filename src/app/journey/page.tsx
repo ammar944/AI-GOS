@@ -8,9 +8,7 @@ import {
 } from 'ai';
 import { useUser } from '@clerk/nextjs';
 import { ShellProvider } from '@/components/shell';
-import { AppSidebar } from '@/components/shell/app-sidebar';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
-import { useJourneyPrefill } from '@/hooks/use-journey-prefill';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
 import { getJourneyApprovalState, type JourneyReviewSection } from '@/lib/ai/journey-review-gates';
@@ -34,7 +32,6 @@ import { WorkspaceProvider } from '@/components/workspace/workspace-provider';
 import { WorkspacePage } from '@/components/workspace/workspace-page';
 import { JourneyManusWelcome } from '@/components/journey/journey-manus-welcome';
 import { AnimatePresence, motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import {
   createJourneyGuardedFetch,
 } from '@/lib/journey/http';
@@ -51,20 +48,12 @@ import {
   getAutoOpenSectionDecision,
   resetTrackedSection,
 } from '@/lib/journey/journey-section-orchestration';
-import {
-  JOURNEY_FIELD_LABELS,
-  JOURNEY_REQUIRED_FIELD_KEYS,
-  JOURNEY_PRICING_GROUP_KEYS,
-} from '@/lib/journey/field-catalog';
-import { UnifiedFieldReview } from '@/components/journey/unified-field-review';
 import { PrefillStreamView } from '@/components/journey/prefill-stream-view';
-import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
 import {
   dispatchResearchSection,
 } from '@/lib/journey/dispatch-client';
 import { buildJourneyResearchContext } from '@/lib/journey/context-string';
 import type { SectionKey } from '@/lib/workspace/types';
-import type { PendingMeeting } from '@/lib/meeting-intel/types';
 
 const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'industryMarket',
@@ -73,7 +62,7 @@ const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'offerAnalysis',
 ]);
 
-type JourneyPhaseView = 'welcome' | 'prefilling' | 'review' | 'resume' | 'workspace';
+type JourneyPhaseView = 'welcome' | 'prefilling' | 'resume' | 'workspace';
 type LinkDeepResearchStatus = 'idle' | 'starting' | 'queued' | 'complete' | 'error';
 
 const LINK_DEEP_RESEARCH_POLL_INTERVAL_MS = 2_000;
@@ -242,49 +231,11 @@ function JourneyPageContent() {
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
   const [, setIsResuming] = useState(false);
   const [prefillWebsiteUrl, setPrefillWebsiteUrl] = useState('');
-  const [welcomeLinkedinUrl, setWelcomeLinkedinUrl] = useState('');
-  const [prefillReviewOverrides, setPrefillReviewOverrides] = useState<Record<string, string>>({});
   const [deepResearchOnboardingFields, setDeepResearchOnboardingFields] = useState<Record<string, string>>({});
   const [linkDeepResearchStatus, setLinkDeepResearchStatus] =
     useState<LinkDeepResearchStatus>('idle');
   const [linkDeepResearchError, setLinkDeepResearchError] = useState<string | null>(null);
   const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(null);
-
-  const {
-    partialResult,
-    submit: submitPrefill,
-    isLoading: isPrefilling,
-    fieldsFound,
-    error: prefillError,
-    stop: stopPrefill,
-  } = useJourneyPrefill();
-  // Flatten partialResult { key: { value } } into Record<string, string> for UnifiedFieldReview
-  const extractedFieldsFlat = useMemo(() => {
-    const flat: Record<string, string> = {};
-    // Include the website URL the user entered — it's stored separately from extraction results
-    if (prefillWebsiteUrl) flat.websiteUrl = prefillWebsiteUrl;
-    if (welcomeLinkedinUrl) flat.linkedinUrl = welcomeLinkedinUrl;
-    const record = partialResult as Record<string, unknown> | null | undefined;
-    if (record) {
-      for (const key of Object.keys(record)) {
-        const value = readJourneyPrefillFieldValue(record, key);
-        if (value) flat[key] = value;
-      }
-    }
-    for (const [key, value] of Object.entries(prefillReviewOverrides)) {
-      if (value.trim()) flat[key] = value;
-    }
-    for (const [key, value] of Object.entries(deepResearchOnboardingFields)) {
-      if (value.trim()) flat[key] = value;
-    }
-    return flat;
-  }, [
-    deepResearchOnboardingFields,
-    partialResult,
-    prefillReviewOverrides,
-    prefillWebsiteUrl,
-    welcomeLinkedinUrl,
-  ]);
 
   const [activeRunId, setActiveRunId] = useState<string | null>(deepLinkSession);
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
@@ -300,8 +251,6 @@ function JourneyPageContent() {
   useEffect(() => {
     resumeTransportStateRef.current = resumeTransportState;
   }, [resumeTransportState]);
-
-  const [, setOnboardingState] = useState<Partial<OnboardingState> | null>(null);
 
   // Research state tracking
   const [researchResults, setResearchResults] = useState<Record<string, ResearchSectionResult | null>>({});
@@ -319,10 +268,8 @@ function JourneyPageContent() {
   // Session reset signal — increment to clear stale research data from Realtime hook
   const [realtimeResetSignal, setRealtimeResetSignal] = useState(0);
   const [researchResetAt, setResearchResetAt] = useState<string | null>(null);
-  const [pendingMeetings, setPendingMeetings] = useState<PendingMeeting[]>([]);
-
   // Clear stale research data from Supabase and reset local state.
-  // Called when starting a NEW session (accept prefill / skip / start fresh).
+  // Called when starting a new Journey workspace from a durable deep research profile.
   const resetResearchState = useCallback((userId: string, nextRunId: string) => {
     const resetAt = new Date().toISOString();
 
@@ -414,7 +361,6 @@ function JourneyPageContent() {
   useEffect(() => {
     const saved = getJourneySession();
     if (saved) {
-      setOnboardingState(saved);
       // Only show resume prompt if we didn't already restore to workspace from sessionStorage
       if (
         shouldRestoreStoredRun &&
@@ -620,9 +566,6 @@ function JourneyPageContent() {
         ...(prefillWebsiteUrl.trim().length > 0
           ? { websiteUrl: normalizeLaunchUrl(prefillWebsiteUrl) ?? prefillWebsiteUrl.trim() }
           : {}),
-        ...(welcomeLinkedinUrl.trim().length > 0
-          ? { linkedinUrl: normalizeLaunchUrl(welcomeLinkedinUrl) ?? welcomeLinkedinUrl.trim() }
-          : {}),
       };
 
       for (const [key, rawValue] of Object.entries(fields)) {
@@ -695,7 +638,6 @@ function JourneyPageContent() {
       markResearchQueued,
       prefillWebsiteUrl,
       setResearchResults,
-      welcomeLinkedinUrl,
     ],
   );
 
@@ -986,9 +928,6 @@ function JourneyPageContent() {
     }
   }, [messages]);
 
-  // Manual prefill completion remains as a fallback; URL launch opens the
-  // workspace directly once deep research returns durable fields.
-
   // Resume handlers
   const handleResumeContinue = useCallback(() => {
     if (!savedSession) {
@@ -1020,34 +959,16 @@ function JourneyPageContent() {
     setLinkDeepResearchError(null);
     setSavedSession(null);
     setIsResuming(false);
-    setOnboardingState(null);
     setJourneyPhase('welcome');
     addLog('inf', 'Starting fresh journey');
   }, [addLog, beginFreshJourneyRun]);
 
-  const handlePrefillReadyForReview = useCallback(
-    (editedFields: Record<string, string>) => {
-      setPrefillReviewOverrides({
-        ...editedFields,
-        websiteUrl: prefillWebsiteUrl,
-        ...(welcomeLinkedinUrl.trim().length > 0
-          ? { linkedinUrl: welcomeLinkedinUrl.trim() }
-          : {}),
-      });
-      addLog('ok', 'Company research extracted onboarding context');
-      setJourneyPhase('review');
-    },
-    [addLog, prefillWebsiteUrl, welcomeLinkedinUrl],
-  );
-
   const handleAnalyzeCompanyLink = useCallback(() => {
     const websiteUrl = normalizeLaunchUrl(prefillWebsiteUrl);
     if (!websiteUrl) return;
-    const linkedinUrl = normalizeLaunchUrl(welcomeLinkedinUrl);
     const nextRunId = createJourneyRunId();
     const sourceFields: Record<string, string> = {
       websiteUrl,
-      ...(linkedinUrl ? { linkedinUrl } : {}),
     };
     const sourceContext = buildJourneyResearchContext(
       sourceFields,
@@ -1055,19 +976,12 @@ function JourneyPageContent() {
     );
     const guardedFetch = createJourneyGuardedFetch('Journey');
 
-    stopPrefill();
-    setPrefillReviewOverrides({});
     setDeepResearchOnboardingFields({});
     setLinkDeepResearchStatus('starting');
     setLinkDeepResearchError(null);
     commitActiveRunId(nextRunId);
-    addLog('run', `Starting company deep research and onboarding extraction for ${websiteUrl}`);
+    addLog('run', `Starting company deep research and profile extraction for ${websiteUrl}`);
     setJourneyPhase('prefilling');
-
-    submitPrefill({
-      websiteUrl,
-      linkedinUrl: linkedinUrl ?? undefined,
-    });
 
     void guardedFetch('/api/journey/session', {
       method: 'PATCH',
@@ -1097,7 +1011,7 @@ function JourneyPageContent() {
         setLinkDeepResearchStatus('complete');
         addLog(
           'ok',
-          `Company deep research corpus ready with ${Object.keys(deepResearchFields).length} onboarding fields`,
+          `Company deep research corpus ready with ${Object.keys(deepResearchFields).length} profile fields`,
         );
         await enterWorkspaceFromDeepResearchFields(nextRunId, deepResearchFields);
       })
@@ -1112,111 +1026,7 @@ function JourneyPageContent() {
     commitActiveRunId,
     enterWorkspaceFromDeepResearchFields,
     prefillWebsiteUrl,
-    stopPrefill,
-    submitPrefill,
-    welcomeLinkedinUrl,
   ]);
-
-  // Handler for UnifiedFieldReview — takes a flat Record<string, string>
-  const handleStartFromUnifiedReview = useCallback(
-    (onboardingData: Record<string, string>) => {
-      if (hasTransitionedToWorkspaceRef.current) {
-        return;
-      }
-
-      // Gate: verify all required fields are filled before proceeding
-      const missingRequired: string[] = [];
-      for (const key of JOURNEY_REQUIRED_FIELD_KEYS) {
-        if (!onboardingData[key]?.trim()) {
-          missingRequired.push(JOURNEY_FIELD_LABELS[key] ?? key);
-        }
-      }
-      const hasPricing = Array.from(JOURNEY_PRICING_GROUP_KEYS).some(
-        (key) => onboardingData[key]?.trim(),
-      );
-      if (!hasPricing) {
-        missingRequired.push('Pricing or Budget');
-      }
-      if (missingRequired.length > 0) {
-        addLog('err', `Cannot proceed — missing required fields: ${missingRequired.join(', ')}`);
-        return;
-      }
-
-      const existingRunId = activeRunIdRef.current;
-      const nextRunId =
-        existingRunId && existingRunId.trim().length > 0
-          ? existingRunId
-          : createJourneyRunId();
-      const shouldClearResearch = !existingRunId;
-      commitActiveRunId(nextRunId);
-      const acceptedJourneyFields: Record<string, string> = {};
-
-      for (const [key, rawValue] of Object.entries(onboardingData)) {
-        const value = rawValue?.trim();
-        if (value) acceptedJourneyFields[key] = value;
-      }
-
-      const displayName = acceptedJourneyFields.companyName || 'this company';
-      const orderedFieldKeys = Object.keys(acceptedJourneyFields);
-
-      addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
-      hasTransitionedToWorkspaceRef.current = true;
-
-      // Clear old results, set new fields + run ID, THEN dispatch
-      const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
-      const guardedFetch = createJourneyGuardedFetch('Journey');
-      guardedFetch('/api/journey/session', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clearResearch: shouldClearResearch,
-          fields: Object.fromEntries(
-            Object.entries(acceptedJourneyFields).filter(([, v]) => v.trim().length > 0),
-          ),
-          activeRunId: nextRunId,
-        }),
-      }).then(() => {
-        // Save business profile from onboarding data (fire-and-forget)
-        fetch('/api/profiles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: nextRunId }),
-        }).catch(() => { /* non-critical */ });
-
-        // Submit any meetings added during onboarding (fire-and-forget)
-        for (const meeting of pendingMeetings) {
-          fetch('/api/meetings/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: meeting.title,
-              meetingType: meeting.meetingType,
-              transcript: meeting.transcript,
-              runId: nextRunId,
-            }),
-          }).catch(() => { /* non-critical */ });
-        }
-
-        addLog('run', 'Starting Market & Category synthesis from completed onboarding context...');
-        markResearchQueued('industryMarket');
-        return dispatchResearchSection('industryMarket', nextRunId, context);
-      }).then((result) => {
-        if (result.status === 'error') {
-          addLog('err', `Market & Category dispatch failed: ${result.error ?? 'Unknown error'}`);
-          hasTransitionedToWorkspaceRef.current = false;
-        } else {
-          addLog('ok', `Market & Category synthesis queued (job: ${result.jobId ?? 'unknown'})`);
-          setJourneyCompanyName(displayName);
-          setStoredJourneyCompanyName(displayName);
-          setJourneyPhase('workspace');
-        }
-      }).catch((err) => {
-        hasTransitionedToWorkspaceRef.current = false;
-        addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
-      });
-    },
-    [addLog, commitActiveRunId, markResearchQueued, pendingMeetings],
-  );
 
   const showResumeView = journeyPhase === 'resume';
   const resumeWorkspace = (
@@ -1233,55 +1043,26 @@ function JourneyPageContent() {
 
   const prefillWorkspace = (
     <PrefillStreamView
-      partialResult={partialResult}
-      fieldsFound={fieldsFound}
-      isPrefilling={isPrefilling}
-      error={prefillError}
       websiteUrl={prefillWebsiteUrl}
       deepResearchFields={deepResearchOnboardingFields}
       deepResearchStatus={linkDeepResearchStatus}
       deepResearchError={linkDeepResearchError}
       deepResearchActivity={researchJobActivity.deepResearchProgram}
       onRetry={() => {
-        stopPrefill();
-
         setPrefillWebsiteUrl('');
-        setPrefillReviewOverrides({});
         setDeepResearchOnboardingFields({});
         setLinkDeepResearchStatus('idle');
         setLinkDeepResearchError(null);
         setJourneyPhase('welcome');
       }}
-      onComplete={(editedFields) =>
-        handlePrefillReadyForReview(editedFields)
-      }
-    />
-  );
-
-  const reviewWorkspace = (
-    <UnifiedFieldReview
-      extractedFields={extractedFieldsFlat}
-      onStart={handleStartFromUnifiedReview}
-      pendingMeetings={pendingMeetings}
-      onPendingMeetingsChange={setPendingMeetings}
     />
   );
 
   const welcomeWorkspace = (
     <JourneyManusWelcome
       websiteUrl={prefillWebsiteUrl}
-      linkedinUrl={welcomeLinkedinUrl}
       onWebsiteUrlChange={setPrefillWebsiteUrl}
-      onLinkedinUrlChange={setWelcomeLinkedinUrl}
       onAnalyze={handleAnalyzeCompanyLink}
-      onSkip={() => {
-        setPrefillReviewOverrides({});
-        setDeepResearchOnboardingFields({});
-        setLinkDeepResearchStatus('idle');
-        setLinkDeepResearchError(null);
-        setJourneyPhase('review');
-        addLog('inf', 'Opened manual onboarding review');
-      }}
     />
   );
 
@@ -1289,9 +1070,7 @@ function JourneyPageContent() {
     ? resumeWorkspace
     : journeyPhase === 'prefilling'
       ? prefillWorkspace
-      : journeyPhase === 'review'
-        ? reviewWorkspace
-        : welcomeWorkspace;
+      : welcomeWorkspace;
 
   // Workspace phase — replaces entire chat layout with artifact-first workspace
   if (journeyPhase === 'workspace') {
@@ -1304,24 +1083,19 @@ function JourneyPageContent() {
         className="flex h-screen flex-col font-sans"
         style={{ background: 'var(--bg-base)', color: '#E5E5E5' }}
       >
-        <div className="flex flex-1 min-h-0">
-          <AppSidebar />
-          <div className="flex flex-1 flex-col min-h-0 min-w-0">
-            <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace initialSection={(deepLinkSection as SectionKey | undefined) ?? (deepLinkMediaPlan ? 'mediaPlan' : undefined)}>
-              <WorkspacePage
-                userId={user?.id}
-                activeRunId={activeRunId}
-                onSectionApproved={handleWorkspaceSectionApproved}
-                companyName={journeyCompanyName}
-                onBack={() => {
-                  clearStoredJourneySession();
-                  setJourneyCompanyName(null);
-                  setJourneyPhase('welcome');
-                }}
-              />
-            </WorkspaceProvider>
-          </div>
-        </div>
+        <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace initialSection={(deepLinkSection as SectionKey | undefined) ?? (deepLinkMediaPlan ? 'mediaPlan' : undefined)}>
+          <WorkspacePage
+            userId={user?.id}
+            activeRunId={activeRunId}
+            onSectionApproved={handleWorkspaceSectionApproved}
+            companyName={journeyCompanyName}
+            onBack={() => {
+              clearStoredJourneySession();
+              setJourneyCompanyName(null);
+              setJourneyPhase('welcome');
+            }}
+          />
+        </WorkspaceProvider>
       </div>
     );
   }
@@ -1338,27 +1112,20 @@ function JourneyPageContent() {
         color: '#E5E5E5',
       }}
     >
-      <div className="flex flex-1 min-h-0">
-        <AppSidebar />
-
-        <main className={cn(
-          'relative flex flex-1 flex-col min-h-0 min-w-0',
-          "bg-[var(--bg-base)]",
-        )}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={journeyPhase}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-              className="flex flex-1 flex-col min-h-0"
-            >
-              {standardWorkspace}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
+      <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--bg-base)]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={journeyPhase}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            {standardWorkspace}
+          </motion.div>
+        </AnimatePresence>
+      </main>
     </div>
   );
 }

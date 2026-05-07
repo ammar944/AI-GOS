@@ -101,7 +101,7 @@ But the active tool list in the stream route exposes `askUser`, `competitorFastH
 
 - `src/app/api/journey/stream/route.ts:661`
 
-The stream route now exposes `runDeepResearchProgram` for explicit user-requested deeper research. Old progressive-research text still exists lower in the prompt for legacy intake compatibility, but workspace requests are guarded by a Manus-for-GTM directive and should not restart the old onboarding sequence.
+The stream route now exposes `runDeepResearchProgram` for explicit user-requested deeper research. The old disabled progressive-research prompt blocks were removed, so workspace requests no longer carry instructions for unregistered per-section tools.
 
 ### 4. Desktop and mobile workspace chat use different APIs
 
@@ -109,8 +109,8 @@ Resolved direction: desktop and mobile should both use `UnifiedChat` against `/a
 
 Previously, desktop workspace chat used `UnifiedChat`:
 
-- `src/components/workspace/workspace-page.tsx:524`
-- `src/components/chat/unified-chat.tsx:692` posts to `/api/chat/unified`
+- `src/components/workspace/workspace-page.tsx`
+- `src/components/chat/unified-chat.tsx` posts to `/api/journey/stream`
 
 Mobile workspace chat uses `BottomSheet -> RightRail`:
 
