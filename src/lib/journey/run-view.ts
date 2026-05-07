@@ -82,6 +82,7 @@ export interface JourneyRunView {
   run: JourneyRunViewMetadata;
   status: JourneyRunViewStatus;
   sections: JourneySectionView[];
+  deepResearchActivity: ResearchJobActivity | null;
   latestEventBySection: Partial<Record<SectionKey, JourneyRunEvent>>;
   eventsBySection: Partial<Record<SectionKey, JourneyRunEvent[]>>;
   artifactsBySection: Partial<Record<SectionKey, StoredResearchResult<unknown, string>>>;
@@ -543,6 +544,7 @@ export function buildJourneyRunView(
   ) as Record<string, StoredResearchResult<unknown, string>>;
   const intelData = buildIntelData(rawResearchResults);
   const activityBySection = extractResearchJobActivity(jobStatus);
+  const deepResearchActivity = activityBySection.deepResearchProgram ?? null;
   const artifactsBySection: Partial<Record<SectionKey, StoredResearchResult<unknown, string>>> = {};
   resetCardIdCounter();
 
@@ -597,6 +599,7 @@ export function buildJourneyRunView(
     },
     status: getRunStatus(sections),
     sections,
+    deepResearchActivity,
     latestEventBySection,
     eventsBySection,
     artifactsBySection,

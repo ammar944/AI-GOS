@@ -6,17 +6,6 @@ import JourneyPage from '../page';
 
 type MockChatStatus = 'ready' | 'streaming' | 'submitted';
 
-interface GuardedResponse {
-  ok: boolean;
-  json: () => Promise<{ ok: boolean }>;
-}
-
-interface ResearchQueuedResult {
-  status: 'queued';
-  section: string;
-  jobId: string;
-}
-
 const {
   addToolApprovalResponseMock,
   addToolOutputMock,
@@ -42,7 +31,12 @@ const {
   let activeRunId: string | null = null;
 
   const sendMessageMock = vi.fn(
-    (message: { text: string; metadata?: Record<string, unknown> }) => {
+    (
+      message: { text: string; metadata?: Record<string, unknown> },
+      _requestOptions?: { body?: object },
+    ) => {
+      void _requestOptions;
+
       const nextMessage: UIMessage = {
         id: `user-${messages.length + 1}`,
         role: 'user',
@@ -544,18 +538,7 @@ vi.mock('@/components/journey/prefill-stream-view', () => ({
   }) => (
     <div data-testid="prefill-stream-view">
       <span data-testid="prefill-deep-company">{deepResearchFields.companyName}</span>
-      <button
-        type="button"
-        onClick={() =>
-          onComplete({
-            companyName: 'SaaSLaunch',
-            businessModel: 'B2B SaaS growth agency',
-            productDescription: 'Pipeline growth systems for B2B SaaS teams.',
-            primaryIcpDescription: 'Seed to Series B SaaS founders and growth leaders.',
-            ...deepResearchFields,
-          })
-        }
-      >
+      <button type="button" onClick={() => onComplete(deepResearchFields)}>
         review onboarding fields
       </button>
     </div>
@@ -708,7 +691,7 @@ describe('JourneyPage Manus launch wiring', () => {
     });
   });
 
-  it('routes the link-first CTA through company deep research and website prefill before onboarding review', async () => {
+  it('routes the link-first CTA through company deep research and opens the workspace from deep fields', async () => {
     prefillControls.state.isLoading = true;
 
     render(<JourneyPage />);
@@ -720,11 +703,7 @@ describe('JourneyPage Manus launch wiring', () => {
       fireEvent.change(screen.getByLabelText('LinkedIn optional'), {
         target: { value: 'https://linkedin.com/company/saaslaunch' },
       });
-      fireEvent.click(screen.getByLabelText('Extract onboarding fields'));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('prefill-stream-view')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Start deep research'));
     });
 
     expect(submitPrefillMock).toHaveBeenCalledWith({
@@ -739,11 +718,6 @@ describe('JourneyPage Manus launch wiring', () => {
         expect.stringContaining('Website: https://saaslaunch.net'),
       );
     });
-    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
-      'industryMarket',
-      expect.any(String),
-      expect.any(String),
-    );
     expect(guardedFetchMock).toHaveBeenCalledWith(
       '/api/journey/session',
       expect.objectContaining({
@@ -751,13 +725,25 @@ describe('JourneyPage Manus launch wiring', () => {
         body: expect.stringContaining('"clearResearch":true'),
       }),
     );
+
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'industryMarket',
+        expect.any(String),
+        expect.stringContaining('Company Name: Deep SaaSLaunch'),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('unified-field-review')).not.toBeInTheDocument();
   });
 
   it('opens manual onboarding review without starting section synthesis', async () => {
     render(<JourneyPage />);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Complete manually' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Open onboarding manually' }));
     });
 
     await waitFor(() => {
@@ -769,46 +755,7 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(dispatchResearchSectionMock).not.toHaveBeenCalled();
   });
 
-  it('requires onboarding review before launching the first section', async () => {
-    let resolvePersist: ((value: GuardedResponse) => void) | undefined;
-    const persistPromise = new Promise<GuardedResponse>((resolve) => {
-      resolvePersist = resolve;
-    });
-    let resolveDispatch: ((value: ResearchQueuedResult) => void) | undefined;
-    const dispatchPromise = new Promise<ResearchQueuedResult>((resolve) => {
-      resolveDispatch = resolve;
-    });
-
-    let sessionPatchCount = 0;
-    guardedFetchMock.mockImplementation((url: string) => {
-      if (url === '/api/journey/session') {
-        sessionPatchCount += 1;
-        if (sessionPatchCount === 1) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ ok: true }),
-          });
-        }
-
-        return persistPromise;
-      }
-
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ ok: true }),
-      });
-    });
-    dispatchResearchSectionMock.mockImplementation((section: string) => {
-      if (section === 'industryMarket') {
-        return dispatchPromise;
-      }
-
-      return Promise.resolve({
-        status: 'queued',
-        section,
-        jobId: `job-${section}`,
-      });
-    });
+  it('persists deep fields before launching first section without onboarding review', async () => {
     prefillControls.state.partialResult = {
       companyName: { value: 'SaaSLaunch', confidence: 90 },
       businessModel: { value: 'B2B SaaS growth agency', confidence: 88 },
@@ -829,11 +776,7 @@ describe('JourneyPage Manus launch wiring', () => {
       fireEvent.change(screen.getByLabelText('Company website'), {
         target: { value: 'https://saaslaunch.net' },
       });
-      fireEvent.click(screen.getByLabelText('Extract onboarding fields'));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('prefill-stream-view')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Start deep research'));
     });
 
     await waitFor(() => {
@@ -843,44 +786,11 @@ describe('JourneyPage Manus launch wiring', () => {
         expect.stringContaining('Website: https://saaslaunch.net'),
       );
     });
-    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
-      'industryMarket',
-      expect.any(String),
-      expect.any(String),
-    );
-
     await waitFor(() => {
-      expect(screen.getByTestId('prefill-deep-company')).toHaveTextContent(
-        'Deep SaaSLaunch',
-      );
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'review onboarding fields' }));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('unified-field-review')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Deep SaaSLaunch')).toBeInTheDocument();
-    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
-      'industryMarket',
-      expect.any(String),
-      expect.any(String),
-    );
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'start section synthesis' }));
-    });
-
-    await waitFor(() => {
-      expect(guardedFetchMock).toHaveBeenCalledWith(
-        '/api/journey/session',
-        expect.objectContaining({
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-        }),
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'industryMarket',
+        expect.any(String),
+        expect.stringContaining('Company Name: Deep SaaSLaunch'),
       );
     });
 
@@ -905,52 +815,14 @@ describe('JourneyPage Manus launch wiring', () => {
       businessModel: 'Deep B2B SaaS growth agency',
       productDescription: 'Deep pipeline growth operating system for SaaS teams.',
       primaryIcpDescription: 'Deep Seed to Series B SaaS GTM teams.',
-      topCompetitors: 'Competitor A, Competitor B',
-      uniqueEdge: 'Pipeline-first GTM specialization',
-      goals: 'More qualified demos',
-      pricingTiers: '$8k/month retainer',
     });
-    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
-      'industryMarket',
-      expect.any(String),
-      expect.any(String),
-    );
-    expect(screen.queryByTestId('workspace-page')).not.toBeInTheDocument();
-
-    await act(async () => {
-      resolvePersist?.({
-        ok: true,
-        json: async () => ({ ok: true }),
-      });
-      await persistPromise;
-    });
-    await waitFor(() => {
-      expect(dispatchResearchSectionMock).toHaveBeenCalled();
-    });
-
-    expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
-      'industryMarket',
-      payload.activeRunId,
-      expect.stringContaining('Company Name: Deep SaaSLaunch'),
-    );
     expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
       'industryMarket',
       payload.activeRunId,
       expect.stringContaining('Website: https://saaslaunch.net'),
     );
-    expect(screen.queryByTestId('workspace-page')).not.toBeInTheDocument();
-
-    await act(async () => {
-      resolveDispatch?.({
-        status: 'queued',
-        section: 'industryMarket',
-        jobId: 'job-industry-market',
-      });
-      await dispatchPromise;
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('workspace-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('unified-field-review')).not.toBeInTheDocument();
   });
 });
 

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import type { UseJourneyPrefillReturn } from '@/hooks/use-journey-prefill';
+import type { ResearchJobActivity } from '@/lib/journey/research-job-activity';
 import { JOURNEY_PREFILL_REVIEW_FIELDS } from '@/lib/journey/field-catalog';
 import { formatJourneyErrorMessage } from '@/lib/journey/http';
 import { readJourneyPrefillFieldValue } from '@/lib/journey/prefill-fields';
@@ -24,8 +25,95 @@ export interface PrefillStreamViewProps {
   deepResearchFields?: Record<string, string>;
   deepResearchStatus?: 'idle' | 'starting' | 'queued' | 'complete' | 'error';
   deepResearchError?: string | null;
+  deepResearchActivity?: ResearchJobActivity;
   onRetry: () => void;
   onComplete: (editedFields: Record<string, string>) => void;
+}
+
+interface DeepResearchAgentStep {
+  label: string;
+  detail: string;
+}
+
+type DeepResearchStepState = 'complete' | 'active' | 'queued' | 'error';
+
+const DEEP_RESEARCH_AGENT_STEPS: DeepResearchAgentStep[] = [
+  {
+    label: 'Inspect source',
+    detail: 'Read the submitted website and source context.',
+  },
+  {
+    label: 'Build corpus',
+    detail: 'Collect category, audience, offer, competitor, and evidence signals.',
+  },
+  {
+    label: 'Extract fields',
+    detail: 'Materialize onboarding context from the corpus.',
+  },
+  {
+    label: 'Prepare sections',
+    detail: 'Stage the workspace for section-by-section synthesis.',
+  },
+];
+
+function getDeepResearchStepState(
+  status: PrefillStreamViewProps['deepResearchStatus'],
+  stepIndex: number,
+): DeepResearchStepState {
+  if (status === 'complete') {
+    return 'complete';
+  }
+
+  if (status === 'error') {
+    return stepIndex === 0 ? 'error' : 'queued';
+  }
+
+  if (status === 'queued') {
+    return stepIndex <= 1 ? 'active' : 'queued';
+  }
+
+  if (status === 'starting') {
+    return stepIndex === 0 ? 'active' : 'queued';
+  }
+
+  return 'queued';
+}
+
+function formatActivityPhase(
+  phase: NonNullable<ResearchJobActivity['updates']>[number]['phase'],
+): string {
+  return phase;
+}
+
+function getDeepResearchActivityUpdates(
+  activity: ResearchJobActivity | undefined,
+): NonNullable<ResearchJobActivity['updates']> {
+  return [...(activity?.updates ?? [])]
+    .sort((left, right) => left.at.localeCompare(right.at))
+    .slice(-5);
+}
+
+function getDeepResearchActivityStatus(
+  status: PrefillStreamViewProps['deepResearchStatus'],
+  activity: ResearchJobActivity | undefined,
+): string {
+  if (activity?.status === 'running') {
+    return 'running';
+  }
+
+  if (activity?.status === 'complete' || status === 'complete') {
+    return 'complete';
+  }
+
+  if (activity?.status === 'error' || status === 'error') {
+    return 'error';
+  }
+
+  if (status === 'queued') {
+    return 'queued';
+  }
+
+  return 'starting';
 }
 
 function resolveVisibleFields(
@@ -70,6 +158,7 @@ export function PrefillStreamView({
   deepResearchFields = {},
   deepResearchStatus = 'idle',
   deepResearchError,
+  deepResearchActivity,
   onRetry,
   onComplete,
 }: PrefillStreamViewProps) {
@@ -102,6 +191,12 @@ export function PrefillStreamView({
   const hasRequiredDeepFields = !requiresDeepResearch || deepResearchFieldCount > 0;
   const canReviewOnboarding =
     isComplete && isDeepResearchComplete && hasRequiredDeepFields;
+  const deepResearchActivityUpdates =
+    getDeepResearchActivityUpdates(deepResearchActivity);
+  const deepResearchActivityStatus = getDeepResearchActivityStatus(
+    deepResearchStatus,
+    deepResearchActivity,
+  );
   const getFieldPayload = (): Record<string, string> =>
     Object.fromEntries(
       visibleFields.map((field) => [field.key, field.value]),
@@ -199,7 +294,7 @@ export function PrefillStreamView({
         {requiresDeepResearch && (
           <div
             className={cn(
-              'rounded-2xl border px-5 py-4',
+              'rounded-[8px] border px-5 py-4',
               isDeepResearchFailed
                 ? 'border-red-500/25 bg-red-500/[0.07]'
                 : isDeepResearchComplete
@@ -224,20 +319,119 @@ export function PrefillStreamView({
                 </p>
                 <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
                   {isDeepResearchFailed
-                    ? `Deep research failed before onboarding review: ${deepResearchError ?? 'Unknown error'}`
+                    ? `Deep research failed before workspace launch: ${deepResearchError ?? 'Unknown error'}`
                     : isDeepResearchComplete
                       ? deepResearchFieldCount > 0
-                        ? `Company corpus is ready with ${deepResearchFieldCount} deep-research onboarding fields. Review them next.`
-                        : 'Company corpus finished without onboardingFields. Fix the deep research result before review.'
-                      : 'Building the company corpus before onboarding review opens.'}
+                        ? `Company corpus is ready with ${deepResearchFieldCount} deep-research fields. Opening workspace next.`
+                        : 'Company corpus finished without onboardingFields. Fix the deep research result before workspace launch.'
+                      : 'Building the company corpus before workspace opens.'}
                 </p>
               </div>
             </div>
           </div>
         )}
 
+        {requiresDeepResearch && (
+          <div
+            data-testid="deep-research-agent-view"
+            className="overflow-hidden rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-surface)]"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-quaternary)]">
+                  Deep research agent
+                </p>
+                <h3 className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">
+                  Company corpus run
+                </h3>
+              </div>
+              <span
+                className={cn(
+                  'shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em]',
+                  deepResearchActivityStatus === 'complete'
+                    ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                    : deepResearchActivityStatus === 'error'
+                      ? 'border-red-500/25 bg-red-500/10 text-red-300'
+                      : 'border-[#365eff]/25 bg-[#365eff]/10 text-[#8faaff]',
+                )}
+              >
+                {deepResearchActivityStatus}
+              </span>
+            </div>
+
+            <div className="grid gap-2 px-5 py-4">
+              {DEEP_RESEARCH_AGENT_STEPS.map((step, index) => {
+                const state = getDeepResearchStepState(deepResearchStatus, index);
+
+                return (
+                  <div
+                    key={step.label}
+                    className="grid grid-cols-[16px_1fr] gap-3"
+                  >
+                    <span
+                      className={cn(
+                        'mt-1.5 h-2.5 w-2.5 rounded-full',
+                        state === 'complete'
+                          ? 'bg-emerald-400'
+                          : state === 'error'
+                            ? 'bg-red-400'
+                            : state === 'active'
+                              ? 'bg-[#365eff]'
+                              : 'bg-white/18',
+                      )}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-[var(--text-primary)]">
+                        {step.label}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-5 text-[var(--text-tertiary)]">
+                        {step.detail}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-[var(--border-subtle)] bg-black/20 px-5 py-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-quaternary)]">
+                  Activity stream
+                </p>
+                {deepResearchActivity?.jobId && (
+                  <span className="truncate font-mono text-[10px] text-[var(--text-quaternary)]">
+                    {deepResearchActivity.jobId}
+                  </span>
+                )}
+              </div>
+
+              {deepResearchActivityUpdates.length > 0 ? (
+                <ol className="space-y-2">
+                  {deepResearchActivityUpdates.map((update) => (
+                    <li
+                      key={update.id}
+                      className="grid grid-cols-[68px_1fr] gap-3 font-mono text-[11px] leading-5"
+                    >
+                      <span className="uppercase text-[var(--text-quaternary)]">
+                        {formatActivityPhase(update.phase)}
+                      </span>
+                      <span className="min-w-0 break-words text-[var(--text-secondary)]">
+                        {update.message}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="font-mono text-[11px] leading-5 text-[var(--text-quaternary)]">
+                  Waiting for the worker heartbeat. The deep research job will stream tool and analysis updates here as soon as the worker writes them.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Content card */}
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] backdrop-blur-sm overflow-hidden">
+        <div className="rounded-[8px] border border-[var(--border-default)] bg-[var(--bg-surface)] backdrop-blur-sm overflow-hidden">
           {/* Error state */}
           {effectiveError && (
             <div className="px-6 py-6 flex flex-col items-center gap-3 text-center">
@@ -350,7 +544,7 @@ export function PrefillStreamView({
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             <p className="text-sm text-[var(--text-secondary)]">
-              Onboarding fields are extracted. Waiting for company deep research before review.
+              Onboarding fields are extracted. Waiting for company deep research before workspace opens.
             </p>
             <span className="text-[11px] text-[var(--text-quaternary)]">
               The report sections stay locked until the corpus and profile are ready.
@@ -366,7 +560,7 @@ export function PrefillStreamView({
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             <p className="max-w-sm text-sm leading-6 text-red-400/90">
-              Fix the deep research run before onboarding review so sections do not start from shallow context.
+              Fix the deep research run before workspace synthesis so sections do not start from shallow context.
             </p>
             <button
               onClick={onRetry}

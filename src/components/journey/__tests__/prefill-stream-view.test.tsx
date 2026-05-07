@@ -85,7 +85,7 @@ describe('PrefillStreamView', () => {
     }
   });
 
-  it('waits for company deep research before opening onboarding review', () => {
+  it('waits for company deep research before opening the workspace', () => {
     const onComplete = vi.fn();
 
     const props = createProps({
@@ -101,7 +101,7 @@ describe('PrefillStreamView', () => {
     const { rerender } = render(<PrefillStreamView {...props} />);
 
     expect(
-      screen.getByText('Onboarding fields are extracted. Waiting for company deep research before review.'),
+      screen.getByText('Onboarding fields are extracted. Waiting for company deep research before workspace opens.'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Review onboarding fields' }),
@@ -121,6 +121,48 @@ describe('PrefillStreamView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review onboarding fields' }));
 
     expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the deep research agent activity stream while corpus is running', () => {
+    render(
+      <PrefillStreamView
+        {...createProps({
+          partialResult: {
+            companyName: { value: 'SaaSLaunch', confidence: 0.9 },
+          },
+          fieldsFound: 1,
+          deepResearchStatus: 'queued',
+          deepResearchActivity: {
+            jobId: 'job-deep',
+            section: 'deepResearchProgram',
+            status: 'running',
+            tool: 'runDeepResearchProgram',
+            startedAt: '2026-05-07T09:00:00.000Z',
+            updates: [
+              {
+                at: '2026-05-07T09:00:01.000Z',
+                id: 'update-1',
+                message: 'Searching for company sources.',
+                phase: 'tool',
+              },
+              {
+                at: '2026-05-07T09:00:02.000Z',
+                id: 'update-2',
+                message: 'Synthesizing onboarding context.',
+                phase: 'analysis',
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('deep-research-agent-view')).toHaveTextContent(
+      'Deep research agent',
+    );
+    expect(screen.getByText('Build corpus')).toBeInTheDocument();
+    expect(screen.getByText('Searching for company sources.')).toBeInTheDocument();
+    expect(screen.getByText('Synthesizing onboarding context.')).toBeInTheDocument();
   });
 
   it('uses deep research onboarding fields over shallow extracted fields', () => {

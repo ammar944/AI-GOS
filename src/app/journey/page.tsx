@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { useChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
-  type UIMessage,
 } from 'ai';
 import { useUser } from '@clerk/nextjs';
 import { ShellProvider } from '@/components/shell';
@@ -49,9 +48,7 @@ import {
   clearStoredJourneySession,
 } from '@/lib/journey/journey-run';
 import {
-  enqueuePendingSectionWakeUp,
   getAutoOpenSectionDecision,
-  getWakeUpDispatchDecision,
   resetTrackedSection,
 } from '@/lib/journey/journey-section-orchestration';
 import {
@@ -185,14 +182,14 @@ async function waitForResearchSectionComplete(
     if (payload.status === 'error') {
       throw new Error(
         payload.error ??
-          `${section} failed for run ${runId} before onboarding review`,
+          `${section} failed for run ${runId} before the workspace could open`,
       );
     }
 
     if (payload.status === 'partial') {
       throw new Error(
         payload.error ??
-          `${section} returned a partial result for run ${runId}; onboarding review requires complete deep research fields`,
+          `${section} returned a partial result for run ${runId}; workspace launch requires complete deep research fields`,
       );
     }
 
@@ -206,22 +203,8 @@ async function waitForResearchSectionComplete(
   }
 
   throw new Error(
-    `${section} did not finish for run ${runId} before the onboarding review timeout`,
+    `${section} did not finish for run ${runId} before the workspace launch timeout`,
   );
-}
-
-function logJourneyDebug(
-  event: string,
-  payload: Record<string, unknown>,
-): void {
-  if (process.env.NODE_ENV === 'production') {
-    return;
-  }
-
-  console.debug('[journey][debug]', {
-    event,
-    ...payload,
-  });
 }
 
 export default function JourneyPage() {
@@ -230,41 +213,6 @@ export default function JourneyPage() {
       <JourneyPageContent />
     </ShellProvider>
   );
-}
-
-function sectionToToolName(section: string): string {
-  const map: Record<string, string> = {
-    industryMarket: 'researchIndustry',
-    competitors: 'researchCompetitors',
-    icpValidation: 'researchICP',
-    offerAnalysis: 'researchOffer',
-    crossAnalysis: 'synthesizeResearch',
-    keywordIntel: 'researchKeywords',
-    mediaPlan: 'researchMediaPlan',
-  };
-  return map[section] ?? section;
-}
-
-function createRealtimeResearchMessage(
-  section: string,
-  result: ResearchSectionResult,
-): UIMessage {
-  const toolName = sectionToToolName(section);
-
-  return {
-    id: `realtime-${section}-${Date.now()}`,
-    role: 'assistant',
-    parts: [
-      {
-        type: `tool-${toolName}`,
-        toolName,
-        toolCallId: `realtime-${section}`,
-        state: 'output-available',
-        input: {},
-        output: JSON.stringify(result),
-      } as UIMessage['parts'][number],
-    ],
-  };
 }
 
 function JourneyPageContent() {
@@ -278,11 +226,9 @@ function JourneyPageContent() {
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
-  const statusRef = useRef<string>('ready');
   const journeyPhaseRef = useRef<JourneyPhaseView>('welcome');
-  // Sections with completed research that still need UI or agent follow-up.
-  const pendingWakeUpsRef = useRef<Set<string>>(new Set());
-  const wokenSectionsRef = useRef<Set<string>>(new Set());
+  // Guard ref to prevent double workspace transitions.
+  const hasTransitionedToWorkspaceRef = useRef(false);
   const loggedResearchStartsRef = useRef<Set<string>>(new Set());
   const loggedResearchErrorsRef = useRef<Set<string>>(new Set());
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
@@ -389,8 +335,6 @@ function JourneyPageContent() {
     setArtifactFeedbackSection(null);
     setRecentlyApprovedArtifactSection(null);
     artifactAutoOpenedSectionsRef.current = new Set();
-    pendingWakeUpsRef.current = new Set();
-    wokenSectionsRef.current = new Set();
     loggedResearchStartsRef.current = new Set();
     loggedResearchErrorsRef.current = new Set();
     loggedResearchTimeoutFallbacksRef.current = new Set();
@@ -409,20 +353,14 @@ function JourneyPageContent() {
     });
   }, []);
 
-  const resetSectionWakeUpTracking = useCallback((section: string) => {
-    pendingWakeUpsRef.current = resetTrackedSection(pendingWakeUpsRef.current, section);
-    wokenSectionsRef.current = resetTrackedSection(wokenSectionsRef.current, section);
-  }, []);
-
   const resetArtifactSectionTracking = useCallback((section: string) => {
-    resetSectionWakeUpTracking(section);
     setArtifactFeedbackSection((prev) => (prev === section ? null : prev));
     setRecentlyApprovedArtifactSection((prev) => (prev === section ? null : prev));
     artifactAutoOpenedSectionsRef.current = resetTrackedSection(
       artifactAutoOpenedSectionsRef.current,
       section,
     );
-  }, [resetSectionWakeUpTracking]);
+  }, []);
 
   const showArtifactSection = useCallback(
     (
@@ -448,19 +386,6 @@ function JourneyPageContent() {
     },
     [],
   );
-
-  const queuePendingWakeUp = useCallback((section: string) => {
-    pendingWakeUpsRef.current = enqueuePendingSectionWakeUp(
-      pendingWakeUpsRef.current,
-      section,
-    );
-  }, []);
-
-  const shouldWakeAgentForSection = useCallback((section: string): boolean => {
-    const decision = getWakeUpDispatchDecision(wokenSectionsRef.current, section);
-    wokenSectionsRef.current = decision.nextWokenSections;
-    return decision.shouldWake;
-  }, []);
 
   useEffect(() => {
     if (deepLinkSession || deepLinkSection) {
@@ -551,8 +476,6 @@ function JourneyPageContent() {
 
   const {
     messages,
-    sendMessage,
-    status,
     setMessages,
   } = useChat({
     transport,
@@ -603,8 +526,10 @@ function JourneyPageContent() {
     return nextRunId;
   }, [commitActiveRunId, resetConversationState, resetResearchState, user?.id]);
 
+  const shouldFetchResearchJobActivity =
+    journeyPhase === 'workspace' || journeyPhase === 'prefilling';
   const researchJobActivity = useResearchJobActivity({
-    userId: journeyPhase === 'workspace' ? user?.id : null,
+    userId: shouldFetchResearchJobActivity ? user?.id : null,
     activeRunId,
     resetSignal: realtimeResetSignal,
     ignoreUpdatedBefore: researchResetAt,
@@ -646,8 +571,6 @@ function JourneyPageContent() {
         });
       }
 
-      resetSectionWakeUpTracking(section);
-
       setActiveResearch((prev) => {
         if (prev.has(section)) return prev;
         const next = new Set(prev);
@@ -683,8 +606,96 @@ function JourneyPageContent() {
       recentlyApprovedArtifactSection,
       researchResults,
       resetArtifactSectionTracking,
-      resetSectionWakeUpTracking,
       showArtifactSection,
+    ],
+  );
+
+  const enterWorkspaceFromDeepResearchFields = useCallback(
+    async (runId: string, fields: Record<string, string>): Promise<void> => {
+      if (hasTransitionedToWorkspaceRef.current) {
+        return;
+      }
+
+      const acceptedJourneyFields: Record<string, string> = {
+        ...(prefillWebsiteUrl.trim().length > 0
+          ? { websiteUrl: normalizeLaunchUrl(prefillWebsiteUrl) ?? prefillWebsiteUrl.trim() }
+          : {}),
+        ...(welcomeLinkedinUrl.trim().length > 0
+          ? { linkedinUrl: normalizeLaunchUrl(welcomeLinkedinUrl) ?? welcomeLinkedinUrl.trim() }
+          : {}),
+      };
+
+      for (const [key, rawValue] of Object.entries(fields)) {
+        const value = rawValue.trim();
+        if (value.length > 0) {
+          acceptedJourneyFields[key] = value;
+        }
+      }
+
+      if (Object.keys(acceptedJourneyFields).length === 0) {
+        throw new Error(
+          `Cannot open Journey workspace for run ${runId}: deep research returned no usable onboarding fields`,
+        );
+      }
+
+      const displayName = acceptedJourneyFields.companyName || 'this company';
+      const orderedFieldKeys = Object.keys(acceptedJourneyFields);
+      const context = buildJourneyResearchContext(
+        acceptedJourneyFields,
+        orderedFieldKeys,
+      );
+      const guardedFetch = createJourneyGuardedFetch('Journey');
+
+      await guardedFetch('/api/journey/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clearResearch: false,
+          fields: acceptedJourneyFields,
+          activeRunId: runId,
+        }),
+      });
+
+      setResumeTransportState(acceptedJourneyFields);
+      resumeTransportStateRef.current = acceptedJourneyFields;
+      setJourneyCompanyName(displayName);
+      setStoredJourneyCompanyName(displayName);
+      hasTransitionedToWorkspaceRef.current = true;
+      setJourneyPhase('workspace');
+      addLog(
+        'ok',
+        `Opened workspace from deep research context with ${Object.keys(fields).length} fields`,
+      );
+
+      const result = await dispatchResearchSection('industryMarket', runId, context);
+      if (result.status === 'error') {
+        const errorMessage =
+          result.error ?? `Market & Category dispatch failed for run ${runId}`;
+        setResearchResults((prev) => ({
+          ...prev,
+          industryMarket: {
+            status: 'error',
+            section: 'industryMarket',
+            error: errorMessage,
+            durationMs: 0,
+          },
+        }));
+        addLog('err', errorMessage);
+        return;
+      }
+
+      markResearchQueued('industryMarket');
+      addLog(
+        'run',
+        `Market & Category synthesis queued from deep corpus (job: ${result.jobId ?? 'unknown'})`,
+      );
+    },
+    [
+      addLog,
+      markResearchQueued,
+      prefillWebsiteUrl,
+      setResearchResults,
+      welcomeLinkedinUrl,
     ],
   );
 
@@ -848,32 +859,8 @@ function JourneyPageContent() {
   }, [researchJobActivity]);
 
   useEffect(() => {
-    statusRef.current = status;
     journeyPhaseRef.current = journeyPhase;
-  }, [journeyPhase, status]);
-
-  // Guard ref to prevent double workspace transitions
-  const hasTransitionedToWorkspaceRef = useRef(false);
-
-  const appendRealtimeResearchMessage = useCallback(
-    (section: string, result: ResearchSectionResult) => {
-      const syntheticMessage = createRealtimeResearchMessage(section, result);
-
-      setMessages((prev) => {
-        const alreadyInjected = prev.some((msg) =>
-          msg.parts.some((part) => {
-            if (typeof part !== 'object' || !part || !('toolCallId' in part)) {
-              return false;
-            }
-            return (part as { toolCallId?: string }).toolCallId === `realtime-${section}`;
-          }),
-        );
-
-        return alreadyInjected ? prev : [...prev, syntheticMessage];
-      });
-    },
-    [setMessages],
-  );
+  }, [journeyPhase]);
 
   useResearchRealtime({
     userId: null,
@@ -936,45 +923,18 @@ function JourneyPageContent() {
       }
 
       // Workspace hydration is handled by WorkspaceResearchBridge. Keep the
-      // old hidden chat wake-up loop dormant outside the legacy path.
-      if (journeyPhaseRef.current !== 'workspace') {
-        queuePendingWakeUp(section);
-        return;
-      }
-
-      if (REVIEW_ARTIFACT_SECTIONS.has(section)) {
-        if (approvedArtifactSections.has(section as JourneyReviewSection)) {
-          return;
+      // legacy hidden chat wake-up loop dormant for the Journey workspace.
+      if (journeyPhaseRef.current === 'workspace') {
+        if (
+          REVIEW_ARTIFACT_SECTIONS.has(section) &&
+          !approvedArtifactSections.has(section as JourneyReviewSection)
+        ) {
+          showArtifactSection(section, { automatic: true });
         }
 
-        appendRealtimeResearchMessage(section, result);
-        showArtifactSection(section, { automatic: true });
         return;
       }
 
-      appendRealtimeResearchMessage(section, result);
-
-      if (statusRef.current === 'streaming' || statusRef.current === 'submitted') {
-        queuePendingWakeUp(section);
-        return;
-      }
-
-      if (!shouldWakeAgentForSection(section)) {
-        logJourneyDebug('hidden-wake-up-suppressed', {
-          reason: 'realtime-complete',
-          section,
-        });
-        return;
-      }
-
-      logJourneyDebug('hidden-wake-up-dispatched', {
-        reason: 'realtime-complete',
-        section,
-      });
-      sendMessage({
-        text: `[Research complete: ${sectionLabel}] Results have been received. Continue the onboarding conversation — ask the next question based on what phase we're in.`,
-        metadata: { hidden: true },
-      });
     },
   });
 
@@ -999,15 +959,6 @@ function JourneyPageContent() {
 
     return () => clearTimeout(timer);
   }, [activeResearch, addLog]);
-
-  // The current product path uses WorkspaceResearchBridge for Supabase
-  // hydration. Clear any old queued chat wake-ups when entering workspace so
-  // background research cannot wake the removed onboarding chat loop.
-  useEffect(() => {
-    if (journeyPhase === 'workspace') {
-      pendingWakeUpsRef.current = new Set();
-    }
-  }, [journeyPhase]);
 
   // Prevent document-level scroll
   useEffect(() => {
@@ -1035,8 +986,8 @@ function JourneyPageContent() {
     }
   }, [messages]);
 
-  // Auto-transition removed — PrefillStreamView now shows a completion state
-  // with a manual "Continue to Review" button so users can see what was extracted
+  // Manual prefill completion remains as a fallback; URL launch opens the
+  // workspace directly once deep research returns durable fields.
 
   // Resume handlers
   const handleResumeContinue = useCallback(() => {
@@ -1139,7 +1090,7 @@ function JourneyPageContent() {
         const deepResearchFields = await fetchDeepResearchOnboardingFields(nextRunId);
         if (Object.keys(deepResearchFields).length === 0) {
           throw new Error(
-            'Company deep research completed without onboardingFields; refusing to open shallow onboarding review.',
+            'Company deep research completed without onboardingFields; refusing to open the workspace from shallow context.',
           );
         }
         setDeepResearchOnboardingFields(deepResearchFields);
@@ -1148,6 +1099,7 @@ function JourneyPageContent() {
           'ok',
           `Company deep research corpus ready with ${Object.keys(deepResearchFields).length} onboarding fields`,
         );
+        await enterWorkspaceFromDeepResearchFields(nextRunId, deepResearchFields);
       })
       .catch((error: unknown) => {
         const message = getErrorMessage(error);
@@ -1158,6 +1110,7 @@ function JourneyPageContent() {
   }, [
     addLog,
     commitActiveRunId,
+    enterWorkspaceFromDeepResearchFields,
     prefillWebsiteUrl,
     stopPrefill,
     submitPrefill,
@@ -1288,6 +1241,7 @@ function JourneyPageContent() {
       deepResearchFields={deepResearchOnboardingFields}
       deepResearchStatus={linkDeepResearchStatus}
       deepResearchError={linkDeepResearchError}
+      deepResearchActivity={researchJobActivity.deepResearchProgram}
       onRetry={() => {
         stopPrefill();
 

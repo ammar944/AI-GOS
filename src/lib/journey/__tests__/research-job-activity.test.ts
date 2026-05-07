@@ -68,7 +68,7 @@ describe('extractResearchJobActivity', () => {
     });
   });
 
-  it('does not project company-level deep research onto GTM sections', () => {
+  it('tracks company-level deep research as its own activity stream', () => {
     expect(extractResearchJobActivity({
       'job-deep': {
         status: 'running',
@@ -83,7 +83,23 @@ describe('extractResearchJobActivity', () => {
           },
         ],
       },
-    })).toEqual({});
+    })).toEqual({
+      deepResearchProgram: {
+        jobId: 'job-deep',
+        section: 'deepResearchProgram',
+        status: 'running',
+        tool: 'runDeepResearchProgram',
+        startedAt: '2026-05-07T09:00:00.000Z',
+        updates: [
+          {
+            at: '2026-05-07T09:00:01.000Z',
+            id: 'update-deep-1',
+            message: 'starting company research extraction',
+            phase: 'runner',
+          },
+        ],
+      },
+    });
   });
 
   it('ignores unknown tools', () => {

@@ -15,6 +15,7 @@ function makeRunView(status: JourneyRunView['status']): JourneyRunView {
       raw: null,
     },
     status,
+    deepResearchActivity: null,
     sections: [
       {
         id: 'industryMarket',

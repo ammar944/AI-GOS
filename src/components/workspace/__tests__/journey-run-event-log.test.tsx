@@ -36,6 +36,7 @@ function makeRunView(): JourneyRunView {
       raw: null,
     },
     status: 'failed',
+    deepResearchActivity: null,
     sections: [
       makeSection({
         id: 'industryMarket',

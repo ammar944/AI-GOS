@@ -212,7 +212,7 @@ describe('buildJourneyRunView', () => {
     expect(view.messages).toEqual([]);
   });
 
-  it('does not show company-level deep research as section synthesis activity', () => {
+  it('tracks company-level deep research separately from per-section synthesis activity', () => {
     const view = buildJourneyRunView({
       id: 'session-deep',
       run_id: 'run-deep',
@@ -243,6 +243,12 @@ describe('buildJourneyRunView', () => {
     expect(view.sections.every((section) => section.status === 'queued')).toBe(true);
     expect(view.sections.every((section) => section.phase === 'queued')).toBe(true);
     expect(view.sections.every((section) => section.latestEvent === null)).toBe(true);
+    expect(view.deepResearchActivity).toMatchObject({
+      jobId: 'job-deep',
+      section: 'deepResearchProgram',
+      status: 'running',
+      tool: 'runDeepResearchProgram',
+    });
   });
 
   it('normalizes versioned workspace message envelopes for visibility summaries', () => {

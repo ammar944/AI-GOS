@@ -72,6 +72,7 @@ function makeRunView(): JourneyRunView {
       raw: null,
     },
     status: 'partial',
+    deepResearchActivity: null,
     sections: [
       makeSection({
         id: 'industryMarket',

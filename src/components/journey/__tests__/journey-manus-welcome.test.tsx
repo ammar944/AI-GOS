@@ -16,8 +16,11 @@ describe('JourneyManusWelcome', () => {
       />,
     );
 
-    expect(screen.getByText('Start from a link. Work inside the report.')).toBeInTheDocument();
+    expect(screen.getByText('Drop a URL. Watch the agent build the GTM report.')).toBeInTheDocument();
     expect(screen.getByText('GTM research coworker')).toBeInTheDocument();
+    expect(screen.getByText('Deep research')).toBeInTheDocument();
+    expect(screen.getByText('Workspace synthesis')).toBeInTheDocument();
+    expect(screen.queryByText('Onboarding review')).not.toBeInTheDocument();
     expect(screen.queryByText('What should we build toward?')).not.toBeInTheDocument();
     expect(screen.queryByText('Strategy Intake')).not.toBeInTheDocument();
   });
@@ -36,7 +39,7 @@ describe('JourneyManusWelcome', () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText('Extract onboarding fields'));
+    fireEvent.click(screen.getByLabelText('Start deep research'));
 
     expect(onAnalyze).toHaveBeenCalledTimes(1);
   });
