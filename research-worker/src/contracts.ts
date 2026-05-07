@@ -47,7 +47,7 @@ const industryResearchDataSchema = z.object({
   categorySnapshot: z.object({
     category: nonEmptyStringSchema,
     marketSize: z.string().optional(),
-    marketMaturity: z.string().optional(),
+    marketMaturity: z.enum(['early', 'growing', 'saturated']).optional(),
     buyingBehavior: z.string().optional(),
     awarenessLevel: z.string().optional(),
     averageSalesCycle: z.string().optional(),
@@ -1256,4 +1256,3 @@ export function finalizeRunnerResult(
     telemetry,
   };
 }
-

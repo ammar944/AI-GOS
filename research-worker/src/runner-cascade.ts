@@ -35,6 +35,8 @@ import { maybeCachedSystem } from './utils/prompt-cache';
 export interface CascadeAttemptConfig {
   /** Human-readable mode name used for backoff keys and progress labels. */
   mode: string;
+  /** Optional user-facing label for progress rows when mode is a compact key. */
+  progressLabel?: string;
   model: string;
   maxTokens: number;
   timeoutMs: number;
@@ -236,16 +238,17 @@ export async function runCascadeAttemptWithObservability(
   const runAttempt = hasTools
     ? (deps.runToolAttempt ?? runCascadeToolAttempt)
     : (deps.runMessageAttempt ?? runCascadeMessageAttempt);
+  const progressLabel = config.progressLabel ?? config.mode;
 
-  await emitRunnerProgress(onProgress, 'runner', `${config.mode} started`);
+  await emitRunnerProgress(onProgress, 'runner', `${progressLabel} started`);
 
   try {
     const result = await runAttempt(config, onProgress);
-    await emitRunnerProgress(onProgress, 'runner', `${config.mode} complete`);
+    await emitRunnerProgress(onProgress, 'runner', `${progressLabel} complete`);
     return result;
   } catch (error) {
     if (isCascadeTimeoutError(error)) {
-      await emitRunnerProgress(onProgress, 'runner', `${config.mode} timed out`);
+      await emitRunnerProgress(onProgress, 'runner', `${progressLabel} timed out`);
     }
     throw error;
   }

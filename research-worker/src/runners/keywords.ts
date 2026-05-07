@@ -1002,10 +1002,10 @@ function buildKeywordAttemptLabel(config: KeywordAttemptConfig): string {
 }
 
 function buildKeywordRecoveryStatsMessage(
-  _mode: Exclude<KeywordAttemptMode, 'primary'>,
-  _stats: KeywordRecoveryContextStats,
+  mode: Exclude<KeywordAttemptMode, 'primary'>,
+  stats: KeywordRecoveryContextStats,
 ): string {
-  return 'preparing additional keyword analysis';
+  return `${mode} evidence package prepared (business lines: ${stats.businessLineCount}, section summaries: ${stats.sectionSummaryCount}, analysis notes: ${stats.analysisCount}, draft chars: ${stats.partialDraftChars}, total chars: ${stats.totalChars})`;
 }
 
 async function runKeywordToolAttempt(

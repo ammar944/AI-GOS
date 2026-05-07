@@ -433,6 +433,7 @@ function getCompetitorAttemptConfig(
   if (mode === 'rescue') {
     return {
       mode,
+      progressLabel: 'competitor analysis (rescue pass) from context',
       model: COMPETITORS_RESCUE_MODEL,
       maxTokens: COMPETITORS_RESCUE_MAX_TOKENS,
       timeoutMs: COMPETITORS_RESCUE_TIMEOUT_MS,
@@ -446,6 +447,7 @@ function getCompetitorAttemptConfig(
   if (mode === 'repair') {
     return {
       mode,
+      progressLabel: 'competitor analysis (repair pass) from context',
       model: COMPETITORS_REPAIR_MODEL,
       maxTokens: COMPETITORS_REPAIR_MAX_TOKENS,
       timeoutMs: COMPETITORS_REPAIR_TIMEOUT_MS,
