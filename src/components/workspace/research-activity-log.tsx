@@ -1,74 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { ResearchJobActivity, ResearchUpdateMeta } from '@/lib/journey/research-job-activity';
 import { collapseResearchJobUpdates } from '@/lib/journey/research-job-activity';
-
-// Fallback simulated messages (shown when worker hasn't reported yet)
-const SECTION_ACTIVITIES: Record<string, string[]> = {
-  industryMarket: [
-    'Searching market intelligence databases',
-    'Analyzing industry vertical and addressable market',
-    'Extracting market growth indicators and trends',
-    'Mapping market dynamics and buying behaviours',
-    'Compiling market overview',
-  ],
-  icpValidation: [
-    'Loading market research results',
-    'Analyzing target audience demographics',
-    'Validating ICP against market data',
-    'Mapping buyer journey and trigger events',
-    'Scoring ICP targeting confidence',
-  ],
-  offerAnalysis: [
-    'Loading ICP and market context',
-    'Evaluating value proposition strength',
-    'Scraping competitor pricing pages via Firecrawl',
-    'Scoring offer across 6 dimensions',
-    'Generating improvement recommendations',
-  ],
-  competitors: [
-    'Loading ICP, offer, and market context',
-    'Identifying competitor domains via web search',
-    'Scraping competitor sites via Firecrawl',
-    'Querying SpyFu for keyword spend data',
-    'Pulling ad creatives from ad libraries',
-    'Building competitive intelligence matrix',
-  ],
-  keywordIntel: [
-    'Loading full research context',
-    'Querying SpyFu keyword databases',
-    'Analyzing search volume and competition',
-    'Identifying competitor keyword gaps',
-    'Mapping quick-win opportunities',
-    'Building keyword strategy',
-  ],
-  crossAnalysis: [
-    'Loading all research sections',
-    'Cross-referencing market, ICP, offer, and competitor data',
-    'Identifying strategic patterns and gaps',
-    'Scoring section confidence levels',
-    'Compiling strategic recommendations',
-  ],
-  mediaPlan: [
-    'Loading approved research and synthesis',
-    'Building channel mix and budget allocation',
-    'Designing audience and campaign structure',
-    'Setting measurement KPIs and guardrails',
-    'Planning phased rollout roadmap',
-    'Generating strategy snapshot',
-  ],
-};
-
-const DEFAULT_ACTIVITIES = [
-  'Initializing research pipeline',
-  'Gathering intelligence',
-  'Processing data sources',
-  'Analyzing patterns',
-  'Compiling results',
-];
 
 // Phase icon mapping for visual distinction
 const PHASE_COLORS: Record<string, string> = {
@@ -78,6 +14,20 @@ const PHASE_COLORS: Record<string, string> = {
   output: 'rgb(52, 211, 153)', // emerald
   error: 'rgb(239, 68, 68)', // red
 };
+
+const SCRAPE_TOOLS = new Set([
+  'firecrawl',
+  'firecrawl_scrape',
+  'firecrawl_scrape_url',
+  'firecrawlExtract',
+  'spyfu',
+  'spyfu_keyword_intel',
+  'spyfu_domain_stats',
+  'ad_library_search',
+  'search_ads',
+  'pagespeed_audit',
+  'page_speed',
+]);
 
 interface ResearchActivityLogProps {
   section: string;
@@ -751,6 +701,19 @@ function LiveDataAssembly({ cards, latestMessage, entries }: LiveDataAssemblyPro
     );
   }
 
+  if (cards.length === 0) {
+    return (
+      <div className="flex h-full flex-col justify-center rounded-lg border border-[var(--border-glass)] bg-[var(--bg-glass-panel)] p-4">
+        <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          Waiting for worker telemetry
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-quaternary)]">
+          Waiting for worker telemetry and source trace. No live tool or source updates have been reported yet.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full gap-2 overflow-y-auto custom-scrollbar pr-1">
       <AnimatePresence mode="popLayout">
@@ -859,42 +822,12 @@ function LiveDataAssembly({ cards, latestMessage, entries }: LiveDataAssemblyPro
 // Main component — orchestrates text-only vs hyper-agent layout
 // ---------------------------------------------------------------------------
 
-export function ResearchActivityLog({ section, sectionLabel, phase, activity }: ResearchActivityLogProps) {
-  const fallbackActivities = SECTION_ACTIVITIES[section] ?? DEFAULT_ACTIVITIES;
-
-  // Real updates from worker
+export function ResearchActivityLog({ sectionLabel, phase, activity }: ResearchActivityLogProps) {
   const realUpdates = activity?.updates
     ? collapseResearchJobUpdates(activity.updates)
     : [];
   const hasRealUpdates = realUpdates.length > 0;
 
-  // Simulated fallback when no real updates
-  const [simVisibleCount, setSimVisibleCount] = useState(1);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (hasRealUpdates) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-
-    setSimVisibleCount(1);
-    intervalRef.current = setInterval(() => {
-      setSimVisibleCount((prev) => {
-        if (prev >= fallbackActivities.length) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 3000 + Math.random() * 2000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [section, fallbackActivities.length, hasRealUpdates]);
-
-  // Build unified entries list
   const entries: ActivityEntry[] = hasRealUpdates
     ? realUpdates.map((u, i) => ({
         id: u.id,
@@ -903,14 +836,8 @@ export function ResearchActivityLog({ section, sectionLabel, phase, activity }: 
         isLive: i === realUpdates.length - 1 && activity?.status === 'running',
         meta: u.meta,
       }))
-    : fallbackActivities.slice(0, simVisibleCount).map((msg, i) => ({
-        id: `sim-${section}-${i}`,
-        message: msg,
-        phase: 'runner',
-        isLive: i === simVisibleCount - 1 && simVisibleCount <= fallbackActivities.length,
-      }));
+    : [];
 
-  // Always show hyper-agent layout — no text-only fallback
   return <HyperAgentLayout entries={entries} sectionLabel={sectionLabel} phase={phase} hasRealUpdates={hasRealUpdates} />;
 }
 
@@ -929,13 +856,6 @@ function HyperAgentLayout({
   phase: 'researching' | 'streaming';
   hasRealUpdates: boolean;
 }) {
-  // Tools that produce meaningful per-domain data (not web_search source links)
-  const SCRAPE_TOOLS = new Set([
-    'firecrawl', 'firecrawl_scrape', 'firecrawl_scrape_url', 'firecrawlExtract',
-    'spyfu', 'spyfu_keyword_intel', 'spyfu_domain_stats',
-    'ad_library_search', 'search_ads', 'pagespeed_audit', 'page_speed',
-  ]);
-
   // Entries with URLs (for browser panel)
   const metaEntries = entries.filter((e) => e.meta?.url);
   // Entries that should create data cards (scraped, not search results)
@@ -1060,7 +980,9 @@ function HyperAgentLayout({
         )}>
           {isSynthesizing
             ? 'Synthesizing report'
-            : phase === 'streaming'
+            : !hasRealUpdates
+              ? 'Awaiting worker telemetry'
+              : phase === 'streaming'
               ? 'Processing results'
               : 'Agent researching'}
         </span>

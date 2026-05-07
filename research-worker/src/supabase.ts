@@ -102,7 +102,7 @@ async function isActiveJourneyRun(
   runId: string | undefined,
 ): Promise<boolean> {
   if (!runId) {
-    return true;
+    return false;
   }
 
   const supabase = getClient();

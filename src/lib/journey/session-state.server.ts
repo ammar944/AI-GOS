@@ -246,6 +246,7 @@ export async function persistResearchToSupabase(
         'merge_journey_session_research_result',
         {
           p_user_id: userId,
+          p_run_id: runId ?? '',
           p_section: section,
           p_result: runId ? { ...result, runId } : result,
         },

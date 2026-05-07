@@ -495,6 +495,7 @@ export async function dispatchJourneyResearchForUser(
 ): Promise<DispatchResult> {
   const section = params.section.trim();
   const context = params.context.trim();
+  const runId = typeof params.runId === 'string' ? params.runId.trim() : '';
 
   if (!section || !context) {
     return createDispatchError(
@@ -508,11 +509,16 @@ export async function dispatchJourneyResearchForUser(
     return createDispatchError(section, `Unknown section: ${section}`);
   }
 
-  await stampActiveJourneyRunId(params.userId, params.runId);
+  if (!runId) {
+    return createDispatchError(section, 'Missing required field: runId');
+  }
+
+  await stampActiveJourneyRunId(params.userId, runId);
 
   const enrichedContext = await buildJourneyResearchDispatchContext({
     ...params,
     section,
+    runId,
     context,
   });
   const contextHash = createHash('sha256')
@@ -525,7 +531,7 @@ export async function dispatchJourneyResearchForUser(
   );
 
   return dispatchResearchForUser(tool, section, enrichedContext, params.userId, {
-    activeRunId: params.runId,
+    activeRunId: runId,
     baselineMetrics: params.baselineMetrics,
   });
 }

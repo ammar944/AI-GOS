@@ -1,18 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import type { CardState } from '@/lib/workspace/types';
+import type { CardState, SectionKey, SectionPhase } from '@/lib/workspace/types';
 import { buildWorkspaceHydrationPlan } from '../workspace-hydration';
 
-function makeViewCard(): CardState {
+const REVIEW_RESEARCH_SECTIONS: SectionKey[] = [
+  'industryMarket',
+  'icpValidation',
+  'competitors',
+  'offerAnalysis',
+  'keywordIntel',
+  'crossAnalysis',
+];
+
+function makeViewCard(section: SectionKey = 'industryMarket'): CardState {
   return {
-    id: 'industryMarket-prose-card-research-verdict',
-    sectionKey: 'industryMarket',
+    id: `${section}-prose-card-research-verdict`,
+    sectionKey: section,
     cardType: 'prose-card',
     label: 'Research Verdict',
     content: {
-      text: 'View-generated market card',
+      text: `View-generated ${section} card`,
     },
     status: 'draft',
     versions: [],
+  };
+}
+
+function makeDeepResearchResult(section: SectionKey): Record<string, unknown> {
+  return {
+    status: 'complete',
+    section,
+    durationMs: 1200,
+    data: {
+      source: 'deepResearchProgram',
+      sectionTitle: section,
+      verdict: `${section} is ready for review.`,
+      statusSummary: `${section} research is complete.`,
+      confidence: 82,
+    },
   };
 }
 
@@ -139,5 +163,83 @@ describe('buildWorkspaceHydrationPlan', () => {
         content: editedContent,
       },
     ]);
+  });
+
+  it('gates six completed view sections to one review section at a time', () => {
+    const plan = buildWorkspaceHydrationPlan({
+      view: {
+        sections: REVIEW_RESEARCH_SECTIONS.map((section) => ({
+          id: section,
+          phase: 'review',
+          cards: [makeViewCard(section)],
+        })),
+      },
+      researchResults: null,
+    });
+
+    const phasesBySection = Object.fromEntries(
+      plan.sections.map((section) => [section.section, section.phase]),
+    ) as Partial<Record<SectionKey, SectionPhase>>;
+
+    expect(phasesBySection.industryMarket).toBe('review');
+    expect(phasesBySection.icpValidation).toBe('queued');
+    expect(phasesBySection.competitors).toBe('queued');
+    expect(phasesBySection.offerAnalysis).toBe('queued');
+    expect(phasesBySection.keywordIntel).toBe('queued');
+    expect(phasesBySection.crossAnalysis).toBe('queued');
+    expect(
+      plan.sections.filter((section) => section.phase === 'review'),
+    ).toHaveLength(1);
+    expect(plan.sections.every((section) => section.cards.length > 0)).toBe(true);
+  });
+
+  it('preserves an approved market section and reveals ICP next', () => {
+    const plan = buildWorkspaceHydrationPlan({
+      view: {
+        sections: REVIEW_RESEARCH_SECTIONS.map((section) => ({
+          id: section,
+          phase: section === 'industryMarket' ? 'approved' : 'review',
+          cards: [makeViewCard(section)],
+        })),
+      },
+      researchResults: null,
+    });
+
+    const phasesBySection = Object.fromEntries(
+      plan.sections.map((section) => [section.section, section.phase]),
+    ) as Partial<Record<SectionKey, SectionPhase>>;
+
+    expect(phasesBySection.industryMarket).toBe('approved');
+    expect(phasesBySection.icpValidation).toBe('review');
+    expect(phasesBySection.competitors).toBe('queued');
+    expect(phasesBySection.offerAnalysis).toBe('queued');
+    expect(phasesBySection.keywordIntel).toBe('queued');
+    expect(phasesBySection.crossAnalysis).toBe('queued');
+  });
+
+  it('gates fallback raw research results to one review section at a time', () => {
+    const plan = buildWorkspaceHydrationPlan({
+      view: null,
+      researchResults: Object.fromEntries(
+        REVIEW_RESEARCH_SECTIONS.map((section) => [
+          section,
+          makeDeepResearchResult(section),
+        ]),
+      ),
+    });
+
+    const phasesBySection = Object.fromEntries(
+      plan.sections.map((section) => [section.section, section.phase]),
+    ) as Partial<Record<SectionKey, SectionPhase>>;
+
+    expect(phasesBySection.industryMarket).toBe('review');
+    expect(phasesBySection.icpValidation).toBe('queued');
+    expect(phasesBySection.competitors).toBe('queued');
+    expect(phasesBySection.offerAnalysis).toBe('queued');
+    expect(phasesBySection.keywordIntel).toBe('queued');
+    expect(phasesBySection.crossAnalysis).toBe('queued');
+    expect(
+      plan.sections.filter((section) => section.phase === 'review'),
+    ).toHaveLength(1);
   });
 });

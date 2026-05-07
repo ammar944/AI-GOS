@@ -88,6 +88,19 @@ describe('worker supabase writers', () => {
     });
   });
 
+  it('skips research result writes that are missing a run id', async () => {
+    const { writeResearchResult } = await import('../supabase');
+
+    await writeResearchResult('user-1', 'competitorIntel', {
+      status: 'complete',
+      section: 'competitorIntel',
+      data: { competitors: [] },
+      durationMs: 123,
+    });
+
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it('writes job status through atomic rpc helpers', async () => {
     const { writeJobStatus } = await import('../supabase');
 

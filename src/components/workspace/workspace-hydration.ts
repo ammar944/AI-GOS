@@ -223,6 +223,44 @@ function getFallbackHydrationSections(
   return sections;
 }
 
+function getNextHydratedReviewSection(
+  sections: WorkspaceHydrationSection[],
+): SectionKey | null {
+  const reviewSections = new Set(
+    sections
+      .filter((section) => section.phase === 'review')
+      .map((section) => section.section),
+  );
+
+  for (const section of SECTION_PIPELINE) {
+    if (reviewSections.has(section)) {
+      return section;
+    }
+  }
+
+  return sections.find((section) => section.phase === 'review')?.section ?? null;
+}
+
+function gateHydratedReviewPhases(
+  sections: WorkspaceHydrationSection[],
+): WorkspaceHydrationSection[] {
+  const reviewSection = getNextHydratedReviewSection(sections);
+  if (!reviewSection) {
+    return sections;
+  }
+
+  return sections.map((section) => {
+    if (section.phase !== 'review' || section.section === reviewSection) {
+      return section;
+    }
+
+    return {
+      ...section,
+      phase: 'queued',
+    };
+  });
+}
+
 function getCardEdits(
   researchResults: Record<string, unknown> | null,
 ): WorkspaceCardEdit[] {
@@ -264,8 +302,8 @@ export function buildWorkspaceHydrationPlan(
   return {
     sections:
       viewSections.length > 0
-        ? viewSections
-        : getFallbackHydrationSections(researchResults),
+        ? gateHydratedReviewPhases(viewSections)
+        : gateHydratedReviewPhases(getFallbackHydrationSections(researchResults)),
     cardEdits: getCardEdits(researchResults),
   };
 }

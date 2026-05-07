@@ -177,6 +177,7 @@ function JourneyPageContent() {
 
   const {
     partialResult,
+    submit: submitPrefill,
     isLoading: isPrefilling,
     fieldsFound,
     error: prefillError,
@@ -931,6 +932,11 @@ function JourneyPageContent() {
   // Prefill accept — build context, persist to session, dispatch first research section
   const handleAcceptPrefill = useCallback(
     ({ editedFields, manualFields }: PrefillAcceptPayload = {}) => {
+      if (hasTransitionedToWorkspaceRef.current) {
+        return;
+      }
+      hasTransitionedToWorkspaceRef.current = true;
+
       // Always create a fresh run ID for a new session
       const nextRunId = createJourneyRunId();
       commitActiveRunId(nextRunId);
@@ -974,12 +980,6 @@ function JourneyPageContent() {
 
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
 
-      // Go straight to workspace — render immediately while session persists
-      hasTransitionedToWorkspaceRef.current = true;
-      setJourneyPhase('workspace');
-      setJourneyCompanyName(displayName);
-      setStoredJourneyCompanyName(displayName);
-
       // Persist session fields THEN dispatch — must await so the worker's
       // isActiveJourneyRun() guard sees the run ID when it tries to write results
       const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
@@ -1013,10 +1013,15 @@ function JourneyPageContent() {
       }).then((result) => {
         if (result.status === 'error') {
           addLog('err', `Deep Research Agent dispatch failed: ${result.error ?? 'Unknown error'}`);
+          hasTransitionedToWorkspaceRef.current = false;
         } else {
           addLog('ok', `Deep Research Agent dispatched (job: ${result.jobId ?? 'unknown'})`);
+          setJourneyCompanyName(displayName);
+          setStoredJourneyCompanyName(displayName);
+          setJourneyPhase('workspace');
         }
       }).catch((err) => {
+        hasTransitionedToWorkspaceRef.current = false;
         addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     },
@@ -1057,6 +1062,10 @@ function JourneyPageContent() {
   // Handler for UnifiedFieldReview — takes a flat Record<string, string>
   const handleStartFromUnifiedReview = useCallback(
     (onboardingData: Record<string, string>) => {
+      if (hasTransitionedToWorkspaceRef.current) {
+        return;
+      }
+
       // Gate: verify all required fields are filled before proceeding
       const missingRequired: string[] = [];
       for (const key of JOURNEY_REQUIRED_FIELD_KEYS) {
@@ -1088,12 +1097,7 @@ function JourneyPageContent() {
       const orderedFieldKeys = Object.keys(acceptedJourneyFields);
 
       addLog('ok', `Accepted ${Object.keys(acceptedJourneyFields).length} onboarding inputs`);
-
-      // Go straight to workspace — render immediately while session persists
       hasTransitionedToWorkspaceRef.current = true;
-      setJourneyPhase('workspace');
-      setJourneyCompanyName(displayName);
-      setStoredJourneyCompanyName(displayName);
 
       // Clear old results, set new fields + run ID, THEN dispatch
       const context = buildJourneyResearchContext(acceptedJourneyFields, orderedFieldKeys);
@@ -1140,10 +1144,15 @@ function JourneyPageContent() {
       }).then((result) => {
         if (result.status === 'error') {
           addLog('err', `Deep Research Agent dispatch failed: ${result.error ?? 'Unknown error'}`);
+          hasTransitionedToWorkspaceRef.current = false;
         } else {
           addLog('ok', `Deep Research Agent dispatched (job: ${result.jobId ?? 'unknown'})`);
+          setJourneyCompanyName(displayName);
+          setStoredJourneyCompanyName(displayName);
+          setJourneyPhase('workspace');
         }
       }).catch((err) => {
+        hasTransitionedToWorkspaceRef.current = false;
         addLog('err', `Dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     },
@@ -1207,12 +1216,12 @@ function JourneyPageContent() {
         const websiteUrl = prefillWebsiteUrl.trim();
         if (!websiteUrl) return;
         const linkedinUrl = welcomeLinkedinUrl.trim();
-        addLog('run', `Launching deep research for ${websiteUrl}`);
-        handleAcceptPrefill({
-          manualFields: {
-            websiteUrl,
-            linkedinUrl,
-          },
+        stopPrefill();
+        addLog('run', `Extracting onboarding context for ${websiteUrl}`);
+        setJourneyPhase('prefilling');
+        submitPrefill({
+          websiteUrl,
+          linkedinUrl: linkedinUrl.length > 0 ? linkedinUrl : undefined,
         });
       }}
       onSkip={() => {

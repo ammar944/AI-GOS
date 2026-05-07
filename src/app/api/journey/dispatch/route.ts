@@ -39,9 +39,9 @@ export async function POST(req: Request): Promise<NextResponse> {
   const context = readString(body.context);
   const runId = readString(body.runId);
 
-  if (!section || !context) {
+  if (!section || !context || !runId) {
     return NextResponse.json(
-      { error: 'Missing required fields: section, context' },
+      { error: 'Missing required fields: section, context, runId' },
       { status: 400 },
     );
   }

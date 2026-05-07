@@ -193,6 +193,7 @@ describe('persistResearchToSupabase', () => {
     expect(result.ok).toBe(true);
     expect(result.error).toBeUndefined();
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_research_result', {
+      p_run_id: '',
       p_result: expect.objectContaining({
         status: 'complete',
         section: 'industryResearch',
@@ -278,6 +279,7 @@ describe('persistResearchToSupabase', () => {
     });
 
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_research_result', {
+      p_run_id: '',
       p_result: expect.objectContaining({
         status: 'error',
         section: 'competitorIntel',
@@ -301,6 +303,7 @@ describe('persistResearchToSupabase', () => {
     });
 
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_research_result', {
+      p_run_id: '',
       p_result: expect.objectContaining({
         status: 'complete',
         section: 'competitorIntel',
@@ -338,6 +341,7 @@ describe('persistResearchToSupabase', () => {
     });
 
     expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_research_result', {
+      p_run_id: 'run-123',
       p_result: expect.objectContaining({
         runId: 'run-123',
         status: 'complete',
@@ -345,6 +349,43 @@ describe('persistResearchToSupabase', () => {
       }),
       p_section: 'industryResearch',
       p_user_id: 'user-7',
+    });
+  });
+
+  it('stamps the active run id onto unstamped research artifacts', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        metadata: {
+          activeJourneyRunId: 'run-active',
+        },
+      },
+      error: null,
+    });
+
+    const { persistResearchToSupabase } = await import('../session-state.server');
+    const result = await persistResearchToSupabase(
+      'user-7b',
+      {
+        industryMarket: {
+          status: 'complete',
+          section: 'industryMarket',
+          durationMs: 1200,
+          data: validIndustryResearchData,
+        },
+      },
+      'run-active',
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(mockRpc).toHaveBeenCalledWith('merge_journey_session_research_result', {
+      p_run_id: 'run-active',
+      p_result: expect.objectContaining({
+        runId: 'run-active',
+        status: 'complete',
+        section: 'industryResearch',
+      }),
+      p_section: 'industryResearch',
+      p_user_id: 'user-7b',
     });
   });
 });

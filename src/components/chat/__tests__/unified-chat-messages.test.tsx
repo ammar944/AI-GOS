@@ -10,11 +10,22 @@ const chatMocks = vi.hoisted(() => {
   const sendMessage = vi.fn();
   const setMessages = vi.fn();
   const stop = vi.fn();
+  const transportInstances: Array<{ api?: string; body?: object }> = [];
+  const workspaceState = {
+    sessionId: 'run-1',
+    phase: 'workspace',
+    currentSection: 'industryMarket',
+    sectionStates: {},
+    sectionErrors: {},
+    cards: {},
+  };
 
   return {
     sendMessage,
     setMessages,
     stop,
+    transportInstances,
+    workspaceState,
   };
 });
 
@@ -26,6 +37,10 @@ vi.mock('ai', () => ({
     constructor(options?: { api?: string; body?: object }) {
       this.api = options?.api;
       this.body = options?.body;
+      chatMocks.transportInstances.push({
+        api: options?.api,
+        body: options?.body,
+      });
     }
   },
 }));
@@ -73,14 +88,7 @@ vi.mock('@ai-sdk/react', async () => {
 
 vi.mock('@/lib/workspace/use-workspace', () => ({
   useWorkspace: () => ({
-    state: {
-      sessionId: 'run-1',
-      phase: 'workspace',
-      currentSection: 'industryMarket',
-      sectionStates: {},
-      sectionErrors: {},
-      cards: {},
-    },
+    state: chatMocks.workspaceState,
     updateCard: vi.fn(),
   }),
 }));
@@ -112,6 +120,8 @@ function jsonResponse(payload: unknown, status = 200): Response {
 describe('UnifiedChat workspace message persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    chatMocks.transportInstances.length = 0;
+    chatMocks.workspaceState.cards = {};
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -193,5 +203,58 @@ describe('UnifiedChat workspace message persistence', () => {
       },
       { timeout: 1500 },
     );
+  });
+
+  it('builds the Journey stream transport body with active run and section card context', async () => {
+    chatMocks.workspaceState.cards = {
+      'market-card': {
+        id: 'market-card',
+        sectionKey: 'industryMarket',
+        cardType: 'market-overview',
+        label: 'Market Overview',
+        content: { summary: 'AI GTM market context' },
+      },
+      'competitor-card': {
+        id: 'competitor-card',
+        sectionKey: 'competitors',
+        cardType: 'competitor',
+        label: 'Competitor',
+        content: { name: 'OtherCo' },
+      },
+    };
+    mockFetch([jsonResponse({ workspaceMessages: [] })]);
+
+    render(
+      <UnifiedChat
+        section="industryMarket"
+        activeRunId="run-transport-1"
+        userName="Ammar"
+        companyName="AI-GOS"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /research/i }));
+
+    await waitFor(() => {
+      const transport = chatMocks.transportInstances.at(-1);
+
+      expect(transport).toEqual({
+        api: '/api/journey/stream',
+        body: {
+          activeRunId: 'run-transport-1',
+          currentSection: 'industryMarket',
+          sectionCards: [
+            {
+              id: 'market-card',
+              cardType: 'market-overview',
+              label: 'Market Overview',
+              content: { summary: 'AI GTM market context' },
+            },
+          ],
+          deepResearch: true,
+          workspaceChatMode: 'research',
+        },
+      });
+    });
   });
 });
