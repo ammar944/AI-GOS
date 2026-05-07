@@ -1,16 +1,16 @@
 import './env';
 import express from 'express';
 import {
-  runResearchIndustry,
-  runResearchCompetitors,
-  runResearchICP,
-  runResearchOffer,
-  runSynthesizeResearch,
-  runResearchKeywords,
-  runMediaPlan,
   resolveProductIdentity,
   runMeetingExtraction,
   runDeepResearchProgram,
+  runJourneyIndustryMarket,
+  runJourneyCompetitors,
+  runJourneyICPValidation,
+  runJourneyOfferAnalysis,
+  runJourneyKeywordIntel,
+  runJourneyCrossAnalysis,
+  runJourneyMediaPlan,
 } from './runners';
 import { writeResearchResult, writeJobStatus, writeScriptPackUpdate, getClient, type ResearchResult } from './supabase';
 import { runScriptPipeline, type PipelineInput } from './scripts/pipeline';
@@ -96,13 +96,16 @@ interface RunJobRequest {
 }
 
 const TOOL_RUNNERS: Record<ToolName, (context: string, onProgress?: RunnerProgressReporter) => Promise<ResearchResult>> = {
-  researchIndustry: runResearchIndustry,
-  researchCompetitors: runResearchCompetitors,
-  researchICP: runResearchICP,
-  researchOffer: runResearchOffer,
-  synthesizeResearch: runSynthesizeResearch,
-  researchKeywords: runResearchKeywords,
-  researchMediaPlan: runMediaPlan,
+  // Journey section synthesis now runs through Anthropic Platform Skills
+  // specialist agents. /journey no longer routes through the legacy
+  // categorySnapshot/validatedPersona/campaignGroups schema runners.
+  researchIndustry: runJourneyIndustryMarket,
+  researchCompetitors: runJourneyCompetitors,
+  researchICP: runJourneyICPValidation,
+  researchOffer: runJourneyOfferAnalysis,
+  synthesizeResearch: runJourneyCrossAnalysis,
+  researchKeywords: runJourneyKeywordIntel,
+  researchMediaPlan: runJourneyMediaPlan,
   runDeepResearchProgram,
   resolveIdentity: resolveProductIdentity,
   extractMeetingTranscript: runMeetingExtraction,

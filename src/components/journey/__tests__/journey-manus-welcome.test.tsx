@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { JourneyManusWelcome } from '@/components/journey/journey-manus-welcome';
 
 describe('JourneyManusWelcome', () => {
-  it('renders the chat-first Journey entry instead of the old strategy intake screen', () => {
+  it('renders the Anthropic agent-console Journey entry instead of the old centered launcher', () => {
     render(
       <JourneyManusWelcome
         websiteUrl=""
@@ -13,12 +13,12 @@ describe('JourneyManusWelcome', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Ask for research. Watch AI-GOS write the report.'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('AI-GOS Journey')).toBeInTheDocument();
-    expect(screen.getByText('Deep Research')).toBeInTheDocument();
-    expect(screen.getByText('Synthesis')).toBeInTheDocument();
+    expect(screen.getByText('Build the GTM report like an agent run.')).toBeInTheDocument();
+    expect(screen.getByText('Anthropic runtime')).toBeInTheDocument();
+    expect(screen.getByText('Platform Skills agents')).toBeInTheDocument();
+    expect(screen.getByText('Live report artifact preview')).toBeInTheDocument();
+    expect(screen.getByText(/No old schema review/u)).toBeInTheDocument();
+    expect(screen.getByText('Market Category')).toBeInTheDocument();
     expect(screen.queryByText('Onboarding review')).not.toBeInTheDocument();
     expect(screen.queryByText('Open onboarding manually')).not.toBeInTheDocument();
     expect(screen.queryByText('What should we build toward?')).not.toBeInTheDocument();

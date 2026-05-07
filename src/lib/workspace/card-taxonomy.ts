@@ -1332,7 +1332,7 @@ export function parseResearchToCards(
     strategicSynthesisIntel?: Record<string, unknown>;
   },
 ): CardState[] {
-  if (data.source === 'deepResearchProgram') {
+  if (data.source === 'deepResearchProgram' || data.source === 'anthropicPlatformSkills') {
     return parseDeepResearchCard(section, data);
   }
 

@@ -8,3 +8,12 @@ export { runMediaPlan } from './media-plan';
 export { resolveProductIdentity } from '../identity/resolve-identity';
 export { runMeetingExtraction } from './meeting-extract';
 export { runDeepResearchProgram } from './deep-research-program';
+export {
+  runJourneyIndustryMarket,
+  runJourneyCompetitors,
+  runJourneyICPValidation,
+  runJourneyOfferAnalysis,
+  runJourneyKeywordIntel,
+  runJourneyCrossAnalysis,
+  runJourneyMediaPlan,
+} from './journey-section-synthesis';
