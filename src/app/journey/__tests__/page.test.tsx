@@ -643,11 +643,39 @@ describe('JourneyPage Manus launch wiring', () => {
     });
   });
 
+  it('parses research airtable.com as a research command before dispatching deep research', async () => {
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
+        target: { value: 'research airtable.com' },
+      });
+      fireEvent.click(screen.getByLabelText('Start deep research'));
+    });
+
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'deepResearchProgram',
+        expect.any(String),
+        expect.stringContaining('Website: https://airtable.com'),
+      );
+    });
+    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
+      'deepResearchProgram',
+      expect.any(String),
+      expect.stringContaining('Website: https://research airtable.com'),
+    );
+    expect(screen.getByTestId('journey-user-command')).toHaveTextContent(
+      'research airtable.com',
+    );
+    expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
+  });
+
   it('routes the link-first CTA through company deep research and opens the workspace from deep fields', async () => {
     render(<JourneyPage />);
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Company URL'), {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
         target: { value: 'https://saaslaunch.net' },
       });
       fireEvent.click(screen.getByLabelText('Start deep research'));
@@ -684,7 +712,7 @@ describe('JourneyPage Manus launch wiring', () => {
   it('does not expose manual onboarding from the URL-first launch screen', () => {
     render(<JourneyPage />);
 
-    expect(screen.getByLabelText('Company URL')).toBeInTheDocument();
+    expect(screen.getByLabelText('Research command or company URL')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Open onboarding manually' }),
     ).not.toBeInTheDocument();
@@ -697,7 +725,7 @@ describe('JourneyPage Manus launch wiring', () => {
     render(<JourneyPage />);
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Company URL'), {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
         target: { value: 'https://saaslaunch.net' },
       });
       fireEvent.click(screen.getByLabelText('Start deep research'));
@@ -745,8 +773,32 @@ describe('JourneyPage Manus launch wiring', () => {
       payload.activeRunId,
       expect.stringContaining('Website: https://saaslaunch.net'),
     );
-    expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+    });
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
+  });
+
+  it('restores an active run from session storage on refresh', async () => {
+    window.sessionStorage.setItem('aigos_journey_active_run_id', 'run-refresh');
+    window.sessionStorage.setItem('aigos_journey_phase', 'prefilling');
+    researchJobActivityValue.current = {
+      deepResearchProgram: {
+        jobId: 'job-deep',
+        section: 'deepResearchProgram',
+        status: 'running',
+        tool: 'runDeepResearchProgram',
+        startedAt: '2026-05-07T09:00:00.000Z',
+      },
+    };
+
+    render(<JourneyPage />);
+
+    await waitFor(() => {
+      expect(realtimeControls.getActiveRunId()).toBe('run-refresh');
+    });
+    expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Market Category Agent')).not.toBeInTheDocument();
   });
 });
 

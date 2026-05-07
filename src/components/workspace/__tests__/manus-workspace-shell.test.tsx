@@ -27,7 +27,7 @@ describe('ManusWorkspaceShell', () => {
         workspaceState={workspaceState}
         statusSummary={<p>2 of 7 sections ready</p>}
         chat={<div>Operator chat</div>}
-        artifact={<div>Report artifact</div>}
+        artifact={<div>Artifact body</div>}
         runDetails={<div>Worker heartbeat telemetry</div>}
       />,
     );
@@ -41,7 +41,7 @@ describe('ManusWorkspaceShell', () => {
     expect(chat).toHaveAccessibleName('Primary chat workspace');
     expect(artifact).toHaveAccessibleName('Report artifact workspace');
     expect(within(chat).getByText('Operator chat')).toBeInTheDocument();
-    expect(within(artifact).getByText('Report artifact')).toBeInTheDocument();
+    expect(within(artifact).getByText('Artifact body')).toBeInTheDocument();
     expect(within(runDetails).getByText('Worker heartbeat telemetry')).toBeInTheDocument();
     expect(within(shell).getByText('2 of 7 sections ready')).toBeInTheDocument();
 

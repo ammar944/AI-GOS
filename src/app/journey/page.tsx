@@ -37,6 +37,7 @@ import {
   getStoredJourneyRunId,
   setStoredJourneyRunId,
   setStoredJourneyPhase,
+  getStoredJourneyPhase,
   getStoredJourneyCompanyName,
   setStoredJourneyCompanyName,
   clearStoredJourneySession,
@@ -49,6 +50,7 @@ import {
   dispatchResearchSection,
 } from '@/lib/journey/dispatch-client';
 import { buildJourneyResearchContext } from '@/lib/journey/context-string';
+import { parseJourneyResearchInput } from '@/lib/journey/research-command';
 
 const REVIEW_ARTIFACT_SECTIONS = new Set<string>([
   'industryMarket',
@@ -70,6 +72,13 @@ function normalizeLaunchUrl(value: string): string | null {
     return trimmed;
   }
   return `https://${trimmed}`;
+}
+
+function isJourneyPhaseView(value: string | null): value is JourneyPhaseView {
+  return value === 'welcome' ||
+    value === 'prefilling' ||
+    value === 'resume' ||
+    value === 'workspace';
 }
 
 function getErrorMessage(error: unknown): string {
@@ -205,8 +214,6 @@ function JourneyPageContent() {
   // Deep-link support: ?session=X&section=offerAnalysis jumps to workspace with that section
   const deepLinkSession = searchParams.get('session');
   const deepLinkSection = searchParams.get('section');
-  const shouldRestoreStoredRun = searchParams.get('restore') === '1';
-
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const journeyPhaseRef = useRef<JourneyPhaseView>('welcome');
@@ -220,6 +227,11 @@ function JourneyPageContent() {
   // Priority: deep-link > sessionStorage restore > welcome
   const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>(() => {
     if (deepLinkSession || deepLinkSection) return 'workspace';
+    const storedRunId = getStoredJourneyRunId();
+    const storedPhase = getStoredJourneyPhase();
+    if (storedRunId && isJourneyPhaseView(storedPhase)) {
+      return storedPhase === 'resume' ? 'workspace' : storedPhase;
+    }
     return 'welcome';
   });
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
@@ -229,9 +241,13 @@ function JourneyPageContent() {
   const [linkDeepResearchStatus, setLinkDeepResearchStatus] =
     useState<LinkDeepResearchStatus>('idle');
   const [linkDeepResearchError, setLinkDeepResearchError] = useState<string | null>(null);
-  const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(null);
+  const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(() =>
+    getStoredJourneyCompanyName(),
+  );
 
-  const [activeRunId, setActiveRunId] = useState<string | null>(deepLinkSession);
+  const [activeRunId, setActiveRunId] = useState<string | null>(() =>
+    deepLinkSession ?? getStoredJourneyRunId(),
+  );
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
   const activeRunIdRef = useRef<string | null>(activeRunId);
   const resumeTransportStateRef = useRef<Record<string, unknown> | undefined>(
@@ -333,31 +349,28 @@ function JourneyPageContent() {
       return;
     }
 
-    if (!shouldRestoreStoredRun) {
-      clearStoredJourneySession();
+    const storedRunId = getStoredJourneyRunId();
+    const storedCompanyName = getStoredJourneyCompanyName();
+    const storedPhase = getStoredJourneyPhase();
+
+    if (!storedRunId) {
       return;
     }
 
-    const storedRunId = getStoredJourneyRunId();
-    const storedCompanyName = getStoredJourneyCompanyName();
-
-    if (storedRunId) {
-      setActiveRunId(storedRunId);
-    }
     if (storedCompanyName) {
       setJourneyCompanyName(storedCompanyName);
     }
-    if (storedRunId) {
-      setJourneyPhase('workspace');
+    setActiveRunId(storedRunId);
+    if (isJourneyPhaseView(storedPhase)) {
+      setJourneyPhase(storedPhase === 'resume' ? 'workspace' : storedPhase);
     }
-  }, [deepLinkSection, deepLinkSession, shouldRestoreStoredRun]);
+  }, [deepLinkSection, deepLinkSession]);
 
   useEffect(() => {
     const saved = getJourneySession();
     if (saved) {
       // Only show resume prompt if we didn't already restore to workspace from sessionStorage
       if (
-        shouldRestoreStoredRun &&
         hasAnsweredFields(saved) &&
         journeyPhase === 'welcome' &&
         !getStoredJourneyRunId()
@@ -366,8 +379,7 @@ function JourneyPageContent() {
         setJourneyPhase('resume');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldRestoreStoredRun]);
+  }, [journeyPhase]);
 
   // Persist phase to sessionStorage so refresh restores the correct view
   useEffect(() => {
@@ -558,7 +570,12 @@ function JourneyPageContent() {
 
       const acceptedJourneyFields: Record<string, string> = {
         ...(prefillWebsiteUrl.trim().length > 0
-          ? { websiteUrl: normalizeLaunchUrl(prefillWebsiteUrl) ?? prefillWebsiteUrl.trim() }
+          ? {
+              websiteUrl:
+                parseJourneyResearchInput(prefillWebsiteUrl).websiteUrl ??
+                normalizeLaunchUrl(prefillWebsiteUrl) ??
+                prefillWebsiteUrl.trim(),
+            }
           : {}),
       };
 
@@ -601,7 +618,7 @@ function JourneyPageContent() {
       setJourneyPhase('workspace');
       addLog(
         'ok',
-        `Opened workspace from deep research context with ${Object.keys(fields).length} fields`,
+        'Opened workspace from deep research context',
       );
 
       const result = await dispatchResearchSection('industryMarket', runId, context);
@@ -1000,8 +1017,15 @@ function JourneyPageContent() {
   }, [addLog, beginFreshJourneyRun]);
 
   const handleAnalyzeCompanyLink = useCallback(() => {
-    const websiteUrl = normalizeLaunchUrl(prefillWebsiteUrl);
-    if (!websiteUrl) return;
+    const researchCommand = parseJourneyResearchInput(prefillWebsiteUrl);
+    const websiteUrl = researchCommand.websiteUrl;
+    if (!websiteUrl) {
+      setLinkDeepResearchStatus('error');
+      setLinkDeepResearchError(
+        'Enter a valid company domain or URL after the research command.',
+      );
+      return;
+    }
     const nextRunId = createJourneyRunId();
     const sourceFields: Record<string, string> = {
       websiteUrl,
@@ -1047,7 +1071,7 @@ function JourneyPageContent() {
         setLinkDeepResearchStatus('complete');
         addLog(
           'ok',
-          `Company deep research corpus ready with ${Object.keys(deepResearchFields).length} profile fields`,
+          'Company deep research corpus ready for section synthesis',
         );
         await enterWorkspaceFromDeepResearchFields(nextRunId, deepResearchFields);
       })
@@ -1094,6 +1118,7 @@ function JourneyPageContent() {
         deepResearchFields={deepResearchOnboardingFields}
         researchActivity={researchJobActivity}
         researchResults={researchResults}
+        activeResearchSections={activeResearch}
         messages={messages}
         onRetryDeepResearch={() => {
           setDeepResearchOnboardingFields({});

@@ -25,7 +25,7 @@ describe('JourneyAgentChat', () => {
     expect(screen.getByText('What company should I research?')).toBeInTheDocument();
     expect(screen.getByText(/Anthropic GTM agents · chat mode/u)).toBeInTheDocument();
     expect(screen.getByText(/Claude web search \+ code execution \+ Platform Skills/u)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Paste company URL...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('research airtable.com or paste company URL...')).toBeInTheDocument();
 
     expect(screen.queryByText('Live report artifact preview')).not.toBeInTheDocument();
     expect(screen.queryByText('Build the GTM report like an agent run.')).not.toBeInTheDocument();
@@ -33,13 +33,13 @@ describe('JourneyAgentChat', () => {
     expect(screen.queryByText('Onboarding review')).not.toBeInTheDocument();
   });
 
-  it('submits the company URL through the deep research composer', () => {
+  it('submits the company research command through the deep research composer', () => {
     const onSubmitWebsite = vi.fn();
 
     render(
       <JourneyAgentChat
         {...baseProps}
-        websiteUrl="https://example.com"
+        websiteUrl="research airtable.com"
         onSubmitWebsite={onSubmitWebsite}
       />,
     );
@@ -49,19 +49,62 @@ describe('JourneyAgentChat', () => {
     expect(onSubmitWebsite).toHaveBeenCalledTimes(1);
   });
 
-  it('renders specialist agents inline once a run starts', () => {
+  it('renders only Deep Research Agent as the first visible assistant output once a run starts', () => {
     render(
       <JourneyAgentChat
         {...baseProps}
-        websiteUrl="https://example.com"
+        websiteUrl="research airtable.com"
         activeRunId="journey-test-123"
-        deepResearchStatus="queued"
+        deepResearchStatus="starting"
       />,
     );
 
-    expect(screen.getByText('Deep Research Agent')).toBeInTheDocument();
-    expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
-    expect(screen.getByText('GTM Synthesis Agent')).toBeInTheDocument();
+    expect(screen.getAllByText('Deep Research Agent').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Starting source-backed company research/u)).toBeInTheDocument();
+    expect(screen.queryByText('Market Category Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('GTM Synthesis Agent')).not.toBeInTheDocument();
     expect(screen.queryByText('Journey Workbench')).not.toBeInTheDocument();
+  });
+
+  it('renders a central report artifact from draft progress without leaking profile field counts', () => {
+    render(
+      <JourneyAgentChat
+        {...baseProps}
+        websiteUrl="research airtable.com"
+        activeRunId="journey-test-123"
+        deepResearchStatus="complete"
+        deepResearchFields={{ companyName: 'Airtable', businessModel: 'B2B SaaS' }}
+        researchResults={{
+          deepResearchProgram: {
+            status: 'complete',
+            section: 'deepResearchProgram',
+            data: {},
+            durationMs: 1000,
+          },
+        }}
+        researchActivity={{
+          industryMarket: {
+            jobId: 'job-market',
+            section: 'industryMarket',
+            status: 'running',
+            tool: 'researchIndustry',
+            startedAt: '2026-05-07T09:00:00.000Z',
+            updates: [
+              {
+                at: '2026-05-07T09:00:01.000Z',
+                id: 'draft-1',
+                message: 'draft Airtable is positioned as an app platform for teams.',
+                phase: 'analysis',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Airtable is positioned as an app platform for teams.',
+    );
+    expect(screen.queryByText(/profile fields extracted/u)).not.toBeInTheDocument();
   });
 });
