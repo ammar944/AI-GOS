@@ -4,9 +4,7 @@ import { useRef, type ElementType } from 'react';
 import {
   AlertCircle,
   Code,
-  Database,
   FileSearch,
-  FileText,
   Search,
   Send,
   Sparkles,
@@ -47,20 +45,8 @@ const ACTION_PILLS: ActionPill[] = [
   { label: 'Synthesis' },
 ];
 
-function JourneyIconRail(): React.JSX.Element {
-  return (
-    <aside className="hidden w-16 shrink-0 flex-col items-center gap-4 border-r border-[#0d1018] bg-[#0a0d14] py-4 md:flex">
-      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#365eff]">
-        <Sparkles className="h-5 w-5 text-white" aria-hidden="true" />
-      </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#0d1018] text-[#8e97a6] transition-colors hover:bg-[#14171f]">
-        <Database className="h-5 w-5" aria-hidden="true" />
-      </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#0d1018] text-[#8e97a6] transition-colors hover:bg-[#14171f]">
-        <FileText className="h-5 w-5" aria-hidden="true" />
-      </div>
-    </aside>
-  );
+function JourneyIconRail(): React.JSX.Element | null {
+  return null;
 }
 
 export function JourneyManusWelcome({
@@ -95,7 +81,7 @@ export function JourneyManusWelcome({
                 AI-GOS Journey
               </h1>
               <p className="truncate text-xs text-[#8e97a6]">
-                deep research to GTM workspace
+                GTM command center
               </p>
             </div>
           </div>
@@ -119,8 +105,8 @@ export function JourneyManusWelcome({
               </h2>
               <p className="mx-auto max-w-2xl text-sm leading-6 text-[#8e97a6]">
                 Drop a company URL and AI-GOS will build the evidence corpus,
-                extract the profile context, then open the Journey workspace for
-                section-by-section GTM synthesis.
+                extract the profile context, then open the GTM command view for
+                section-by-section synthesis.
               </p>
             </motion.div>
 

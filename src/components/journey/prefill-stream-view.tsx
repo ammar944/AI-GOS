@@ -6,8 +6,6 @@ import {
   AlertCircle,
   CheckCircle,
   ChevronDown,
-  Database,
-  FileText,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -81,9 +79,9 @@ function getThinkingSteps(
       description: 'Deep research profile fields become the source of truth.',
     },
     {
-      id: 'workspace',
-      label: 'Preparing section synthesis',
-      description: 'Journey opens the AI SDK workspace after the corpus is durable.',
+      id: 'gtm',
+      label: 'Preparing GTM command view',
+      description: 'Journey opens the Codex-like GTM interface after the corpus is durable.',
     },
   ];
 
@@ -127,20 +125,8 @@ function getVisibleFields(fields: Record<string, string>): VisibleField[] {
     .slice(0, 8);
 }
 
-function JourneyIconRail(): React.JSX.Element {
-  return (
-    <aside className="hidden w-16 shrink-0 flex-col items-center gap-4 border-r border-[#0d1018] bg-[#0a0d14] py-4 md:flex">
-      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#365eff]">
-        <Sparkles className="h-5 w-5 text-white" aria-hidden="true" />
-      </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#0d1018] text-[#8e97a6]">
-        <Database className="h-5 w-5" aria-hidden="true" />
-      </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#0d1018] text-[#8e97a6]">
-        <FileText className="h-5 w-5" aria-hidden="true" />
-      </div>
-    </aside>
-  );
+function JourneyIconRail(): React.JSX.Element | null {
+  return null;
 }
 
 export function PrefillStreamView({
@@ -179,7 +165,7 @@ export function PrefillStreamView({
                 AI-GOS Journey
               </h1>
               <p className="truncate text-xs text-[#8e97a6]">
-                company corpus before workspace synthesis
+                company corpus before GTM synthesis
               </p>
             </div>
           </div>

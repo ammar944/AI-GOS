@@ -7,7 +7,7 @@ import {
   DefaultChatTransport,
 } from 'ai';
 import { useUser } from '@clerk/nextjs';
-import { ShellProvider } from '@/components/shell';
+import { AppShell, AppSidebar, ShellProvider } from '@/components/shell';
 import { ResumePrompt } from '@/components/journey/resume-prompt';
 import { useResearchRealtime } from '@/lib/journey/research-realtime';
 import type { ResearchSectionResult } from '@/lib/journey/research-realtime';
@@ -1079,11 +1079,12 @@ function JourneyPageContent() {
     };
 
     return (
-      <div
-        className="flex h-screen flex-col font-sans"
-        style={{ background: 'var(--bg-base)', color: '#E5E5E5' }}
-      >
-        <WorkspaceProvider sessionId={activeRunId ?? 'default'} startInWorkspace initialSection={(deepLinkSection as SectionKey | undefined) ?? (deepLinkMediaPlan ? 'mediaPlan' : undefined)}>
+      <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
+        <WorkspaceProvider
+          sessionId={activeRunId ?? 'default'}
+          startInWorkspace
+          initialSection={(deepLinkSection as SectionKey | undefined) ?? (deepLinkMediaPlan ? 'mediaPlan' : undefined)}
+        >
           <WorkspacePage
             userId={user?.id}
             activeRunId={activeRunId}
@@ -1096,23 +1097,21 @@ function JourneyPageContent() {
             }}
           />
         </WorkspaceProvider>
-      </div>
+      </AppShell>
     );
   }
 
   if (journeyPhase === 'welcome') {
-    return welcomeWorkspace;
+    return (
+      <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
+        {welcomeWorkspace}
+      </AppShell>
+    );
   }
 
   return (
-    <div
-      className="flex h-screen flex-col font-sans"
-      style={{
-        background: 'var(--bg-base)',
-        color: '#E5E5E5',
-      }}
-    >
-      <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--bg-base)]">
+    <AppShell sidebar={<AppSidebar />} wide className="font-sans bg-[#0b0b0a]">
+      <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-[#0b0b0a]">
         <AnimatePresence mode="wait">
           <motion.div
             key={journeyPhase}
@@ -1126,7 +1125,7 @@ function JourneyPageContent() {
           </motion.div>
         </AnimatePresence>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

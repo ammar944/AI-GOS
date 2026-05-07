@@ -203,12 +203,12 @@ export function ManusWorkspaceShell({
     <section
       data-testid="manus-workspace-shell"
       className={cn(
-        'flex min-h-0 flex-1 flex-col overflow-hidden bg-[#06080d] text-[var(--text-primary)]',
+        'flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0b0b0a] text-[var(--text-primary)]',
         className,
       )}
     >
       {hasHeader ? (
-        <header className="shrink-0 border-b border-white/10 bg-[#06080d]/92 px-4 py-3">
+        <header className="shrink-0 border-b border-white/[0.06] bg-[#0b0b0a]/95 px-4 py-3">
           <div className="mx-auto flex w-full max-w-[1220px] min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div
               data-testid="manus-workspace-status-summary"
@@ -234,21 +234,21 @@ export function ManusWorkspaceShell({
         </header>
       ) : null}
 
-      <div className="mx-auto grid w-full max-w-[1220px] min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(24rem,0.92fr)_minmax(26rem,1.08fr)]">
+      <div className="grid w-full min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[minmax(22rem,0.86fr)_minmax(32rem,1.14fr)] xl:grid-cols-[minmax(24rem,0.82fr)_minmax(40rem,1.18fr)]">
         <main
           data-testid="manus-workspace-chat"
           aria-label="Primary chat workspace"
-          className="flex min-h-[30rem] min-w-0 flex-col overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018] shadow-[0_24px_70px_rgba(0,0,0,0.28)] lg:min-h-0"
+          className="flex min-h-[30rem] min-w-0 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#111110] shadow-[0_18px_50px_rgba(0,0,0,0.32)] lg:min-h-0"
         >
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.07] px-4">
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
-                AI SDK workspace agent
+                GTM agent
               </span>
             </div>
             <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">
-              chat
+              command
             </span>
           </div>
           {chat}
@@ -257,14 +257,14 @@ export function ManusWorkspaceShell({
         <aside
           data-testid="manus-workspace-artifact"
           aria-label="Report artifact workspace"
-          className="flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018] shadow-[0_24px_70px_rgba(0,0,0,0.28)] lg:min-h-0"
+          className="flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#111110] shadow-[0_18px_50px_rgba(0,0,0,0.32)] lg:min-h-0"
         >
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.07] px-4">
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
-              Artifact canvas
+              GTM report
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">
-              corpus-backed
+              source-backed
             </span>
           </div>
           {artifact}
@@ -275,7 +275,7 @@ export function ManusWorkspaceShell({
         <details
           data-testid="manus-workspace-run-details"
           aria-label="Run telemetry"
-          className="group shrink-0 border-t border-white/10 bg-[#06080d]/92 text-sm text-[var(--text-secondary)]"
+          className="group shrink-0 border-t border-white/[0.06] bg-[#0b0b0a]/95 text-sm text-[var(--text-secondary)]"
         >
           <summary className="mx-auto flex max-w-[1220px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white/42 transition-colors hover:text-white/62 [&::-webkit-details-marker]:hidden">
             {runDetailsSummary ?? 'Run details'}
