@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     typeof sectionData?.status === 'string' ? sectionData.status : null;
   const error =
     typeof sectionData?.error === 'string' ? sectionData.error : null;
-  const complete = sectionData != null && status !== 'running';
+  const complete = status === 'complete';
 
   return NextResponse.json({ complete, status, error });
 }

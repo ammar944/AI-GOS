@@ -536,11 +536,14 @@ vi.mock('@/components/journey/unified-field-review', () => ({
 
 vi.mock('@/components/journey/prefill-stream-view', () => ({
   PrefillStreamView: ({
+    deepResearchFields = {},
     onComplete,
   }: {
+    deepResearchFields?: Record<string, string>;
     onComplete: (fields: Record<string, string>) => void;
   }) => (
     <div data-testid="prefill-stream-view">
+      <span data-testid="prefill-deep-company">{deepResearchFields.companyName}</span>
       <button
         type="button"
         onClick={() =>
@@ -549,6 +552,7 @@ vi.mock('@/components/journey/prefill-stream-view', () => ({
             businessModel: 'B2B SaaS growth agency',
             productDescription: 'Pipeline growth systems for B2B SaaS teams.',
             primaryIcpDescription: 'Seed to Series B SaaS founders and growth leaders.',
+            ...deepResearchFields,
           })
         }
       >
@@ -643,9 +647,50 @@ describe('JourneyPage Manus launch wiring', () => {
     prefillControls.reset();
     realtimeControls.reset();
     researchJobActivityValue.current = {};
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ complete: true, status: 'complete' }),
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      if (url.includes('/api/journey/session')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            researchResults: {
+              deepResearchProgram: {
+                status: 'complete',
+                data: {
+                  onboardingFields: {
+                    companyName: {
+                      value: 'Deep SaaSLaunch',
+                      confidence: 92,
+                    },
+                    businessModel: {
+                      value: 'Deep B2B SaaS growth agency',
+                      confidence: 90,
+                    },
+                    productDescription: {
+                      value: 'Deep pipeline growth operating system for SaaS teams.',
+                      confidence: 88,
+                    },
+                    primaryIcpDescription: {
+                      value: 'Deep Seed to Series B SaaS GTM teams.',
+                      confidence: 86,
+                    },
+                  },
+                },
+              },
+            },
+          }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ complete: true, status: 'complete' }),
+      });
     });
     vi.stubGlobal('fetch', fetchMock);
     guardedFetchMock.mockResolvedValue({
@@ -804,6 +849,12 @@ describe('JourneyPage Manus launch wiring', () => {
       expect.any(String),
     );
 
+    await waitFor(() => {
+      expect(screen.getByTestId('prefill-deep-company')).toHaveTextContent(
+        'Deep SaaSLaunch',
+      );
+    });
+
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'review onboarding fields' }));
     });
@@ -812,7 +863,7 @@ describe('JourneyPage Manus launch wiring', () => {
       expect(screen.getByTestId('unified-field-review')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('SaaSLaunch')).toBeInTheDocument();
+    expect(screen.getByText('Deep SaaSLaunch')).toBeInTheDocument();
     expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
       'industryMarket',
       expect.any(String),
@@ -850,10 +901,10 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(typeof payload.activeRunId).toBe('string');
     expect(payload.fields).toMatchObject({
       websiteUrl: 'https://saaslaunch.net',
-      companyName: 'SaaSLaunch',
-      businessModel: 'B2B SaaS growth agency',
-      productDescription: 'Pipeline growth systems for B2B SaaS teams.',
-      primaryIcpDescription: 'Seed to Series B SaaS founders and growth leaders.',
+      companyName: 'Deep SaaSLaunch',
+      businessModel: 'Deep B2B SaaS growth agency',
+      productDescription: 'Deep pipeline growth operating system for SaaS teams.',
+      primaryIcpDescription: 'Deep Seed to Series B SaaS GTM teams.',
       topCompetitors: 'Competitor A, Competitor B',
       uniqueEdge: 'Pipeline-first GTM specialization',
       goals: 'More qualified demos',
@@ -880,7 +931,7 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
       'industryMarket',
       payload.activeRunId,
-      expect.stringContaining('Company Name: SaaSLaunch'),
+      expect.stringContaining('Company Name: Deep SaaSLaunch'),
     );
     expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
       'industryMarket',

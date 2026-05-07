@@ -110,6 +110,10 @@ describe('PrefillStreamView', () => {
     rerender(
       <PrefillStreamView
         {...props}
+        deepResearchFields={{
+          companyName: 'SaaSLaunch',
+          businessModel: 'B2B SaaS growth agency',
+        }}
         deepResearchStatus="complete"
       />,
     );
@@ -117,6 +121,96 @@ describe('PrefillStreamView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review onboarding fields' }));
 
     expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses deep research onboarding fields over shallow extracted fields', () => {
+    const onComplete = vi.fn();
+
+    render(
+      <PrefillStreamView
+        {...createProps({
+          partialResult: {
+            companyName: {
+              value: 'Airtable: Build Enterprise-ready AI Workflows, Apps & Agents',
+              confidence: 0.6,
+            },
+            productDescription: {
+              value:
+                '500,000+ brands use Airtable to enable real-time collaboration.',
+              confidence: 0.6,
+            },
+          },
+          fieldsFound: 2,
+          deepResearchFields: {
+            companyName: 'Airtable',
+            productDescription:
+              'Airtable is an app platform for building workflows, connected data, automations, and AI-powered business applications.',
+            topCompetitors: 'Smartsheet, Monday.com, Notion',
+          },
+          deepResearchStatus: 'complete',
+          onComplete,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('prefill-field-companyName')).toHaveTextContent('Airtable');
+    expect(screen.getByTestId('prefill-field-companyName')).not.toHaveTextContent(
+      'Build Enterprise-ready',
+    );
+    expect(screen.getByTestId('prefill-field-productDescription')).toHaveTextContent(
+      'app platform for building workflows',
+    );
+    expect(screen.getByTestId('prefill-field-topCompetitors')).toHaveTextContent(
+      'Smartsheet, Monday.com, Notion',
+    );
+    expect(screen.getByText('3 fields found')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review onboarding fields' }));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyName: 'Airtable',
+        productDescription:
+          'Airtable is an app platform for building workflows, connected data, automations, and AI-powered business applications.',
+        topCompetitors: 'Smartsheet, Monday.com, Notion',
+      }),
+    );
+  });
+
+  it('opens review from deep research fields even while shallow prefill is still loading', () => {
+    const onComplete = vi.fn();
+
+    render(
+      <PrefillStreamView
+        {...createProps({
+          partialResult: undefined,
+          fieldsFound: 0,
+          isPrefilling: true,
+          deepResearchFields: {
+            companyName: 'Airtable',
+            productDescription:
+              'Airtable is an app platform for building workflows and connected business applications.',
+          },
+          deepResearchStatus: 'complete',
+          onComplete,
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Context extracted')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Review onboarding fields' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review onboarding fields' }));
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyName: 'Airtable',
+        productDescription:
+          'Airtable is an app platform for building workflows and connected business applications.',
+      }),
+    );
   });
 
   it('renders newly streamed fields inside the main container', async () => {

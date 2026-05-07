@@ -95,6 +95,72 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readDeepResearchFieldValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const raw = value.value;
+  if (typeof raw !== 'string') {
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractDeepResearchOnboardingFields(result: unknown): Record<string, string> {
+  if (!isRecord(result)) {
+    return {};
+  }
+
+  const data = isRecord(result.data) ? result.data : result;
+  const onboardingFields = isRecord(data.onboardingFields)
+    ? data.onboardingFields
+    : {};
+  const fields: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(onboardingFields)) {
+    const fieldValue = readDeepResearchFieldValue(value);
+    if (fieldValue) {
+      fields[key] = fieldValue;
+    }
+  }
+
+  return fields;
+}
+
+async function fetchDeepResearchOnboardingFields(
+  runId: string,
+): Promise<Record<string, string>> {
+  const response = await fetch(
+    `/api/journey/session?runId=${encodeURIComponent(runId)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load deep research onboarding fields for run ${runId}: HTTP ${response.status}`,
+    );
+  }
+
+  const payload = (await response.json()) as {
+    researchResults?: Record<string, unknown> | null;
+  };
+
+  return extractDeepResearchOnboardingFields(
+    payload.researchResults?.deepResearchProgram,
+  );
+}
+
 async function waitForResearchSectionComplete(
   runId: string,
   section: string,
@@ -123,7 +189,14 @@ async function waitForResearchSectionComplete(
       );
     }
 
-    if (payload.complete) {
+    if (payload.status === 'partial') {
+      throw new Error(
+        payload.error ??
+          `${section} returned a partial result for run ${runId}; onboarding review requires complete deep research fields`,
+      );
+    }
+
+    if (payload.complete && payload.status === 'complete') {
       return;
     }
 
@@ -225,6 +298,7 @@ function JourneyPageContent() {
   const [prefillWebsiteUrl, setPrefillWebsiteUrl] = useState('');
   const [welcomeLinkedinUrl, setWelcomeLinkedinUrl] = useState('');
   const [prefillReviewOverrides, setPrefillReviewOverrides] = useState<Record<string, string>>({});
+  const [deepResearchOnboardingFields, setDeepResearchOnboardingFields] = useState<Record<string, string>>({});
   const [linkDeepResearchStatus, setLinkDeepResearchStatus] =
     useState<LinkDeepResearchStatus>('idle');
   const [linkDeepResearchError, setLinkDeepResearchError] = useState<string | null>(null);
@@ -254,8 +328,17 @@ function JourneyPageContent() {
     for (const [key, value] of Object.entries(prefillReviewOverrides)) {
       if (value.trim()) flat[key] = value;
     }
+    for (const [key, value] of Object.entries(deepResearchOnboardingFields)) {
+      if (value.trim()) flat[key] = value;
+    }
     return flat;
-  }, [partialResult, prefillReviewOverrides, prefillWebsiteUrl, welcomeLinkedinUrl]);
+  }, [
+    deepResearchOnboardingFields,
+    partialResult,
+    prefillReviewOverrides,
+    prefillWebsiteUrl,
+    welcomeLinkedinUrl,
+  ]);
 
   const [activeRunId, setActiveRunId] = useState<string | null>(deepLinkSession);
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
@@ -981,6 +1064,7 @@ function JourneyPageContent() {
     clearJourneySession();
     clearStoredJourneySession();
     beginFreshJourneyRun();
+    setDeepResearchOnboardingFields({});
     setLinkDeepResearchStatus('idle');
     setLinkDeepResearchError(null);
     setSavedSession(null);
@@ -1022,6 +1106,7 @@ function JourneyPageContent() {
 
     stopPrefill();
     setPrefillReviewOverrides({});
+    setDeepResearchOnboardingFields({});
     setLinkDeepResearchStatus('starting');
     setLinkDeepResearchError(null);
     commitActiveRunId(nextRunId);
@@ -1051,8 +1136,18 @@ function JourneyPageContent() {
         setLinkDeepResearchStatus('queued');
         addLog('run', `Company deep research queued (job: ${result.jobId ?? 'unknown'})`);
         await waitForResearchSectionComplete(nextRunId, 'deepResearchProgram');
+        const deepResearchFields = await fetchDeepResearchOnboardingFields(nextRunId);
+        if (Object.keys(deepResearchFields).length === 0) {
+          throw new Error(
+            'Company deep research completed without onboardingFields; refusing to open shallow onboarding review.',
+          );
+        }
+        setDeepResearchOnboardingFields(deepResearchFields);
         setLinkDeepResearchStatus('complete');
-        addLog('ok', 'Company deep research corpus ready for onboarding review');
+        addLog(
+          'ok',
+          `Company deep research corpus ready with ${Object.keys(deepResearchFields).length} onboarding fields`,
+        );
       })
       .catch((error: unknown) => {
         const message = getErrorMessage(error);
@@ -1190,6 +1285,7 @@ function JourneyPageContent() {
       isPrefilling={isPrefilling}
       error={prefillError}
       websiteUrl={prefillWebsiteUrl}
+      deepResearchFields={deepResearchOnboardingFields}
       deepResearchStatus={linkDeepResearchStatus}
       deepResearchError={linkDeepResearchError}
       onRetry={() => {
@@ -1197,6 +1293,7 @@ function JourneyPageContent() {
 
         setPrefillWebsiteUrl('');
         setPrefillReviewOverrides({});
+        setDeepResearchOnboardingFields({});
         setLinkDeepResearchStatus('idle');
         setLinkDeepResearchError(null);
         setJourneyPhase('welcome');
@@ -1225,6 +1322,7 @@ function JourneyPageContent() {
       onAnalyze={handleAnalyzeCompanyLink}
       onSkip={() => {
         setPrefillReviewOverrides({});
+        setDeepResearchOnboardingFields({});
         setLinkDeepResearchStatus('idle');
         setLinkDeepResearchError(null);
         setJourneyPhase('review');

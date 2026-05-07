@@ -40,8 +40,45 @@ Return ONLY valid JSON. No markdown fences. Shape:
     "researchSummary": "string",
     "sources": [{"title":"string","url":"string","whyItMatters":"string"}],
     "evidence": [{"claim":"string","source":"string","url":"string","quote":"string","confidence":85}]
+  },
+  "onboardingFields": {
+    "companyName": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "businessModel": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "industryVertical": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "primaryIcpDescription": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "jobTitles": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "companySize": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "geography": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "headquartersLocation": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "productDescription": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "coreDeliverables": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "pricingTiers": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "valueProp": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "guarantees": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "topCompetitors": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "uniqueEdge": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "marketProblem": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "situationBeforeBuying": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "desiredTransformation": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "commonObjections": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "brandPositioning": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "testimonialQuote": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "caseStudiesUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "testimonialsUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "pricingUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"},
+    "demoUrl": {"value":"string or null","confidence":85,"sourceUrl":"string or null","reasoning":"string"}
   }
 }
+
+ONBOARDING FIELD RULES
+- onboardingFields is required. This is the field payload the user reviews before section synthesis.
+- Only populate a field when the value is supported by a source in corpus.sources/evidence or by the supplied user context.
+- Use concise, normalized field values. Do not paste the same homepage meta description into multiple fields.
+- For companyName, return the clean company name, not the page title or SEO title.
+- For productDescription, say what the product does in one concise sentence.
+- For primaryIcpDescription, describe the buyer/user segment, not a generic customer count claim.
+- For coreDeliverables, list concrete product capabilities/features.
+- For fields that are not publicly discoverable, set value null, confidence 0, sourceUrl null, and explain the gap.
 
 CRITICAL RETURN CONTRACT
 - Do not export, attach, or summarize the final JSON as a file.
@@ -66,6 +103,32 @@ function tryExtractJson(text: string): unknown | null {
   } catch {
     return null;
   }
+}
+
+function countUsableOnboardingFields(result: Record<string, unknown>): number {
+  const data = isRecord(result.data) ? result.data : result;
+  const onboardingFields = isRecord(data.onboardingFields)
+    ? data.onboardingFields
+    : null;
+
+  if (!onboardingFields) {
+    return 0;
+  }
+
+  return Object.values(onboardingFields).filter((field) => {
+    if (typeof field === 'string') {
+      return field.trim().length > 0;
+    }
+
+    if (!isRecord(field)) {
+      return false;
+    }
+
+    return (
+      typeof field.value === 'string' &&
+      field.value.trim().length > 0
+    );
+  }).length;
 }
 
 async function downloadAnthropicFileText(
@@ -191,6 +254,23 @@ export async function runDeepResearchProgram(
 
     if (parseSource) {
       console.log(`[deep-research-program] Parsed JSON from ${parseSource}`);
+    }
+
+    const onboardingFieldCount = countUsableOnboardingFields(parsed);
+    if (onboardingFieldCount === 0) {
+      console.error('[deep-research-program] Missing onboardingFields payload:', {
+        parseSource,
+        keys: Object.keys(parsed),
+      });
+      return {
+        status: 'error',
+        section: 'deepResearchProgram',
+        error:
+          'Deep research returned no usable onboardingFields. The onboarding review cannot open from shallow prefill data.',
+        durationMs: Date.now() - startTime,
+        rawText: resultText,
+        telemetry: buildRunnerTelemetry(finalMsg),
+      };
     }
 
     return {

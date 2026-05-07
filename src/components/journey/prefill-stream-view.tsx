@@ -21,6 +21,7 @@ export interface PrefillStreamViewProps {
   isPrefilling: boolean;
   error: Error | undefined;
   websiteUrl: string;
+  deepResearchFields?: Record<string, string>;
   deepResearchStatus?: 'idle' | 'starting' | 'queued' | 'complete' | 'error';
   deepResearchError?: string | null;
   onRetry: () => void;
@@ -29,17 +30,33 @@ export interface PrefillStreamViewProps {
 
 function resolveVisibleFields(
   partialResult: PrefillStreamViewProps['partialResult'],
+  deepResearchFields: Record<string, string>,
 ): PrefillStreamField[] {
   const record = partialResult as Record<string, unknown> | null | undefined;
+  const fieldValues: Record<string, string> = {};
   const fields: PrefillStreamField[] = [];
 
-  for (const { key, label } of JOURNEY_PREFILL_REVIEW_FIELDS) {
+  for (const { key } of JOURNEY_PREFILL_REVIEW_FIELDS) {
     const value = readJourneyPrefillFieldValue(record, key);
     if (!value) {
       continue;
     }
 
-    fields.push({ key, label, value });
+    fieldValues[key] = value;
+  }
+
+  for (const [key, value] of Object.entries(deepResearchFields)) {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      fieldValues[key] = trimmed;
+    }
+  }
+
+  for (const { key, label } of JOURNEY_PREFILL_REVIEW_FIELDS) {
+    const value = fieldValues[key];
+    if (value) {
+      fields.push({ key, label, value });
+    }
   }
 
   return fields;
@@ -47,10 +64,10 @@ function resolveVisibleFields(
 
 export function PrefillStreamView({
   partialResult,
-  fieldsFound,
   isPrefilling,
   error,
   websiteUrl,
+  deepResearchFields = {},
   deepResearchStatus = 'idle',
   deepResearchError,
   onRetry,
@@ -64,14 +81,27 @@ export function PrefillStreamView({
     () => formatJourneyErrorMessage(error),
     [error],
   );
-  const progressPct = fieldsFound > 0 ? Math.min(100, Math.round((fieldsFound / 20) * 100)) : 0;
-  const isComplete = !isPrefilling && fieldsFound > 0 && !error;
-  const isFailed = !isPrefilling && fieldsFound === 0 && !error;
+  const visibleFields = resolveVisibleFields(partialResult, deepResearchFields);
+  const visibleFieldCount = visibleFields.length;
   const requiresDeepResearch = deepResearchStatus !== 'idle';
   const isDeepResearchComplete = !requiresDeepResearch || deepResearchStatus === 'complete';
   const isDeepResearchFailed = deepResearchStatus === 'error';
-  const canReviewOnboarding = isComplete && isDeepResearchComplete;
-  const visibleFields = resolveVisibleFields(partialResult);
+  const deepResearchFieldCount = Object.values(deepResearchFields).filter(
+    (value) => value.trim().length > 0,
+  ).length;
+  const hasAuthoritativeDeepFields =
+    requiresDeepResearch && isDeepResearchComplete && deepResearchFieldCount > 0;
+  const isCollectingFields = isPrefilling && !hasAuthoritativeDeepFields;
+  const effectiveError = hasAuthoritativeDeepFields ? undefined : error;
+  const progressPct =
+    visibleFieldCount > 0
+      ? Math.min(100, Math.round((visibleFieldCount / 20) * 100))
+      : 0;
+  const isComplete = !isCollectingFields && visibleFieldCount > 0 && !effectiveError;
+  const isFailed = !isCollectingFields && visibleFieldCount === 0 && !effectiveError;
+  const hasRequiredDeepFields = !requiresDeepResearch || deepResearchFieldCount > 0;
+  const canReviewOnboarding =
+    isComplete && isDeepResearchComplete && hasRequiredDeepFields;
   const getFieldPayload = (): Record<string, string> =>
     Object.fromEntries(
       visibleFields.map((field) => [field.key, field.value]),
@@ -93,7 +123,7 @@ export function PrefillStreamView({
               'inline-flex self-start items-center gap-2 rounded-full px-3.5 py-1.5',
               isComplete
                 ? 'border border-emerald-500/25 bg-emerald-500/[0.08]'
-                : isFailed || error
+                : isFailed || effectiveError
                   ? 'border border-red-500/25 bg-red-500/[0.08]'
                   : 'border border-[var(--accent-amber)]/30 bg-[var(--accent-amber)]/[0.06]',
             )}
@@ -103,14 +133,14 @@ export function PrefillStreamView({
                 'w-1.5 h-1.5 rounded-full',
                 isComplete
                   ? 'bg-emerald-400'
-                  : isFailed || error
+                  : isFailed || effectiveError
                     ? 'bg-red-400'
                     : 'bg-[var(--accent-amber)]',
               )}
-              animate={isPrefilling ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
+              animate={isCollectingFields ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
               transition={{
                 duration: 1.6,
-                repeat: isPrefilling ? Infinity : 0,
+                repeat: isCollectingFields ? Infinity : 0,
                 ease: 'easeInOut',
               }}
             />
@@ -119,12 +149,12 @@ export function PrefillStreamView({
                 'text-[11px] font-mono uppercase tracking-[0.16em]',
                 isComplete
                   ? 'text-emerald-400'
-                  : isFailed || error
+                  : isFailed || effectiveError
                     ? 'text-red-400'
                     : 'text-[var(--accent-amber)]',
               )}
             >
-              {isComplete ? 'Extraction Complete' : isFailed || error ? 'Extraction Failed' : 'Extracting Context'}
+              {isComplete ? 'Extraction Complete' : isFailed || effectiveError ? 'Extraction Failed' : 'Extracting Context'}
             </span>
           </div>
 
@@ -144,7 +174,7 @@ export function PrefillStreamView({
                 isComplete ? 'text-[var(--accent-green)]' : 'text-[var(--accent-amber)]',
               )}
             >
-              {fieldsFound} {fieldsFound === 1 ? 'field' : 'fields'} found
+              {visibleFieldCount} {visibleFieldCount === 1 ? 'field' : 'fields'} found
             </span>
           </div>
         </motion.div>
@@ -196,7 +226,9 @@ export function PrefillStreamView({
                   {isDeepResearchFailed
                     ? `Deep research failed before onboarding review: ${deepResearchError ?? 'Unknown error'}`
                     : isDeepResearchComplete
-                      ? 'Company corpus is ready. Review the extracted onboarding fields next.'
+                      ? deepResearchFieldCount > 0
+                        ? `Company corpus is ready with ${deepResearchFieldCount} deep-research onboarding fields. Review them next.`
+                        : 'Company corpus finished without onboardingFields. Fix the deep research result before review.'
                       : 'Building the company corpus before onboarding review opens.'}
                 </p>
               </div>
@@ -207,7 +239,7 @@ export function PrefillStreamView({
         {/* Content card */}
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] backdrop-blur-sm overflow-hidden">
           {/* Error state */}
-          {error && (
+          {effectiveError && (
             <div className="px-6 py-6 flex flex-col items-center gap-3 text-center">
               <AlertCircle className="size-5 text-red-400" />
               <p className="text-sm text-red-400/90">{renderedError}</p>
@@ -243,7 +275,7 @@ export function PrefillStreamView({
           )}
 
           {/* Loading skeleton */}
-          {isPrefilling && fieldsFound === 0 && !error && (
+          {isCollectingFields && visibleFieldCount === 0 && !effectiveError && (
             <div className="p-4 space-y-1">
               {[1, 2, 3, 4].map((index) => (
                 <div
@@ -347,7 +379,7 @@ export function PrefillStreamView({
         )}
 
         {/* Early continue */}
-        {isPrefilling && fieldsFound >= 5 && isDeepResearchComplete && (
+        {isCollectingFields && visibleFieldCount >= 5 && isDeepResearchComplete && hasRequiredDeepFields && (
           <motion.div
             className="flex flex-col items-center gap-3"
             initial={{ opacity: 0, y: 8 }}
@@ -360,7 +392,7 @@ export function PrefillStreamView({
               onClick={() => onComplete(getFieldPayload())}
               className="cursor-pointer h-11 rounded-full bg-foreground text-background font-semibold text-[14px] px-7 transition-all duration-200 hover:bg-foreground/90 hover:shadow-lg"
             >
-              Continue with {fieldsFound} fields
+              Continue with {visibleFieldCount} fields
             </button>
             <span className="text-[11px] text-[var(--text-quaternary)]">
               Continue to complete the onboarding profile before section synthesis starts
