@@ -1,17 +1,8 @@
 'use client';
 
-import { useRef, type ElementType } from 'react';
-import {
-  AlertCircle,
-  Code,
-  FileSearch,
-  Search,
-  Send,
-  Sparkles,
-} from 'lucide-react';
+import { useRef } from 'react';
+import { Send, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-import { cn } from '@/lib/utils';
 
 export interface JourneyManusWelcomeProps {
   websiteUrl: string;
@@ -21,29 +12,6 @@ export interface JourneyManusWelcomeProps {
   onLinkedinUrlChange?: (value: string) => void;
   onSkip?: () => void;
 }
-
-interface SuggestionChip {
-  label: string;
-  Icon: ElementType;
-}
-
-interface ActionPill {
-  label: string;
-}
-
-const SUGGESTION_CHIPS: SuggestionChip[] = [
-  { label: 'Show source trail', Icon: FileSearch },
-  { label: 'Go deeper on competitors', Icon: Search },
-  { label: 'Rewrite positioning', Icon: Code },
-  { label: 'Find unsupported claims', Icon: AlertCircle },
-];
-
-const ACTION_PILLS: ActionPill[] = [
-  { label: '+ Source' },
-  { label: 'Deep Research' },
-  { label: 'Corpus' },
-  { label: 'Synthesis' },
-];
 
 function JourneyIconRail(): React.JSX.Element | null {
   return null;
@@ -98,84 +66,48 @@ export function JourneyManusWelcome({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45 }}
-              className="mb-12 text-center"
+              className="w-full text-center"
             >
               <h2 className="mb-4 text-4xl font-light leading-tight text-[#fcfcfa]">
                 Ask for research. Watch AI-GOS write the report.
               </h2>
-              <p className="mx-auto max-w-2xl text-sm leading-6 text-[#8e97a6]">
+              <p className="mx-auto mb-8 max-w-2xl text-sm leading-6 text-[#8e97a6]">
                 Drop a company URL and AI-GOS will build the evidence corpus,
                 extract the profile context, then open the GTM command view for
                 section-by-section synthesis.
               </p>
-            </motion.div>
 
-            <div className="mb-8 flex flex-wrap justify-center gap-3">
-              {SUGGESTION_CHIPS.map(({ label, Icon }, index) => (
-                <motion.button
-                  key={label}
-                  type="button"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.08 }}
-                  onClick={() => inputRef.current?.focus()}
-                  className="flex items-center gap-2 rounded-full border border-[#14171f] bg-[#0d1018] px-4 py-2 text-sm text-[#fcfcfa] transition-colors hover:border-[#365eff]/35 hover:bg-[#14171f]"
+              <form
+                className="mx-auto flex max-w-2xl items-center gap-3 overflow-hidden rounded-[14px] border border-white/[0.08] bg-[#111110] p-2 text-left shadow-[0_24px_80px_rgba(0,0,0,0.34)]"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submit();
+                }}
+              >
+                <label htmlFor="journey-company-url" className="sr-only">
+                  Company URL
+                </label>
+                <input
+                  ref={inputRef}
+                  id="journey-company-url"
+                  type="text"
+                  value={websiteUrl}
+                  onChange={(event) => onWebsiteUrlChange(event.target.value)}
+                  placeholder="Paste website URL…"
+                  className="min-w-0 flex-1 bg-transparent px-4 py-3 text-base text-[#fcfcfa] outline-none placeholder:text-[#8e97a6]"
+                />
+                <button
+                  type="submit"
+                  disabled={!canAnalyze}
+                  aria-label="Start deep research"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] bg-[#365eff] text-white transition-colors hover:bg-[#006fff] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {label}
-                </motion.button>
-              ))}
-            </div>
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </form>
+            </motion.div>
           </div>
         </section>
-
-        <footer className="shrink-0 border-t border-[#0d1018] bg-[#0a0d14] p-4 sm:p-6">
-          <form
-            className="mx-auto max-w-[860px] overflow-hidden rounded-[8px] border border-[#14171f] bg-[#0d1018] shadow-[0_24px_80px_rgba(0,0,0,0.32)]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit();
-            }}
-          >
-            <label htmlFor="journey-company-url" className="sr-only">
-              Company URL
-            </label>
-            <div className="p-4">
-              <input
-                ref={inputRef}
-                id="journey-company-url"
-                type="text"
-                value={websiteUrl}
-                onChange={(event) => onWebsiteUrlChange(event.target.value)}
-                placeholder="Drop a company URL to start deep research"
-                className="w-full bg-transparent text-base text-[#fcfcfa] outline-none placeholder:text-[#8e97a6]"
-              />
-            </div>
-            <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                {ACTION_PILLS.map((pill) => (
-                  <span
-                    key={pill.label}
-                    className={cn(
-                      'rounded-full border border-[#1e2129] bg-[#14171f] px-3 py-1.5 text-xs text-[#fcfcfa]',
-                      pill.label === 'Deep Research' && 'border-[#365eff]/35 text-[#8faaff]',
-                    )}
-                  >
-                    {pill.label}
-                  </span>
-                ))}
-              </div>
-              <button
-                type="submit"
-                disabled={!canAnalyze}
-                aria-label="Start deep research"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#365eff] text-white transition-colors hover:bg-[#006fff] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          </form>
-        </footer>
       </main>
     </div>
   );
