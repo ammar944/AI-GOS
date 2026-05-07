@@ -100,7 +100,10 @@ export async function dispatchResearchForUser(
   userId: string,
   options: DispatchResearchOptions = {},
 ): Promise<DispatchResult> {
-  const workerUrl = process.env.RAILWAY_WORKER_URL;
+  const configuredWorkerUrl = process.env.RAILWAY_WORKER_URL?.trim();
+  const workerUrl =
+    configuredWorkerUrl ??
+    (process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:3001');
   const apiKey = process.env.RAILWAY_API_KEY;
 
   if (!workerUrl) {
@@ -113,6 +116,12 @@ export async function dispatchResearchForUser(
       section,
       error: 'Research worker not reachable. RAILWAY_WORKER_URL is not configured.',
     };
+  }
+
+  if (!configuredWorkerUrl && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      '[dispatch] RAILWAY_WORKER_URL not set — using local development worker at http://localhost:3001',
+    );
   }
 
   const jobId = crypto.randomUUID();

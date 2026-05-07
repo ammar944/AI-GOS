@@ -203,17 +203,23 @@ export function ManusWorkspaceShell({
     <section
       data-testid="manus-workspace-shell"
       className={cn(
-        'flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]',
+        'flex min-h-0 flex-1 flex-col overflow-hidden bg-[#06080d] text-[var(--text-primary)]',
         className,
       )}
     >
       {hasHeader ? (
-        <header className="shrink-0 border-b border-[var(--border-subtle)] bg-[rgba(7,9,14,0.72)] px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div data-testid="manus-workspace-status-summary" className="min-w-0 shrink-0">
+        <header className="shrink-0 border-b border-white/10 bg-[#06080d]/92 px-4 py-3">
+          <div className="mx-auto flex w-full max-w-[1220px] min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div
+              data-testid="manus-workspace-status-summary"
+              className="min-w-0 shrink-0"
+            >
               {statusSummary ?? (workspaceState ? <ManusStatusSummary workspaceState={workspaceState} /> : null)}
             </div>
-            <div data-testid="manus-workspace-section-nav" className="min-w-0 flex-1 lg:flex lg:justify-end">
+            <div
+              data-testid="manus-workspace-section-nav"
+              className="min-w-0 flex-1 lg:flex lg:justify-end"
+            >
               {sectionNav ?? (
                 workspaceState ? (
                   <ManusSectionProgression
@@ -228,20 +234,39 @@ export function ManusWorkspaceShell({
         </header>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(24rem,1.08fr)_minmax(22rem,0.92fr)]">
+      <div className="mx-auto grid w-full max-w-[1220px] min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(24rem,0.92fr)_minmax(26rem,1.08fr)]">
         <main
           data-testid="manus-workspace-chat"
           aria-label="Primary chat workspace"
-          className="flex min-h-[30rem] min-w-0 flex-col overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] lg:min-h-0 lg:border-b-0 lg:border-r"
+          className="flex min-h-[30rem] min-w-0 flex-col overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018] shadow-[0_24px_70px_rgba(0,0,0,0.28)] lg:min-h-0"
         >
+          <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.07] px-4">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
+                AI SDK workspace agent
+              </span>
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">
+              chat
+            </span>
+          </div>
           {chat}
         </main>
 
         <aside
           data-testid="manus-workspace-artifact"
           aria-label="Report artifact workspace"
-          className="flex min-h-[24rem] min-w-0 flex-col overflow-hidden bg-[rgba(10,10,8,0.94)] lg:min-h-0"
+          className="flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018] shadow-[0_24px_70px_rgba(0,0,0,0.28)] lg:min-h-0"
         >
+          <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.07] px-4">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
+              Artifact canvas
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-white/42">
+              corpus-backed
+            </span>
+          </div>
           {artifact}
         </aside>
       </div>
@@ -250,14 +275,16 @@ export function ManusWorkspaceShell({
         <details
           data-testid="manus-workspace-run-details"
           aria-label="Run telemetry"
-          className="group shrink-0 border-t border-[var(--border-subtle)] bg-[rgba(7,9,14,0.58)] text-sm text-[var(--text-secondary)]"
+          className="group shrink-0 border-t border-white/10 bg-[#06080d]/92 text-sm text-[var(--text-secondary)]"
         >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)] [&::-webkit-details-marker]:hidden">
+          <summary className="mx-auto flex max-w-[1220px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white/42 transition-colors hover:text-white/62 [&::-webkit-details-marker]:hidden">
             {runDetailsSummary ?? 'Run details'}
             <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
           </summary>
-          <div className="max-h-72 overflow-auto border-t border-[var(--border-subtle)] px-4 py-3">
-            {runDetails}
+          <div className="border-t border-white/10">
+            <div className="mx-auto max-h-72 max-w-[1220px] overflow-auto px-4 py-3">
+              {runDetails}
+            </div>
           </div>
         </details>
       ) : null}

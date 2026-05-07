@@ -150,6 +150,7 @@ function JourneyPageContent() {
   const deepLinkSession = searchParams.get('session');
   const deepLinkMediaPlan = searchParams.get('mediaPlan') === '1';
   const deepLinkSection = searchParams.get('section');
+  const shouldRestoreStoredRun = searchParams.get('restore') === '1';
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
@@ -176,7 +177,6 @@ function JourneyPageContent() {
 
   const {
     partialResult,
-    submit: submitPrefill,
     isLoading: isPrefilling,
     fieldsFound,
     error: prefillError,
@@ -323,6 +323,11 @@ function JourneyPageContent() {
       return;
     }
 
+    if (!shouldRestoreStoredRun) {
+      clearStoredJourneySession();
+      return;
+    }
+
     const storedRunId = getStoredJourneyRunId();
     const storedCompanyName = getStoredJourneyCompanyName();
 
@@ -335,7 +340,7 @@ function JourneyPageContent() {
     if (storedRunId) {
       setJourneyPhase('workspace');
     }
-  }, [deepLinkSection, deepLinkSession]);
+  }, [deepLinkSection, deepLinkSession, shouldRestoreStoredRun]);
 
   useEffect(() => {
     const saved = getJourneySession();
@@ -343,6 +348,7 @@ function JourneyPageContent() {
       setOnboardingState(saved);
       // Only show resume prompt if we didn't already restore to workspace from sessionStorage
       if (
+        shouldRestoreStoredRun &&
         hasAnsweredFields(saved) &&
         journeyPhase === 'welcome' &&
         !getStoredJourneyRunId()
@@ -352,7 +358,7 @@ function JourneyPageContent() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [shouldRestoreStoredRun]);
 
   // Persist phase to sessionStorage so refresh restores the correct view
   useEffect(() => {
@@ -962,6 +968,7 @@ function JourneyPageContent() {
         new Set([
           ...JOURNEY_PREFILL_REVIEW_FIELDS.map(({ key }) => key),
           ...JOURNEY_MANUAL_BLOCKER_FIELDS.map(({ key }) => key),
+          ...Object.keys(acceptedJourneyFields),
         ]),
       );
 
@@ -1200,9 +1207,13 @@ function JourneyPageContent() {
         const websiteUrl = prefillWebsiteUrl.trim();
         if (!websiteUrl) return;
         const linkedinUrl = welcomeLinkedinUrl.trim();
-        submitPrefill({ websiteUrl, linkedinUrl });
-        setJourneyPhase('prefilling');
-        addLog('run', `Analyzing ${websiteUrl}`);
+        addLog('run', `Launching deep research for ${websiteUrl}`);
+        handleAcceptPrefill({
+          manualFields: {
+            websiteUrl,
+            linkedinUrl,
+          },
+        });
       }}
       onSkip={() => {
         beginFreshJourneyRun();

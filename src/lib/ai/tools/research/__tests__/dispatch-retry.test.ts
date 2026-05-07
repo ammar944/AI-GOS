@@ -51,6 +51,20 @@ describe('dispatchResearch retry logic', () => {
     expect(payload.runId).toBe('run-123');
   });
 
+  it('uses the local development worker when RAILWAY_WORKER_URL is missing outside production', async () => {
+    delete process.env.RAILWAY_WORKER_URL;
+    mockFetch.mockResolvedValueOnce(makeResponse(202));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { dispatchResearch } = await import('../dispatch');
+    const result = await dispatchResearch('deepResearchProgram', 'crossAnalysis', 'ctx');
+
+    const [url] = mockFetch.mock.calls[0] as [string];
+    expect(result.status).toBe('queued');
+    expect(url).toBe('http://localhost:3001/run');
+    warnSpy.mockRestore();
+  });
+
   it('retries /run up to 3 times on network error before returning error', async () => {
     mockFetch
       .mockRejectedValueOnce(new Error('ECONNREFUSED')) // attempt 1

@@ -1,6 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import {
+  ArrowUp,
+  Brain,
+  FileText,
+  Globe2,
+  Link2,
+  Search,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 
 export interface JourneyManusWelcomeProps {
   websiteUrl: string;
@@ -11,85 +23,144 @@ export interface JourneyManusWelcomeProps {
   onSkip: () => void;
 }
 
-const LANDING_NAV_ITEMS = [
-  { href: '/journey', label: 'Journey' },
-  { href: '/blueprints', label: 'Blueprints' },
-  { href: '/dashboard', label: 'Dashboard' },
-];
+interface SourceInputProps {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  Icon: LucideIcon;
+  required?: boolean;
+}
 
-const WELCOME_STARTER_CARDS = [
-  {
-    eyebrow: 'B2B SaaS landing page',
-    title: 'Turn a homepage into a paid acquisition brief',
-    description:
-      'Ideal for products that need market context, competitor mapping, and a cleaner media-plan starting point.',
-    accentFrom: '#d6c4a8',
-    accentTo: '#f4efe7',
-  },
-  {
-    eyebrow: 'Competitor intel',
-    title: 'Pressure-test positioning against the category leaders',
-    description:
-      'Best when you already know the market and need sharper positioning, hooks, and proof points.',
-    accentFrom: '#c9d8f4',
-    accentTo: '#f4f2ee',
-  },
-  {
-    eyebrow: 'Offer audit',
-    title: 'Stress-test the pricing and offer stack before spend',
-    description:
-      'Useful when the homepage is live but conversion confidence is low and the offer needs tightening.',
-    accentFrom: '#d5e5d8',
-    accentTo: '#f5f2eb',
-  },
-  {
-    eyebrow: 'ICP framing',
-    title: 'Clarify the buyer before the research wave begins',
-    description:
-      'For teams with traffic but weak message-market fit who need Journey to anchor on the right audience.',
-    accentFrom: '#e7d9c8',
-    accentTo: '#f5efe7',
-  },
-];
-
-function JourneyStarterCard({
-  eyebrow,
-  title,
-  description,
-  accentFrom,
-  accentTo,
-}: {
-  eyebrow: string;
+interface AgentStep {
   title: string;
-  description: string;
-  accentFrom: string;
-  accentTo: string;
-}): React.JSX.Element {
+  detail: string;
+  state: 'ready' | 'active' | 'pending';
+}
+
+interface AgentStepRowProps {
+  step: AgentStep;
+}
+
+interface ModeChipProps {
+  label: string;
+  Icon: LucideIcon;
+}
+
+const AGENT_STEPS: AgentStep[] = [
+  {
+    title: 'Source accepted',
+    detail: 'Company link and optional LinkedIn context seed the run.',
+    state: 'ready',
+  },
+  {
+    title: 'Deep Research Agent',
+    detail: 'Worker builds corpus, sources, gaps, and six report artifacts.',
+    state: 'active',
+  },
+  {
+    title: 'Workspace edit loop',
+    detail: 'AI SDK chat explains evidence, edits cards, and queues refreshes.',
+    state: 'pending',
+  },
+];
+
+const MODE_CHIPS: ModeChipProps[] = [
+  { label: 'Research', Icon: Search },
+  { label: 'Sources', Icon: Globe2 },
+  { label: 'Synthesis', Icon: FileText },
+  { label: 'Review', Icon: Brain },
+];
+
+function SourceInput({
+  id,
+  label,
+  value,
+  placeholder,
+  onChange,
+  Icon,
+  required = false,
+}: SourceInputProps): React.JSX.Element {
   return (
-    <div className="paper-surface group flex items-center gap-4 rounded-[22px] p-4 transition-transform duration-200 hover:-translate-y-0.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#878279]">
-          {eyebrow}
-        </p>
-        <h3 className="mt-2 text-[15px] font-medium leading-6 text-[#1f1d18]">
-          {title}
-        </h3>
-        <p className="mt-2 text-[13px] leading-6 text-[#6d685f]">
-          {description}
-        </p>
-      </div>
-      <div
-        className="relative hidden h-[84px] w-[104px] overflow-hidden rounded-[18px] border border-black/6 bg-white md:block"
-        style={{
-          background: `linear-gradient(145deg, ${accentFrom}, ${accentTo})`,
-        }}
+    <div className="rounded-[8px] border border-white/10 bg-white/[0.035] px-4 py-3">
+      <label
+        htmlFor={id}
+        className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/38"
       >
-        <div className="absolute inset-x-3 top-3 h-3 rounded-full bg-white/85" />
-        <div className="absolute inset-x-3 top-8 h-9 rounded-[14px] bg-white/80 shadow-[0_10px_25px_rgba(17,16,13,0.06)]" />
-        <div className="absolute bottom-3 left-3 h-6 w-6 rounded-[10px] bg-white/85" />
-        <div className="absolute bottom-3 right-3 h-6 w-10 rounded-[10px] bg-white/72" />
-      </div>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        {label}
+      </label>
+      <input
+        id={id}
+        type="url"
+        required={required}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-2 w-full bg-transparent text-[15px] text-white outline-none placeholder:text-white/24"
+      />
     </div>
+  );
+}
+
+function AgentStepRow({ step }: AgentStepRowProps): React.JSX.Element {
+  return (
+    <div className="flex gap-3 rounded-[8px] border border-white/[0.07] bg-black/20 px-3.5 py-3">
+      <span
+        className={cn(
+          'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full',
+          step.state === 'ready'
+            ? 'bg-[#50f8e4]'
+            : step.state === 'active'
+              ? 'bg-[#365eff]'
+              : 'bg-white/18',
+        )}
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-white/88">{step.title}</span>
+        <span className="mt-1 block text-xs leading-5 text-white/48">
+          {step.detail}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function ModeChip({ label, Icon }: ModeChipProps): React.JSX.Element {
+  return (
+    <span className="inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 text-xs font-medium text-white/66">
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+function ReportPreview(): React.JSX.Element {
+  return (
+    <article className="overflow-hidden rounded-[8px] border border-white/10 bg-[#0d1018]/92">
+      <div className="flex h-11 items-center justify-between border-b border-white/[0.07] px-4 font-mono text-[10px] uppercase tracking-[0.14em] text-white/42">
+        <span>gtm-synthesis.md</span>
+        <span>waiting for corpus</span>
+      </div>
+      <div className="p-5">
+        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#50f8e4]">
+          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          Agent workspace
+        </div>
+        <h2 className="mt-3 text-xl font-semibold leading-7 tracking-[-0.04em] text-white">
+          Research writes into the report surface.
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-white/62">
+          The next run opens the workspace immediately, persists the research
+          corpus, and hydrates section artifacts as the worker finishes.
+        </p>
+        <div className="mt-4 rounded-r-[8px] border-l-2 border-[#365eff] bg-[#365eff]/8 px-4 py-3 text-sm leading-6 text-white/70">
+          Context corrections happen in chat. The old manual field-review detour
+          is no longer the primary path.
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -101,170 +172,167 @@ export function JourneyManusWelcome({
   onAnalyze,
   onSkip,
 }: JourneyManusWelcomeProps): React.JSX.Element {
+  const canAnalyze = websiteUrl.trim().length > 0;
+
   return (
-    <div className="flex min-h-screen flex-col bg-[#f6f5f1] text-[#1f1d18]">
-      <header className="border-b border-black/6 bg-[#faf8f3]/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-6 px-6 py-4 lg:px-8">
+    <div className="min-h-screen bg-[#06080d] text-white">
+      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[68px_1fr]">
+        <aside className="hidden border-r border-white/10 bg-[#0a0d14]/70 px-2 py-3 xl:flex xl:flex-col xl:items-center xl:gap-2">
           <Link
             href="/journey"
-            className="flex items-center gap-2 text-[15px] font-medium tracking-[-0.02em] text-[#1f1d18]"
+            className="grid h-10 w-10 place-items-center rounded-[8px] bg-[#365eff] text-sm font-black text-white shadow-[0_14px_34px_rgba(54,94,255,0.24)]"
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-[11px] font-semibold">
-              AG
-            </span>
-            AIGOS
+            AG
           </Link>
-
-          <nav className="hidden items-center gap-7 text-[13px] text-[#67635b] md:flex">
-            {LANDING_NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="transition-colors hover:text-[#1f1d18]"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-black/8 bg-white px-3 py-2 text-[12px] font-medium text-[#1f1d18] shadow-[0_8px_22px_rgba(17,16,13,0.06)] transition-colors hover:bg-[#f8f6f1]"
+          {['Journey', 'Research', 'Reports', 'Settings'].map((item, index) => (
+            <div
+              key={item}
+              className={cn(
+                'grid h-10 w-10 place-items-center rounded-[8px] text-xs font-bold',
+                index === 0
+                  ? 'bg-[#365eff]/12 text-[#8faaff]'
+                  : 'text-white/34',
+              )}
+              title={item}
             >
-              Library
-            </Link>
-            <Link
-              href="/settings"
-              className="rounded-full border border-black/8 px-3 py-2 text-[12px] text-[#67635b] transition-colors hover:border-black/12 hover:text-[#1f1d18]"
-            >
-              Settings
-            </Link>
+              {item.slice(0, 1)}
+            </div>
+          ))}
+          <div className="mt-auto grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.045] text-xs font-bold text-white/70">
+            A
           </div>
-        </div>
-      </header>
+        </aside>
 
-      <div className="border-b border-black/5 bg-[#f1eee8] px-6 py-3 text-center text-[12px] text-[#666159]">
-        Journey now coordinates research waves, approvals, and synthesis in one workspace.
-      </div>
-
-      <main className="flex-1 overflow-y-auto px-6 pb-24 pt-14 lg:px-8">
-        <div className="mx-auto max-w-[1180px]">
-          <div className="text-center">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#8a867d]">
-              Strategy Intake
-            </p>
-            <h1
-              className="mx-auto mt-6 max-w-4xl text-[3.35rem] leading-[1.02] tracking-[-0.04em] text-[#1f1d18] sm:text-[4.6rem]"
-              style={{
-                fontFamily:
-                  'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
-              }}
-            >
-              What should we build toward?
-            </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-7 text-[#6b675f]">
-              Drop in the homepage and Journey will turn it into a research-ready brief:
-              market context, competitors, ICP validation, offer analysis, and the first paid
-              media direction.
-            </p>
-          </div>
-
-          <div className="mx-auto mt-10 max-w-3xl rounded-[28px] border border-black/8 bg-white p-5 shadow-[0_24px_70px_rgba(17,16,13,0.08)]">
-            <div className="rounded-[22px] border border-black/8 bg-[#fbfaf7] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-              <label className="text-[11px] uppercase tracking-[0.18em] text-[#8a867d]">
-                Company website
-              </label>
-              <div className="mt-3 flex items-center gap-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/8 bg-white text-[18px] text-[#6b675f]">
-                  +
+        <section className="flex min-h-screen flex-col">
+          <header className="shrink-0 border-b border-white/10 bg-[#06080d]/90 px-4 py-3 sm:px-6">
+            <div className="mx-auto flex w-full max-w-[980px] items-center justify-between gap-4">
+              <Link href="/journey" className="flex min-w-0 items-center gap-3">
+                <span className="grid h-8 w-8 place-items-center rounded-[8px] border border-[#365eff]/25 bg-[#365eff]/11 text-sm font-black text-[#8faaff] xl:hidden">
+                  AG
                 </span>
-                <input
-                  type="url"
-                  value={websiteUrl}
-                  onChange={(event) => onWebsiteUrlChange(event.target.value)}
-                  placeholder="https://your-company.com"
-                  className="min-w-0 flex-1 bg-transparent text-[15px] text-[#1f1d18] placeholder:text-[#aaa59b] focus:outline-none"
-                />
-                <div className="hidden items-center gap-2 md:flex">
-                  <span className="rounded-full border border-[#c7dafd] bg-[#eef4ff] px-3 py-1 text-[11px] text-[#356af8]">
-                    Journey
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-white">
+                    AI-GOS Journey
                   </span>
-                  <span className="rounded-full border border-black/6 bg-white px-3 py-1 text-[11px] text-[#716c63]">
-                    Research ready
+                  <span className="block truncate text-xs text-white/42">
+                    research worker connected to the report workspace
                   </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onAnalyze}
-                  disabled={!websiteUrl.trim()}
-                  aria-label="Analyze website"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1f1d18] text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+                </span>
+              </Link>
+
+              <div className="flex items-center gap-2">
+                <span className="hidden h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 text-xs font-semibold text-white/54 sm:inline-flex">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4] shadow-[0_0_0_4px_rgba(80,248,228,0.12)]" />
+                  agent ready
+                </span>
+                <Link
+                  href="/dashboard"
+                  className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-white/58 transition-colors hover:text-white"
                 >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path d="M5 12h14m-7-7 7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="mt-4 rounded-[18px] border border-black/6 bg-white px-4 py-3">
-                <label className="text-[11px] uppercase tracking-[0.18em] text-[#8a867d]">
-                  LinkedIn company page (optional)
-                </label>
-                <input
-                  type="url"
-                  value={linkedinUrl}
-                  onChange={(event) => onLinkedinUrlChange(event.target.value)}
-                  placeholder="https://linkedin.com/company/your-company"
-                  className="mt-2 w-full bg-transparent text-[14px] text-[#1f1d18] placeholder:text-[#aaa59b] focus:outline-none"
-                />
+                  Library
+                </Link>
               </div>
             </div>
+          </header>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-[13px] text-[#5f5b54]">
-                  Start with a website for the cleanest research handoff.
+          <main className="grid flex-1 place-items-center px-4 py-5 sm:px-6">
+            <div className="grid h-[min(760px,calc(100vh-102px))] min-h-[620px] w-full max-w-[980px] grid-rows-[auto_1fr_auto] overflow-hidden rounded-[8px] border border-white/10 bg-[#0a0d14] shadow-[0_24px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <section className="border-b border-white/[0.07] bg-[#0d1018] px-5 py-6 text-center sm:px-8">
+                <div className="inline-flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 font-mono text-[11px] font-semibold text-white/52">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#50f8e4]" />
+                  GTM research coworker
+                </div>
+                <h1 className="mx-auto mt-4 max-w-[720px] text-[2.2rem] font-semibold leading-[1.04] tracking-[-0.04em] text-white sm:text-[2.55rem]">
+                  Start from a link. Work inside the report.
+                </h1>
+                <p className="mx-auto mt-3 max-w-[650px] text-sm leading-6 text-white/52">
+                  Enter the company source and AI-GOS will open the workspace,
+                  dispatch deep research, and fill the GTM sections from the
+                  saved corpus.
                 </p>
-                <p className="mt-1 text-[12px] text-[#8a867d]">
-                  No forms. Journey will collect the rest contextually as the research progresses.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={onSkip}
-                className="rounded-full border border-black/8 px-4 py-2 text-[12px] text-[#625f57] transition-colors hover:border-black/14 hover:text-[#1f1d18]"
-              >
-                Start without website analysis
-              </button>
-            </div>
-          </div>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {MODE_CHIPS.map((chip) => (
+                    <ModeChip key={chip.label} label={chip.label} Icon={chip.Icon} />
+                  ))}
+                </div>
+              </section>
 
-          <div className="mx-auto mt-10 max-w-4xl">
-            <p className="mb-4 text-[14px] text-[#625f57]">
-              Get started with
-            </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {WELCOME_STARTER_CARDS.map((card) => (
-                <JourneyStarterCard
-                  key={card.title}
-                  eyebrow={card.eyebrow}
-                  title={card.title}
-                  description={card.description}
-                  accentFrom={card.accentFrom}
-                  accentTo={card.accentTo}
-                />
-              ))}
+              <section className="min-h-0 overflow-y-auto px-5 py-5 sm:px-7">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
+                  <div className="rounded-[8px] border border-white/10 bg-white/[0.028] p-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/38">
+                      Run sequence
+                    </p>
+                    <div className="mt-4 grid gap-2.5">
+                      {AGENT_STEPS.map((step) => (
+                        <AgentStepRow key={step.title} step={step} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <ReportPreview />
+                </div>
+              </section>
+
+              <footer className="border-t border-white/10 bg-[#0d1018] p-4">
+                <form
+                  className="rounded-[8px] border border-[#50f8e4]/22 bg-[#11151f] p-4 shadow-[0_0_0_5px_rgba(80,248,228,0.035),0_22px_80px_rgba(54,94,255,0.16)]"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (canAnalyze) {
+                      onAnalyze();
+                    }
+                  }}
+                >
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.86fr)]">
+                    <SourceInput
+                      id="journey-company-url"
+                      label="Company website"
+                      value={websiteUrl}
+                      onChange={onWebsiteUrlChange}
+                      placeholder="https://your-company.com"
+                      Icon={Link2}
+                      required
+                    />
+                    <SourceInput
+                      id="journey-linkedin-url"
+                      label="LinkedIn optional"
+                      value={linkedinUrl}
+                      onChange={onLinkedinUrlChange}
+                      placeholder="https://linkedin.com/company/..."
+                      Icon={Globe2}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs leading-5 text-white/42">
+                      The workspace opens first. Research, source gaps, and card
+                      hydration continue asynchronously.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={onSkip}
+                        className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/58 transition-colors hover:border-white/18 hover:text-white/78"
+                      >
+                        Open workspace
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!canAnalyze}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#365eff] text-white shadow-[0_12px_28px_rgba(54,94,255,0.28)] transition-opacity hover:opacity-92 disabled:opacity-35"
+                        aria-label="Run deep research"
+                      >
+                        <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </footer>
             </div>
-          </div>
-        </div>
-      </main>
+          </main>
+        </section>
+      </div>
     </div>
   );
 }

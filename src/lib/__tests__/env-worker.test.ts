@@ -19,7 +19,15 @@ describe('validateWorkerUrl', () => {
     expect(result.configured).toBe(true);
   });
 
-  it('returns configured: false and a helpful message when RAILWAY_WORKER_URL is missing', async () => {
+  it('returns configured: true when RAILWAY_WORKER_URL is missing outside production', async () => {
+    delete process.env.RAILWAY_WORKER_URL;
+    const { validateWorkerUrl } = await import('../env');
+    const result = validateWorkerUrl();
+    expect(result.configured).toBe(true);
+  });
+
+  it('returns configured: false and a helpful message when RAILWAY_WORKER_URL is missing in production', async () => {
+    process.env.NODE_ENV = 'production';
     delete process.env.RAILWAY_WORKER_URL;
     const { validateWorkerUrl } = await import('../env');
     const result = validateWorkerUrl();
@@ -28,14 +36,15 @@ describe('validateWorkerUrl', () => {
     expect(result.message).toContain('research');
   });
 
-  it('returns configured: false when RAILWAY_WORKER_URL is empty string', async () => {
+  it('uses the local fallback when RAILWAY_WORKER_URL is empty outside production', async () => {
     process.env.RAILWAY_WORKER_URL = '';
     const { validateWorkerUrl } = await import('../env');
     const result = validateWorkerUrl();
-    expect(result.configured).toBe(false);
+    expect(result.configured).toBe(true);
   });
 
-  it('returns configured: false when RAILWAY_WORKER_URL is whitespace only', async () => {
+  it('returns configured: false when RAILWAY_WORKER_URL is whitespace only in production', async () => {
+    process.env.NODE_ENV = 'production';
     process.env.RAILWAY_WORKER_URL = '   ';
     const { validateWorkerUrl } = await import('../env');
     const result = validateWorkerUrl();

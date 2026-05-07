@@ -165,6 +165,9 @@ export function validateWorkerUrl(): WorkerUrlValidationResult {
   if (url) {
     return { configured: true };
   }
+  if (process.env.NODE_ENV !== 'production') {
+    return { configured: true };
+  }
   return {
     configured: false,
     message:

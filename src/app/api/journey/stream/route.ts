@@ -380,6 +380,7 @@ export async function POST(request: Request) {
     mediaPlanStarted,
     mediaPlanComplete: journeySnap.mediaPlanComplete,
   });
+  const enableLegacySequentialResearch = false;
 
   // Stage 2: competitor detection — inject instruction if new competitor found
   const competitorDetection = lastUserText
@@ -421,7 +422,7 @@ export async function POST(request: Request) {
 
   // Prefill research trigger: when user accepted prefill data, inject explicit instruction
   // to fire researchIndustry immediately. Bifurcated: first call vs already-dispatched.
-  if (isPrefillMessage && !isWorkspaceReportChat) {
+  if (enableLegacySequentialResearch && isPrefillMessage && !isWorkspaceReportChat) {
     // Check if researchIndustry has already been dispatched in this conversation
     const industryAlreadyCalled = requestMessages.some((m) =>
       m.role === 'assistant' &&
@@ -479,6 +480,7 @@ ACTION: Acknowledge the uploaded data briefly, then continue collecting any REMA
   }
 
   if (
+    enableLegacySequentialResearch &&
     pendingReviewSection &&
     !isWorkspaceReportChat &&
     !isApprovalMessage &&
@@ -506,7 +508,12 @@ Do NOT:
 - Offer a strategic summary yet`;
   }
 
-  if (isSectionFeedbackMessage && !journeySnap.strategistModeReady && !isWorkspaceReportChat) {
+  if (
+    enableLegacySequentialResearch &&
+    isSectionFeedbackMessage &&
+    !journeySnap.strategistModeReady &&
+    !isWorkspaceReportChat
+  ) {
     const feedbackSection = latestFeedbackSection ?? pendingReviewSection ?? 'industryMarket';
     const sectionLabel = SECTION_META[feedbackSection]?.label ?? feedbackSection;
 
@@ -539,6 +546,7 @@ DO NOT:
 
   // Approval handling: when user approves a section via the artifact panel button
   if (
+    enableLegacySequentialResearch &&
     isApprovalMessage &&
     latestApprovedSection &&
     !journeySnap.strategistModeReady &&
@@ -622,6 +630,7 @@ ${nextDirective}`;
   }
 
   if (
+    enableLegacySequentialResearch &&
     marketOverviewApproved &&
     !isWorkspaceReportChat &&
     !isApprovalMessage &&
