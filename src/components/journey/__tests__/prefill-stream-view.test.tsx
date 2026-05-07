@@ -41,7 +41,7 @@ describe('PrefillStreamView', () => {
             {
               at: '2026-05-07T09:00:02.000Z',
               id: 'update-2',
-              message: 'Extracting source-backed profile fields.',
+              message: 'Extracting source-backed company context.',
               phase: 'analysis',
             },
           ],
@@ -57,7 +57,7 @@ describe('PrefillStreamView', () => {
     expect(screen.getByText('Building company corpus')).toBeInTheDocument();
     expect(screen.getByText('Searching company sources.')).toBeInTheDocument();
     expect(
-      screen.getByText('Extracting source-backed profile fields.'),
+      screen.getByText('Extracting source-backed company context.'),
     ).toBeInTheDocument();
   });
 

@@ -301,7 +301,10 @@ export function JourneyAgentChat({
 
           {hasSubmittedUrl ? (
             <div className="mx-auto w-full max-w-[780px] px-4 py-3">
-              <div className="rounded-2xl border border-white/[0.07] bg-[#11110f] p-4">
+              <div
+                data-testid="journey-assistant-output"
+                className="rounded-2xl border border-white/[0.07] bg-[#11110f] p-4"
+              >
                 <div className="mb-3 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-300" />
                   <p className="text-sm font-medium text-[#f4f1e8]">Deep Research Agent</p>
@@ -337,7 +340,14 @@ export function JourneyAgentChat({
 
           {displayedMessages.map((message) => (
             <div key={message.id} className="mx-auto w-full max-w-[780px] px-4 py-2">
-              <div className={message.role === 'user' ? 'ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-[#23231f] px-4 py-3 text-sm leading-6' : 'max-w-none text-sm leading-7 text-[#c8c1b4]'}>
+              <div
+                data-testid={
+                  message.role === 'assistant'
+                    ? 'journey-chat-assistant-message'
+                    : 'journey-chat-user-message'
+                }
+                className={message.role === 'user' ? 'ml-auto max-w-[82%] rounded-2xl rounded-tr-md bg-[#23231f] px-4 py-3 text-sm leading-6' : 'max-w-none text-sm leading-7 text-[#c8c1b4]'}
+              >
                 {message.text}
               </div>
             </div>

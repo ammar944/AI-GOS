@@ -75,8 +75,8 @@ function getThinkingSteps(
     },
     {
       id: 'fields',
-      label: 'Extracting profile context',
-      description: 'Deep research profile fields become the source of truth.',
+      label: 'Extracting research context',
+      description: 'Evidence-backed company context becomes the source of truth.',
     },
     {
       id: 'gtm',
@@ -144,9 +144,6 @@ export function PrefillStreamView({
   const updates = getActivityUpdates(deepResearchActivity);
   const activityStatus = getActivityStatus(deepResearchStatus, deepResearchActivity);
   const visibleFields = getVisibleFields(deepResearchFields);
-  const fieldCount = Object.values(deepResearchFields).filter(
-    (value) => value.trim().length > 0,
-  ).length;
   const isComplete = deepResearchStatus === 'complete';
   const isError = deepResearchStatus === 'error';
 
@@ -282,7 +279,7 @@ export function PrefillStreamView({
                         {isError
                           ? `Deep research failed before workspace launch: ${deepResearchError ?? 'Unknown error'}`
                           : isComplete
-                            ? `Company corpus is ready with ${fieldCount} source-backed profile fields. Opening the Journey workspace.`
+                            ? 'Company corpus is ready. Opening the Journey workspace.'
                             : 'Building the company corpus before any report section starts.'}
                       </p>
 
@@ -290,7 +287,7 @@ export function PrefillStreamView({
                         <div className="rounded-[8px] border border-[#14171f] bg-[#0d1018]">
                           <div className="border-b border-[#14171f] px-5 py-3">
                             <p className="text-xs text-[#8e97a6]">
-                              Deep research profile fields
+                              Evidence-backed company context
                             </p>
                           </div>
                           <div className="grid gap-2 p-3">

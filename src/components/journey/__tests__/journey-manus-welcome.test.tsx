@@ -105,6 +105,6 @@ describe('JourneyAgentChat', () => {
     expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
       'Airtable is positioned as an app platform for teams.',
     );
-    expect(screen.queryByText(/profile fields extracted/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Company corpus is ready with/u)).not.toBeInTheDocument();
   });
 });

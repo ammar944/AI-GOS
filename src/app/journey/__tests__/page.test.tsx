@@ -24,6 +24,8 @@ const {
   const statusListeners = new Set<(status: MockChatStatus) => void>();
   let messages: UIMessage[] = [];
   let status: MockChatStatus = 'ready';
+  let initialRealtimeResults: Array<[string, ResearchSectionResult]> = [];
+  const hydratedRunIds = new Set<string>();
   let onSectionComplete:
     | ((section: string, result: ResearchSectionResult) => void)
     | null = null;
@@ -151,8 +153,25 @@ const {
         activeRunId = nextActiveRunId;
         onSectionComplete = nextActiveRunId ? nextHandler : null;
       },
+      hydrate(
+        nextHandler: ((section: string, result: ResearchSectionResult) => void) | null,
+        nextActiveRunId: string | null,
+      ): void {
+        if (!nextHandler || !nextActiveRunId || hydratedRunIds.has(nextActiveRunId)) {
+          return;
+        }
+
+        hydratedRunIds.add(nextActiveRunId);
+        for (const [section, result] of initialRealtimeResults) {
+          nextHandler(section, result);
+        }
+      },
       emit(section: string, result: ResearchSectionResult): void {
         onSectionComplete?.(section, result);
+      },
+      setInitialResults(nextResults: Record<string, ResearchSectionResult>): void {
+        initialRealtimeResults = Object.entries(nextResults);
+        hydratedRunIds.clear();
       },
       getActiveRunId(): string | null {
         return activeRunId;
@@ -160,11 +179,12 @@ const {
       reset(): void {
         onSectionComplete = null;
         activeRunId = null;
+        initialRealtimeResults = [];
+        hydratedRunIds.clear();
       },
     },
   };
 });
-
 vi.mock('ai', () => ({
   DefaultChatTransport: class DefaultChatTransport {
     body?: object | (() => object | undefined);
@@ -298,6 +318,7 @@ vi.mock('@/lib/journey/research-realtime', async () => {
     }) => {
       React.useEffect(() => {
         realtimeControls.setHandler(onSectionComplete, activeRunId ?? null);
+        realtimeControls.hydrate(onSectionComplete, activeRunId ?? null);
         return () => {
           realtimeControls.setHandler(null, null);
         };
@@ -509,67 +530,12 @@ function makeResearchResult(
   };
 }
 
-async function renderJourneyChat(): Promise<void> {
-  render(<JourneyPage />);
-
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Start without website analysis' }));
-  });
-
-  await waitFor(() => {
-    expect(screen.getByTestId('chat-input')).toBeInTheDocument();
-  });
-
-  sendMessageMock.mockClear();
-}
-
 async function emitResearchResult(
   section: string,
   data: Record<string, unknown>,
 ): Promise<void> {
   await act(async () => {
     realtimeControls.emit(section, makeResearchResult(section, data));
-  });
-}
-
-async function emitQueuedResearchDispatch(
-  toolName: 'researchIndustry' | 'researchCompetitors' | 'researchKeywords',
-): Promise<void> {
-  const message: UIMessage = {
-    id: `queued-${toolName}`,
-    role: 'assistant',
-    parts: [
-      {
-        type: 'tool-invocation',
-        toolName,
-      } as unknown as UIMessage['parts'][number],
-    ],
-  };
-
-  await act(async () => {
-    chatControls.setMessages((currentMessages) => [...currentMessages, message]);
-  });
-}
-
-async function emitResearchDispatchError(
-  toolName: 'researchIndustry' | 'researchCompetitors' | 'researchKeywords',
-  errorText: string,
-): Promise<void> {
-  const message: UIMessage = {
-    id: `dispatch-error-${toolName}-${chatControls.getMessages().length + 1}`,
-    role: 'assistant',
-    parts: [
-      {
-        type: `tool-${toolName}`,
-        state: 'output-error',
-        toolName,
-        errorText,
-      } as unknown as UIMessage['parts'][number],
-    ],
-  };
-
-  await act(async () => {
-    chatControls.setMessages((currentMessages) => [...currentMessages, message]);
   });
 }
 
@@ -802,18 +768,7 @@ describe('JourneyPage Manus launch wiring', () => {
   });
 });
 
-// SKIPPED 2026-04-09 (current-marketing-activities + research-fabrication ship).
-// All 11 scenarios in this suite were written against the OLD welcome flow:
-// "Start without website analysis" / "Analyze website first" buttons +
-// `https://example.com` placeholder + "Start Market Overview" CTA. The journey
-// page was redesigned with a URL-input-first kickoff (`Start deep research` button,
-// no skip flow). Support mocks are in place so the page mounts correctly, but
-// every test interaction in here points at buttons that no longer exist.
-//
-// TODO (P0 — TODOS.md): Rewrite this suite for the new welcome UX. The artifact
-// orchestration logic is still valid; only the kickoff and CTA assertions need
-// to change.
-describe.skip('JourneyPage artifact orchestration', () => {
+describe('JourneyPage artifact orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'debug').mockImplementation(() => undefined);
@@ -827,379 +782,262 @@ describe.skip('JourneyPage artifact orchestration', () => {
       ok: true,
       json: async () => ({ ok: true }),
     });
+    dispatchResearchSectionMock.mockImplementation(async (section: string) => ({
+      status: 'queued',
+      section,
+      jobId: `job-${section}`,
+    }));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        metadata: { companyName: 'Airtable' },
+        researchResults: null,
+        jobStatus: null,
+        updatedAt: '2026-05-07T09:00:00.000Z',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: vi.fn(),
     });
   });
 
-  it('starts a clean run when website analysis is skipped', async () => {
-    render(<JourneyPage />);
-
-    expect(realtimeControls.getActiveRunId()).toBeNull();
+  it('renders Deep Research Agent as the first assistant-visible output after a research command', async () => {
+    const { container } = render(<JourneyPage />);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Start without website analysis' }));
-    });
-
-    await waitFor(() => {
-      expect(guardedFetchMock).toHaveBeenCalledWith(
-        '/api/journey/session',
-        expect.objectContaining({
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-    });
-
-    const [, requestInit] = guardedFetchMock.mock.calls[0] as [
-      string,
-      { body?: string },
-    ];
-    const payload = JSON.parse(requestInit.body ?? '{}') as {
-      activeRunId?: unknown;
-      clearResearch?: unknown;
-    };
-
-    expect(payload.clearResearch).toBe(true);
-    expect(typeof payload.activeRunId).toBe('string');
-    expect(String(payload.activeRunId)).not.toHaveLength(0);
-    expect(realtimeControls.getActiveRunId()).toBe(String(payload.activeRunId));
-    expect(transportBodyCalls.values.at(-1)).toEqual(
-      expect.objectContaining({
-        activeRunId: String(payload.activeRunId),
-      }),
-    );
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      {
-        text: 'Start without website analysis',
-        metadata: { activeRunId: String(payload.activeRunId) },
-      },
-      {
-        body: {
-          activeRunId: String(payload.activeRunId),
-        },
-      },
-    );
-  });
-
-  it('sends accepted prefill kickoff with the newly created run id in the request body', async () => {
-    prefillControls.state.partialResult = {
-      companyName: { value: 'SaaSLaunch', confidence: 0.9 },
-      businessModel: { value: 'B2B SaaS growth agency', confidence: 0.9 },
-      productDescription: {
-        value: 'We build and run pipeline systems for B2B SaaS teams.',
-        confidence: 0.9,
-      },
-      topCompetitors: {
-        value: 'Hey Digital, Sales Captain, Growth Marketing Pro',
-        confidence: 0.9,
-      },
-      primaryIcpDescription: {
-        value: 'Seed to Series B B2B SaaS teams that need predictable pipeline growth.',
-        confidence: 0.9,
-      },
-      pricingTiers: {
-        value: 'Retainer-based. Starter $4k/mo, Growth $8k/mo.',
-        confidence: 0.9,
-      },
-      goals: {
-        value: 'Generate more qualified demos and reduce CAC.',
-        confidence: 0.9,
-      },
-      uniqueEdge: {
-        value: 'We tie campaigns directly to pipeline attribution.',
-        confidence: 0.9,
-      },
-    };
-    prefillControls.state.fieldsFound = 8;
-
-    render(<JourneyPage />);
-
-    await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
-        target: { value: 'https://saaslaunch.net' },
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
+        target: { value: 'research airtable.com' },
       });
-      fireEvent.click(screen.getByRole('button', { name: 'Analyze website first' }));
+      fireEvent.click(screen.getByLabelText('Start deep research'));
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('prefill-review')).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Start Market Overview' }));
-    });
-
-    await waitFor(() => {
-      expect(guardedFetchMock).toHaveBeenCalledWith(
-        '/api/journey/session',
-        expect.objectContaining({
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-        }),
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'deepResearchProgram',
+        expect.any(String),
+        expect.stringContaining('Website: https://airtable.com'),
       );
     });
 
-    const [, requestInit] = guardedFetchMock.mock.calls[0] as [
-      string,
-      { body?: string },
-    ];
-    const payload = JSON.parse(requestInit.body ?? '{}') as {
-      activeRunId?: unknown;
-      clearResearch?: unknown;
-    };
+    const command = screen.getByTestId('journey-user-command');
+    const firstAssistantOutput = container.querySelector(
+      '[data-testid="journey-assistant-output"], [data-testid="journey-chat-assistant-message"]',
+    );
 
-    expect(payload.clearResearch).toBe(true);
-    expect(typeof payload.activeRunId).toBe('string');
-    expect(transportBodyCalls.values.at(-1)).toEqual(
-      expect.objectContaining({
-        activeRunId: String(payload.activeRunId),
-      }),
+    expect(firstAssistantOutput).not.toBeNull();
+    expect(firstAssistantOutput).toHaveTextContent('Deep Research Agent');
+    expect(firstAssistantOutput).toHaveTextContent(
+      'Deep Research Agent starting',
     );
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          activeRunId: String(payload.activeRunId),
-        }),
-      }),
-      {
-        body: {
-          activeRunId: String(payload.activeRunId),
-        },
-      },
-    );
+    expect(
+      command.compareDocumentPosition(firstAssistantOutput as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(firstAssistantOutput).not.toHaveTextContent('Market Category Agent');
+    expect(screen.queryByText('Market Category Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Buyer / ICP Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Offer Diagnostic Agent')).not.toBeInTheDocument();
   });
 
-  it('opens a newly completed review artifact when it first becomes ready', async () => {
-    await renderJourneyChat();
+  it('buffers out-of-order backend completions and reveals specialists in canonical UI order', async () => {
+    window.sessionStorage.setItem('aigos_journey_active_run_id', 'run-buffered');
+    window.sessionStorage.setItem('aigos_journey_phase', 'workspace');
 
-    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
-    });
-
-    expect(sendMessageMock).not.toHaveBeenCalled();
-  });
-
-  it('keeps an approved artifact closed when unrelated research results update later', async () => {
-    await renderJourneyChat();
-    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'approve artifact' }));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    });
-
-    sendMessageMock.mockClear();
-
-    await emitResearchResult('keywordIntel', {
-      campaignGroups: [{ name: 'Competitor Alternatives' }],
-    });
-
-    await waitFor(() => {
-      expect(sendMessageMock).toHaveBeenCalledTimes(1);
-    });
-
-    expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    expect(sendMessageMock.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        metadata: { hidden: true },
-      }),
-    );
-  });
-
-  it('does not resurface the same approved review section without a new invalidation cycle', async () => {
-    await renderJourneyChat();
-    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'approve artifact' }));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    });
-
-    sendMessageMock.mockClear();
-
-    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
-
-    expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    expect(sendMessageMock).not.toHaveBeenCalled();
-  });
-
-  it('keeps approval UI aligned with the backend approval history on hydration', async () => {
-    await renderJourneyChat();
-
-    await act(async () => {
-      chatControls.appendMessage({
-        id: 'approval-industry',
-        role: 'user',
-        parts: [
-          {
-            type: 'text',
-            text: '[SECTION_APPROVED:industryMarket] Looks good',
-          } as unknown as UIMessage['parts'][number],
-        ],
-      } as UIMessage);
-    });
-
-    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
-
-    expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    expect(screen.getByTestId('artifact-trigger-industryMarket')).toHaveTextContent(
-      'approved',
-    );
-  });
-
-  it('reopens an approved review section when a real rerun is queued', async () => {
-    await renderJourneyChat();
-    await emitResearchResult('industryMarket', { summary: 'Market overview ready' });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'approve artifact' }));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('artifact-panel')).not.toBeInTheDocument();
-    });
-
-    await emitQueuedResearchDispatch('researchIndustry');
-
-    await waitFor(() => {
-      expect(screen.getByTestId('artifact-panel')).toHaveTextContent('industryMarket');
-    });
-  });
-
-  it('sends one hidden wake-up when the same non-review section completes more than once', async () => {
-    await renderJourneyChat();
-
-    await emitResearchResult('keywordIntel', {
-      campaignGroups: [{ name: 'Competitor Alternatives' }],
-    });
-    await emitResearchResult('keywordIntel', {
-      campaignGroups: [{ name: 'Competitor Alternatives' }],
-    });
-
-    await waitFor(() => {
-      expect(sendMessageMock).toHaveBeenCalledTimes(1);
-    });
-
-    expect(sendMessageMock.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({
-        metadata: { hidden: true },
-      }),
-    );
-    expect(console.debug).toHaveBeenCalledWith(
-      '[journey][debug]',
-      expect.objectContaining({
-        event: 'hidden-wake-up-dispatched',
-        section: 'keywordIntel',
-      }),
-    );
-    expect(console.debug).toHaveBeenCalledWith(
-      '[journey][debug]',
-      expect.objectContaining({
-        event: 'hidden-wake-up-suppressed',
-        section: 'keywordIntel',
-      }),
-    );
-  });
-
-  it('uses the latest active run id for implicit follow-up sends after onboarding starts', async () => {
     render(<JourneyPage />);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Start without website analysis' }));
+    await waitFor(() => {
+      expect(realtimeControls.getActiveRunId()).toBe('run-buffered');
+    });
+
+    await emitResearchResult('deepResearchProgram', {});
+    await emitResearchResult('competitors', {
+      sectionTitle: 'Competitive Positioning',
+      statusSummary: 'Competitors finished before ICP.',
+    });
+
+    expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Competitors finished before ICP.')).not.toBeInTheDocument();
+
+    await emitResearchResult('industryMarket', {
+      sectionTitle: 'Market Category',
+      statusSummary: 'Market category finished first.',
     });
 
     await waitFor(() => {
-      expect(guardedFetchMock).toHaveBeenCalled();
+      expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
     });
+    expect(screen.getByText('Buyer / ICP Agent')).toBeInTheDocument();
+    expect(screen.queryByText('Competitive Positioning Agent')).not.toBeInTheDocument();
 
-    const [, requestInit] = guardedFetchMock.mock.calls[0] as [
-      string,
-      { body?: string },
-    ];
-    const payload = JSON.parse(requestInit.body ?? '{}') as {
-      activeRunId?: unknown;
-    };
-    const nextRunId = String(payload.activeRunId);
-
-    sendMessageMock.mockClear();
-    transportBodyCalls.reset();
-
-    await emitResearchResult('keywordIntel', {
-      campaignGroups: [{ name: 'Competitor Alternatives' }],
+    await emitResearchResult('icpValidation', {
+      sectionTitle: 'Buyer ICP',
+      statusSummary: 'ICP validation now finished.',
     });
 
     await waitFor(() => {
-      expect(sendMessageMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Competitive Positioning Agent')).toBeInTheDocument();
     });
 
-    expect(transportBodyCalls.values.at(-1)).toEqual(
-      expect.objectContaining({
-        activeRunId: nextRunId,
-      }),
-    );
+    const marketAgent = screen.getByText('Market Category Agent');
+    const icpAgent = screen.getByText('Buyer / ICP Agent');
+    const competitorAgent = screen.getByText('Competitive Positioning Agent');
+
+    expect(
+      marketAgent.compareDocumentPosition(icpAgent) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      icpAgent.compareDocumentPosition(competitorAgent) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getAllByText('Competitors finished before ICP.').length).toBeGreaterThan(0);
   });
 
-  it('shows a worker-unavailable banner when dispatch fails before pickup', async () => {
-    await renderJourneyChat();
-
-    await emitResearchDispatchError('researchIndustry', 'fetch failed');
-
-    await waitFor(() => {
-      expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
-        'Worker unavailable',
-      );
-    });
-
-    expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
-      'Start the research worker on :3001',
-    );
-  });
-
-  it('shows a timeout banner when the chat request times out but the worker keeps running', async () => {
+  it('shows the central report artifact growing from realistic worker draft chunks', async () => {
+    window.sessionStorage.setItem('aigos_journey_active_run_id', 'run-draft-growth');
+    window.sessionStorage.setItem('aigos_journey_phase', 'workspace');
     researchJobActivityValue.current = {
+      deepResearchProgram: {
+        jobId: 'job-deep',
+        section: 'deepResearchProgram',
+        status: 'complete',
+        tool: 'runDeepResearchProgram',
+        startedAt: '2026-05-07T09:00:00.000Z',
+        completedAt: '2026-05-07T09:01:00.000Z',
+      },
       industryMarket: {
-        jobId: 'job-1',
+        jobId: 'job-market',
         section: 'industryMarket',
-        startedAt: '2026-03-12T09:00:00.000Z',
         status: 'running',
         tool: 'researchIndustry',
+        startedAt: '2026-05-07T09:02:00.000Z',
+        updates: [
+          {
+            at: '2026-05-07T09:02:01.000Z',
+            id: 'search-1',
+            message: 'Opened Airtable product and pricing pages.',
+            phase: 'tool',
+            meta: {
+              toolName: 'web_search',
+              url: 'https://www.airtable.com/product',
+              pageTitle: 'Airtable product',
+            },
+          },
+          {
+            at: '2026-05-07T09:02:02.000Z',
+            id: 'draft-1',
+            message: 'draft Airtable is positioned as an app platform for teams that need connected data, workflows, interfaces, and AI-assisted operations.',
+            phase: 'analysis',
+          },
+        ],
       },
     };
 
-    await renderJourneyChat();
-    await emitQueuedResearchDispatch('researchIndustry');
-    await emitResearchDispatchError('researchIndustry', 'Request timed out.');
+    const { rerender } = render(<JourneyPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
-        'Chat timed out',
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'connected data, workflows, interfaces',
       );
     });
-
-    expect(screen.getByTestId('journey-worker-status-banner')).toHaveTextContent(
-      'worker is still running in the background',
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Draft inference pending source review',
     );
+    const firstDraftText =
+      screen.getByTestId('deep-research-report-artifact').textContent ?? '';
+    expect(firstDraftText).not.toContain('Buyers compare Airtable');
+
+    researchJobActivityValue.current = {
+      ...researchJobActivityValue.current,
+      industryMarket: {
+        ...researchJobActivityValue.current.industryMarket,
+        updates: [
+          ...(researchJobActivityValue.current.industryMarket?.updates ?? []),
+          {
+            at: '2026-05-07T09:02:03.000Z',
+            id: 'draft-2',
+            message: 'draft Buyers compare Airtable against spreadsheets, workflow tools, and lightweight databases when evaluating operational systems.',
+            phase: 'analysis',
+          },
+        ],
+      },
+    };
+
+    rerender(<JourneyPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+        'Buyers compare Airtable against spreadsheets',
+      );
+    });
+    expect(
+      screen.getByTestId('deep-research-report-artifact').textContent?.length ?? 0,
+    ).toBeGreaterThan(firstDraftText.length);
+  });
+
+  it('reconstructs active, partial, completed, and buffered run state after refresh', async () => {
+    window.sessionStorage.setItem('aigos_journey_active_run_id', 'run-refresh-rich');
+    window.sessionStorage.setItem('aigos_journey_phase', 'workspace');
+    researchJobActivityValue.current = {
+      offerAnalysis: {
+        jobId: 'job-offer',
+        section: 'offerAnalysis',
+        status: 'running',
+        tool: 'researchOffer',
+        startedAt: '2026-05-07T09:04:00.000Z',
+        updates: [
+          {
+            at: '2026-05-07T09:04:01.000Z',
+            id: 'offer-draft',
+            message: 'draft Offer analysis is being written from the saved corpus.',
+            phase: 'analysis',
+          },
+        ],
+      },
+    };
+    realtimeControls.setInitialResults({
+      deepResearchProgram: makeResearchResult('deepResearchProgram', {}),
+      industryMarket: makeResearchResult('industryMarket', {
+        sectionTitle: 'Market Category',
+        statusSummary: 'Market complete from persisted snapshot.',
+      }),
+      icpValidation: {
+        ...makeResearchResult('icpValidation', {
+          sectionTitle: 'Buyer ICP',
+          statusSummary: 'ICP draft needs source review.',
+        }),
+        status: 'partial',
+        error: 'Needs source review.',
+      },
+      competitors: makeResearchResult('competitors', {
+        sectionTitle: 'Competitive Positioning',
+        statusSummary: 'Competitor section complete from persisted snapshot.',
+      }),
+      keywordIntel: makeResearchResult('keywordIntel', {
+        sectionTitle: 'Demand Intent',
+        statusSummary: 'Keyword output finished early.',
+      }),
+    });
+
+    render(<JourneyPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Offer Diagnostic Agent').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.getByText('Market Category Agent')).toBeInTheDocument();
+    expect(screen.getAllByText('Market complete from persisted snapshot.').length).toBeGreaterThan(0);
+    expect(screen.getByText('Buyer / ICP Agent')).toBeInTheDocument();
+    expect(screen.getAllByText('ICP draft needs source review.').length).toBeGreaterThan(0);
+    expect(screen.getByText('Competitive Positioning Agent')).toBeInTheDocument();
+    expect(screen.getAllByText('Competitor section complete from persisted snapshot.').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
+      'Offer analysis is being written from the saved corpus.',
+    );
+    expect(screen.queryByText('Demand Intent Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Keyword output finished early.')).not.toBeInTheDocument();
   });
 });
