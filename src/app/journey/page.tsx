@@ -223,15 +223,10 @@ function JourneyPageContent() {
   const loggedResearchErrorsRef = useRef<Set<string>>(new Set());
   const loggedResearchTimeoutFallbacksRef = useRef<Set<string>>(new Set());
 
-  // Journey phase: controls which view renders
-  // Priority: deep-link > sessionStorage restore > welcome
+  // Journey phase: controls which view renders.
+  // Session storage restores after hydration so the first server/client render matches.
   const [journeyPhase, setJourneyPhase] = useState<JourneyPhaseView>(() => {
     if (deepLinkSession || deepLinkSection) return 'workspace';
-    const storedRunId = getStoredJourneyRunId();
-    const storedPhase = getStoredJourneyPhase();
-    if (storedRunId && isJourneyPhaseView(storedPhase)) {
-      return storedPhase === 'resume' ? 'workspace' : storedPhase;
-    }
     return 'welcome';
   });
   const [savedSession, setSavedSession] = useState<OnboardingState | null>(null);
@@ -241,12 +236,10 @@ function JourneyPageContent() {
   const [linkDeepResearchStatus, setLinkDeepResearchStatus] =
     useState<LinkDeepResearchStatus>('idle');
   const [linkDeepResearchError, setLinkDeepResearchError] = useState<string | null>(null);
-  const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(() =>
-    getStoredJourneyCompanyName(),
-  );
+  const [journeyCompanyName, setJourneyCompanyName] = useState<string | null>(null);
 
   const [activeRunId, setActiveRunId] = useState<string | null>(() =>
-    deepLinkSession ?? getStoredJourneyRunId(),
+    deepLinkSession ?? null,
   );
   const [resumeTransportState, setResumeTransportState] = useState<Record<string, unknown> | undefined>(undefined);
   const activeRunIdRef = useRef<string | null>(activeRunId);
