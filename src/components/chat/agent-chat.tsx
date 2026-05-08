@@ -31,6 +31,7 @@ import { ShortcutsHelp } from './shortcuts-help';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from 'sonner';
 import { useEditHistory } from '@/hooks/use-edit-history';
 import { useChatPersistence } from '@/hooks/use-chat-persistence';
 import { useChatShortcuts } from '@/hooks/use-chat-shortcuts';
@@ -312,11 +313,17 @@ export function AgentChat({
         // Notify the blueprint view that this edit was approved
         editCtx?.notifyEditApproved(approvalId);
         addToolApprovalResponse({ id: approvalId, approved: true });
+        toast.success('Edit applied', {
+          description: `${editInput.section} / ${editInput.fieldPath}`,
+        });
       } catch (err) {
         console.error('Failed to apply edit:', err);
         // Reject so the model knows the edit failed
         editCtx?.notifyEditRejected(approvalId);
         addToolApprovalResponse({ id: approvalId, approved: false });
+        toast.error('Failed to apply edit', {
+          description: err instanceof Error ? err.message : 'Unknown error',
+        });
       }
     },
     [addToolApprovalResponse, onBlueprintUpdate, recordEdit, editCtx]

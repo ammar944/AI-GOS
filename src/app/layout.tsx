@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 // AIGOS v3 Typography System — Journey Workspace redesign (2026-04-17)
@@ -74,6 +75,7 @@ export default function RootLayout({
         >
           <ThemeProvider>
             <ErrorBoundary>{children}</ErrorBoundary>
+            <Toaster position="top-right" />
           </ThemeProvider>
         </body>
       </html>
