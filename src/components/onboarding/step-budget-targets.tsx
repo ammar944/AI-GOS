@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Target, DollarSign, Calendar, TrendingUp } from "lucide-react";
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
-import { MagneticButton } from "@/components/ui/magnetic-button";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -303,20 +303,20 @@ export function StepBudgetTargets({
 
       <motion.div className="flex gap-3 pt-4" variants={staggerItem}>
         {onBack && (
-          <MagneticButton
+          <Button
             type="button"
+            variant="ghost"
             className="h-10 px-4 py-2 rounded-md text-sm font-medium"
             onClick={onBack}
             style={{
               border: '1px solid var(--border-default)',
               color: 'var(--text-secondary)',
-              background: 'transparent',
             }}
           >
             Back
-          </MagneticButton>
+          </Button>
         )}
-        <MagneticButton
+        <Button
           type="submit"
           className="flex-1 h-10 px-4 py-2 rounded-md text-sm font-medium"
           style={{
@@ -325,7 +325,7 @@ export function StepBudgetTargets({
           }}
         >
           Continue
-        </MagneticButton>
+        </Button>
       </motion.div>
     </motion.form>
   );

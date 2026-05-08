@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
-import { MagneticButton } from "@/components/ui/magnetic-button";
+import { Button } from "@/components/ui/button";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 import type { BrandPositioningData, OnboardingFormData } from "@/lib/onboarding/types";
 import { useStepSuggestion } from "@/hooks/use-step-suggestion";
@@ -174,29 +174,28 @@ export function StepBrandPositioning({
         transition={{ delay: 0.3 }}
       >
         {onBack && (
-          <MagneticButton
+          <Button
             type="button"
+            variant="ghost"
             onClick={onBack}
-            className="py-3 px-6 rounded-xl text-[14px] font-medium"
+            className="py-3 px-6 rounded-md text-[14px] font-medium"
             style={{
-              background: 'transparent',
               border: '1px solid var(--border-default)',
               color: 'var(--text-secondary)',
             }}
           >
             Back
-          </MagneticButton>
+          </Button>
         )}
-        <MagneticButton
+        <Button
           type="submit"
-          className="flex-1 py-3 px-6 rounded-xl text-[14px] font-semibold text-white"
+          className="flex-1 py-3 px-6 rounded-md text-[14px] font-semibold text-white"
           style={{
             background: 'var(--gradient-primary)',
-            boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)',
           }}
         >
           Continue
-        </MagneticButton>
+        </Button>
       </motion.div>
     </form>
   );

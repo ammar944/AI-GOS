@@ -13,7 +13,7 @@ import {
   Square,
 } from "lucide-react";
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
-import { MagneticButton } from "@/components/ui/magnetic-button";
+import { Button } from "@/components/ui/button";
 import { PrefillSummary } from "./prefill-summary";
 import { useCompanyResearch } from "@/hooks/use-company-research";
 import type { CompanyResearchOutput } from "@/lib/company-intel";
@@ -608,11 +608,11 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
 
               {/* Research / Stop Button Row */}
               <div className="flex items-center gap-2">
-                <MagneticButton
+                <Button
                   type="button"
                   onClick={isStreaming ? handleStop : handleResearch}
                   disabled={!isStreaming && !websiteUrl.trim()}
-                  className="flex-1 py-3 px-4 rounded-lg text-[14px] font-medium flex items-center justify-center gap-2"
+                  className="flex-1 py-3 px-4 rounded-md text-[14px] font-medium flex items-center justify-center gap-2"
                   style={{
                     background: isStreaming
                       ? "rgba(54, 94, 255, 0.3)"
@@ -647,7 +647,7 @@ export function AutoFillPanel({ onPrefillComplete }: AutoFillPanelProps) {
                       <span>Research & Auto-Fill</span>
                     </>
                   )}
-                </MagneticButton>
+                </Button>
 
                 {isStreaming && (
                   <button

@@ -13,7 +13,7 @@ import {
   Loader2,
   Minus,
 } from "lucide-react";
-import { MagneticButton } from "@/components/ui/magnetic-button";
+import { Button } from "@/components/ui/button";
 import { DocumentPrefillSummary } from "./document-prefill-summary";
 import { useDocumentExtraction } from "@/hooks/use-document-extraction";
 import {
@@ -821,11 +821,11 @@ export function DocumentUploadPanel({ onPrefillComplete }: DocumentUploadPanelPr
               )}
 
               {/* Extract Button */}
-              <MagneticButton
+              <Button
                 type="button"
                 onClick={handleExtract}
                 disabled={!selectedFile}
-                className="w-full py-3 px-4 rounded-lg text-[14px] font-medium flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-md text-[14px] font-medium flex items-center justify-center gap-2"
                 style={{
                   background: "linear-gradient(135deg, rgb(139, 92, 246) 0%, rgb(109, 40, 217) 100%)",
                   color: "#ffffff",
@@ -835,7 +835,7 @@ export function DocumentUploadPanel({ onPrefillComplete }: DocumentUploadPanelPr
               >
                 <FileUp className="h-4 w-4" />
                 <span>Extract & Auto-Fill</span>
-              </MagneticButton>
+              </Button>
             </div>
           </motion.div>
         )}
