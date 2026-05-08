@@ -663,11 +663,6 @@ function JourneyPageContent() {
 
       workspaceTransitionInFlightRef.current = true;
       const displayName = acceptedJourneyFields.companyName || 'this company';
-      const orderedFieldKeys = Object.keys(acceptedJourneyFields);
-      const context = buildJourneyResearchContext(
-        acceptedJourneyFields,
-        orderedFieldKeys,
-      );
       const guardedFetch = createJourneyGuardedFetch('Journey');
 
       try {
@@ -698,52 +693,19 @@ function JourneyPageContent() {
       setStoredJourneyCompanyName(displayName);
       hasTransitionedToWorkspaceRef.current = true;
       setJourneyPhase('workspace');
+      // Workspace is open with the corpus persisted. The first report section
+      // does NOT auto-dispatch — the user clicks Run section to start it.
+      // Supervised progression is the contract; auto-chains were removed in
+      // the rescue plan so streaming is honest and progression is observable.
       addLog(
         'ok',
-        'Opened workspace from company research context',
+        'Opened workspace from company research context — click Run section to start the first report section.',
       );
-
-      dispatchingSectionsRef.current.add('industryMarket');
-      markResearchQueued('industryMarket');
-      let result: Awaited<ReturnType<typeof dispatchResearchSection>>;
-      try {
-        result = await dispatchResearchSection('industryMarket', runId, context);
-      } finally {
-        dispatchingSectionsRef.current.delete('industryMarket');
-        workspaceTransitionInFlightRef.current = false;
-      }
-      if (result.status === 'error') {
-        const errorMessage =
-          result.error ?? `Market & Category dispatch failed for run ${runId}`;
-        setActiveResearch((prev) => {
-          if (!prev.has('industryMarket')) return prev;
-          const next = new Set(prev);
-          next.delete('industryMarket');
-          return next;
-        });
-        setResearchResults((prev) => ({
-          ...prev,
-          industryMarket: {
-            status: 'error',
-            section: 'industryMarket',
-            error: errorMessage,
-            durationMs: 0,
-          },
-        }));
-        addLog('err', errorMessage);
-        return;
-      }
-
-      addLog(
-        'run',
-        `Market & Category synthesis queued from deep corpus (job: ${result.jobId ?? 'unknown'})`,
-      );
+      workspaceTransitionInFlightRef.current = false;
     },
     [
       addLog,
-      markResearchQueued,
       prefillWebsiteUrl,
-      setResearchResults,
     ],
   );
 
@@ -1038,27 +1000,10 @@ function JourneyPageContent() {
           .catch((e) => console.warn(`[insights] ${section} failed:`, e));
       }
 
-      if (result.status !== 'complete') {
-        return;
-      }
-
-      if (journeyPhaseRef.current === 'workspace') {
-        const queuedOrComplete = {
-          ...researchResults,
-          [section]: result,
-        };
-        const nextActiveResearch = new Set(activeResearch);
-        nextActiveResearch.delete(section);
-        const nextSection = getNextPendingJourneyReportSection(
-          queuedOrComplete,
-          nextActiveResearch,
-        );
-
-        if (nextSection) {
-          dispatchJourneyReportSection(nextSection);
-        }
-      }
-
+      // No auto-chain. Section completion updates state, logs, and
+      // (on success) saves insights — but does NOT dispatch the next
+      // section. The user clicks Run section in the workspace UI; that
+      // path goes through handleRunNextSection → dispatchJourneyReportSection.
     },
   });
 

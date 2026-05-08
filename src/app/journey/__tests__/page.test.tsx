@@ -664,7 +664,7 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(screen.queryByTestId('deep-research-report-artifact')).not.toBeInTheDocument();
   });
 
-  it('routes the link-first CTA through company research and opens the workspace from deep fields', async () => {
+  it('routes the link-first CTA through company research and waits for Run section before dispatching the first report section', async () => {
     render(<JourneyPage />);
 
     await act(async () => {
@@ -674,6 +674,8 @@ describe('JourneyPage Manus launch wiring', () => {
       fireEvent.click(screen.getByLabelText('Start research'));
     });
 
+    // URL-form deep research dispatches automatically (the only auto-dispatch
+    // surviving the rescue plan).
     await waitFor(() => {
       expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
         'deepResearchProgram',
@@ -689,6 +691,29 @@ describe('JourneyPage Manus launch wiring', () => {
       }),
     );
 
+    // Workspace opens after deep research completes; the Run section operator
+    // control surfaces with the next pending section labeled. The first report
+    // section MUST NOT auto-dispatch — supervised progression is the contract.
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+        'Market Overview',
+      );
+    });
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent('ready');
+    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
+      'industryMarket',
+      expect.any(String),
+      expect.any(String),
+    );
+
+    // User clicks Run section → industryMarket dispatches with deep corpus context.
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByTestId('journey-next-section-control')).getByRole('button', {
+          name: /Run next research section: Market Overview/u,
+        }),
+      );
+    });
     await waitFor(() => {
       expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
         'industryMarket',
@@ -696,15 +721,10 @@ describe('JourneyPage Manus launch wiring', () => {
         expect.stringContaining('Company Name: Deep SaaSLaunch'),
       );
     });
-    await waitFor(() => {
-      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-        'Market Category',
-      );
-    });
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
   });
 
-  it('opens the workspace from realtime company research results when polling fails', async () => {
+  it('opens the workspace from realtime company research results when polling fails — Run section gates the first dispatch', async () => {
     fetchMock.mockImplementation((input: string | URL | Request) => {
       const url =
         typeof input === 'string'
@@ -761,6 +781,28 @@ describe('JourneyPage Manus launch wiring', () => {
       },
     });
 
+    // Workspace opens via realtime result; Run section control surfaces with the
+    // first pending section. industryMarket MUST NOT auto-dispatch.
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+        'Market Overview',
+      );
+    });
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent('ready');
+    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
+      'industryMarket',
+      expect.any(String),
+      expect.any(String),
+    );
+
+    // User clicks Run section → industryMarket dispatches against the realtime corpus.
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByTestId('journey-next-section-control')).getByRole('button', {
+          name: /Run next research section: Market Overview/u,
+        }),
+      );
+    });
     await waitFor(() => {
       expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
         'industryMarket',
@@ -768,12 +810,9 @@ describe('JourneyPage Manus launch wiring', () => {
         expect.stringContaining('Company Name: Realtime SaaSLaunch'),
       );
     });
-    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
-      'Market Overview',
-    );
   });
 
-  it('auto-runs the next report section after the active section completes', async () => {
+  it('does not auto-chain after a section completes — Run section must be clicked again to advance', async () => {
     render(<JourneyPage />);
 
     await act(async () => {
@@ -783,6 +822,21 @@ describe('JourneyPage Manus launch wiring', () => {
       fireEvent.click(screen.getByLabelText('Start research'));
     });
 
+    // Wait for workspace to open with Run section ready for the first section.
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+        'Market Overview',
+      );
+    });
+
+    // First click — industryMarket dispatches.
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByTestId('journey-next-section-control')).getByRole('button', {
+          name: /Run next research section: Market Overview/u,
+        }),
+      );
+    });
     await waitFor(() => {
       expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
         'industryMarket',
@@ -791,11 +845,33 @@ describe('JourneyPage Manus launch wiring', () => {
       );
     });
 
+    // Section completes via realtime → must NOT auto-chain to icpValidation.
     await emitResearchResult('industryMarket', {
       sectionTitle: 'Market Category',
       statusSummary: 'Market category finished first.',
     });
+    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
+      'icpValidation',
+      expect.any(String),
+      expect.any(String),
+    );
 
+    // Operator control rotates to the next pending section, back in 'ready' state.
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+        'ICP Validation',
+      );
+    });
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent('ready');
+
+    // Second click — icpValidation now dispatches.
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByTestId('journey-next-section-control')).getByRole('button', {
+          name: /Run next research section: ICP Validation/u,
+        }),
+      );
+    });
     await waitFor(() => {
       expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
         'icpValidation',
@@ -803,12 +879,6 @@ describe('JourneyPage Manus launch wiring', () => {
         expect.stringContaining('Company Name: Deep SaaSLaunch'),
       );
     });
-    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
-      'ICP Validation',
-    );
-    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
-      'running',
-    );
   });
 
   it('does not expose manual onboarding from the URL-first launch screen', () => {
@@ -823,7 +893,7 @@ describe('JourneyPage Manus launch wiring', () => {
     expect(dispatchResearchSectionMock).not.toHaveBeenCalled();
   });
 
-  it('persists deep fields before launching first section without onboarding review', async () => {
+  it('persists deep fields and dispatches the first section only after Run section click', async () => {
     render(<JourneyPage />);
 
     await act(async () => {
@@ -840,14 +910,23 @@ describe('JourneyPage Manus launch wiring', () => {
         expect.stringContaining('Website: https://saaslaunch.net'),
       );
     });
+
+    // Wait for workspace to open and the next-section control to surface.
     await waitFor(() => {
-      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
-        'industryMarket',
-        expect.any(String),
-        expect.stringContaining('Company Name: Deep SaaSLaunch'),
+      expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+        'Market Overview',
       );
     });
 
+    // industryMarket MUST NOT auto-dispatch — supervised progression.
+    expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
+      'industryMarket',
+      expect.any(String),
+      expect.any(String),
+    );
+
+    // Verify the deep-corpus fields were persisted to the session before any
+    // section dispatched. This is the test's primary assertion.
     const sessionPatchCalls = guardedFetchMock.mock.calls.filter(
       ([url]) => url === '/api/journey/session',
     );
@@ -870,17 +949,72 @@ describe('JourneyPage Manus launch wiring', () => {
       productDescription: 'Deep pipeline growth operating system for SaaS teams.',
       primaryIcpDescription: 'Deep Seed to Series B SaaS GTM teams.',
     });
-    expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
-      'industryMarket',
-      payload.activeRunId,
-      expect.stringContaining('Website: https://saaslaunch.net'),
-    );
+
+    // Click Run section → industryMarket dispatches with the persisted runId
+    // and the deep-corpus context. This proves persistence happens BEFORE the
+    // first section, not as a side-effect of auto-dispatch.
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByTestId('journey-next-section-control')).getByRole('button', {
+          name: /Run next research section: Market Overview/u,
+        }),
+      );
+    });
     await waitFor(() => {
-      expect(screen.getByTestId('deep-research-report-artifact')).toHaveTextContent(
-        'Market Category',
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'industryMarket',
+        payload.activeRunId,
+        expect.stringContaining('Website: https://saaslaunch.net'),
       );
     });
     expect(screen.queryByText('start section synthesis')).not.toBeInTheDocument();
+  });
+
+  it('does not dispatch any report section automatically when the workspace opens', async () => {
+    render(<JourneyPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Research command or company URL'), {
+        target: { value: 'https://saaslaunch.net' },
+      });
+      fireEvent.click(screen.getByLabelText('Start research'));
+    });
+
+    // URL-form deep research is the only auto-dispatch surviving the rescue plan.
+    await waitFor(() => {
+      expect(dispatchResearchSectionMock).toHaveBeenCalledWith(
+        'deepResearchProgram',
+        expect.any(String),
+        expect.any(String),
+      );
+    });
+
+    // Wait for workspace + Run section control.
+    await waitFor(() => {
+      expect(screen.getByTestId('journey-next-section-control')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent(
+      'Market Overview',
+    );
+    expect(screen.getByTestId('journey-next-section-control')).toHaveTextContent('ready');
+
+    // No report section may dispatch without a click. Only deepResearchProgram is exempt.
+    const reportSections = [
+      'industryMarket',
+      'icpValidation',
+      'competitors',
+      'offerAnalysis',
+      'keywordIntel',
+      'crossAnalysis',
+      'mediaPlan',
+    ];
+    for (const section of reportSections) {
+      expect(dispatchResearchSectionMock).not.toHaveBeenCalledWith(
+        section,
+        expect.any(String),
+        expect.any(String),
+      );
+    }
   });
 
   it('restores an active run from session storage on refresh', async () => {

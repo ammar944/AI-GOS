@@ -280,7 +280,7 @@ describe('ArtifactPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Worker Running')).toBeInTheDocument();
+    expect(screen.getByText('Research Running')).toBeInTheDocument();
     expect(screen.getByText(/searching: "b2b saas paid media agencies"/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Waiting for research...' })).toBeDisabled();
 
@@ -292,7 +292,7 @@ describe('ArtifactPanel', () => {
       />,
     );
 
-    expect(screen.queryByText('Worker Running')).not.toBeInTheDocument();
+    expect(screen.queryByText('Research Running')).not.toBeInTheDocument();
     expect(screen.getByText('Hey Digital')).toBeInTheDocument();
     expect(screen.getByText('SalesCaptain (salescaptain.io)')).toBeInTheDocument();
     expect(screen.getAllByText(/^Our Advantage vs /).length).toBeGreaterThan(0);

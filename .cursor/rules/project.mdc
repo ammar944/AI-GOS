@@ -15,17 +15,21 @@ The journey is FORM-DRIVEN, not chat-driven. No AI asks questions. No chat-based
 User flow:
 1. Enter URL -> auto-prefill fields
 2. Review/edit in form (UnifiedFieldReview)
-3. Submit -> dispatches identityResolution (silent) then industryMarket
-4. Workspace shows research cards via Supabase realtime
-5. User approves each section -> next dispatches automatically
-6. After 6 sections: guided prompt for Media Plan
-7. After media plan: guided prompt for Scripts
-8. All results saved to profile
+3. Submit -> dispatches deepResearchProgram (corpus + onboarding fields)
+4. Corpus completes -> workspace opens with the Run section operator control
+5. User clicks Run section -> next pending report section dispatches
+6. Section completes -> Run section control rotates to the next pending section, ready for the next click
+7. User clicks through the pipeline section by section (industryMarket, icpValidation, competitors, offerAnalysis, keywordIntel, crossAnalysis)
+8. After 6 report sections: guided prompt for Media Plan
+9. After media plan: guided prompt for Scripts
+10. All results saved to profile
+
+Progression contract: every report section requires an operator click. The only auto-dispatch is the URL-form deepResearchProgram (step 3). This is the supervised progression locked in the rescue/deep-research-six-cards rescue plan.
 
 Research dispatch: Button clicks -> POST /api/journey/dispatch -> Railway worker -> Supabase -> realtime to frontend.
 Chat sidebar: Post-research editing only (editCard, updateField). Does NOT trigger research.
 
-Pipeline: identityResolution -> industryMarket -> icpValidation -> competitors -> offerAnalysis -> keywordIntel -> crossAnalysis -> mediaPlan
+Pipeline: deepResearchProgram -> industryMarket -> icpValidation -> competitors -> offerAnalysis -> keywordIntel -> crossAnalysis -> mediaPlan
 
 ## Conventions
 
